@@ -474,7 +474,7 @@ test('fr_fmt_12_ac6_nfd_file_name_edit_keeps_one_file', { timeout: 300_000 }, as
     await sleep(600);
     // A result row is a link named by its title (D-1340, D-1345; before it a Go to row exposed "<title> <folder>");
     // the query field also shows "Cíl", as a text field, not a link.
-    const rows = await d.$$('-ios predicate string:elementType == 39 AND (label == "Cíl" OR title == "Cíl")');
+    const rows = await d.$$('-ios predicate string:elementType == 42 AND (label == "Cíl" OR title == "Cíl")'); // 42: XCUIElementTypeLink
     let shownRows = 0;
     for (const h of rows) if (await h.isDisplayed().catch(() => false)) shownRows++;
     assert.equal(shownRows, 1, 'the switcher lists one object for it');

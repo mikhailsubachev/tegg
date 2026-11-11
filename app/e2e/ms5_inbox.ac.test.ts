@@ -167,7 +167,8 @@ test('fr_syn_06_ac27_each_action_writes_only_its_files', { timeout: 600_000 }, a
     };
     await step('mark reviewed', [Q1], async () => { await (await need(d, 'Quick Note: Koupit mléko')).click(); press('r'); });
     await step('mark unreviewed', [Q1], async () => { press('r'); });
-    await step('convert', ['Quick Notes/Nápad na článek.md'], async () => {
+    // D-834 (4E): a convert moves the item to its new type's folder, so it writes the old and the new path.
+    await step('convert', ['Pages/Nápad na článek.md', 'Quick Notes/Nápad na článek.md'], async () => {
       await (await need(d, 'Triage actions for "Nápad na článek"')).click();
       await need(d, 'Triage actions');
       typeAscii('1');
@@ -187,7 +188,7 @@ test('fr_syn_06_ac27_each_action_writes_only_its_files', { timeout: 600_000 }, a
       press('enter');
     });
     const zips0 = zips(c.sup).length;
-    await step('bulk convert', ['Quick Notes/Bez data.md', 'Quick Notes/Bez offsetu.md'], async () => {
+    await step('bulk convert', ['Nápady/Bez data.md', 'Nápady/Bez offsetu.md', 'Quick Notes/Bez data.md', 'Quick Notes/Bez offsetu.md'], async () => {
       await (await need(d, 'Quick Note: Bez data')).click();
       press('space');
       await (await need(d, 'Quick Note: Bez offsetu')).click();

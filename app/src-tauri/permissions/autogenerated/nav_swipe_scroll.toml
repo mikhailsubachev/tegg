@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-nav-swipe-scroll"
+description = "Enables the nav_swipe_scroll command without any pre-configured scope."
+commands.allow = ["nav_swipe_scroll"]
+
+[[permission]]
+identifier = "deny-nav-swipe-scroll"
+description = "Denies the nav_swipe_scroll command without any pre-configured scope."
+commands.deny = ["nav_swipe_scroll"]

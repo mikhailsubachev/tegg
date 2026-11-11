@@ -243,9 +243,14 @@ test('fr_nav_04_ac12_queries_entry_in_the_real_app', { timeout: 300_000 }, async
   const c = fresh('nav12');
   try {
     const d = await launch(c);
-    const order = ['New object', 'Search', 'Inbox', 'Today', 'Tasks', 'Pinned', 'Tags', 'Queries', 'Trash'];
-    const r = await inOrder(d, order);
-    assert.ok(r.ok, `sidebar top to bottom: ${order.join(', ')} (${r.ys.join(', ')})`);
+    // D-759, queries.md FR-NAV-04 AC-12: `New object` and `Search` are one row (Search right of New object), above Inbox.
+    const no = await rect(d, 'New object'), se = await rect(d, 'Search');
+    assert.ok(se.y < no.y + no.height && no.y < se.y + se.height && se.x >= no.x + no.width, `the \`New object\` / \`Search\` row: Search beside New object (${JSON.stringify(no)}, ${JSON.stringify(se)})`);
+    const order = ['Inbox', 'Today', 'Tasks', 'Pinned', 'Tags', 'Queries', 'Trash'];
+    for (const first of ['New object', 'Search']) {
+      const r = await inOrder(d, [first, ...order]);
+      assert.ok(r.ok, `sidebar top to bottom: ${first}, ${order.join(', ')} (${r.ys.join(', ')})`);
+    }
     assert.equal(await shown(d, 'Saved queries', 800), false, 'no `Saved queries` entry (AP-1304)');
     assert.equal(await textShown(d, 'Coming in v1.0', 500), false, 'the entry isn\'t TBD any more');
   } finally { await cleanup(c); }

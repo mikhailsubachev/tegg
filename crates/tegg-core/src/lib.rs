@@ -793,6 +793,11 @@ fn apply_paths(s: &Shared, paths: Vec<String>) {
         if paths.contains(pinned::PINNED_YML) {
             changed.insert(pinned::PINNED_YML.to_string());
         }
+        // G3 (v1-graph §16.1 Watcher, §16.9): the presets file's changes are reported, so an open graph re-reads its
+        // presets (FR-GRP-02 AC-19, AC-23, FR-SYN-03 AC-23). Conflict copies (`graph 2.yml`) aren't the presets file.
+        if paths.contains(graph_presets::GRAPH_YML) {
+            changed.insert(graph_presets::GRAPH_YML.to_string());
+        }
         // Slice Q (v1-queries §1.7, D-1472): query files (direct children, not dot or temp files; conflict copies too).
         changed.extend(paths.iter().filter(|p| queries_q::is_query_path(p)).cloned());
     }

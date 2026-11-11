@@ -93,6 +93,9 @@ export type FakeCoreHandle = {
   uiState(): Promise<UiStateDto | null>;
   /** URLs passed to `open_external` that the fake accepted (http, https, mailto; ms3-shell §11.1). */
   externalOpened(): Promise<string[]>;
+  /** D-1511 (FR-NAV-03 AC-14, ms3-shell §12.2): what `nav_swipe_scroll` answers from now on (macOS's `Swipe between
+   *  pages` with two fingers). It sends no event: the UI asks at start and when the window gets the focus. */
+  swipeScroll(on: boolean): Promise<void>;
   /** ms4-jobs §11 (4C): the reports of every job the fake ran, in start order. */
   jobs(): Promise<JobReportDto[]>;
   /** Pauses the next job before `phase`; the returned function releases it. */
@@ -197,6 +200,9 @@ export type JobReportDto = {
 export type RecentVaultDto = { name: string; path: string; exists: boolean };
 export type FakeOptions = {
   uiState?: UiStateDto;
+  /** D-1511 (FR-NAV-03 AC-14): the first answer of `nav_swipe_scroll` (default `true`, the setting on); AC-8's tests
+   *  start with `false`. The handle's `swipeScroll(on)` changes it later. */
+  swipeScroll?: boolean;
   /** D-1164's test rule (previews.md part three, AC-test change row 1): a UI state without `preview.mode` is stored with
    *  `preview.mode = click` (its other `preview` fields kept), so older tests keep their click-mode meaning. `asGiven`
    *  stores the UI state as given ("nothing stored" = no `preview` key, the new hover default); it is the default of the
@@ -406,6 +412,7 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
     files: () => ev(() => ({ ...(window as any).__teggFake.vault?.files }) as Record<string, string>),
     uiState: () => ev(() => (window as any).__teggFake.uiState as UiStateDto | null),
     externalOpened: () => ev(() => [...(window as any).__teggFake.external] as string[]),
+    swipeScroll: (on) => page.evaluate((v) => { (window as any).__teggFake.swipeScroll = v; }, on),
     // 4C (ms4-jobs §11). Stub until 4C is built: no job runs, so the list stays empty.
     jobs: () => ev(() => JSON.parse(JSON.stringify((window as any).__teggFake.jobs)) as JobReportDto[]),
     holdJob: async (phase) => {
@@ -520,6 +527,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     'pins_get', // slice PIN (v1-pinned §2): read-only
     'queries_list', 'query_get', 'query_run', 'query_usages', // slice Q (v1-queries §2): read-only
     'index_path_by_id', // slice P (v1-previews §2): read-only
+    'nav_swipe_scroll', // D-1511 (ms3-shell §12.2): reads the macOS setting
   ]);
   const opts = init.opts;
   const state = {
@@ -528,6 +536,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     seq: 0,
     writes: 0,
     external: [] as string[],
+    swipeScroll: opts.swipeScroll ?? true, // D-1511: the answer of `nav_swipe_scroll`
     uiState: (opts.uiState ?? null) as UiStateDto | null,
     last: (opts.last ?? null) as { path: string; id: string | null } | null,
     path: (init.vault ? (opts.vaultPath ?? `/fake/${init.vault.name}`) : null) as string | null,
@@ -2128,6 +2137,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       const p = String(a.path).normalize('NFC'); const o = objects().find((x) => x.path === p); state.last = { path: p, id: o?.id ?? null }; return null;
     },
     perf_mark: () => null,
+    // D-1511 (FR-NAV-03 AC-14): macOS's `Swipe between pages` with two fingers, as the shell reads it.
+    nav_swipe_scroll: () => state.swipeScroll,
     // 4F (ms4-embeds §8): one call per nesting level, no recency.
     // Slice P (v1-previews §2, D-935): the indexed object with this `id` (the last one, as the core's resolver picks).
     index_path_by_id: (a) => {

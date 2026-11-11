@@ -19,9 +19,31 @@ const centre = (r: Rect) => ({ x: Math.round(r.x + r.width / 2), y: Math.round(r
 export async function remote(...args: Parameters<typeof wdio.remote>): ReturnType<typeof wdio.remote> {
   const d = await wdio.remote(...args);
   const rect = (id: string): Promise<Rect> => d.getElementRect(id);
+  // An element below or above the window's visible part (a paragraph in the middle of a long note) reports a centre
+  // outside the window, and a click there lands on whatever is at that point. XCTest's own click scrolled to the
+  // element first; this does the same with wheel events over the window's centre, until the centre is inside.
+  const inView = async (id: string): Promise<{ x: number; y: number }> => {
+    let c = centre(await rect(id));
+    const win = await d.$('//XCUIElementTypeWindow').then((w: any) => d.getElementRect(w.elementId)).catch(() => null);
+    if (!win) return c;
+    // Only a centre outside the window counts: title-bar and bottom-bar controls are inside it and don't scroll.
+    const top = win.y, bottom = win.y + win.height;
+    const mid = { x: Math.round(win.x + win.width / 2), y: Math.round(win.y + win.height / 2) };
+    let sign = -1, stuck = 0;
+    for (let i = 0; i < 40 && stuck < 2 && (c.y < top || c.y > bottom); i++) {
+      const off = c.y - mid.y;
+      await d.execute('macos: scroll', { ...mid, deltaX: 0, deltaY: sign * Math.sign(off) * Math.min(Math.abs(off), 400) });
+      await new Promise((r) => setTimeout(r, 150));
+      const next = centre(await rect(id));
+      // Moved away, or didn't move: try the other direction once, then give up (the element doesn't scroll).
+      if (Math.abs(next.y - mid.y) >= Math.abs(off)) { sign = -sign; stuck++; } else stuck = 0;
+      c = next;
+    }
+    return c;
+  };
   for (const [command, script] of [['click', 'macos: click'], ['doubleClick', 'macos: doubleClick']] as const) {
     d.overwriteCommand(command, async function (this: any) {
-      await d.execute(script, centre(await rect(this.elementId)));
+      await d.execute(script, await inView(this.elementId));
     } as any, { attachToElement: true });
   }
   d.overwriteCommand('execute', async function (orig: any, script: any, ...rest: any[]) {
@@ -29,7 +51,7 @@ export async function remote(...args: Parameters<typeof wdio.remote>): ReturnTyp
     if (typeof script === 'string' && a && typeof a === 'object') {
       if (/^macos: (click|doubleClick|rightClick|hover|scroll)$/.test(script) && typeof a.elementId === 'string') {
         const { elementId, ...other } = a;
-        return orig(script, { ...other, ...centre(await rect(elementId)) });
+        return orig(script, { ...other, ...(script === 'macos: scroll' ? centre(await rect(elementId)) : await inView(elementId)) });
       }
       if (script === 'macos: clickAndDrag' && typeof a.sourceElementId === 'string' && typeof a.destinationElementId === 'string') {
         const { sourceElementId, destinationElementId, ...other } = a;
