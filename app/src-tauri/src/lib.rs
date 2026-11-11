@@ -45,11 +45,11 @@ pub(crate) fn test_var(name: &str) -> Option<String> {
     std::env::var(name).ok().filter(|v| !v.is_empty())
 }
 
-/// The app name shown in the window title and menus: Tegg in every build (D-1511).
+/// The app name shown in the window title and menus: Tegg in every build (D-1514).
 pub(crate) const APP_NAME: &str = "Tegg";
-/// The Application Support folder: the release build (feature `preview`) keeps the preview's own data (D-118, D-1511).
+/// The Application Support folder: the release build (feature `preview`) keeps the preview's own data (D-118, D-1514).
 const SUPPORT_FOLDER: &str = if cfg!(feature = "preview") { "Tegg Preview" } else { "Tegg" };
-/// The bundle identifier (tauri.conf.json, tauri.preview.conf.json): single instance is per bundle (D-71, D-549, D-1511).
+/// The bundle identifier (tauri.conf.json, tauri.preview.conf.json): single instance is per bundle (D-71, D-549, D-1514).
 pub(crate) const BUNDLE_ID: &str = if cfg!(feature = "preview") { "app.tegg.preview" } else { "app.tegg.desktop" };
 
 fn app_dirs() -> AppDirs {

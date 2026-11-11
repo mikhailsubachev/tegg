@@ -14,7 +14,7 @@ Until a part is implemented it exists as a stub that compiles and returns a deli
 
 Unchanged from ms2-shell §1, plus:
 
-- **Release build (D-118, D-1511, D-1512):** `cd app && npm run app:release -- <MAJOR.MINOR.PATCH>` builds the app and DMG with the feature `preview` and `tauri.preview.conf.json` (product name `Tegg`, bundle id `app.tegg.preview`, bundle version and `TEGG_VERSION` = the given version), ad-hoc signed, with Application Support root `~/Library/Application Support/Tegg Preview/`, and installs `~/Applications/Tegg.app` (removing `~/Applications/Tegg Preview.app`). The test build (`app:build`, `app.tegg.desktop`, folder `Tegg`) is unchanged.
+- **Release build (D-118, D-1514, D-1512):** `cd app && npm run app:release -- <MAJOR.MINOR.PATCH>` builds the app and DMG with the feature `preview` and `tauri.preview.conf.json` (product name `Tegg`, bundle id `app.tegg.preview`, bundle version and `TEGG_VERSION` = the given version), ad-hoc signed, with Application Support root `~/Library/Application Support/Tegg Preview/`, and installs `~/Applications/Tegg.app` (removing `~/Applications/Tegg Preview.app`). The test build (`app:build`, `app.tegg.desktop`, folder `Tegg`) is unchanged.
 - **Minimum window size:** 800 × 500 pt, set on the native window (AP-80, FR-UX-02 AC-18).
 - **Test environment** (only with `TEGG_TEST=1`), added in 3A:
   - `TEGG_TEST_PICK_DIR=<dir>`: the folder dialog returns `<dir>` without showing NSOpenPanel; an empty value means the user cancelled (AP-79).

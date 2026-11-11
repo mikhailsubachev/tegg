@@ -1,4 +1,4 @@
-// D-1511, D-1512: build a Tegg release. `npm run app:release -- <MAJOR.MINOR.PATCH>` (run from `app/`, in a clean
+// D-1514, D-1512: build a Tegg release. `npm run app:release -- <MAJOR.MINOR.PATCH>` (run from `app/`, in a clean
 // checkout of main) builds Tegg.app and its DMG with the release identity (feature `preview`, tauri.preview.conf.json:
 // bundle id `app.tegg.preview`, Application Support `Tegg Preview`), sets the bundle version and the sidebar label
 // (`TEGG_VERSION`), installs `~/Applications/Tegg.app` (removing the old `Tegg Preview.app`) and leaves
