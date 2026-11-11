@@ -295,7 +295,8 @@ function cmdWheel(page: Page, at: Locator, deltaY: number) {
   }, deltaY);
 }
 
-test('fr_syn_06_ac42_hovering_clicking_inside_previews_embeds_and_scrolling_write_nothing', async ({ page }) => {
+// Quarantined (@flaky, test-strategy §8.4, #112): failed in two gates on load (slice Q, v0.122 fix); not caused by them.
+test('fr_syn_06_ac42_hovering_clicking_inside_previews_embeds_and_scrolling_write_nothing', { tag: ['@flaky'] }, async ({ page }) => {
   test.setTimeout(240_000);
   // D-1187: the tour starts on tasks/kanban with the panel open on Graph and the Kanban view stored before the start, so
   // reaching them writes no `ui_state` (the app stores `tasks` when the view is shown without it).
