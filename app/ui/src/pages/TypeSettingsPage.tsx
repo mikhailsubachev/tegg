@@ -113,6 +113,8 @@ function TextSetting({ label, value, disabled, desc, multiline, check, onCommit,
           if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); commit(); }
           else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); editing.current = false; setLocal(null); setV(value); }
         }} />
+      {/* D-1515: the description also as hidden text, for the macOS tree (D-1424's way). */}
+      {desc && <span className="sr-only" data-description-text="">{desc}</span>}
       <FieldError id={errId} text={shown} />
     </label>
   );

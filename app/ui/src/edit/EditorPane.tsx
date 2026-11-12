@@ -1562,6 +1562,8 @@ function SlashMenu({ slash, pos, blocked, onPick, onSel }: { slash: Slash; pos: 
           );
         })}
       </div>
+      {/* D-1515: the selected item's description also as hidden text, for the macOS tree (D-1424's way). */}
+      {(() => { const it = items[slash.sel]; return it && it.status.built && SLASH_DESC[it.id] ? <span className="sr-only" data-description-text="">{t(SLASH_DESC[it.id])}</span> : null; })()}
     </div>
   );
 }

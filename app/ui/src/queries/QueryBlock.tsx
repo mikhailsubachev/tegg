@@ -438,6 +438,8 @@ export function QueryBlock(p: QueryBlockProps) {
         if (e.key === 'Enter' && e.metaKey && !e.shiftKey && !e.altKey) { e.preventDefault(); e.stopPropagation(); edit(); }
       }}>
       {header}
+      {/* D-1515: the result count also as hidden text, for the macOS tree (D-1424's way). */}
+      {showResults && <span className="sr-only" data-description-text="" contentEditable={false}>{t('query.editor.results', { count: total })}</span>}
       {showResults && firstBroken && (
         <p className="query-notice">
           <Icon name="warning" size={13} />{noticeOf(firstBroken, types)}{' '}
