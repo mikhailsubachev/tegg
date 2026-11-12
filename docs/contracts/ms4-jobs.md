@@ -20,7 +20,7 @@ Until a part is implemented it exists as a stub that compiles and returns a deli
 | `merge` | yes | yes | no (D-290) | `planning`, `confirm`, `backup` | 4D-lite (D-392) |
 | `key-rename`, `value-remove`, `type-move`, `folder-move`, `type-delete` | yes | yes | no | `planning`, `confirm`, `backup` | v1.0 |
 | `test-backup` | no | yes | no | `planning`, `backup` | 4C, only with `TEGG_TEST=1` and in Rust tests (FR-HIS-04 AC-5) |
-| `import` | no (the caller's preview confirms before `start`; v1-import CP-4, pending) | yes, only for an existing vault that holds a `.md` outside `.tegg/` or whose type file the run changes (D-1549 (5)); never for a new vault | no (D-1523, D-1549 (8)) | `queued`, `planning`, `backup` (D-110) | v1.0, slice I1 ([v1-import.md](v1-import.md) §9) |
+| `import` | no (the caller's preview confirms before `start`; D-1554, v1-import §9.1) | yes, only for an existing vault that holds a `.md` outside `.tegg/` or whose type file the run changes (D-1549 (5)); never for a new vault | no (D-1523, D-1549 (8)) | `queued`, `planning`, `backup` (D-110) | v1.0, slice I1 ([v1-import.md](v1-import.md) §9) |
 
 - **One job at a time** (D-393): a FIFO queue in the core. A job whose files overlap a running job waits for it. `job_start` returns at once with the `jobId`; the job runs on the core's job thread.
 - **Phases:** `queued`, `planning`, `confirm`, `backup`, `writing`, `done`, `cancelled`, `failed`. `done`, `cancelled` and `failed` are final.

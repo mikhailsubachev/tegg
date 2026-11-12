@@ -1,6 +1,6 @@
 # v1.0 Import Interface Contract (slice I1, the Capacities import engine)
 
-- **Status:** draft, 2026-11-12. Written before the I1 red tests. Follows D-41…D-50, D-57, D-75…D-84, D-110, D-801 and the import decisions D-1517…D-1550 (BRD v1.163, v1.164). Seven points are **pending** with the owner (CP-1…CP-7, §18); the contract is written to their recommendations and each place that depends on one names it.
+- **Status:** accepted, 2026-11-12. Written before the I1 red tests. Follows D-41…D-50, D-57, D-75…D-84, D-110, D-801 and the import decisions D-1517…D-1550 (BRD v1.163, v1.164). Its seven points for the owner are **decided**: the owner accepted every recommendation ("Accept all seven", 2026-11-12) as D-1551…D-1557 (CP-1…CP-7, §18; BRD v1.165); each place that depends on one names its decision.
 - **ACs:** [docs/acceptance/import-capacities.md](../acceptance/import-capacities.md), every criterion marked *I1* (tables R147…R150, R153), and [daily-notes.md](../acceptance/daily-notes.md) FR-DLY-01 AC-12 (D-1546, added with this contract). Where this contract and the ACs disagree, the ACs win and this contract is corrected before the red tests.
 - **Builds on** [ms4-jobs.md](ms4-jobs.md) (job model §1, transformer §2.2, backups §6, crash recovery §8), [ms4-links.md](ms4-links.md) (§1 resolution, D-184 link text), [ms4-daily.md](ms4-daily.md) (§2 duplicates of a date), [ms6-trash-media.md](ms6-trash-media.md) (Image and PDF objects), [ms1-core.md](ms1-core.md) (`VaultFs`, `FileVersion`), [architecture.md](../architecture.md) §3.2, §5.6, §5.7, ADR 0003 (D-82). Everything there stays valid unless this contract changes it.
 - **Slices.** This contract fixes **I1** only: the engine, with no window. **I2** (the Import window) gets its own sections later; §15 names what it will add and fixes nothing.
@@ -26,7 +26,7 @@ Platform-neutral (AR-03): no Tauri, no desktop API, no network crate. It sits **
 | external crates | `zip` 2 (`default-features = false`, `deflate`), `yaml-rust2`, `regex`, `serde`, `serde_json`, `chrono`, `chrono-tz`, `unicode-normalization`, `percent-encoding` |
 
 - `tegg-core` does **not** depend on `tegg-import`. The shell (`app/src-tauri`, slice I2) calls both. So an import with no vault open needs no `Core`.
-- No Markdown parser in this crate: no `pulldown-cmark` (CP-1). The independent link counter of §6.4 uses `regex` on purpose.
+- No Markdown parser in this crate: no `pulldown-cmark` (D-1551). The independent link counter of §6.4 uses `regex` on purpose.
 - `std::fs`, `File::create`, `OpenOptions` and `notify` never appear in `crates/tegg-import/src` (the AR-04 AC-1 check reads every crate under `crates/`, so it covers this crate with no change; the AR-03 AC-1 check reads `cargo tree --workspace`, so it covers it once the crate is a workspace member).
 - `zip` joins the L0 network allow-list review (test-strategy TS-L0): it opens no socket.
 
@@ -38,7 +38,7 @@ Platform-neutral (AR-03): no Tauri, no desktop API, no network crate. It sits **
 | `plan.rs`: `layout`, `space_of`, `spaces`, `is_object_file`, `is_attachment_file`, `split_frontmatter`, `parse_note`, `status_state`, `join_relative` | `src/layout.rs`, `src/note.rs` | Ported nearly as written |
 | `plan.rs`: `map_type`, `map_attr`, `infer`, `dry_run`, `Report` | `src/mapping.rs`, `src/planner.rs`, `src/plan.rs` | **Rewritten around the mapping as data** (§4): defaults become R148 rows, `infer` follows D-1526 and D-1545, `Report` becomes the plan DTO (§5), file names come from `tegg_format::sanitize_file_stem` |
 | `convert.rs` | `src/dates.rs` | Ported nearly as written; the zone is injected (§2) |
-| `scan.rs` | — | **Not ported** (CP-1): links, clean-up counts and code spans come from `@tegg/doc` (§7.1). Only `decode_path` moves to `src/note.rs` |
+| `scan.rs` | — | **Not ported** (D-1551): links, clean-up counts and code spans come from `@tegg/doc` (§7.1). Only `decode_path` moves to `src/note.rs` |
 | `accounting.rs` | `src/accounting.rs` | Ported; it now counts external links too (R147) and gains the check on the written vault (§6.4) |
 | `report.rs`: `counts_only`, `is_counts_only` | `src/real_export.rs` | Ported (§13). `markdown()` is dropped: the report Page is rendered by `@tegg/doc` from data (§7.4) |
 | `main.rs`, `tests/real_export.rs` | `examples/real_export.rs` | Rewritten as the owner's run (§13) |
@@ -64,7 +64,7 @@ pub struct ImportEnv {
     pub zone: chrono_tz::Tz,
     /// Object ids, in write order (R149). The app passes ULIDs; tests pass `01JB5V000000000000000000nn`.
     pub ids: Arc<dyn Fn() -> String + Send + Sync>,
-    /// The one text engine (D-82). Used by `plan` (CP-1) and by the run.
+    /// The one text engine (D-82). Used by `plan` (D-1551) and by the run.
     pub transformer: Arc<dyn tegg_jobs::Transformer>,
     /// `<Application Support>/Tegg`: journals and backups (existing-vault target only).
     pub dirs: tegg_vault::AppDirs,
@@ -255,7 +255,7 @@ JSON form (FR-IMP-08 AC-6's mapping, plus one of each option):
 - **Values are converted one by one** whatever the attribute's kind (D-1545 (3)): a UTC-midnight date-time → `YYYY-MM-DD`; another date-time → the local offset of `env.zone`; `a -> b` → `<key>-start`, `<key>-end`; `null` → omitted; anything else as written.
 - **Merges:** proposed only for values equal after trimming and case-folding; the kept spelling is the one used by more objects, then one matching an existing option of the target attribute, then the first by source path (D-1527 (2)).
 - **A link-select attribute** (FR-IMP-21): an attribute whose every value is a link with no matching object is listed in `Plan.decisions.tagLike`; it becomes a select only when the mapping gives it `"type": "select"` (D-1536).
-- **Key of a new attribute (CP-3, pending).** The name as given when it is a valid Tegg key (`tegg_schema::check_attr_key`: letters, digits, `-`, `_`, starting with a letter, not reserved); else `tegg_schema::derive_attr_key(name)`. The attribute's `name` in the type file is the name as given. The default name is the source key, so `peopleInvolved` stays `peopleInvolved`, and `Datum konání` becomes the key `datum-konání` with the name `Datum konání`; the change of key is a row of the report's Attributes section.
+- **Key of a new attribute (D-1553).** The name as given when it is a valid Tegg key (`tegg_schema::check_attr_key`: letters, digits, `-`, `_`, starting with a letter, not reserved); else `tegg_schema::derive_attr_key(name)`. The attribute's `name` in the type file is the name as given. The default name is the source key, so `peopleInvolved` stays `peopleInvolved`, and `Datum konání` becomes the key `datum-konání` with the name `Datum konání`; the change of key is a row of the report's Attributes section.
 
 ### 4.2 Validation (FR-IMP-08 AC-12, FR-IMP-03 AC-8)
 
@@ -292,7 +292,7 @@ pub fn plan(scan: &Scan, space: &str, target: &Target<'_>, mapping: &Mapping, en
 
 - Read-only: no file, no folder, nothing in Application Support is created or changed (FR-IMP-05 AC-5). A dropped `Plan` is a cancelled preview (AC-2).
 - Deterministic: objects in source-path order (NFC paths compared by code point); the same inputs give equal plans (FR-IMP-03 AC-9). `Plan` is `PartialEq`.
-- **Links are read by `@tegg/doc`** (CP-1, pending): `plan` sends each readable note to `env.transformer` with the op `import-scan` (§7.1). A transformer error on a note makes that note `unreadable` with the reason `engine`; `Unavailable` fails the call with `ImportError::Transform`.
+- **Links are read by `@tegg/doc`** (D-1551): `plan` sends each readable note to `env.transformer` with the op `import-scan` (§7.1). A transformer error on a note makes that note `unreadable` with the reason `engine`; `Unavailable` fails the call with `ImportError::Transform`.
 - Progress: `phase: Planning`, `done` / `total` in notes. Cancel ends within 1 s with `Err(Cancelled)`.
 - Refusals: `UnknownSpace`, `InvalidMapping`, the target refusals of R153 (`TargetExists`, `TargetNotWritable`, `TargetInsideVault`, `TargetInsideSource`), `NoSpace { needed, free }`, `SourceChanged` / `SourceGone` (the stamp is checked at the start of `plan`).
 
@@ -379,7 +379,7 @@ pub struct PlannedLink {
     pub outcome: LinkOutcome,
     pub to: Option<String>,                   // planned vault path of the object or attachment it resolves to
     pub simplified: bool,                     // D-1533: formatting or an image dropped from the link text
-    pub kept_as_markdown: bool,               // CP-2: the text can't be a wikilink alias
+    pub kept_as_markdown: bool,               // D-1552: the text can't be a wikilink alias
 }
 
 #[serde(tag = "kind", rename_all = "kebab-case")]
@@ -404,7 +404,7 @@ pub struct Decisions { pub case_links: Vec<CaseLinkCandidate>, pub ambiguous: Ve
 
 - **Stem:** `tegg_format::sanitize_file_stem(title)` after the clean-up of FR-IMP-17 and trimming (D-51, D-52, D-68, D-80: `CON` → `CON_`, no valid character → `Untitled`, at most 200 UTF-8 bytes at a character boundary and never inside a combining sequence).
 - **Folder:** the target type's folder (`Books/`, `Daily/`, `_attachments/` for files).
-- **Free name (CP-5, pending: per folder, as FR-IMP-03 AC-7 says):** the first of `<stem>`, `<stem> (2)`, `<stem> (3)`… whose key (NFC, case-folded) no existing file of that folder and no earlier planned file of that folder has. Objects are named in source-path order, attachments after them in source-path order.
+- **Free name (D-1555: per folder, as FR-IMP-03 AC-7 says):** the first of `<stem>`, `<stem> (2)`, `<stem> (3)`… whose key (NFC, case-folded) no existing file of that folder and no earlier planned file of that folder has. Objects are named in source-path order, attachments after them in source-path order.
 - **Daily Notes:** stem `YYYY-MM-DD` from the note's date (FR-IMP-11 AC-6), `title` the same; a day the vault already has gets ` (2)` (D-1529 (2), D-1546).
 - **Attachments:** the source file name, NFC; a generic name (`@tegg/doc` `isGenericName`: `image (3)`, `Untitled (44)`) becomes `<owning note title> <n>` (FR-IMP-14 AC-3); an unreferenced file keeps its name (D-77).
 - **The report:** `Pages/Import report <YYYY-MM-DD> <space>.md`, the date from `env.clock` in `env.zone`, the same free-name rule.
@@ -491,7 +491,7 @@ export type ScannedLink = {
   text: string                                 // the link's plain text: alias, or link text with formatting removed and line breaks as one space; an image's alt
   simplified: boolean                          // the text held formatting or an image
   inside: number | null                        // `n` of the link whose text contains this one (an image inside a link)
-  aliasSafe: boolean                           // false when `text` holds `[`, `]` or `|` (CP-2)
+  aliasSafe: boolean                           // false when `text` holds `[`, `]` or `|` (D-1552)
   inTable: boolean                             // inside a GFM table cell
 }
 
@@ -503,7 +503,7 @@ export type ImportNoteSpec = {
 }
 export type FmValue = string | number | boolean | string[] | { date: string } | { datetime: string } | { link: string } | { links: string[] }
 export type LinkEdit =
-  | { n: number; do: 'link'; toPath: string; shown: string }          // → `[[<D-184 target>|shown]]`, or a Markdown link (CP-2)
+  | { n: number; do: 'link'; toPath: string; shown: string }          // → `[[<D-184 target>|shown]]`, or a Markdown link (D-1552)
   | { n: number; do: 'embed'; file: string }                          // → `![[<file name>]]`
   | { n: number; do: 'date'; date: string }                           // → `[[YYYY-MM-DD]]`
   | { n: number; do: 'drop' }                                         // a reference to a missing file (FR-IMP-14 AC-4)
@@ -556,7 +556,7 @@ The exact bytes are fixed by the expected outputs (`tests/fixtures/import/capaci
 4. **Embeds and attachments.** A link or image to an imported attachment becomes `![[<file name>]]` with the planned file name (`![[Mapa řeky (2).jpeg]]`), no alias and no path: attachment names are unique in `_attachments/`. A wikilink to an Image or PDF **object** is an ordinary link (FR-IMP-14 AC-8).
 5. **Relation values** in frontmatter: `{ link }` / `{ links }` written as `"[[<D-184 target>]]"` with no alias unless D-184 needs one.
 6. **Date links (D-1546).** Always `[[YYYY-MM-DD]]`, also when the imported day was written as `Daily/2026-02-02 (2).md`: a date link means the day, and the day's note is decided by the index (§12.3). The engine never writes a path form to an imported Daily Note for a date mention.
-7. **Text that can't be an alias (CP-2, pending).** Tegg's wikilink syntax has no escape: inner text can't hold `[` or a single `]`, and `|` separates the alias (`packages/doc/src/wikilink.ts`). A Markdown link whose plain text holds `[`, `]` or `|` therefore **stays a Markdown link**: only its destination is rewritten, to the target's path relative to the linking note's folder, percent-encoded as Tegg writes it (spaces as `%20`, D-825): `[viz [poznámka] zde](C%C3%ADl.md)` keeps its text byte for byte and becomes `[viz [poznámka] zde](Cíl.md)`. It resolves in Tegg (D-155) and in Obsidian, and renames follow it (ms4-jobs §2.3). `PlannedLink.kept_as_markdown` is true; it is not a simplified link. FR-IMP-10 AC-9's expected text for that link changes with the owner's answer.
+7. **Text that can't be an alias (D-1552).** Tegg's wikilink syntax has no escape: inner text can't hold `[` or a single `]`, and `|` separates the alias (`packages/doc/src/wikilink.ts`). A Markdown link whose plain text holds `[`, `]` or `|` therefore **stays a Markdown link**: only its destination is rewritten, to the target's path relative to the linking note's folder, percent-encoded as Tegg writes it (spaces as `%20`, D-825): `[viz [poznámka] zde](C%C3%ADl.md)` keeps its text byte for byte and becomes `[viz [poznámka] zde](Cíl.md)`. It resolves in Tegg (D-155) and in Obsidian, and renames follow it (ms4-jobs §2.3). `PlannedLink.kept_as_markdown` is true; it is not a simplified link. FR-IMP-10 AC-9 expects this form (changed by D-1552).
 8. **In a table cell** the alias separator is written `\|` (dialect §5), so a rewritten link never splits a row.
 9. **Simplified links (D-1533).** Formatting in the text is dropped; an image inside a rewritten link is dropped with it and its own outcome stays `external` or `attachment` (FR-IMP-10 AC-12). Both are rows of the report's `Simplified links`.
 10. **Links that stay as written:** `unresolved`, `other-space`, an unconfirmed `case-mismatch`, `target-not-imported`, `in-skipped-note` and `external` get no `LinkEdit`; their bytes don't change (FR-IMP-10 AC-11, AC-12). `missing-file` in a body gets `drop`; in a frontmatter value it stays as written and is reported.
@@ -596,7 +596,7 @@ pub struct ImportReport {
 
 | Kind | `needsConfirm` | `backup` | `undoable` | Cancellable in |
 | --- | --- | --- | --- | --- |
-| `import` | no (CP-4, pending: the caller's preview is the confirmation; `start` is the user's `Import`) | only for an existing vault that D-1549 (5) calls non-empty | no (D-1523, D-1549 (8)) | `queued`, `planning`, `backup` (D-110) |
+| `import` | no (D-1554: the caller's preview is the confirmation; `start` is the user's `Import`) | only for an existing vault that D-1549 (5) calls non-empty | no (D-1523, D-1549 (8)) | `queued`, `planning`, `backup` (D-110) |
 
 - **Phases:** `queued → planning → backup (when needed) → writing → done | cancelled | failed`. There is no `confirm`.
 - **Existing vault.** The run is a job of the target's own engine (`core.jobs()`, new `Jobs::start_import`, §12.1): it waits in `queued` behind that vault's other jobs (R153) and they wait behind it. `job:progress` carries `kind: "import"`. The target need not be the vault the window shows: the job belongs to the `Core` it was started on and finishes as long as that `Core` lives (D-1549 (6); keeping it alive across a vault switch is the shell's work, I2).
@@ -871,16 +871,16 @@ Neither edit is a pure addition today, because the crate doesn't exist yet: a st
 10. **An existing-vault target is an open `Core`.** Importing into a vault that isn't open is not offered (the window offers `This vault` only).
 11. **The real-export run is a Cargo example**, so `cargo test` and every gate can only compile it.
 
-## 18. Points for the owner (CP-1…CP-7, pending)
+## 18. Points for the owner (CP-1…CP-7 → D-1551…D-1557)
 
-The contract above follows each **Recommendation**. Each row changes behaviour or data on disk.
+**All accepted** (owner, 2026-11-12: "Accept all seven"; BRD v1.165): every **Recommendation** below is the decision, and the contract above follows it. Each row changes behaviour or data on disk.
 
-| CP | Issue | Recommendation (the contract follows it) | Alternatives | Affects |
+| CP-n → D-n | Issue | Recommendation (accepted) | Alternatives (not chosen) | Affects |
 | --- | --- | --- | --- | --- |
-| CP-1 | **Who reads the links for the plan.** The plan needs every link's outcome before any write; the write rewrites link spans in `@tegg/doc` (ADR 0003: "links taken from the mdast parse"). The spike read them in Rust (regex plus pulldown-cmark). Two readers can disagree (S4 P1/P3/P9, S5 F12), and then the preview isn't what gets written (FR-IMP-05 AC-7). | **One reader:** the plan sends each note to `@tegg/doc` (`import-scan`) and the write uses the same parse, so link `n` is the same link in both. `plan` therefore needs the transformer (Node in tests, the worker in the app); the spike's scanner isn't ported. | (b) Rust reads links at plan time (port `scan.rs`); the write checks the engine's list against the plan and fails the run on a difference, before the first write. (c) As (b) without the check. | §1.2, §5, §7.1; FR-IMP-10 AC-7; FR-IMP-05 AC-7 |
-| CP-2 | **Link text that can't be a wikilink alias.** FR-IMP-10 AC-9 expects `[[Cíl|viz [poznámka] zde]]` "in the form `@tegg/doc` escapes". No such form exists: Tegg's wikilink syntax rejects `[` and a single `]` inside `[[…]]`, and the link wouldn't be a link in Tegg or Obsidian. | **Keep that link a Markdown link** and rewrite only its destination: `[viz [poznámka] zde](Cíl.md)`. The text stays byte for byte, it resolves in Tegg and Obsidian, renames follow it, and it isn't a simplified link (AC-9's count of two stays). AC-9's expected text for this one link changes. | (b) Replace `[` `]` by `(` `)` in the alias and list the link as simplified (three rows in AC-9). (c) Add an escape (`\[`, `\]`) to the dialect: a file-format change in the tokenizer, the Rust extractor and the dialect doc, unverified in Obsidian. | §8 (7); FR-IMP-10 AC-9; `capacities-expected/c22-link-shapes/` |
-| CP-3 | **The key of a new attribute.** A Tegg attribute key allows letters, digits, `-`, `_` and must start with a letter; Capacities keys needn't (`Datum konání`, `2nd contact`). R148 says "a new attribute" without the key. | The name as given when it is a valid key (so `peopleInvolved`, `autor`, `přečteno` stay); else `derive_attr_key(name)` (`datum-konání`) with the given name kept as the attribute's `name`, and a row in the report's Attributes section. | (b) Always `derive_attr_key` (`peopleinvolved`: every camelCase key changes). (c) Refuse the plan until the user renames such attributes. | §4.1; FR-IMP-08 AC-2, AC-6, AC-8; type files and frontmatter keys |
-| CP-4 | **Does the job stop in `confirm`?** The criteria's "Still to do" table says `needsConfirm` yes; but the preview is shown from `import_plan` before any job exists, and a job waiting in `confirm` holds its vault's queue (ms4-jobs §14.9.2). | **No `confirm` phase:** `start` is the user's `Import`; cancellable in `queued`, `planning`, `backup`. | (b) `start` when the preview opens, the job waits in `confirm`, `Import` is `job_confirm`: the target vault's other jobs wait while the user reads the preview. | §9.1; ms4-jobs §1; R152 step 5 (I2) |
-| CP-5 | **Free names: per folder or vault-wide.** FR-IMP-03 AC-7 says names are compared "per folder". Tegg's own creation picks a stem free in the whole vault (D-291 part 2, ms4-links §3.1), so that a bare `[[stem]]` is never ambiguous. | **Per folder, as the criterion says.** Capacities spaces hold many same-titled objects across types; links are written in D-184 form, so they stay right (path form where a stem is shared). | (b) Vault-wide, as Tegg's own creation: more ` (2)` suffixes (`Tasks/Plán (2).md` because `Pages/Plán.md` exists), simpler links; changes AC-7's wording and the expected outputs. | §5.2; FR-IMP-03 AC-7; FR-IMP-11 AC-3 |
-| CP-6 | **A leftover marker and "running".** D-1549 (1) removes a leftover `<name>.tegg-importing` with a marker "and no running import of that job id". Across a crash the job id means nothing. | The marker holds a run id (`<clock ms>-<process id>`); "running" means a run of this process (Tegg is single-instance). A marker left in a finished vault by a kill between the final rename and its removal is left alone. | (b) Also require the marker to be older than a time limit. (c) Remove a leftover marker from a finished vault when it is next opened (a write on open, against FR-VLT-01 AC-4). | §9.5; FR-IMP-03 AC-14 |
-| CP-7 | **A transformer failure on one note.** Not covered by R153. | At plan time the note is `unreadable` (reason `engine`) and reported, like broken YAML. At write time (after a clean plan) the run fails before the first write with `Transform`. | (b) At write time skip the note and report it (the result then differs from the preview). | §5, §7.1, §9.2; FR-IMP-07 AC-7 |
+| CP-1 → D-1551 | **Who reads the links for the plan.** The plan needs every link's outcome before any write; the write rewrites link spans in `@tegg/doc` (ADR 0003: "links taken from the mdast parse"). The spike read them in Rust (regex plus pulldown-cmark). Two readers can disagree (S4 P1/P3/P9, S5 F12), and then the preview isn't what gets written (FR-IMP-05 AC-7). | **One reader:** the plan sends each note to `@tegg/doc` (`import-scan`) and the write uses the same parse, so link `n` is the same link in both. `plan` therefore needs the transformer (Node in tests, the worker in the app); the spike's scanner isn't ported. | (b) Rust reads links at plan time (port `scan.rs`); the write checks the engine's list against the plan and fails the run on a difference, before the first write. (c) As (b) without the check. | §1.2, §5, §7.1; FR-IMP-10 AC-7; FR-IMP-05 AC-7 |
+| CP-2 → D-1552 | **Link text that can't be a wikilink alias.** FR-IMP-10 AC-9 expects `[[Cíl|viz [poznámka] zde]]` "in the form `@tegg/doc` escapes". No such form exists: Tegg's wikilink syntax rejects `[` and a single `]` inside `[[…]]`, and the link wouldn't be a link in Tegg or Obsidian. | **Keep that link a Markdown link** and rewrite only its destination: `[viz [poznámka] zde](Cíl.md)`. The text stays byte for byte, it resolves in Tegg and Obsidian, renames follow it, and it isn't a simplified link (AC-9's count of two stays). AC-9's expected text for this one link changes (done with D-1552). | (b) Replace `[` `]` by `(` `)` in the alias and list the link as simplified (three rows in AC-9). (c) Add an escape (`\[`, `\]`) to the dialect: a file-format change in the tokenizer, the Rust extractor and the dialect doc, unverified in Obsidian. | §8 (7); FR-IMP-10 AC-9; `capacities-expected/c22-link-shapes/` |
+| CP-3 → D-1553 | **The key of a new attribute.** A Tegg attribute key allows letters, digits, `-`, `_` and must start with a letter; Capacities keys needn't (`Datum konání`, `2nd contact`). R148 says "a new attribute" without the key. | The name as given when it is a valid key (so `peopleInvolved`, `autor`, `přečteno` stay); else `derive_attr_key(name)` (`datum-konání`) with the given name kept as the attribute's `name`, and a row in the report's Attributes section. | (b) Always `derive_attr_key` (`peopleinvolved`: every camelCase key changes). (c) Refuse the plan until the user renames such attributes. | §4.1; FR-IMP-08 AC-2, AC-6, AC-8; type files and frontmatter keys |
+| CP-4 → D-1554 | **Does the job stop in `confirm`?** The criteria's "Still to do" table said `needsConfirm` yes (corrected with D-1554); but the preview is shown from `import_plan` before any job exists, and a job waiting in `confirm` holds its vault's queue (ms4-jobs §14.9.2). | **No `confirm` phase:** `start` is the user's `Import`; cancellable in `queued`, `planning`, `backup`. | (b) `start` when the preview opens, the job waits in `confirm`, `Import` is `job_confirm`: the target vault's other jobs wait while the user reads the preview. | §9.1; ms4-jobs §1; R152 step 5 (I2) |
+| CP-5 → D-1555 | **Free names: per folder or vault-wide.** FR-IMP-03 AC-7 says names are compared "per folder". Tegg's own creation picks a stem free in the whole vault (D-291 part 2, ms4-links §3.1), so that a bare `[[stem]]` is never ambiguous. | **Per folder, as the criterion says.** Capacities spaces hold many same-titled objects across types; links are written in D-184 form, so they stay right (path form where a stem is shared). | (b) Vault-wide, as Tegg's own creation: more ` (2)` suffixes (`Tasks/Plán (2).md` because `Pages/Plán.md` exists), simpler links; changes AC-7's wording and the expected outputs. | §5.2; FR-IMP-03 AC-7; FR-IMP-11 AC-3 |
+| CP-6 → D-1556 | **A leftover marker and "running".** D-1549 (1) removes a leftover `<name>.tegg-importing` with a marker "and no running import of that job id". Across a crash the job id means nothing. | The marker holds a run id (`<clock ms>-<process id>`); "running" means a run of this process (Tegg is single-instance). A marker left in a finished vault by a kill between the final rename and its removal is left alone. | (b) Also require the marker to be older than a time limit. (c) Remove a leftover marker from a finished vault when it is next opened (a write on open, against FR-VLT-01 AC-4). | §9.5; FR-IMP-03 AC-14 |
+| CP-7 → D-1557 | **A transformer failure on one note.** Not covered by R153. | At plan time the note is `unreadable` (reason `engine`) and reported, like broken YAML. At write time (after a clean plan) the run fails before the first write with `Transform`. | (b) At write time skip the note and report it (the result then differs from the preview). | §5, §7.1, §9.2; FR-IMP-07 AC-7 |
