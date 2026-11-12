@@ -1270,7 +1270,8 @@ None of these edits is a pure addition today, because the crate doesn't exist ye
 | O2 → D-1559 | **A leftover `<name>.tegg-importing` with the engine's marker:** deleted permanently or moved to the system Trash | Moved to the **macOS Trash** through the `SystemTrash` seam (as D-619), never deleted permanently; if the move fails, `start` answers an error and removes nothing. Amends D-1549 (1) and D-1556 | §2 (`ImportEnv.trash`), §9.5 step 1, §11 (`LeftoverNotTrashed`), §12.2 (`trash_import_leftover`); FR-IMP-03 AC-14 |
 | O3 → D-1560 | **A plain Markdown link (not an image) to a media file:** an embed `![[file]]` or a link | It stays a link: `[Manual](../PDFs/Media/Manual.pdf)` → `[[Manual.pdf\|Manual]]` (D-184 form; the alias rules of D-1533 / D-1552 apply). Only image syntax `![…](…)` becomes an embed | §8 (4), §7.1 (`LinkEdit`); FR-IMP-14 AC-2, AC-8 |
 
-**Still open.** Two points are not decided and no rule is written for them above (the first is not covered by any criterion). They **come to the owner with the red tests**:
+**Decided after the merge (D-1561, owner, 2026-11-12: "Yes, as a Page"; BRD v1.167).** A `DailyNote` whose day can be read from none of `date:`, `title` and the file name (§4.1) is planned as a **Page**: its `ObjectPlan.type` is `page`, its path is in `Pages/`, no `date` key is written, and the report's Types section has a row for it with the reason key `import.report.type.noDay` (text approved with the other report texts). Links to it resolve as to any Page (import-capacities.md FR-IMP-08 AC-17).
 
-- A `DailyNote` whose day can be read from none of `date:`, `title` and the file name (§4.1): unreadable, a Page, or something else.
+**Still open.** One point **comes to the owner with the red tests**:
+
 - The wording of the report's own words marked † in §5.3: R150 describes the rows but gives no text for them. They are approved with the expected outputs (§16.2) unless the owner wants them as a separate point.
