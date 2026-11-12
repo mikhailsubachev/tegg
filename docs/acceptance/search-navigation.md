@@ -103,7 +103,7 @@ Fixture `search/` in the fake core (L5). ⌘O and the `Quick switcher` dialog ar
 - **AC-2** **Non-blocking:** while the full index of AC-1 runs, `index.switcher` and `note.read` calls return in < 100 ms (p95), and the switcher returns results for the files indexed so far.
 - **AC-3** **Cancel (D-110):** cancelling an operation marked cancellable stops it within 1 s, emits a final progress event with a `cancelled` state, and leaves the vault byte-identical to before (for indexing: no vault write ever; for jobs: cancel is offered only before the write phase, architecture §5.6).
 - **AC-4** [MS4] Bulk jobs (rename, tag rename, attribute rename, bulk type change) report `job:progress` with the same rules as AC-1 and AC-3.
-- **AC-5** [MS7] The Capacities import reports progress and can be cancelled (FR-IMP-07) with the same rules as AC-1 and AC-3.
+- **AC-5** [MS7] The Capacities import reports progress and can be cancelled (FR-IMP-07) with the same rules as AC-1 and AC-3. *(v1.0, slice I1, by D-801 and D-1535; verified by import-capacities.md FR-UX-07 AC-13. The `[MS7]` marker stays for now: the gate has no v1.0 marker, and without one this criterion would be checked by the MS2 gate, tools/qa/CONTRACT.md §9.4)*
 - **AC-6** [MS3] [manual] Progress is shown in the UI without a modal dialog; the user can keep typing in an open note while it runs.
 
 ---
