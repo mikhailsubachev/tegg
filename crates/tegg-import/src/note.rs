@@ -124,7 +124,8 @@ pub(crate) fn frontmatter(text: &str, scan: Option<&ScanDto>) -> Result<Vec<(Str
             continue;
         }
         let nested = scan.is_some_and(|s| s.nested.iter().any(|n| tegg_format::nfc(n) == key));
-        let val = if nested { Val::Nested } else { value(&key, &v, scan) };
+        // A block scalar is `nested` for the scan, but still a string a row can map on purpose (c06's folded `url`).
+        let val = if nested && !matches!(v, Yaml::String(_)) { Val::Nested } else { value(&key, &v, scan) };
         out.push((key, val));
     }
     Ok(out)

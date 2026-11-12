@@ -1,4 +1,5 @@
-//! §13. STUB.
+//! §13. STUB (todo: Owner C).
+#![allow(unused_variables)]
 use std::io;
 use std::path::PathBuf;
 

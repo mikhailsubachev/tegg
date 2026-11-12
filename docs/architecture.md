@@ -38,7 +38,8 @@ flowchart LR
       Index["tegg-index: SQLite + FTS5, switcher, backlinks"]
       Query["tegg-query: query engine, saved queries"]
       Schema["tegg-schema: types .tegg/types/*.yml, vault settings"]
-      Jobs["tegg-jobs: bulk operations, import planning, restore points"]
+      Jobs["tegg-jobs: bulk operations, the import's job seam and journal, restore points"]
+      Import["tegg-import: Capacities import engine (above tegg-core)"]
     end
     subgraph Main["Main window (WKWebView)"]
       UI["React UI"]
@@ -78,8 +79,9 @@ All core crates are plain Rust libraries with no Tauri dependency, so they can s
 | `tegg-index` | SQLite + FTS5 database in Application Support: notes, attrs, links, tags, FTS; rebuild (parallel, capped at cores − 2, S4 P8), per-path incremental update, offline catch-up by `(mtime, size)`, in-memory quick switcher, backlinks, unresolved links, duplicate `id` detection (FR-SYN-05), the local graph's neighbourhood query (`graph_neighbourhood`, v1.0, D-911, §5.9). Schema-versioned: a version mismatch means rebuild. | S4 |
 | `tegg-query` | Query definitions (`.tegg/queries/*.yml`, query blocks) → SQL over the index; sorting/grouping; results paged for virtualized views (NFR-PERF-07). | MS6 |
 | `tegg-schema` | Type definitions (`.tegg/types/*.yml`, versioned, AR-07), `vault.yml`, reserved keys (FR-TYP-15), defaults per type (folder, template). Validates; never rewrites a user file it doesn't understand. | MS3 |
-| `tegg-jobs` | Bulk operations as jobs (§5.6): rename across the vault, tag rename, attribute rename, bulk type change, import. Takes the restore point, selects files from the index, sends text transformations to the document engine, writes through `tegg-vault`, reports progress and supports cancel before the write phase. Hosts the Capacities import **planner** (S5: spaces, mapping, accounting rule). | S5, MS4/MS7 |
+| `tegg-jobs` | Bulk operations as jobs (§5.6): rename across the vault, tag rename, attribute rename, bulk type change, import. Takes the restore point, selects files from the index, sends text transformations to the document engine, writes through `tegg-vault`, reports progress and supports cancel before the write phase. For the import it keeps the queue, the backup, the journal and its roll-back (`Jobs::start_import`, `import_journal`; v1-import §9, §12.1); the import's planner lives in `tegg-import`. | S5, MS4/MS7 |
 | `tegg-core` | The façade the shell calls: opens a vault, wires watcher → index → events, holds per-vault state. The only crate the shell depends on. | — |
+| `tegg-import` | The Capacities import engine (slice I1, [v1-import.md](contracts/v1-import.md)): scan of a zip or folder (read in place), mapping, plan and accounting rule (S5), render specs for `@tegg/doc`, and the run as an `ImportJob` of `tegg-jobs`. **Sits above `tegg-core`** (v1-import §17 (1)): an import must run with no vault open (a new vault is written by a private engine over a temporary folder), and the planner needs the target's index. Platform-neutral (AR-03); all file access through `tegg-vault` (AR-04); never builds Markdown itself (D-82). The shell calls it next to `tegg-core`. | S5, slice I1 |
 
 ### 3.2 TypeScript (`packages/`, `app/ui/`)
 
@@ -208,7 +210,7 @@ sequenceDiagram
 
 ### 5.7 Import (Capacities, MS7)
 
-The S5 planner moves into `tegg-jobs`: read the zip with UTF-8 names (FR-IMP-07), pick a space, map types and attributes, plan file names and link outcomes, show the preview, check the accounting rule (§11.1). On confirm: backup if the vault isn't empty, then for each object the worker renders the new note (frontmatter from the mapping, body links rewritten **from the mdast parse**, S5 F12), and `tegg-vault` creates the files and copies attachments. Cancel before the write phase leaves the vault byte-identical. The report is written as a Page.
+The S5 planner is the crate `tegg-import`, **above `tegg-core`** (not inside `tegg-jobs`, as this section first sketched; v1-import §17 (1)): an import must run with no vault open, and the planner needs the target's index. `tegg-jobs` keeps the queue, the backup and the journal (`Jobs::start_import`, v1-import §12.1). The engine: read the zip with UTF-8 names (FR-IMP-07), pick a space, map types and attributes, plan file names and link outcomes, show the preview, check the accounting rule (§11.1). On confirm: backup if the vault isn't empty, then for each object the worker renders the new note (frontmatter from the mapping, body links rewritten **from the mdast parse**, S5 F12), and `tegg-vault` creates the files and copies attachments. Cancel before the write phase leaves the vault byte-identical. The report is written as a Page.
 
 ### 5.8 Search, switcher, queries
 
@@ -277,7 +279,7 @@ No HTTP crates or packages outside an allow-list; no Tauri `http` plugin; CSP `c
 ## 11. Repository layout
 
 ```
-crates/            tegg-vault, tegg-format, tegg-index, tegg-query, tegg-schema, tegg-jobs, tegg-core
+crates/            tegg-vault, tegg-format, tegg-index, tegg-query, tegg-schema, tegg-jobs, tegg-core, tegg-import
 packages/          @tegg/doc, @tegg/editor
 app/ui/            React app (Vite)
 app/src-tauri/     desktop shell

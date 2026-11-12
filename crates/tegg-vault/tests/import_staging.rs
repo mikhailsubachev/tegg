@@ -287,7 +287,7 @@ fn remove_dir_tree_and_trash_import_leftover_refuse_a_folder_without_the_marker(
     assert!(marked.join("Pages/a.md").exists() && marked.join(".tegg-import").exists());
     // The move: one call, for the whole folder.
     trash_import_leftover(&marked, &sink).expect("trash");
-    assert_eq!(sink.0.lock().expect("calls").clone(), [marked.clone()]);
+    assert_eq!(*sink.0.lock().expect("calls"), [marked.clone()]);
     assert!(!marked.exists() && bin.join("X.tegg-importing/Pages/a.md").exists());
 
     // remove_dir_tree removes the run's own marked folder whole.

@@ -1,4 +1,4 @@
-//! §2 `testing`. STUB: the environment is built, with the test clock and ids; the trash sinks do nothing useful.
+//! §2 `testing`: the environment of the tests (the test clock, Europe/Prague, ids `01JB5V…nn`).
 use std::io;
 use std::path::Path;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -20,15 +20,10 @@ pub fn env(dirs: &tegg_vault::AppDirs, transformer: Arc<dyn tegg_jobs::Transform
         points: None,
     }
 }
-pub struct TrashSink;
-impl tegg_vault::SystemTrash for TrashSink {
-    fn trash(&self, _: &Path) -> io::Result<()> {
-        Err(io::Error::other("stub"))
-    }
-}
-pub struct FailingTrash;
+/// Answers an error and moves nothing: a test that forgets to set a trash can never move a folder anywhere (§2).
+struct FailingTrash;
 impl tegg_vault::SystemTrash for FailingTrash {
     fn trash(&self, _: &Path) -> io::Result<()> {
-        Err(io::Error::other("stub"))
+        Err(io::Error::other("testing::env has no system Trash: set `env.trash`"))
     }
 }
