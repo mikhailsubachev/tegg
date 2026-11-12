@@ -389,6 +389,12 @@ impl Core {
         &self.jobs_engine
     }
 
+    /// v1-import §5 (slice I1): the first index build after open has ended, so the index can answer for the whole
+    /// vault (a plan against an existing vault needs it; v1-queries §11's `IndexNotReady` is the same flag).
+    pub fn index_ready(&self) -> bool {
+        self.shared.graph_ready.load(Ordering::SeqCst)
+    }
+
     /// Every receiver gets all events since `open` (buffered), then live ones.
     pub fn events(&self) -> Receiver<CoreEvent> {
         let (tx, rx) = channel();

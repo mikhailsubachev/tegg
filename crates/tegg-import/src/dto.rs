@@ -19,7 +19,7 @@ dto! {
         pub version: u32, pub space: String, pub source: ScanInfo, pub target: PlanTarget, pub mapping: Mapping, pub types: Vec<PlannedType>,
         pub objects: Vec<PlannedObject>, pub attachments: Vec<PlannedAttachment>, pub other_files: Vec<OtherFile>, pub links: Vec<PlannedLink>,
         pub report: ReportData, pub totals: Totals, pub decisions: Decisions, pub already_imported: usize, pub report_path: String, pub space_bytes: u64,
-        pub backup: Option<BackupPlan>, pub needed_bytes: u64, #[serde(default)] pub stamps: Stamps,
+        pub backup: Option<BackupPlan>, pub needed_bytes: u64, #[serde(default, skip_serializing_if = "Stamps::is_default")] pub stamps: Stamps,
     }
     pub struct PlannedType { pub source_type: String, pub source_folder: String, pub objects: usize, pub target: TypeTarget, pub key: Option<String>, pub name: Option<String>, pub plural: Option<String>, pub folder: Option<String>, pub new: bool, pub attributes: Vec<PlannedAttr> }
     pub struct PlannedAttr { pub source_key: String, pub action: AttrAction, pub key: Option<String>, pub name: Option<String>, pub r#type: Option<String>, pub values: usize, pub nulls: usize, pub options: Vec<String>, pub merges: Vec<ValueMerge>, pub statuses: Vec<StatusMap>, pub split: Option<Split>, pub needs_look: bool }
@@ -59,9 +59,10 @@ dto! {
     pub enum WriteStep { Vault, Types, Attachments, Objects, Report }
 
     // §5.3
-    pub struct ReportData { pub summary: ReportSummary, pub types: Vec<TypeRow>, pub unresolved: Vec<UnresolvedRow>, pub ambiguous: Vec<AmbiguousRow>, pub case_links: Vec<CaseRow>, pub simplified: Vec<SimplifiedRow>, pub attributes: Vec<AttributeRow>, pub merged: Vec<MergedRow>, pub dates: Vec<DateRow>, pub files: Vec<FileRow>, pub stubs: Vec<StubRow>, pub skipped: Vec<SkippedRow>, pub cleanup: Cleanup, pub not_exported: Vec<NotExported> }
+    pub struct ReportData { pub summary: ReportSummary, pub types: Vec<TypeRow>, #[serde(default)] pub no_day: Vec<NoDayRow>, pub unresolved: Vec<UnresolvedRow>, pub ambiguous: Vec<AmbiguousRow>, pub case_links: Vec<CaseRow>, pub simplified: Vec<SimplifiedRow>, pub attributes: Vec<AttributeRow>, pub merged: Vec<MergedRow>, pub dates: Vec<DateRow>, pub files: Vec<FileRow>, pub stubs: Vec<StubRow>, pub skipped: Vec<SkippedRow>, pub cleanup: Cleanup, pub not_exported: Vec<NotExported> }
     pub struct ReportSummary { pub source: String, pub space: String, pub date: String, pub objects: Tally, pub attachments: Tally, pub links: Tally, pub backup: Option<String> }
     pub struct TypeRow { pub source_type: String, pub objects: usize, pub target: Option<String>, pub new: bool }
+    pub struct NoDayRow { pub note: String }
     pub struct UnresolvedRow { pub note: String, pub n: u32, pub written: String, pub reason: UnresolvedReason }
     pub struct AmbiguousRow { pub note: String, pub n: u32, pub title: String, pub chosen: String }
     pub struct CaseRow { pub note: String, pub n: u32, pub written: String, pub candidate: String, pub confirmed: bool }
@@ -89,6 +90,12 @@ dto! {
 pub struct Stamps {
     pub source: SourceStamp,
     pub type_files: Vec<TypeFileStamp>,
+}
+impl Stamps {
+    /// §5.4: `plan.json` leaves the key out when nothing is stamped.
+    pub fn is_default(&self) -> bool {
+        *self == Stamps::default()
+    }
 }
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -172,8 +179,7 @@ pub enum FileChange {
     GenericName { name: String },
     NameChanged { name: String, reasons: Vec<NameChange> },
 }
-// NOTE (contract §5.3): `Ignored` has a field named `kind` next to the serde tag `kind`; the stub renames the field in
-// JSON so that it compiles. The contract must say which.
+// §5.3: `Ignored`'s Rust field is `kind`; in JSON it is `file`, because `kind` is the tag.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum SkippedRow {

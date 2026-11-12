@@ -629,11 +629,18 @@ fn daily_date(attrs: &Value) -> Option<NaiveDate> {
     v.iter().find_map(|d| d.trim().get(..10).and_then(tegg_format::date::parse_date))
 }
 
-/// D-319, D-335: newest `created` first (missing counts as oldest), then newest `modified`, then NFC path bytes.
-/// The instants are read by `tegg_format::daily::instant`, shared with the fake core (D-365, PR #38 review).
+/// D-1546 (v1-import §12.3, FR-DLY-01 AC-12), then D-319, D-335: a note without `import-id` (the key with a non-empty
+/// string value) comes before a note with one; inside each group newest `created` first (missing counts as oldest),
+/// then newest `modified`, then NFC path bytes. The instants are read by `tegg_format::daily::instant`, shared with the
+/// fake core (D-365, PR #38 review). Reads only what the file holds (AR-01).
 fn daily_order(a: &Meta, b: &Meta) -> std::cmp::Ordering {
+    let imported = |m: &Meta| m.s.attributes.get("import-id").and_then(|v| v.as_str()).is_some_and(|v| !v.is_empty());
     let inst = |m: &Meta, k: &str| m.s.attributes.get(k).and_then(|v| v.as_str()).and_then(tegg_format::daily::instant).map(|i| i.nanos());
-    inst(b, "created").cmp(&inst(a, "created")).then_with(|| inst(b, "modified").cmp(&inst(a, "modified"))).then_with(|| nfc(&a.path).cmp(&nfc(&b.path)))
+    imported(a)
+        .cmp(&imported(b))
+        .then_with(|| inst(b, "created").cmp(&inst(a, "created")))
+        .then_with(|| inst(b, "modified").cmp(&inst(a, "modified")))
+        .then_with(|| nfc(&a.path).cmp(&nfc(&b.path)))
 }
 
 /// Contract §1: `*.md` outside dot-folders and `_templates/`; never temporary files (FR-SYN-02 AC-2),

@@ -3,7 +3,7 @@ name = "tegg-import"
 version = "0.0.0"
 edition.workspace = true
 publish.workspace = true
-description = "Tegg core: the Capacities import engine (docs/contracts/v1-import.md). STUB for the red tests."
+description = "Tegg core: the Capacities import engine (docs/contracts/v1-import.md)."
 
 # Platform-neutral (AR-03): no Tauri, no desktop APIs, no network crate (contract §1.1).
 [dependencies]
@@ -16,6 +16,11 @@ chrono.workspace = true
 chrono-tz.workspace = true
 serde = { version = "1", features = ["derive"] }
 serde_json.workspace = true
+zip = { version = "2", default-features = false, features = ["deflate"] }
+yaml-rust2 = "0.13"
+regex = "1"
+unicode-normalization = "0.1"
+percent-encoding = "2"
 
 # What the AC tests in tests/ use.
 [dev-dependencies]

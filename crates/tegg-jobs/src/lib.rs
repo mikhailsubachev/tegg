@@ -5,16 +5,17 @@
 
 use std::sync::Arc;
 
-pub use tegg_vault::FileVersion;
+pub use tegg_vault::{FileVersion, Staged};
 
 mod engine;
 pub mod host;
+pub mod import_journal;
 mod journal;
 mod ops;
 pub mod testing;
 mod zip;
 
-pub use engine::{Jobs, JobsRef};
+pub use engine::{ImportCtx, ImportJob, Jobs, JobsRef};
 pub use ops::{op_from_json, op_json};
 
 pub type JobId = u64;
@@ -40,6 +41,8 @@ pub enum JobKind {
     Restore,
     /// v1-queries §1.8 (slice Q, D-1468): renaming a saved query: its file, the `saved:` lines of its usages, its pins.
     QueryRename,
+    /// v1-import §9.1 (slice I1, D-1554): a Capacities import, run through `Jobs::start_import`.
+    Import,
 }
 
 impl JobKind {
@@ -59,6 +62,7 @@ impl JobKind {
             JobKind::Inbox => "inbox",
             JobKind::Restore => "restore",
             JobKind::QueryRename => "query-rename",
+            JobKind::Import => "import",
         }
     }
 
@@ -73,6 +77,10 @@ impl JobKind {
             JobKind::Restore => KindFlags { needs_confirm: false, backup: true, undoable: false, cancellable: vec![Phase::Planning, Phase::Backup] },
             // v1-queries §1.8: no confirm (the rename dialog is the UI's), a backup zip, undoable.
             JobKind::QueryRename => KindFlags { needs_confirm: false, backup: true, undoable: true, cancellable: vec![Phase::Planning, Phase::Backup] },
+            // v1-import §9.1 (D-1554): no confirm (the caller's preview is the confirmation); whether a zip is made is the
+            // job's answer (`ImportJob::needs_backup`, D-1549 (5)); never undoable (D-1523); the first kind that can be
+            // cancelled while it waits in the queue.
+            JobKind::Import => KindFlags { needs_confirm: false, backup: true, undoable: false, cancellable: vec![Phase::Queued, Phase::Planning, Phase::Backup] },
             // ms4-jobs §14.1 (D-812): no confirm step (the mapping dialog is the UI's, D-805 has none); a single type move
             // makes no zip (a bulk one does, like the inbox convert); both are undoable.
             JobKind::TypeMove => KindFlags { needs_confirm: false, backup: false, undoable: true, cancellable: vec![Phase::Planning, Phase::Backup] },
@@ -316,6 +324,13 @@ pub enum TextOp {
     /// v1-queries §3.1 (slice Q): in every query fence, each `saved:` value with `from`'s name key gets `to`; no
     /// `modified` change. `@tegg/doc` `{ op: 'rename-saved-query', from, to }`.
     RenameSavedQuery { from: String, to: String },
+    /// v1-import §7.1 (slice I1): read-only. `Transformed::Bytes(json, [])`: the text is an `ImportScanDto` as JSON,
+    /// never written to disk. `@tegg/doc` `{ op: 'import-scan' }`.
+    ImportScan,
+    /// v1-import §7.1: the source note's text → the object file's text. `spec`: an `ImportNoteSpec` as JSON.
+    ImportNote { spec: Arc<serde_json::Value> },
+    /// v1-import §7.1: empty input → a new file's text. `spec`: an `ImportNewSpec` as JSON.
+    ImportNew { spec: Arc<serde_json::Value> },
 }
 
 /// A byte range in the input that was replaced (UTF-8 offsets).
@@ -424,7 +439,8 @@ pub enum RetryOutcome {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Interrupted {
     pub job: JobId,
-    /// `rename` or `type-move` (§14.6): which banner text the app shows.
+    /// `rename`, `type-move` (§14.6) or `import` (v1-import §9.6: `title` the space, `from` the source's name, `to`
+    /// empty, `done` the files the run created; `Undo` only): which banner text the app shows.
     pub kind: String,
     /// The note's title, for `Changing the type of "<title>" was interrupted…`.
     pub title: Option<String>,
