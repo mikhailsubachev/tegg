@@ -229,6 +229,8 @@ async function openByTitle(d: Driver, title: string) {
   press('f', ['command', 'shift']); // D-760: ⇧⌘F and the Search page's Go to list replace ⌘O
   assert.ok(await shown(d, 'Search query'), `switcher for ${title}`);
   paste(title);
+  // ⏎ opens the first result: wait for it (the index may still be busy after a rename job, D-1516).
+  assert.ok(await shown(d, title, 5000), `result ${title}`);
   await sleep(300);
   press('enter');
   await sleep(600);

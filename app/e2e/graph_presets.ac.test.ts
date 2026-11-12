@@ -16,6 +16,7 @@ import {
   FX, REPO, appiumDown, changedPaths, end, marks, need, needMenuItem, palette, paste, press, ready, session, shown, sleep, support, testEnv, textContains,
   tmp, tree, typeAscii, waitFor, type Driver, type Env,
 } from './helpers/capture.ts';
+import { needStarting } from './helpers/graph.ts';
 
 after(appiumDown);
 process.on('exit', appiumDown);
@@ -147,7 +148,7 @@ test('fr_grp_02_ac19_unreadable_file_is_never_rewritten', { timeout: 300_000 }, 
     await presetMenu(d, 'Default');
     assert.ok(await textShown(d, 'The presets file can\'t be read (line 5).', 2000), 'the unreadable line with the parser\'s line');
     press('escape');
-    await (await need(d, 'Tags', 3000)).click().catch(() => {});
+    await (await needStarting(d, 'Types', 'Tags')).click().catch(() => {});
     await sleep(500);
     await relaunch(c);
     assert.deepEqual(stamp(c, YML), s0, 'the file keeps its bytes, mtime and inode (also across a relaunch)');
@@ -170,7 +171,7 @@ test('fr_grp_02_ac22_preset_remembered_per_view_and_vault', { timeout: 300_000 }
     const d2 = await relaunch(c);
     assert.ok(await shown(d2, 'Preset: Bez štítků', 5000), 'after a relaunch: `Preset: Bez štítků`');
     assert.ok(await textShown(d2, '2 hidden', 3000), 'with its filters');
-    assert.ok(!(await textShown(d2, '· modified', 500)), 'not modified');
+    assert.ok(!(await shown(d2, 'Revert', 500)), 'not modified (D-1516: `Revert` shows with `· modified`)');
     await end(d2);
     c.d = undefined;
     const other = vaultCopy(c.base, 'valid.yml', 'Jiný');
@@ -191,7 +192,7 @@ test('fr_grp_02_ac23_external_changes_reload_the_list_only', { timeout: 300_000 
     await apply(d, 'Default', 'Bez štítků');
     assert.ok(await textShown(d, '2 hidden', 3000), 'Bez štítků applied');
     externalWrite(c, YML, fx('valid.yml').replace('hidden-types: [tag, kniha]', 'hidden-types: [page]'));
-    assert.ok(await textShown(d, '· modified', 2000), 'another program\'s change shows `· modified` within 2 s');
+    assert.ok(await shown(d, 'Revert', 2000), 'another program\'s change shows `· modified` within 2 s (D-1516: read through `Revert`)');
     assert.ok(await textShown(d, '2 hidden', 500), 'the view\'s filters stay');
     externalWrite(c, YML, `${fx('valid.yml')}  - name: Nová zvenku\n    hidden-types: []\n    hidden-kinds: [tag]\n`);
     await sleep(2000);
@@ -228,7 +229,7 @@ test('fr_syn_03_ac23_synced_changes_and_conflict_copies', { timeout: 300_000 }, 
     await presetMenu(d, 'Default');
     assert.ok(await textShown(d, 'Z jiného Macu', 1000), 'the synced version (an atomic replace) is listed within 2 s');
     press('escape');
-    await (await need(d, 'Tags', 3000)).click().catch(() => {});
+    await (await needStarting(d, 'Types', 'Tags')).click().catch(() => {});
     await saveAs(d, 'Default', 'Moje');
     assert.ok(await waitFor(() => listedNames(readFileSync(join(c.vault, YML), 'utf8')).join('|') === ['Bez štítků', 'Jen vztahy', 'Lidé a schůzky', 'Z jiného Macu', 'Moje'].join('|'), 3000),
       `all four earlier presets and Moje last: ${listedNames(readFileSync(join(c.vault, YML), 'utf8')).join(', ')}`);
@@ -253,7 +254,7 @@ test('fr_syn_06_ac40_only_preset_actions_write_graph_yml', { timeout: 900_000 },
     for (const n of ['Bez štítků', 'Jen vztahy', 'Lidé a schůzky', 'Default']) { await apply(d, cur, n); cur = n; }
     await apply(d, cur, 'Bez štítků');
     cur = 'Bez štítků';
-    await (await need(d, 'Tags', 3000)).click();
+    await (await needStarting(d, 'Types', 'Tags')).click();
     await (await need(d, 'Revert', 3000)).click();
     for (const v of ['List', 'Graph']) await (await need(d, v)).click();
     await (await need(d, 'Plán čtvrtletí, Page')).click();
@@ -278,9 +279,9 @@ test('fr_syn_06_ac40_only_preset_actions_write_graph_yml', { timeout: 900_000 },
       await sleep(500);
       assert.deepEqual(changedPaths(t0, tree(c.vault)), [YML], `${what}: exactly one file, .tegg/graph.yml`);
     };
-    await (await need(d2, 'Pages', 3000)).click().catch(() => {});
+    await (await needStarting(d2, 'Types', 'Pages')).click().catch(() => {});
     await step('Save as', () => saveAs(d2, 'Bez štítků', 'Moje'));
-    await (await need(d2, 'Tasks', 3000)).click().catch(() => {});
+    await (await needStarting(d2, 'Types', 'Tasks')).click().catch(() => {});
     await step('Update', async () => { await (await need(d2, 'Update')).click(); });
     const same = tree(c.vault);
     await presetMenu(d2, 'Moje');
@@ -291,6 +292,7 @@ test('fr_syn_06_ac40_only_preset_actions_write_graph_yml', { timeout: 900_000 },
     await step('Rename', async () => {
       await presetMenu(d2, 'Moje');
       await (await needMenuItem(d2, 'Rename “Moje”…')).click();
+      press('right'); // the name is selected: append (D-1516)
       typeAscii(' 2');
       press('enter');
     });

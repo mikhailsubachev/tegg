@@ -108,7 +108,7 @@ test('fr_grp_01_ac13_route_and_labels_follow_renames', { timeout: 300_000 }, asy
     externalWrite(q4, readFileSync(q4, 'utf8').replace('title: Plán čtvrtletí', 'title: Plán Q4'));
     assert.ok(await waitRoute(c.log, graphRoute('Pages/Plán Q4.md'), 2000), 'the route follows the external rename within 2 s (same id)');
     assert.ok(await shown(d, 'Graph · Plán Q4', 2000), 'the tab and window title `Graph · Plán Q4`');
-    assert.ok(await textShown(d, '10 objects', 1000), 'the same nodes');
+    assert.ok(await textShown(d, '9 objects', 2000), 'what resolves now: Recept\'s `[[Plán čtvrtletí]]` broke with the outside rename (D-1022)');
     assert.ok(!(await textShown(d, 'This object was deleted', 300)), 'never shown as deleted');
   } finally { await cleanup(c); }
 });

@@ -107,7 +107,7 @@ test('fr_grp_02_ac31_panel_presets_file_states_and_outside_changes', { timeout: 
     await popover(d);
     assert.ok(await shown(d, 'Preset: Bez štítků', 3000), 'the popover open on Bez štítků');
     externalWrite(join(c.vault, YML), VALID.replace('hidden-types: [tag, kniha]', 'hidden-types: [page]'));
-    assert.ok(await textShown(d, '· modified', 2000), 'another program\'s change shows `· modified` within 2 s');
+    assert.ok(await shown(d, 'Revert', 2000), 'another program\'s change shows `· modified` within 2 s (D-1516: read through `Revert`)');
     assert.ok(await textShown(d, '8 objects · click a node to preview', 500), 'the panel\'s 8 nodes stay');
     externalWrite(join(c.vault, YML), `${VALID}  - name: Nová zvenku\n    hidden-types: []\n    hidden-kinds: [tag]\n`);
     await sleep(2000);
@@ -141,7 +141,7 @@ test('fr_grp_02_ac32_panel_preset_and_view_remembered', { timeout: 300_000 }, as
     assert.ok(await shown(d2, 'Local graph as a list', 5000), 'after a relaunch the panel opens Plán in List');
     await popover(d2);
     assert.ok(await shown(d2, 'Preset: Bez štítků', 3000), 'with `Preset: Bez štítků`');
-    assert.ok(!(await textShown(d2, '· modified', 500)), 'without `· modified`');
+    assert.ok(!(await shown(d2, 'Revert', 500)), 'without `· modified` (D-1516: `Revert` shows with it)');
   } finally { await cleanupGraph(c); }
 });
 
@@ -320,6 +320,7 @@ test('fr_syn_06_ac41_panel_only_preset_actions_write', { timeout: 900_000 }, asy
     await step('Rename', async () => {
       await presetMenu(d, 'Moje');
       await (await needMenuItem(d, 'Rename “Moje”…')).click();
+      press('right'); // the name is selected: append (D-1516)
       typeAscii(' 2');
       press('enter');
     });
