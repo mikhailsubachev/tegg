@@ -515,6 +515,7 @@ test('fr_ux_08_ac18_queries_for_voiceover_in_the_real_app', { timeout: 300_000 }
     assert.deepEqual(await blockShows(d, OPEN, [T.t1, T.t2, T.t3], ALL_TASKS, 3000), [T.t1, T.t2, T.t3], 'its three rows by title');
     // The due date is the region's short date (R44, as Backlinks chips; D-1505): the real app uses the machine's region.
     const due = [undefined, 'cs', 'en-US', 'en-GB'].map((r) => new Intl.DateTimeFormat(r, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(Date.UTC(2026, 10, 12)));
+    due.push('Thu 12. 11.', 'čt 12. 11.'); // the app's Date & time setting (D-781): weekday, day and month as numbers
     let dueShown = false;
     for (const s of due) if (!dueShown && (await blockHas(d, OPEN, s))) dueShown = true;
     assert.ok(dueShown, `a row reads T1's due date in the region's short format (one of ${due.join(', ')})`);

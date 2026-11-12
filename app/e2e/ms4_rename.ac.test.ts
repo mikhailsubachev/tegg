@@ -283,6 +283,9 @@ test('fr_fmt_08_ac5_commit_renames_typing_doesnt_real_app', { timeout: 300_000 }
     assert.equal(g!.replace(/^modified: .*$/m, ''), want, 'same id, title: Gama, the body unchanged except its self-link');
     assert.ok(await waitMark(log, `route-ready:note/${GAMA}`, 3000), 'the route becomes note/Pages/Gama.md');
     await openByTitle(d, 'Beta');
+    // History: Gama, the Search page (D-760), Beta. Back twice returns to Gama.
+    press('lbracket', ['command']);
+    await sleep(800);
     press('lbracket', ['command']);
     await sleep(800);
     const title = await firstShown(d, 'Title');
