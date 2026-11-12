@@ -380,6 +380,8 @@ export function QueryBlock(p: QueryBlockProps) {
       <span className="query-icon" aria-hidden="true"><Icon name="query" size={14} dataIcon="query" /></span>
       <span className="query-title" data-user-content>{title}</span>
       {showResults && <span className="query-count" aria-hidden="true">{total}</span>}
+      {/* D-1515: the result count also as hidden text, for the macOS tree (D-1424's way). */}
+      {showResults && <span className="sr-only" data-description-text="">{t('query.editor.results', { count: total })}</span>}
       <span className="query-header-gap" />
       {inline ? (
         p.ctl && showResults && <button type="button" tabIndex={0} className="query-head-button" data-command="query.saveAs" onClick={saveAs}>{t('query.block.saveAs')}</button>
@@ -438,8 +440,6 @@ export function QueryBlock(p: QueryBlockProps) {
         if (e.key === 'Enter' && e.metaKey && !e.shiftKey && !e.altKey) { e.preventDefault(); e.stopPropagation(); edit(); }
       }}>
       {header}
-      {/* D-1515: the result count also as hidden text, for the macOS tree (D-1424's way). */}
-      {showResults && <span className="sr-only" data-description-text="" contentEditable={false}>{t('query.editor.results', { count: total })}</span>}
       {showResults && firstBroken && (
         <p className="query-notice">
           <Icon name="warning" size={13} />{noticeOf(firstBroken, types)}{' '}
