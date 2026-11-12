@@ -352,29 +352,7 @@ impl Jobs {
     /// `NotCancellable` outside the kind's cancellable phases. An `import` that still waits in the queue leaves it at
     /// once (v1-import §9.1, D-1554): it ends `cancelled` with a final progress event and never reaches `planning`.
     pub fn cancel(&self, job: JobId) -> Result<(), JobError> {
-        let mut s = lock(&self.inner.state);
-        if s.jobs.get(&job).is_some_and(|j| j.kind == JobKind::Import && j.phase == Phase::Queued) {
-            if let Some(at) = s.queue.iter().position(|(id, _)| *id == job) {
-                let Some((_, Work::Import(import))) = s.queue.remove(at) else { return Err(JobError::NotFound) };
-                // Off the queue: the worker can't take it any more. Its end is published after `finished`.
-                if let Some(j) = s.jobs.get_mut(&job) {
-                    j.cancel = true;
-                }
-                drop(s);
-                import.finished(Phase::Cancelled, None);
-                self.inner.end_import(job, Phase::Cancelled, None);
-                return Ok(());
-            }
-        }
-        let j = s.jobs.get_mut(&job).ok_or(JobError::NotFound)?;
-        if j.phase == Phase::Queued || j.kind.flags().cancellable.contains(&j.phase) {
-            j.cancel = true;
-            drop(s);
-            self.inner.changed.notify_all();
-            Ok(())
-        } else {
-            Err(JobError::NotCancellable)
-        }
+        cancel_in(&self.inner, job)
     }
 
     pub fn wait(&self, job: JobId, timeout: Duration) -> Option<JobReport> {
@@ -600,6 +578,33 @@ fn queue_locked(inner: &Arc<Inner>, s: &mut State, id: JobId, work: Work) -> Res
     Ok(())
 }
 
+/// `Jobs::cancel` and `JobsRef::cancel` (v1-import §9.1: an import run cancels through a weak handle).
+fn cancel_in(inner: &Arc<Inner>, job: JobId) -> Result<(), JobError> {
+    let mut s = lock(&inner.state);
+    if s.jobs.get(&job).is_some_and(|j| j.kind == JobKind::Import && j.phase == Phase::Queued) {
+        if let Some(at) = s.queue.iter().position(|(id, _)| *id == job) {
+            let Some((_, Work::Import(import))) = s.queue.remove(at) else { return Err(JobError::NotFound) };
+            // Off the queue: the worker can't take it any more. Its end is published after `finished`.
+            if let Some(j) = s.jobs.get_mut(&job) {
+                j.cancel = true;
+            }
+            drop(s);
+            import.finished(Phase::Cancelled, None);
+            inner.end_import(job, Phase::Cancelled, None);
+            return Ok(());
+        }
+    }
+    let j = s.jobs.get_mut(&job).ok_or(JobError::NotFound)?;
+    if j.phase == Phase::Queued || j.kind.flags().cancellable.contains(&j.phase) {
+        j.cancel = true;
+        drop(s);
+        inner.changed.notify_all();
+        Ok(())
+    } else {
+        Err(JobError::NotCancellable)
+    }
+}
+
 /// D-819: a weak handle on a vault's engine (the core's tidy scheduler starts jobs through it).
 #[derive(Clone)]
 pub struct JobsRef(Weak<Inner>);
@@ -608,6 +613,11 @@ impl JobsRef {
     pub fn start(&self, op: JobOp) -> Result<JobId, JobError> {
         let inner = self.0.upgrade().ok_or(JobError::NotFound)?;
         enqueue_in(&inner, op, None)
+    }
+    /// `Jobs::cancel` through the handle (an import run holds one, v1-import §9.1); `NotFound` once the engine is gone.
+    pub fn cancel(&self, job: JobId) -> Result<(), JobError> {
+        let inner = self.0.upgrade().ok_or(JobError::NotFound)?;
+        cancel_in(&inner, job)
     }
     pub fn wait(&self, job: JobId, timeout: Duration) -> Option<JobReport> {
         let inner = self.0.upgrade()?;

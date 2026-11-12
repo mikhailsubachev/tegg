@@ -45,6 +45,25 @@ impl FileVersion {
     pub fn of(bytes: &[u8]) -> FileVersion {
         version_of(bytes, 0)
     }
+
+    /// `of` over a stream, without holding the bytes: the write-ahead `C` line of an attachment, whose size and hash
+    /// are known before its copy (v1-import §9.4, §9.6).
+    pub fn of_reader(src: &mut dyn io::Read) -> io::Result<FileVersion> {
+        let mut hasher = blake3::Hasher::new();
+        let mut buf = vec![0u8; 64 * 1024];
+        let mut size = 0u64;
+        loop {
+            let n = match src.read(&mut buf) {
+                Ok(0) => break,
+                Ok(n) => n,
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                Err(e) => return Err(e),
+            };
+            hasher.update(&buf[..n]);
+            size += n as u64;
+        }
+        Ok(FileVersion { mtime_ns: 0, size, hash: *hasher.finalize().as_bytes() })
+    }
 }
 
 pub(crate) fn version_of(bytes: &[u8], mtime_ns: i128) -> FileVersion {

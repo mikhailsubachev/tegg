@@ -115,22 +115,19 @@ impl NewVault {
         let files = Files { fs: LocalFs::new(&self.temp), tag: format!("i{}", ctx.job), dirs: Mutex::default() };
         // The marker is the first entry the run makes in the folder.
         let marker = format!("{{\"version\":1,\"run\":\"{}\",\"started\":\"{}\"}}\n", self.run_id, job.now_local());
-        job.create_file(&files, MARKER, FileKind::Marker, Src::Bytes(marker.as_bytes()))?;
+        job.create_file(ctx, &files, MARKER, FileKind::Marker, Src::Bytes(marker.as_bytes()))?;
         let types = std::mem::take(&mut lock(&job.state).types);
-        let created: Vec<&crate::render::TypeWrite> = types.iter().filter(|t| t.new).collect();
-        {
-            let mut s = lock(&job.state);
-            let attachments = job.plan.attachments.iter().filter(|a| a.outcome == AttachmentOutcome::Imported).count();
-            s.total = (tegg_vault::EMPTY_VAULT.len() + created.len() + attachments + s.objects.len() + 1) as u64;
-            ctx.set_total(s.total as usize);
-        }
+        let created = types.iter().filter(|t| t.new).count();
+        job.set_steps(ctx, tegg_vault::EMPTY_VAULT.len(), created);
         // `.tegg/vault.yml` and the seven system type files; one that gains attributes is written extended.
         for (path, text) in tegg_vault::EMPTY_VAULT {
             let text = types.iter().find(|t| !t.new && t.path == *path).map(|t| t.text.as_str()).unwrap_or(text);
-            job.create_file(&files, path, FileKind::VaultFile, Src::Bytes(text.as_bytes()))?;
+            job.create_file(ctx, &files, path, FileKind::VaultFile, Src::Bytes(text.as_bytes()))?;
         }
-        let new_types: Vec<crate::render::TypeWrite> = types.into_iter().filter(|t| t.new).collect();
-        job.write_content(&files, ctx, &new_types)
+        for t in types.iter().filter(|t| t.new) {
+            job.create_file(ctx, &files, &t.path, FileKind::TypeFile, Src::Bytes(t.text.as_bytes()))?;
+        }
+        job.write_content(&files, ctx)
     }
 
     /// §9.5 step 4: the no-replace rename to the final name, or the next free ` (n)`.
@@ -217,7 +214,7 @@ pub(crate) fn start(plan: Plan, scan: &Scan, parent: &Path, name: &str, env: &Im
     }
     let sink = NewVault { parent: resolved, name: name.to_string(), temp: temp.clone(), run_id: run_id.clone() };
     let shared = Arc::new(Shared::default());
-    let job = Arc::new(Job { state: Mutex::new(State { vault_name: name.to_string(), ..Default::default() }), plan, source: scan.source.clone(), env: env.clone(), now, shared: shared.clone(), target: Box::new(sink) });
+    let job = Arc::new(Job { state: Mutex::new(State { vault_name: name.to_string(), ..Default::default() }), planned: plan, checked: Default::default(), source: scan.source.clone(), env: env.clone(), now, shared: shared.clone(), target: Box::new(sink) });
     let jobs = tegg_jobs::Jobs::with_host(Arc::new(PrivateHost { root: temp.clone(), app: env.dirs.root.clone() }));
     match jobs.start_import(job) {
         Ok(id) => Ok(ImportRun::new(id, shared, Engine::Private(jobs))),

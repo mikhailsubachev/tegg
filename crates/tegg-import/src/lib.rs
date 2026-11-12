@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 pub mod accounting;
 mod dates;
 mod dto;
+mod existing;
 mod layout;
 pub mod mapping;
 mod newvault;
