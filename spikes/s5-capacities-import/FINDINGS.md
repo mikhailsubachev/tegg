@@ -66,4 +66,4 @@ The write phase (atomic writes, backup zip, cancel = vault byte-identical), prog
 The spike's code was removed from the repository on 2026-11-04; only this report stays. The last commit with the code is `75b3382` (`git show 75b3382:spikes/<name>/…`). The commands above refer to that commit.
 
 
-The MVP Capacities importer (MS7) is ported from this code at that commit (D-83, D-1366); until then no test runs the fixtures in `tests/fixtures/import/capacities/`.
+The Capacities importer, v1.0 (D-801), slice I1, is ported from this code at that commit (D-83, D-1366); until then no test runs the fixtures in `tests/fixtures/import/capacities/`.

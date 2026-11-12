@@ -70,6 +70,8 @@ These tables are the expected content of the app's **route registry**, **panel r
 | `settings/trash-history` | Settings: Trash and history | TBD | v1.0 | FR-SET-06 | — | Settings section list, palette |
 | `settings/previews` | Settings: Previews | TBD | v1.0 | FR-SET-07 | — | Settings section list, palette |
 
+**Planned, takes effect with slice I2 (D-1531, AP-1324; import-capacities.md R151, R154):** the `import` row is removed. The Capacities import is a modal dialog in the main window, not a route; it is opened by the command `import.open` (`Import…`: the app menu's `File › Import…`, the palette, and the vault chooser), so there is no `Go to Import` command. Until slice I2's red tests change the registry (`AC-Test-Change`), the row above stays as the registry has it.
+
 ### R2. Right-panel tabs (AP-71)
 
 | Tab id | Tab | Status after 3A | Milestone | Requirements |
@@ -113,6 +115,8 @@ No Attributes tab: attributes stay at the top of the note (D-127, settles AP-20)
 
 Shortcut labels are displayed with modifiers in Apple's order ⌃ ⌥ ⇧ ⌘ (e.g. `⇧⌘P`), AP-70.
 
+**Planned, with slice I2 (D-1531):** the command `import.open` (`Import…`) joins the command registry with **no shortcut**, so this table gets no row for it. It is also offered with no vault open: D-137's list (`Create new vault…`, `Open vault…`, `Go to Settings`, the theme commands) gains `Import…` (import-capacities.md FR-UX-03 AC-43).
+
 ---
 
 ### FR-UX-02 Layout: sidebar, centre pane, right panel, page map
@@ -151,7 +155,7 @@ Shortcut labels are displayed with modifiers in Apple's order ⌃ ⌥ ⇧ ⌘ (e
 
 - **AC-1** **Palette opens everywhere.** `⌘K` and `⌘⇧P` open the dialog `Command palette` with the cursor in its input `Command query`, from every route of R1 including TBD placeholders, with the focus on the body, on a sidebar entry, on a disabled control or in a text field. Opened over the quick switcher or the New object dialog, the palette replaces it. *(L5; L6 for one route)* *(D-520: the `New object` dialog is gone; where this criterion names it, the unsaved draft on `new/<type>` takes its place)*
 - **AC-2** **Every command is runnable.** For every command in the command registry, typing its full title into `Command query` ranks it first, and ⏎ runs it and closes the palette; the test checks each command's effect (the route it opens, or the state it toggles). *(L5, data-driven over the registry)*
-- **AC-3** **Navigation targets are commands.** The registry contains `Go to <Page>` for every route of R1 except `note/<path>` and `type/<type>`, `Go to type: <plural>` for every entry of the Types list (on the fixture: Pages, Tasks, Quick Notes, Daily Notes, Cesty, Čajovny, Schůzky, Images, PDFs, recept), `Open vault…`, `Create new vault…`, `Open quick switcher`, `New object`, `Toggle sidebar`, `Toggle right panel`, `Toggle focus mode`, `Theme: System`, `Theme: Light`, `Theme: Dark`. Type commands follow external type changes (a test-added `.tegg/types/kniha.yml` adds `Go to type: Knihy` within 2 s). *(L1 for the static part; L5 for type commands)*
+- **AC-3** **Navigation targets are commands.** The registry contains `Go to <Page>` for every route of R1 except `note/<path>` and `type/<type>`, `Go to type: <plural>` for every entry of the Types list (on the fixture: Pages, Tasks, Quick Notes, Daily Notes, Cesty, Čajovny, Schůzky, Images, PDFs, recept), `Open vault…`, `Create new vault…`, `Open quick switcher`, `New object`, `Toggle sidebar`, `Toggle right panel`, `Toggle focus mode`, `Theme: System`, `Theme: Light`, `Theme: Dark`. Type commands follow external type changes (a test-added `.tegg/types/kniha.yml` adds `Go to type: Knihy` within 2 s). *(L1 for the static part; L5 for type commands)* *(Planned, with slice I2, D-1531: `Go to Import` leaves with the `import` route and `Import…` (`import.open`) joins the list)*
 - **AC-4** **Palette matching.** Matching is case-, diacritic- and NFC/NFD-insensitive and accepts letters in order: `cajovny`, `ČAJOVNY`, the NFD input `čajovny` and `gtcaj` each rank `Go to type: Čajovny` first. *(L5)*
 - **AC-5** **Keyboard inside the palette.** ↑ and ↓ move the selection, ⏎ runs the selected command, Esc closes the palette and returns the focus to the element that had it before the palette opened. No step needs the pointer. *(L5)*
 - **AC-6** **Shortcut display.** Each palette row of a command with a shortcut shows the binding of R4 rendered from the registry (not a literal), with modifiers in the order ⌃ ⌥ ⇧ ⌘ (`⇧⌘F`, `⌃⌘S`) (AP-70). Disabled commands (R3) show `Coming in <milestone>` instead of running (AP-74). *(L5)*

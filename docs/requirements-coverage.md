@@ -287,7 +287,7 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-UX-04 | M | Responsive layout that scales down to tablet/phone widths (prepares for mobile, D-02). Touch targets ≥ 44 pt i… | Responsive layout | MS8 → v1.0 (D-374) |
 | FR-UX-05 | M | Light and dark themes with equal quality. | Light/dark | MS3 |
 | FR-UX-06 | M | Empty states that guide the user (empty inbox, new type with no objects, no backlinks). | Empty states | MS8 |
-| FR-UX-07 | M | Non-blocking progress for long operations (indexing, import, schema change) with cancel where safe. | Progress + cancel: indexing (MS2), bulk ops (MS4), import (MS7) | MS2 |
+| FR-UX-07 | M | Non-blocking progress for long operations (indexing, import, schema change) with cancel where safe. | Progress + cancel: indexing (MS2), bulk ops (MS4), import (v1.0, slices I1, I2; D-801, D-1535) | MS2 |
 | AR-02 | M | Native Apple Silicon (arm64) build. Universal binary for Intel: ❓ (C). | arm64 build | MS8 |
 | AR-03 | M | Clear separation: core (vault I/O, parsing, index, query engine, sync adapters), UI, platform (menu bar, share… | Core/UI/platform separation, L0 dependency check | MS1 |
 | AR-04 | M | Sync adapter interface, so Phase 2 API sync (FR-SYN-20) plugs in without changing the core. | Sync adapter seam | MS1 |
@@ -361,23 +361,23 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-TPL-07 | M | Template files are excluded from search, queries and graph. | Templates (§11) |
 | FR-TPL-08 | C | Prompting for values in a form at creation. | Templates (§11) |
 | FR-HIS-03 | M | Version history: snapshots of each note are taken automatically (at most every 5 minutes while editing, plus b… | Version history (§11) |
-| FR-IMP-03 | M | Capacities export (Markdown): one folder per object type with a `type:` key and typed frontmatter → types and … | D-801: Capacities importer to v1.0 |
-| FR-IMP-05 | M | Every import shows a preview (counts per type, unresolved links, unsupported content) before writing, creates … | D-801: Capacities importer to v1.0 |
-| FR-IMP-07 | M | Input: a zip archive or an extracted folder. Zips with non-ASCII file names (Czech diacritics, emoji, `?` in t… | D-801: Capacities importer to v1.0 |
-| FR-IMP-08 | M | Type, attribute and value mapping (in the import preview): source types map to existing types, system types (T… | D-801: Capacities importer to v1.0 |
-| FR-IMP-09 | M | Date parsing: ISO date-times; UTC-midnight date-times converted to date-only (FR-FMT-11); localized strings ("… | D-801: Capacities importer to v1.0 |
-| FR-IMP-10 | M | Link rewriting: all link forms become wikilinks resolved by source file/ID, not title alone: `[[Title]]`; Mark… | D-801: Capacities importer to v1.0 |
-| FR-IMP-11 | M | Titles: the title comes from the source's `title:` (Capacities) or the H1 heading (Notion), never from the fil… | D-801: Capacities importer to v1.0 |
-| FR-IMP-14 | M | Media: Capacities media objects (`Images/*.md` + `Images/Media/*`, `PDFs/*.md` + `PDFs/Media/*`) become Tegg I… | D-801: Capacities importer to v1.0 |
-| FR-IMP-15 | M | Preserved metadata: original created/modified timestamps (`createdAt`, `lastUpdated`, `Created on`), not the i… | D-801: Capacities importer to v1.0 |
-| FR-IMP-16 | M | Queries and views: Capacities Query objects and Notion database views are exported without their definitions. … | D-801: Capacities importer to v1.0 |
-| FR-IMP-17 | M | Clean-up: remove invisible characters (zero-width spaces U+200B, BOMs), normalize Unicode (NFC) and line endin… | D-801: Capacities importer to v1.0 |
-| FR-IMP-19 | M | Import report saved as a Page in the vault: counts per type, unresolved links with their location, renamed att… | D-801: Capacities importer to v1.0 |
-| FR-IMP-20 | M | Re-import: in the MVP an import is one-time (D-49). If the vault already contains objects with the same `impor… | D-801: Capacities importer to v1.0 |
-| FR-IMP-21 | M | Capacities tags: tag collections (exported as header-only CSVs) → tags (colors aren't in the export and must b… | D-801: Capacities importer to v1.0 |
-| FR-IMP-22 | M | Capacities spaces: the user selects one space per import run (D-44). Other spaces in the same export can be im… | D-801: Capacities importer to v1.0 |
-| FR-IMP-23 | M | Test data (D-50): (1) synthetic fixtures: small hand-written Capacities and Notion exports, committed to the r… | D-801: Capacities importer to v1.0 |
-| FR-IMP-24 | M | Capacities weblinks (no Weblink type in Tegg, D-43) → objects of a type chosen in the mapping (default: Page) … | D-801: Capacities importer to v1.0 |
+| FR-IMP-03 | M | Capacities export (Markdown): one folder per object type with a `type:` key and typed frontmatter → types and … | D-801: Capacities importer to v1.0; slices I1 engine, I2 window, ACs `import-capacities.md` (approved, D-1517…D-1544) |
+| FR-IMP-05 | M | Every import shows a preview (counts per type, unresolved links, unsupported content) before writing, creates … | D-801: Capacities importer to v1.0; slices I1 engine, I2 window, ACs `import-capacities.md` (approved, D-1517…D-1544) |
+| FR-IMP-07 | M | Input: a zip archive or an extracted folder. Zips with non-ASCII file names (Czech diacritics, emoji, `?` in t… | D-801: Capacities importer to v1.0; slices I1 engine, I2 window, ACs `import-capacities.md` (approved, D-1517…D-1544) |
+| FR-IMP-08 | M | Type, attribute and value mapping (in the import preview): source types map to existing types, system types (T… | D-801: Capacities importer to v1.0; slices I1 engine, I2 window, ACs `import-capacities.md` (approved, D-1517…D-1544) |
+| FR-IMP-09 | M | Date parsing: ISO date-times; UTC-midnight date-times converted to date-only (FR-FMT-11); localized strings ("… | D-801: Capacities importer to v1.0; slices I1 engine, I2 window, ACs `import-capacities.md` (approved, D-1517…D-1544) |
+| FR-IMP-10 | M | Link rewriting: all link forms become wikilinks resolved by source file/ID, not title alone: `[[Title]]`; Mark… | D-801: Capacities importer to v1.0; slices I1 engine, I2 window, ACs `import-capacities.md` (approved, D-1517…D-1544) |
+| FR-IMP-11 | M | Titles: the title comes from the source's `title:` (Capacities) or the H1 heading (Notion), never from the fil… | D-801: Capacities importer to v1.0; slices I1 engine, I2 window, ACs `import-capacities.md` (approved, D-1517…D-1544) |
+| FR-IMP-14 | M | Media: Capacities media objects (`Images/*.md` + `Images/Media/*`, `PDFs/*.md` + `PDFs/Media/*`) become Tegg I… | D-801: Capacities importer to v1.0; slices I1 engine, I2 window, ACs `import-capacities.md` (approved, D-1517…D-1544) |
+| FR-IMP-15 | M | Preserved metadata: original created/modified timestamps (`createdAt`, `lastUpdated`, `Created on`), not the i… | D-801: Capacities importer to v1.0; slices I1 engine, I2 window, ACs `import-capacities.md` (approved, D-1517…D-1544) |
+| FR-IMP-16 | M | Queries and views: Capacities Query objects and Notion database views are exported without their definitions. … | D-801: Capacities importer to v1.0; slices I1 engine, I2 window, ACs `import-capacities.md` (approved, D-1517…D-1544) |
+| FR-IMP-17 | M | Clean-up: remove invisible characters (zero-width spaces U+200B, BOMs), normalize Unicode (NFC) and line endin… | D-801: Capacities importer to v1.0; slices I1 engine, I2 window, ACs `import-capacities.md` (approved, D-1517…D-1544) |
+| FR-IMP-19 | M | Import report saved as a Page in the vault: counts per type, unresolved links with their location, renamed att… | D-801: Capacities importer to v1.0; slices I1 engine, I2 window, ACs `import-capacities.md` (approved, D-1517…D-1544) |
+| FR-IMP-20 | M | Re-import: in the MVP an import is one-time (D-49). If the vault already contains objects with the same `impor… | D-801: Capacities importer to v1.0; slices I1 engine, I2 window, ACs `import-capacities.md` (approved, D-1517…D-1544) |
+| FR-IMP-21 | M | Capacities tags: tag collections (exported as header-only CSVs) → tags (colors aren't in the export and must b… | D-801: Capacities importer to v1.0; slices I1 engine, I2 window, ACs `import-capacities.md` (approved, D-1517…D-1544) |
+| FR-IMP-22 | M | Capacities spaces: the user selects one space per import run (D-44). Other spaces in the same export can be im… | D-801: Capacities importer to v1.0; slices I1 engine, I2 window, ACs `import-capacities.md` (approved, D-1517…D-1544) |
+| FR-IMP-23 | M | Test data (D-50): (1) synthetic fixtures: small hand-written Capacities and Notion exports, committed to the r… | D-801: Capacities importer to v1.0; the real-export run is slice I1's finish line (import-capacities.md FR-IMP-03 AC-11, D-1543) |
+| FR-IMP-24 | M | Capacities weblinks (no Weblink type in Tegg, D-43) → objects of a type chosen in the mapping (default: Page) … | D-801: Capacities importer to v1.0; slices I1 engine, I2 window, ACs `import-capacities.md` (approved, D-1517…D-1544) |
 | FR-IMP-02 | — | Notion export (Markdown & CSV): pages → objects; databases → object types with attributes taken from the datab… | D-801: other importers to v1.0 (with the Capacities importer) |
 | FR-IMP-04 | — | Anytype export (Markdown export first; JSON/Protobuf evaluated later, see Risk R-06): types, relations → attri… | D-801: other importers to v1.0 (with the Capacities importer) |
 | FR-IMP-12 | — | Notion properties: properties of database rows are read from the database CSV (UTF-8 with BOM) and matched to … | D-801: other importers to v1.0 (with the Capacities importer) |
