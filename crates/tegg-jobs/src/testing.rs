@@ -39,6 +39,14 @@ impl NodeTransformer {
         let stdout = BufReader::new(child.stdout.take().ok_or_else(|| io::Error::other("no stdout"))?);
         Ok(NodeTransformer { proc: Mutex::new(Proc { child, stdin, stdout, next: 1 }) })
     }
+    /// STUB (v1-import §12.1): as `start`; the real one sends the child's stderr to the null device.
+    pub fn start_quiet(script: &Path) -> io::Result<NodeTransformer> {
+        NodeTransformer::start(script)
+    }
+    /// STUB (v1-import §12.1).
+    pub fn pid(&self) -> u32 {
+        self.proc.lock().unwrap_or_else(|e| e.into_inner()).child.id()
+    }
     /// `start(transform_cli(repo_root))`.
     pub fn from_repo(repo_root: &Path) -> io::Result<NodeTransformer> {
         NodeTransformer::start(&transform_cli(repo_root))

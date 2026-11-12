@@ -1,7 +1,7 @@
 # Product Cargo workspace (docs/architecture.md §11). Spikes and tools have their own manifests.
 [workspace]
 resolver = "2"
-members = ["crates/tegg-format", "crates/tegg-vault", "crates/tegg-index", "crates/tegg-schema", "crates/tegg-core", "crates/tegg-jobs"]
+members = ["crates/tegg-format", "crates/tegg-vault", "crates/tegg-index", "crates/tegg-schema", "crates/tegg-core", "crates/tegg-jobs", "crates/tegg-import"]
 # `.claude`: the app's worktrees (`.claude/worktrees/<name>/`) hold their own copies of `app` and `tools`, which must not
 # join this checkout's workspace (Cargo walks up to this manifest from a nested worktree).
 exclude = ["spikes", "tools", "app", ".claude"]
