@@ -63,6 +63,14 @@ async function cleanup(c: Ctx) {
   await end(c.d);
   rmSync(c.base, { recursive: true, force: true });
 }
+/** Drags the popover's resize handle by (dx, dy). A mouse click doesn't focus the handle, so its arrow keys can't be
+ *  used after a click (D-1516); the keys are L5's (`fr_lnk_11_ac4_a_resize_is_stored_once_on_key_up_...`). */
+async function resizeBy(d: Driver, dx: number, dy: number) {
+  const r = await d.getElementRect((await need(d, 'Resize preview')).elementId);
+  const x = Math.round(r.x + r.width / 2), y = Math.round(r.y + r.height / 2);
+  await d.execute('macos: clickAndDrag', { startX: x, startY: y, endX: x + dx, endY: y + dy, duration: 0.6 });
+  await sleep(300);
+}
 const uiStateOf = (sup: string): any => { try { return JSON.parse(readFileSync(join(sup, 'ui-state.json'), 'utf8')); } catch { return null; } };
 const countMark = (log: string, m: string) => marks(log).filter((x) => x === m).length;
 async function waitMarkCount(log: string, m: string, n: number, ms = MARK_TIMEOUT): Promise<boolean> {
@@ -220,7 +228,7 @@ test('fr_syn_06_ac37_a_preview_tour_writes_nothing_then_remove_link_writes_odkaz
       [['Jana Nováková'], 'Jana Nováková', 0], [['Petr Dvořák'], 'Petr Dvořák', 0], [['Projekt Alfa'], 'Projekt Alfa', 0],
       [['Zavolat Janě'], 'Zavolat Janě', 0], [['2026-10-07'], '2026-10-07', 0], [['2026-10-30'], '2026-10-30', 0],
       [['#účty', 'účty'], '#Účty', 0], [['#nápad', 'nápad'], '#nápad', 0], [['Účty'], '#Účty', 0],
-      [['Graf'], 'Graf', 0], [['graf.png'], 'Graf', 0], [['Smlouva'], 'Smlouva', 0], [['Plán'], 'Plán', 0], [['Plán'], 'Plán', 1],
+      [['Graf'], 'Graf', 0], [['Graf'], 'Graf', 1], [['Smlouva'], 'Smlouva', 0], [['Plán'], 'Plán', 0], [['Plán'], 'Plán', 1],
       [['Prázdná'], 'Prázdná', 0], [['Neplatná hlavička'], 'Neplatná hlavička', 0], [['Kruh A'], 'Kruh A', 0],
       [['odkaz na rozpočet'], 'Rozpočet 2027', 0], [['Nápad na podcast'], 'Nápad na podcast', 0], [['Mapa'], 'Mapa', 0],
     ];
@@ -252,8 +260,7 @@ test('fr_syn_06_ac37_a_preview_tour_writes_nothing_then_remove_link_writes_odkaz
     assert.ok(await previewShown(d, 'Jana Nováková'), 'a click on a link inside the preview replaces it (AP-814)');
     await (await need(d, 'Back to Rozpočet 2027')).click();
     assert.ok(await previewShown(d, 'Rozpočet 2027'), 'Back restores Rozpočet\'s preview');
-    await (await need(d, 'Resize preview')).click();
-    press('right'); press('right'); press('down');
+    await resizeBy(d, 32, 16);
     await sleep(300);
     press('escape');
     assert.ok(await noPreview(d), 'closed');
@@ -405,8 +412,7 @@ test('fr_lnk_11_ac4_the_popover_size_is_restored_after_a_relaunch', { timeout: 3
     const dlg = await need(d, 'Preview: Rozpočet 2027');
     const r0 = await d.getElementRect(dlg.elementId);
     assert.ok(Math.abs(r0.width - 380) <= 2, `default width 380 px (got ${r0.width})`);
-    await (await need(d, 'Resize preview')).click();
-    press('right'); press('right'); press('down');
+    await resizeBy(d, 32, 16);
     const want = { width: 412, height: Math.round(r0.height) + 16 };
     const st = await waitFile(join(c.sup, 'ui-state.json'), (x) => { try { const p = JSON.parse(x ?? '').preview; return p?.width === want.width && Math.abs((p?.height ?? 0) - want.height) <= 1; } catch { return false; } }, 3000);
     assert.ok(st, `ui-state.json holds preview.width ${want.width} and preview.height ${want.height}: ${JSON.stringify(uiStateOf(c.sup)?.preview)}`);

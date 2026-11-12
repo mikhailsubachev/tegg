@@ -76,6 +76,7 @@ async function previewShown(d: Driver, title: string | null, ms = 3000): Promise
   return false;
 }
 async function hoverEl(d: Driver, e: any) {
+  await d.execute('macos: hover', { elementId: e.elementId }); // scrolls a link out of view into the window first (D-1516)
   const r = await d.getElementRect(e.elementId);
   await d.execute('macos: hover', { x: Math.round(r.x + Math.min(8, r.width / 2)), y: Math.round(r.y + r.height / 2) });
 }

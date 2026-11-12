@@ -69,7 +69,7 @@ export function TypeChip({ apiRef, type, typeKey, types, readOnly, onChange, onO
           }]} />
       )}
       {open && (
-        <PopupMenu label={t('panel.changeTypeMenu')} anchor={opener.current ?? moreBtn.current} onClose={() => { setOpen(false); back(); }}
+        <PopupMenu label={t('panel.changeTypeMenu')} anchor={moreBtn.current ?? opener.current} onClose={() => { setOpen(false); back(); }}
           entries={targets.map((e) => ({
             kind: 'item' as const, key: e.key, label: e.name,
             content: (<><Icon name={typeIconName(e.key, e.icon)} size={14} /><span className="menu-title" data-user-content>{e.name}</span></>),

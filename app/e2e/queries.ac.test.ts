@@ -165,7 +165,7 @@ async function blockButton(d: Driver, title: string, label: string, ms = 3000): 
   const endAt = Date.now() + ms;
   while (true) {
     const b = await blockOf(d, title, 0);
-    for (const e of (b ? await b.$$(`-ios predicate string:label == "${esc(label)}" OR title == "${esc(label)}"`).catch(() => [] as any[]) : [])) {
+    for (const e of (b ? await b.$$(`-ios predicate string:label == "${esc(label)}" OR title == "${esc(label)}" OR value == "${esc(label)}"`).catch(() => [] as any[]) : [])) {
       if (await e.isDisplayed().catch(() => false)) return clickable(d, e);
     }
     if (Date.now() > endAt) break;
@@ -509,11 +509,9 @@ test('fr_ux_08_ac18_queries_for_voiceover_in_the_real_app', { timeout: 300_000 }
     const d = await launch(c, `note/${P.porada7}`);
     const b = await blockOf(d, OPEN, 8000);
     assert.ok(b, `the block is named "Query: ${OPEN}" in the accessibility tree`);
-    const said = [
-      String(await b.getAttribute('label').catch(() => '')), String(await b.getAttribute('help').catch(() => '')),
-      String(await b.getAttribute('AXHelp').catch(() => '')), String(await b.getAttribute('value').catch(() => '')),
-    ].join(' | ');
-    assert.match(said, /3 results/, `the block reads its result count \`3 results\` (aria-description): ${said}`);
+    // D-1515: the macOS tree doesn't give `aria-description` to the driver; the count is also hidden text in the block.
+    const count = await waitFor(async () => (await b.$$('-ios predicate string:value == "3 results" OR label == "3 results" OR title == "3 results"').catch(() => [] as any[])).length > 0, 3000);
+    assert.ok(count, 'the block reads its result count `3 results` (the description, as hidden text)');
     assert.deepEqual(await blockShows(d, OPEN, [T.t1, T.t2, T.t3], ALL_TASKS, 3000), [T.t1, T.t2, T.t3], 'its three rows by title');
     // The due date is the region's short date (R44, as Backlinks chips; D-1505): the real app uses the machine's region.
     const due = [undefined, 'cs', 'en-US', 'en-GB'].map((r) => new Intl.DateTimeFormat(r, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).format(Date.UTC(2026, 10, 12)));

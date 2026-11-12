@@ -2,8 +2,8 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.161, for review                                            |
-| **Date**            | 2026-11-11                                                          |
+| **Document status** | Draft v1.162, for review                                            |
+| **Date**            | 2026-11-12                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
 
@@ -175,6 +175,7 @@
 | v1.159  | 2026-11-11 | D-1510: no query rename while the index loads (slice Q QA review) |
 | v1.160  | 2026-11-11 | D-1511: the two-finger swipe between pages is back, following the macOS setting; scrollable things scroll instead (v0.123 feedback; amends D-1168) |
 | v1.161  | 2026-11-11 | Releases named Tegg, versioned `MAJOR.MINOR.PATCH` from 0.1.0: D-1512…D-1514 (owner, "Yes, as proposed"); amend D-118, D-597 |
+| v1.162  | 2026-11-12 | Real-app test triage (L6 run of 2026-11-11): D-1515 (descriptions the real-app tests read are also hidden text), D-1516 (AC-test changes for the triage; FR-GRP-01 AC-13's text follows D-1022); owner, "Approve all, go with your recommendations" |
 
 ---
 
@@ -1516,6 +1517,8 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1512 | Version numbers (owner, 2026-11-11: "Yes, as proposed"; amends D-597) | Releases are versioned `MAJOR.MINOR.PATCH`, starting at **0.1.0**: a release with new features raises MINOR (0.2.0), one with only fixes raises PATCH (0.1.1), major versions raise MAJOR. The version is chosen when a release is built (`cd app && npm run app:release -- <version>`), not committed: it sets the bundle version (About panel, Finder) and the sidebar label `v<version>` (FR-UX-01 AC-5); every other build shows `dev`. A release is a GitHub release `Tegg <version>` on the tag `v<version>` at the built main commit, with `Tegg-<version>.dmg` and `.zip`, no longer a pre-release; still ad-hoc signed, not notarized (D-118). |
 | D-1513 | AC-test changes for D-1512 (owner approval) (owner, 2026-11-11: "Yes, as proposed") | `app/test/version_label.ac.test.ts` and `app/webkit/version_label.ac.test.ts` change to FR-UX-01 AC-5's new label with `AC-Test-Change: version label from the release version (D-1512); approved-by: owner` |
 | D-1514 | The release app is named Tegg (owner, 2026-11-11: "Yes, as proposed"; amends D-118) | From release 0.1.0 the build given to the owner installs as **`~/Applications/Tegg.app`** and shows `Tegg` everywhere (Dock, menu bar, window title, `Quit Tegg`, About panel); installing it removes `~/Applications/Tegg Preview.app`. It keeps the preview build's identity under the hood: the Cargo feature `preview`, `tauri.preview.conf.json`, bundle id `app.tegg.preview` and the Application Support folder `~/Library/Application Support/Tegg Preview/`, so recent vaults and settings carry over without a migration and the test build (`app.tegg.desktop`, folder `Tegg`) never shares data or the single instance with it. While real-app tests run, a second app named Tegg (the test build) can show in the Dock. |
+| D-1515 | Descriptions the real-app tests read are also hidden text (owner, 2026-11-12: "Approve all, go with your recommendations"; as D-1424) | Where a real-app (L6) test checks a description, it is also hidden text (`span.sr-only`) next to its element, because the macOS tree doesn't give `aria-description` to the test driver: the query block's result count (`3 results`), the selected slash item's description (`A live list of objects`), and the Type settings folder field's help (`Saving moves … here`). FR-UX-08 AC-18, FR-QRY-06 AC-9 and FR-STO-01 AC-8 check that text at L6 |
+| D-1516 | AC-test changes for the L6 triage (owner approval) (owner, 2026-11-12: "Approve all, go with your recommendations") | The real-app tests named in `docs/feedback/l6-triage-2026-11-12.md` change their mechanics, not what they require: the graph's Tags checkbox is found as a checkbox (the sidebar has a `Tags` entry, D-761); `· modified` is checked through the `Revert` button; Rename appends after → ; `[[graf.png]]` is the second `Graf` chip; a link out of view is scrolled to before a hover; Search waits for its result before ⏎; the resize handle is dragged (a mouse click does not focus it; its keys are checked at L5); a table header is clicked as text; the outside-rename test expects 9 objects (D-1022, as the L5 test); and the description tests read D-1515's hidden text |
 
 ---
 
