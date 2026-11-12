@@ -253,7 +253,14 @@ export async function firstShown(d: Driver, label: string): Promise<any | null> 
   const q = `(label == "${l}" OR title == "${l}" OR value == "${l}")`;
   for (const sel of [`-ios predicate string:elementType IN {9, 10, 12, 17, 41, 42, 49, 80} AND ${q}`, `-ios predicate string:${q}`]) {
     for (const e of await d.$$(sel).catch(() => [] as any[])) {
-      if (await e.isDisplayed().catch(() => false)) return e;
+      if (!(await e.isDisplayed().catch(() => false))) continue;
+      // A menu item of a closed menu (the app menu's `Quit Tegg`) reports as displayed with an empty frame; the one
+      // in an open menu (the status item's) has a size. Take only what can be clicked.
+      if (String(await e.getAttribute('elementType').catch(() => '')) === '54') {
+        const r = await d.getElementRect(e.elementId).catch(() => null);
+        if (!r || r.width === 0 || r.height === 0) continue;
+      }
+      return e;
     }
   }
   return null;
@@ -284,8 +291,8 @@ export function clickable(d: Driver, e: any): any {
           // Only web content (link 42, image 43, text 48): a status-menu item isn't hittable either, but its click works.
           const web = ['42', '43', '48'].includes(String(await target.getAttribute('elementType').catch(() => '')));
           if (prop === 'click' && (!web || String(await target.getAttribute('hittable').catch(() => 'true')) !== 'false')) return target.click();
-          const r = await d.getElementRect(target.elementId);
-          await d.execute(prop === 'click' ? 'macos: click' : 'macos: doubleClick', { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) });
+          // By element: helpers/l6-clicks.ts scrolls it into the window first and clicks its centre.
+          await d.execute(prop === 'click' ? 'macos: click' : 'macos: doubleClick', { elementId: target.elementId });
         };
       }
       const v = Reflect.get(target, prop, target);

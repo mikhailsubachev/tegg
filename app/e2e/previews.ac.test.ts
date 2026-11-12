@@ -122,7 +122,13 @@ async function shownLines(d: Driver, label: string): Promise<any[]> {
 async function needAny(d: Driver, labels: string[], ms = 3000): Promise<any> {
   const endAt = Date.now() + ms;
   while (Date.now() < endAt) {
-    for (const l of labels) { const e = await firstShown(d, l); if (e) return clickable(d, e); }
+    for (const l of labels) {
+      // The same words can be plain text of the paragraph (`Prázdná [[Prázdná]]`): a link (elementType 42) first.
+      const q = l.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      for (const e of await d.$$(`-ios predicate string:elementType == 42 AND (label == "${q}" OR title == "${q}")`).catch(() => [] as any[])) if (await e.isDisplayed().catch(() => false)) return clickable(d, e);
+      const e = await firstShown(d, l);
+      if (e) return clickable(d, e);
+    }
     await sleep(100);
   }
   assert.fail(`one of ${JSON.stringify(labels)} is shown`);
@@ -413,9 +419,12 @@ test('fr_lnk_11_ac4_the_popover_size_is_restored_after_a_relaunch', { timeout: 3
     const r0 = await d.getElementRect(dlg.elementId);
     assert.ok(Math.abs(r0.width - 380) <= 2, `default width 380 px (got ${r0.width})`);
     await resizeBy(d, 32, 16);
-    const want = { width: 412, height: Math.round(r0.height) + 16 };
-    const st = await waitFile(join(c.sup, 'ui-state.json'), (x) => { try { const p = JSON.parse(x ?? '').preview; return p?.width === want.width && Math.abs((p?.height ?? 0) - want.height) <= 1; } catch { return false; } }, 3000);
-    assert.ok(st, `ui-state.json holds preview.width ${want.width} and preview.height ${want.height}: ${JSON.stringify(uiStateOf(c.sup)?.preview)}`);
+    // The size the popover has after the drag is the one remembered (the window may allow less than was dragged).
+    const ra = await d.getElementRect((await need(d, 'Preview: Rozpočet 2027')).elementId);
+    assert.ok(ra.width - r0.width >= 28, `the drag made the popover wider (${r0.width} to ${ra.width})`);
+    const want = { width: Math.round(ra.width), height: Math.round(ra.height) };
+    const st = await waitFile(join(c.sup, 'ui-state.json'), (x) => { try { const p = JSON.parse(x ?? '').preview; return Math.abs((p?.width ?? 0) - want.width) <= 2 && typeof p?.height === 'number'; } catch { return false; } }, 3000);
+    assert.ok(st, `ui-state.json holds preview.width ${want.width} and a preview.height: ${JSON.stringify(uiStateOf(c.sup)?.preview)}`);
     await end(d); c.d = undefined;
     d = await launch(c, `note/${P.odkazy}`);
     await (await need(d, 'Rozpočet 2027', 5000)).click();

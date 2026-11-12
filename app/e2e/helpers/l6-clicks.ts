@@ -10,6 +10,7 @@
 // centre where XCTest's click does nothing; this does it for every click, so the copies of that helper in the test files
 // behave the same. A test that needs another point passes coordinates itself, which is left as it is.
 import * as wdio from 'webdriverio';
+import { execFileSync } from 'node:child_process';
 
 export * from 'webdriverio';
 
@@ -24,8 +25,15 @@ export async function remote(...args: Parameters<typeof wdio.remote>): ReturnTyp
   // element first; this does the same with wheel events over the window's centre, until the centre is inside.
   const inView = async (id: string): Promise<{ x: number; y: number }> => {
     let c = centre(await rect(id));
+    // Menus and the menu bar (menu 53, menu item 54, menu bar 55, menu bar item 56, status item 80) are outside the
+    // window by design and never scroll; a wheel event would close an open menu.
+    const type = String(await d.getElementAttribute(id, 'elementType').catch(() => ''));
+    if (['53', '54', '55', '56', '80'].includes(type)) return c;
+    // A switch (40) in Settings reports a frame as tall as its row; the control itself is at the top of it, and a
+    // click in the middle of the frame misses it.
+    const atTop = async (c0: { x: number; y: number }) => { if (type !== '40') return c0; const r = await rect(id); return r.height > 40 ? { x: c0.x, y: Math.round(r.y + 10) } : c0; };
     const win = await d.$('//XCUIElementTypeWindow').then((w: any) => d.getElementRect(w.elementId)).catch(() => null);
-    if (!win) return c;
+    if (!win) return atTop(c);
     // Only a centre outside the window counts: title-bar and bottom-bar controls are inside it and don't scroll.
     const top = win.y, bottom = win.y + win.height;
     const mid = { x: Math.round(win.x + win.width / 2), y: Math.round(win.y + win.height / 2) };
@@ -39,7 +47,7 @@ export async function remote(...args: Parameters<typeof wdio.remote>): ReturnTyp
       if (Math.abs(next.y - mid.y) >= Math.abs(off)) { sign = -sign; stuck++; } else stuck = 0;
       c = next;
     }
-    return c;
+    return atTop(c);
   };
   for (const [command, script] of [['click', 'macos: click'], ['doubleClick', 'macos: doubleClick']] as const) {
     d.overwriteCommand(command, async function (this: any) {
@@ -49,6 +57,16 @@ export async function remote(...args: Parameters<typeof wdio.remote>): ReturnTyp
   d.overwriteCommand('execute', async function (orig: any, script: any, ...rest: any[]) {
     const a = rest[0];
     if (typeof script === 'string' && a && typeof a === 'object') {
+      // `macos: hover` brings the app under test to the front, which a pointer moving over a window never does
+      // (the capture confirmation panel must not take the focus, FR-CAP-01 AC-13). A hover is plain mouse-moved
+      // events from CoreGraphics, a few points apart so the page sees the pointer move.
+      if (script === 'macos: hover') {
+        const to = typeof a.elementId === 'string' ? await inView(a.elementId) : { x: Number(a.x), y: Number(a.y) };
+        if (!Number.isFinite(to.x) || !Number.isFinite(to.y)) throw new Error(`macos: hover needs an element or a point: ${JSON.stringify(a)}`);
+        const js = `ObjC.import('CoreGraphics'); for (const dx of [-6, -4, -2, 0]) { const e = $.CGEventCreateMouseEvent(null, $.kCGEventMouseMoved, {x: ${to.x} + dx, y: ${to.y}}, 0); $.CGEventPost($.kCGHIDEventTap, e); delay(0.03); }`;
+        execFileSync('osascript', ['-l', 'JavaScript', '-e', js], { timeout: 10_000 });
+        return null;
+      }
       if (/^macos: (click|doubleClick|rightClick|hover|scroll)$/.test(script) && typeof a.elementId === 'string') {
         const { elementId, ...other } = a;
         return orig(script, { ...other, ...(script === 'macos: scroll' ? centre(await rect(elementId)) : await inView(elementId)) });
