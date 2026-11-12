@@ -20,9 +20,11 @@ Until a part is implemented it exists as a stub that compiles and returns a deli
 | `merge` | yes | yes | no (D-290) | `planning`, `confirm`, `backup` | 4D-lite (D-392) |
 | `key-rename`, `value-remove`, `type-move`, `folder-move`, `type-delete` | yes | yes | no | `planning`, `confirm`, `backup` | v1.0 |
 | `test-backup` | no | yes | no | `planning`, `backup` | 4C, only with `TEGG_TEST=1` and in Rust tests (FR-HIS-04 AC-5) |
+| `import` | no (the caller's preview confirms before `start`; v1-import CP-4, pending) | yes, only for an existing vault that holds a `.md` outside `.tegg/` or whose type file the run changes (D-1549 (5)); never for a new vault | no (D-1523, D-1549 (8)) | `queued`, `planning`, `backup` (D-110) | v1.0, slice I1 ([v1-import.md](v1-import.md) §9) |
 
 - **One job at a time** (D-393): a FIFO queue in the core. A job whose files overlap a running job waits for it. `job_start` returns at once with the `jobId`; the job runs on the core's job thread.
 - **Phases:** `queued`, `planning`, `confirm`, `backup`, `writing`, `done`, `cancelled`, `failed`. `done`, `cancelled` and `failed` are final.
+- **A job whose target is not the open vault (D-1520, D-1549 (6); v1-import §9.1).** An `import` into an existing vault is a job of that vault's own engine (`Jobs::start_import`): it queues with that vault's jobs only, and it finishes as long as that vault's `Core` lives, whichever vault the window shows. An `import` into a new vault runs on a private engine over the temporary folder `<name>.tegg-importing`: it has no `Core`, waits for no job, makes no other job wait, and reads and writes nothing in the open vault. Both report `job:progress` with `kind: "import"`.
 
 ## 2. Crate `tegg-jobs` (new, `crates/tegg-jobs`)
 
@@ -225,6 +227,7 @@ type TransformedDto = { kind: 'bytes'; text: string; edits: { start: number; end
 - On open, `VaultInfo.interrupted` lists them; the UI shows `Renaming "<old>" was interrupted: <done> of <total> links updated` with `Finish` and `Undo`.
   - **Undo**: each file the job wrote that is still exactly the logged version gets its bytes from before the job (the note its old name too); a file changed since is left alone (NFR-REL-02).
   - **Finish**: files not done yet get the job's change from their current bytes, only if they are still what the job found and valid UTF-8; for a rename whose note wasn't renamed yet, the note is renamed first, and if that fails nothing else is changed.
+- **Import (v1.0, slice I1; D-1523, v1-import §9.6).** While an `import` into an existing vault writes, the core keeps `<jobId>.json` (`kind: "import"`, the space as `title`, the source's name, the number of files to create, the backup zip's name) and a write-ahead `<jobId>.log` in the same folder: before each action one line, `D` (a folder the run creates), `C` (a file the run creates, with the size and hash of its bytes) or `R` (an extended type file, with its bytes from before and the version written). No file of the run exists that the log doesn't name. On open, `VaultInfo.interrupted` lists it with `kind: "import"` and the app offers **`Undo` only**: each `C` file that still has exactly the logged bytes is removed, a changed one is kept and listed; an `R` file that is still the written version gets its earlier bytes back; a `D` folder is removed when empty; then the journal goes. `Finish` answers `NotImplemented`: an import is never resumed. A failed import does the same roll-back in its own process. An import into a new vault keeps no journal: its temporary folder and marker are the recovery (v1-import §9.5).
 - `.tegg-tmp` leftovers are removed by the vault open (data-safety AC-4). A case-only rename never leaves the note only in a temp file: its bytes are replaced in place, then only the case of the name changes (§3).
 
 ## 9. Editor, watcher and index
