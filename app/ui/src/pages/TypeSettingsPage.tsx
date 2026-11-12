@@ -73,7 +73,7 @@ export function Dialog({ label, onCancel, children, className, restore, role = '
 }
 
 /** A text setting committed with ⏎ or on leaving it; `check` returns a message to refuse it locally. */
-function TextSetting({ label, value, disabled, desc, multiline, check, onCommit, error, inputRef, onDraft }: {
+function TextSetting({ label, value, disabled, desc, descAsText, multiline, check, onCommit, error, inputRef, onDraft }: {
   label: string;
   value: string;
   disabled?: boolean;
@@ -85,6 +85,8 @@ function TextSetting({ label, value, disabled, desc, multiline, check, onCommit,
   inputRef?: (el: HTMLInputElement | null) => void;
   /** The text while it is being typed (4E-1: the folder field's preview, R99 B1). */
   onDraft?: (v: string) => void;
+  /** D-1515: `desc` also as hidden text next to the field (the folder field only). */
+  descAsText?: boolean;
 }) {
   const [v, setV] = useState(value);
   const [local, setLocal] = useState<string | null>(null);
@@ -114,7 +116,7 @@ function TextSetting({ label, value, disabled, desc, multiline, check, onCommit,
           else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); editing.current = false; setLocal(null); setV(value); }
         }} />
       {/* D-1515: the description also as hidden text, for the macOS tree (D-1424's way). */}
-      {desc && <span className="sr-only" data-description-text="">{desc}</span>}
+      {desc && descAsText && <span className="sr-only" data-description-text="">{desc}</span>}
       <FieldError id={errId} text={shown} />
     </label>
   );
@@ -317,7 +319,7 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted }: {
                 ))}
               </div>
             </div>
-            <TextSetting label={t('ts.folder')} value={type.folder} disabled={ro} desc={folderHelp} error={w.errors.folder}
+            <TextSetting label={t('ts.folder')} value={type.folder} disabled={ro} desc={folderHelp} descAsText error={w.errors.folder}
               check={(v) => { const r = checkFolder(v, types as never, type.key); return r ? t(`typeRule.${r.reason}`) : null; }}
               onDraft={previewFolder}
               onCommit={(v) => { setMoving(null); expectFolderMove(type.key); set('folder', v, t('ts.folder')); }} />

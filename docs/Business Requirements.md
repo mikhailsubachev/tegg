@@ -3,7 +3,7 @@
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
 | **Document status** | Draft v1.162, for review                                            |
-| **Date**            | 2026-11-11                                                          |
+| **Date**            | 2026-11-12                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
 
