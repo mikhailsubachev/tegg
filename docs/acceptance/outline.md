@@ -3,11 +3,11 @@
 See [README](README.md) for conventions. Release v1.0 (FR-EDT-11 moved there by D-376). Slice **OL "Outline"** turns on the right panel's Outline tab. Today the tab is disabled with `Coming in v1.0` (D-127, D-376, D-563, D-564; [inbox.md](inbox.md) FR-NAV-05 AC-1, app-shell R2 row `outline`). The slice follows the owner's boards `design/edit-note-page/Outline.dc.html` (light) and `OutlineDark.dc.html` (dark), sections A–D, E1–E4 and V1–V11, and the prototype `design/edit-note-page/outline-rail-prototype.html`. The prototype's script is the reference for the rail's numbers and its row rule. The slice has two parts:
 
 - **The Outline tab** (FR-EDT-11). A tree of the note's headings, with live updates, the current section, a jump to a heading, collapsing, an empty state and the keyboard.
-- **The edge rail** (E1–E4, V1–V11). The owner chose it on 2026-11-13, but it is **not in the BRD yet**. It draws one short line per heading on the note's right edge. Hover, or ⌘J, opens a floating card with the same rows.
+- **The edge rail** (E1–E4, V1–V11). The owner chose it on 2026-11-13, and D-1600 makes it requirement **FR-EDT-16**. It draws one short line per heading on the note's right edge. Hover, or ⌘J, opens a floating card with the same rows.
 
 The Outline only reads: it never writes to the vault. Its view state is machine-local (`ui-state.json`, FR-STO-07). Where the board and a decision differ, the decision wins. Where neither decides, the criterion follows the **proposal** of an AP point at the end of this file and names it.
 
-**Status: draft, awaiting AP-1400…AP-1427** (end of this file). No AP is decided yet. A criterion that names an AP follows its proposal and changes with the decision. Contract: `docs/contracts/v1-outline.md`, to be written from these criteria after the APs are decided. The module and attribute names used here (`outlineHeadings`, `railRows`, `foldKey`, `data-outline-flash`, `data-outline-rail`) are the proposal it starts from.
+**Status: approved, 2026-11-13.** The owner accepted AP-1400…AP-1427 (end of this file) as proposed ("Accept all 28"): D-1600…D-1627 (BRD v1.172; AP-14xx → D-16xx with the same last two digits). Contract: `docs/contracts/v1-outline.md`. The module and attribute names used here (`outlineHeadings`, `railRows`, `foldKey`, `data-outline-flash`, `data-outline-rail`) are the proposal it starts from.
 
 **Scope.**
 - FR-EDT-11 (the Outline tab).
@@ -694,9 +694,9 @@ Rules:
 
 ---
 
-## Points for the owner (AP-1400…AP-1427, pending)
+## Points for the owner (AP-1400…AP-1427 → D-1600…D-1627, accepted as proposed)
 
-Raised while writing these criteria. Each criterion that depends on one names it and follows its **proposal**.
+Raised while writing these criteria. Each criterion that depends on one names it and follows its **proposal**, which the owner accepted (AP-14xx → D-16xx).
 
 | AP | Point | Proposal | Alternative | Affects |
 | --- | --- | --- | --- | --- |
