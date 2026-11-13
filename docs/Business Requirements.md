@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.173, for review                                            |
+| **Document status** | Draft v1.174, for review                                            |
 | **Date**            | 2026-11-13                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -187,6 +187,7 @@
 | v1.171  | 2026-11-13 | D-1570 (owner, "Yes, rewrite it"): a bound link in a value kept as text under `<key>-text` is rewritten as the same link in a body |
 | v1.172  | 2026-11-13 | Capacities import, slice I2 window contract (`docs/contracts/v1-import-window.md`; owner, "Approve all"): D-1571…D-1579 (WP-1…WP-9): the AC-test change for the `import` route approved (D-1571), 39 window strings added to R155, `import.types.tags` removed, lower-case kind words (D-1572, amends R155 / D-1530; NFR-OTH-02 AC-18 changed), the attributes 4b lists (D-1573), 4b's controls (D-1574), the new vault's place with no vault open (D-1575, amends D-1537), `Read again` keeps the mapping (D-1576), when 4a offers `New type` (D-1577), what `Technical attributes` counts (D-1578), the finished status and a new `Import…` (D-1579); D-1580: the import report's own words (34 texts) approved; D-1530, D-1531, D-1537 noted |
 | v1.173  | 2026-11-13 | Capacities import, slice I2, QA review of the window contract (`docs/contracts/v1-import-window.md`; owner, "Accept all four"): D-1581…D-1584: a missing default new-vault parent `~/Documents/Tegg/` is proposed and created at `start` (D-1581, amends D-1537, D-1575; engine change in v1-import §5, §9.5), FR-IMP-21 AC-5 expects `status · select` (D-1582), step 4b's lower-case state words `import.state.*` (D-1583, amends R155), `import.quit.body` offers the undo (D-1584, amends D-1572, R155) |
+| v1.174  | 2026-11-13 | D-1585: five AC-test changes of the slice I2 build (owner, "Approve all five") |
 
 ---
 
@@ -1598,6 +1599,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1582 | The expected text of FR-IMP-21 AC-5 (QA-2) (owner, 2026-11-13: "Accept all four"; slice I2, QA review of the window contract) | Step 4b shows the tag-like attribute as `status · select`: the engine names a new attribute after its source key (D-1553), and the kind word is lower case (D-1572). FR-IMP-21 AC-5 is changed from `Status · select`. Window contract §3.7, §9.3 (5). |
 | D-1583 | Step 4b's state words (QA-3) (owner, 2026-11-13: "Accept all four"; slice I2, QA review of the window contract) | 4b shows a Task status's state in lower case, as the board (`To do · open`). R155 gains four keys `import.state.open` `open`, `import.state.inProgress` `in progress`, `import.state.done` `done`, `import.state.cancelled` `cancelled`; the engine's state `"in progress"` maps to `import.state.inProgress`. R155's note that the state words reuse the Task type's (capitalized) `state.*` keys is replaced. **Amends R155** (NFR-OTH-02 AC-18 counts the four keys: 43 added in all). Window contract §3.7, §5.2. |
 | D-1584 | The text of the quit question's body (QA-4) (owner, 2026-11-13: "Accept all four"; slice I2, QA review of the window contract) | `import.quit.body` (an import into an existing vault, quit during `writing`) reads `Tegg will offer to undo the unfinished import the next time you open the vault.`: the next open offers `Undo` in the interrupted-job banner and undoes nothing by itself. **Amends D-1572 and R155** (was `Tegg will undo the unfinished import the next time you open the vault.`). Window contract §5.2, §6.3; FR-UX-07 AC-15. |
+| D-1585 | Five AC-test changes of the slice I2 build (owner, 2026-11-13: "Approve all five"; slice I2) | `nfr_oth_02_ac2_shown_texts_are_catalog_keys` counts one message per core error kind outside the Import window's own `import.error.*` texts (R155); `fr_imp_07_ac9_refusals_write_nothing` refuses a new-vault parent missing two levels deep (D-1581 accepts one); the Import keyboard test checks that the focus returns to the opener after Esc (contract §3.2); `nfr_oth_02_ac18_import_strings` counts `url` as literal content (contract §3.6); the step-4b-to-5 preview test waits for the page's name before reading it. No criterion changes. |
 
 ---
 

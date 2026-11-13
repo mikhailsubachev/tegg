@@ -315,7 +315,8 @@ fn fr_imp_07_ac9_refusals_write_nothing() {
     let inside_vault = existing_vault(&sb).join("Pages");
     let before = snapshot(&sb.base);
     assert_eq!(plan_err(&Target::NewVault { parent: taken.clone(), name: VAULT_NAME.into() }), Some(ImportError::TargetExists), "the folder exists");
-    assert_eq!(plan_err(&Target::NewVault { parent: sb.base.join("není"), name: VAULT_NAME.into() }), Some(ImportError::TargetNotWritable), "the place doesn't exist");
+    // D-1581: a parent missing one level deep is created at start; one missing two levels deep is refused.
+    assert_eq!(plan_err(&Target::NewVault { parent: sb.base.join("není").join("ani tohle"), name: VAULT_NAME.into() }), Some(ImportError::TargetNotWritable), "the place is missing two levels deep");
     {
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&read_only, std::fs::Permissions::from_mode(0o555)).expect("setup: chmod");

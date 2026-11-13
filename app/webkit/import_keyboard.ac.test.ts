@@ -196,6 +196,12 @@ test('fr_ux_03_ac44_import_without_the_pointer', async ({ page }) => {
 
 test('fr_ux_03_ac44_import_without_the_pointer: Tab cycles inside the dialog; Step 0\'s radios move with arrows', async ({ page }) => {
   await startImport(page, { imports: C01() });
+  // The element that had the focus before the window opened (contract §3.2: closing returns the focus to it).
+  const opener = await page.evaluate(() => {
+    const a = (document.activeElement ?? document.body) as HTMLElement;
+    a.setAttribute('data-test-opener', '1');
+    return (a.getAttribute('aria-label') ?? a.tagName).slice(0, 60);
+  });
   await paletteRun(page, 'Import…');
   await mustStep(page, '0', 'step 0');
   const seenFocus: string[] = [];
@@ -210,7 +216,12 @@ test('fr_ux_03_ac44_import_without_the_pointer: Tab cycles inside the dialog; St
   assert.equal(await list.count(), 3, 'three sources');
   await key(page, 'ArrowDown', '↓ on Source');
   assert.equal(await list.nth(0).getAttribute('aria-checked'), 'true', '`Capacities export` stays checked: the others are aria-disabled');
-  await key(page, 'Escape', 'Esc');
+  await page.keyboard.press('Escape');
   await mustBeClosed(page, 'Esc on step 0 is Cancel');
+  const back = await eventually(() => page.evaluate(() => {
+    const a = document.activeElement as HTMLElement | null;
+    return { opener: !!a && a.hasAttribute('data-test-opener'), inWindow: !!a?.closest('[data-import-step]'), what: (a?.getAttribute('aria-label') ?? a?.tagName ?? '').slice(0, 60) };
+  }), (v) => v.opener, 2000);
+  assert.ok(!back.inWindow && back.opener, `closing returns the focus to the opener ("${opener}"), not "${back.what}" (contract §3.2)`);
   assert.ok((await statusOpen(page).count()) === 0, 'no status');
 });

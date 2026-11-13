@@ -41,7 +41,8 @@ test('nfr_oth_02_ac2_shown_texts_are_catalog_keys', async () => {
   const coming = keys.filter((k) => typeof en[k] === 'string' && /^Coming in \{\w+\}$/.test(en[k] as string));
   assert.ok(coming.length > 0, 'no catalog message "Coming in {…}" (D-116, AP-74)');
   for (const kind of ERROR_KINDS) {
-    const hit = keys.filter((k) => /error/i.test(k) && squash(k).endsWith(squash(kind)));
+    // The Import window's own error texts (`import.error.*`, R155) sit beside the general ones; they are not counted here.
+    const hit = keys.filter((k) => !k.startsWith('import.error.') && /error/i.test(k) && squash(k).endsWith(squash(kind)));
     assert.equal(hit.length, 1, `exactly one catalog message for core error kind ${kind} (found: ${hit.join(', ') || 'none'})`);
   }
 });

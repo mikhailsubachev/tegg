@@ -299,7 +299,7 @@ function contentOf(...files: string[]): string[] {
     else if (v && typeof v === 'object') Object.entries(v).forEach(([k, x]) => { out.add(k); walk(x); });
   };
   for (const f of files) walk(canned(f));
-  for (const t of ['Page', 'Pages', 'Task', 'Tasks', 'Daily Note', 'Daily Notes', 'Meeting', 'Meetings', 'Project', 'Projects', 'Idea', 'Ideas', 'Image', 'Images', 'PDF', 'PDFs', 'Quick Note', 'Tag', 'Person', 'People', 'Due date', 'Assignees', 'Status', 'Priority', 'To do', 'In progress', 'Waiting', 'Done', 'Cancelled', 'Date', 'Attendees']) out.add(t);
+  for (const t of ['Page', 'Pages', 'Task', 'Tasks', 'Daily Note', 'Daily Notes', 'Meeting', 'Meetings', 'Project', 'Projects', 'Idea', 'Ideas', 'Image', 'Images', 'PDF', 'PDFs', 'Quick Note', 'Tag', 'Person', 'People', 'Due date', 'Assignees', 'Status', 'Priority', 'To do', 'In progress', 'Waiting', 'Done', 'Cancelled', 'Date', 'Attendees', 'url']) out.add(t);
   return [...out];
 }
 

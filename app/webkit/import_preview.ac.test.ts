@@ -156,7 +156,9 @@ test('fr_imp_05_ac10_cancel_writes_nothing: 4b, 4c and its lists, 5', async ({ p
   // 4c, its lists and 5 (the decisions plan).
   const page2 = await page.context().newPage();
   core = await startImport(page2, { imports: DECISIONS() });
-  const route = await mainName(page2);
+  // The new page's route is ready before it is read (state, not time).
+  const route = await eventually(() => mainName(page2), (n) => !!n, 5000);
+  assert.ok(route, 'the second page shows its route after start');
   for (const [s, how] of [['4c', 'Cancel'], ['4c', 'Esc'], ['list', 'Esc'], ['5', 'Cancel'], ['5', 'Esc']] as const) {
     const discards = (await importCallsOf(core, 'import_discard')).length;
     await openAt(page2, s === '5' ? '5' : '4c', async () => {
