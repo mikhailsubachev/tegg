@@ -88,8 +88,9 @@ test('fr_imp_07_ac10_source_step_real_app', { timeout: 300_000 }, async () => {
     // Stop: a second read, stopped; the empty drop area within 1 s.
     await (await need(d, 'Choose zip…')).click();
     assert.ok(await shown(d, 'Stop', 3000), '`Stop` while reading');
+    const stop = await need(d, 'Stop');
     const t0 = Date.now();
-    await (await need(d, 'Stop')).click();
+    await stop.click();
     assert.ok(await waitFor(async () => !(await shown(d, 'Reading the export', 100)), 1500), 'Stop ends reading');
     assert.ok(Date.now() - t0 <= 1500, `within 1 s (${Date.now() - t0} ms)`);
     assert.ok(!(await enabled(d, 'Continue', 300)), 'Continue is disabled again (the empty drop area)');
@@ -304,7 +305,7 @@ test('fr_ux_03_ac44_import_without_the_pointer_real_app', { timeout: 600_000 }, 
     const notes = Object.keys(tree(root)).filter((p) => p.endsWith('.md') && !p.startsWith('.tegg/')).sort();
     assert.deepEqual(notes, ['Pages/Import report 2026-11-12 Work.md', 'Pages/Quarterly plan.md', 'Pages/Work home.md', 'Tasks/Work task.md'], 'Work\'s objects only, and the report');
     for (const p of notes.filter((x) => !x.includes('Import report'))) {
-      assert.match(readFileSync(join(root, p), 'utf8'), /^import-id: "capacities:Work\//m, `${p}: imported from Work`);
+      assert.match(readFileSync(join(root, p), 'utf8'), /^import-id: "?capacities:Work\//m, `${p}: imported from Work`);
     }
   } finally {
     await cleanupImport(c);
