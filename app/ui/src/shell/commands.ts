@@ -111,6 +111,11 @@ export type ShellActions = {
   newQuery?: () => void;
   /** Whether the note's editor had the focus (before the palette opened): `Insert query` is listed only then. */
   editorFocused?: () => boolean;
+  /** Slice OL (v1-outline §6): `Show outline`, ⌘J, the tab's Expand all / Collapse all, `Toggle outline rail`. */
+  showOutline?: () => void;
+  outlineJump?: () => void;
+  outlineFold?: (all: 'expand' | 'collapse') => void;
+  toggleOutlineRail?: () => void;
 };
 
 /** Slice G1 and G3 (v1-graph §4, §16.3): the graph route's commands, run by the shown graph page. */
@@ -138,6 +143,8 @@ export type ShellContext = {
   route?: { id: string; param?: string; key?: string; type?: string; date?: string; path?: string | null; review?: unknown; hasFrontmatter?: boolean } | null;
   /** Slice G2 (D-1045): the right panel as drawn on the current route. */
   panel?: { open: boolean; tab: 'backlinks' | 'outline' | 'graph' };
+  /** Slice OL: present only while the Outline is on screen (the panel shown on the `outline` tab, with a source). */
+  outline?: { canExpandAll: boolean; canCollapseAll: boolean } | null;
 };
 
 export type Command = {
@@ -398,7 +405,16 @@ export function commands(ctx: ShellContext): Command[] {
     list.push({ id: 'panel.backlinks', title: 'commands.showBacklinks', section: 'view', needsVault: true, run: (c) => a(c)?.showBacklinks?.() });
     // Slice G2 (FR-NAV-05 AC-2, FR-UX-03 AC-21): no shortcut.
     list.push({ id: 'panel.graph', title: 'cmd.graph.showLocal', section: 'view', needsVault: true, run: (c) => a(c)?.showLocalGraph?.() });
+    // Slice OL (outline.md R175, D-1617, D-1618).
+    list.push(
+      { id: 'panel.outline', title: 'cmd.outline.show', section: 'view', needsVault: true, run: (c) => a(c)?.showOutline?.() },
+      { id: 'outline.jump', title: 'cmd.outline.jump', section: 'view', shortcut: shortcutOf('outline.jump'), needsVault: true, run: (c) => a(c)?.outlineJump?.() },
+    );
+    if (ctx.outline?.canExpandAll) list.push({ id: 'outline.expandAll', title: 'cmd.outline.expandAll', section: 'view', needsVault: true, run: (c) => a(c)?.outlineFold?.('expand') });
+    if (ctx.outline?.canCollapseAll) list.push({ id: 'outline.collapseAll', title: 'cmd.outline.collapseAll', section: 'view', needsVault: true, run: (c) => a(c)?.outlineFold?.('collapse') });
   }
+  // Slice OL (D-1601): every route with a vault.
+  if (ctx.vault) list.push({ id: 'outline.toggleRail', title: 'cmd.outline.toggleRail', section: 'view', needsVault: true, run: (c) => a(c)?.toggleOutlineRail?.() });
   // R13 (types.md, ms3-shell §14.7.2): no shortcuts (D-234).
   const route = ctx.route ?? null;
   const routeKey = route ? (route.param ?? route.key ?? route.type ?? '').normalize('NFC') : '';
