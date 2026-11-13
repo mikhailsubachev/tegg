@@ -20,6 +20,8 @@ Unchanged from ms2-shell §1, plus:
   - `TEGG_TEST_PICK_DIR=<dir>`: the folder dialog returns `<dir>` without showing NSOpenPanel; an empty value means the user cancelled (AP-79).
   - `TEGG_THEME=system|light|dark`: start with this theme instead of the stored one, without storing it.
   - `TEGG_ROUTE=<route>`: open this route (§4.1) after the vault opens, instead of the launch landing (§4.3).
+  - Slice I2 (v1-import-window §8): `TEGG_TEST_PICK_FILE=<path>`: the Import window's zip dialog (`import_pick_source('zip')`) returns `<path>` without a dialog; empty = cancelled. `TEGG_TEST_PICK_SOURCE_DIR=<dir>`: its folder dialog (`import_pick_source('folder')`) returns `<dir>`; when unset, `TEGG_TEST_PICK_DIR` answers it. The import's own hooks (`TEGG_TEST_IMPORT_PACE`, `TEGG_TEST_IMPORT_FAIL`, `TEGG_TEST_IMPORT_FREE`) are in v1-import-window §8.
+- **App menu, slice I2 (v1-import-window §4.1):** `File › Import…` (item id `tegg-import`, no accelerator, its text `cmd.import` from `strings.rs`) shows the main window and emits `import:open`; the UI runs the command `import.open`.
 - **Marks** (ms2-shell §1):
   - `ui-ready` is redefined: the frame is shown (title bar, sidebar, centre pane, or the chooser when no vault is open) and the palette and the switcher accept input (AP-79).
   - New: `route-ready:<route>` is written once per route per process when that route's page has painted, so Appium waits on navigation instead of sleeping.
@@ -127,7 +129,7 @@ export function overdue(milestone: Milestone): string[];   // entries still TBD 
 type Command = {
   id: string;                       // 'goto.inbox', 'goto.type:čajovna', 'object.new', 'view.toggleSidebar', 'theme.dark'
   title: string;                    // catalog key; type commands carry the plural as a variable
-  section: 'navigate' | 'create' | 'view' | 'vault' | 'app';
+  section: 'navigate' | 'create' | 'view' | 'vault' | 'app' | 'edit' | 'file';   // 'file': `import.open` (slice I2, v1-import-window §4.2)
   shortcut?: string;                // one of SHORTCUTS' keys
   due?: Due;                        // set for R3 commands: listed, shown "Coming in …", never run (AP-74)
   needsVault: boolean;              // false only for the commands of AP-81

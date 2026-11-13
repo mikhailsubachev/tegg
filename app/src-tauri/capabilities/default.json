@@ -129,6 +129,16 @@
     "allow-media-add-paths",
     "allow-media-pick",
     "allow-media-open",
-    "allow-media-reveal"
+    "allow-media-reveal",
+    "allow-import-pick-source",
+    "allow-import-scan",
+    "allow-import-cancel",
+    "allow-import-where",
+    "allow-import-check-target",
+    "allow-import-plan",
+    "allow-import-start",
+    "allow-import-status",
+    "allow-import-discard",
+    "allow-import-transform-result"
   ]
 }

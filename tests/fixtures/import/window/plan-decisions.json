@@ -1,0 +1,557 @@
+{
+  "version": 1,
+  "space": "PKM",
+  "source": {
+    "kind": "folder",
+    "name": "Rozhodnutí",
+    "size": null,
+    "files": 9,
+    "unreadable": [],
+    "outsideSpaces": 0,
+    "spaces": [
+      {
+        "name": "PKM",
+        "objects": 9,
+        "attachments": 0,
+        "types": [
+          {
+            "sourceType": "Page",
+            "objects": 9
+          }
+        ]
+      }
+    ]
+  },
+  "target": {
+    "kind": "newVault",
+    "parent": "/fake/parent",
+    "name": "Capacities · PKM"
+  },
+  "mapping": {
+    "version": 1,
+    "types": {
+      "Page": {
+        "to": {
+          "kind": "existing",
+          "key": "page"
+        },
+        "attributes": {
+          "type": {
+            "to": {
+              "kind": "existing",
+              "key": "type"
+            },
+            "merge": null,
+            "split": null,
+            "values": {}
+          },
+          "title": {
+            "to": {
+              "kind": "existing",
+              "key": "title"
+            },
+            "merge": null,
+            "split": null,
+            "values": {}
+          }
+        }
+      }
+    },
+    "caseLinks": []
+  },
+  "types": [
+    {
+      "sourceType": "Page",
+      "sourceFolder": "Pages",
+      "objects": 9,
+      "target": {
+        "kind": "existing",
+        "key": "page"
+      },
+      "key": "page",
+      "name": "Page",
+      "plural": "Pages",
+      "folder": "Pages",
+      "new": false,
+      "attributes": [
+        {
+          "sourceKey": "type",
+          "action": "consumed",
+          "key": "type",
+          "name": null,
+          "type": null,
+          "values": 9,
+          "nulls": 0,
+          "options": [],
+          "merges": [],
+          "statuses": [],
+          "split": null,
+          "needsLook": false
+        },
+        {
+          "sourceKey": "title",
+          "action": "consumed",
+          "key": "title",
+          "name": null,
+          "type": null,
+          "values": 9,
+          "nulls": 0,
+          "options": [],
+          "merges": [],
+          "statuses": [],
+          "split": null,
+          "needsLook": false
+        }
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "source": "Pages/Deník.md",
+      "importId": "capacities:PKM/Pages/Deník.md",
+      "outcome": "imported",
+      "sourceType": "Page",
+      "type": "page",
+      "title": "Deník",
+      "path": "Pages/Deník.md",
+      "kind": "note",
+      "frontmatter": [
+        [
+          "title",
+          "Deník"
+        ]
+      ],
+      "nameChanges": []
+    },
+    {
+      "source": "Pages/Eva.md",
+      "importId": "capacities:PKM/Pages/Eva.md",
+      "outcome": "imported",
+      "sourceType": "Page",
+      "type": "page",
+      "title": "Eva",
+      "path": "Pages/Eva.md",
+      "kind": "note",
+      "frontmatter": [
+        [
+          "title",
+          "Eva"
+        ]
+      ],
+      "nameChanges": []
+    },
+    {
+      "source": "Pages/Jana.md",
+      "importId": "capacities:PKM/Pages/Jana.md",
+      "outcome": "imported",
+      "sourceType": "Page",
+      "type": "page",
+      "title": "Jana",
+      "path": "Pages/Jana.md",
+      "kind": "note",
+      "frontmatter": [
+        [
+          "title",
+          "Jana"
+        ]
+      ],
+      "nameChanges": []
+    },
+    {
+      "source": "Pages/Odkazy.md",
+      "importId": "capacities:PKM/Pages/Odkazy.md",
+      "outcome": "imported",
+      "sourceType": "Page",
+      "type": "page",
+      "title": "Odkazy",
+      "path": "Pages/Odkazy.md",
+      "kind": "note",
+      "frontmatter": [
+        [
+          "title",
+          "Odkazy"
+        ]
+      ],
+      "nameChanges": []
+    },
+    {
+      "source": "Pages/Plán (1).md",
+      "importId": "capacities:PKM/Pages/Plán (1).md",
+      "outcome": "imported",
+      "sourceType": "Page",
+      "type": "page",
+      "title": "Plán",
+      "path": "Pages/Plán (2).md",
+      "kind": "note",
+      "frontmatter": [
+        [
+          "title",
+          "Plán"
+        ]
+      ],
+      "nameChanges": [
+        "suffix"
+      ]
+    },
+    {
+      "source": "Pages/Plán.md",
+      "importId": "capacities:PKM/Pages/Plán.md",
+      "outcome": "imported",
+      "sourceType": "Page",
+      "type": "page",
+      "title": "Plán",
+      "path": "Pages/Plán.md",
+      "kind": "note",
+      "frontmatter": [
+        [
+          "title",
+          "Plán"
+        ]
+      ],
+      "nameChanges": []
+    },
+    {
+      "source": "Pages/Porada (1).md",
+      "importId": "capacities:PKM/Pages/Porada (1).md",
+      "outcome": "imported",
+      "sourceType": "Page",
+      "type": "page",
+      "title": "Porada",
+      "path": "Pages/Porada (2).md",
+      "kind": "note",
+      "frontmatter": [
+        [
+          "title",
+          "Porada"
+        ]
+      ],
+      "nameChanges": [
+        "suffix"
+      ]
+    },
+    {
+      "source": "Pages/Porada.md",
+      "importId": "capacities:PKM/Pages/Porada.md",
+      "outcome": "imported",
+      "sourceType": "Page",
+      "type": "page",
+      "title": "Porada",
+      "path": "Pages/Porada.md",
+      "kind": "note",
+      "frontmatter": [
+        [
+          "title",
+          "Porada"
+        ]
+      ],
+      "nameChanges": []
+    },
+    {
+      "source": "Pages/Tomáš.md",
+      "importId": "capacities:PKM/Pages/Tomáš.md",
+      "outcome": "imported",
+      "sourceType": "Page",
+      "type": "page",
+      "title": "Tomáš",
+      "path": "Pages/Tomáš.md",
+      "kind": "note",
+      "frontmatter": [
+        [
+          "title",
+          "Tomáš"
+        ]
+      ],
+      "nameChanges": []
+    }
+  ],
+  "attachments": [],
+  "otherFiles": [],
+  "links": [
+    {
+      "note": "Pages/Deník.md",
+      "n": 0,
+      "line": 6,
+      "place": "body",
+      "form": "wikilink",
+      "written": "[[eva]]",
+      "target": "eva",
+      "outcome": {
+        "kind": "case-mismatch",
+        "confirmed": false
+      },
+      "to": null,
+      "simplified": false,
+      "keptAsMarkdown": false
+    },
+    {
+      "note": "Pages/Deník.md",
+      "n": 1,
+      "line": 7,
+      "place": "body",
+      "form": "wikilink",
+      "written": "[[Porada]]",
+      "target": "Porada",
+      "outcome": {
+        "kind": "ambiguous"
+      },
+      "to": "Pages/Porada (2).md",
+      "simplified": false,
+      "keptAsMarkdown": false
+    },
+    {
+      "note": "Pages/Odkazy.md",
+      "n": 0,
+      "line": 6,
+      "place": "body",
+      "form": "wikilink",
+      "written": "[[tomáš]]",
+      "target": "tomáš",
+      "outcome": {
+        "kind": "case-mismatch",
+        "confirmed": false
+      },
+      "to": null,
+      "simplified": false,
+      "keptAsMarkdown": false
+    },
+    {
+      "note": "Pages/Odkazy.md",
+      "n": 1,
+      "line": 7,
+      "place": "body",
+      "form": "wikilink",
+      "written": "[[jana]]",
+      "target": "jana",
+      "outcome": {
+        "kind": "case-mismatch",
+        "confirmed": false
+      },
+      "to": null,
+      "simplified": false,
+      "keptAsMarkdown": false
+    },
+    {
+      "note": "Pages/Odkazy.md",
+      "n": 2,
+      "line": 8,
+      "place": "body",
+      "form": "wikilink",
+      "written": "[[Plán]]",
+      "target": "Plán",
+      "outcome": {
+        "kind": "ambiguous"
+      },
+      "to": "Pages/Plán (2).md",
+      "simplified": false,
+      "keptAsMarkdown": false
+    },
+    {
+      "note": "Pages/Odkazy.md",
+      "n": 3,
+      "line": 9,
+      "place": "body",
+      "form": "wikilink",
+      "written": "[[Tomáš]]",
+      "target": "Tomáš",
+      "outcome": {
+        "kind": "resolved"
+      },
+      "to": "Pages/Tomáš.md",
+      "simplified": false,
+      "keptAsMarkdown": false
+    }
+  ],
+  "report": {
+    "summary": {
+      "source": "Rozhodnutí",
+      "space": "PKM",
+      "date": "2026-11-12",
+      "objects": {
+        "total": 9,
+        "imported": 9,
+        "reported": 0
+      },
+      "attachments": {
+        "total": 0,
+        "imported": 0,
+        "reported": 0
+      },
+      "links": {
+        "total": 6,
+        "imported": 1,
+        "reported": 5
+      },
+      "backup": null
+    },
+    "types": [
+      {
+        "sourceType": "Page",
+        "objects": 9,
+        "target": "Page",
+        "new": false
+      }
+    ],
+    "noDay": [],
+    "unresolved": [],
+    "ambiguous": [
+      {
+        "note": "Pages/Deník.md",
+        "n": 1,
+        "title": "Porada",
+        "chosen": "Pages/Porada (1).md"
+      },
+      {
+        "note": "Pages/Odkazy.md",
+        "n": 2,
+        "title": "Plán",
+        "chosen": "Pages/Plán (1).md"
+      }
+    ],
+    "caseLinks": [
+      {
+        "note": "Pages/Deník.md",
+        "n": 0,
+        "written": "[[eva]]",
+        "candidate": "Pages/Eva.md",
+        "confirmed": false
+      },
+      {
+        "note": "Pages/Odkazy.md",
+        "n": 0,
+        "written": "[[tomáš]]",
+        "candidate": "Pages/Tomáš.md",
+        "confirmed": false
+      },
+      {
+        "note": "Pages/Odkazy.md",
+        "n": 1,
+        "written": "[[jana]]",
+        "candidate": "Pages/Jana.md",
+        "confirmed": false
+      }
+    ],
+    "simplified": [],
+    "attributes": [],
+    "merged": [],
+    "dates": [],
+    "files": [
+      {
+        "source": "Pages/Plán (1).md",
+        "change": {
+          "kind": "nameChanged",
+          "name": "Plán (2).md",
+          "reasons": [
+            "suffix"
+          ]
+        }
+      },
+      {
+        "source": "Pages/Porada (1).md",
+        "change": {
+          "kind": "nameChanged",
+          "name": "Porada (2).md",
+          "reasons": [
+            "suffix"
+          ]
+        }
+      }
+    ],
+    "stubs": [],
+    "skipped": [],
+    "cleanup": {
+      "u200b": 0,
+      "ufeff": 0,
+      "u200c": 0,
+      "u200d": 0,
+      "crlfFiles": 0
+    },
+    "notExported": [
+      "queryDefinitions",
+      "tagColoursAndCollections",
+      "comments"
+    ]
+  },
+  "totals": {
+    "objects": {
+      "total": 9,
+      "imported": 9,
+      "reported": 0
+    },
+    "attachments": {
+      "total": 0,
+      "imported": 0,
+      "reported": 0
+    },
+    "links": {
+      "total": 6,
+      "imported": 1,
+      "reported": 5
+    },
+    "otherFiles": {
+      "total": 0,
+      "imported": 0,
+      "reported": 0
+    }
+  },
+  "decisions": {
+    "caseLinks": [
+      {
+        "note": "Pages/Deník.md",
+        "n": 0,
+        "written": "[[eva]]",
+        "target": "eva",
+        "candidate": "Pages/Eva.md",
+        "candidateTitle": "Eva",
+        "confirmed": false
+      },
+      {
+        "note": "Pages/Odkazy.md",
+        "n": 0,
+        "written": "[[tomáš]]",
+        "target": "tomáš",
+        "candidate": "Pages/Tomáš.md",
+        "candidateTitle": "Tomáš",
+        "confirmed": false
+      },
+      {
+        "note": "Pages/Odkazy.md",
+        "n": 1,
+        "written": "[[jana]]",
+        "target": "jana",
+        "candidate": "Pages/Jana.md",
+        "candidateTitle": "Jana",
+        "confirmed": false
+      }
+    ],
+    "ambiguous": [
+      {
+        "note": "Pages/Deník.md",
+        "n": 1,
+        "written": "[[Porada]]",
+        "title": "Porada",
+        "candidates": [
+          "Pages/Porada (1).md",
+          "Pages/Porada.md"
+        ],
+        "chosen": "Pages/Porada (1).md"
+      },
+      {
+        "note": "Pages/Odkazy.md",
+        "n": 2,
+        "written": "[[Plán]]",
+        "title": "Plán",
+        "candidates": [
+          "Pages/Plán (1).md",
+          "Pages/Plán.md"
+        ],
+        "chosen": "Pages/Plán (1).md"
+      }
+    ],
+    "tagLike": []
+  },
+  "alreadyImported": 0,
+  "reportPath": "Pages/Import report 2026-11-12 PKM.md",
+  "spaceBytes": 9000,
+  "backup": null,
+  "neededBytes": 9900
+}

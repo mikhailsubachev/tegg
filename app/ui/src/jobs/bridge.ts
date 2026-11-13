@@ -56,10 +56,16 @@ const handleRequestById = (id: number): TransformAnswer => {
   return r ? handleRequest(r) : { requestId: id, result: { error: 'worker failed' } };
 };
 
-/** Starts answering `job:transform`; returns the stop function. */
+/** Starts answering `job:transform` and (slice I2, v1-import-window §1.3) the import's `import:transform`, with or
+ *  without a vault; returns the stop function. */
 export function startBridge(): () => void {
   let stop: (() => void) | null = null;
   let stopped = false;
+  let stopImport: (() => void) | null = null;
+  void events.importTransform(async (t) => {
+    const a = await viaWorker({ requestId: t.requestId, source: t.source, text: t.text, ops: t.ops });
+    await ipc.importTransformResult(t.requestId, a.result).catch(() => {});
+  }).then((u) => { if (stopped) u(); else stopImport = u; });
   void events.jobTransform(async (t: JobTransformEvent) => {
     if (t.live) {
       live.get(t.source.normalize('NFC'))?.(t.ops);
@@ -72,5 +78,5 @@ export function startBridge(): () => void {
     stop = u;
     void ipc.jobsReady().catch(() => {}); // D-819: transforms are answered from now on
   });
-  return () => { stopped = true; stop?.(); };
+  return () => { stopped = true; stop?.(); stopImport?.(); };
 }

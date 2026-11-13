@@ -9,6 +9,7 @@ import { Disabled } from './Disabled';
 import { Icon, typeIconName } from './Icon';
 import { Placeholder } from './Placeholder';
 import { JobStatus } from '../jobs/status';
+import { ImportStatus } from '../import/ImportStatus';
 import { NotUpdatedEntry } from '../jobs/notUpdated';
 import { BacklinksPanel, useBacklinkCount, type OpenMention } from '../links/BacklinksPanel';
 import { GraphPanel, type GraphPanelProps } from '../graph/GraphPanel';
@@ -118,6 +119,7 @@ export function TitleBar({ name, icon, progress, onToggleSidebar, canBack, canFo
         <Disabled control="ctl.newTab" ariaLabel={t('ctl.newTab')} className="icon-button"><Icon name="plus" /></Disabled>
       </div>
       <div className="titlebar-status" data-tauri-drag-region>
+        <ImportStatus />
         <JobStatus />
         <NotUpdatedEntry />
         {progress && progress.state === 'running' && (

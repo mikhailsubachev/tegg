@@ -1238,11 +1238,11 @@ pub mod real_export {
 
 ## 14. IPC
 
-None in I1. The names the criteria start from (`import_scan`, `import_plan`, `import_start`) are thin shell commands over `scan`, `plan` and `start`, specified with I2.
+None in I1. Slice I2 specifies the shell commands over `scan`, `plan` and `start` (`import_pick_source`, `import_scan`, `import_cancel`, `import_where`, `import_check_target`, `import_plan`, `import_start`, `import_status`, `import_discard`, `import_transform_result`), their events and DTOs in [v1-import-window.md](v1-import-window.md) §1, §2; that contract replaces this section.
 
-## 15. What I2 will add (named, not specified)
+## 15. What I2 adds
 
-The IPC commands and their DTOs (`ScanInfo`, `Plan`, `Mapping`, `ImportProgress`, `ImportError` are already serde types); a transformer for the app with no vault open; keeping the target `Core` alive across a vault switch (D-1549 (6)); the window's model and steps (R151, R152); `TEGG_TEST_PICK_FILE` in ms3-shell (D-135); `File › Import…` and `import.open` (R154); the status element; the fake core's canned scans, plans and progress; the catalog (R155) and passing `import.report.*` to `ReportStrings`; the `backups.label.import` label in Settings › Backups; the quit question during `writing`; the interrupted-import banner and its string (§9.6: approved with I2).
+Specified by [v1-import-window.md](v1-import-window.md), which replaces this section: the IPC session and its transformer with no vault open (§1, §2), keeping the target `Core` alive across a vault switch and reattaching it (§1.2, D-1549 (6)), the window's model and steps (§3; R151, R152), `File › Import…` and `import.open` (§4; R154), the strings and `import.report.*` passed to `ReportStrings` (§5; R155), the status element, the quit question during `writing` and the interrupted-import banner (§6), the fake core's canned scans and plans (§7), the test hooks including `TEGG_TEST_PICK_FILE` (§8), and D-1581's missing new-vault parent (§2.3; this contract's §5 and §9.5 step 2).
 
 ---
 

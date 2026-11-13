@@ -13,6 +13,7 @@ mod shell4d;
 mod shell4e;
 mod shellg1;
 mod shellg3;
+mod shellimport;
 mod shellpin;
 mod shellq;
 
@@ -35,6 +36,8 @@ pub(crate) struct AppState {
     pub(crate) dirs: AppDirs,
     pub(crate) core: Mutex<Option<Arc<Core>>>,
     pub(crate) vault: Mutex<Option<VaultInfo>>,
+    /// Slice I2 (v1-import-window §1.1): the one import session.
+    pub(crate) import: Arc<shellimport::ImportShared>,
 }
 
 /// The test environment (contract §1): honoured only with `TEGG_TEST=1`.
@@ -218,7 +221,7 @@ fn test_drop(app: &AppHandle) {
 // ---------------------------------------------------------------- vault and events
 
 pub(crate) fn err(kind: &str, message: impl ToString) -> IpcError {
-    IpcError { kind: kind.into(), message: message.to_string(), conflict: None, reason: None, field: None, key: None, label: None, count: None, disk: None, path: None, now: None, error: None, char: None, name: None, presets: None, pins: None, query: None }
+    IpcError { kind: kind.into(), message: message.to_string(), conflict: None, reason: None, field: None, key: None, label: None, count: None, disk: None, path: None, now: None, error: None, char: None, name: None, presets: None, pins: None, query: None, import: None }
 }
 
 pub(crate) fn version_dto(v: &FileVersion) -> VersionDto {
@@ -238,7 +241,7 @@ pub(crate) fn version_from(d: &VersionDto) -> Result<FileVersion, IpcError> {
 }
 
 /// Repeatable marks (D-207 `index-idle`): one line per occurrence, unlike `mark`.
-fn mark_repeat(name: &str) {
+pub(crate) fn mark_repeat(name: &str) {
     let Some(log) = test_var("TEGG_PERF_LOG") else { return };
     let line = serde_json::json!({ "mark": name, "ms": ms_since_process_start() });
     if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&log) {
@@ -311,17 +314,76 @@ fn rule_err(r: RuleError) -> IpcError {
 fn open_vault(app: &AppHandle, path: PathBuf) -> Result<VaultInfo, IpcError> {
     let state = app.state::<AppState>();
     // FR-VLT-01 AC-4/AC-5, D-91: a folder that isn't a Tegg vault is refused before anything else (zero writes).
-    if let Err(e) = Vault::open(&path, &state.dirs) {
-        return Err(match e {
-            OpenError::NotATeggVault => err("NotATeggVault", "the folder has no .tegg/vault.yml"),
-            OpenError::Missing => err("NotFound", "the folder doesn't exist"),
-            other => err("Io", format!("{other:?}")),
-        });
+    let probe = match Vault::open(&path, &state.dirs) {
+        Ok(v) => v,
+        Err(e) => {
+            return Err(match e {
+                OpenError::NotATeggVault => err("NotATeggVault", "the folder has no .tegg/vault.yml"),
+                OpenError::Missing => err("NotFound", "the folder doesn't exist"),
+                other => err("Io", format!("{other:?}")),
+            })
+        }
+    };
+    // v1-import-window §1.2: one `Core` per vault root in the process, by the vault's identity.
+    let key = probe.local_dir();
+    let root = probe.root().to_path_buf();
+    drop(probe);
+    let current = state.core.lock().unwrap_or_else(|p| p.into_inner()).clone();
+    if let Some(core) = current.filter(|c| shellimport::same_vault(c, &key, &root)) {
+        let info = vault_info(&path, &core);
+        *state.vault.lock().unwrap_or_else(|p| p.into_inner()) = Some(info.clone());
+        return Ok(info);
     }
-    // One vault at a time (D-35): the old core stops (and saves its recency) before the new one opens.
-    *state.core.lock().unwrap_or_else(|p| p.into_inner()) = None;
-    let core = Arc::new(Core::open(&path, &state.dirs, CoreOptions { watch: true, sync: None }).map_err(core_err)?);
-    let info = VaultInfo {
+    let held = shellimport::held_core(app, &key, &root);
+    // One vault at a time (D-35): the old core stops (and saves its recency) before the new one opens. A `Core` the
+    // import session keeps alive goes on behind a closed gate (§1.2).
+    if let Some(old) = state.core.lock().unwrap_or_else(|p| p.into_inner()).take() {
+        if let Some(g) = shellimport::gate_of(&old) {
+            g.close();
+        }
+    }
+    shellimport::vault_switched(app);
+    let core = match held {
+        Some(core) => {
+            // Reattach: the same `Core`, its forwarding thread's gate reopened; never a second `Core::events()`.
+            if let Some(g) = shellimport::gate_of(&core) {
+                g.reopen(app);
+            }
+            core
+        }
+        None => {
+            let core = Arc::new(Core::open(&path, &state.dirs, CoreOptions { watch: true, sync: None }).map_err(core_err)?);
+            forward_events(app.clone(), &core);
+            // D-207: `index-idle` each time the index queue drains (L6 waits on it).
+            let weak = Arc::downgrade(&core);
+            if test_var("TEGG_PERF_LOG").is_some() {
+                std::thread::spawn(move || {
+                    let mut was_idle = false;
+                    while let Some(core) = weak.upgrade() {
+                        let idle = core.wait_idle(Duration::ZERO);
+                        if idle && !was_idle {
+                            mark_repeat("index-idle");
+                        }
+                        was_idle = idle;
+                        drop(core);
+                        std::thread::sleep(Duration::from_millis(50));
+                    }
+                });
+            }
+            core
+        }
+    };
+    let info = vault_info(&path, &core);
+    *state.core.lock().unwrap_or_else(|p| p.into_inner()) = Some(core);
+    *state.vault.lock().unwrap_or_else(|p| p.into_inner()) = Some(info.clone());
+    VAULT_GEN.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    let _ = app.emit_to(shell5b::CAPTURE, "capture:context-changed", ());
+    shell5b::inbox_count_changed(app);
+    Ok(info)
+}
+
+fn vault_info(path: &std::path::Path, core: &Core) -> VaultInfo {
+    VaultInfo {
         name: path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
         path: core.vault().root().to_string_lossy().into_owned(),
         placeholders: core.placeholders().len() as u32,
@@ -335,40 +397,32 @@ fn open_vault(app: &AppHandle, path: PathBuf) -> Result<VaultInfo, IpcError> {
                 .collect();
             (!i.is_empty()).then_some(i)
         },
-    };
-    forward_events(app.clone(), &core);
-    {
-        // D-207: `index-idle` each time the index queue drains (L6 waits on it).
-        let weak = Arc::downgrade(&core);
-        if test_var("TEGG_PERF_LOG").is_some() {
-            std::thread::spawn(move || {
-                let mut was_idle = false;
-                while let Some(core) = weak.upgrade() {
-                    let idle = core.wait_idle(Duration::ZERO);
-                    if idle && !was_idle {
-                        mark_repeat("index-idle");
-                    }
-                    was_idle = idle;
-                    drop(core);
-                    std::thread::sleep(Duration::from_millis(50));
-                }
-            });
-        }
     }
-    *state.core.lock().unwrap_or_else(|p| p.into_inner()) = Some(core);
-    *state.vault.lock().unwrap_or_else(|p| p.into_inner()) = Some(info.clone());
-    VAULT_GEN.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-    let _ = app.emit_to(shell5b::CAPTURE, "capture:context-changed", ());
-    shell5b::inbox_count_changed(app);
-    Ok(info)
 }
 
-/// Core events → UI events (contract §2).
-fn forward_events(app: AppHandle, core: &Core) {
+/// Core events → UI events (contract §2). One thread per `Core`, started once; its gate (v1-import-window §1.2) drops
+/// the vault's events and holds back `job:transform` while the `Core` isn't the open one.
+fn forward_events(app: AppHandle, core: &Arc<Core>) {
     let rx = core.events();
+    let gate = shellimport::register_core(core);
+    let weak = Arc::downgrade(core);
     std::thread::spawn(move || {
         for e in rx {
             match e {
+                // ms4-jobs §4 (4C); an import waiting in the queue also reaches `import:progress` (§2.4), gate or not.
+                CoreEvent::JobProgress(p) => {
+                    shellimport::job_progress(&app, &p);
+                    if gate.is_open() {
+                        let _ = app.emit_to("main", "job:progress", progress_dto(&p));
+                    }
+                }
+                // Process-wide ids, routed back to this `Core` by `job_transform_result` (§1.2).
+                CoreEvent::JobTransform { request, source, text, ops, live } => {
+                    let id = shellimport::route_transform(weak.clone(), request);
+                    let ops: Vec<serde_json::Value> = ops.iter().map(tegg_core::tegg_jobs::op_json).collect();
+                    gate.transform(&app, serde_json::json!({ "requestId": id, "source": source, "text": text, "ops": ops, "live": live }));
+                }
+                _ if !gate.is_open() => {}
                 CoreEvent::IndexProgress { done, total, state } => {
                     let s = match state {
                         ProgressState::Running => "running",
@@ -403,14 +457,6 @@ fn forward_events(app: AppHandle, core: &Core) {
                 CoreEvent::QueryStale { types, paths } => {
                     let _ = app.emit_to("main", "query:stale", shellq::QueryStaleDto { types, paths });
                 }
-                // ms4-jobs §4 (4C).
-                CoreEvent::JobProgress(p) => {
-                    let _ = app.emit_to("main", "job:progress", progress_dto(&p));
-                }
-                CoreEvent::JobTransform { request, source, text, ops, live } => {
-                    let ops: Vec<serde_json::Value> = ops.iter().map(tegg_core::tegg_jobs::op_json).collect();
-                    let _ = app.emit_to("main", "job:transform", serde_json::json!({ "requestId": request, "source": source, "text": text, "ops": ops, "live": live }));
-                }
             }
         }
     });
@@ -421,7 +467,7 @@ pub(crate) fn core(state: &State<AppState>) -> Result<Arc<Core>, IpcError> {
 }
 
 /// The machine's time zone for date filters (D-104).
-fn local_tz() -> chrono_tz::Tz {
+pub(crate) fn local_tz() -> chrono_tz::Tz {
     iana_time_zone::get_timezone().ok().and_then(|n| n.parse().ok()).unwrap_or(chrono_tz::UTC)
 }
 
@@ -645,6 +691,9 @@ fn perf_mark(app: AppHandle, name: String, frame: Option<u32>, ms: Option<f64>) 
                 let _ = f.write_all(format!("{line}\n").as_bytes()); // one write per line: lines from parallel writers never interleave
             }
         }
+        // v1-import-window §8: `import-step:<step>` once per step change (a step can be shown again), `import-done`
+        // per import; the shell also writes `import-done` itself.
+        _ if name.starts_with("import-step:") || name == "import-done" => mark_repeat(&name),
         _ => mark(&app, &name),
     }
 }
@@ -1035,7 +1084,7 @@ async fn daily_tasks(state: State<'_, AppState>, date: String, start: String, en
 
 // ---------------------------------------------------------------- slice 4C (ms4-jobs §4)
 
-use tegg_core::tegg_jobs::{JobError, JobOp, JobProgress, JobReport, ResolveChoice, RetryOutcome, TransformError, Transformed};
+use tegg_core::tegg_jobs::{JobError, JobOp, JobProgress, JobReport, ResolveChoice, RetryOutcome};
 
 pub(crate) fn job_err(e: JobError) -> IpcError {
     match e {
@@ -1147,19 +1196,11 @@ async fn job_redo(state: State<'_, AppState>, job_id: u32) -> Result<JobIdDto, I
     Ok(JobIdDto { job_id: id as u32 })
 }
 
-/// The UI's worker answers a `job:transform` (ms4-jobs §2.2).
+/// The UI's worker answers a `job:transform` (ms4-jobs §2.2). The id is the process-wide one the forwarding thread
+/// gave it; the answer goes to the `Core` that asked (v1-import-window §1.2), an unknown id is ignored.
 #[tauri::command]
-async fn job_transform_result(state: State<'_, AppState>, request_id: u32, result: TransformedDto) -> Result<(), IpcError> {
-    let r = match (result.error, result.kind.as_deref()) {
-        (Some(e), _) => Err(TransformError::Engine(e)),
-        (None, Some("unchanged")) => Ok(Transformed::Unchanged),
-        (None, Some("bytes")) => Ok(Transformed::Bytes(
-            result.text.unwrap_or_default().into_bytes(),
-            result.edits.unwrap_or_default().into_iter().map(|e| tegg_core::tegg_jobs::Edit { start: e.start as usize, end: e.end as usize }).collect(),
-        )),
-        _ => Err(TransformError::Engine("unknown answer".into())),
-    };
-    core(&state)?.jobs().transform_result(request_id as u64, r);
+async fn job_transform_result(request_id: u64, result: TransformedDto) -> Result<(), IpcError> {
+    shellimport::answer_transform(request_id, shellimport::transformed_from(result));
     Ok(())
 }
 
@@ -1664,6 +1705,8 @@ pub(crate) fn request_quit(app: &AppHandle) {
     if ALLOW_EXIT.load(std::sync::atomic::Ordering::SeqCst) {
         app.exit(0);
     } else {
+        // v1-import-window §6.3: the question must be seen, so the main window is shown first.
+        shell5b::show_main(app);
         let _ = app.emit_to("main", "app:quit-requested", ());
     }
 }
@@ -1675,11 +1718,12 @@ pub(crate) fn context<R: tauri::Runtime>() -> tauri::Context<R> {
 
 pub fn run() {
     let dirs = app_dirs();
+    shellimport::note_launch();
     // D-71: one instance per app bundle (FR-CAP-05 AC-4, AC-9); a second launch shows the first one's window.
     shell5b::single_instance(BUNDLE_ID);
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .manage(AppState { dirs, core: Mutex::new(None), vault: Mutex::new(None) })
+        .manage(AppState { dirs, core: Mutex::new(None), vault: Mutex::new(None), import: shellimport::new_shared() })
         // ms6-trash-media §3.6 (D-626): vault media for the webviews, read-only.
         .register_asynchronous_uri_scheme_protocol("tegg-media", shell6a::media_scheme)
         .setup(|app| {
@@ -1714,9 +1758,13 @@ pub fn run() {
                     app_menu.append(&PredefinedMenuItem::separator(&handle)?)?;
                     app_menu.append(&MenuItem::with_id(&handle, "tegg-quit", format!("Quit {APP_NAME}"), true, Some("CmdOrCtrl+Q"))?)?;
                 }
-                // D-608: Help › Keyboard Shortcuts opens `help/shortcuts` in the main window.
+                // D-608: Help › Keyboard Shortcuts opens `help/shortcuts` in the main window. Slice I2 (§4.1):
+                // File › Import… opens the Import window.
                 for item in menu.items()? {
                     if let tauri::menu::MenuItemKind::Submenu(sub) = &item {
+                        if sub.text().unwrap_or_default() == "File" {
+                            sub.append(&MenuItem::with_id(&handle, shellimport::MENU_ID, strings::command("cmd.import"), true, None::<&str>)?)?;
+                        }
                         if sub.text().unwrap_or_default() == "Help" {
                             sub.append(&MenuItem::with_id(&handle, "tegg-shortcuts", strings::menubar("shortcuts"), true, Some("CmdOrCtrl+Shift+/"))?)?;
                         }
@@ -1726,6 +1774,8 @@ pub fn run() {
                 app.on_menu_event(|app, e| {
                     if e.id() == "tegg-quit" {
                         request_quit(app);
+                    } else if e.id() == shellimport::MENU_ID {
+                        shellimport::menu_import(app);
                     } else if e.id() == "tegg-shortcuts" {
                         shell5b::show_main(app);
                         let _ = app.emit_to("main", "shell:route", serde_json::json!({ "route": "help/shortcuts" }));
@@ -1783,7 +1833,10 @@ pub fn run() {
             shellg3::graph_presets_get, shellg3::graph_presets_apply,
             shellpin::pins_get, shellpin::pins_apply,
             shellq::queries_list, shellq::query_get, shellq::query_run, shellq::query_apply, shellq::query_revert, shellq::query_create,
-            shellq::query_duplicate, shellq::query_rename, shellq::query_trash, shellq::query_restore, shellq::query_usages
+            shellq::query_duplicate, shellq::query_rename, shellq::query_trash, shellq::query_restore, shellq::query_usages,
+            shellimport::import_pick_source, shellimport::import_scan, shellimport::import_cancel, shellimport::import_where,
+            shellimport::import_check_target, shellimport::import_plan, shellimport::import_start, shellimport::import_status,
+            shellimport::import_discard, shellimport::import_transform_result
         ])
         .build(context())
         .expect("error while building Tegg")
@@ -1795,6 +1848,7 @@ pub fn run() {
             match event {
                 tauri::RunEvent::ExitRequested { api, code, .. } if code.is_none() && !allowed => {
                     api.prevent_exit();
+                    shell5b::show_main(app);
                     let _ = app.emit_to("main", "app:quit-requested", ());
                 }
                 tauri::RunEvent::WindowEvent { label, event: tauri::WindowEvent::CloseRequested { api, .. }, .. } if !allowed => {

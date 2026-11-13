@@ -46,7 +46,8 @@ export const R1: R1Row[] = [
   // Slice G1 (graph.md, app-shell changes in the commit that builds G1; D-914): the full view is `graph/<path>`, built.
   { id: 'graph/<path>', page: 'Graph', built: true, due: d('v1.0'), reqs: 'FR-GRP-01…08', design: 'Graph', goto: null },
   { id: 'trash', page: 'Trash', built: true, due: d('MS6'), reqs: 'FR-HIS-01, FR-HIS-02', design: null, goto: 'Go to Trash' }, // built in 6A (R75)
-  { id: 'import', page: 'Import', built: false, due: d('MS7'), reqs: 'FR-IMP-01, -03, -05, FR-STO-10', design: null, goto: 'Go to Import' },
+  // Slice I2 (import-capacities.md R154, D-1531, D-1571): the `import` route and `Go to Import` are removed; the import is
+  // a window opened by `import.open` (`Import…`, STATIC_COMMANDS).
   // 4A (backlinks.md R16): vault checks, palette only (D-284).
   { id: 'broken-links', page: 'Broken links', built: true, due: d('MS4', '4A'), reqs: 'FR-LNK-04', design: null, goto: 'Go to Broken links' },
   { id: 'duplicate-titles', page: 'Duplicate titles', built: true, due: d('MS4', '4A'), reqs: 'FR-LNK-14', design: null, goto: 'Go to Duplicate titles' },
@@ -199,8 +200,11 @@ export const RESERVED = ['⌘Q', '⌘H', '⌥⌘H', '⌘M', '⌘Tab', '⌘Space'
 /** FR-UX-03 AC-3: the non-navigation commands every vault has. */
 export const STATIC_COMMANDS = [
   'Open vault…', 'Create new vault…', 'Open folder as vault…', 'About Tegg', 'Open recent vault 1', 'Open recent vault 2', 'Open recent vault 3', 'Open recent vault 4', 'Open recent vault 5', 'Open recent vault 6', 'Open recent vault 7', 'Open recent vault 8', 'Open recent vault 9', 'New object…' /* D-1431 */, 'Toggle sidebar', 'Toggle right panel',
-  'Toggle focus mode', 'Theme: System', 'Theme: Light', 'Theme: Dark',
+  'Toggle focus mode', 'Theme: System', 'Theme: Light', 'Theme: Dark', 'Import…' /* slice I2: import.open (R154, D-1531) */,
 ];
+/** Slice I2 (import-capacities.md R154; v1-import-window §4.2): the command `import.open`, section `file`, no shortcut, also
+ *  listed with no vault open (D-137 gains it, D-1531). */
+export const IMPORT_COMMAND = { id: 'import.open', title: 'cmd.import', text: 'Import…', section: 'file', shortcut: null, needsVault: false } as const;
 
 /** FR-UX-02 AC-4 (fixture, collation cs): label and count of each Types entry, in order. D-516: Task is not in the
  *  list (the sidebar's `Tasks` entry covers it, tasks.md FR-TSK-04 AC-15). */

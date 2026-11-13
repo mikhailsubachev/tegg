@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { t } from '../i18n/catalog';
 import { errorKind, ipc } from '../ipc/client';
 import type { VaultInfo } from '../ipc/types';
+import { openImport } from '../import/store';
 
 export function errorMessage(kind: string, vars: Record<string, string> = {}): string {
   const key = `error.${kind.charAt(0).toLowerCase()}${kind.slice(1)}`;
@@ -68,6 +69,10 @@ export function Chooser({ startWithForm, onOpened, onCancel }: {
               </button>
               <button tabIndex={0} type="button" data-command="vault.open" onClick={openExisting}>
                 {t('chooser.open')}
+              </button>
+              {/* Slice I2 (v1-import-window §4.3, R154): the Import window, also with no vault open. */}
+              <button tabIndex={0} type="button" data-command="import.open" onClick={(e) => openImport(e.currentTarget)}>
+                {t('cmd.import')}
               </button>
             </div>
             {message && (

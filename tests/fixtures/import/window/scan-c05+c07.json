@@ -1,0 +1,33 @@
+{
+  "files": 10,
+  "kind": "folder",
+  "name": "c05+c07",
+  "outsideSpaces": 0,
+  "size": null,
+  "spaces": [
+    {
+      "attachments": 4,
+      "name": "PKM",
+      "objects": 6,
+      "types": [
+        {
+          "objects": 2,
+          "sourceType": "Image"
+        },
+        {
+          "objects": 1,
+          "sourceType": "PDF"
+        },
+        {
+          "objects": 1,
+          "sourceType": "Page"
+        },
+        {
+          "objects": 2,
+          "sourceType": "Query"
+        }
+      ]
+    }
+  ],
+  "unreadable": []
+}

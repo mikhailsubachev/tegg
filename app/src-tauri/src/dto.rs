@@ -266,6 +266,11 @@ pub struct IpcError {
     #[serde(flatten, skip_serializing_if = "Option::is_none")]
     #[ts(skip)]
     pub query: Option<crate::shellq::QueryErrorExtra>,
+    /// Slice I2 (v1-import-window §2): the engine's `ImportError` as it serializes (`{ "code": "noSpace", … }`),
+    /// whenever the error came from the engine. Typed by hand in `app/ui/src/ipc/import.ts`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(skip)]
+    pub import: Option<serde_json::Value>,
 }
 
 /// A type as `vault_types` / `type_get` return it (ms3-shell §14.3): the 3A `TypeDefDto` fields (§2) plus the

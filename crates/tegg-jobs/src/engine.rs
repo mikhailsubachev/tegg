@@ -460,7 +460,10 @@ impl Jobs {
             Some(h) => {
                 // v1-import §9.6: an import's journal is listed with the rename journals, by job id.
                 let mut out = crate::journal::interrupted(h.as_ref());
-                out.extend(crate::import_journal::interrupted(h.as_ref()));
+                // v1-import-window §1.2: a live import (this engine runs it, not final) isn't interrupted; its journal
+                // is left out, as `resolve_interrupted` answers `Busy` for it.
+                let live: std::collections::HashSet<JobId> = lock(&self.inner.state).jobs.iter().filter(|(_, j)| !j.phase.is_final()).map(|(id, _)| *id).collect();
+                out.extend(crate::import_journal::interrupted(h.as_ref()).into_iter().filter(|i| !live.contains(&i.job)));
                 out.sort_by_key(|i| i.job);
                 out
             }

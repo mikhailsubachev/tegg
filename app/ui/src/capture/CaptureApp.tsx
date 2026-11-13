@@ -177,7 +177,10 @@ export function CaptureApp() {
 
   // 6A (D-624): files dropped from Finder come through Tauri's window drag-drop event and are staged.
   useEffect(() => {
-    const un = listen<{ paths: string[] }>('tauri://drag-drop', (e) => { if (e.payload?.paths?.length) void stagePaths(e.payload.paths); });
+    // Only this window's drops: a listener with the default target (`Any`) also gets the main window's drops (a zip
+    // dropped on the Import window, a file dropped on the editor), so it is scoped to the capture window's label.
+    const un = listen<{ paths: string[] }>('tauri://drag-drop', (e) => { if (e.payload?.paths?.length) void stagePaths(e.payload.paths); },
+      { target: { kind: 'AnyLabel', label: 'capture' } });
     return () => void un.then((f) => f());
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // The webview's own file drop is prevented (the event above carries the paths).

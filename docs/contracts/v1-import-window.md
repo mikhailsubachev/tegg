@@ -699,6 +699,8 @@ These are the report Page's own words (`import.report.<key>`) that R150 and R155
 
 ---
 
+- **Build notes (QA review of the I2 build, 2026-11-13).** While an import run is live, the frame's re-reads after `vault:changed` are throttled: the first change re-reads at once, then at most every 500 ms, and the last change is always read (within NFR-PERF-08's 2 s). The tags store's change-driven refresh is single-flight (one read at a time, one more after it if changes came in). Drag-and-drop listeners are scoped to their window (`capture` / `main`): in Tauri 2 a listener with the default target also received the other window's drops, so a file dropped on the main window was staged in Quick Capture as well.
+
 ## 13. Points for the owner
 
 Each changes what the user sees or what a test asserts. **Decided** (owner, 2026-11-13: "Approve all"; BRD v1.172): every recommendation accepted, WP-1…WP-9 → D-1571…D-1579; the rules above cite the decision.

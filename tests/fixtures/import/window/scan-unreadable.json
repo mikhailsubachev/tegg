@@ -1,0 +1,30 @@
+{
+  "kind": "zip",
+  "name": "Poškozený export.zip",
+  "size": 48213,
+  "files": 11,
+  "unreadable": [
+    {
+      "entry": "#7",
+      "reason": "badName"
+    },
+    {
+      "entry": "PKM/Pages/Zničená.md",
+      "reason": "read"
+    }
+  ],
+  "outsideSpaces": 0,
+  "spaces": [
+    {
+      "name": "PKM",
+      "objects": 9,
+      "attachments": 0,
+      "types": [
+        {
+          "sourceType": "Page",
+          "objects": 9
+        }
+      ]
+    }
+  ]
+}

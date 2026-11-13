@@ -15,7 +15,10 @@ pub struct NewVaultProbe {
     /// `parent` with its symbolic links resolved (`resolve_existing`).
     pub parent: PathBuf,
     pub parent_is_dir: bool,
-    /// The process may create entries in `parent` (`access(W_OK | X_OK)`; also false on a read-only volume).
+    /// D-1581: `parent` is missing and its own parent is a folder the process may create entries in (one level).
+    pub parent_creatable: bool,
+    /// The process may create entries in `parent` (`access(W_OK | X_OK)`; also false on a read-only volume); for a
+    /// creatable parent, in its own parent.
     pub writable: bool,
     /// An entry (a file or a folder) is at `<parent>/<name>`.
     pub final_exists: bool,
@@ -38,15 +41,28 @@ pub fn probe_new_vault(parent: &Path, name: &str) -> io::Result<NewVaultProbe> {
         Ok(md) if md.is_file() => fs::read(&marker_path).ok().map(|b| String::from_utf8_lossy(&b).into_owned()),
         _ => None,
     };
+    let parent_creatable = missing_creatable_parent(&resolved);
     Ok(NewVaultProbe {
         parent_is_dir,
-        writable: parent_is_dir && may_create_in(&resolved),
+        parent_creatable,
+        writable: (parent_is_dir && may_create_in(&resolved)) || parent_creatable,
         final_exists: fs::symlink_metadata(resolved.join(name)).is_ok(),
         temp_exists: fs::symlink_metadata(&temp).is_ok(),
         marker,
         inside_vault: has_entry_at_or_above(&resolved, ".tegg")?,
         parent: resolved,
     })
+}
+
+/// D-1581: `parent` doesn't exist, and its own parent exists, is a folder and the process may create entries in it
+/// (one missing level only). Creates nothing.
+pub fn missing_creatable_parent(parent: &Path) -> bool {
+    let Ok(resolved) = resolve_existing(parent) else { return false };
+    if fs::symlink_metadata(&resolved).is_ok() {
+        return false;
+    }
+    let Some(up) = resolved.parent() else { return false };
+    fs::metadata(up).is_ok_and(|m| m.is_dir()) && may_create_in(up)
 }
 
 /// `access(W_OK | X_OK)`: the process may create entries in the folder; creates nothing.

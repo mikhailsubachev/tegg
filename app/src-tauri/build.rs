@@ -141,6 +141,17 @@ const COMMANDS: &[&str] = &[
     "query_trash",
     "query_restore",
     "query_usages",
+    // Slice I2 (v1-import-window §2.1).
+    "import_pick_source",
+    "import_scan",
+    "import_cancel",
+    "import_where",
+    "import_check_target",
+    "import_plan",
+    "import_start",
+    "import_status",
+    "import_discard",
+    "import_transform_result",
 ];
 
 fn main() {
