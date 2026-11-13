@@ -7,6 +7,9 @@ import { setCurrent, type OutlineSource } from './store';
 let rebuildNow: (() => void) | null = null;
 /** After a folded callout opened (a reveal), the offsets change. */
 export function invalidateTracker(): void { rebuildNow?.(); }
+let computeNow: (() => void) | null = null;
+/** The current section from the scroll position now, not after the next frame (⌘J and `Show outline` read it). */
+export function syncTracker(): void { computeNow?.(); }
 
 /** A rendered element: itself, else its nearest ancestor that has a layout box (inside a folded callout). */
 export function rendered(el: HTMLElement | null): HTMLElement | null {
@@ -45,7 +48,9 @@ export function trackCurrent(main: HTMLElement, src: OutlineSource, body: Elemen
   ro?.observe(main);
   rebuild();
   rebuildNow = rebuild;
+  computeNow = compute;
   return () => {
+    if (computeNow === compute) computeNow = null;
     main.removeEventListener('scroll', onScroll);
     if (raf) cancelAnimationFrame(raf);
     ro?.disconnect();

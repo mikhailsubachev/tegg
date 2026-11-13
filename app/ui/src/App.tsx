@@ -98,6 +98,7 @@ import { forgetPreviewCaches } from './preview/load';
 import { OutlineEdge } from './outline/OutlineEdge';
 import type { OutlineTabProps } from './outline/OutlineTab';
 import { announce, closeCard, getCard, getOutline, openCard, requestFocus, useOutline } from './outline/store';
+import { syncTracker } from './outline/tracker';
 import { setJumpHost } from './outline/jump';
 import { allKeys, foldButtons } from './outline/model';
 import { foldsOf, rekeyFolds, withFolds } from './outline/folds';
@@ -918,6 +919,7 @@ export function App() {
       if (!isNoteRoute(route)) return;
       const rp = uiRef.current?.rightPanel;
       if (!(rp?.open && rp.tab === 'outline')) updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, open: true, tab: 'outline' } }));
+      syncTracker();
       requestFocus('tab');
     },
     outlineJump: () => {
@@ -926,6 +928,7 @@ export function App() {
       if (getCard().open) { closeCard(); src?.refocus(); return; }
       if (!src) return;
       if (!src.tree.length) { announce(t('outline.empty')); return; }
+      syncTracker(); // the focused row is the current section of the scroll position now (a scroll's frame may be pending)
       if (outlineOnScreenRef.current) { requestFocus('tab'); return; }
       openCard('key');
       requestFocus('card');
