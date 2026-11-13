@@ -10,6 +10,7 @@ const CASES: [string, string][] = [
   ['heading inside', '# Nahoře\n\n%%\n# Skrytý nadpis\n%%\n\nText.\n'],
   ['blank lines inside', '# Nahoře\n\n%%\nPoznámka\n\n## Uvnitř\n\ndalší řádek\n%%\n\nText.\n'],
   ['closing on a text line', '# Nahoře\n\n%% začátek\n### Uvnitř\nkonec %%\n'],
+  ['with frontmatter', '---\ntitle: Okraje\n---\n# Nahoře\n\n%%\n# Skrytý nadpis\n%%\n\nText.\n'],
 ]
 
 for (const [name, text] of CASES) {

@@ -134,10 +134,10 @@ function mergeCommentRegions(tree: Root, text: string): void {
       if ((n.type === 'paragraph' || n.type === 'heading') && odd(src(n))) { close = src(n).trimEnd().endsWith('%%') ? j : -2; break }
     }
     if (close < 0) continue
-    const start = { ...open.position!.start }
-    const end = { ...kids[close].position!.end }
-    const value = text.slice(start.offset!, end.offset!)
-    const merged: RootContent = { type: 'paragraph', children: [{ type: 'text', value, position: { start, end } }], position: { start, end } }
+    const at = () => ({ start: { ...open.position!.start }, end: { ...kids[close].position!.end } })
+    const value = text.slice(open.position!.start.offset!, kids[close].position!.end.offset!)
+    // Separate position objects: `shiftPositions` moves each node's own (a shared one would move twice).
+    const merged: RootContent = { type: 'paragraph', children: [{ type: 'text', value, position: at() }], position: at() }
     kids.splice(i, close - i + 1, merged)
   }
 }
