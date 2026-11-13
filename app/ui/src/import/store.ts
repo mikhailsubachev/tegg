@@ -60,7 +60,11 @@ const initial = (): ImportState => ({
 let state: ImportState = initial();
 const listeners = new Set<() => void>();
 function set(patch: Partial<ImportState> | ((s: ImportState) => Partial<ImportState>)) {
+  const prev = state;
   state = { ...state, ...(typeof patch === 'function' ? patch(state) : patch) };
+  // §8: `import-step:<step>` once per step change of the shown window, wherever the step or the open state changes
+  // (opening, bringing the run forward, a step change, a move by an error or a run's answer).
+  if (state.open && (!prev.open || state.step !== prev.step)) void ipc.perfMark(`import-step:${state.step}`).catch(() => {});
   for (const f of listeners) f();
 }
 export const getImport = () => state;
@@ -69,6 +73,8 @@ export function useImport(): ImportState {
 }
 /** True while the window is shown: the editor and the capture paths ignore drops, the app's keys don't act (§3.1). */
 export const importOpen = () => state.open || state.quitAsk;
+/** True while a run is live (started, not final): the frame throttles its re-reads on `vault:changed` (App.tsx). */
+export const importRunning = () => !!state.run && state.run.job >= 0 && !state.run.result;
 
 // ------------------------------------------------------------------ the app's side (opening vaults, the focus)
 
@@ -107,7 +113,6 @@ export function openImport(from?: HTMLElement | null): void {
   }
   if (state.run) void ipc.importDiscard().catch(() => {});
   set({ ...initial(), open: true, step: '0' });
-  void ipc.perfMark('import-step:0').catch(() => {});
 }
 /** The status button: the window at the run's step (6 or 7). */
 export function showRun(from?: HTMLElement | null): void {
@@ -188,7 +193,9 @@ export function stopReading(): void {
 export async function readAgain(): Promise<void> {
   const p = state.source?.path;
   if (!p) return;
-  set({ step: '1', sub: {}, alert: null, run: state.run && !runFinal(state.run) ? state.run : null });
+  // A run `import_start` refused (job -1, its failure, no result) or a final one is gone; only a live run stays.
+  const live = state.run && !runFinal(state.run) && state.run.job >= 0 && !state.run.failure ? state.run : null;
+  set({ step: '1', sub: {}, alert: null, run: live });
   await readSource(p, { keepMapping: true });
 }
 
@@ -213,7 +220,6 @@ export function goBack(): void {
 }
 export function go(step: Step, sub: ImportState['sub'] = {}): void {
   set({ step, sub, alert: step === state.step ? state.alert : null });
-  void ipc.perfMark(`import-step:${step}`).catch(() => {});
   if (step === '3') void enterWhere();
 }
 export const openAttrs = (row: string) => set({ step: '4b', sub: { attrs: row }, refused: null, alert: null });
@@ -401,7 +407,6 @@ export async function startRun(): Promise<void> {
     const e0 = early;
     early = null;
     set({ run: { ...base, job, progress: e0.progress, sawBackup: e0.sawBackup }, step: '6', sub: {}, alert: null });
-    void ipc.perfMark('import-step:6').catch(() => {});
     if (e0.result) onDone(e0.result);
   } catch (e) {
     const kind = errorKind(e);
@@ -419,10 +424,32 @@ let early: { progress: ImportProgressDto | null; result: ImportResultDto | null;
 function failRunStart(err: ImportErrorDto) {
   set((s) => ({ step: '6', sub: {}, run: s.run ? { ...s.run, failure: err } : s.run }));
 }
-/** Step 6's `Cancel` (before the first write): the run is cancelled, the window closes, nothing else shows. */
-export function cancelRun(): void {
-  void ipc.importCancel().catch(() => {});
-  set((s) => ({ open: false, hidden: false, run: s.run ? { ...s.run, cancelling: true } : s.run }));
+/** Step 6's `Cancel` (before the first write): the run is cancelled, the window closes, nothing else shows. The window
+ *  waits for `import_cancel`'s answer: `NotCancellable` (the run reached `writing` meanwhile, §5.3) is ignored and the
+ *  run goes on, step 6 shown as it was. */
+let cancelSent = false;
+export async function cancelRun(): Promise<void> {
+  const r0 = state.run;
+  if (!r0 || r0.result || cancelSent) return;
+  cancelSent = true;
+  set((s) => ({ run: s.run ? { ...s.run, cancelling: true } : s.run }));
+  let refused = false;
+  try {
+    await ipc.importCancel();
+  } catch (e) {
+    refused = true;
+    if (errorKind(e) !== 'NotCancellable') console.warn('import_cancel', e);
+  } finally {
+    cancelSent = false;
+  }
+  const r = state.run;
+  // `import:done` came first: cancelled (the window is closed already) or final (shown as `import:done` left it).
+  if (!r || r.job !== r0.job || r.result) return;
+  if (refused) {
+    set({ run: { ...r, cancelling: false } });
+    return;
+  }
+  set({ open: false, hidden: false });
   restoreFocus();
 }
 /** `Plan again` (R153 `TargetChanged`): 4a with a new plan, the mapping kept. */
@@ -451,15 +478,15 @@ function onDone(res: ImportResultDto) {
   const r = state.run;
   if (!r || res.job !== r.job) return;
   void ipc.perfMark('import-done').catch(() => {});
-  if (res.phase === 'cancelled' || r.cancelling) {
+  if (res.phase === 'cancelled') {
     void ipc.importDiscard().catch(() => {});
     set({ ...initial() });
     return;
   }
-  const run: RunView = { ...r, result: res, failure: res.phase === 'failed' ? res.error ?? { code: 'unknown' } : null, vault: res.vault ?? r.vault, vaultName: res.vaultName || r.vaultName };
+  // A cancel that came too late (the run ended or failed first): the run's end is shown as usual.
+  const run: RunView = { ...r, cancelling: false, result: res, failure: res.phase === 'failed' ? res.error ?? { code: 'unknown' } : null, vault: res.vault ?? r.vault, vaultName: res.vaultName || r.vaultName };
   if (state.open && res.phase === 'done') {
     set({ run, step: '7', sub: {} });
-    void ipc.perfMark('import-step:7').catch(() => {});
   } else set({ run });
 }
 
@@ -512,11 +539,14 @@ export function quitRequested(): boolean {
     set({ quitAsk: true });
     return true;
   }
-  // Queued, planning, backup: cancel, wait for `import:done` (at most 1 s), then quit.
-  void ipc.importCancel().catch(() => {});
+  // Queued, planning, backup: cancel, wait for `import:done` (at most 1 s), then quit. A cancel answered
+  // `NotCancellable` (the run reached `writing` meanwhile, §5.3) asks the question instead.
   const t0 = Date.now();
   const wait = () => { if (state.run?.result || !state.run || Date.now() - t0 > 1000) host?.quit(); else setTimeout(wait, 50); };
-  setTimeout(wait, 50);
+  ipc.importCancel().then(() => setTimeout(wait, 50), (e) => {
+    if (errorKind(e) === 'NotCancellable' && state.run && !state.run.result) set({ quitAsk: true });
+    else setTimeout(wait, 50);
+  });
   return true;
 }
 export const keepImporting = () => set({ quitAsk: false });

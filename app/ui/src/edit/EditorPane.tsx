@@ -175,7 +175,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       if (!inside(x, y)) return;
       const at = ed.view.posAtCoords({ left: x, top: y })?.pos;
       void addMedia(tg, { kind: 'paths', paths: e.payload.paths }, at);
-    });
+    }, { target: { kind: 'AnyLabel', label: 'main' } }); // the main window's drops only, not the capture window's
     return () => void un.then((f) => f());
   }, []);
   /** 6A: where media goes: this editor, owned by this note (its title, else its stem). */

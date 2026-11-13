@@ -1,6 +1,7 @@
 /* Slice I2 (docs/contracts/v1-import-window.md §3.2, FR-UX-05 AC-21): the Import window (board Import, section A).
    Every colour is a theme token; nothing moves with reduced motion (FR-UX-08 AC-20). */
 .import-backdrop { z-index: 60; }
+.import-quit-backdrop { z-index: 70; }
 .dialog-backdrop .dialog.import-dialog { width: min(720px, 94vw); max-height: 88vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; }
 .import-dialog h2 { margin: 0; padding: 18px 24px 4px; font-size: 18px; }
 .import-dialog h2:focus-visible { outline: none; }

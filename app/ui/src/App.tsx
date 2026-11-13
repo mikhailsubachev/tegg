@@ -69,7 +69,7 @@ import { tagOfFile, useTags, loadTags, refreshTags } from './tags/store';
 import { findPin, editReason } from './pinned/model';
 import { ImportDialog } from './import/ImportDialog';
 import { ImportStatus } from './import/ImportStatus';
-import { importOpen, openImport as openImportWindow, quitRequested as importQuitRequested, setImportHost, startImportEvents } from './import/store';
+import { importOpen, importRunning, openImport as openImportWindow, quitRequested as importQuitRequested, setImportHost, startImportEvents } from './import/store';
 import { pinsForVault, pinsNow, pinTarget, unpin, usePins } from './pinned/store';
 import { focusedPinnedRow, moveFocusedPinned } from './pinned/PinnedSection';
 import type { PinRequestDto } from './ipc/pins';
@@ -150,6 +150,12 @@ const DEFAULT_UI: UiState = { version: 1, theme: 'system', sidebarOpen: true, ri
 function initialUi(): UiState {
   const w = window as { __TEGG_UI_STATE__?: UiState | null };
   return w.__TEGG_UI_STATE__ ? { ...DEFAULT_UI, ...w.__TEGG_UI_STATE__ } : DEFAULT_UI;
+}
+
+/** The Import window is mounted once, at the same place of every tree App returns (the chooser, the frame), so a vault
+ *  switch or the chooser never remounts it (v1-import-window §3.1). */
+function withImport(node: React.ReactNode) {
+  return <>{node}<ImportDialog /></>;
 }
 
 export function App() {
@@ -355,6 +361,22 @@ export function App() {
     });
     return () => setImportHost(null);
   }, [opened]);
+  // Slice I2 (QA): an import writes the vault in batches, each a `vault:changed`; every one re-read the whole frame (types,
+  // counts, the page's lists), and on a large vault those reads queued behind each other. While a run is live the
+  // frame re-reads at most every 500 ms (the first change at once, the last one always), well within NFR-PERF-08.
+  const importBump = useRef<{ timer: ReturnType<typeof setTimeout> | null; pending: boolean }>({ timer: null, pending: false });
+  const bumpDuringImport = useCallback(() => {
+    const b = importBump.current;
+    if (b.timer) { b.pending = true; return; }
+    setRefresh((n) => n + 1);
+    const tick = () => {
+      if (!b.pending) { b.timer = null; return; }
+      b.pending = false;
+      setRefresh((n) => n + 1);
+      b.timer = setTimeout(tick, 500);
+    };
+    b.timer = setTimeout(tick, 500);
+  }, []);
   useEffect(() => {
     // A result after the cleanup is dropped: StrictMode runs this effect twice, and two `opened` calls would load the
     // landing page twice (NFR-PERF-05 AC-3: one link_resolve, one note_read).
@@ -364,7 +386,7 @@ export function App() {
       // The end of indexing changes what every page reads (a page opened while it ran saw part of the vault), but the
       // core sends no `vault:changed` for it: pages read again as after a change (bug v0.70, tag page; FR-UX-07).
       events.progress((p) => { setProgress(p); if (p.state === 'done') setRefresh((n) => n + 1); }),
-      events.changed(() => { setRefresh((n) => n + 1); }),
+      events.changed(() => { if (importRunning()) bumpDuringImport(); else setRefresh((n) => n + 1); }),
       // 5B (ms5-capture §1.4, §2.2): `Settings…` in the status menu and the Saved panel's `Open`.
       events.shellRoute((r) => { const parsed = parseRoute(r); if (parsed) void goRef.current?.(parsed); }),
     ];
@@ -1208,16 +1230,15 @@ export function App() {
     requestAnimationFrame(tick);
   }, [routeKey, meta, chooserShown]);
 
-  if (vault === undefined) return null;
+  if (vault === undefined) return withImport(null);
 
   if (chooserShown) {
-    return (
+    return withImport(
       <>
         <Chooser key={chooser ? `c${chooser.form}` : 'none'} startWithForm={chooser?.form ?? false} onOpened={opened} onCancel={vault ? () => setChooser(null) : undefined} />
         {dialog === 'palette' && <Palette list={available_commands} onRun={(c) => { closeDialog(); run(c); }} onClose={closeDialog} />}
         <div className="chooser-status"><ImportStatus /></div>
-        <ImportDialog />
-      </>
+      </>,
     );
   }
 
@@ -1463,7 +1484,7 @@ export function App() {
   const tabIcon = route?.id === 'note/<path>' ? typeIconName(meta?.type ?? 'page', types.find((x) => x.key === meta?.type)?.icon) : route?.id === 'type/<type>' ? typeIconName(route.param ?? '', typeEntry?.icon) : routeIcon(route?.id ?? '');
   const named = userNamed ? <span data-user-content>{pageName}</span> : pageName;
 
-  return (
+  return withImport(
     <PreviewProvider>
     <div className={`app ${focusMode ? 'focus-mode' : ''}`}>
       {!focusMode && <TitleBar switcher={{ vault, onOpenPath: openVaultPath, onOpenFolder: actions.openFolder, onCreate: () => actions.openChooser(true), onSettings: () => go({ id: 'settings/vault' }) }} name={named} icon={tabIcon} progress={progress} onToggleSidebar={actions.toggleSidebar} canBack={history.current.canBack()} canForward={history.current.canForward()} onBack={actions.back} onForward={actions.forward} />}
@@ -1568,8 +1589,7 @@ export function App() {
       <QueryDialogs />
       <QueryPicker />
       <QueryNotices />
-      <ImportDialog />
     </div>
-    </PreviewProvider>
+    </PreviewProvider>,
   );
 }

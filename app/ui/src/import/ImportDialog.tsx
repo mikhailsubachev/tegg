@@ -73,19 +73,26 @@ export function ImportDialog() {
     if (!s.open) { prevStep.current = null; return; }
     const from = prevStep.current;
     prevStep.current = s.step;
-    if (from === '4b' && s.step === '4a' && focusRow.current) {
+    if (getImport().quitAsk) { /* the quit question on top keeps the focus (§6.3) */ }
+    else if (from === '4b' && s.step === '4a' && focusRow.current) {
       const id = focusRow.current;
       (dialog.current?.querySelector<HTMLElement>(`button[data-command="import.mapAttributes"][data-row="${CSS.escape(id)}"]`) ?? heading.current)?.focus();
     } else heading.current?.focus();
     setAnnounce((a) => ({ n: (a?.n ?? 0) + 1, text: title }));
   }, [viewKey]);
+  // The quit question answered `Keep importing` over the shown window: the focus back on the window's heading.
+  const prevAsk = useRef(false);
+  useEffect(() => {
+    if (prevAsk.current && !s.quitAsk && s.open) heading.current?.focus();
+    prevAsk.current = s.quitAsk;
+  }, [s.quitAsk, s.open]);
   useEffect(() => { setDropArea(() => dialog.current?.querySelector<HTMLElement>('div.import-drop') ?? null); return () => setDropArea(null); }, []);
   // A key whose focus left the dialog (WebKit doesn't focus a checkbox or a button on a click, so the focus can sit on
   // the body) still acts on the window: Esc and Tab as inside it (FR-UX-03 AC-44).
   const keyRef = useRef<(e: KeyboardEvent) => void>(() => {});
   useEffect(() => {
     const f = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || !getImport().open) return;
+      if (e.defaultPrevented || !getImport().open || getImport().quitAsk) return;
       const tg = e.target as Element | null;
       if (tg && (tg.closest?.('[data-import-step]') || tg.closest?.('[role="menu"]') || tg.closest?.('[role="dialog"]'))) return;
       keyRef.current(e);
@@ -126,7 +133,7 @@ export function ImportDialog() {
     <>
       {live}
       {createPortal(
-        <div className="dialog-backdrop import-backdrop">
+        <div className="dialog-backdrop import-backdrop" inert={s.quitAsk || undefined}>
           <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby={HEADING} data-import-step={s.step} className="dialog import-dialog" onKeyDown={onKeyDown}>
             <h2 id={HEADING} ref={heading} tabIndex={-1}>{title}</h2>
             {n !== null && (
@@ -142,6 +149,8 @@ export function ImportDialog() {
             <Footer s={s} />
           </div>
         </div>, document.body)}
+      {/* ⌘Q, the Dock or the status item during `writing` with the window shown: the question on top (§6.3, D-1539). */}
+      {s.quitAsk && <QuitQuestion />}
     </>
   );
 }
@@ -461,7 +470,7 @@ function Footer({ s }: { s: ImportState }) {
       } else {
         const locked = writingStarted(r?.progress ?? null);
         buttons = <>
-          <Btn command="import.cancel" label={t('import.cancel')} disabled={locked} description={locked ? t('import.run.cantStop') : undefined} onClick={cancelRun} />
+          <Btn command="import.cancel" label={t('import.cancel')} disabled={locked} description={locked ? t('import.run.cantStop') : undefined} onClick={() => void cancelRun()} />
           <Btn command="import.hide" label={t('import.hide')} primary onClick={hideImport} />
         </>;
       }
@@ -482,7 +491,7 @@ function QuitQuestion() {
   const keep = useRef<HTMLButtonElement>(null);
   useEffect(() => { keep.current?.focus(); }, []);
   return createPortal(
-    <div className="dialog-backdrop">
+    <div className="dialog-backdrop import-quit-backdrop">
       <div role="dialog" aria-modal="true" aria-label={t('import.quit.title')} className="dialog import-quit"
         onKeyDown={(e) => {
           if (e.key === 'Escape' || (e.key === 'Enter' && document.activeElement === keep.current)) { e.preventDefault(); e.stopPropagation(); keepImporting(); }

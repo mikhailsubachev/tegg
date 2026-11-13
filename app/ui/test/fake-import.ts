@@ -85,9 +85,39 @@ type Refusal = { kind: string; message: string; import: ImportErrorDto };
 const refuse = (reason: string, sourceType: string, attribute: string | null): Refusal =>
   ({ kind: 'InvalidMapping', message: `fake: ${reason}`, import: { code: 'invalidMapping', entry: { sourceType, attribute }, reason } });
 
+/** The engine's `deny_unknown_fields` on `Mapping`, `TypeMapping`, `AttrMapping`, `Split`, `CaseLinkChoice`
+ *  (crates/tegg-import/src/dto.rs §4): the shell refuses such an argument before the command runs (Tauri's
+ *  `invalid args` string, no `kind`). Required fields of `Split` (`on`) and `CaseLinkChoice` (all three) likewise. */
+function mappingShapeError(m: any): string | null {
+  const bad = (where: string, o: any, allowed: string[], required: string[] = []): string | null => {
+    if (o === null || o === undefined) return null;
+    if (typeof o !== 'object' || Array.isArray(o)) return `invalid type for ${where}`;
+    for (const k of Object.keys(o)) if (!allowed.includes(k)) return `unknown field \`${k}\` in ${where}, expected one of ${allowed.map((x) => `\`${x}\``).join(', ')}`;
+    for (const k of required) if (!(k in o)) return `missing field \`${k}\` in ${where}`;
+    return null;
+  };
+  const e = bad('Mapping', m, ['version', 'types', 'caseLinks']);
+  if (e || !m) return e;
+  for (const tm of Object.values((m.types ?? {}) as Record<string, any>)) {
+    const t = bad('TypeMapping', tm, ['to', 'attributes']);
+    if (t) return t;
+    for (const am of Object.values((tm?.attributes ?? {}) as Record<string, any>)) {
+      const a = bad('AttrMapping', am, ['to', 'merge', 'split', 'values']) ?? bad('Split', am?.split, ['on', 'to'], ['on']);
+      if (a) return a;
+    }
+  }
+  for (const c of (Array.isArray(m.caseLinks) ? m.caseLinks : [])) {
+    const x = bad('CaseLinkChoice', c, ['note', 'target', 'use'], ['note', 'target', 'use']);
+    if (x) return x;
+  }
+  return null;
+}
+
 /** The canned plan with the given mapping applied: targets, attribute actions, merges, splits, statuses, `needsLook`
  *  (v1-import §5.1's four rules), the decisions and the effective mapping; or the refusal. */
-export function applyMapping(plan0: any, mapping: any, targetTypes: TargetTypeDto[]): { plan: any } | { error: Refusal } {
+export function applyMapping(plan0: any, mapping: any, targetTypes: TargetTypeDto[]): { plan: any } | { error: Refusal | string } {
+  const shape = mappingShapeError(mapping);
+  if (shape) return { error: `invalid args \`mapping\` for command \`import_plan\`: ${shape}` };
   const plan = JSON.parse(JSON.stringify(plan0));
   const given = mapping ?? {};
   const gt = (given.types ?? {}) as Record<string, any>;
@@ -252,6 +282,7 @@ export function fakeImportMain(init: { opts: FakeImportOptions; empty: Record<st
     const path = nfc(a?.path ?? '');
     const src = (o.sources ?? {})[path] ?? Object.entries(o.sources ?? {}).find(([k]) => nfc(k) === path)?.[1];
     if (!src) throw err('NotASource');
+    if (s.run && !s.run.result) throw err('Busy'); // the shell: no scan while a run is live (§2.1)
     if (s.scanTok) s.scanTok.cancelled = true;
     if (s.planTok) s.planTok.cancelled = true;
     const tok = { cancelled: false };
@@ -292,7 +323,11 @@ export function fakeImportMain(init: { opts: FakeImportOptions; empty: Record<st
     const space = nfc(a?.space ?? '');
     if (typeof o.where === 'string') return node('load', { name: o.where });
     if (o.where) return JSON.parse(JSON.stringify(o.where));
-    const parent = f.path ? f.path.slice(0, f.path.lastIndexOf('/')) || '/' : '/fake/home/Documents';
+    // D-1575, D-1581 (as the shell's `proposed_parent`): the open vault's parent; with none, the parent of the first
+    // recent vault that still exists; else `~/Documents/Tegg`.
+    const parentOf = (p: string) => p.slice(0, p.lastIndexOf('/')) || '/';
+    const recent = ((f.recent ?? []) as { path: string; exists: boolean }[]).find((r) => r.exists);
+    const parent = f.vault && f.path ? parentOf(f.path) : recent ? parentOf(nfc(recent.path)) : '/fake/home/Documents/Tegg';
     let name = `Capacities · ${space}`;
     for (let i = 2; taken(`${parent}/${name}`); i++) name = `Capacities · ${space} (${i})`;
     const file = (o.plans ?? {})[`${space}|existing`];
@@ -304,6 +339,7 @@ export function fakeImportMain(init: { opts: FakeImportOptions; empty: Record<st
     const space = nfc(a?.space ?? '');
     const target = a?.target ?? { kind: 'newVault' };
     if (target.kind === 'existing' && !f.vault) throw err('NoVault');
+    if (s.run && !s.run.result) throw err('Busy'); // the shell: no plan while a run is live (§2.1)
     const failed = failAt('plan');
     if (failed) throw err(pascal(failed.code), failed.code, failed);
     const file = (o.plans ?? {})[`${space}|${target.kind}`];
@@ -426,7 +462,7 @@ export function fakeImportMain(init: { opts: FakeImportOptions; empty: Record<st
     const plan = r.plan;
     return {
       job: r.job, space: plan.space, target: r.existing ? 'existing' : 'newVault', vaultName: r.vaultName, vault: r.vaultPath, files: plan.source.files,
-      backup: r.existing && !!plan.backup, objects: (plan.objects as any[]).filter((x) => x.outcome === 'imported').length,
+      backup: r.existing && !!plan.backup, objects: (plan.objects as any[]).filter((x) => x.outcome === 'imported' && !!x.path).length,
       links: (plan.links as any[]).filter((l) => ['resolved', 'date-mention', 'attachment'].includes(l.outcome.kind)).length,
       card: { unresolved: plan.report.unresolved.length, stubs: plan.report.stubs.length, ambiguous: plan.report.ambiguous.length, merged: plan.report.merged.length,
         mergedExample: plan.report.merged.length ? [plan.report.merged[0].variants[0], plan.report.merged[0].kept] : null,

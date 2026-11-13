@@ -80,6 +80,9 @@ pub(crate) struct ImportSession {
     latest: Option<u64>,
     work: Option<Work>,
     starting: bool,
+    /// The started plan's `Core` between `import_start` taking it out of `plans` and storing the run, so `held_core`
+    /// sees it all along and a switch away and back reattaches it instead of opening a second `Core` (§1.2).
+    start_core: Option<Arc<Core>>,
     run: Option<RunState>,
     memo: Arc<ScanMemo>,
 }
@@ -126,7 +129,9 @@ fn import_err(e: ImportError) -> IpcError {
 /// `tegg_jobs::Transformer` over the main window's transform worker, independent of any `Core`.
 pub(crate) struct ImportBridge {
     app: AppHandle,
-    replies: Mutex<HashMap<u64, Result<Transformed, TransformError>>>,
+    /// Requests waiting for an answer (`None`) and answers not yet taken; an id is here only while its request waits,
+    /// so an answer after the 30 s timeout is dropped, not kept.
+    replies: Mutex<HashMap<u64, Option<Result<Transformed, TransformError>>>>,
     replied: Condvar,
 }
 
@@ -140,16 +145,23 @@ impl Transformer for ImportBridge {
         let id = next_id();
         let ops: Vec<Value> = ops.iter().map(tegg_jobs::op_json).collect();
         let text = String::from_utf8_lossy(bytes).into_owned();
-        self.app
-            .emit_to("main", "import:transform", json!({ "requestId": id, "source": source, "text": text, "ops": ops }))
-            .map_err(|_| TransformError::Unavailable)?;
+        lock(&self.replies).insert(id, None);
+        if self.app.emit_to("main", "import:transform", json!({ "requestId": id, "source": source, "text": text, "ops": ops })).is_err() {
+            lock(&self.replies).remove(&id);
+            return Err(TransformError::Unavailable);
+        }
         let until = Instant::now() + Duration::from_secs(30);
         let mut replies = lock(&self.replies);
         loop {
-            if let Some(r) = replies.remove(&id) {
-                return r;
+            if let Some(Some(_)) = replies.get(&id) {
+                if let Some(Some(r)) = replies.remove(&id) {
+                    return r;
+                }
             }
-            let Some(left) = until.checked_duration_since(Instant::now()) else { return Err(TransformError::Timeout) };
+            let Some(left) = until.checked_duration_since(Instant::now()) else {
+                replies.remove(&id);
+                return Err(TransformError::Timeout);
+            };
             replies = self.replied.wait_timeout(replies, left).unwrap_or_else(|p| p.into_inner()).0;
         }
     }
@@ -196,7 +208,10 @@ pub(crate) fn transformed_from(result: TransformedDto) -> Result<Transformed, Tr
 #[tauri::command]
 pub(crate) async fn import_transform_result(app: AppHandle, request_id: u64, result: TransformedDto) -> Result<(), IpcError> {
     let b = bridge(&app);
-    lock(&b.replies).insert(request_id, transformed_from(result));
+    // Only a request still waiting takes an answer; a late one (after the timeout) or an unknown id is dropped.
+    if let Some(slot) = lock(&b.replies).get_mut(&request_id) {
+        *slot = Some(transformed_from(result));
+    }
     b.replied.notify_all();
     Ok(())
 }
@@ -248,18 +263,36 @@ pub(crate) fn gate_of(core: &Arc<Core>) -> Option<Arc<Gate>> {
     lock(&GATES).iter().find(|(w, _)| w.upgrade().is_some_and(|c| Arc::ptr_eq(&c, core))).map(|(_, g)| g.clone())
 }
 
-/// Forwarded `job:transform` requests: process-wide id → (the `Core` that asked, its own request id).
-static TRANSFORMS: Mutex<Option<HashMap<u64, (Weak<Core>, u64)>>> = Mutex::new(None);
+/// Forwarded `job:transform` requests: process-wide id → (the `Core` that asked, its own request id, when it asked).
+static TRANSFORMS: Mutex<Option<HashMap<u64, (Weak<Core>, u64, Instant)>>> = Mutex::new(None);
+/// How long a forwarded request is kept unanswered: past the jobs' own timeouts (10 s, a live file 30 s), the `Core`
+/// stopped waiting, so the entry is dropped (a held request behind a closed gate as well).
+const TRANSFORM_KEEP: Duration = Duration::from_secs(60);
+
+fn prune_transforms(m: &mut HashMap<u64, (Weak<Core>, u64, Instant)>) {
+    m.retain(|_, (w, _, at)| w.strong_count() > 0 && at.elapsed() < TRANSFORM_KEEP);
+}
 
 pub(crate) fn route_transform(core: Weak<Core>, own: u64) -> u64 {
     let id = next_id();
-    lock(&TRANSFORMS).get_or_insert_with(HashMap::new).insert(id, (core, own));
+    let mut g = lock(&TRANSFORMS);
+    let m = g.get_or_insert_with(HashMap::new);
+    prune_transforms(m);
+    m.insert(id, (core, own, Instant::now()));
     id
 }
-/// `job_transform_result`: the answer goes to the `Core` that asked; a released one or an unknown id: dropped.
+/// `job_transform_result`: the answer goes to the `Core` that asked; a released one, a timed-out or an unknown id:
+/// dropped.
 pub(crate) fn answer_transform(id: u64, result: Result<Transformed, TransformError>) {
-    let entry = lock(&TRANSFORMS).as_mut().and_then(|m| m.remove(&id));
-    if let Some((weak, own)) = entry {
+    let entry = {
+        let mut g = lock(&TRANSFORMS);
+        g.as_mut().and_then(|m| {
+            let e = m.remove(&id);
+            prune_transforms(m);
+            e
+        })
+    };
+    if let Some((weak, own, _)) = entry.filter(|(_, _, at)| at.elapsed() < TRANSFORM_KEEP) {
         if let Some(core) = weak.upgrade() {
             core.jobs().transform_result(own, result);
         }
@@ -734,6 +767,10 @@ pub(crate) async fn import_where(app: AppHandle, state: State<'_, AppState>, spa
     let sh = shared(&state);
     let (scan, source, memo) = {
         let s = lock(&sh.session);
+        // QA: no `import_where` while a run is live (its plan would be stored next to the run's).
+        if s.run_live() {
+            return Err(busy());
+        }
         (s.scan.clone().ok_or_else(no_session)?, s.source_path.clone(), s.memo.clone())
     };
     // The name: a fixed Rust string, never the catalog's (§2.3), with ` (2)`, ` (3)`… when taken now.
@@ -746,37 +783,81 @@ pub(crate) async fn import_where(app: AppHandle, state: State<'_, AppState>, spa
         n += 1;
     }
     let new_vault = check_target(&parent, &name, source.as_deref());
-    let current = match open_core(&state) {
-        None => Value::Null,
-        Some(core) => {
-            let e = env(&app, &memo, ReportStrings::english());
-            let ctl = control(&app, &CancelToken::new());
-            let (scan2, space2, core2) = (scan.clone(), space.clone(), core.clone());
-            let r = tauri::async_runtime::spawn_blocking(move || plan_waiting(&scan2, &space2, &Target::Existing(&core2), &Mapping::default(), &e, &ctl))
-                .await
-                .map_err(|e| err("Io", e))?;
-            let (plan, no_space) = r.map_err(import_err)?;
-            let notes = match &plan.target {
-                PlanTarget::Existing { notes, .. } => *notes,
-                _ => 0,
-            };
-            let root = core.vault().root().to_path_buf();
-            let out = json!({
-                "name": root.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
-                "path": root.to_string_lossy(),
-                "notes": notes,
-                "alreadyImported": plan.already_imported,
-            });
+    // The open vault's plan; a vault switch while it was made plans the newly open vault instead (a plan for a
+    // detached `Core` is never stored, §1.2).
+    let mut tries = 0;
+    let current = loop {
+        tries += 1;
+        let Some(core) = open_core(&state) else { break Value::Null };
+        // The plan is the session's work: `import_cancel` stops it, a newer scan or plan supersedes it.
+        let (id, cancel) = {
             let mut s = lock(&sh.session);
-            if s.scan.as_ref().is_some_and(|x| Arc::ptr_eq(x, &scan)) {
-                let token = next_id();
-                s.plans.retain(|_, p| !p.from_where);
-                s.plans.insert(token, StoredPlan { plan, target: StoredTarget::Existing(core), space: space.clone(), no_space, from_where: true });
+            if s.run_live() {
+                return Err(busy());
             }
-            out
+            if let Some(w) = s.work.take() {
+                w.cancel.cancel();
+            }
+            let id = next_id();
+            let cancel = CancelToken::new();
+            s.work = Some(Work { id, kind: "plan", cancel: cancel.clone() });
+            (id, cancel)
+        };
+        let e = env(&app, &memo, ReportStrings::english());
+        let ctl = control(&app, &cancel);
+        let (scan2, space2, core2) = (scan.clone(), space.clone(), core.clone());
+        let r = tauri::async_runtime::spawn_blocking(move || plan_waiting(&scan2, &space2, &Target::Existing(&core2), &Mapping::default(), &e, &ctl))
+            .await
+            .map_err(|e| err("Io", e));
+        let mut s = lock(&sh.session);
+        let mine = s.work.as_ref().is_some_and(|w| w.id == id);
+        if mine {
+            s.work = None;
         }
+        let (plan, no_space) = r?.map_err(import_err)?;
+        if !mine || !s.scan.as_ref().is_some_and(|x| Arc::ptr_eq(x, &scan)) {
+            return Err(import_err(ImportError::Cancelled));
+        }
+        // Still the open vault? (`open_vault` takes `AppState.core` before `vault_switched` drops `Existing` plans
+        // under this lock, so a plan stored now is either current or dropped by that switch.)
+        if !open_core(&state).is_some_and(|c| Arc::ptr_eq(&c, &core)) {
+            drop(s);
+            drop(plan);
+            if tries < 3 {
+                continue;
+            }
+            return Err(import_err(ImportError::Cancelled));
+        }
+        let notes = match &plan.target {
+            PlanTarget::Existing { notes, .. } => *notes,
+            _ => 0,
+        };
+        let root = core.vault().root().to_path_buf();
+        let out = json!({
+            "name": root.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(),
+            "path": root.to_string_lossy(),
+            "notes": notes,
+            "alreadyImported": plan.already_imported,
+        });
+        let token = next_id();
+        let old: Vec<StoredPlan> = take_plans(&mut s, |p| p.from_where);
+        s.plans.insert(token, StoredPlan { plan, target: StoredTarget::Existing(core), space: space.clone(), no_space, from_where: true });
+        drop(s);
+        drop(old);
+        break out;
     };
     Ok(json!({ "newVault": new_vault, "current": current }))
+}
+
+/// Takes the stored plans `drop_if` matches out of the session, so their `Arc<Core>`s are dropped by the caller after
+/// it lets go of the session's lock (a last `Arc<Core>` joins the `Core`'s worker, §1.2).
+fn take_plans(s: &mut ImportSession, drop_if: impl Fn(&StoredPlan) -> bool) -> Vec<StoredPlan> {
+    let (gone, keep): (BTreeMap<u64, StoredPlan>, BTreeMap<u64, StoredPlan>) = std::mem::take(&mut s.plans).into_iter().partition(|(_, p)| drop_if(p));
+    s.plans = keep;
+    if s.latest.is_some_and(|t| !s.plans.contains_key(&t)) {
+        s.latest = None;
+    }
+    gone.into_values().collect()
 }
 
 #[tauri::command]
@@ -874,7 +955,7 @@ pub(crate) struct JobDto {
 #[tauri::command]
 pub(crate) async fn import_start(app: AppHandle, state: State<'_, AppState>, token: u64, report_strings: BTreeMap<String, String>) -> Result<JobDto, IpcError> {
     let sh = shared(&state);
-    let (sp, scan, memo) = {
+    let (sp, scan, memo, rest) = {
         let mut s = lock(&sh.session);
         if s.run_live() {
             return Err(busy());
@@ -888,11 +969,16 @@ pub(crate) async fn import_start(app: AppHandle, state: State<'_, AppState>, tok
         }
         // §1.2: `import_start` drops every stored plan; the started one moves into the run.
         let sp = s.plans.remove(&token).expect("checked");
-        s.plans.clear();
+        let rest = std::mem::take(&mut s.plans);
         s.latest = None;
         s.starting = true;
-        (sp, scan, s.memo.clone())
+        s.start_core = match &sp.target {
+            StoredTarget::Existing(c) => Some(c.clone()),
+            _ => None,
+        };
+        (sp, scan, s.memo.clone(), rest)
     };
+    drop(rest);
     {
         let mut r = lock(&RUN_JOB);
         r.job = None;
@@ -918,11 +1004,13 @@ pub(crate) async fn import_start(app: AppHandle, state: State<'_, AppState>, tok
     let run = match r {
         Ok(Ok(run)) => Arc::new(run),
         Ok(Err(e)) => {
-            lock(&sh.session).starting = false;
+            let held = end_start(&sh);
+            drop(held);
             return Err(import_err(e));
         }
         Err(e) => {
-            lock(&sh.session).starting = false;
+            let held = end_start(&sh);
+            drop(held);
             return Err(err("Io", e));
         }
     };
@@ -930,6 +1018,8 @@ pub(crate) async fn import_start(app: AppHandle, state: State<'_, AppState>, tok
     {
         let mut s = lock(&sh.session);
         s.starting = false;
+        // The run's target holds the `Core` from here on (`sp.target`), so this clone is never the last one.
+        s.start_core = None;
         s.run = Some(RunState { run: run.clone(), plan: sp.plan, target: sp.target, space: sp.space, files: scan.info.files as u64, last: None, result: None });
     }
     // Progress → `import:progress` (the sink never sleeps, §8).
@@ -963,7 +1053,12 @@ pub(crate) async fn import_start(app: AppHandle, state: State<'_, AppState>, tok
                     break r;
                 }
             };
+            // `held_core` (`open_vault`) waits on `RELEASE` until the `Core` is gone, so it never opens a second one
+            // beside a `Core` still shutting down; the last `Arc` is dropped outside the session's lock, which the
+            // run's `on_progress` sink takes (a `Core`'s drop joins its worker).
+            let release = lock(&RELEASE);
             let mut s = lock(&sh2.session);
+            let mut released = None;
             if let Some(rs) = s.run.as_mut().filter(|rs| Arc::ptr_eq(&rs.run, &run)) {
                 let result = result_dto(&report, rs);
                 rs.result = Some(result.clone());
@@ -971,11 +1066,12 @@ pub(crate) async fn import_start(app: AppHandle, state: State<'_, AppState>, tok
                 mark_repeat("import-done");
                 if let StoredTarget::Existing(core) = &rs.target {
                     let root = core.vault().root().to_path_buf();
-                    // The `Arc` is dropped here, on this thread, under the session's lock (`open_vault` waits on it).
-                    rs.target = StoredTarget::Released(root);
+                    released = Some(std::mem::replace(&mut rs.target, StoredTarget::Released(root)));
                 }
             }
             drop(s);
+            drop(released);
+            drop(release);
             let mut r = lock(&RUN_JOB);
             if r.job == Some(job) {
                 r.job = None;
@@ -983,6 +1079,13 @@ pub(crate) async fn import_start(app: AppHandle, state: State<'_, AppState>, tok
         });
     }
     Ok(JobDto { job })
+}
+
+/// A refused start: the session is no longer starting; the `Core` it held is returned, to be dropped outside the lock.
+fn end_start(sh: &ImportShared) -> Option<Arc<Core>> {
+    let mut s = lock(&sh.session);
+    s.starting = false;
+    s.start_core.take()
 }
 
 fn target_root(t: &StoredTarget) -> Option<PathBuf> {
@@ -1100,7 +1203,11 @@ pub(crate) fn same_vault(core: &Core, key: &Path, root: &Path) -> bool {
 /// which a final run's `Core` is released.
 pub(crate) fn held_core(app: &AppHandle, key: &Path, root: &Path) -> Option<Arc<Core>> {
     let state = app.state::<AppState>();
+    let _release = lock(&RELEASE);
     let s = lock(&state.import.session);
+    if let Some(c) = s.start_core.as_ref().filter(|c| same_vault(c, key, root)) {
+        return Some(c.clone());
+    }
     let mut held = s.plans.values().map(|p| &p.target).chain(s.run.as_ref().map(|r| &r.target));
     held.find_map(|t| match t {
         StoredTarget::Existing(c) if same_vault(c, key, root) => Some(c.clone()),
@@ -1108,14 +1215,16 @@ pub(crate) fn held_core(app: &AppHandle, key: &Path, root: &Path) -> Option<Arc<
     })
 }
 
+/// Held while a final run's `Core` is released (taken before the session's lock, never after it).
+static RELEASE: Mutex<()> = Mutex::new(());
+
 /// `open_vault` of another vault drops every stored plan whose target is `Existing` (§1.2).
 pub(crate) fn vault_switched(app: &AppHandle) {
     let state = app.state::<AppState>();
     let mut s = lock(&state.import.session);
-    s.plans.retain(|_, p| !matches!(p.target, StoredTarget::Existing(_)));
-    if s.latest.is_some_and(|t| !s.plans.contains_key(&t)) {
-        s.latest = None;
-    }
+    let gone = take_plans(&mut s, |p| matches!(p.target, StoredTarget::Existing(_)));
+    drop(s);
+    drop(gone);
 }
 
 // ------------------------------------------------------------------------------------------------ the app menu (§4.1)

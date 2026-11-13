@@ -213,7 +213,8 @@ export const events = {
   importOpen: (f: () => void): Promise<UnlistenFn> => listen('import:open', () => f()),
   /** Tauri's window drag-drop event (6A): paths and the drop position. */
   dragDrop: (f: (d: { paths: string[]; position: { x: number; y: number } }) => void): Promise<UnlistenFn> =>
-    listen<{ paths: string[]; position: { x: number; y: number } }>('tauri://drag-drop', (e) => f(e.payload)),
+    // The main window's drops only (the default target `Any` would also deliver the capture window's).
+    listen<{ paths: string[]; position: { x: number; y: number } }>('tauri://drag-drop', (e) => f(e.payload), { target: { kind: 'AnyLabel', label: 'main' } }),
 };
 
 /** A core error's kind, for the catalog message `error.<kind>` (NFR-OTH-02 AC-2); never its message text. */
