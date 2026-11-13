@@ -1103,7 +1103,9 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       return;
     }
     if (loaded.mode !== 'edit') { snap.current = null; setOutline(null); return; }
-    refreshOutline.current(true);
+    // A save (a new `loaded`) or a width change refreshes like typing does: a test hold (D-1644) or IME composition
+    // keeps the shown outline; a new note, or leaving the source view, always gets its outline at once.
+    refreshOutline.current(!snap.current || snap.current.key !== outlineKey.current || outlineRef.current?.view !== 'editor');
   }, [loaded, showSource, diskText, gone, widthKey]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { publishOutline(outline); }, [outline]);
   useEffect(() => () => { if (getOutline() === outlineRef.current) publishOutline(null); }, []);
