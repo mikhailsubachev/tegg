@@ -37,8 +37,8 @@ async function textShown(d: Driver, text: string, ms = 3000): Promise<boolean> {
 async function statusSays(d: Driver, ok: (t: string) => boolean, ms: number): Promise<string> {
   let last = '';
   await waitFor(async () => {
-    for (const e of await d.$$('-ios predicate string:label BEGINSWITH "Import"').catch(() => [] as any[])) {
-      const l = String(await e.getAttribute('label').catch(() => ''));
+    for (const e of await d.$$('-ios predicate string:label BEGINSWITH "Import" OR title BEGINSWITH "Import"').catch(() => [] as any[])) {
+      const l = String((await e.getAttribute('label').catch(() => '')) || (await e.getAttribute('title').catch(() => '')));
       if (ok(l) && (await e.isDisplayed().catch(() => false))) { last = l; return true; }
     }
     return false;
@@ -68,7 +68,7 @@ async function toPreview(c: ImportCtx, destination: 'new' | 'current'): Promise<
 }
 /** Step 5's `Import <n> objects`. */
 async function pressImport(c: ImportCtx): Promise<number> {
-  const e = await c.d!.$('-ios predicate string:label BEGINSWITH "Import " AND label ENDSWITH " objects"');
+  const e = await c.d!.$('-ios predicate string:elementType == 9 AND title BEGINSWITH "Import " AND title ENDSWITH " objects"');
   assert.ok(await e.isExisting().catch(() => false), '`Import <n> objects`');
   const from = markCount(c);
   await e.click();
@@ -140,7 +140,7 @@ test('fr_ux_07_ac15_hidden_import_continues_real_app', { timeout: 900_000 }, asy
     assert.ok(during - baseline <= 100, `the save is delayed by at most 100 ms (baseline ${baseline} ms, during the import ${during} ms)`);
     // Reopen while running: step 6.
     const f6 = markCount(c);
-    await (await need(d, running, 3000)).click();
+    await (await d.$('-ios predicate string:elementType == 9 AND title BEGINSWITH "Importing "')).click();
     assert.ok(await stepAfter(c, '6', f6, 5000), 'the status reopens step 6');
     press('escape');
     assert.ok(await waitFor(async () => !(await shown(d, 'Import steps', 100)), 3000), 'Esc on step 6 hides it');
