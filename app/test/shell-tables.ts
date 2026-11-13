@@ -70,7 +70,7 @@ export const R1: R1Row[] = [
 export type R2Row = { id: 'backlinks' | 'outline' | 'graph'; tab: string; built: boolean; due: Due; reqs: string };
 export const R2: R2Row[] = [
   { id: 'backlinks', tab: 'Backlinks', built: true, due: d('MS4', '4A'), reqs: 'FR-LNK-01, FR-LNK-02' }, // built in 4A (backlinks.md R16, D-293)
-  { id: 'outline', tab: 'Outline', built: false, due: d('v1.0'), reqs: 'FR-EDT-11' }, // 5B R62 (D-376)
+  { id: 'outline', tab: 'Outline', built: true, due: d('v1.0'), reqs: 'FR-EDT-11, FR-NAV-05' }, // slice OL (outline.md R170, D-1624)
   { id: 'graph', tab: 'Graph', built: true, due: d('v1.0'), reqs: 'FR-GRP-01, FR-NAV-05' }, // G2 (graph-panel.md, D-920)
 ];
 
@@ -181,6 +181,12 @@ export const R4_G1: R4Row[] = [
 export const R4_PIN: R4Row[] = [
   { keys: '⌥⌘↑', press: 'Alt+Meta+ArrowUp', command: 'Move up', enabled: true },
   { keys: '⌥⌘↓', press: 'Alt+Meta+ArrowDown', command: 'Move down', enabled: true },
+];
+/** Slice OL's R4 row (outline.md R175, D-1617, D-1624): ⌘J `Outline: jump to heading…` (`outline.jump`, section `view`),
+ *  listed on note routes only (so the registry loop over R4 rows, run without a route, doesn't check it; outline_registry
+ *  does). */
+export const R4_OL: R4Row[] = [
+  { keys: '⌘J', press: 'Meta+j', command: 'Outline: jump to heading…', enabled: true },
 ];
 /** R106: the palette command `link.edit` (`Edit link`) shows ⇧⌘K, shared with R4's `edit.link` (`Insert link`): at a chip
  *  ⇧⌘K opens `Edit link` (FR-LNK-13 AC-6). The only pair FR-UX-03 AC-7's conflict check exempts (as previews_catalog). */

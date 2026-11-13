@@ -1,0 +1,232 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body>
+<title>Outline Rail Prototype</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: one Tegg window (title bar, note column, edge rail) under a slim test toolbar. Tokens match the Tegg design boards. */
+:root{
+  --board:#EDECE8; --bg:#FFFFFF; --side:#F5F5F3; --pop:#FFFFFF; --text:#1C1C1E; --muted:#626268; --faint:#9A9AA0;
+  --border:#E4E4E0; --hover:#ECECE8; --link:#1D5CCB; --link-bg:#EAF0FB;
+  --shadow:0 12px 32px rgba(20,20,30,.14),0 2px 6px rgba(20,20,30,.08);
+  --ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",system-ui,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --board:#111113; --bg:#1C1C1E; --side:#161618; --pop:#262629; --text:#ECECEE; --muted:#A6A6AC; --faint:#6E6E74;
+  --border:#313134; --hover:#2A2A2D; --link:#86AEFF; --link-bg:#1F2A3F;
+  --shadow:0 12px 32px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.4); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --board:#111113; --bg:#1C1C1E; --side:#161618; --pop:#262629; --text:#ECECEE; --muted:#A6A6AC; --faint:#6E6E74;
+  --border:#313134; --hover:#2A2A2D; --link:#86AEFF; --link-bg:#1F2A3F;
+  --shadow:0 12px 32px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.4); color-scheme:dark}
+html,body{height:100%}
+body{background:var(--board);color:var(--text);font-family:var(--ui);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px;box-sizing:border-box;display:flex;flex-direction:column;gap:12px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--faint);outline-offset:2px}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
+.bar h1{margin:0;font-size:17px;font-weight:700;letter-spacing:-.01em}
+.bar .hint{color:var(--muted);font-size:12.5px;flex:1 1 320px;min-width:0}
+.seg{display:inline-flex;padding:2px;gap:2px;border-radius:8px;background:var(--hover)}
+.seg button{height:26px;padding:0 10px;border-radius:6px;font-size:12.5px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--bg);color:var(--text);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+kbd{font-family:var(--mono);font-size:11px;padding:1px 5px;border-radius:4px;border:1px solid var(--border);background:var(--bg)}
+
+.win{flex:1;min-height:420px;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg);box-shadow:0 8px 24px rgba(0,0,0,.08)}
+.tbar{height:38px;flex:none;display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--side);border-bottom:1px solid var(--border)}
+.dots{display:flex;gap:7px;margin-right:6px}.dots i{width:11px;height:11px;border-radius:6px;display:block}
+.tbar .nav{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.tbar .nav:disabled{color:var(--faint);cursor:default}
+.tbar .ttl{font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.stage{flex:1;position:relative;min-height:0}
+.scroller{position:absolute;inset:0;overflow-y:auto;scroll-behavior:auto}
+.note{max-width:680px;margin:0 auto;padding:36px 64px 40vh 40px;outline:none}
+.note .type{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 7px;border-radius:5px;background:var(--hover);color:var(--muted);font-size:11px;font-weight:600}
+.note .title{font-size:28px;font-weight:700;line-height:1.2;margin:8px 0 6px}
+.note p{margin:6px 0 0;color:var(--text);max-width:62ch}
+.note h1,.note h2,.note h3,.note h4,.note h5,.note h6{max-width:62ch;line-height:1.25;margin:26px 0 0;border-radius:3px;transition:background-color .3s ease, box-shadow .3s ease;scroll-margin-top:24px}
+.note h1{font-size:23px;font-weight:700}.note h2{font-size:18.5px;font-weight:650}.note h3{font-size:16px;font-weight:650}
+.note h4{font-size:15px;font-weight:650}.note h5{font-size:14px;font-weight:650;color:var(--muted)}.note h6{font-size:13.5px;font-weight:650;color:var(--muted)}
+.note .flash{background:var(--link-bg);box-shadow:0 0 0 5px var(--link-bg)}
+
+.rail{position:absolute;right:max(14px,env(safe-area-inset-right,0px));top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:flex-end;gap:7px;padding:12px 8px;border-radius:8px;cursor:pointer;z-index:3}
+.rail i{display:block;height:1.5px;border-radius:1px;background:var(--faint);transition:background-color .15s}
+.rail i.path{background:var(--muted);height:2px}
+.rail i.cur,.rail i.hov{background:var(--text);height:2px}
+.card{position:absolute;right:52px;top:50%;transform:translateY(-50%);width:256px;max-height:min(520px,80%);overflow-y:auto;padding:6px;box-sizing:border-box;border-radius:12px;background:var(--pop);border:1px solid var(--border);box-shadow:var(--shadow);z-index:4}
+.row{position:relative;display:flex;align-items:center;height:26px;padding-right:8px;border-radius:6px;font-size:12.5px;white-space:nowrap;cursor:pointer;color:var(--text)}
+.row[aria-level="1"]{font-size:13px;font-weight:500}
+.row.deep{color:var(--muted)}
+.row.hov{background:var(--hover)}
+.row.path{font-weight:650;color:var(--text)}
+.row.cur{font-weight:650;color:var(--text)}
+.row.cur::before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:2px;background:var(--text)}
+.row .chev{width:16px;height:22px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--muted);border-radius:4px}
+.row .chev svg{transition:transform .12s}
+.row .chev.closed svg{transform:rotate(-90deg)}
+.row .chev:hover{background:var(--border)}
+.row .lbl{overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+.status{height:30px;flex:none;display:flex;align-items:center;gap:10px;padding:0 12px;border-top:1px solid var(--border);background:var(--side);font-size:12px;color:var(--muted);overflow:hidden;white-space:nowrap}
+.status b{color:var(--text);font-weight:600}
+.narrow{position:absolute;right:16px;bottom:12px;font-size:11.5px;color:var(--faint)}
+@media (prefers-reduced-motion: reduce){.note h1,.note h2,.note h3,.note h4,.note h5,.note h6,.rail i{transition:none}}
+@media (max-width:640px){.note{padding:24px 16px 40vh}}
+</style>
+
+<div class="bar">
+  <h1>Outline rail · V8 prototype</h1>
+  <div class="seg" role="group" aria-label="Sample note">
+    <button id="ds-long" aria-pressed="true" data-ds="long">Long note</button>
+    <button id="ds-deep" aria-pressed="false" data-ds="deep">Nested H1–H6</button>
+    <button id="ds-short" aria-pressed="false" data-ds="short">Regular note</button>
+  </div>
+  <div class="hint">Hover the lines on the right edge. Click a heading to jump; the cursor lands at its end. Keyboard: <kbd>⌘J</kbd> opens the card, <kbd>↑</kbd><kbd>↓</kbd> move, <kbd>→</kbd><kbd>←</kbd> open / close, <kbd>⏎</kbd> jump, <kbd>Esc</kbd> close, <kbd>⌘[</kbd> back.</div>
+</div>
+
+<div class="win">
+  <div class="tbar">
+    <div class="dots" aria-hidden="true"><i style="background:#FF5F57"></i><i style="background:#FEBC2E"></i><i style="background:#28C840"></i></div>
+    <button class="nav" id="back" aria-label="Back (⌘[)" title="Back · ⌘[" disabled><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+    <span class="ttl" id="wtitle"></span>
+  </div>
+  <div class="stage" id="stage">
+    <div class="scroller" id="scroller"><div class="note" id="note" contenteditable="true" spellcheck="false"></div></div>
+    <nav class="rail" id="rail" aria-label="Outline (hover to open)" hidden></nav>
+    <div class="card" id="card" role="dialog" aria-label="Outline" hidden><div role="tree" id="tree"></div></div>
+    <div class="narrow" id="narrow" hidden>Rail hidden below 640 px of note width (V9)</div>
+  </div>
+  <div class="status" id="status" aria-live="polite">Scroll the note or hover the rail.</div>
+</div>
+
+<script>
+(function(){
+const MAXROWS=20, OPEN_DELAY=150, CLOSE_DELAY=300, FLASH_MS=2000, MIN_W=640;
+const S={
+ long:{title:'Reading notes · Data systems',type:'Page',h:(()=>{
+  const ch=[['Introduction',['Why this book','How to read it']],['Reliable systems',['Hardware faults','Software errors','Human errors']],['Data models',['Relational','Document','Graph-like']],['Storage and retrieval',['Hash indexes','SSTables and LSM-trees','B-trees','Column storage']],['Encoding',['Formats','Schema evolution']],['Replication',['Leaders and followers','Replication lag','Multi-leader','Leaderless']],['Partitioning',['By key range','By hash','Rebalancing']],['Transactions',['ACID','Weak isolation','Serializability']],['Consistency',['Linearizability','Ordering','Consensus']],['Batch processing',['Unix tools','MapReduce','Dataflow']],['Streams',['Messaging','Databases and streams','Processing']]];
+  const sub={'Storage and retrieval':['Examples'],'Replication':['Examples','Trade-offs'],'Transactions':['Open questions']};
+  const out=[];let k=0;
+  ch.forEach(([c,s])=>{out.push([1,c]);s.forEach(x=>{out.push([2,x]);(sub[c]||[]).forEach((y,i)=>{if(i===(k++%(sub[c].length)))out.push([3,y])})})});
+  return out})()},
+ deep:{title:'Architecture notes',type:'Page',h:[[1,'Storage'],[2,'Vault layout'],[3,'Folders per type'],[4,'Daily notes'],[5,'File names'],[6,'Time zones'],[6,'Renames'],[4,'Attachments'],[3,'Front matter'],[4,'Required keys'],[4,'Unknown keys'],[2,'Indexing'],[3,'Full-text index'],[3,'Link index'],[1,'Sync'],[2,'Conflicts'],[3,'Same line edited'],[2,'iCloud folders']]},
+ short:{title:'Offsite plan 2026',type:'Page',h:[[1,'Goals'],[2,'What we want out of it'],[2,'Who comes'],[1,'Agenda'],[2,'Day 1'],[3,'Morning: strategy'],[3,'Afternoon: roadmap'],[2,'Day 2'],[1,'Logistics'],[2,'Travel'],[2,'Budget']]}
+};
+const FILL=['Short notes taken while reading, kept close to the source.','Key point first, then the example that made it stick.','Open question for the team: does this change how we store notes on disk?','Linked from the weekly sync, see the action items there.','Rule of thumb: write the decision down before the reasoning fades.','Two cases to compare, and the one we picked for now.'];
+const $=id=>document.getElementById(id);
+const note=$('note'),scroller=$('scroller'),rail=$('rail'),card=$('card'),tree=$('tree'),status=$('status'),backBtn=$('back');
+let H=[], heads=[], cur=-1, open=false, tempOpen=new Set(), focusIdx=-1, hovIdx=-1, viaKeyboard=false, tOpen=0, tClose=0, back=[];
+const svgChev='<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+
+function esc(s){return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
+function load(name){
+  const d=S[name]; H=d.h.map(([l,t],i)=>({i,l,t,parent:-1,kids:[]}));
+  const stack=[]; H.forEach(h=>{while(stack.length&&stack[stack.length-1].l>=h.l)stack.pop(); if(stack.length){h.parent=stack[stack.length-1].i;stack[stack.length-1].kids.push(h.i)} stack.push(h)});
+  let html=`<span class="type" contenteditable="false">${d.type}</span><div class="title">${esc(d.title)}</div><p>${FILL[0]} ${FILL[3]}</p><p>${FILL[4]}</p>`;
+  H.forEach((h,i)=>{const n=1+(i*7)%3; html+=`<h${h.l} data-i="${i}">${esc(h.t)}</h${h.l}>`; for(let k=0;k<n;k++) html+=`<p>${FILL[(i+k)%FILL.length]} ${FILL[(i+k+2)%FILL.length]}</p>`;});
+  note.innerHTML=html; heads=[...note.querySelectorAll('[data-i]')]; $('wtitle').textContent=d.title;
+  scroller.scrollTop=0; back=[]; backBtn.disabled=true; tempOpen.clear(); closeCard(true);
+  document.querySelectorAll('.seg button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.ds===name)));
+  status.innerHTML=`<b>${H.length} headings</b> · rail shows the first ${depthX()} level${depthX()>1?'s':''} plus the section you are in`;
+  update();
+}
+function depthX(){let x=1;for(let d=6;d>=1;d--){if(H.filter(h=>h.l<=d).length<=MAXROWS){x=d;break}}return x}
+function ancestors(i){const a=[];let p=i>=0?H[i].parent:-1;while(p>=0){a.push(p);p=H[p].parent}return a}
+function visibleRows(){
+  const X=depthX(), path=new Set(ancestors(cur)), show=new Set();
+  H.forEach(h=>{ if(h.l<=X) show.add(h.i) });
+  // current branch: siblings along the path, the current heading and one level below it
+  if(cur>=0){ [...path, cur].forEach(a=>{H[a].kids.forEach(k=>show.add(k))}); show.add(cur); path.forEach(a=>show.add(a)); }
+  // temporary opens from the card
+  if(open) tempOpen.forEach(a=>{ if(show.has(a)) H[a].kids.forEach(k=>show.add(k)) });
+  // a row is visible only if all its ancestors are visible
+  const vis=H.filter(h=>show.has(h.i) && ancestors(h.i).every(a=>show.has(a)));
+  return {rows:vis.map(h=>h.i), path, show};
+}
+function isOpen(i,show){return H[i].kids.length>0 && H[i].kids.every(k=>show.has(k))}
+const TW={1:18,2:13,3:9,4:7,5:5,6:4};
+function current(){
+  const top=scroller.getBoundingClientRect().top+30; let c=-1;
+  for(const el of heads){ if(el.getBoundingClientRect().top<=top) c=+el.dataset.i; else break }
+  if(scroller.scrollTop+scroller.clientHeight>=scroller.scrollHeight-2 && heads.length) c=H.length-1;
+  return c;
+}
+function update(){
+  const wide=scroller.clientWidth>=MIN_W && H.length>=2;
+  rail.hidden=!wide; $('narrow').hidden=wide; if(!wide) closeCard(true);
+  cur=current(); render();
+}
+function render(){
+  const {rows,path,show}=visibleRows();
+  rail.innerHTML=rows.map(i=>`<i data-i="${i}" style="width:${TW[H[i].l]}px" class="${i===cur?'cur':path.has(i)?'path':''}${i===hovIdx?' hov':''}"></i>`).join('');
+  if(!open) return;
+  tree.innerHTML=rows.map((i,n)=>{const h=H[i]; const kids=h.kids.length; const o=isOpen(i,show);
+    const cls=['row', i===cur?'cur':'', path.has(i)?'path':'', (n===focusIdx||i===hovIdx)?'hov':'', h.l>=5?'deep':''].join(' ');
+    return `<div class="${cls}" role="treeitem" aria-level="${h.l}" ${kids?`aria-expanded="${o}"`:''} ${i===cur?'aria-current="location"':''} data-i="${i}" style="padding-left:${2+14*(h.l-1)}px">`+
+      (kids?`<span class="chev ${o?'':'closed'}" data-chev="${i}" title="${o?'Close':'Open'}">${svgChev}</span>`:'<span class="chev"></span>')+
+      `<span class="lbl">${esc(h.t)}</span></div>`}).join('');
+  if(focusIdx>=0){const r=tree.children[focusIdx]; r&&r.scrollIntoView({block:'nearest'})}
+}
+function openCard(kb){
+  if(rail.hidden) return; clearTimeout(tClose); open=true; viaKeyboard=!!kb; card.hidden=false; tempOpen.clear(); hovIdx=-1;
+  const {rows}=visibleRows(); focusIdx=kb?Math.max(0,rows.indexOf(cur)):-1; render();
+  if(!kb){const c=tree.querySelector('.cur'); c&&c.scrollIntoView({block:'center'})}
+}
+function closeCard(now){ open=false; card.hidden=true; tempOpen.clear(); focusIdx=-1; hovIdx=-1; if(!now) render(); }
+function placeCaretAtEnd(el){
+  note.focus({preventScroll:true}); const r=document.createRange(); r.selectNodeContents(el); r.collapse(false);
+  const s=getSelection(); s.removeAllRanges(); s.addRange(r);
+}
+function saveSpot(){const s=getSelection(); return {top:scroller.scrollTop, range:(s.rangeCount&&note.contains(s.anchorNode))?s.getRangeAt(0).cloneRange():null}}
+function jump(i){
+  back.push(saveSpot()); backBtn.disabled=false;
+  const el=heads[i]; closeCard(true);
+  scroller.scrollTop+= el.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 24;
+  placeCaretAtEnd(el);
+  heads.forEach(h=>h.classList.remove('flash')); el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),FLASH_MS);
+  update();
+  status.innerHTML=`Jumped to <b>${esc(H[i].t)}</b> · cursor at the end of the heading · <kbd>⌘[</kbd> goes back`;
+}
+function goBack(){
+  const b=back.pop(); if(!b) return; backBtn.disabled=!back.length; closeCard(true);
+  scroller.scrollTop=b.top; note.focus({preventScroll:true});
+  if(b.range){const s=getSelection(); s.removeAllRanges(); s.addRange(b.range)}
+  update(); status.innerHTML='Back to where you were';
+}
+
+// pointer: rail and card
+function overUI(e){return rail.contains(e.relatedTarget)||card.contains(e.relatedTarget)}
+rail.addEventListener('mouseenter',()=>{clearTimeout(tClose); if(!open) tOpen=setTimeout(()=>openCard(false),OPEN_DELAY)});
+[rail,card].forEach(el=>el.addEventListener('mouseleave',e=>{clearTimeout(tOpen); if(!overUI(e)) tClose=setTimeout(()=>{if(!viaKeyboard){closeCard()}},CLOSE_DELAY)}));
+card.addEventListener('mouseenter',()=>clearTimeout(tClose));
+rail.addEventListener('mousemove',e=>{const t=e.target.closest('i'); const v=t?+t.dataset.i:-1; if(v!==hovIdx){hovIdx=v; render()}});
+rail.addEventListener('click',e=>{const t=e.target.closest('i'); if(t) jump(+t.dataset.i)});
+tree.addEventListener('mousemove',e=>{const r=e.target.closest('.row'); const v=r?+r.dataset.i:-1; if(v!==hovIdx||focusIdx>=0){hovIdx=v; focusIdx=-1; render()}});
+tree.addEventListener('mousedown',e=>e.preventDefault());
+tree.addEventListener('click',e=>{
+  const c=e.target.closest('[data-chev]');
+  if(c){const i=+c.dataset.chev; const {show}=visibleRows(); if(isOpen(i,show)){ tempOpen.delete(i); if(i===cur||ancestors(cur).includes(i)){} } else tempOpen.add(i); render(); return}
+  const r=e.target.closest('.row'); if(r) jump(+r.dataset.i);
+});
+
+// keyboard
+document.addEventListener('keydown',e=>{
+  const mod=e.metaKey||e.ctrlKey;
+  if(mod&&e.key.toLowerCase()==='j'){e.preventDefault(); open?closeCard():openCard(true); return}
+  if(mod&&e.key==='['){e.preventDefault(); goBack(); return}
+  if(!open) return;
+  const {rows,show}=visibleRows();
+  if(e.key==='Escape'){e.preventDefault(); closeCard(); note.focus({preventScroll:true}); status.textContent='Closed · the cursor stayed where it was'; return}
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault(); viaKeyboard=true; hovIdx=-1; if(focusIdx<0) focusIdx=Math.max(0,rows.indexOf(cur)); focusIdx=Math.min(rows.length-1,Math.max(0,focusIdx+(e.key==='ArrowDown'?1:-1))); render(); return}
+  if(e.key==='ArrowRight'&&focusIdx>=0){e.preventDefault(); const i=rows[focusIdx]; if(H[i].kids.length&&!isOpen(i,show)){tempOpen.add(i); render()} return}
+  if(e.key==='ArrowLeft'&&focusIdx>=0){e.preventDefault(); const i=rows[focusIdx]; if(tempOpen.has(i)){tempOpen.delete(i); render()} else if(H[i].parent>=0){focusIdx=rows.indexOf(H[i].parent); render()} return}
+  if(e.key==='Enter'&&focusIdx>=0){e.preventDefault(); jump(rows[focusIdx]); return}
+});
+document.addEventListener('mousedown',e=>{if(open&&!card.contains(e.target)&&!rail.contains(e.target)) closeCard()});
+
+let raf=0; scroller.addEventListener('scroll',()=>{cancelAnimationFrame(raf); raf=requestAnimationFrame(()=>{const p=cur; update(); if(p!==cur&&!open&&cur>=0) status.innerHTML=`Current section: <b>${esc(H[cur].t)}</b>`})});
+addEventListener('resize',update);
+backBtn.addEventListener('click',goBack);
+document.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>load(b.dataset.ds)));
+load('long');
+})();
+</script>
+</body></html>

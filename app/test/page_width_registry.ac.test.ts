@@ -11,7 +11,7 @@ import { beforeEach, test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { R4, R4_P, shortcutClashes, R4_G1, R4_PIN } from './shell-tables';
+import { R4, R4_P, shortcutClashes, R4_G1, R4_PIN, R4_OL } from './shell-tables';
 
 type Mod = Record<string, any>;
 async function load(path: string): Promise<Mod | null> {
@@ -81,7 +81,7 @@ test('fr_ux_03_ac17_width_commands_are_registered_in_view_without_a_shortcut', a
   const shortcuts = reg.SHORTCUTS as { keys: string; command: string }[];
   assert.deepEqual(shortcuts.filter((s) => /^note\.width\./.test(s.command)), [], 'no R4 row for a width command');
   // Slice P (previews.md R106, D-943): R4 gained ⌥Space only; the width commands still add nothing.
-  assert.deepEqual(shortcuts.map((s) => s.keys).sort(), [...R4, ...R4_P, ...R4_G1, ...R4_PIN].map((r) => r.keys).sort(), 'R4 unchanged (with slice P\'s ⌥Space, G1\'s ⇧⌘G and slice PIN\'s ⌥⌘↑ / ⌥⌘↓)');
+  assert.deepEqual(shortcuts.map((s) => s.keys).sort(), [...R4, ...R4_P, ...R4_G1, ...R4_PIN, ...R4_OL].map((r) => r.keys).sort(), 'R4 unchanged (with slice P\'s ⌥Space, G1\'s ⇧⌘G, slice PIN\'s ⌥⌘↑ / ⌥⌘↓ and slice OL\'s ⌘J)');
 });
 
 test('fr_ux_03_ac17_registry_integrity_holds_with_the_width_commands', async () => {

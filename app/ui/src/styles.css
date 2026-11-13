@@ -37,7 +37,7 @@ input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='
 .titlebar-status { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
 .titlebar-status progress { width: 80px; accent-color: var(--accent); }
 .frame { flex: 1; display: flex; min-height: 0; }
-.centre { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.centre { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
 main { flex: 1; min-height: 0; overflow: auto; background: var(--bg); }
 /* A note keeps its own scroll position (D-456 `keepOnScreen`, the block aligned at the top for FR-CNV-04 AC-2), so the
    browser's scroll anchoring is off there: it moved the pane by half a viewport when the embed cards rendered below the
@@ -339,7 +339,8 @@ code, pre, .source-view { font-family: ui-monospace, 'SF Mono', Menlo, monospace
 .in-note-ph .ph-shown { color: var(--text); display: inline-flex; gap: 6px; flex-wrap: wrap; }
 .fm-warning { --cbg: var(--type-red-bg); margin: 8px 0 12px; padding: 8px 12px; border-left: 3px solid var(--danger); background: var(--cbg); color: var(--text); border-radius: 6px; font-size: 14px; }
 .source-view { font-size: 13px; line-height: 1.6; color: var(--text); background: var(--bg); }
-.source-line { display: flex; white-space: pre-wrap; overflow-wrap: anywhere; }
+.source-row { display: flex; }
+.source-line { flex: 1; min-width: 0; display: flex; white-space: pre-wrap; overflow-wrap: anywhere; }
 .source-gutter { flex: none; width: 3.2em; padding-right: 1em; text-align: right; color: var(--muted); user-select: none; -webkit-user-select: none; }
 .source-text { flex: 1; min-width: 0; }
 .properties { margin: 0 0 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
@@ -1454,3 +1455,67 @@ button.tag-tile { cursor: pointer; }
 .new-object-picker .nop-empty { margin: 0; padding: 10px 16px 12px; font-size: 13px; color: var(--muted); }
 .new-object-picker .nop-foot { display: flex; gap: 14px; padding: 8px 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); }
 .new-object-picker .nop-foot kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); font: inherit; font-size: 11px; }
+
+/* ------------------------------------------------------------ slice OL: the Outline (outline.md R170, R173; v1-outline §3.4, §3.6, §3.7) */
+.context-panel > .panel-body.outline-panel { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; margin: 0 -12px; }
+.outline-header { display: flex; align-items: center; gap: 2px; padding: 0 8px 6px 12px; flex: none; font-size: 12px; color: var(--muted); }
+.outline-header .spacer { flex: 1; }
+.outline-header .icon-button { width: 24px; height: 24px; }
+.outline-scroll { flex: 1 1 0; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 0 4px; }
+.outline-tree { display: flex; flex-direction: column; gap: 1px; }
+.outline-row { position: relative; display: flex; align-items: center; box-sizing: border-box; height: 26px; min-width: 0; padding-right: 2px; border-radius: 5px;
+  font-size: 12.5px; font-weight: 400; color: var(--text); cursor: pointer; background: transparent; outline: none; }
+.outline-row[data-top] { font-size: 13px; font-weight: 500; }
+.outline-row[aria-current="location"], .outline-card .outline-row[data-ancestor] { font-weight: 600; }
+.outline-row[aria-current="location"]::before { content: ''; position: absolute; left: 0; top: 7px; bottom: 7px; width: 3px; border-radius: 2px; background: var(--text); }
+.outline-row:hover, .outline-row:focus-visible, .outline-row[data-hover] { background: var(--hover); }
+.outline-row:focus { outline: none; }
+.outline-chevron-slot { flex: none; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; }
+.outline-chevron { display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; color: var(--muted); border-radius: 4px; opacity: 0; transition: transform 120ms; }
+.outline-chevron[data-open] { transform: rotate(90deg); }
+.outline-row[aria-expanded="false"] .outline-chevron, .outline-row:hover .outline-chevron, .outline-row:focus-visible .outline-chevron,
+.outline-card .outline-chevron { opacity: 1; }
+.outline-chevron:hover { color: var(--text); }
+.outline-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.outline-row[data-level="5"]:not([aria-current]) .outline-text, .outline-row[data-level="6"]:not([aria-current]) .outline-text { color: var(--muted); }
+.outline-hidden { flex: none; margin-left: 6px; font-size: 11px; font-weight: 400; color: var(--muted); }
+.outline-tip { position: absolute; left: 16px; top: calc(100% + 2px); z-index: 5; max-width: 240px; white-space: normal; padding: 4px 8px; border-radius: 6px;
+  font-size: 12px; font-weight: 400; background: var(--pop); color: var(--text); border: 1px solid var(--border); pointer-events: none; }
+.outline-empty { padding: 4px 10px; }
+.outline-empty p { margin: 0 0 4px; font-size: 13px; color: var(--muted); }
+.outline-empty p:first-child { color: var(--text); font-weight: 500; }
+.outline-empty p:focus { outline: none; }
+.outline-empty code { font-size: 12px; padding: 0 3px; border-radius: 3px; background: var(--hover); color: var(--text); }
+/* The rail: a column of short lines on the note's right edge; each line's pointer target is its whole slot. */
+.outline-rail { position: absolute; right: 14px; z-index: 6; box-sizing: border-box; width: 34px; padding: 12px 8px; transform: translateY(-50%); opacity: 1;
+  transition: opacity 150ms; }
+.outline-rail[data-entering], .outline-rail[data-leaving] { opacity: 0; }
+.outline-rail [data-outline-line] { display: block; position: relative; width: 100%; cursor: pointer; }
+.outline-rail [data-outline-line]::before { content: ''; position: absolute; right: 0; top: 50%; height: 1.5px; transform: translateY(-50%); border-radius: 1px; background: var(--faint); }
+.outline-rail [data-outline-line][data-level="1"]::before { width: 18px; }
+.outline-rail [data-outline-line][data-level="2"]::before { width: 13px; }
+.outline-rail [data-outline-line][data-level="3"]::before { width: 9px; }
+.outline-rail [data-outline-line][data-level="4"]::before { width: 7px; }
+.outline-rail [data-outline-line][data-level="5"]::before { width: 5px; }
+.outline-rail [data-outline-line][data-level="6"]::before { width: 4px; }
+.outline-rail [data-outline-line][data-state="ancestor"]::before { height: 2px; background: var(--muted); }
+.outline-rail [data-outline-line][data-state="current"]::before, .outline-rail [data-outline-line][data-hover]::before { height: 2px; background: var(--text); }
+/* D-1614: the text keeps 44 px clear of the rail where the Normal column reaches the pane's edge. */
+.centre[data-outline-rail="narrow"] .note-column[data-width="normal"] { padding-right: 44px; }
+.outline-card { position: absolute; right: 52px; z-index: 7; width: 256px; box-sizing: border-box; display: block; transform: translateY(-50%);
+  background: var(--pop); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 6px 0;
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--text) 16%, transparent), 0 2px 6px color-mix(in srgb, var(--text) 8%, transparent); }
+.outline-card-scroll { overflow-y: auto; overflow-x: hidden; padding: 0 6px; box-sizing: border-box; }
+/* The jump's highlight (R172 rule 6): 2,000 ms, then a 300 ms fade (none under Reduce motion). */
+[data-outline-flash] { background: var(--link-bg); box-shadow: 0 0 0 5px var(--link-bg); transition: none; border-radius: 2px; }
+[data-outline-fade] { transition: background-color 300ms, box-shadow 300ms; }
+/* Slice OL (R172 rule 3, D-159): a folding callout in the editor; the fold is view state only. */
+.editor-host .ProseMirror [data-callout]:has(> .callout-fold) { position: relative; padding-right: 32px; }
+.editor-host .ProseMirror [data-callout] > .callout-fold { position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; background: none; color: var(--muted); cursor: pointer; font: inherit; line-height: 1; }
+.editor-host .ProseMirror [data-callout] > .callout-fold::before { content: '⌄'; }
+.editor-host .ProseMirror [data-callout][data-folded] > .callout-fold::before { content: '›'; }
+.editor-host .ProseMirror [data-callout] > .callout-fold:hover { background: var(--hover); color: var(--text); }
+.editor-host .ProseMirror [data-callout][data-folded] > .callout-content > :not([data-callout-title]) { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .outline-chevron, .outline-rail, [data-outline-fade] { transition: none; }
+}

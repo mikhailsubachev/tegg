@@ -1,6 +1,7 @@
 // Slice MM (mm-mindmap §3.3): the map of an editor mindmap block, drawn by a bare read view of the block's Markdown,
 // so nodes show their chips as the read view does. Re-drawn live while the list is edited, at most once per 150 ms
 // (D-776); links are resolved as in a read-only table.
+import { calloutType } from '../read/callout';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import type { EditorUi, MindmapCtl, MindmapHandle } from '@tegg/editor';
@@ -96,11 +97,13 @@ export function resetMindmapViews(): void {
 }
 
 /** The mindmap part of an editor's `EditorUi` (mm-mindmap §3.3): the map, its texts, icon and view state. */
-export function mindmapUi(host: MindmapHost): Pick<EditorUi, 'mindmap' | 'mindmapState' | 'mindmapText' | 'mindmapIcon'> {
+export function mindmapUi(host: MindmapHost): Pick<EditorUi, 'mindmap' | 'mindmapState' | 'mindmapText' | 'mindmapIcon' | 'calloutLabel'> {
   return {
     mindmap: (dom, ctl) => mountMindmap(dom, ctl, host),
     mindmapState: { get: (k) => viewState.get(`${host.path()}#${k}`), set: (k, v) => { viewState.set(`${host.path()}#${k}`, v); } },
     mindmapText: (k, title) => (k === 'figure' ? t('mindmap.figure', { title: title ?? '' }) : k === 'expand' || k === 'collapse' ? t(k === 'expand' ? 'callout.expand' : 'callout.collapse', { title: title ?? '' }) : t(`mindmap.${k}`)),
     mindmapIcon: () => iconElement('mindmap', 15, 'mindmap'),
+    // Slice OL (D-159): an untitled folding callout's fold button is named by its type label.
+    calloutLabel: (type) => calloutType(`[!${type}]`).label,
   };
 }

@@ -209,8 +209,8 @@ for (const m of AC8_MODES) {
     await (await need(headerOf(await sectionEmbed(page)).getByText(/Rozpočet 2027/), `${m.tag}: the section embed's header title`)).click();
     await opened(page, core, n0, 'Rozpočet 2027', PV.rozpocet, `${m.tag}: a click on the section embed's header title`);
     const hd = await need(main(page).locator('h2, h3, h4').filter({ hasText: /^\s*Rozsah\s*$/ }), `${m.tag}: the heading Rozsah`);
-    const top = await eventually(() => topInScroller(hd), (t) => t !== null && Math.abs(t) <= 8, 2000);
-    assert.ok(top !== null && Math.abs(top) <= 8, `${m.tag}: note/Pages/Rozpočet 2027.md#Rozsah with Rozsah at the top of the centre pane (± 8 px): ${top}`);
+    const top = await eventually(() => topInScroller(hd), (t) => t !== null && Math.abs(t - 24) <= 8, 2000);
+    assert.ok(top !== null && Math.abs(top - 24) <= 8, `${m.tag}: note/Pages/Rozpočet 2027.md#Rozsah with Rozsah 24 px below the top of the centre pane (± 8 px, D-1625, D-1659): ${top}`);
     await back(page, 'Vložení', `${m.tag}: Back`);
     // Display as and the body keep their jobs; Open opens.
     const f = await fullEmbed(page);

@@ -4,8 +4,9 @@ import { routeString, type Route } from './routes';
 
 /** Slice G2 (v1-graph §15.5, D-1037): the panel's hand-over to the full view, carried by that entry only. */
 export type GraphHandover = { depth: 1 | 2 | 3; select: { path: string } | { tag: string } | null };
-/** The note editor's selection when the entry was left (Back returns with its caret, graph.md FR-GRP-01 AC-11, AC-34). */
-export type Caret = { anchor: number; head: number };
+/** The note editor's selection when the entry was left (Back returns with its caret, graph.md FR-GRP-01 AC-11, AC-34);
+ *  `follow` (slice OL, D-1610) maps it through later edits of the same editor (D-112). */
+export type Caret = { anchor: number; head: number; follow?: () => { anchor: number; head: number } | null };
 /** The Search page's state, carried by its entry only (v1-search §3, D-1217): Back restores it, nothing else keeps it. */
 export type SearchState = { text: string; type: string | null; tags: string[]; loaded: number; focusPath: string | null };
 export type HistoryEntry = { route: Route; scrollTop: number; graph?: GraphHandover; caret?: Caret; search?: SearchState };
@@ -23,6 +24,12 @@ export function createHistory(): {
   current(): HistoryEntry | null;
   setGraph(graph: GraphHandover): void;
   setSearch(search: SearchState): void;
+  /** Slice OL (v1-outline §4, D-1610): a jump's place on the current route. Saves `from` on the current entry, drops the
+   *  forward entries and adds `{ route: current route, scrollTop: to.scrollTop, caret: to.caret }`; the current
+   *  `new/<type>` draft entry is kept (D-1638). */
+  pushPlace(from: { scrollTop: number; caret: Caret | null }, to: { scrollTop: number; caret: Caret | null }): void;
+  /** The entry a step `dir` would show, without stepping (null: none). */
+  peek(dir: 'back' | 'forward'): HistoryEntry | null;
   clear(): void;
 } {
   let entries: HistoryEntry[] = [];
@@ -36,14 +43,17 @@ export function createHistory(): {
   const draft = (e: HistoryEntry | undefined) => e?.route.id === 'new/<type>';
   const dropLeftDrafts = () => {
     const cur = entries[at];
-    entries = entries.filter((e, i) => i === at || !draft(e));
+    // Slice OL (D-1638): a draft's own jump entries (same route) stay while it is shown; all go once it is left.
+    entries = entries.filter((e, i) => i === at || !draft(e) || (draft(cur) && key(e.route) === key(cur.route)));
     at = entries.indexOf(cur);
   };
   return {
     push(r, graph) {
       if (at >= 0 && key(entries[at].route) === key(r)) { if (graph) entries[at].graph = { ...graph }; return; }
       entries = entries.slice(0, at + 1);
-      if (draft(entries[at])) { entries.pop(); at--; }
+      // D-521, D-1638: the draft left (and its own jump entries, the same route) goes.
+      const left = at >= 0 && draft(entries[at]) ? key(entries[at].route) : null;
+      while (left !== null && at >= 0 && draft(entries[at]) && key(entries[at].route) === left) { entries.pop(); at--; }
       entries.push({ route: { ...r }, scrollTop: 0, ...(graph ? { graph: { ...graph } } : {}) });
       at = entries.length - 1;
     },
@@ -79,6 +89,19 @@ export function createHistory(): {
     },
     setSearch(search) {
       if (at >= 0 && entries[at].route.id === 'search') entries[at].search = { ...search, tags: [...search.tags] };
+    },
+    pushPlace(from, to) {
+      if (at < 0) return;
+      const cur = entries[at];
+      cur.scrollTop = from.scrollTop;
+      if (from.caret) cur.caret = { ...from.caret }; else delete cur.caret;
+      entries = entries.slice(0, at + 1);
+      entries.push({ route: { ...cur.route }, scrollTop: to.scrollTop, ...(to.caret ? { caret: { ...to.caret } } : {}) });
+      at = entries.length - 1;
+    },
+    peek(dir) {
+      const i = dir === 'back' ? at - 1 : at + 1;
+      return at >= 0 && i >= 0 && i < entries.length ? copy(entries[i]) : null;
     },
     clear() {
       entries = [];

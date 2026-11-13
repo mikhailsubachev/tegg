@@ -228,3 +228,7 @@ export { queryFences, savedName, withSavedName, referenceFence, newQueryFence, q
 // ---------------------------------------------------------------- slice I1 (v1-import §7.1)
 
 export { importScan, importNote, importNew, type ImportScanDto, type ScannedLink, type ImportNoteSpec, type ImportNewSpec, type FmValue, type LinkEdit, type ReportData } from './import.js'
+
+// ---------------------------------------------------------------- slice OL (v1-outline §1)
+
+export { outlineHeadings, outlineHeadingsOf, outlineTree, foldKey, railDepth, railRows, headingForFragment, RAIL_MAX_ROWS, type HeadingLevel, type OutlineHeading, type OutlineNode } from './outline.js'

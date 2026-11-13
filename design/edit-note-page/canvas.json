@@ -464,6 +464,22 @@
       "is_interactive": true,
       "page": "page-queries",
       "title": "Query page (dark)"
+    },
+    "Outline.dc.html": {
+      "h": 6700,
+      "w": 1680,
+      "x": 0,
+      "y": 0,
+      "page": "page-outline",
+      "title": "Outline · right panel tab and page-edge rail"
+    },
+    "OutlineDark.dc.html": {
+      "h": 6700,
+      "w": 1680,
+      "x": 1760,
+      "y": 0,
+      "page": "page-outline",
+      "title": "Outline (dark)"
     }
   },
   "createdOnFiles": {
@@ -528,7 +544,9 @@
     "QueriesAll.dc.html",
     "QueryPage.dc.html",
     "QueriesAllDark.dc.html",
-    "QueryPageDark.dc.html"
+    "QueryPageDark.dc.html",
+    "Outline.dc.html",
+    "OutlineDark.dc.html"
   ],
   "pages": [
     {
@@ -574,6 +592,10 @@
     {
       "id": "page-queries",
       "name": "Queries"
+    },
+    {
+      "id": "page-outline",
+      "name": "Outline"
     }
   ],
   "title": "Tegg – Edit note page"
