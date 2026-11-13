@@ -172,6 +172,40 @@ pub(crate) fn link_stem(path: &str) -> &str {
     let name = base_name(path);
     name.strip_suffix(".md").unwrap_or(name)
 }
+/// `@tegg/doc`'s `relPath`: `to` relative to the folder `from` (both vault paths).
+fn rel_path(from: &str, to: &str) -> String {
+    let a: Vec<&str> = if from.is_empty() { Vec::new() } else { from.split('/').collect() };
+    let b: Vec<&str> = to.split('/').collect();
+    let mut i = 0;
+    while i < a.len() && i + 1 < b.len() && fold(a[i]) == fold(b[i]) {
+        i += 1;
+    }
+    "../".repeat(a.len() - i) + &b[i..].join("/")
+}
+/// `@tegg/doc`'s `encodeDestination` (D-825): spaces and parentheses encoded, a `%` that would read as an escape too.
+fn encode_destination(rel: &str) -> String {
+    let mut out = String::new();
+    let chars: Vec<char> = rel.chars().collect();
+    for (i, c) in chars.iter().enumerate() {
+        match c {
+            '%' if chars.len() > i + 2 && chars[i + 1].is_ascii_hexdigit() && chars[i + 2].is_ascii_hexdigit() => out.push_str("%25"),
+            ' ' => out.push_str("%20"),
+            '(' => out.push_str("%28"),
+            ')' => out.push_str("%29"),
+            '<' => out.push_str("%3C"),
+            '>' => out.push_str("%3E"),
+            c => out.push(*c),
+        }
+    }
+    out
+}
+/// The byte range of the destination in an inline Markdown link or image `[text](dest "title")`.
+fn markdown_destination(written: &str) -> Option<(usize, usize)> {
+    let open = written.rfind("](")? + 2;
+    let rest = &written[open..];
+    let (start, len) = if let Some(r) = rest.strip_prefix('<') { (open + 1, r.find('>')?) } else { (open, rest.find(|c: char| c.is_whitespace() || c == ')')?) };
+    Some((start, start + len))
+}
 impl Paths {
     pub fn add(&mut self, path: &str) {
         if !outside_objects(path) {
@@ -1364,6 +1398,34 @@ pub(crate) fn plan(scan: &Scan, space: &str, target: &Target<'_>, given: &Mappin
             }
             tegg_format::nfc(&out)
         };
+        // D-1570: a value kept as text under `<key>-text` (CP-9, D-1563) has every bound link rewritten as the same link
+        // in a body would be (§8): image syntax or an embed of an imported file → `![[file]]` (§8 (4), D-1560), a
+        // wikilink or a Markdown link → the D-184 form (a Markdown link whose text can't be an alias keeps its form and
+        // gets the new destination, D-1552). Unbound and external links stay as written. Spans are `import-scan`'s.
+        let relink_text = |k: &str, s: &str| -> String {
+            let mut out = s.to_string();
+            for (l, r) in key_links(k) {
+                let to = match r.bound {
+                    Bound::Note(t) => note_path[t].clone(),
+                    Bound::Attachment(a) => atts[a].path.clone(),
+                    Bound::None => None,
+                };
+                let Some(to) = to else { continue };
+                let shown = tegg_format::nfc(&note::strip_invisible(&l.text)).split_whitespace().collect::<Vec<_>>().join(" ");
+                let new = match (&l.form, &r.bound) {
+                    (LinkForm::Image | LinkForm::Embed, Bound::Attachment(_)) => format!("![[{}]]", base_name(&to)),
+                    (LinkForm::Embed, _) => format!("![[{}]]", paths.d184(&from, &to, "")),
+                    (LinkForm::Wikilink, _) => format!("[[{}]]", paths.d184(&from, &to, &l.text)),
+                    (LinkForm::Markdown | LinkForm::Image, _) if l.alias_safe && !shown.contains(['[', ']', '|']) => format!("[[{}]]", paths.d184(&from, &to, &shown)),
+                    (LinkForm::Markdown | LinkForm::Image, _) => match markdown_destination(&l.written) {
+                        Some((a, b)) => format!("{}{}{}", &l.written[..a], encode_destination(&rel_path(folder_of(&from), &to)), &l.written[b..]),
+                        None => continue,
+                    },
+                };
+                out = out.replacen(&l.written, &new, 1);
+            }
+            tegg_format::nfc(&out)
+        };
         let whole_link = |s: &str| -> Option<String> { s.trim().strip_prefix("[[").and_then(|x| x.strip_suffix("]]")).filter(|x| !x.contains("[[") && !x.contains("]]")).map(str::to_string) };
         let text_or_link = |s: String| match whole_link(&s) {
             Some(link) => FmValue::Link { link },
@@ -1410,7 +1472,7 @@ pub(crate) fn plan(scan: &Scan, space: &str, target: &Target<'_>, given: &Mappin
                     // under the undeclared key `previewImage-text` (not added to the type file).
                     if k == "previewImage" && lost_key(n, "previewImage", "coverImage") {
                         if let Some(s) = v.scalar() {
-                            push(&mut fm, "previewImage-text", text_or_link(relink(k, &s)));
+                            push(&mut fm, "previewImage-text", text_or_link(relink_text(k, &s)));
                         }
                         continue;
                     }
@@ -1449,7 +1511,7 @@ pub(crate) fn plan(scan: &Scan, space: &str, target: &Target<'_>, given: &Mappin
                     // CP-9 (D-1563): `due` is the deadline's; a `date` beside it is kept as text under the undeclared
                     // key `date-text` (its day, or the value as written when it is no date).
                     if !deadline && lost_key(n, "date", "deadline") {
-                        push(&mut fm, "date-text", dates::day(&s, zone).map_or_else(|| FmValue::Text(s.clone()), |date| FmValue::Date { date }));
+                        push(&mut fm, "date-text", dates::day(&s, zone).map_or_else(|| text_or_link(relink_text(k, &s)), |date| FmValue::Date { date }));
                         continue;
                     }
                     match dates::day(&s, zone) {

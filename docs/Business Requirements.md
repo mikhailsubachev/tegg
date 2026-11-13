@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.170, for review                                            |
+| **Document status** | Draft v1.171, for review                                            |
 | **Date**            | 2026-11-13                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -184,6 +184,7 @@
 | v1.168  | 2026-11-13 | Capacities import, slice I1 build (`docs/contracts/v1-import.md` §20, CP-8…CP-11; owner, "Approve all"): D-1562 (a dead run's unmarked leftover that is empty or holds only the marker's temp file is removed; amends D-1549 (1)), D-1563 (a consumed value that loses its key is kept as text under `<key>-text`), D-1564 (imported Image/PDF objects get no `media-type`, `size` or dimensions), D-1565 (a cover value that isn't a stored file writes no `cover`), D-1566 (AC-test changes of the slice I1 build); D-1549 noted |
 | v1.169  | 2026-11-13 | D-1567: three more AC-test changes of the slice I1 build (owner, "Approve all three") |
 | v1.170  | 2026-11-13 | D-1568, D-1569 (owner, "Yes"): FR-UX-07 AC-16 split, AC-17 for the import job; tests for D-1563…D-1565 written after the code |
+| v1.171  | 2026-11-13 | D-1570 (owner, "Yes, rewrite it"): a bound link in a value kept as text under `<key>-text` is rewritten as the same link in a body |
 
 ---
 
@@ -1580,6 +1581,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1567 | Three more AC-test changes of the slice I1 build (owner, 2026-11-13: "Approve all three"; slice I1) | `fr_imp_19_ac8_report_page` case c10 expects the ambiguous row's chosen object in D-184 short form (`[[Tomáš Eva]]`); `fr_imp_10_ac8_nfd_targets_resolve` plans its zip-vs-folder comparison into a fresh target; `fr_imp_07_ac3_a_large_zip_reports_progress_and_can_be_cancelled` sends the cancel on the first progress event of reading and of planning (a fast scan or plan can finish within one 100 ms progress interval). No criterion changes. |
 | D-1568 | FR-UX-07 AC-16 is split (owner, 2026-11-13: "Yes"; slice I1) | The gate's real-app check can't defer the real-app part of a criterion that spans two slices. The job part of AC-16 (switching vaults during an import into the open vault: the import goes on against its own target, the same written files, nothing written in the newly opened vault, none of its jobs waits) becomes **FR-UX-07 AC-17** (I1, L4), tested by the engine test renamed `fr_ux_07_ac17_switching_vaults_during_an_import_the_job`; AC-16 keeps what the user sees (I2: L5; L6 once). The rename of the engine test is approved (`AC-Test-Change`). |
 | D-1569 | Tests for D-1563…D-1565 written after the code (owner, 2026-11-13: "Yes"; slice I1) | The criteria parts of D-1563 (a Task's `date` beside a `deadline` kept as `date-text`), D-1564 (no `media-type`, `size`, `width`, `height` on imported Image and PDF objects) and D-1565 (a stored cover becomes `cover`; a cover that isn't a stored file gives no `cover` key and is reported), and the fixture `c23-stored-covers`, get AC tests in one new file written by the test author from the criteria and the contract. The implementation exists already, so the commit carries `Red-First-Exempt: …; approved-by: owner`. |
+| D-1570 | Links in a value kept as text are rewritten (owner, 2026-11-13: "Yes, rewrite it"; slice I1) | When a source key's value is kept as text under `<key>-text` (D-1563, CP-9: a Weblink's `previewImage` beside a `coverImage` with a value; a Task's `date` beside a `deadline`), a **bound link** in that value (a wikilink, or a Markdown link or image, whose target is an imported object or attachment) is rewritten exactly as the same link in a note body would be (`docs/contracts/v1-import.md` §8, incl. (4): image syntax to an imported file becomes `![[file]]`; the D-184 form; D-1560 for a plain link to a media file): `previewImage: '![](./Media/N%C3%A1hled%20webu.png)'` gives `previewImage-text: "![[Náhled webu.png]]"` (fixture `c23-stored-covers`). Unbound and external links stay as written. Amends D-1563. |
 
 ---
 
