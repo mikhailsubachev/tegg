@@ -257,7 +257,7 @@ fn fr_ux_07_ac13_import_progress_and_cancel() {
 }
 
 #[test]
-fn fr_ux_07_ac16_switching_vaults_during_an_import() {
+fn fr_ux_07_ac17_switching_vaults_during_an_import_the_job() {
     let src = fixtures().join("c05-media-objects");
     // Without the switch: the reference.
     let ref_sb = sandbox();
