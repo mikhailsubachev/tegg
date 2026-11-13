@@ -8,7 +8,7 @@ let armed = false;
 /** A route change: the multi-click in progress, if any, began on the page that was left. */
 export function routeChanged(): void { armed = true; }
 
-const KINDS = ['mousedown', 'mouseup', 'click', 'dblclick'] as const;
+const KINDS = ['mousedown', 'click', 'dblclick'] as const; // mouseup passes: a drag or press begun before (ProseMirror's) must end
 
 /** Installs the guard on `target` (capture phase, before the editor's own handlers); returns its removal. */
 export function installMultiClickGuard(target: Window = window): () => void {
