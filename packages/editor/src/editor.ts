@@ -12,11 +12,13 @@ import { ensureIdentity, parse, setAttribute, touchModified } from '@tegg/doc'
 import { embedSection, isAttachmentTarget, renderBlock, withEmbedMode, type EmbedMode } from '@tegg/doc'
 import { conversionUnit as unitOf, replaceUnitWithEmbed, type ConvertUnit, type Doc } from '@tegg/doc'
 import { calloutHead, newQueryFence, unwrapMindmap, wrapMindmap } from '@tegg/doc'
+import { outlineHeadingsOf, type OutlineHeading } from '@tegg/doc'
+import type { Mapping } from '@tiptap/pm/transform'
 import type { List, ListItem } from 'mdast'
 import { pmToBlock } from './convert'
 import { htmlToMarkdown } from './html'
 import { linkText, type LinkChoice } from './links'
-import { chipAtCaret as chipAt, focusedMindmap, hintElement, isQueryCode, isQueryNode, linkTarget as linkParts, mindmapViews, PENDING_EMBED, presentation, querySource, uiRefresh, type EditorUi } from './present'
+import { calloutFolds, chipAtCaret as chipAt, focusedMindmap, hintElement, isQueryCode, isQueryNode, linkTarget as linkParts, mindmapViews, PENDING_EMBED, presentation, querySource, uiRefresh, type EditorUi } from './present'
 import { TeggRules } from './rules'
 import { teggExtensions, wikiLabel } from './schema'
 import { attach, END_LIST, loadDoc, reconcile, VerifyError, type Loaded } from './sourceDoc'
@@ -117,6 +119,25 @@ export interface TeggEditor {
   conversionUnit(): ConvertUnit | null
   /** Slice Q (v1-queries §3.2): the query blocks in document order (the app's `__TEGG_TEST__.queryBlocks()`). */
   queryBlocks(): QueryBlockInfo[]
+  /** Slice OL (v1-outline §2): the outline of the current document, computed now: `outlineHeadings` of the text the
+   *  editor shows plus, per heading, the position of the node that renders it and whether that is a heading node
+   *  (`false`: a read-only block holds it; `pos` is that block). `version` changes with every doc-changing transaction. */
+  outline(): { version: number; headings: OutlineHeading[]; pos: number[]; heading: boolean[] }
+  /** `pos` from `outline()` at `version`, mapped through every later edit; null when that node was deleted or is no
+   *  longer a heading (a stale row, R172 rule 9). */
+  headingPos(version: number, pos: number): number | null
+  /** Opens, as view state only, every folded callout that contains `pos` (R172 rule 3, D-159); writes nothing, no
+   *  transaction. False when nothing was folded. */
+  revealPos(pos: number): boolean
+  /** A node decoration `data-outline-flash` (or, `attr`, `data-outline-fade`) on the node at `pos`; null clears it. A
+   *  decoration only: no doc change, no history step, `dirty()` unchanged (R172 rule 7). */
+  flash(pos: number | null, attr?: 'data-outline-flash' | 'data-outline-fade'): void
+  /** D-1610, D-112: a function that returns `sel` mapped through every edit since this call; a deleted position maps to
+   *  the end of the nearest preceding text block, else the start of the body. Null after `destroy()`. */
+  followSelection(sel: { anchor: number; head: number }): () => { anchor: number; head: number } | null
+  /** Slice OL (§3.3): `f` runs after each change of the document version (a doc-changing transaction, appended ones
+   *  too, or a load); it must not dispatch. Returns the unsubscribe. */
+  onVersion(f: () => void): () => void
   commands: {
     turnInto(kind: string, opts?: { level?: number; calloutType?: string }): boolean
     /** Slice MM (mm-mindmap §3.2): switch the mindmap block holding the caret; false elsewhere. */
@@ -583,6 +604,65 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
           t.pos = r.deletedAfter ? null : r.pos
         }
         return null
+      },
+    },
+  }))
+
+  // Slice OL (v1-outline §2): document versions and the mappings between them (every transaction, appended ones too). A
+  // new state (a load) starts a new epoch: positions from before it are stale.
+  let version = 0
+  let loadVersion = 0
+  let destroyed = false
+  const maps: { v: number; map: Mapping }[] = []
+  const versionListeners = new Set<() => void>()
+  const versionChanged = () => { for (const f of versionListeners) { try { f() } catch { /* a listener's own fault */ } } }
+  editor.registerPlugin(new Plugin({
+    state: {
+      init: () => { version++; loadVersion = version; maps.length = 0; versionChanged(); return null },
+      apply: (tr: Transaction) => {
+        if (tr.docChanged) {
+          version++
+          maps.push({ v: version, map: tr.mapping })
+          if (maps.length > 2000) maps.splice(0, maps.length - 2000)
+          versionChanged()
+        }
+        return null
+      },
+    },
+  }))
+  /** `pos` at document version `v`, mapped to now; null when a load (or a dropped mapping) lies between. */
+  const mapFrom = (v: number, pos: number, assoc: 1 | -1): { pos: number; deleted: boolean; deletedAfter: boolean } | null => {
+    if (v < loadVersion || v > version) return null
+    if (v < version && (!maps.length || maps[0].v > v + 1)) return null
+    let deleted = false
+    let deletedAfter = false
+    for (const m of maps) {
+      if (m.v <= v) continue
+      const r = m.map.mapResult(pos, assoc)
+      if (r.deleted) deleted = true
+      if (r.deletedAfter) deletedAfter = true
+      pos = r.pos
+    }
+    return { pos, deleted, deletedAfter }
+  }
+  const flashKey = new PluginKey<{ pos: number; attr: string } | null>('teggOutlineFlash')
+  editor.registerPlugin(new Plugin({
+    key: flashKey,
+    state: {
+      init: () => null,
+      apply: (tr: Transaction, cur: { pos: number; attr: string } | null) => {
+        const meta = tr.getMeta(flashKey) as { pos: number; attr: string } | null | undefined
+        if (meta !== undefined) return meta
+        if (!cur || !tr.docChanged) return cur
+        const r = tr.mapping.mapResult(cur.pos, 1)
+        return r.deletedAfter ? null : { ...cur, pos: r.pos }
+      },
+    },
+    props: {
+      decorations: (state) => {
+        const f = flashKey.getState(state)
+        const n = f ? state.doc.nodeAt(f.pos) : null
+        return f && n ? DecorationSet.create(state.doc, [Decoration.node(f.pos, f.pos + n.nodeSize, { [f.attr]: '' })]) : null
       },
     },
   }))
@@ -1732,11 +1812,134 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     },
     selectedSource,
     commands,
+    outline() {
+      let text: string
+      try { text = candidate() } catch { text = lastSaved }
+      return { version, ...outlineMap(text) }
+    },
+    headingPos(v, pos) {
+      const r = mapFrom(v, pos, 1)
+      if (!r || r.deletedAfter) return null
+      const n = editor.state.doc.nodeAt(r.pos)
+      return n && (n.type.name === 'heading' || n.type.name === 'rawBlock') ? r.pos : null
+    },
+    revealPos(pos) {
+      if (pos < 0 || pos > editor.state.doc.content.size) return false
+      const $p = editor.state.doc.resolve(pos)
+      let changed = false
+      for (let d = 1; d <= $p.depth; d++) {
+        if ($p.node(d).type.name !== 'callout') continue
+        const dom = view.nodeDOM($p.before(d)) as HTMLElement | null
+        const f = dom ? calloutFolds.get(dom) : undefined
+        if (f?.folded) { f.setFolded(false); changed = true }
+      }
+      return changed
+    },
+    flash(pos, attr = 'data-outline-flash') {
+      const cur = flashKey.getState(editor.state)
+      const next = pos === null ? null : { pos, attr }
+      if (cur === next || (cur && next && cur.pos === next.pos && cur.attr === next.attr)) return
+      view.dispatch(editor.state.tr.setMeta(flashKey, next).setMeta('addToHistory', false))
+    },
+    followSelection(sel) {
+      const v0 = version
+      return () => {
+        if (destroyed) return null
+        const doc = editor.state.doc
+        const size = doc.content.size
+        const one = (p: number): number => {
+          const r = mapFrom(v0, p, -1)
+          if (!r) return Math.max(0, Math.min(p, size))
+          if (!r.deleted) return r.pos
+          // D-112: a deleted position: inside a text block that is still there it stays; otherwise the end of the
+          // nearest preceding text block, else the start of the body.
+          let inside: number | null = null
+          let before: number | null = null
+          let first: number | null = null
+          doc.descendants((n, at) => {
+            if (n.type.name === 'rawBlock' || (n.isAtom && n.isBlock)) return false
+            if (!n.isTextblock) return true
+            const s = at + 1, e = at + n.nodeSize - 1
+            if (first === null) first = s
+            if (r.pos >= s && r.pos <= e) inside = r.pos
+            else if (e <= r.pos) before = e
+            return false
+          })
+          return inside ?? before ?? first ?? 0
+        }
+        return { anchor: one(sel.anchor), head: one(sel.head) }
+      }
+    },
+    onVersion(f) {
+      versionListeners.add(f)
+      return () => { versionListeners.delete(f) }
+    },
     destroy() {
+      destroyed = true
+      versionListeners.clear()
       editor.destroy()
     },
   }
   return api
+
+  /** Slice OL (v1-outline §2): headings of `text` and the nodes that render them. The text's top-level blocks follow
+   *  the editor's top-level nodes in order (empty paragraphs and draft query blocks write nothing; the `<!-- -->`
+   *  separators have no node); inside a block the n-th mdast heading is the n-th heading node. */
+  function outlineMap(text: string): { headings: OutlineHeading[]; pos: number[]; heading: boolean[] } {
+    const d = parse(text)
+    const headings = outlineHeadingsOf(d)
+    const nodes: { node: PMNode; pos: number }[] = []
+    editor.state.doc.forEach((n, off) => {
+      if (n.type.name === 'rawBlock' && n.attrs.draft) return
+      if (n.type.name === 'paragraph' && n.textContent.trim() === '' && !inlineAtoms(n)) return
+      nodes.push({ node: n, pos: off })
+    })
+    const pairOf: number[] = []
+    let j = 0
+    d.blocks.forEach((b, i) => {
+      pairOf[i] = -1
+      if (j >= nodes.length) return
+      const sep = b.raw.trim() === END_LIST && !(nodes[j].node.type.name === 'rawBlock' && String(nodes[j].node.attrs.source) === b.raw)
+      if (!sep) pairOf[i] = j++
+    })
+    const pos: number[] = []
+    const heading: boolean[] = []
+    let bi = 0
+    for (const h of headings) {
+      while (bi < d.blocks.length - 1 && d.blocks[bi].range[1] <= h.from) bi++
+      const b = d.blocks[bi]
+      const pair = b ? nodes[pairOf[bi]] : undefined
+      if (!pair) { pos.push(0); heading.push(false); continue }
+      if (pair.node.type.name === 'rawBlock') { pos.push(pair.pos); heading.push(false); continue }
+      const starts: number[] = []
+      const walk = (n: { type: string; position?: { start: { offset?: number } }; children?: unknown[] }) => {
+        if (n.type === 'heading') starts.push(n.position?.start.offset ?? -1)
+        if (Array.isArray(n.children)) for (const c of n.children) walk(c as typeof n)
+      }
+      walk(b.node as never)
+      const k = starts.indexOf(h.from)
+      let found: number | null = null
+      let seen = 0
+      if (k >= 0) {
+        if (pair.node.type.name === 'heading') found = k === 0 ? pair.pos : null
+        else pair.node.descendants((c, p) => {
+          if (found !== null) return false
+          if (c.type.name === 'heading') { if (seen++ === k) found = pair.pos + 1 + p; return false }
+          return true
+        })
+      }
+      pos.push(found ?? pair.pos)
+      heading.push(found !== null)
+    }
+    return { headings, pos, heading }
+  }
+}
+
+/** A node holds an inline leaf other than text and hard breaks (a chip): an "empty" paragraph that is still written. */
+function inlineAtoms(node: PMNode): boolean {
+  let found = false
+  node.descendants((n) => { if (!n.isText && n.isInline && n.type.name !== 'hardBreak') found = true; return !found })
+  return found
 }
 
 /** Slice P (§5.3): a wikilink chip's target, section and alias at `pos`. */
