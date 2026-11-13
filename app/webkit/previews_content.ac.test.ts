@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import {
   PV, ZONE, anyContent, callsSince, chipNamed, clickToPreview, content, contentSequence, dlouhaBlocks, eventually, fileText, flat, header, mark,
   mustBeOn, needHeader, needNoPreview, needOdkazyLink, needPreview, nfc, openBtn, previewsVault, readArticle, sleep, startPreviews, strip, stripItems,
-  swap, textOf, tokenColour, topInScroller, writesSince, need, main, isDisabled, type FakeCoreHandle, previewPath,
+  swap, textOf, tokenColour, topInScroller, topBelowToolbar, writesSince, need, main, isDisabled, type FakeCoreHandle, previewPath,
 } from './previews-helpers';
 
 test.use({ timezoneId: ZONE });
@@ -143,7 +143,7 @@ test('fr_lnk_10_ac7_section_link_shows_exactly_the_section', async ({ page }) =>
   await (await need(dlg.getByRole('button', { name: /^Open Rozpočet 2027/ }), 'button Open')).click();
   await mustBeOn(page, 'Rozpočet 2027', 'Open opens note/Pages/Rozpočet 2027.md#Rozsah', 5000);
   const hd = await need(main(page).locator('h2, h3, h4').filter({ hasText: /^\s*Rozsah\s*$/ }), 'the heading Rozsah');
-  const top = await eventually(() => topInScroller(hd), (t) => t !== null && Math.abs(t - 24) <= 8, 2000);
+  const top = await eventually(() => topBelowToolbar(hd), (t) => t !== null && Math.abs(t - 24) <= 8, 2000);
   assert.ok(top !== null && Math.abs(top - 24) <= 8, `Rozsah 24 px below the top (± 8 px, D-1625, D-1659): ${top}`);
 });
 

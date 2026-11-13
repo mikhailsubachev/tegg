@@ -40,7 +40,7 @@ import { eventKeys } from '../shell/keys';
 import { headingForFragment } from '@tegg/doc';
 import { startFlash } from '../outline/jump';
 import { jumpTop } from '../outline/model';
-import { invalidateTracker, rendered } from '../outline/tracker';
+import { invalidateTracker, rendered, viewportTop } from '../outline/tracker';
 import { SHORTCUTS, SLASH_ITEMS, showDue, type SlashDef } from '../shell/registry';
 import { objectFromUnit, parse, type ConvertUnit } from '@tegg/doc';
 import { ConvertPopover, RemoveEmbedDialog } from '../convert/ConvertPopover';
@@ -694,7 +694,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     const place = () => {
       const el = rendered(ed.view.nodeDOM(pos) as HTMLElement | null);
       if (!el || !main) return;
-      const top = el.getBoundingClientRect().top - main.getBoundingClientRect().top;
+      const top = el.getBoundingClientRect().top - viewportTop(main);
       main.scrollTop = jumpTop(top, main.scrollTop, main.scrollHeight - main.clientHeight);
     };
     (ed.view.dom as HTMLElement).focus({ preventScroll: true });

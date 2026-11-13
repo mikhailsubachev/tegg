@@ -100,6 +100,7 @@ import type { OutlineTabProps } from './outline/OutlineTab';
 import { announce, closeCard, getCard, getOutline, openCard, requestFocus, useOutline } from './outline/store';
 import { syncTracker } from './outline/tracker';
 import { setJumpHost } from './outline/jump';
+import { installMultiClickGuard, routeChanged } from './shell/multiClick';
 import { allKeys, foldButtons } from './outline/model';
 import { foldsOf, rekeyFolds, withFolds } from './outline/folds';
 
@@ -674,6 +675,9 @@ export function App() {
     }, () => setMessage(t('error.io')));
     return () => { live = false; };
   }, [routeKey, navKey]);
+  // D-1674: the second click of a double-click that opened this page acts on nothing here.
+  useEffect(() => installMultiClickGuard(), []);
+  useEffect(() => { routeChanged(); }, [routeKey, navKey]);
 
   // ------------------------------------------------------------------ quitting (FR-EDT-08 AC-7, AC-11; FR-SYN-03 AC-19; D-196)
   const quitFlow = useRef(async () => {

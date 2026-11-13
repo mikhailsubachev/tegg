@@ -41,7 +41,7 @@ import type { Caret } from '../shell/history';
 import { jumpTop, REFRESH_MS } from '../outline/model';
 import { startFlash } from '../outline/jump';
 import { getCurrent, getOutline, isHeld, publishOutline, type OutlineSource } from '../outline/store';
-import { rendered, trackCurrent } from '../outline/tracker';
+import { rendered, trackCurrent, viewportTop } from '../outline/tracker';
 
 /** `review`: the raw value, `hasFrontmatter` for D-591's review toggle and commands. */
 export type NoteMeta = { title: string; type: string; review?: unknown; hasFrontmatter?: boolean };
@@ -78,7 +78,7 @@ export function scrollToFragment(root: HTMLElement | null, fragment: string, ed?
   const el = (i !== null ? rendered(ed.view.nodeDOM(o.pos[i]) as HTMLElement | null) : null) ?? byText();
   const main = root.closest('main') as HTMLElement | null;
   if (!el || !main) return;
-  const top = el.getBoundingClientRect().top - main.getBoundingClientRect().top;
+  const top = el.getBoundingClientRect().top - viewportTop(main);
   main.scrollTop = jumpTop(top, main.scrollTop, main.scrollHeight - main.clientHeight);
 }
 
@@ -1086,7 +1086,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
           const line = el(i);
           const main = root.current?.closest('main') as HTMLElement | null;
           if (!line || !main) return 'stale';
-          const place = () => { main.scrollTop = jumpTop(line.getBoundingClientRect().top - main.getBoundingClientRect().top, main.scrollTop, main.scrollHeight - main.clientHeight); };
+          const place = () => { main.scrollTop = jumpTop(line.getBoundingClientRect().top - viewportTop(main), main.scrollTop, main.scrollHeight - main.clientHeight); };
           place();
           requestAnimationFrame(place);
           startFlash((phase) => {
@@ -1213,7 +1213,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   return (
     <div ref={root} className="note-root" data-focus-target={focusTarget ?? undefined} onKeyDownCapture={onRenameKey}>
       {!focusMode && (
-        <div className="note-toolbar" role="toolbar" aria-label={t('note.toolbar')}>
+        <div className="note-toolbar" data-sticky-top role="toolbar" aria-label={t('note.toolbar')}>
           <button tabIndex={0} type="button" className="icon-button source-toggle" aria-pressed={showSource} aria-label={t(showSource ? 'note.showFormatted' : 'note.showSource')} title={t(showSource ? 'note.showFormatted' : 'note.showSource')} data-command="note.toggleSource" disabled={moving} onMouseDown={(e) => e.preventDefault()} onClick={() => void toggle()}>
             <Icon name="source" />
           </button>

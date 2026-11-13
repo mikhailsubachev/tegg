@@ -12,7 +12,7 @@ import {
   PV, ZONE, anyBack, anyContent, back, backBtn, backlinksPanel, chipNamed, closeBtn, content, createOffer, editorBody, embedLoadsSince, eventually,
   focusInfo, header, main, mainName, mainScrollTop, mark, mustBeOn, navsSince, need, needAnyPreview, needClosed, needOdkazyLink, needPreview,
   nfc, openBtn, previewCount, previewPath, previews, previewsVault, props, resizeHandle, runCommand, scrollState, searchFor, selectedBlocks, sleep,
-  snapshot, startPreviews, strip, swap, tagRoute, taskCard, topInScroller, typeTable, writesSince, type FakeCoreHandle, type PreviewsStart,
+  snapshot, startPreviews, strip, swap, tagRoute, taskCard, topInScroller, topBelowToolbar, typeTable, writesSince, type FakeCoreHandle, type PreviewsStart,
 } from './previews-helpers';
 
 test.use({ timezoneId: ZONE });
@@ -97,9 +97,9 @@ for (const view of ['editor', 'read'] as const) {
     await clickAtWord(page, anyContent(d), 'Personál', `${view}: the section body`);
     await openedRozpocet(page, core, n0, `${view}: a click on the section body`);
     const hd = await need(main(page).locator('h2, h3, h4').filter({ hasText: /^\s*Rozsah\s*$/ }), 'the heading Rozsah');
-    // The editor lands a heading link 24 px below the pane's top (D-1625, D-1659); the read view keeps its top landing (D-215).
+    // The editor lands a heading link 24 px below the viewport's top, the note toolbar's bottom (D-1625, D-1659, D-1673); the read view keeps its top landing (D-215).
     const want = view === 'editor' ? 24 : 0;
-    const top = await eventually(() => topInScroller(hd), (t) => t !== null && Math.abs(t - want) <= 8, 2000);
+    const top = await eventually(() => (view === 'editor' ? topBelowToolbar(hd) : topInScroller(hd)), (t) => t !== null && Math.abs(t - want) <= 8, 2000);
     assert.ok(top !== null && Math.abs(top - want) <= 8, `${view}: note/Pages/Rozpočet 2027.md#Rozsah with Rozsah ${want} px below the top (± 8 px): ${top}`);
     await back(page, 'Odkazy', `${view}: Back`);
     d = await clickPreview(page, 'Blok', 0);
