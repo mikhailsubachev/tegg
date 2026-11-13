@@ -18,6 +18,9 @@ use tegg_import::{FileKind, ImportEnv, ImportError, ImportPoint, ImportReport, M
 use tegg_jobs::{Phase, ResolveChoice};
 
 const BOOK_YML: &str = ".tegg/types/book.yml";
+/// The type files an import of the fixtures may extend: book.yml gains attributes, image.yml and pdf.yml gain the
+/// `source-text` attribute (R148).
+const TYPE_YMLS: [&str; 3] = [BOOK_YML, ".tegg/types/image.yml", ".tegg/types/pdf.yml"];
 
 fn bytes_of(root: &Path) -> BTreeMap<String, Vec<u8>> {
     snapshot(root).into_iter().filter(|(k, _)| !k.ends_with('/')).map(|(k, v)| (k, v.bytes)).collect()
@@ -76,14 +79,16 @@ fn is_object_before(p: &ImportPoint) -> bool {
 fn journal(dirs: &tegg_vault::AppDirs) -> String {
     snapshot(&dirs.root.join("jobs")).into_iter().filter(|(k, _)| k.ends_with(".log")).map(|(_, v)| String::from_utf8_lossy(&v.bytes).into_owned()).collect()
 }
-/// The end state both the failure and `Undo` must give: nothing added, nothing but book.yml's mtime / inode changed,
-/// book.yml's bytes as before, no temp file, no folder the vault didn't have.
+/// The end state both the failure and `Undo` must give: nothing added, nothing but the type files' (book.yml,
+/// image.yml, pdf.yml) mtime / inode changed, their bytes as before, no temp file, no folder the vault didn't have.
 fn assert_rolled_back(root: &Path, before: &BTreeMap<String, Entry>, what: &str) {
     let after = snapshot(root);
     assert_eq!(added(before, &after), BTreeSet::new(), "{what}: every file the run created is removed");
     let t = touched(before, &after);
-    assert!(t.is_subset(&set(&[BOOK_YML])), "{what}: every other pre-existing file is untouched (bytes, mtime, inode): {t:?}");
-    assert_eq!(after.get(BOOK_YML).map(|e| &e.bytes), before.get(BOOK_YML).map(|e| &e.bytes), "{what}: book.yml again has its bytes from before the run");
+    assert!(t.is_subset(&set(&TYPE_YMLS)), "{what}: every other pre-existing file is untouched (bytes, mtime, inode): {t:?}");
+    for y in TYPE_YMLS {
+        assert_eq!(after.get(y).map(|e| &e.bytes), before.get(y).map(|e| &e.bytes), "{what}: {y} again has its bytes from before the run");
+    }
     let dirs = |s: &BTreeMap<String, Entry>| s.keys().filter(|k| k.ends_with('/')).cloned().collect::<BTreeSet<_>>();
     assert_eq!(dirs(&after), dirs(before), "{what}: a folder the run created is removed when empty; the folders that existed stay");
     assert_eq!(temp_files(root), Vec::<String>::new(), "{what}: no .tegg-tmp file is left");
@@ -136,15 +141,14 @@ fn fr_imp_03_ac3_atomic_writes_survive_a_kill() {
             }
             assert_eq!(Some(&bytes), reference.get(&path), "kill {i} at {point:?}: {path} is either absent or complete (the bytes of a full run): no partly written .md, no partly copied attachment under its final name");
         }
-        // A kill before the marker exists leaves a folder without it: the engine never removes or writes into such a
-        // folder (FR-IMP-03 AC-14), so the next import of that name answers TargetExists and the folder stays.
+        // A kill before the marker exists leaves a folder without it, holding nothing or only the marker's own temp
+        // file. CP-8 (D-1562): such a folder counts as a dead run's and the next import of that name removes it (that
+        // one temp file, then the empty folder) and writes a whole vault, below. Anything else in a folder without the
+        // marker is still TargetExists (FR-IMP-03 AC-14).
         if !finished && sb.importing().exists() && !sb.importing().join(".tegg-import").exists() {
             let left = snapshot(&sb.importing());
-            let next = run_new(&sb, &src, &ok!(common::env(&sb), "env"), None);
-            assert!(matches!(&next, Err(e) if e.contains("TargetExists")), "kill {i} at {point:?}: a leftover without the marker is TargetExists: {:?}", next.map(|r| r.map(|r| r.phase)));
-            assert_eq!(snapshot(&sb.importing()), left, "kill {i}: and it is left as it was");
-            assert!(left.keys().all(|k| k.contains(".tegg-tmp") || k.ends_with('/')), "kill {i}: it holds no file under a final name: {:?}", left.keys().collect::<Vec<_>>());
-            continue;
+            let files: Vec<&String> = left.keys().filter(|k| !k.ends_with('/')).collect();
+            assert!(files.len() <= 1 && files.iter().all(|k| k.starts_with("..tegg-import.") && k.ends_with(".tegg-tmp")), "kill {i} at {point:?}: it holds nothing or only the marker's temp file: {:?}", left.keys().collect::<Vec<_>>());
         }
         // Reopening: the next import of that name moves the leftover to the Trash and writes a whole vault.
         if !finished {
@@ -342,7 +346,7 @@ fn fr_imp_03_ac5_failed_import_into_a_vault_rolls_back() {
                 assert!(log.lines().any(|l| l.starts_with(&format!("C\t{f}\t"))), "{fixture}, kill {i}: the file {f} exists, so the journal names it");
             }
             let t = touched(&before, &killed);
-            assert!(t.is_subset(&set(&[BOOK_YML])), "{fixture}, kill {i}: no other pre-existing file changed: {t:?}");
+            assert!(t.is_subset(&set(&TYPE_YMLS)), "{fixture}, kill {i}: no other pre-existing file changed: {t:?}");
             // The next open lists the import as interrupted, with Undo only.
             let core = ok!(open_core(&root, &sb.dirs), format!("{fixture}, kill {i}: the next open of the vault"));
             let list = core.jobs().interrupted();
@@ -421,8 +425,10 @@ fn fr_imp_03_ac12_arriving_file_is_never_replaced() {
         assert_eq!(after.get(path), Some(&entry), "{what}: the arrived file keeps bytes, mtime and inode: no rename of the run replaced it");
         assert_eq!(added(&before, &after), set(&[path]), "{what}: the roll-back removed every file of the run and never the arrived one");
         let t = touched(&before, &after);
-        assert!(t.is_subset(&set(&[BOOK_YML])), "{what}: every pre-existing file is untouched: {t:?}");
-        assert_eq!(after.get(BOOK_YML).map(|e| &e.bytes), before.get(BOOK_YML).map(|e| &e.bytes), "{what}: book.yml has its bytes from before");
+        assert!(t.is_subset(&set(&TYPE_YMLS)), "{what}: every pre-existing file is untouched: {t:?}");
+        for y in TYPE_YMLS {
+            assert_eq!(after.get(y).map(|e| &e.bytes), before.get(y).map(|e| &e.bytes), "{what}: {y} has its bytes from before");
+        }
         assert_eq!((temp_files(&root), report.kept.clone()), (Vec::new(), Vec::new()), "{what}: no temp file left; the arrived file is not `kept` (it was never the run's)");
     }
 }

@@ -46,8 +46,36 @@ pub(crate) fn is_running(temp: &std::path::Path) -> bool {
     running().lock().unwrap_or_else(|e| e.into_inner()).contains_key(temp)
 }
 
-/// The target refusals of a new vault, by reading only (§5). `Ok(true)`: a dead run's marked leftover is there.
-pub(crate) fn probe_new(parent: &std::path::Path, name: &str, source: &Source) -> Result<bool, ImportError> {
+/// What is at `<name>.tegg-importing` when a new-vault import may go on there (§5, §9.5 step 1).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Leftover {
+    /// Nothing.
+    None,
+    /// A dead run's folder with the marker: it goes to the system Trash, whole (D-1559).
+    Marked,
+    /// CP-8 (D-1562): a dead run's folder without the marker that is empty or holds only the marker's own temp file
+    /// (`..tegg-import.i<job>.tegg-tmp`, named here): that one file is removed, then the empty folder.
+    Unmarked(Option<String>),
+}
+
+/// CP-8 (D-1562): the marker's own temp file, as `stage_new` names it for the run's tag `i<job id>` (§9.4).
+fn is_marker_temp(name: &str) -> bool {
+    name.strip_prefix("..tegg-import.i").and_then(|r| r.strip_suffix(".tegg-tmp")).is_some_and(|id| !id.is_empty() && id.bytes().all(|b| b.is_ascii_digit()))
+}
+
+/// CP-8 (D-1562): `Some` when the folder without the marker is a dead run's (empty, or only the marker's temp file).
+fn dead_unmarked(temp: &std::path::Path) -> Option<Option<String>> {
+    use tegg_vault::{FsEntry, VaultFs};
+    let entries = tegg_vault::LocalFs::new(temp).list().ok()?;
+    match entries.as_slice() {
+        [] => Some(None),
+        [FsEntry::File { path }] if is_marker_temp(path) => Some(Some(path.clone())),
+        _ => None,
+    }
+}
+
+/// The target refusals of a new vault, by reading only (§5), and the leftover at the temporary folder's name.
+pub(crate) fn probe_new(parent: &std::path::Path, name: &str, source: &Source) -> Result<Leftover, ImportError> {
     if name.is_empty() || tegg_format::sanitize_file_stem(name) != name {
         return Err(ImportError::InvalidPlan { path: None, reason: PlanReason::Target });
     }
@@ -62,10 +90,17 @@ pub(crate) fn probe_new(parent: &std::path::Path, name: &str, source: &Source) -
         return Err(ImportError::TargetInsideSource);
     }
     let temp = p.parent.join(format!("{name}.tegg-importing"));
-    if p.final_exists || (p.temp_exists && p.marker.is_none()) || is_running(&temp) {
+    if p.final_exists || is_running(&temp) {
         return Err(ImportError::TargetExists);
     }
-    Ok(p.temp_exists)
+    if !p.temp_exists {
+        return Ok(Leftover::None);
+    }
+    if p.marker.is_some() {
+        return Ok(Leftover::Marked);
+    }
+    // A folder without the marker is the user's (never removed or written into, FR-IMP-03 AC-14) unless CP-8 applies.
+    dead_unmarked(&temp).map(Leftover::Unmarked).ok_or(ImportError::TargetExists)
 }
 
 fn hex(bytes: &[u8]) -> String {
@@ -208,6 +243,11 @@ impl Note {
     fn get(&self, key: &str) -> Option<&Val> {
         self.fm.iter().find(|(k, _)| k == key).map(|(_, v)| v)
     }
+}
+
+/// CP-9 (D-1563): the note's `key` has a value but loses its target key to `winner`, which has one too.
+fn lost_key(n: &Note, key: &str, winner: &str) -> bool {
+    n.get(key).is_some_and(|v| !v.is_null()) && n.get(winner).is_some_and(|v| !v.is_null())
 }
 
 /// `import-scan` of one note (§7.1).
@@ -579,10 +619,10 @@ fn plan_attrs(source_type: &str, target: Option<&str>, given: Option<&TypeMappin
                     }
                     ("deadline", "due") => Rule::Due(true),
                     ("date", "due") => {
-                        // CP-9 (pending rule): a `date` beside a `deadline` with a value is not written, and reported.
-                        let lost = ctx.notes.iter().filter(|n| n.get("date").is_some_and(|v| !v.is_null()) && n.get("deadline").is_some_and(|v| !v.is_null())).count();
-                        if lost > 0 {
-                            attr_row(AttrChange::Dropped { values: lost }, report);
+                        // CP-9 (D-1563): a `date` beside a `deadline` with a value loses its key (`due` is the
+                        // deadline's): it is kept as text under the undeclared key `date-text`, and reported.
+                        if ctx.notes.iter().any(|n| lost_key(n, "date", "deadline")) {
+                            attr_row(AttrChange::Renamed { key: "date-text".into(), reason: KeyReason::KeyTaken }, report);
                         }
                         Rule::Due(false)
                     }
@@ -590,7 +630,15 @@ fn plan_attrs(source_type: &str, target: Option<&str>, given: Option<&TypeMappin
                     ("date", "date") => Rule::DailyDate,
                     ("reviewed", _) => Rule::Review,
                     ("icon", _) => Rule::Icon,
-                    ("coverImage", _) | ("previewImage", _) => Rule::Cover,
+                    ("previewImage", _) => {
+                        // CP-9 (D-1563): a Weblink's `previewImage` beside a `coverImage` with a value loses its key
+                        // (`cover` is the coverImage's): kept as text under `previewImage-text`, and reported.
+                        if ctx.notes.iter().any(|n| lost_key(n, "previewImage", "coverImage")) {
+                            attr_row(AttrChange::Renamed { key: "previewImage-text".into(), reason: KeyReason::KeyTaken }, report);
+                        }
+                        Rule::Cover
+                    }
+                    ("coverImage", _) => Rule::Cover,
                     _ => Rule::Own,
                 }
             }
@@ -1358,6 +1406,14 @@ pub(crate) fn plan(scan: &Scan, space: &str, target: &Target<'_>, given: &Mappin
                     if v.is_null() {
                         continue;
                     }
+                    // CP-9 (D-1563): `coverImage` gives `cover`; a `previewImage` beside it keeps its value as text
+                    // under the undeclared key `previewImage-text` (not added to the type file).
+                    if k == "previewImage" && lost_key(n, "previewImage", "coverImage") {
+                        if let Some(s) = v.scalar() {
+                            push(&mut fm, "previewImage-text", text_or_link(relink(k, &s)));
+                        }
+                        continue;
+                    }
                     // §4.1: one link to a stored file gives `cover`; anything else is not written (CP-11, pending).
                     let ls = key_links(k);
                     let file = match ls.as_slice() {
@@ -1386,10 +1442,16 @@ pub(crate) fn plan(scan: &Scan, space: &str, target: &Target<'_>, given: &Mappin
                     }
                 }
                 (_, Some(Rule::Due(deadline))) => {
-                    if v.is_null() || (!deadline && n.get("deadline").is_some_and(|d| !d.is_null())) {
+                    if v.is_null() {
                         continue;
                     }
                     let s = v.scalar().unwrap_or_default();
+                    // CP-9 (D-1563): `due` is the deadline's; a `date` beside it is kept as text under the undeclared
+                    // key `date-text` (its day, or the value as written when it is no date).
+                    if !deadline && lost_key(n, "date", "deadline") {
+                        push(&mut fm, "date-text", dates::day(&s, zone).map_or_else(|| FmValue::Text(s.clone()), |date| FmValue::Date { date }));
+                        continue;
+                    }
                     match dates::day(&s, zone) {
                         Some(day) => push(&mut fm, "due", FmValue::Date { date: day }),
                         None => {

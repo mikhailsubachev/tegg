@@ -190,6 +190,24 @@ impl TargetSink for NewVault {
     }
 }
 
+/// CP-8 (D-1562): a dead run's folder without the marker (killed before the marker was at its name): the marker's
+/// temp file, when there, then the empty folder. Something put into it meanwhile makes the folder's removal fail:
+/// `TargetExists`, and what is in it stays.
+fn remove_dead_unmarked(parent: &Path, temp: &Path, file: Option<&str>) -> Result<(), ImportError> {
+    if let Some(f) = file {
+        match LocalFs::new(temp).remove_file(f) {
+            Ok(()) => {}
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {}
+            Err(e) => return Err(ImportError::Io { reason: e.to_string() }),
+        }
+    }
+    let name = temp.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    LocalFs::new(parent).remove_empty_dir(&name).map_err(|e| match e.kind() {
+        io::ErrorKind::DirectoryNotEmpty | io::ErrorKind::NotADirectory => ImportError::TargetExists,
+        _ => ImportError::Io { reason: e.to_string() },
+    })
+}
+
 /// `start` for a new vault: the target refusals and `NoSpace` again, the dead run's leftover to the Trash, then the
 /// job of a private engine.
 pub(crate) fn start(plan: Plan, scan: &Scan, parent: &Path, name: &str, env: &ImportEnv, now: DateTime<Utc>) -> Result<ImportRun, ImportError> {
@@ -207,8 +225,12 @@ pub(crate) fn start(plan: Plan, scan: &Scan, parent: &Path, name: &str, env: &Im
         if runs.contains_key(&temp) {
             return Err(ImportError::TargetExists);
         }
-        if leftover {
-            tegg_vault::trash_import_leftover(&temp, &*env.trash).map_err(|e| ImportError::LeftoverNotTrashed { reason: e.to_string() })?;
+        match &leftover {
+            planner::Leftover::None => {}
+            planner::Leftover::Marked => {
+                tegg_vault::trash_import_leftover(&temp, &*env.trash).map_err(|e| ImportError::LeftoverNotTrashed { reason: e.to_string() })?;
+            }
+            planner::Leftover::Unmarked(file) => remove_dead_unmarked(&resolved, &temp, file.as_deref())?,
         }
         runs.insert(temp.clone(), run_id.clone());
     }

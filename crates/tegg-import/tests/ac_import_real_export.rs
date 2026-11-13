@@ -55,7 +55,10 @@ fn child(test: &str, case: &str, base: &Path, tmpdir: Option<&Path>) -> Out {
     let out = cmd.output().expect("setup: run the child");
     let between = |bytes: &[u8]| {
         let text = String::from_utf8_lossy(bytes).into_owned();
-        let lines: Vec<String> = text.lines().skip_while(|l| *l != "<<BEGIN>>").skip(1).take_while(|l| *l != "<<END>>").map(str::to_string).collect();
+        // The marker may follow other text on its line (libtest prints the test's name first): the lines start after
+        // the rest of the marker's line.
+        let rest = text.find("<<BEGIN>>").map_or("", |i| &text[i + "<<BEGIN>>".len()..]);
+        let lines: Vec<String> = rest.lines().skip(1).take_while(|l| *l != "<<END>>").map(str::to_string).collect();
         (lines, text.contains("<<END>>"))
     };
     let ((stdout, reached), (stderr, _)) = (between(&out.stdout), between(&out.stderr));

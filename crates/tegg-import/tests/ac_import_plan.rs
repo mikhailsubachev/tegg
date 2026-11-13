@@ -297,7 +297,11 @@ fn fr_imp_19_ac8_report_page() {
         let core = ok!(open_core(&run.root, &sb.dirs), format!("{fixture}: open the written vault"));
         let imported: BTreeSet<String> = run.plan.objects.iter().filter(|o| o.outcome == ObjectOutcome::Imported).filter_map(|o| o.path.clone()).collect();
         let targets = wikilink_targets(&outside_code(&report));
-        assert!(!targets.is_empty(), "{fixture}: the report's rows link to objects");
+        // c14's report has only Summary, Types, Attributes and Not in the export, none of which names an object: no
+        // link is required there.
+        if fixture != "c14-reserved-keys" {
+            assert!(!targets.is_empty(), "{fixture}: the report's rows link to objects");
+        }
         for t in &targets {
             let to = resolves(&core, REPORT, t);
             assert!(to.as_ref().is_some_and(|p| imported.contains(p)), "{fixture}: the report's link [[{t}]] resolves to an imported object, got {to:?}");
@@ -405,7 +409,10 @@ fn nfr_oth_02_ac18_report_words_come_from_the_catalog() {
     let sb = sandbox();
     let run = ok!(import_fixture(&sb, "c05-media-objects"), "import c05 in English");
     let report = some!(read_text(&run.root, REPORT), "the report");
-    assert_eq!(sections(&report), ["Summary", "Types", "Unresolved links", "Attributes", "Files", "Not in the export"], "R150's section names, from the catalog (`ReportStrings::english()`)");
+    // c05's objects have no creation date, so the Dates section holds the `importTime` row (D-1538 (4)).
+    assert_eq!(sections(&report), ["Summary", "Types", "Unresolved links", "Attributes", "Dates", "Files", "Not in the export"], "R150's section names, from the catalog (`ReportStrings::english()`)");
+    let dates = rows(&report, "Dates");
+    assert!(dates.len() == 1 && dates[0].starts_with("objects without a creation date; the import time was used · "), "the Dates section is the importTime row: {dates:?}");
     assert!(rows(&report, "Not in the export") == ["Query definitions", "Tag colours and collections", "Comments"], "R150's fixed statements");
     // A missing key is written as the key itself (§2).
     let sb = sandbox();

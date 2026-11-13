@@ -78,8 +78,8 @@ export type ReportData = {
 
 export type ImportNewSpec =
   | { kind: 'media'; frontmatter: [string, FmValue][]; file: string }
-  /** `objects` is not in the contract (see `objectLink`): an optional map from a row's source path to the planned
-   *  vault path of its object. When given it alone decides which objects are imported and where they are. */
+  /** `objects` (v1-import §7.4): a map from a row's source path to the planned vault path of its object. When given
+   *  it alone decides which objects are imported and where they are (the engine always passes it). */
   | { kind: 'report'; frontmatter: [string, FmValue][]; data: ReportData; strings: Record<string, string>; paths: string[]; objects?: Record<string, string> }
 
 // ---------------------------------------------------------------- the one parse (scan and write share it)
@@ -532,9 +532,9 @@ function report(source: string, spec: Extract<ImportNewSpec, { kind: 'report' }>
   const word = (key: string) => spec.strings?.[`import.report.${key}`] ?? `import.report.${key}`
   const row = (...fields: (string | number)[]) => `- ${fields.join(' · ')}`
 
-  /** The planned vault path of the object a row names by its source path, or null when it isn't imported. The
-   *  contract gives the renderer `paths` only; without `objects` the path is the one equal to the source path, else
-   *  the only one with the source's file stem. */
+  /** The planned vault path of the object a row names by its source path, or null when it isn't imported: by the
+   *  spec's `objects` map (§7.4); without it the path is the one equal to the source path, else the only one with
+   *  the source's file stem. */
   const vaultPath = (src: string): string | null => {
     if (spec.objects) return spec.objects[src] ?? spec.objects[nfc(src)] ?? null
     const exact = paths.find((p) => pathKey(p) === pathKey(src))

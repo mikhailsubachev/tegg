@@ -191,7 +191,9 @@ fn fr_imp_14_ac9_existing_attachment_is_never_replaced() {
         let run = ok!(import(&v, &fixtures().join("c05-media-objects"), SPACE), "import c05 into the vault");
         let after = snapshot(&v.root);
         assert_eq!(after.get("_attachments/Mapa řeky.jpeg"), Some(&own), "NFD copy {nfd_copy}: the user's own file is untouched (bytes, mtime, inode)");
-        assert_eq!(touched(&before, &after), BTreeSet::new(), "NFD copy {nfd_copy}: no pre-existing file changed");
+        // image.yml and pdf.yml may gain the `source-text` attribute (R148).
+        let t = touched(&before, &after);
+        assert!(t.is_subset(&set(&[".tegg/types/image.yml", ".tegg/types/pdf.yml"])), "NFD copy {nfd_copy}: no other pre-existing file changed: {t:?}");
         let source_bytes = std::fs::read(fixtures().join("c05-media-objects/PKM/Images/Media/Mapa řeky.jpeg")).expect("setup: source image");
         assert_eq!(read_bytes(&v.root, "_attachments/Mapa řeky (2).jpeg"), Some(source_bytes), "NFD copy {nfd_copy}: the imported image is `Mapa řeky (2).jpeg`, with the source file's bytes (same SHA-256)");
         let image = some!(read_text(&v.root, "Images/Mapa řeky.md"), "the Image object");
@@ -327,7 +329,12 @@ fn fr_his_04_ac12_backup_before_import() {
     let stamp = name.strip_suffix("-import.zip").unwrap_or("");
     assert!(stamp.len() == 15 && stamp.char_indices().all(|(i, c)| if i == 8 { c == '-' } else { c.is_ascii_digit() }), "named <UTC yyyymmdd-hhmmss>-import.zip: {name}");
     assert_eq!(run.report.backup.as_deref(), Some(name.as_str()), "the run's report names the zip");
-    let held = read_zip(&zips[0]);
+    let mut held = read_zip(&zips[0]);
+    // The backup's manifest entry (ms4-tags §5.1, v1-import §9.3) is allowed; every other entry is a vault file.
+    if let Some(manifest) = held.remove("tegg-backup.json") {
+        assert!(!before.contains_key("tegg-backup.json"), "setup: the vault has no file of the manifest's name");
+        assert!(String::from_utf8_lossy(&manifest).contains("backups.label.import"), "the manifest labels the backup as an import's");
+    }
     let want: BTreeSet<String> = before.keys().filter(|k| !k.ends_with('/') && (k.ends_with(".md") || k.starts_with(".tegg/"))).cloned().collect();
     assert_eq!(held.keys().map(|k| nfc(k)).collect::<BTreeSet<_>>(), want, "it holds every .md (those in .trash/ too) and every file under .tegg/, with NFC UTF-8 names");
     assert!(held.keys().all(|k| nfc(k) == *k), "the names are NFC");

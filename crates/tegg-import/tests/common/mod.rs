@@ -298,7 +298,7 @@ pub fn write_zip(path: &Path, entries: &[ZipEntry]) {
         central.extend_from_slice(&0x0201_4b50u32.to_le_bytes());
         central.extend_from_slice(&0x031eu16.to_le_bytes());
         fields(&mut central);
-        central.extend_from_slice(&[0u8; 12]); // comment len, disk, internal attrs, external attrs
+        central.extend_from_slice(&[0u8; 10]); // comment len, disk, internal attrs, external attrs (2+2+2+4)
         central.extend_from_slice(&offset.to_le_bytes());
         central.extend_from_slice(&e.name);
     }

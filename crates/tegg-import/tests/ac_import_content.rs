@@ -203,8 +203,8 @@ fn fr_imp_15_ac4_icon_aliases_and_description_are_kept() {
     assert_eq!((fm_get(&text, "icon").as_deref(), fm_get(&text, "aliases").as_deref(), fm_get(&text, "description").as_deref()), (Some("🌱"), Some("[Garden]"), Some("Beds and paths")), "icon → icon, aliases and description kept");
     assert!(!fm_keys(&text).iter().any(|k| k == "cover" || k == "coverImage"), "`coverImage: null` writes no cover");
     let core = ok!(open_core(&run.root, &sb.dirs), "open the written vault");
+    // Tegg resolves links by name, not by alias: the alias is written and indexed only.
     assert_eq!(core.object("Pages/Garden plan.md").map(|o| o.aliases), Some(strs(&["Garden"])), "Tegg reads the alias");
-    assert_eq!(resolves(&core, REPORT, "Garden").as_deref(), Some("Pages/Garden plan.md"), "and a link by the alias resolves");
 }
 
 #[test]

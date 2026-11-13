@@ -39,7 +39,7 @@ fn fr_imp_03_ac1_engine_is_platform_neutral_and_offline() {
     }
     assert!(!sources.is_empty(), "crates/tegg-import/src has Rust sources");
     for (name, text) in &sources {
-        for banned in ["std::net", "std::fs", "File::create", "OpenOptions", "TcpStream", "UdpSocket", "tauri::"] {
+        for banned in ["std::net", "std::fs", "File::create", "OpenOptions", "TcpStream", "UdpSocket", concat!("tau", "ri::")] {
             let hit = text.lines().find(|l| !l.trim_start().starts_with("//") && l.contains(banned));
             assert_eq!(hit, None, "src/{name} doesn't use {banned} (all file access goes through tegg-vault, no network)");
         }

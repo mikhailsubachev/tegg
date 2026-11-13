@@ -313,7 +313,13 @@ fn fr_imp_08_ac10_value_variants() {
     assert!(off.plan.report.attributes.contains(&tegg_import::AttributeRow { source_type: "Task".into(), source_key: "priority".into(), change: AttrChange::ValueNotInOptions { value: "HIgh".into(), objects: 1 } }), "and listed as a value not in the Task type's options");
     assert_eq!(some!(attr(&off, "Task", "priority"), "Task.priority").merges.iter().map(|m| m.applied).collect::<Vec<_>>(), [false], "the proposal is still shown, not applied");
     assert!(off.plan.report.merged.is_empty(), "no Merged values row");
-    assert_eq!(read_bytes(&off.root, ".tegg/types/task.yml"), read_bytes(&repo_root().join("tests/fixtures/vaults/new-empty/.tegg"), "types/task.yml"), "task.yml is not changed");
+    // c21's `people` is rightly appended to the Task type (R148): task.yml gains exactly the planned attribute(s), appended,
+    // and nothing else in it changes (the merge being off doesn't touch the priority options).
+    let before = some!(read_text(&repo_root().join("tests/fixtures/vaults/new-empty/.tegg"), "types/task.yml"), "the fixture's task.yml");
+    let after = some!(read_text(&off.root, ".tegg/types/task.yml"), "the written task.yml");
+    let planned: Vec<(String, String)> = off.plan.types.iter().filter(|t| t.source_type == "Task").flat_map(|t| t.attributes.iter()).filter(|a| a.action == AttrAction::New).map(|a| (a.key.clone().unwrap_or_default(), a.r#type.clone().unwrap_or_default())).collect();
+    assert!(after.starts_with(&before), "task.yml keeps its bytes and only gains appended attributes:\n{after}");
+    assert_eq!(type_attrs(&after), [type_attrs(&before), planned.clone()].concat(), "task.yml gains exactly the planned attribute(s): {planned:?}");
     // Values that differ by more than case or surrounding spaces are never merged by default.
     let sb = sandbox();
     let src = source(&sb, "c21-value-variants");
@@ -533,8 +539,9 @@ fn fr_imp_21_ac1_tags_are_virtual() {
     assert_eq!(fm_get(&some!(written(&run, "Pages/Tagged.md"), "Tagged"), "tags").as_deref(), Some("[Learning, Archive]"), "the tags are written on the object");
     assert!(!files(&run.root).iter().any(|p| p.starts_with("Tags/")), "Tags/ holds no file after the import (FR-TAG-03)");
     let core = ok!(open_core(&run.root, &sb.dirs), "open the written vault");
-    let tags: BTreeSet<String> = core.object("Pages/Tagged.md").map(|o| o.tags.into_iter().collect()).unwrap_or_default();
-    assert_eq!(tags, set(&["Learning", "Archive"]), "Tegg's index has both tags");
+    // The index stores tag names in lower case: compare case-insensitively (the file keeps `[Learning, Archive]`, above).
+    let tags: BTreeSet<String> = core.object("Pages/Tagged.md").map(|o| o.tags.into_iter().map(|t| t.to_lowercase()).collect()).unwrap_or_default();
+    assert_eq!(tags, set(&["learning", "archive"]), "Tegg's index has both tags");
 }
 
 #[test]

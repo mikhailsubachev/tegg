@@ -968,10 +968,22 @@ impl Inner {
                 return Ok(Phase::Cancelled);
             }
             self.set_phase(id, Phase::Backup, 0, total);
-            // ms4-jobs §6: every `.md` and every file under `.tegg/`, nothing else in the zip. The label
-            // `backups.label.import` needs the manifest entry of ms4-tags §5.1, which the criteria's zip doesn't hold
-            // (FR-HIS-04 AC-12): it comes with the Backups UI of slice I2.
-            let path = self.backup_at(JobKind::Import, None, None, job.backup_time()).map_err(|e| format!("BackupFailed: {e}"))?;
+            // ms4-jobs §6: every `.md` and every file under `.tegg/`, plus the manifest entry of ms4-tags §5.1 with
+            // the label `backups.label.import` `{ space }` (v1-import §9.3, D-1566 (5)), so Settings › Backups lists
+            // it as "Import · <space>". A restore of it has no moves to reverse: it gives the zipped files back and
+            // leaves the imported ones in place.
+            let time = job.backup_time().unwrap_or_else(chrono::Utc::now);
+            let manifest = serde_json::json!({
+                "version": 1,
+                "kind": JobKind::Import.as_str(),
+                "label": { "key": "backups.label.import", "args": { "space": job.title() } },
+                "vault": self.host().vault_name(),
+                "time": time.format("%Y-%m-%dT%H:%M:%SZ").to_string(),
+                "job": id,
+                "planned": { "renames": [], "creates": [], "trashes": [] },
+                "done": serde_json::Value::Null,
+            });
+            let path = self.backup_at(JobKind::Import, Some(&manifest), None, job.backup_time()).map_err(|e| format!("BackupFailed: {e}"))?;
             let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
             zip = Some(path);
             if !self.cancelled(id) {

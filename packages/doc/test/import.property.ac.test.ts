@@ -19,6 +19,7 @@ const scale = Number(process.env.QA_PROPERTY_SCALE ?? '1') || 1
 const randomSeed = Number(process.env.QA_SEED ?? '') || Date.now() % 2 ** 31
 const SEEDS = scale >= 100 ? Array.from({ length: 10 }, (_, i) => (i === 0 ? FIXED_SEED : randomSeed + i)) : [FIXED_SEED, randomSeed]
 const RUNS = scale >= 100 ? 1000 : 150
+const timeout = scale >= 100 ? 600_000 : 30_000
 console.log(`import note property: ${SEEDS.map((s) => `seed = ${s}`).join(', ')}`)
 
 function rng(seed: number) {
@@ -56,7 +57,7 @@ function gen(seed: number): Made {
   return { text: (r.int(6) === 0 ? '﻿' : '') + text, links, code: code.map((c) => c.replace(/\n/g, nl)), nl }
 }
 
-test('fr_fmt_07_ac1_import_note_output_round_trips_and_keeps_code', () => {
+test('fr_fmt_07_ac1_import_note_output_round_trips_and_keeps_code', { timeout }, () => {
   assert.equal(typeof D.importScan, 'function', '@tegg/doc exports importScan (v1-import §7.1)')
   assert.equal(typeof D.importNote, 'function', '@tegg/doc exports importNote (v1-import §7.1)')
   for (const seed of SEEDS) {

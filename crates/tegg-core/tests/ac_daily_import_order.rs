@@ -24,7 +24,7 @@ const IMPORT_LINE: &str = "import-id: \"capacities:PKM/DailyNotes/2026-10-12.md\
 /// The AC's third note, byte for byte (LF, NFC). `import_line` is the `import-id` line or "".
 fn imported(import_line: &str) -> String {
     format!(
-        "---\nid: 01JB4B0000000000000000D012\ntype: daily-note\ntitle: \"2026-10-12\"\ndate: 2026-10-12\nreview: unreviewed\n{import_line}created: 2026-11-12T10:00:00+01:00\nmodified: 2026-11-12T10:00:00+01:00\n---\nImportovaný zápis.\n"
+        "---\nid: 01JB4B0000000000000000D015\ntype: daily-note\ntitle: \"2026-10-12\"\ndate: 2026-10-12\nreview: unreviewed\n{import_line}created: 2026-11-12T10:00:00+01:00\nmodified: 2026-11-12T10:00:00+01:00\n---\nImportovaný zápis.\n"
     )
 }
 

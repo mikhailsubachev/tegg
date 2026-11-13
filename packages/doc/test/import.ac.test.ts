@@ -247,8 +247,8 @@ function reportData(over: Record<string, unknown> = {}) {
   }
 }
 const REPORT_FM: [string, unknown][] = [['id', '01JB5V00000000000000000004'], ['type', 'page'], ['title', 'Import report 2026-11-12 PKM'], ['created', { datetime: NOW }], ['modified', { datetime: NOW }]]
-const report = (data: unknown, paths = ['Daily/2026-02-01.md', 'Trips/Lisbon.md', 'Trips/Oslo.md']) =>
-  fresh('Pages/Import report 2026-11-12 PKM.md', { kind: 'report', frontmatter: REPORT_FM, data, strings: keyStrings(), paths })
+const report = (data: unknown, paths = ['Daily/2026-02-01.md', 'Trips/Lisbon.md', 'Trips/Oslo.md'], objects?: Record<string, string>) =>
+  fresh('Pages/Import report 2026-11-12 PKM.md', { kind: 'report', frontmatter: REPORT_FM, data, strings: keyStrings(), paths, ...(objects ? { objects } : {}) })
 const rows = (text: string) => text.split('\n').filter((l) => l.startsWith('- '))
 const heads = (text: string) => text.split('\n').filter((l) => l.startsWith('## '))
 
@@ -313,7 +313,13 @@ test('fr_imp_19_ac8_import_new_report_every_section_and_row_kind', () => {
     ],
     cleanup: { u200b: 3, ufeff: 1, u200c: 0, u200d: 0, crlfFiles: 2 },
   })
-  const out = report(data, ['Trips/Lisbon.md', 'Trips/Oslo.md', 'Images/Untitled (44).md', 'Images/Whiteboard sketch.md'])
+  // The report spec's `objects` map (v1-import §7.4): each row's source path → the planned vault path of its object, so
+  // rows link to renamed and suffixed objects. `Pages/` holds notes with the same stems as the two Image objects, so
+  // from the report's folder their links take the path form (D-184 with the folder).
+  const out = report(data, ['Trips/Lisbon.md', 'Trips/Oslo.md', 'Images/Untitled (44).md', 'Images/Whiteboard sketch.md', 'Pages/Untitled (44).md', 'Pages/Whiteboard sketch.md'], {
+    'Trips/Lisbon.md': 'Trips/Lisbon.md', 'Trips/Oslo.md': 'Trips/Oslo.md',
+    'Images/Media/Untitled (44).png': 'Images/Untitled (44).md', 'Images/Media/image (3).png': 'Images/Whiteboard sketch.md',
+  })
   assert.deepEqual(heads(out), ['summary', 'types', 'unresolved', 'ambiguous', 'caseLinks', 'simplified', 'attributes', 'merged', 'dates', 'files', 'stubs', 'skipped', 'cleanup', 'notExported'].map((k) => `## ⟦section.${k}⟧`), 'the fourteen sections of R150, in its order')
   const want = [
     '- ⟦summary.objects⟧ · 1240 ⟦summary.imported⟧ · 3 ⟦summary.reported⟧ · 1243 ⟦summary.total⟧', // plain digits, no grouping (§7.4)
