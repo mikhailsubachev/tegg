@@ -25,6 +25,9 @@ tegg-core = { path = "../../crates/tegg-core" }
 tegg-vault = { path = "../../crates/tegg-vault" }
 tegg-schema = { path = "../../crates/tegg-schema" }
 tegg-format = { path = "../../crates/tegg-format" }
+# Slice I2 (v1-import-window §1): the Capacities import engine; BLAKE3 for the scan memo (§1.3).
+tegg-import = { path = "../../crates/tegg-import" }
+blake3 = "1"
 # `test`: the mock runtime of `acl_probe` (D-570, NFR-SEC-03 AC-2); `tray-icon`, `image-png`: the status item (§1.4).
 tauri = { version = "2", features = ["tray-icon", "image-png", "test", "macos-private-api"] }
 tauri-plugin-dialog = "2"

@@ -7,7 +7,7 @@ See [README](README.md) for conventions. Release v1.0 (FR-EDT-11 moved there by 
 
 The Outline only reads: it never writes to the vault. Its view state is machine-local (`ui-state.json`, FR-STO-07). Where the board and a decision differ, the decision wins. Where neither decides, the criterion follows the **proposal** of an AP point at the end of this file and names it.
 
-**Status: approved, 2026-11-13.** The owner accepted AP-1400…AP-1427 (end of this file) as proposed ("Accept all 28"): D-1600…D-1627 (BRD v1.172; AP-14xx → D-16xx with the same last two digits). Contract: `docs/contracts/v1-outline.md`. The module and attribute names used here (`outlineHeadings`, `railRows`, `foldKey`, `data-outline-flash`, `data-outline-rail`) are the proposal it starts from.
+**Status: approved, 2026-11-13.** The owner accepted AP-1400…AP-1427 (end of this file) as proposed ("Accept all 28"): D-1600…D-1627 (BRD v1.175; AP-14xx → D-16xx with the same last two digits). Contract: `docs/contracts/v1-outline.md`. The module and attribute names used here (`outlineHeadings`, `railRows`, `foldKey`, `data-outline-flash`, `data-outline-rail`) are the proposal it starts from.
 
 **Scope.**
 - FR-EDT-11 (the Outline tab).

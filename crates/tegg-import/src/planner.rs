@@ -80,7 +80,8 @@ pub(crate) fn probe_new(parent: &std::path::Path, name: &str, source: &Source) -
         return Err(ImportError::InvalidPlan { path: None, reason: PlanReason::Target });
     }
     let p = tegg_vault::probe_new_vault(parent, name).map_err(|_| ImportError::TargetNotWritable)?;
-    if !p.parent_is_dir || !p.writable {
+    // D-1581: a missing parent one level deep is accepted; `start` creates it.
+    if !(p.parent_is_dir || p.parent_creatable) || !p.writable {
         return Err(ImportError::TargetNotWritable);
     }
     if p.inside_vault {

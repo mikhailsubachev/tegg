@@ -161,7 +161,21 @@ impl TargetSink for NewVault {
     }
 
     fn write(&self, job: &Job, ctx: &ImportCtx<'_>) -> Result<(), ImportError> {
-        tegg_vault::create_external_dir_new(&self.temp).map_err(|e| if e.kind() == io::ErrorKind::AlreadyExists { ImportError::TargetExists } else { ImportError::Write { path: String::new(), reason: e.to_string() } })?;
+        // D-1581: a missing parent (one level, accepted by `probe_new`) is created now, after the checks, just before
+        // the temporary folder; it goes again when the run fails and it is still empty.
+        let made_parent = match tegg_vault::create_external_dir_new(&self.parent) {
+            Ok(()) => true,
+            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => false,
+            Err(e) => return Err(ImportError::Write { path: String::new(), reason: e.to_string() }),
+        };
+        let remove_parent = || {
+            if made_parent {
+                if let (Some(up), Some(name)) = (self.parent.parent(), self.parent.file_name()) {
+                    let _ = LocalFs::new(up).remove_empty_dir(&name.to_string_lossy());
+                }
+            }
+        };
+        tegg_vault::create_external_dir_new(&self.temp).inspect_err(|_| remove_parent()).map_err(|e| if e.kind() == io::ErrorKind::AlreadyExists { ImportError::TargetExists } else { ImportError::Write { path: String::new(), reason: e.to_string() } })?;
         let done = self.write_all(job, ctx).and_then(|()| {
             let _ = job.point(ImportPoint::BeforeFinalRename);
             self.final_rename()
@@ -177,6 +191,7 @@ impl TargetSink for NewVault {
             }
             Err(e) => {
                 self.remove_temp();
+                remove_parent();
                 Err(e)
             }
         }

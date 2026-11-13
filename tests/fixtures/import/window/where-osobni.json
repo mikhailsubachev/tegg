@@ -1,0 +1,15 @@
+{
+  "newVault": {
+    "parent": "/fake/home/Documents",
+    "name": "Capacities · PKM",
+    "path": "/fake/home/Documents/Capacities · PKM",
+    "display": "~/Documents/Capacities · PKM",
+    "problem": null
+  },
+  "current": {
+    "name": "Osobní",
+    "path": "/fake/home/Documents/Osobní",
+    "notes": 1180,
+    "alreadyImported": 38
+  }
+}

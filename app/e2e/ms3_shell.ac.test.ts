@@ -609,8 +609,9 @@ test('fr_typ_09_ac17_d_cmd_q_writes_an_uncommitted_draft_title_once', { timeout:
 
 // 6A (trash-media.md R75, D-613): `Go to Home` is removed. Slice PIN (pinned.md FR-NAV-04 AC-10, D-1375): `Go to Pinned` too.
 // Slice Q (AP-1304 = D-1447): `Go to Saved queries` became `Go to Queries`.
+// Slice I2 (D-1531, D-1571): `Go to Import` is gone with the `import` route (the import is a window, `Import…`).
 const GOTO = ['Go to Inbox', 'Go to Today', 'Go to Tasks', 'Go to Search', 'Go to Tags', 'Go to Queries',
-  'Go to Graph', 'Go to Trash', 'Go to Import', 'Go to Conflicts', 'Go to Quick capture', 'Go to Settings: Appearance',
+  'Go to Graph', 'Go to Trash', 'Go to Conflicts', 'Go to Quick capture', 'Go to Settings: Appearance',
   'Go to Settings: Date & time', 'Go to Settings: Vault', 'Go to Settings: Shortcuts', 'Go to Settings: Menu bar and startup',
   'Go to Settings: Trash and history', 'Go to Settings: Previews'];
 const TYPES = ['Pages', 'Tasks', 'Quick Notes', 'Daily Notes', 'Cesty', 'Čajovny', 'Schůzky', 'Images', 'PDFs', 'recept'];

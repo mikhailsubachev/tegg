@@ -66,6 +66,8 @@ export function startJobs(): void {
   if (started) return;
   started = true;
   void events.jobProgress((p) => {
+    // Slice I2 (v1-import-window §2.4, ms4-jobs §10): an import's status is the Import window's, driven by `import:progress`.
+    if ((p as { kind?: string }).kind === 'import') return;
     seen.set(p.jobId, p);
     for (const f of progressListeners) f(p);
     void onProgress(p);

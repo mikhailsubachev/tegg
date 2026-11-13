@@ -21,6 +21,7 @@ import type { PresetOpDto } from '../src/graph/types';
 import { handle as handleSearch } from './fake-search';
 import { handle as handlePins, type PinOpDto } from './fake-pins';
 import { handle as handleQueries } from './fake-queries';
+import { fakeImportMain, handleImport, type FakeImportHandle, type FakeImportOptions } from './fake-import';
 
 /** `bin` (6A, ms6-trash-media §9.2): binary vault files (images, PDFs), vault path → base64. */
 export type FakeVault = { name: string; files: Record<string, string>; bin?: Record<string, string> };
@@ -70,10 +71,11 @@ export type ConflictRowDto = {
  *  counter at the start and when the answer settled (3C ordering checks, e.g. "the write resolved before the next read");
  *  `ok`: false when the command failed. */
 export type CallRecord = { cmd: string; args: unknown; at?: number; seq?: number; endSeq?: number; ok?: boolean; endAt?: number; result?: unknown };
-export type FakeCoreHandle = {
+export type FakeCoreHandle = FakeImportHandle & {
   calls(): Promise<CallRecord[]>;
   writes(): Promise<number>;
-  emit(event: 'index:progress' | 'vault:changed' | 'note:conflict', payload: unknown): Promise<void>;
+  /** Slice I2 (v1-import-window §7.3): also `import:open` (the app menu) and `app:quit-requested`. */
+  emit(event: 'index:progress' | 'vault:changed' | 'note:conflict' | 'import:open' | 'app:quit-requested', payload: unknown): Promise<void>;
   /** Changes a file "from another program" (3C, ms3-shell §13.7). `silent`: no `vault:changed` (FR-SYN-03 AC-14);
    *  `sameBytesTouch`: new mtime, same bytes (AC-16). A `Uint8Array` may hold invalid UTF-8 (NFR-REL-03 AC-7). */
   setFile(path: string, text: string | Uint8Array | null, opts?: { silent?: boolean; sameBytesTouch?: boolean }): Promise<void>;
@@ -258,6 +260,9 @@ export type FakeOptions = {
   // ---------------------------------------------------------------- 4D-lite (ms4-tags §8.1)
   /** Seeded zips `backups_list` lists (with or without a manifest). */
   backups?: BackupRecord[];
+  // ---------------------------------------------------------------- slice I2 (v1-import-window §7.2)
+  /** The Import window's canned sources, plans and answers (fake-import.ts). */
+  import?: FakeImportOptions;
 };
 
 const REPO = resolve(import.meta.dirname, '../../..');
@@ -388,7 +393,10 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
     }).catch(() => {});
   }
   const outside = Object.fromEntries(Object.entries(opts.files ?? {}).map(([k, v]) => [k.normalize('NFC'), Buffer.from(v).toString('base64')]));
-  await page.addInitScript(fakeMain, { vault, opts: { ...opts, prelude: undefined, files: undefined }, outside, empty: newEmptyVault('').files, starter: STARTER });
+  // Slice I2 (v1-import-window §7): canned scans and plans and `applyMapping` in Node (fake-import.ts).
+  await page.exposeFunction('__teggImport', (op: string, a: unknown) => handleImport(op, a)).catch(() => {});
+  await page.addInitScript(fakeMain, { vault, opts: { ...opts, prelude: undefined, files: undefined, import: undefined }, outside, empty: newEmptyVault('').files, starter: STARTER });
+  await page.addInitScript(fakeImportMain, { opts: opts.import ?? {}, empty: newEmptyVault('').files });
   if (opts.prelude) {
     const prelude = opts.prelude;
     await page.route(/\/src\/(capture\/)?main\.tsx(\?.*)?$/, async (route) => {
@@ -482,6 +490,13 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
     queryRuns: () => ev(() => (window as any).__teggFake.calls.filter((c: any) => c.cmd === 'query_run')
       .map((c: any) => ({ source: c.args?.source ?? null, host: c.args?.host ?? null, env: c.args?.env ?? null, at: c.at }))),
     queriesFail: (cmd, kind) => page.evaluate(([c, k]) => { const f = (window as any).__teggFake; (f.queriesFail ??= {})[c] = k; }, [cmd, kind] as const).then(() => undefined),
+    // Slice I2 (v1-import-window §7.2).
+    importCalls: () => ev(() => (window as any).__teggFake.calls.filter((c: any) => String(c.cmd).startsWith('import_')).map((c: any) => ({ cmd: c.cmd, args: c.args }))),
+    importPace: (ms) => page.evaluate((m) => { (window as any).__teggFake.importState.pace = m; }, ms),
+    importHold: (at) => page.evaluate((a) => { (window as any).__teggFake.importState.hold = a; }, at),
+    importRelease: () => ev(() => { (window as any).__teggFake.importRelease(); }),
+    importFail: (fl) => page.evaluate((x) => { (window as any).__teggFake.importState.fail = x; }, fl),
+    importQueued: (on) => page.evaluate((q) => { (window as any).__teggFake.importState.queued = q; }, on),
     queriesNotReady: (on) => page.evaluate((o) => {
       const f = (window as any).__teggFake;
       const was = !!f.queriesNotReady;
@@ -2553,6 +2568,10 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     },
   };
 
+  // Slice I2 (fake-import.ts): the import fake adds its commands to these.
+  x.handlers = handlers;
+  x.reads = READS;
+  x.opts = opts;
   w.__teggMocks.mockWindows(opts.window === 'capture' ? 'capture' : 'main');
   // 6A (ms6-trash-media §3.6): media URLs go to the fake's `/__media/` route (WebKit can't route custom schemes).
   w.__TEGG_MEDIA_BASE__ = `${location.origin}/__media/`;

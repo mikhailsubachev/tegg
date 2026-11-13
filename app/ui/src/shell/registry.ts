@@ -59,7 +59,7 @@ export const ROUTES: RouteDef[] = [
   // G1 (graph.md R109, D-914): the local graph's full view.
   { id: 'graph/<path>', name: 'route.graph', purpose: 'purpose.graph', status: { built: true, due: { milestone: 'v1.0' } }, reqs: ['FR-GRP-01…08'], design: 'Graph' },
   { id: 'trash', name: 'route.trash', purpose: 'purpose.trash', status: { built: true, due: { milestone: 'MS6' } }, reqs: ['FR-HIS-01', 'FR-HIS-02'], design: null }, // built in 6A (R75)
-  { id: 'import', name: 'route.import', purpose: 'purpose.import', status: tbd('MS7'), reqs: ['FR-IMP-01', '-03', '-05', 'FR-STO-10'], design: null },
+  // Slice I2 (import-capacities.md R154, D-1531): `import` is a window opened by `import.open`, not a route.
   // 4A (backlinks.md R16): vault checks, reached from the palette only (D-284).
   { id: 'broken-links', name: 'route.brokenLinks', purpose: 'purpose.brokenLinks', status: { built: true, due: { milestone: 'MS4', slice: '4A' } }, reqs: ['FR-LNK-04'], design: null },
   { id: 'duplicate-titles', name: 'route.duplicateTitles', purpose: 'purpose.duplicateTitles', status: { built: true, due: { milestone: 'MS4', slice: '4A' } }, reqs: ['FR-LNK-14'], design: null },

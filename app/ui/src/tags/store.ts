@@ -41,9 +41,19 @@ export function loadTags(): Promise<TagRowDto[]> {
 function listen() {
   if (listening) return;
   listening = true;
+  // One change-driven read at a time: a change while one is out reads once more after it (a burst of changes, e.g. an
+  // import's batches, doesn't queue a read per change; the last change is always read).
+  let waiting = false;
+  const run = () => {
+    const out = flight;
+    if (!out) { void refreshTags(); return; }
+    if (waiting) return;
+    waiting = true;
+    void out.finally(() => { waiting = false; run(); });
+  };
   const later = () => {
     if (timer) clearTimeout(timer);
-    timer = setTimeout(() => { timer = null; void refreshTags(); }, 200);
+    timer = setTimeout(() => { timer = null; run(); }, 200);
   };
   void events.changed(later).catch(() => {});
   // The end of indexing: the counts read while it ran were partial (bug v0.70; no `vault:changed` for it).

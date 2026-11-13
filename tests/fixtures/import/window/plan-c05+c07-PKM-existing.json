@@ -1,0 +1,1371 @@
+{
+  "alreadyImported": 0,
+  "attachments": [
+    {
+      "bytes": 22,
+      "object": "Images/Mapa řeky.md",
+      "outcome": "imported",
+      "path": "_attachments/Mapa řeky (2).jpeg",
+      "referenced": true,
+      "renamedFromGeneric": false,
+      "source": "Images/Media/Mapa řeky.jpeg"
+    },
+    {
+      "bytes": 69,
+      "object": "Images/Media/Untitled (44).png",
+      "outcome": "imported",
+      "path": "_attachments/Untitled (44).png",
+      "referenced": false,
+      "renamedFromGeneric": false,
+      "source": "Images/Media/Untitled (44).png"
+    },
+    {
+      "bytes": 69,
+      "object": "Images/image (3).md",
+      "outcome": "imported",
+      "path": "_attachments/Whiteboard sketch 1.png",
+      "referenced": true,
+      "renamedFromGeneric": true,
+      "source": "Images/Media/image (3).png"
+    },
+    {
+      "bytes": 45,
+      "object": "PDFs/Manual.md",
+      "outcome": "imported",
+      "path": "_attachments/Manual.pdf",
+      "referenced": true,
+      "renamedFromGeneric": false,
+      "source": "PDFs/Media/Manual.pdf"
+    }
+  ],
+  "backup": {
+    "bytes": 4758,
+    "files": 15
+  },
+  "decisions": {
+    "ambiguous": [],
+    "caseLinks": [],
+    "tagLike": []
+  },
+  "links": [
+    {
+      "form": "image",
+      "keptAsMarkdown": false,
+      "line": 17,
+      "n": 0,
+      "note": "Images/Mapa řeky.md",
+      "outcome": {
+        "kind": "attachment"
+      },
+      "place": "body",
+      "simplified": false,
+      "target": "./Media/Mapa řeky.jpeg",
+      "to": "_attachments/Mapa řeky (2).jpeg",
+      "written": "![Image](./Media/Mapa%20%C5%99eky.jpeg)"
+    },
+    {
+      "form": "image",
+      "keptAsMarkdown": false,
+      "line": 11,
+      "n": 0,
+      "note": "Images/image (3).md",
+      "outcome": {
+        "kind": "attachment"
+      },
+      "place": "body",
+      "simplified": false,
+      "target": "./Media/image (3).png",
+      "to": "_attachments/Whiteboard sketch 1.png",
+      "written": "![Image](./Media/image%20(3).png)"
+    },
+    {
+      "form": "image",
+      "keptAsMarkdown": false,
+      "line": 11,
+      "n": 0,
+      "note": "PDFs/Manual.md",
+      "outcome": {
+        "kind": "attachment"
+      },
+      "place": "body",
+      "simplified": false,
+      "target": "./Media/Manual.pdf",
+      "to": "_attachments/Manual.pdf",
+      "written": "![PDF](./Media/Manual.pdf)"
+    },
+    {
+      "form": "image",
+      "keptAsMarkdown": false,
+      "line": 13,
+      "n": 1,
+      "note": "PDFs/Manual.md",
+      "outcome": {
+        "kind": "missing-file"
+      },
+      "place": "body",
+      "simplified": false,
+      "target": "./Media/Manual preview.png",
+      "to": null,
+      "written": "![Preview](./Media/Manual%20preview.png)"
+    },
+    {
+      "form": "image",
+      "keptAsMarkdown": false,
+      "line": 7,
+      "n": 0,
+      "note": "Pages/Trip notes.md",
+      "outcome": {
+        "kind": "attachment"
+      },
+      "place": "body",
+      "simplified": false,
+      "target": "../Images/Media/Mapa řeky.jpeg",
+      "to": "_attachments/Mapa řeky (2).jpeg",
+      "written": "![Map](../Images/Media/Mapa%20%C5%99eky.jpeg)"
+    },
+    {
+      "form": "wikilink",
+      "keptAsMarkdown": false,
+      "line": 9,
+      "n": 1,
+      "note": "Pages/Trip notes.md",
+      "outcome": {
+        "kind": "resolved"
+      },
+      "place": "body",
+      "simplified": false,
+      "target": "Mapa řeky",
+      "to": "Images/Mapa řeky.md",
+      "written": "[[Mapa řeky]]"
+    }
+  ],
+  "mapping": {
+    "caseLinks": [],
+    "types": {
+      "Image": {
+        "attributes": {
+          "colors": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "kind": "drop"
+            },
+            "values": {}
+          },
+          "createdAt": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "created",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "description": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "description",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "fileSize": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "kind": "drop"
+            },
+            "values": {}
+          },
+          "height": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "kind": "drop"
+            },
+            "values": {}
+          },
+          "mimeType": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "kind": "drop"
+            },
+            "values": {}
+          },
+          "source": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "kind": "new",
+              "name": "source-text",
+              "type": "text"
+            },
+            "values": {}
+          },
+          "tags": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "tags",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "title": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "title",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "type": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "type",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "url": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "kind": "new",
+              "name": "url",
+              "type": null
+            },
+            "values": {}
+          },
+          "width": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "kind": "drop"
+            },
+            "values": {}
+          }
+        },
+        "to": {
+          "key": "image",
+          "kind": "existing"
+        }
+      },
+      "PDF": {
+        "attributes": {
+          "description": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "description",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "mimeType": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "kind": "drop"
+            },
+            "values": {}
+          },
+          "source": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "kind": "new",
+              "name": "source-text",
+              "type": "text"
+            },
+            "values": {}
+          },
+          "tags": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "tags",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "title": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "title",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "type": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "type",
+              "kind": "existing"
+            },
+            "values": {}
+          }
+        },
+        "to": {
+          "key": "pdf",
+          "kind": "existing"
+        }
+      },
+      "Page": {
+        "attributes": {
+          "tags": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "tags",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "title": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "title",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "type": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "type",
+              "kind": "existing"
+            },
+            "values": {}
+          }
+        },
+        "to": {
+          "key": "page",
+          "kind": "existing"
+        }
+      },
+      "Query": {
+        "attributes": {
+          "description": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "description",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "icon": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "icon",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "title": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "title",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "type": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "type",
+              "kind": "existing"
+            },
+            "values": {}
+          }
+        },
+        "to": {
+          "key": "page",
+          "kind": "existing"
+        }
+      }
+    },
+    "version": 1
+  },
+  "neededBytes": 5935,
+  "objects": [
+    {
+      "frontmatter": [
+        [
+          "type",
+          "image"
+        ],
+        [
+          "title",
+          "Mapa řeky"
+        ],
+        [
+          "description",
+          "Map of the river"
+        ],
+        [
+          "file",
+          {
+            "link": "Mapa řeky (2).jpeg"
+          }
+        ],
+        [
+          "source-text",
+          "upload"
+        ],
+        [
+          "tags",
+          [
+            "travel"
+          ]
+        ],
+        [
+          "import-id",
+          "capacities:PKM/Images/Mapa řeky.md"
+        ],
+        [
+          "created",
+          {
+            "datetime": "2026-04-07T21:46:20+02:00"
+          }
+        ]
+      ],
+      "importId": "capacities:PKM/Images/Mapa řeky.md",
+      "kind": "media",
+      "nameChanges": [],
+      "outcome": "imported",
+      "path": "Images/Mapa řeky.md",
+      "source": "Images/Mapa řeky.md",
+      "sourceType": "Image",
+      "title": "Mapa řeky",
+      "type": "image"
+    },
+    {
+      "frontmatter": [
+        [
+          "type",
+          "image"
+        ],
+        [
+          "title",
+          "Untitled (44)"
+        ],
+        [
+          "file",
+          {
+            "link": "Untitled (44).png"
+          }
+        ],
+        [
+          "import-id",
+          "capacities:PKM/Images/Media/Untitled (44).png"
+        ]
+      ],
+      "importId": "capacities:PKM/Images/Media/Untitled (44).png",
+      "kind": "orphanMedia",
+      "nameChanges": [],
+      "outcome": "imported",
+      "path": "Images/Untitled (44).md",
+      "source": "Images/Media/Untitled (44).png",
+      "sourceType": null,
+      "title": "Untitled (44)",
+      "type": "image"
+    },
+    {
+      "frontmatter": [
+        [
+          "type",
+          "image"
+        ],
+        [
+          "title",
+          "Whiteboard sketch"
+        ],
+        [
+          "file",
+          {
+            "link": "Whiteboard sketch 1.png"
+          }
+        ],
+        [
+          "source-text",
+          "upload"
+        ],
+        [
+          "tags",
+          []
+        ],
+        [
+          "import-id",
+          "capacities:PKM/Images/image (3).md"
+        ]
+      ],
+      "importId": "capacities:PKM/Images/image (3).md",
+      "kind": "media",
+      "nameChanges": [],
+      "outcome": "imported",
+      "path": "Images/Whiteboard sketch.md",
+      "source": "Images/image (3).md",
+      "sourceType": "Image",
+      "title": "Whiteboard sketch",
+      "type": "image"
+    },
+    {
+      "frontmatter": [
+        [
+          "type",
+          "pdf"
+        ],
+        [
+          "title",
+          "Manual"
+        ],
+        [
+          "file",
+          {
+            "link": "Manual.pdf"
+          }
+        ],
+        [
+          "source-text",
+          "upload"
+        ],
+        [
+          "tags",
+          []
+        ],
+        [
+          "import-id",
+          "capacities:PKM/PDFs/Manual.md"
+        ]
+      ],
+      "importId": "capacities:PKM/PDFs/Manual.md",
+      "kind": "media",
+      "nameChanges": [],
+      "outcome": "imported",
+      "path": "PDFs/Manual.md",
+      "source": "PDFs/Manual.md",
+      "sourceType": "PDF",
+      "title": "Manual",
+      "type": "pdf"
+    },
+    {
+      "frontmatter": [
+        [
+          "type",
+          "page"
+        ],
+        [
+          "title",
+          "Trip notes"
+        ],
+        [
+          "tags",
+          []
+        ],
+        [
+          "import-id",
+          "capacities:PKM/Pages/Trip notes.md"
+        ]
+      ],
+      "importId": "capacities:PKM/Pages/Trip notes.md",
+      "kind": "note",
+      "nameChanges": [],
+      "outcome": "imported",
+      "path": "Pages/Trip notes.md",
+      "source": "Pages/Trip notes.md",
+      "sourceType": "Page",
+      "title": "Trip notes",
+      "type": "page"
+    },
+    {
+      "frontmatter": [
+        [
+          "type",
+          "page"
+        ],
+        [
+          "title",
+          "All Books where ..."
+        ],
+        [
+          "tags",
+          [
+            "needs-rebuilding"
+          ]
+        ],
+        [
+          "import-id",
+          "capacities:PKM/Queries/All books where.md"
+        ]
+      ],
+      "importId": "capacities:PKM/Queries/All books where.md",
+      "kind": "queryStub",
+      "nameChanges": [
+        "characters"
+      ],
+      "outcome": "imported",
+      "path": "Pages/All Books where.md",
+      "source": "Queries/All books where.md",
+      "sourceType": "Query",
+      "title": "All Books where ...",
+      "type": "page"
+    },
+    {
+      "frontmatter": [
+        [
+          "type",
+          "page"
+        ],
+        [
+          "title",
+          "Open tasks"
+        ],
+        [
+          "description",
+          "Tasks not done"
+        ],
+        [
+          "tags",
+          [
+            "needs-rebuilding"
+          ]
+        ],
+        [
+          "import-id",
+          "capacities:PKM/Queries/Open tasks.md"
+        ]
+      ],
+      "importId": "capacities:PKM/Queries/Open tasks.md",
+      "kind": "queryStub",
+      "nameChanges": [],
+      "outcome": "imported",
+      "path": "Pages/Open tasks.md",
+      "source": "Queries/Open tasks.md",
+      "sourceType": "Query",
+      "title": "Open tasks",
+      "type": "page"
+    }
+  ],
+  "otherFiles": [],
+  "report": {
+    "ambiguous": [],
+    "attributes": [
+      {
+        "change": {
+          "key": "source-text",
+          "kind": "renamed",
+          "reason": "reserved"
+        },
+        "sourceKey": "source",
+        "sourceType": "Image"
+      },
+      {
+        "change": {
+          "key": "source-text",
+          "kind": "new",
+          "type": "text"
+        },
+        "sourceKey": "source",
+        "sourceType": "Image"
+      },
+      {
+        "change": {
+          "kind": "notCreated",
+          "nulls": 1
+        },
+        "sourceKey": "url",
+        "sourceType": "Image"
+      },
+      {
+        "change": {
+          "kind": "dropped",
+          "values": 2
+        },
+        "sourceKey": "mimeType",
+        "sourceType": "Image"
+      },
+      {
+        "change": {
+          "kind": "dropped",
+          "values": 1
+        },
+        "sourceKey": "fileSize",
+        "sourceType": "Image"
+      },
+      {
+        "change": {
+          "kind": "dropped",
+          "values": 1
+        },
+        "sourceKey": "width",
+        "sourceType": "Image"
+      },
+      {
+        "change": {
+          "kind": "dropped",
+          "values": 1
+        },
+        "sourceKey": "height",
+        "sourceType": "Image"
+      },
+      {
+        "change": {
+          "kind": "dropped",
+          "values": 0
+        },
+        "sourceKey": "colors",
+        "sourceType": "Image"
+      },
+      {
+        "change": {
+          "key": "source-text",
+          "kind": "renamed",
+          "reason": "reserved"
+        },
+        "sourceKey": "source",
+        "sourceType": "PDF"
+      },
+      {
+        "change": {
+          "key": "source-text",
+          "kind": "new",
+          "type": "text"
+        },
+        "sourceKey": "source",
+        "sourceType": "PDF"
+      },
+      {
+        "change": {
+          "kind": "dropped",
+          "values": 1
+        },
+        "sourceKey": "mimeType",
+        "sourceType": "PDF"
+      }
+    ],
+    "caseLinks": [],
+    "cleanup": {
+      "crlfFiles": 0,
+      "u200b": 0,
+      "u200c": 0,
+      "u200d": 0,
+      "ufeff": 0
+    },
+    "dates": [
+      {
+        "kind": "importTime",
+        "objects": 5
+      }
+    ],
+    "files": [
+      {
+        "change": {
+          "kind": "nameChanged",
+          "name": "Mapa řeky (2).jpeg",
+          "reasons": [
+            "suffix"
+          ]
+        },
+        "source": "Images/Media/Mapa řeky.jpeg"
+      },
+      {
+        "change": {
+          "kind": "unreferenced"
+        },
+        "source": "Images/Media/Untitled (44).png"
+      },
+      {
+        "change": {
+          "kind": "genericName",
+          "name": "Whiteboard sketch 1.png"
+        },
+        "source": "Images/Media/image (3).png"
+      },
+      {
+        "change": {
+          "kind": "droppedReference",
+          "n": 1,
+          "written": "![Preview](./Media/Manual%20preview.png)"
+        },
+        "source": "PDFs/Manual.md"
+      },
+      {
+        "change": {
+          "kind": "nameChanged",
+          "name": "All Books where.md",
+          "reasons": [
+            "characters"
+          ]
+        },
+        "source": "Queries/All books where.md"
+      }
+    ],
+    "merged": [],
+    "noDay": [],
+    "notExported": [
+      "queryDefinitions",
+      "tagColoursAndCollections",
+      "comments"
+    ],
+    "simplified": [],
+    "skipped": [],
+    "stubs": [
+      {
+        "note": "Queries/All books where.md"
+      },
+      {
+        "note": "Queries/Open tasks.md"
+      }
+    ],
+    "summary": {
+      "attachments": {
+        "imported": 4,
+        "reported": 0,
+        "total": 4
+      },
+      "backup": null,
+      "date": "2026-11-12",
+      "links": {
+        "imported": 5,
+        "reported": 1,
+        "total": 6
+      },
+      "objects": {
+        "imported": 6,
+        "reported": 0,
+        "total": 6
+      },
+      "source": "c05+c07",
+      "space": "PKM"
+    },
+    "types": [
+      {
+        "new": false,
+        "objects": 2,
+        "sourceType": "Image",
+        "target": "Image"
+      },
+      {
+        "new": false,
+        "objects": 1,
+        "sourceType": "PDF",
+        "target": "PDF"
+      },
+      {
+        "new": false,
+        "objects": 1,
+        "sourceType": "Page",
+        "target": "Page"
+      },
+      {
+        "new": false,
+        "objects": 2,
+        "sourceType": "Query",
+        "target": "Page"
+      }
+    ],
+    "unresolved": [
+      {
+        "n": 1,
+        "note": "PDFs/Manual.md",
+        "reason": {
+          "kind": "missingFile"
+        },
+        "written": "![Preview](./Media/Manual%20preview.png)"
+      }
+    ]
+  },
+  "reportPath": "Pages/Import report 2026-11-12 PKM.md",
+  "source": {
+    "files": 10,
+    "kind": "folder",
+    "name": "c05+c07",
+    "outsideSpaces": 0,
+    "size": null,
+    "spaces": [
+      {
+        "attachments": 4,
+        "name": "PKM",
+        "objects": 6,
+        "types": [
+          {
+            "objects": 2,
+            "sourceType": "Image"
+          },
+          {
+            "objects": 1,
+            "sourceType": "PDF"
+          },
+          {
+            "objects": 1,
+            "sourceType": "Page"
+          },
+          {
+            "objects": 2,
+            "sourceType": "Query"
+          }
+        ]
+      }
+    ],
+    "unreadable": []
+  },
+  "space": "PKM",
+  "spaceBytes": 1070,
+  "target": {
+    "kind": "existing",
+    "name": "target-existing-vault",
+    "notes": 5
+  },
+  "totals": {
+    "attachments": {
+      "imported": 4,
+      "reported": 0,
+      "total": 4
+    },
+    "links": {
+      "imported": 5,
+      "reported": 1,
+      "total": 6
+    },
+    "objects": {
+      "imported": 6,
+      "reported": 0,
+      "total": 6
+    },
+    "otherFiles": {
+      "imported": 0,
+      "reported": 0,
+      "total": 0
+    }
+  },
+  "types": [
+    {
+      "attributes": [
+        {
+          "action": "consumed",
+          "key": "type",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "type",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 2
+        },
+        {
+          "action": "consumed",
+          "key": "title",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "title",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 2
+        },
+        {
+          "action": "consumed",
+          "key": "description",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 1,
+          "options": [],
+          "sourceKey": "description",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 1
+        },
+        {
+          "action": "consumed",
+          "key": "created",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "createdAt",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 1
+        },
+        {
+          "action": "consumed",
+          "key": "tags",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "tags",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 2
+        },
+        {
+          "action": "new",
+          "key": "source-text",
+          "merges": [],
+          "name": "source-text",
+          "needsLook": true,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "source",
+          "split": null,
+          "statuses": [],
+          "type": "text",
+          "values": 2
+        },
+        {
+          "action": "notCreated",
+          "key": null,
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 1,
+          "options": [],
+          "sourceKey": "url",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 0
+        },
+        {
+          "action": "drop",
+          "key": null,
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "mimeType",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 2
+        },
+        {
+          "action": "drop",
+          "key": null,
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "fileSize",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 1
+        },
+        {
+          "action": "drop",
+          "key": null,
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "width",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 1
+        },
+        {
+          "action": "drop",
+          "key": null,
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "height",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 1
+        },
+        {
+          "action": "drop",
+          "key": null,
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 1,
+          "options": [],
+          "sourceKey": "colors",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 0
+        }
+      ],
+      "folder": "Images",
+      "key": "image",
+      "name": "Image",
+      "new": false,
+      "objects": 2,
+      "plural": "Images",
+      "sourceFolder": "Images",
+      "sourceType": "Image",
+      "target": {
+        "key": "image",
+        "kind": "existing"
+      }
+    },
+    {
+      "attributes": [
+        {
+          "action": "consumed",
+          "key": "type",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "type",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 1
+        },
+        {
+          "action": "consumed",
+          "key": "title",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "title",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 1
+        },
+        {
+          "action": "consumed",
+          "key": "description",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 1,
+          "options": [],
+          "sourceKey": "description",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 0
+        },
+        {
+          "action": "consumed",
+          "key": "tags",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "tags",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 1
+        },
+        {
+          "action": "new",
+          "key": "source-text",
+          "merges": [],
+          "name": "source-text",
+          "needsLook": true,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "source",
+          "split": null,
+          "statuses": [],
+          "type": "text",
+          "values": 1
+        },
+        {
+          "action": "drop",
+          "key": null,
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "mimeType",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 1
+        }
+      ],
+      "folder": "PDFs",
+      "key": "pdf",
+      "name": "PDF",
+      "new": false,
+      "objects": 1,
+      "plural": "PDFs",
+      "sourceFolder": "PDFs",
+      "sourceType": "PDF",
+      "target": {
+        "key": "pdf",
+        "kind": "existing"
+      }
+    },
+    {
+      "attributes": [
+        {
+          "action": "consumed",
+          "key": "type",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "type",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 1
+        },
+        {
+          "action": "consumed",
+          "key": "title",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "title",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 1
+        },
+        {
+          "action": "consumed",
+          "key": "tags",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "tags",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 1
+        }
+      ],
+      "folder": "Pages",
+      "key": "page",
+      "name": "Page",
+      "new": false,
+      "objects": 1,
+      "plural": "Pages",
+      "sourceFolder": "Pages",
+      "sourceType": "Page",
+      "target": {
+        "key": "page",
+        "kind": "existing"
+      }
+    },
+    {
+      "attributes": [
+        {
+          "action": "consumed",
+          "key": "type",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "type",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 2
+        },
+        {
+          "action": "consumed",
+          "key": "title",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "title",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 2
+        },
+        {
+          "action": "consumed",
+          "key": "description",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 1,
+          "options": [],
+          "sourceKey": "description",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 1
+        },
+        {
+          "action": "consumed",
+          "key": "icon",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 2,
+          "options": [],
+          "sourceKey": "icon",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 0
+        }
+      ],
+      "folder": "Pages",
+      "key": "page",
+      "name": "Page",
+      "new": false,
+      "objects": 2,
+      "plural": "Pages",
+      "sourceFolder": "Queries",
+      "sourceType": "Query",
+      "target": {
+        "key": "page",
+        "kind": "existing"
+      }
+    }
+  ],
+  "version": 1
+}

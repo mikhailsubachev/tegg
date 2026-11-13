@@ -1,0 +1,137 @@
+/* Slice I2 (docs/contracts/v1-import-window.md §3.2, FR-UX-05 AC-21): the Import window (board Import, section A).
+   Every colour is a theme token; nothing moves with reduced motion (FR-UX-08 AC-20). */
+.import-backdrop { z-index: 60; }
+.import-quit-backdrop { z-index: 70; }
+.dialog-backdrop .dialog.import-dialog { width: min(720px, 94vw); max-height: 88vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+.import-dialog h2 { margin: 0; padding: 18px 24px 4px; font-size: 18px; }
+.import-dialog h2:focus-visible { outline: none; }
+.import-stepper { counter-reset: import-step; display: flex; gap: 6px; padding: 8px 24px 12px; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.import-stepper > span { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px 2px 2px; border-radius: 999px; }
+.import-stepper > span[data-current] { color: var(--text); font-weight: 600; background: var(--row); }
+.import-stepper > span::before { counter-increment: import-step; content: counter(import-step); }
+.import-stepper > span[data-done]::before { content: '✓'; }
+.import-stepper > span::before, .import-step-n { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border); font-size: 11px; background: var(--bg); color: var(--muted); }
+.import-stepper > span[data-current] .import-stepper > span::before { counter-increment: import-step; content: counter(import-step); }
+.import-stepper > span[data-done]::before { content: '✓'; }
+.import-stepper > span::before, .import-step-n { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.import-stepper > span[data-done] .import-stepper > span::before { counter-increment: import-step; content: counter(import-step); }
+.import-stepper > span[data-done]::before { content: '✓'; }
+.import-stepper > span::before, .import-step-n { color: var(--accent); }
+.import-body { flex: 1; min-height: 0; overflow: auto; padding: 16px 24px; display: flex; flex-direction: column; gap: 12px; }
+.import-body p { margin: 0; }
+.import-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 24px; border-top: 1px solid var(--border); background: var(--pop); }
+.import-footer button, .import-drop-buttons button, .import-path-line button, .import-reading button, .import-small, .import-alert button {
+  padding: 5px 14px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--text); font-size: 13px;
+}
+.import-footer button.primary { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.import-footer button[aria-disabled="true"] { background: var(--row); border-color: var(--border); color: var(--muted); }
+.import-help { color: var(--muted); font-size: 13px; }
+.import-warning { color: var(--text); border-left: 3px solid var(--unrev-ring); padding: 2px 8px; font-size: 13px; background: var(--unrev-bg); }
+.import-problem { color: var(--danger); font-size: 13px; }
+.import-alert { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--text); border-left: 3px solid var(--danger); background: var(--danger-bg); padding: 6px 10px; font-size: 13px; border-radius: 4px; }
+
+/* Radio groups (steps 0, 2, 3). */
+.import-radio-row { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+.import-radio-row + .import-radio-row { margin-top: 8px; }
+.import-radio-row.checked { border-color: var(--accent); background: var(--accent-bg); }
+.import-radio { display: flex; align-items: flex-start; gap: 10px; text-align: left; width: 100%; color: var(--text); }
+.import-radio[aria-disabled="true"] { color: var(--muted); }
+.import-radio-mark { flex: none; width: 14px; height: 14px; margin-top: 3px; border-radius: 50%; border: 1.5px solid var(--muted); background: var(--bg); }
+.import-radio[aria-checked="true"] .import-radio-mark { border: 4px solid var(--accent); }
+.import-radio-text { display: flex; flex-direction: column; gap: 2px; }
+.import-radio-label { font-weight: 600; display: inline-flex; align-items: center; gap: 8px; }
+.import-badge-rec { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
+.import-where-detail { display: flex; flex-direction: column; gap: 6px; padding-left: 24px; }
+.dialog .import-name { width: 100%; max-width: 360px; height: 30px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
+.dialog .import-name[aria-invalid="true"] { border-color: var(--danger); }
+.import-path-line { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.import-path { color: var(--muted); }
+
+/* Step 1. */
+.import-drop { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 28px 16px; border: 1.5px dashed var(--border); border-radius: 12px; background: var(--row); text-align: center; }
+.import-drop-title { font-weight: 600; }
+.import-drop-buttons { display: flex; gap: 8px; margin-top: 6px; }
+.import-source { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; }
+.import-source-name { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.import-source-size { color: var(--muted); font-size: 13px; }
+.import-reading { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.import-progress { flex: 1; height: 6px; border-radius: 3px; background: var(--hover); overflow: hidden; }
+.import-progress > span { display: block; height: 100%; background: var(--accent); }
+
+/* 4a. */
+.import-types { width: 100%; border-collapse: collapse; font-size: 13px; }
+.import-types th { text-align: left; font-weight: 600; color: var(--muted); padding: 4px 8px; border-bottom: 1px solid var(--border); }
+.import-types td { padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.import-count { color: var(--muted); margin-left: 6px; font-variant-numeric: tabular-nums; }
+.import-target { padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); text-align: left; }
+.import-target:hover, .import-status-button:hover { background: var(--hover); }
+.import-target[aria-invalid="true"] { border-color: var(--danger); }
+.import-status-button { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 6px; color: var(--text); }
+.import-status-button:focus-visible { background: var(--hover); }
+.import-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--unrev); }
+.import-chevron { color: var(--muted); }
+.import-none, .import-target-text { color: var(--muted); }
+.import-target-text { color: var(--text); }
+.import-hint { color: var(--muted); font-size: 13px; }
+
+/* Menus. */
+.import-menu { z-index: 70; }
+.import-menu-group { padding: 2px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin: 2px 0; }
+.import-menu-head { padding: 4px 8px; font-size: 11px; font-weight: 600; color: var(--muted); }
+.import-menu-item { justify-content: flex-start; }
+.import-check { width: 14px; display: inline-flex; color: var(--accent); }
+.import-menu-desc { margin-left: auto; color: var(--muted); font-size: 12px; }
+.import-rename { padding: 4px 8px; }
+.import-menu .import-rename input { width: 100%; height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
+.import-menu .import-rename input[aria-invalid="true"] { border-color: var(--danger); }
+
+/* 4b. */
+.import-summary { font-size: 13px; color: var(--muted); }
+.import-attrs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.dialog .import-attrs > li { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 8px 0; border-bottom: 1px solid var(--border); border-radius: 0; }
+.import-attr-line { display: flex; align-items: center; gap: 12px; }
+.import-attr-key { min-width: 120px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+.import-attr-target { color: var(--muted); }
+.import-chips { margin-left: auto; display: inline-flex; gap: 6px; }
+.import-chip { padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); color: var(--text); font-size: 12px; }
+.import-chip[aria-pressed="true"], .import-chip[aria-expanded="true"] { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+.import-merge-note, .import-split { font-size: 12px; color: var(--muted); padding-left: 132px; }
+.import-merge-note .link-button, .import-split .link-button { color: var(--link); text-decoration: underline; }
+.import-values { padding-left: 132px; }
+.import-values h3 { margin: 0 0 4px; font-size: 12px; color: var(--muted); font-weight: 600; }
+.dialog .import-values ul { padding: 0; max-height: none; }
+.dialog .import-values li { padding: 3px 0; font-size: 13px; }
+
+/* 4c. */
+.dialog ul.import-decide, .dialog ul.import-decide-list { padding: 0; max-height: none; display: flex; flex-direction: column; gap: 8px; }
+.dialog .import-decide > li, .dialog .import-decide-list > li { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; gap: 12px; }
+.import-decide-title { font-weight: 600; }
+.import-decide-help { font-size: 13px; color: var(--muted); }
+.import-small[aria-pressed="true"] { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+.import-note-title { font-weight: 600; }
+.import-check-label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+
+/* 5 and 7. */
+.import-preview, .import-card { display: flex; flex-direction: column; gap: 4px; }
+.import-preview h3, .import-card h3 { margin: 0; font-size: 13px; font-weight: 600; color: var(--text); }
+.import-card { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+.import-preview-row { display: flex; align-items: baseline; gap: 10px; font-size: 13px; }
+.import-preview-label { min-width: 160px; }
+.import-preview-count { font-weight: 600; font-variant-numeric: tabular-nums; }
+.import-done-count { font-size: 16px; font-weight: 600; }
+
+/* 6. */
+.dialog ul.import-phases { padding: 0; max-height: none; display: flex; flex-direction: column; gap: 2px; }
+.dialog .import-phases > li { justify-content: flex-start; gap: 10px; padding: 6px 4px; }
+.import-phase-mark { width: 16px; display: inline-flex; justify-content: center; color: var(--accent); }
+.import-phase-dot { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--muted); }
+.import-phase-dot.running { background: var(--accent); border-color: var(--accent); }
+.import-phase-label { flex: 1; }
+.import-phases > li[data-state="pending"] .import-phase-label { color: var(--muted); }
+.import-phase-count { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* The status element and the quit question. */
+.import-status { display: inline-flex; align-items: center; gap: 4px; }
+.import-status .link-button { color: var(--text); font-size: 12px; }
+.dialog-backdrop .dialog.import-quit { width: min(420px, 92vw); }
+.chooser-status { position: fixed; top: 10px; right: 16px; z-index: 30; font-size: 12px; color: var(--muted); }

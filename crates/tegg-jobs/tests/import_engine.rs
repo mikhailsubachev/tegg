@@ -502,3 +502,31 @@ fn a_panic_in_the_job_leaves_the_journal_and_no_report() {
     assert!(core.jobs().resolve_interrupted(id, ResolveChoice::Undo).is_ok());
     assert!(!root.join("Pages/Dovezená.md").exists() && journal_files(&sb).is_empty());
 }
+
+/// v1-import-window §1.2 (slice I2): a live import's journal (its job runs in this engine and isn't final) is not an
+/// interrupted import: `interrupted()` leaves it out, and `resolve_interrupted` answers `Busy` for it.
+#[test]
+fn a_live_imports_journal_is_not_listed_as_interrupted_and_cant_be_resolved() {
+    let sb = sandbox();
+    let (_root, core) = vault(&sb);
+    let (held, go) = (Arc::new(AtomicBool::new(false)), Arc::new(AtomicBool::new(false)));
+    let mut job = fake();
+    job.backup = false;
+    let (f, g) = (held.clone(), go.clone());
+    job.write = Box::new(move |ctx| {
+        journal::begin(ctx.host, ctx.job, "PKM", "export.zip", 2, None).map_err(|e| e.to_string())?;
+        create(ctx, "Pages/Živá.md", NOTE)?;
+        ctx.step(1);
+        f.store(true, Ordering::SeqCst);
+        wait_until(Duration::from_secs(30), || g.load(Ordering::SeqCst));
+        Err("the write fails after the first file".into())
+    });
+    let id = core.jobs().start_import(Arc::new(job)).expect("start");
+    assert!(wait_until(Duration::from_secs(30), || held.load(Ordering::SeqCst)), "the job is writing");
+    assert!(!journal_files(&sb).is_empty(), "setup: the live import has its journal");
+    assert!(core.jobs().interrupted().iter().all(|i| i.job != id), "a live import isn't listed as interrupted");
+    assert!(matches!(core.jobs().resolve_interrupted(id, ResolveChoice::Undo), Err(JobError::Busy)), "a live import can't be resolved");
+    go.store(true, Ordering::SeqCst);
+    let report = core.jobs().wait(id, Duration::from_secs(30)).expect("report");
+    assert_eq!(report.phase, Phase::Failed);
+}

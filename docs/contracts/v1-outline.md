@@ -1,12 +1,12 @@
 # Contract: the Outline, tab and edge rail (v1.0 slice OL)
 
-**Status: accepted, 2026-11-13, written before the slice OL red tests.** The owner accepted contract points CP-1…CP-14 (§14) as proposed ("Accept all 14"): D-1628…D-1641 (BRD v1.173; CP-n → D-(1627 + n)).
+**Status: accepted, 2026-11-13, written before the slice OL red tests.** The owner accepted contract points CP-1…CP-14 (§14) as proposed ("Accept all 14"): D-1628…D-1641 (BRD v1.176; CP-n → D-(1627 + n)).
 
 Public interfaces of slice OL, for the test author (D-61) and the build. ACs: `docs/acceptance/outline.md` (R170…R177;
 FR-EDT-11 AC-1…AC-21, FR-EDT-16 AC-1…AC-14, FR-NAV-03 AC-15, AC-16, FR-NAV-05 AC-4, AC-5 and the changed AC-1 of
 inbox.md, FR-STO-07 AC-7, AC-8, FR-SYN-06 AC-46, FR-UX-03 AC-45…AC-47, FR-UX-08 AC-21, AC-22, FR-UX-05 AC-22,
 NFR-OTH-02 AC-19, NFR-PERF-06 AC-6, FR-FMT-12 AC-10, FR-SET-02 AC-10). Decisions: AP-1400…AP-1427, accepted as proposed:
-D-1600…D-1627 (BRD v1.172; AP-14xx → D-16xx, same last two digits). Boards: `design/edit-note-page/Outline.dc.html`,
+D-1600…D-1627 (BRD v1.175; AP-14xx → D-16xx, same last two digits). Boards: `design/edit-note-page/Outline.dc.html`,
 `OutlineDark.dc.html` (A–D, E1–E4, V1–V11), prototype `outline-rail-prototype.html` (its script is the reference for the
 rail's constants and row rule). Fixture: `tests/fixtures/vaults/outline/` (its README has every expected row and rail
 row). Precedents: the Graph tab in the panel ([v1-graph.md](v1-graph.md) §15, §17), machine-local state as page width
@@ -570,5 +570,5 @@ No new `qa.config.json` step: the tests live in packages that already have steps
 
 ## 15. Red-test clarifications (2026-11-13; D-1642…D-1646)
 
-- D-1642…D-1646 (BRD v1.174) settle the four ambiguities the red tests found (Tab order, End, the test hold, the card's centring) and the test approximations. `hold(true)` (§10) blocks only the debounced refresh after typing; a stale click refreshes regardless (D-1644).
+- D-1642…D-1646 (BRD v1.177) settle the four ambiguities the red tests found (Tab order, End, the test hold, the card's centring) and the test approximations. `hold(true)` (§10) blocks only the debounced refresh after typing; a stale click refreshes regardless (D-1644).
 - Contract choices (no owner decision): `toggle(tree, collapsed, id)` and `visibleRows` take `collapsed: Set<string>`; `folds.ts` takes the vault as its path string and keys it as `vault.normalize('NFC')`. On the rail, `i[data-outline-line]` is the row's 8.5 px pointer slot and the drawn stroke is its `::before` (width by level, R173).

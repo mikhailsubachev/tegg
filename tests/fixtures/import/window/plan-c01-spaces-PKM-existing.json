@@ -1,0 +1,602 @@
+{
+  "alreadyImported": 1,
+  "attachments": [],
+  "backup": {
+    "bytes": 4758,
+    "files": 15
+  },
+  "decisions": {
+    "ambiguous": [],
+    "caseLinks": [],
+    "tagLike": []
+  },
+  "links": [
+    {
+      "form": "wikilink",
+      "keptAsMarkdown": false,
+      "line": 7,
+      "n": 0,
+      "note": "Pages/Links across spaces.md",
+      "outcome": {
+        "kind": "other-space",
+        "space": "Work"
+      },
+      "place": "body",
+      "simplified": false,
+      "target": "Quarterly plan",
+      "to": null,
+      "written": "[[Quarterly plan]]"
+    },
+    {
+      "form": "markdown",
+      "keptAsMarkdown": false,
+      "line": 7,
+      "n": 1,
+      "note": "Pages/Links across spaces.md",
+      "outcome": {
+        "kind": "other-space",
+        "space": "Work"
+      },
+      "place": "body",
+      "simplified": false,
+      "target": "../../Work/Pages/Work home.md",
+      "to": null,
+      "written": "[Work home](../../Work/Pages/Work%20home.md)"
+    },
+    {
+      "form": "wikilink",
+      "keptAsMarkdown": false,
+      "line": 7,
+      "n": 0,
+      "note": "Pages/PKM home.md",
+      "outcome": {
+        "kind": "resolved"
+      },
+      "place": "body",
+      "simplified": false,
+      "target": "PKM task",
+      "to": "Tasks/PKM task (2).md",
+      "written": "[[PKM task]]"
+    }
+  ],
+  "mapping": {
+    "caseLinks": [],
+    "types": {
+      "Page": {
+        "attributes": {
+          "tags": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "tags",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "title": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "title",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "type": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "type",
+              "kind": "existing"
+            },
+            "values": {}
+          }
+        },
+        "to": {
+          "key": "page",
+          "kind": "existing"
+        }
+      },
+      "Task": {
+        "attributes": {
+          "deadline": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "due",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "status": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "status",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "tags": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "tags",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "title": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "title",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "type": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "type",
+              "kind": "existing"
+            },
+            "values": {}
+          }
+        },
+        "to": {
+          "key": "task",
+          "kind": "existing"
+        }
+      }
+    },
+    "version": 1
+  },
+  "neededBytes": 5059,
+  "objects": [
+    {
+      "frontmatter": [
+        [
+          "type",
+          "page"
+        ],
+        [
+          "title",
+          "Links across spaces"
+        ],
+        [
+          "tags",
+          []
+        ],
+        [
+          "import-id",
+          "capacities:PKM/Pages/Links across spaces.md"
+        ]
+      ],
+      "importId": "capacities:PKM/Pages/Links across spaces.md",
+      "kind": "note",
+      "nameChanges": [],
+      "outcome": "imported",
+      "path": "Pages/Links across spaces.md",
+      "source": "Pages/Links across spaces.md",
+      "sourceType": "Page",
+      "title": "Links across spaces",
+      "type": "page"
+    },
+    {
+      "frontmatter": [
+        [
+          "type",
+          "page"
+        ],
+        [
+          "title",
+          "PKM home"
+        ],
+        [
+          "tags",
+          []
+        ],
+        [
+          "import-id",
+          "capacities:PKM/Pages/PKM home.md"
+        ]
+      ],
+      "importId": "capacities:PKM/Pages/PKM home.md",
+      "kind": "note",
+      "nameChanges": [
+        "suffix"
+      ],
+      "outcome": "imported",
+      "path": "Pages/PKM home (2).md",
+      "source": "Pages/PKM home.md",
+      "sourceType": "Page",
+      "title": "PKM home",
+      "type": "page"
+    },
+    {
+      "frontmatter": [
+        [
+          "type",
+          "task"
+        ],
+        [
+          "title",
+          "PKM task"
+        ],
+        [
+          "status",
+          "To do"
+        ],
+        [
+          "tags",
+          []
+        ],
+        [
+          "import-id",
+          "capacities:PKM/Tasks/PKM task.md"
+        ]
+      ],
+      "importId": "capacities:PKM/Tasks/PKM task.md",
+      "kind": "note",
+      "nameChanges": [
+        "suffix"
+      ],
+      "outcome": "imported",
+      "path": "Tasks/PKM task (2).md",
+      "source": "Tasks/PKM task.md",
+      "sourceType": "Task",
+      "title": "PKM task",
+      "type": "task"
+    }
+  ],
+  "otherFiles": [],
+  "report": {
+    "ambiguous": [],
+    "attributes": [],
+    "caseLinks": [],
+    "cleanup": {
+      "crlfFiles": 0,
+      "u200b": 0,
+      "u200c": 0,
+      "u200d": 0,
+      "ufeff": 0
+    },
+    "dates": [
+      {
+        "kind": "importTime",
+        "objects": 3
+      }
+    ],
+    "files": [
+      {
+        "change": {
+          "kind": "nameChanged",
+          "name": "PKM home (2).md",
+          "reasons": [
+            "suffix"
+          ]
+        },
+        "source": "Pages/PKM home.md"
+      },
+      {
+        "change": {
+          "kind": "nameChanged",
+          "name": "PKM task (2).md",
+          "reasons": [
+            "suffix"
+          ]
+        },
+        "source": "Tasks/PKM task.md"
+      }
+    ],
+    "merged": [],
+    "noDay": [],
+    "notExported": [
+      "queryDefinitions",
+      "tagColoursAndCollections",
+      "comments"
+    ],
+    "simplified": [],
+    "skipped": [],
+    "stubs": [],
+    "summary": {
+      "attachments": {
+        "imported": 0,
+        "reported": 0,
+        "total": 0
+      },
+      "backup": null,
+      "date": "2026-11-12",
+      "links": {
+        "imported": 1,
+        "reported": 2,
+        "total": 3
+      },
+      "objects": {
+        "imported": 3,
+        "reported": 0,
+        "total": 3
+      },
+      "source": "c01-spaces",
+      "space": "PKM"
+    },
+    "types": [
+      {
+        "new": false,
+        "objects": 2,
+        "sourceType": "Page",
+        "target": "Page"
+      },
+      {
+        "new": false,
+        "objects": 1,
+        "sourceType": "Task",
+        "target": "Task"
+      }
+    ],
+    "unresolved": [
+      {
+        "n": 0,
+        "note": "Pages/Links across spaces.md",
+        "reason": {
+          "kind": "otherSpace",
+          "space": "Work"
+        },
+        "written": "[[Quarterly plan]]"
+      },
+      {
+        "n": 1,
+        "note": "Pages/Links across spaces.md",
+        "reason": {
+          "kind": "otherSpace",
+          "space": "Work"
+        },
+        "written": "[Work home](../../Work/Pages/Work%20home.md)"
+      }
+    ]
+  },
+  "reportPath": "Pages/Import report 2026-11-12 PKM.md",
+  "source": {
+    "files": 8,
+    "kind": "folder",
+    "name": "c01-spaces",
+    "outsideSpaces": 0,
+    "size": null,
+    "spaces": [
+      {
+        "attachments": 0,
+        "name": "PKM",
+        "objects": 3,
+        "types": [
+          {
+            "objects": 2,
+            "sourceType": "Page"
+          },
+          {
+            "objects": 1,
+            "sourceType": "Task"
+          }
+        ]
+      },
+      {
+        "attachments": 0,
+        "name": "Work",
+        "objects": 3,
+        "types": [
+          {
+            "objects": 2,
+            "sourceType": "Page"
+          },
+          {
+            "objects": 1,
+            "sourceType": "Task"
+          }
+        ]
+      },
+      {
+        "attachments": 0,
+        "name": "IDC",
+        "objects": 2,
+        "types": [
+          {
+            "objects": 1,
+            "sourceType": "Page"
+          },
+          {
+            "objects": 1,
+            "sourceType": "Task"
+          }
+        ]
+      }
+    ],
+    "unreadable": []
+  },
+  "space": "PKM",
+  "spaceBytes": 273,
+  "target": {
+    "kind": "existing",
+    "name": "target-existing-vault",
+    "notes": 5
+  },
+  "totals": {
+    "attachments": {
+      "imported": 0,
+      "reported": 0,
+      "total": 0
+    },
+    "links": {
+      "imported": 1,
+      "reported": 2,
+      "total": 3
+    },
+    "objects": {
+      "imported": 3,
+      "reported": 0,
+      "total": 3
+    },
+    "otherFiles": {
+      "imported": 0,
+      "reported": 0,
+      "total": 0
+    }
+  },
+  "types": [
+    {
+      "attributes": [
+        {
+          "action": "consumed",
+          "key": "type",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "type",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 2
+        },
+        {
+          "action": "consumed",
+          "key": "title",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "title",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 2
+        },
+        {
+          "action": "consumed",
+          "key": "tags",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "tags",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 2
+        }
+      ],
+      "folder": "Pages",
+      "key": "page",
+      "name": "Page",
+      "new": false,
+      "objects": 2,
+      "plural": "Pages",
+      "sourceFolder": "Pages",
+      "sourceType": "Page",
+      "target": {
+        "key": "page",
+        "kind": "existing"
+      }
+    },
+    {
+      "attributes": [
+        {
+          "action": "consumed",
+          "key": "type",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "type",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 1
+        },
+        {
+          "action": "consumed",
+          "key": "title",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "title",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 1
+        },
+        {
+          "action": "consumed",
+          "key": "tags",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "tags",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 1
+        },
+        {
+          "action": "consumed",
+          "key": "status",
+          "merges": [],
+          "name": null,
+          "needsLook": true,
+          "nulls": 0,
+          "options": [
+            "To do"
+          ],
+          "sourceKey": "status",
+          "split": null,
+          "statuses": [
+            {
+              "count": 1,
+              "fallback": true,
+              "state": "open",
+              "to": "To do",
+              "value": "Not Started"
+            }
+          ],
+          "type": null,
+          "values": 1
+        },
+        {
+          "action": "consumed",
+          "key": "due",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 1,
+          "options": [],
+          "sourceKey": "deadline",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 0
+        }
+      ],
+      "folder": "Tasks",
+      "key": "task",
+      "name": "Task",
+      "new": false,
+      "objects": 1,
+      "plural": "Tasks",
+      "sourceFolder": "Tasks",
+      "sourceType": "Task",
+      "target": {
+        "key": "task",
+        "kind": "existing"
+      }
+    }
+  ],
+  "version": 1
+}

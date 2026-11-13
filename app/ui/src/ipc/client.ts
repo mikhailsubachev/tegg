@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { GraphPresetsDto, GraphRequestDto, GraphResultDto, PresetOpDto } from '../graph/types';
 import type { PinOpDto, PinsDto } from './pins';
+import type { ImportProgressDto, ImportResultDto, ImportStatusDto, ImportTransformEvent, Mapping, NewVaultDto, PlanResultDto, ScanInfo, TargetArg, WhereDto } from './import';
 import type { QueryDefDto, QueryDto, QueryEnvDto, QueryResultDto, QuerySourceDto, QueryStaleDto, QuerySummaryDto, QueryUsageDto } from './queries';
 import type {
   ChangedDto, ConflictDto, ConflictRowDto, LastOpenedDto, LinkTargetDto, NoteDto, ObjectRowDto, ProgressDto, RecentVaultDto, SearchPageDto,
@@ -174,6 +175,17 @@ export const ipc = {
   queryTrash: (name: string) => invoke<{ trashed: string }>('query_trash', { name }),
   queryRestore: (name: string) => invoke<QueryDto>('query_restore', { name }),
   queryUsages: (name: string) => invoke<QueryUsageDto[]>('query_usages', { name }),
+  // Slice I2 (v1-import-window §2.1): the Import window's session. Only `import_start` writes.
+  importPickSource: (kind: 'zip' | 'folder') => invoke<string | null>('import_pick_source', { kind }),
+  importScan: (path: string) => invoke<ScanInfo>('import_scan', { path }),
+  importCancel: () => invoke<{ stopped: 'scan' | 'plan' | 'run' | 'nothing' }>('import_cancel'),
+  importWhere: (space: string) => invoke<WhereDto>('import_where', { space }),
+  importCheckTarget: (parent: string, name: string) => invoke<NewVaultDto>('import_check_target', { parent, name }),
+  importPlan: (space: string, target: TargetArg, mapping: Mapping) => invoke<PlanResultDto>('import_plan', { space, target, mapping }),
+  importStart: (token: number, reportStrings: Record<string, string>) => invoke<{ job: number }>('import_start', { token, reportStrings }),
+  importStatus: () => invoke<ImportStatusDto | null>('import_status'),
+  importDiscard: () => invoke<void>('import_discard'),
+  importTransformResult: (requestId: number, result: unknown) => invoke<void>('import_transform_result', { requestId, result }),
 };
 
 /** `job:transform` (ms4-jobs §2.2, §9): a file for the worker, or (`live`) for the editor that has it open. */
@@ -196,6 +208,15 @@ export const events = {
   shellRoute: (f: (route: string) => void): Promise<UnlistenFn> => listen<{ route: string }>('shell:route', (e) => f(e.payload.route)),
   /** Slice Q (v1-queries §1.7): objects changed; their types before and after. */
   queryStale: (f: (s: QueryStaleDto) => void): Promise<UnlistenFn> => listen<QueryStaleDto>('query:stale', (e) => f(e.payload)),
+  // Slice I2 (v1-import-window §2.4).
+  importProgress: (f: (p: ImportProgressDto) => void): Promise<UnlistenFn> => listen<ImportProgressDto>('import:progress', (e) => f(e.payload)),
+  importDone: (f: (r: ImportResultDto) => void): Promise<UnlistenFn> => listen<ImportResultDto>('import:done', (e) => f(e.payload)),
+  importTransform: (f: (t: ImportTransformEvent) => void): Promise<UnlistenFn> => listen<ImportTransformEvent>('import:transform', (e) => f(e.payload)),
+  importOpen: (f: () => void): Promise<UnlistenFn> => listen('import:open', () => f()),
+  /** Tauri's window drag-drop event (6A): paths and the drop position. */
+  dragDrop: (f: (d: { paths: string[]; position: { x: number; y: number } }) => void): Promise<UnlistenFn> =>
+    // The main window's drops only (the default target `Any` would also deliver the capture window's).
+    listen<{ paths: string[]; position: { x: number; y: number } }>('tauri://drag-drop', (e) => f(e.payload), { target: { kind: 'AnyLabel', label: 'main' } }),
 };
 
 /** A core error's kind, for the catalog message `error.<kind>` (NFR-OTH-02 AC-2); never its message text. */
