@@ -9,7 +9,7 @@
 //
 // Red-test point (reported, not decided): whether `i[data-outline-line]` is the drawn stroke or its 8.5 px pointer slot
 // isn't fixed by §3.7; `railLines` measures the element when it is ≤ 3 px high, else its `::before`.
-import { test, type Page } from '@playwright/test';
+import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
   CTEN_H1, ID, P, ZONE, animationsOf, another, backlinksTab, box, card, cardRow, cardRows, cardTree, caret, editorBody, editorState, eventually, flat, graphTab,
@@ -341,9 +341,14 @@ test('fr_edt_16_ac8_card_rows_and_chevrons', async ({ page }) => {
     const box = (sc ?? (t.closest('[data-outline-card]') as HTMLElement)).getBoundingClientRect();
     const r = t.querySelector('[aria-current="location"]') as HTMLElement | null;
     const rb = r?.getBoundingClientRect();
-    return { off: rb ? Math.abs(rb.top + rb.height / 2 - (box.top + box.height / 2)) : Infinity, scrolls: !!sc, atLimit: !!sc && (sc.scrollTop <= 0 || sc.scrollTop >= sc.scrollHeight - sc.clientHeight - 1) };
+    return {
+      off: rb ? Math.abs(rb.top + rb.height / 2 - (box.top + box.height / 2)) : Infinity, scrolls: !!sc, atLimit: !!sc && (sc.scrollTop <= 0 || sc.scrollTop >= sc.scrollHeight - sc.clientHeight - 1),
+      visible: !!rb && rb.top >= box.top - 0.5 && rb.bottom <= box.bottom + 0.5,
+    };
   });
-  assert.ok(mid.off <= 13 || (mid.scrolls && mid.atLimit), `the current row is scrolled to the card's middle (± 13 px): ${JSON.stringify(mid)}`);
+  assert.ok(mid.visible, `the current row is visible in the card: ${JSON.stringify(mid)}`);
+  // Only a card that scrolls centres the current row; one that doesn't only shows it (D-1645, D-1654).
+  if (mid.scrolls) assert.ok(mid.off <= 13 || mid.atLimit, `the card scrolls: the current row is scrolled to its middle (± 13 px) or the card is at its limit: ${JSON.stringify(mid)}`);
   const chev = c.filter((x) => x.chevron).map((x) => x.label);
   assert.deepEqual(chev, [...CTEN_H1.slice(0, 5), 'Vedoucí a následovníci', ...CTEN_H1.slice(6)], 'chevrons on the 11 H1 other than Replikace and on Vedoucí a následovníci: 12');
   await cardRow(p, 'Transakce').locator('[data-outline-chevron]').click();
@@ -389,7 +394,13 @@ test('fr_edt_16_ac9_rail_and_card_jump', async ({ page }) => {
   assert.equal(await card(page).count(), 0, 'no card after the line jump');
   // A click in the note closes the card and places the caret where clicked.
   await openCardByHover(page);
-  const para = await must(editorBody(page).locator('p').nth(1), 'a paragraph');
+  // A paragraph that is in the viewport after the line jump (D-1655).
+  const inView = await editorBody(page).locator('p').evaluateAll((ps) => {
+    const m = (document.querySelector('main') as HTMLElement).getBoundingClientRect();
+    return ps.findIndex((e) => { const r = e.getBoundingClientRect(); return (e.textContent ?? '').trim().length > 0 && r.top >= m.top + 40 && r.bottom <= m.bottom - 10; });
+  });
+  assert.ok(inView >= 0, 'setup: a non-empty paragraph is in the viewport');
+  const para = await must(editorBody(page).locator('p').nth(inView), 'a paragraph in the viewport');
   const pb = (await para.boundingBox())!;
   await page.mouse.click(pb.x + 30, pb.y + pb.height / 2);
   assert.ok(await eventually(async () => (await card(page).count()) === 0, (x) => x, 1000), 'a click in the note closes the card');
@@ -401,6 +412,24 @@ test('fr_edt_16_ac9_rail_and_card_jump', async ({ page }) => {
 
 // ------------------------------------------------------------------------------------------------ FR-EDT-16 AC-10
 
+/** The opacity transition an element declares (computed transition-property / transition-duration), or null. */
+async function fadeOf(loc: Locator): Promise<{ ms: number } | null> {
+  if ((await loc.count()) === 0) return null;
+  return loc.first().evaluate((e) => {
+    const cs = getComputedStyle(e);
+    const props = cs.transitionProperty.split(',').map((x) => x.trim());
+    const durs = cs.transitionDuration.split(',').map((x) => x.trim());
+    const i = props.findIndex((x) => x === 'opacity' || x === 'all');
+    if (i < 0) return null;
+    const d = durs[i % durs.length] ?? '0s';
+    const ms = d.endsWith('ms') ? parseFloat(d) : parseFloat(d) * 1000;
+    return ms > 0 ? { ms: Math.round(ms) } : null;
+  });
+}
+async function opacityOf(loc: Locator): Promise<number> {
+  return loc.first().evaluate((e) => Number(getComputedStyle(e).opacity));
+}
+
 test('fr_edt_16_ac10_rail_beside_the_panel', async ({ page }) => {
   await startOutline(page, noteRoute(P.plan), { panel: 'backlinks' });
   await must(rail(page), 'the rail beside Backlinks');
@@ -411,25 +440,21 @@ test('fr_edt_16_ac10_rail_beside_the_panel', async ({ page }) => {
   assert.ok(g2.card && g2.sep && near(g2.card.r, g2.sep.l - 52, 1.5), `the card's right edge is 52 ± 1 px left of the panel's separator (${g2.card?.r} vs ${g2.sep?.l})`);
   await pointerToNote(page);
   await sleep(500);
-  await pauseClock(page);
+  // The fades are checked as declared (an opacity transition of 150 ms) plus their end state, not caught mid-way in real
+  // time (D-1656).
+  assert.deepEqual(await fadeOf(rail(page)), { ms: 150 }, 'the rail declares a 150 ms opacity transition');
   await (await must(outlineTab(page), 'tab Outline')).click();
-  const out = await animationsOf(rail(page));
-  assert.deepEqual(out.map((a) => [a.type, a.prop, a.ms]), [['CSSTransition', 'opacity', 150]], 'choosing Outline fades the rail out: one 150 ms opacity transition');
-  await runFor(page, 200);
-  await page.clock.resume();
-  assert.ok(await eventually(async () => (await rail(page).count()) === 0, (x) => x, 1000), 'then the rail is removed');
-  await pauseClock(page);
+  assert.ok(await eventually(async () => (await rail(page).count()) === 0, (x) => x, 1000), 'choosing Outline fades the rail out, then it is removed');
   await (await must(graphTab(page), 'tab Graph')).click();
-  await sleep(50);
-  assert.deepEqual((await animationsOf(rail(page))).map((a) => [a.type, a.prop, a.ms]), [['CSSTransition', 'opacity', 150]], 'choosing Graph fades it in over 150 ms');
-  await page.clock.resume();
+  await must(rail(page), 'choosing Graph shows the rail');
+  assert.deepEqual(await fadeOf(rail(page)), { ms: 150 }, 'choosing Graph: it fades in with the 150 ms opacity transition');
+  assert.equal(await eventually(() => opacityOf(rail(page)), (o) => o === 1, 1000), 1, 'and ends at opacity 1');
   await (await must(outlineTab(page), 'tab Outline')).click();
   await eventually(async () => (await rail(page).count()) === 0, (x) => x, 1000);
-  await pauseClock(page);
   await page.keyboard.press('Meta+Backslash');
-  await sleep(50);
-  assert.deepEqual((await animationsOf(rail(page))).map((a) => [a.type, a.prop, a.ms]), [['CSSTransition', 'opacity', 150]], 'closing the panel with ⌘\\ fades it in over 150 ms');
-  await page.clock.resume();
+  await must(rail(page), 'closing the panel with ⌘\\ shows the rail');
+  assert.deepEqual(await fadeOf(rail(page)), { ms: 150 }, 'closing the panel with ⌘\\: it fades in with the 150 ms opacity transition');
+  assert.equal(await eventually(() => opacityOf(rail(page)), (o) => o === 1, 1000), 1, 'and ends at opacity 1');
   // Reduce motion: no transition.
   const { p } = await another(page, noteRoute(P.plan), { panel: 'backlinks', reducedMotion: 'reduce' });
   await must(rail(p), 'Reduce motion: the rail');

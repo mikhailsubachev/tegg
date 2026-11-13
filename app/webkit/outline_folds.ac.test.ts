@@ -205,7 +205,9 @@ async function stored(core: FakeCoreHandle) {
 }
 
 test('fr_sto_07_ac7_fold_state_in_ui_state', async ({ page }) => {
-  const core = await startOutline(page, noteRoute(P.plan));
+  // The seed holds every field the UI writes back, so "every other field is as the UI read it" compares like with like
+  // (typeSort, otherPropertiesOpen: AP-764; D-1653).
+  const core = await startOutline(page, noteRoute(P.plan), { extra: { typeSort: {}, otherPropertiesOpen: false } });
   await must(outlineTree(page), 'Plán: tree');
   await eventually(() => tabRows(page), (r) => r.length === 11);
   await sleep(300);

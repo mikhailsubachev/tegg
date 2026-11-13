@@ -5,7 +5,7 @@
 // Appearance) and FR-SYN-06 AC-46 (the tour writes nothing; the fake core counts 0 write commands). Interface
 // docs/contracts/v1-outline.md §3.4, §3.6, §3.7, §5, §6, §7, §9; helpers outline-helpers.ts. Written from the ACs and the
 // contract only (D-61). Every lookup goes through `must` and node:assert (TS-I1).
-import { test, type Page } from '@playwright/test';
+import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { axeContrast, colourLeaks } from './read-helpers';
 import {
@@ -92,15 +92,32 @@ test('fr_ux_08_ac22_outline_reduce_motion', async ({ page }) => {
   await runFor(p, 2010);
   const h2 = headingEl(p, 'Zpoždění replikace');
   assert.ok(await h2.evaluate((e) => e.hasAttribute('data-outline-fade')), 'without Reduce motion: data-outline-fade after the flash');
-  assert.ok((await animationsOf(h2)).some((a) => a.type === 'CSSTransition' && /background/.test(a.prop) && a.ms === 300), 'the background fades over 300 ms');
+  // The fades are checked as declared plus their end state, not caught mid-way in real time (D-1656).
+  assert.equal(await declaredMs(h2, /^(background|background-color|all)$/), 300, 'the background fade is declared over 300 ms');
   await p.clock.resume();
+  assert.equal(await eventually(() => h2.evaluate((e) => getComputedStyle(e).backgroundColor), (b) => b === 'rgba(0, 0, 0, 0)', 2000), 'rgba(0, 0, 0, 0)', 'and ends transparent');
   await row(p, 'Úvod').hover();
   await row(p, 'Úvod').locator('[data-outline-chevron]').click();
   assert.ok((await animationsOf(row(p, 'Úvod').locator('[data-outline-chevron]'))).some((a) => a.prop === 'transform' && a.ms === 120), 'the chevron rotates over 120 ms');
   await (await must(backlinksTab(p), 'tab Backlinks')).click();
-  await sleep(20);
-  assert.ok((await animationsOf(rail(p))).some((a) => a.prop === 'opacity' && a.ms === 150), 'the rail fades over 150 ms');
+  const r = await must(rail(p), 'the rail shows beside Backlinks');
+  assert.equal(await declaredMs(r, /^(opacity|all)$/), 150, 'the rail fades over 150 ms (declared opacity transition)');
+  assert.equal(await eventually(() => r.evaluate((e) => Number(getComputedStyle(e).opacity)), (o) => o === 1, 1000), 1, 'and ends at opacity 1');
 });
+
+/** The duration (ms) of the computed transition whose property matches `prop`, or 0 when none is declared. */
+async function declaredMs(loc: Locator, prop: RegExp): Promise<number> {
+  return loc.first().evaluate((e, src) => {
+    const re = new RegExp(src);
+    const cs = getComputedStyle(e);
+    const props = cs.transitionProperty.split(',').map((x) => x.trim());
+    const durs = cs.transitionDuration.split(',').map((x) => x.trim());
+    const i = props.findIndex((x) => re.test(x));
+    if (i < 0) return 0;
+    const d = durs[i % durs.length] ?? '0s';
+    return Math.round(d.endsWith('ms') ? parseFloat(d) : parseFloat(d) * 1000);
+  }, prop.source);
+}
 
 // ------------------------------------------------------------------------------------------------ FR-UX-05 AC-22
 
@@ -135,6 +152,13 @@ for (const theme of ['light', 'dark'] as const) {
     await scrollHeadingTo(c, 'Zpoždění replikace', 4);
     await openCardByHover(c);
     await check(c, 'the rail and the card on Čtenářské');
+    const cs = await card(c).evaluate((d) => [getComputedStyle(d).backgroundColor, getComputedStyle(d).borderTopColor, getComputedStyle(d).boxShadow]);
+    assert.equal(cs[0], pop, 'the card uses --pop');
+    assert.equal(cs[1], border, 'and --border');
+    assert.notEqual(cs[2], 'none', 'and the popovers\' shadow');
+    // The pointer leaves the rail before the line colours are read: a hovered line is lit (FR-EDT-16 AC-7; D-1657).
+    await pointerToNote(c);
+    await sleep(500);
     const lines = await c.evaluate(() => ([...document.querySelectorAll('[data-outline-line]')] as HTMLElement[]).map((l) => {
       const b = getComputedStyle(l, '::before');
       const h = l.getBoundingClientRect().height;
@@ -142,11 +166,6 @@ for (const theme of ['light', 'dark'] as const) {
     }));
     const byState: Record<string, string> = { current: text, ancestor: muted, rest: faint };
     for (const [s, col] of lines) assert.equal(col, byState[s ?? 'rest'], `a ${s} rail line is ${s === 'current' ? '--text' : s === 'ancestor' ? '--muted' : '--faint'}`);
-    const cs = await card(c).evaluate((d) => [getComputedStyle(d).backgroundColor, getComputedStyle(d).borderTopColor, getComputedStyle(d).boxShadow]);
-    assert.equal(cs[0], pop, 'the card uses --pop');
-    assert.equal(cs[1], border, 'and --border');
-    assert.notEqual(cs[2], 'none', 'and the popovers\' shadow');
-    await pointerToNote(c);
     await (await must(row(page, 'Kdo jede'), 'row Kdo jede')).click();
     await sleep(50);
     assert.equal(await headingEl(page, 'Kdo jede').evaluate((e) => getComputedStyle(e).backgroundColor), linkBg, 'the highlight is --link-bg');
@@ -188,7 +207,7 @@ test('nfr_oth_02_ac19_outline_strings_in_the_catalog', async ({ page }) => {
   await must(paletteDialog(c), 'palette');
   await c.getByRole('combobox', { name: /Command query/ }).fill('outline');
   await sleep(300);
-  const opts = (await paletteOptions(c)).map((x) => flat(x).replace(/\s*⌘J$/, ''));
+  const opts = (await paletteOptions(c)).map((x) => flat(x).replace(/\s*(⌘J|⟦⌘J⟧)$/, '')); // the shortcut, plain or pseudo (D-1658)
   for (const want of ['⟦Show outline⟧', '⟦Outline: jump to heading…⟧', '⟦Toggle outline rail⟧']) assert.ok(opts.includes(want), `the palette shows ${want}: ${opts.join(' | ')}`);
   await c.keyboard.press('Escape');
   // The Settings switch.

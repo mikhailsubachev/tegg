@@ -40,8 +40,9 @@ test('fr_edt_11_ac1_outline_tab_lists_the_headings', async ({ page }) => {
     'aria-expanded="true" on Cíle, Program, Den 1 and Logistika only');
   assert.ok(!r.some((x) => x.label === 'Plán offsitu 2026' || x.label.startsWith('Úvod před prvním')), 'neither the title nor the intro is a row');
   await sleep(400);
-  const extra = (await callsSince(core, before)).filter((c) => c !== 'ui_state_set' && c !== 'perf_mark');
-  assert.deepEqual(extra, [], 'showing the tab sends no IPC call besides storing the panel (no note_read, no index_*, no write)');
+  // index_backlinks is the tab bar's Backlinks badge, required on every tab (backlinks.md; D-1647), not an outline call.
+  const extra = (await callsSince(core, before)).filter((c) => c !== 'ui_state_set' && c !== 'perf_mark' && c !== 'index_backlinks');
+  assert.deepEqual(extra, [], 'showing the tab sends no IPC call besides storing the panel and the Backlinks badge (no note_read, no other index_*, no write)');
   assert.equal(await count(core, 'nav_opened'), navBefore, 'nav_opened is called no extra time');
 });
 
@@ -257,10 +258,28 @@ test('fr_edt_11_ac8_external_change_updates_the_outline', async ({ page }) => {
   await core.setFile(P.plan, `${(await core.files())[P.plan]}\n## Pojištění\n\nText.\n`);
   await sleep(1500);
   const shown = (await editorState(page)).text ?? '';
-  const want = atxTexts(shown);
+  // Program is still collapsed, so its children are hidden: compare against the visible rows (D-1649).
+  const want = visibleUnder(shown, ['Program']);
   const got = await eventually(() => tabRows(page).then((x) => x.map((y) => y.label)), (l) => JSON.stringify(l) === JSON.stringify(want), 2000);
-  assert.deepEqual(got, want, 'the outline lists the headings of the text the editor shows after the merge flow');
+  assert.deepEqual(got, want, 'the outline lists the (visible) headings of the text the editor shows after the merge flow');
 });
+
+/** The ATX headings of `text` that stay visible when the headings named in `collapsed` are collapsed (by `#` level). */
+function visibleUnder(text: string, collapsed: string[]): string[] {
+  const body = text.replace(/^---\n[\s\S]*?\n---\n/, '');
+  const hs = body.split('\n').map((l) => /^(#{1,6}) +(.*?)\s*$/.exec(l)).filter((m): m is RegExpExecArray => !!m && m[2].length > 0)
+    .map((m) => ({ level: m[1].length, text: m[2].normalize('NFC') }));
+  const out: string[] = [];
+  let hideBelow: number | null = null;
+  for (const h of hs) {
+    if (hideBelow !== null && h.level > hideBelow) continue;
+    hideBelow = null;
+    out.push(h.text);
+    if (collapsed.includes(h.text)) hideBelow = h.level;
+  }
+  assert.deepEqual(out.filter((x) => !atxTexts(text).includes(x)), [], 'visibleUnder agrees with atxTexts');
+  return out;
+}
 
 // ------------------------------------------------------------------------------------------------ FR-EDT-11 AC-15
 

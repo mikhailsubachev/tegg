@@ -402,7 +402,8 @@ export async function uiSets(core: FakeCoreHandle): Promise<number> {
 /** Pauses the page's clock a little after its current time (the clock must be installed). */
 export async function pauseClock(page: Page) {
   const now = await page.evaluate(() => Date.now());
-  await page.clock.pauseAt(new Date(now + 50));
+  // 200 ms ahead: Playwright's clock can be up to 100 ms stale, and pauseAt must not go back in time (D-1648).
+  await page.clock.pauseAt(new Date(now + 200));
 }
 /** Advances the paused clock by `ms`, then lets the page commit (node-side wait). */
 export async function runFor(page: Page, ms: number) {

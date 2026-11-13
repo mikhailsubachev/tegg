@@ -305,9 +305,9 @@ Rules:
   - At scrollTop 0 (the intro and `Cíle` below the 30 px line), no row has `aria-current`.
   - Scrolled so that `Den 1`'s top is 10 px above the viewport's top + 30 px: exactly `Den 1` has `aria-current="location"` and the bar.
   - Scrolled so that `Den 1`'s top is 31 px below the viewport's top: `Program` is current.
-  - Scrolled to the end (scrollTop = scrollHeight − clientHeight): `Rozpočet` is current, though its top is below the line.
+  - Scrolled to the end (scrollTop = scrollHeight − clientHeight): `Rozpočet` is current. (With the scroll-past-end space, D-140, every heading can reach the line; D-1651.)
   - Scrolling back to 0: no current row, within 100 ms of the last scroll event.
-  - On Jeden (doesn't scroll at 1,440 × 900), no row is current at any time.
+  - On Jeden, no row is current at scrollTop 0 or 200 (D-1651).
   - In every case exactly zero or one row has `aria-current`.
 
   *(L5)* Test: `fr_edt_11_ac9_current_section_follows_scrolling`
@@ -318,14 +318,15 @@ Rules:
   - The row `Zpoždění replikace` is current.
   - Typing `X` gives `Zpoždění replikaceX`.
   - Before the typing: `__TEGG_TEST__.editor.dirty()` is false, `historyDepth()` is unchanged, the route string is unchanged, and no write or `nav_opened` call was sent.
-  - A click on `Další čtení` (the last heading) scrolls to the end and makes it current.
+  - A click on `Další čtení` (the last heading) lands its top 24 px (± 8) below the viewport's top, as the scroll-past-end space (D-140) allows, and makes it current (D-1651).
 
   *(L5; L6 once in the built app: caret and text after typing)* Test: `fr_edt_11_ac10_click_jumps_to_the_heading`
 - **AC-11** **Jump targets by position (AP-1404, AP-1409; T1, T2).** On Okraje:
   - The third `Poznámky` row (level 2, the last heading) puts the caret at the end of the **last** `## Poznámky`, not the first.
   - The second (level 3) lands in `### Poznámky`.
   - `Skrytý nadpis` expands `Sbalený callout`: its button becomes `Collapse Sbalený callout` with `aria-expanded="true"` (D-159). The caret lands at the end of `Skrytý nadpis`. The file stays untouched and still contains `> [!tip]- Sbalený callout` when the note is left.
-  - `Nadpis v seznamu` and `Nadpis v calloutu` put the caret at the end of those headings, inside the list item and the callout.
+  - `Nadpis v calloutu` puts the caret at the end of that heading, inside the callout.
+  - `Nadpis v seznamu` (`- položka` / `- ## Nadpis v seznamu`) is inside a list item the editor shows as a read-only raw block: the note scrolls that block to 24 px (± 8) below the viewport's top and the caret doesn't move (D-1629, D-1652).
   - `Nadpis podtržený` (setext) puts it at the end of its text line.
   - With the outline refresh held (`__TEGG_TEST__.outline.hold(true)`, D-1640), a row whose heading was deleted just before the click does nothing (the caret and scroll are unchanged), and the tree is refreshed within 250 ms: the hold blocks only the debounced refresh after typing; a click on a stale row always refreshes (D-1644).
 

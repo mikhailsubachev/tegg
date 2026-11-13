@@ -36,7 +36,7 @@ test('fr_edt_11_ac9_current_section_follows_scrolling', async ({ page }) => {
   await scrollHeadingTo(page, 'Den 1', 20);
   const den = await eventually(() => currentRows(page), (c) => c.length === 1 && c[0] === 'Den 1');
   assert.deepEqual(den, ['Den 1'], 'Den 1\'s top 10 px above the 30 px line: Den 1 is current');
-  assert.equal(await one('Den 1'), den);
+  assert.deepEqual(await one('Den 1'), den);
   assert.ok((await tabRows(page)).find((x) => x.label === 'Den 1')?.bar, 'Den 1 has the bar');
   await scrollHeadingTo(page, 'Den 1', 31);
   assert.deepEqual(await eventually(() => currentRows(page), (c) => c[0] === 'Program'), ['Program'], 'Den 1\'s top 31 px below the viewport\'s top: Program');
@@ -44,7 +44,6 @@ test('fr_edt_11_ac9_current_section_follows_scrolling', async ({ page }) => {
   const s = await mainScroll(page);
   assert.ok(s.height > s.client, 'setup: Plán scrolls');
   assert.deepEqual(await eventually(() => currentRows(page), (c) => c[0] === 'Rozpočet'), ['Rozpočet'], 'at the end Rozpočet is current');
-  assert.ok(((await headingTop(page, 'Rozpočet')) ?? 0) > 30, 'though its top is below the line');
   await pauseClock(page);
   await page.evaluate(() => { const m = document.querySelector('main') as HTMLElement; m.scrollTop = 0; m.dispatchEvent(new Event('scroll')); });
   await runFor(page, 100);
@@ -52,9 +51,8 @@ test('fr_edt_11_ac9_current_section_follows_scrolling', async ({ page }) => {
   await page.clock.resume();
   const { p } = await another(page, noteRoute(P.jeden));
   await must(outlineTree(p), 'Jeden: tree');
-  const sj = await mainScroll(p);
-  assert.ok(sj.height <= sj.client, 'setup: Jeden doesn\'t scroll at 1,440 × 900');
-  for (const t of [0, 200, 'end' as const]) {
+  // With the scroll-past-end space (D-140) Jeden scrolls too; at its end Další kroky passes the line (D-1651).
+  for (const t of [0, 200]) {
     await setScroll(p, t);
     assert.deepEqual(await currentRows(p), [], `Jeden: no row is current (scroll ${t})`);
   }
@@ -112,8 +110,9 @@ test('fr_edt_11_ac10_click_jumps_to_the_heading', async ({ page }) => {
   await page.keyboard.type('X');
   assert.ok((await eventually(async () => (await editorState(page)).text ?? '', (t) => t.includes('## Zpoždění replikaceX'))).includes('## Zpoždění replikaceX'), 'typing X gives `Zpoždění replikaceX`');
   await (await must(row(page, 'Další čtení'), 'row Další čtení')).click();
-  const s = await eventually(() => mainScroll(page), (x) => Math.abs(x.top - (x.height - x.client)) <= 1);
-  assert.ok(Math.abs(s.top - (s.height - s.client)) <= 1, 'a click on Další čtení scrolls to the end');
+  // With the scroll-past-end space (D-140) the last heading also reaches the landing line (D-1651).
+  const lt = await eventually(() => headingTop(page, 'Další čtení'), (t) => near(t, 24, 8));
+  assert.ok(near(lt, 24, 8), `a click on Další čtení lands its top 24 ± 8 px below the viewport's top (${lt})`);
   assert.deepEqual(await eventually(() => currentRows(page), (x) => x[0] === 'Další čtení'), ['Další čtení'], 'and makes it current');
 });
 
@@ -133,8 +132,14 @@ test('fr_edt_11_ac11_jump_targets_by_position', async ({ page }) => {
   assert.ok(await seen(fold, 1000), 'Skrytý nadpis expands the folded callout: its button reads `Collapse Sbalený callout`');
   assert.equal(await fold.first().getAttribute('aria-expanded'), 'true', 'aria-expanded="true" (D-159)');
   assert.ok(c && c.block === 'Skrytý nadpis' && c.offset === c.len, `the caret at the end of Skrytý nadpis: ${JSON.stringify(c)}`);
+  // A heading inside a list item is a read-only raw block in the editor: the jump scrolls to it, the caret stays (D-1629, D-1652).
+  const c0 = await caret(page);
   c = await jump('Nadpis v seznamu');
-  assert.ok(c && c.block === 'Nadpis v seznamu' && c.offset === c.len && c.inList, `Nadpis v seznamu: the caret at its end, inside the list item: ${JSON.stringify(c)}`);
+  // The read-only block is flashed and scrolled as a heading would be (contract CP-2); find it by its flash.
+  const rawBlk = page.locator('main [data-outline-flash]').filter({ hasText: 'Nadpis v seznamu' });
+  const lst = await topIn(rawBlk);
+  assert.ok(near(lst, 24, 8), `Nadpis v seznamu: the note scrolls its block to 24 ± 8 px below the viewport's top (${lst})`);
+  assert.deepEqual(c, c0, 'Nadpis v seznamu: the caret is unchanged');
   c = await jump('Nadpis v calloutu');
   assert.ok(c && c.block === 'Nadpis v calloutu' && c.offset === c.len && c.inCallout, `Nadpis v calloutu: inside the callout: ${JSON.stringify(c)}`);
   c = await jump('Nadpis podtržený');
