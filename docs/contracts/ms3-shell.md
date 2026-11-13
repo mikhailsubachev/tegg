@@ -424,6 +424,9 @@ export function createHistory(): {
 - One history per window, in memory; nothing is stored (AC-7).
 - The shell pushes on every navigation (`go`), not on Back/Forward themselves. Back/Forward show the entry's route and restore its `scrollTop` after `note-ready` (notes) or the route's first paint (other routes); they don't re-apply the fragment (AC-4).
 - A note route shown by Back/Forward calls `nav_opened` like any other open (D-138).
+- Slice OL (v1-outline.md §4, D-1610): an outline jump adds an entry on the same route (`pushPlace`) carrying the selection
+  (`caret`, with `follow` mapping it through later edits, D-112); a step between two entries of the same route happens in
+  place (no flush, no remount, no `note_read`, no `nav_opened`, D-1637).
 
 ### 12.2 Commands, shortcuts, controls
 
@@ -1055,6 +1058,8 @@ export function typeMatch(value: unknown): { key: string; single: boolean };   /
 - Routes `type/<key>` (built, full) and `type-settings/<key>` (built); `<key>` NFC. `route-ready:` marks as §1. A route whose type no longer exists (after a delete) shows a `status` `This type no longer exists.` (FR-TYP-05 AC-1). After `type_create` the route is `type-settings/<key>` with the focus on its heading; after `type_delete` it is `type/page`.
 - R1/R3/R4 changes as types.md ("R1, R3, R4 changes"), in `shell/registry.ts`; `overdue()` includes the new R3 entries.
 - `UiStateDto` gains `typeSort: Record<string, { column: string; dir: 'asc' | 'desc' }>` (column `title`, `modified` or a preview key; default `modified`/`desc`) and `otherPropertiesOpen: boolean` (default `false`). Missing fields read as defaults; `version` stays 1.
+- Slice OL (v1-outline.md §5, D-1601, D-1611): `outlineRail?: boolean` (missing reads as `true`) and
+  `vaults[<vault path, NFC>].outline.collapsed` (fold keys per note); the Rust `UiState` keeps them unchanged.
 - Modules (L1 imports them): `types/panel.ts` (row model), `types/AttributePanel.tsx`, `types/controls/*.tsx` (one per R10 control), `types/RelationPicker.tsx`, `types/ChangeTypeMenu.tsx`, `types/NewTypeDialog.tsx`, `types/StarterTypesDialog.tsx`, `types/create.ts`, `pages/TypePage.tsx`, `pages/TypeSettingsPage.tsx`.
 
 ```ts

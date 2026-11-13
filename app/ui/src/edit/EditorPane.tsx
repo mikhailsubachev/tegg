@@ -37,6 +37,10 @@ import { CALLOUT_TYPES } from '../read/callout';
 import { rank } from '../shell/commands';
 import { Icon, iconElement } from '../shell/Icon';
 import { eventKeys } from '../shell/keys';
+import { headingForFragment } from '@tegg/doc';
+import { startFlash } from '../outline/jump';
+import { jumpTop } from '../outline/model';
+import { invalidateTracker, rendered } from '../outline/tracker';
 import { SHORTCUTS, SLASH_ITEMS, showDue, type SlashDef } from '../shell/registry';
 import { objectFromUnit, parse, type ConvertUnit } from '@tegg/doc';
 import { ConvertPopover, RemoveEmbedDialog } from '../convert/ConvertPopover';
@@ -71,6 +75,10 @@ export type EditorPaneApi = {
   selectBlockAtTop: (index: number) => boolean;
   /** 5A-2 (FR-CNV-01 AC-5, D-494): why `Turn into object` can't run now (a nested editor, a template, read-only), or null. */
   convertBlocked: () => string | null;
+  /** Slice OL (v1-outline §3.4): the jump to a heading of `outline()` at `version`. 'stale' changes nothing. */
+  jumpToHeading: (version: number, pos: number) => 'ok' | 'stale';
+  /** Esc in the outline's tree or card (R174, D-1618): the focus back to the body with its selection; no scroll moves. */
+  refocus: () => void;
 };
 
 /** A chip's icon element with the type's icon name as `data-icon` (FR-LNK-07 AC-1). */
@@ -641,12 +649,18 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     const want = fragment?.replace(/^#/, '').normalize('NFC').toLowerCase();
     let pos: number | null = null;
     let first: number | null = null;
+    // D-1625: `#Heading` resolves with the outline's heading list, by position.
+    if (want && !want.startsWith('^')) {
+      const o = ed.outline();
+      const i = headingForFragment(o.headings, fragment!);
+      if (i !== null && o.heading[i]) pos = o.pos[i] + 1;
+    }
     state.doc.descendants((n, p) => {
       if (pos !== null) return false;
       if (n.type.name === 'rawBlock' || (n.isAtom && n.isBlock)) return false; // read-only blocks (D-191)
       if (n.isTextblock) {
         if (first === null) first = p + 1;
-        if (want && !want.startsWith('^') && n.type.name === 'heading' && n.textContent.normalize('NFC').toLowerCase() === want) pos = p + 1;
+        if (pos === null && want && !want.startsWith('^') && n.type.name === 'heading' && n.textContent.normalize('NFC').toLowerCase() === want) pos = p + 1;
         // D-1197: a `#^id` open puts the caret in the block that ends with ` ^id` (read-view FR-EDT-02 AC-7).
         if (want?.startsWith('^') && n.textContent.normalize('NFC').trimEnd().toLowerCase().endsWith(` ${want}`)) pos = p + 1;
         return false;
@@ -665,6 +679,48 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     restore();
     requestAnimationFrame(restore);
     return true;
+  };
+
+  /** Slice OL (§3.4 steps 3, 5; CP-2): reveal, instant scroll to JUMP_TOP, the caret at the end of the heading's text and
+   *  the focus in the body (a heading in a read-only block: focus only), the flash. Writes nothing. */
+  const jumpToHeading = (version: number, pos0: number): 'ok' | 'stale' => {
+    const ed = edRef.current;
+    if (!ed) return 'stale';
+    const pos = ed.headingPos(version, pos0);
+    if (pos === null) return 'stale';
+    if (ed.revealPos(pos)) invalidateTracker();
+    const node = ed.view.state.doc.nodeAt(pos);
+    const main = host.current?.closest('main') as HTMLElement | null;
+    const place = () => {
+      const el = rendered(ed.view.nodeDOM(pos) as HTMLElement | null);
+      if (!el || !main) return;
+      const top = el.getBoundingClientRect().top - main.getBoundingClientRect().top;
+      main.scrollTop = jumpTop(top, main.scrollTop, main.scrollHeight - main.clientHeight);
+    };
+    (ed.view.dom as HTMLElement).focus({ preventScroll: true });
+    if (node?.type.name === 'heading') ed.editor.commands.setTextSelection(pos + node.nodeSize - 1); // a selection: no step
+    place();
+    requestAnimationFrame(place);
+    const track = ed.trackPos(pos);
+    startFlash((phase) => {
+      const at = track();
+      if (phase === 'off' || at === null) { ed.flash(null); return; }
+      ed.flash(at, phase === 'on' ? 'data-outline-flash' : 'data-outline-fade');
+      // The highlight's own style is resolved now, so the fade that follows is a transition from it.
+      const el = ed.view.nodeDOM(at);
+      if (phase === 'on' && el instanceof HTMLElement) void getComputedStyle(el).backgroundColor;
+    });
+    return 'ok';
+  };
+  const refocus = () => {
+    const ed = edRef.current;
+    if (!ed) return;
+    const kept: [Element, number][] = [];
+    for (let e: Element | null = ed.view.dom; e; e = e.parentElement) if (e.scrollTop) kept.push([e, e.scrollTop]);
+    const restore = () => { for (const [e, top] of kept) e.scrollTop = top; };
+    (ed.view.dom as HTMLElement).focus({ preventScroll: true });
+    restore();
+    requestAnimationFrame(restore);
   };
 
   const caretToEnd = (): boolean => {
@@ -1154,7 +1210,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     }));
     return true;
   };
-  useImperativeHandle(apiRef, () => ({ ed: edRef.current, run, focus: focusEditor, slashOpen: () => !!live.current.slash || !!pickerOpen.current, caretToStart, caretAtLink, caretToEnd, embedBlocks, selectBlockAtTop, convertBlocked }), [run, edRef.current]);
+  useImperativeHandle(apiRef, () => ({ ed: edRef.current, run, focus: focusEditor, slashOpen: () => !!live.current.slash || !!pickerOpen.current, caretToStart, caretAtLink, caretToEnd, embedBlocks, selectBlockAtTop, convertBlocked, jumpToHeading, refocus }), [run, edRef.current]);
 
   // ------------------------------------------------------------------ keyboard in the editor (capture: before ProseMirror)
   const onKeyDownCapture = (e: React.KeyboardEvent) => {

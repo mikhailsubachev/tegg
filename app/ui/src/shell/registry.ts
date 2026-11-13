@@ -79,7 +79,8 @@ export const ROUTES: RouteDef[] = [
 
 export const PANEL_TABS: TabDef[] = [
   { id: 'backlinks', name: 'tab.backlinks', status: { built: true, due: { milestone: 'MS4', slice: '4A' } }, reqs: ['FR-LNK-01', 'FR-LNK-02'] }, // built in 4A (D-293)
-  { id: 'outline', name: 'tab.outline', status: tbd('v1.0'), reqs: ['FR-EDT-11'] }, // 5B R62 (D-376)
+  // Slice OL (outline.md R170, D-1624): the Outline tab.
+  { id: 'outline', name: 'tab.outline', status: { built: true, due: { milestone: 'v1.0' } }, reqs: ['FR-EDT-11', 'FR-NAV-05'] },
   // G2 (graph-panel.md R114, D-920): the local graph in the panel.
   { id: 'graph', name: 'tab.graph', status: { built: true, due: { milestone: 'v1.0' } }, reqs: ['FR-GRP-01', 'FR-NAV-05'] },
 ];
@@ -133,6 +134,8 @@ export const SHORTCUTS: ShortcutDef[] = [
   { keys: '⌘T', command: 'nav.newTab' },
   // G1 (D-918): the local graph of the current object.
   { keys: '⇧⌘G', command: 'graph.open' },
+  // Slice OL (outline.md R175, D-1617): the outline card, or the tab's current row.
+  { keys: '⌘J', command: 'outline.jump' },
   { keys: '⌘[', command: 'nav.back' },
   { keys: '⌘]', command: 'nav.forward' },
   // D-219: the recent vaults of the title-bar switcher (FR-VLT-01 AC-17).

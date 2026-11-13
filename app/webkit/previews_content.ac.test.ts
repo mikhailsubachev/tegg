@@ -143,8 +143,8 @@ test('fr_lnk_10_ac7_section_link_shows_exactly_the_section', async ({ page }) =>
   await (await need(dlg.getByRole('button', { name: /^Open Rozpočet 2027/ }), 'button Open')).click();
   await mustBeOn(page, 'Rozpočet 2027', 'Open opens note/Pages/Rozpočet 2027.md#Rozsah', 5000);
   const hd = await need(main(page).locator('h2, h3, h4').filter({ hasText: /^\s*Rozsah\s*$/ }), 'the heading Rozsah');
-  const top = await eventually(() => topInScroller(hd), (t) => t !== null && Math.abs(t) <= 8, 2000);
-  assert.ok(top !== null && Math.abs(top) <= 8, `Rozsah at the top (± 8 px): ${top}`);
+  const top = await eventually(() => topInScroller(hd), (t) => t !== null && Math.abs(t - 24) <= 8, 2000);
+  assert.ok(top !== null && Math.abs(top - 24) <= 8, `Rozsah 24 px below the top (± 8 px, D-1625, D-1659): ${top}`);
 });
 
 test('fr_lnk_10_ac7_block_link_shows_only_the_block', async ({ page }) => {

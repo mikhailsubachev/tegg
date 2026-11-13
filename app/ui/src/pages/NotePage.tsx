@@ -36,6 +36,12 @@ import { pageFallback, typeOfValue } from '../types/util';
 import { reviewable } from '../review';
 import { DailyHeader, type DailyInfo } from '../daily/DailyHeader';
 import { ContextSections } from '../daily/ContextSections';
+import { headingForFragment, outlineHeadings, outlineTree, type OutlineHeading, type OutlineNode } from '@tegg/doc';
+import type { Caret } from '../shell/history';
+import { jumpTop, REFRESH_MS } from '../outline/model';
+import { startFlash } from '../outline/jump';
+import { getCurrent, getOutline, isHeld, publishOutline, type OutlineSource } from '../outline/store';
+import { rendered, trackCurrent } from '../outline/tracker';
 
 /** `review`: the raw value, `hasFrontmatter` for D-591's review toggle and commands. */
 export type NoteMeta = { title: string; type: string; review?: unknown; hasFrontmatter?: boolean };
@@ -51,8 +57,10 @@ export function noteMeta(path: string, text: string): NoteMeta {
 
 const nfc = (s: string) => s.normalize('NFC');
 
-/** Scrolls to `#Heading` or `#^block` inside the note; a missing target leaves the note at the top (D-140). */
-export function scrollToFragment(root: HTMLElement | null, fragment: string) {
+/** Scrolls to `#Heading` or `#^block` inside the note; a missing target leaves the note at the top (D-140). A heading
+ *  lands where the outline's jump puts it, 24 px below the pane's top (D-1625); in the editor it is resolved with the
+ *  outline's heading list, by position (`headingForFragment`). */
+export function scrollToFragment(root: HTMLElement | null, fragment: string, ed?: TeggEditor | null) {
   if (!root) return;
   const f = nfc(fragment.replace(/^#/, ''));
   // The note body: the read view's article, else the editor (not the title field, which comes first).
@@ -61,10 +69,17 @@ export function scrollToFragment(root: HTMLElement | null, fragment: string) {
   // The read view gives a block its `^id` as the element id; the editor keeps the id in the block's text (D-1197).
   const block = () => art.querySelector(`[id="${CSS.escape(f)}"]`)
     ?? [...art.querySelectorAll<HTMLElement>(':scope > *, li')].find((b) => nfc(b.textContent ?? '').trimEnd().toLowerCase().endsWith(` ${f.toLowerCase()}`));
-  const el = f.startsWith('^')
-    ? block()
-    : [...art.querySelectorAll<HTMLElement>('[data-heading], h1, h2, h3, h4, h5, h6')].find((h) => nfc(h.dataset.heading ?? h.textContent ?? '').trim().toLowerCase() === f.toLowerCase());
-  el?.scrollIntoView({ block: 'start' });
+  if (f.startsWith('^')) { block()?.scrollIntoView({ block: 'start' }); return; }
+  const byText = () => [...art.querySelectorAll<HTMLElement>('[data-heading], h1, h2, h3, h4, h5, h6')].find((h) => nfc(h.dataset.heading ?? h.textContent ?? '').trim().toLowerCase() === f.toLowerCase()) ?? null;
+  // The read view (a test fallback, D-215) keeps its own landing at the top (read-view FR-EDT-02 AC-7).
+  if (!ed || root.querySelector('article')) { byText()?.scrollIntoView({ block: 'start' }); return; }
+  const o = ed.outline();
+  const i = headingForFragment(o.headings, f);
+  const el = (i !== null ? rendered(ed.view.nodeDOM(o.pos[i]) as HTMLElement | null) : null) ?? byText();
+  const main = root.closest('main') as HTMLElement | null;
+  if (!el || !main) return;
+  const top = el.getBoundingClientRect().top - main.getBoundingClientRect().top;
+  main.scrollTop = jumpTop(top, main.scrollTop, main.scrollHeight - main.clientHeight);
 }
 
 /** What the page shows: the editor, or a read-only view with the reason (R9 "Read-only"). */
@@ -101,8 +116,12 @@ export type NotePageApi = {
   /** 6A (FR-HIS-01 AC-1, D-196): saves first, then what Move to trash needs; null when the save failed or there is
    *  no file (a virtual Daily Note, an unsaved object). */
   trashTarget: () => Promise<{ path: string; base: VersionDto; title: string } | null>;
-  /** The editor's selection (Back restores it), or null outside the editor. */
-  caret: () => { anchor: number; head: number } | null;
+  /** The editor's selection (Back restores it), or null outside the editor; `follow` maps it through later edits (D-1610). */
+  caret: () => Caret | null;
+  /** Slice OL (v1-outline §4): a step between two history entries of this route, in place: the selection (followed
+   *  through edits, clamped; the focus in the body) and then the scroll, now and on the next frame. Source view: the
+   *  scroll only. */
+  restorePlace: (scrollTop: number, caret: Caret | null) => void;
   /** 6A (FR-HIS-01 AC-3): why there is nothing to trash, or null. */
   trashBlocked: () => string | null;
   /** 6A (FR-HIS-01 AC-2): re-reads the file after a refused trash. */
@@ -119,7 +138,7 @@ function stamp(): string {
   return `${t.slice(0, 10)} ${t.slice(11, 13)}-${t.slice(14, 16)}`;
 }
 
-export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOpenSource, restoreScroll, restoreCaret, types, heading, onType, onMeta, onOpen, onTag, onRenamed, toggleSource, focusMode, onTogglePanel, onFocus, propertiesOpen, onToggleProperties, onRestored, knownId, onId, created, otherOpen = false, onToggleOther, onTypeSaved, onWritten, daily, onDaily, draft, widths, defaultWidth = 'normal', onWidth, onRekeyWidth }: {
+export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOpenSource, restoreScroll, restoreCaret, types, heading, onType, onMeta, onOpen, onTag, onRenamed, toggleSource, focusMode, onTogglePanel, onFocus, propertiesOpen, onToggleProperties, onRestored, knownId, onId, created, otherOpen = false, onToggleOther, onTypeSaved, onWritten, daily, onDaily, draft, widths, defaultWidth = 'normal', onWidth, onRekeyWidth, onRekeyFolds }: {
   apiRef?: Ref<NotePageApi>;
   path: string;
   fragment?: string;
@@ -172,6 +191,9 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   onWidth?: (key: string, width: PageWidth) => void;
   /** AP-753, AP-758: the entry moves from the path (or nothing) to the id the first write assigned. */
   onRekeyWidth?: (from: string | null, to: string, width: PageWidth) => void;
+  /** Slice OL (v1-outline §5): the outline's fold entry moves from the path key to the id, in the same effect (and the
+   *  same `ui_state_set`) as the page width's. */
+  onRekeyFolds?: (from: string, to: string) => void;
 }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   // 4F (ms4-embeds §6): the embeds of this page (tree, nested editors and their save states).
@@ -220,6 +242,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   const titleId = useId();
   const pane = useRef<EditorPaneApi | null>(null);
   const edRef = useRef<TeggEditor | null>(null);
+  /** The `__TEGG_TEST__.editor` hook this page installed (§13.6). */
+  const edHook = useRef<unknown>(null);
   const saver = useRef<Saver | null>(null);
   const savedTitle = useRef('');
   /** The title when the current title edit started (D-394); null when no edit is open. */
@@ -318,6 +342,10 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   // ------------------------------------------------------------------ the editor and autosave
   const onEditor = useCallback((ed: TeggEditor) => {
     edRef.current = ed;
+    // Slice OL (§3.3): every doc change (loads, undo, merges, the draft's typing) schedules the outline's refresh; a
+    // composition's end schedules one too.
+    ed.onVersion(() => scheduleOutline.current());
+    (ed.view.dom as HTMLElement).addEventListener('compositionend', () => scheduleOutline.current());
     const l = live.current.loaded!;
     saver.current?.dispose();
     const fromDraft = !!live.current.draft; // the route may drop the draft before the first write's result arrives
@@ -365,12 +393,14 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       };
     }
     const w = window as { __TEGG_TEST__?: Record<string, unknown> };
-    w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), queryBlocks: () => ed.queryBlocks(), editor: { text: () => ed.text(), dirty: () => ed.dirty() || !!saver.current?.pending, historyDepth: () => ed.historyDepth() }, embeds: () => embeds.nested().map((e) => ({ path: e.path, depth: e.depth, editable: e.editable, text: () => e.text(), dirty: () => e.dirty(), historyDepth: () => e.historyDepth() })) };
+    edHook.current = { text: () => ed.text(), dirty: () => ed.dirty() || !!saver.current?.pending, historyDepth: () => ed.historyDepth() };
+    w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), queryBlocks: () => ed.queryBlocks(), editor: edHook.current, embeds: () => embeds.nested().map((e) => ({ path: e.path, depth: e.depth, editable: e.editable, text: () => e.text(), dirty: () => e.dirty(), historyDepth: () => e.historyDepth() })) };
     syncHead();
     requestAnimationFrame(() => {
       // D-140: `#Heading` scrolls once the editor's content exists (the link or embed `Open` that opened it).
-      if (liveFragment.current && liveRestore.current === undefined) scrollToFragment(root.current, liveFragment.current);
+      if (liveFragment.current && liveRestore.current === undefined) scrollToFragment(root.current, liveFragment.current, ed);
       placeFocus.current(); // D-247: the caret goes in once the editor is ready
+      refreshOutline.current(true); // slice OL: the outline of the editor's text, at once
       void ipc.perfMark('note-ready').catch(() => {}); // NFR-PERF-05 AC-4: mounted, editable, caret placed
       noteReady();
     });
@@ -447,7 +477,22 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       const ed = pane.current?.ed;
       if (!ed || live.current.loaded?.mode !== 'edit') return null;
       const s = ed.view.state.selection;
-      return { anchor: s.anchor, head: s.head };
+      const sel = { anchor: s.anchor, head: s.head };
+      return { ...sel, follow: ed.followSelection(sel) };
+    },
+    restorePlace: (scrollTop, caret) => {
+      const ed = pane.current?.ed;
+      const main = root.current?.closest('main') as HTMLElement | null;
+      if (ed && caret && live.current.loaded?.mode === 'edit' && !showSourceRef.current) {
+        const c = caret.follow?.() ?? caret;
+        const size = ed.view.state.doc.content.size;
+        const clamp = (n: number) => Math.max(0, Math.min(n, size));
+        (ed.view.dom as HTMLElement).focus({ preventScroll: true });
+        ed.editor.commands.setTextSelection({ from: clamp(c.anchor), to: clamp(c.head) });
+      }
+      if (!main) return;
+      main.scrollTop = scrollTop;
+      requestAnimationFrame(() => { main.scrollTop = scrollTop; });
     },
     reload: () => { void externalRef.current(); },
     discardDraft: () => { if (isDraft()) saver.current?.discard(); },
@@ -679,8 +724,17 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
 
   // ------------------------------------------------------------------ source toggle (FR-EDT-10 AC-9: saves first)
   const showSource = source ?? (loaded ? loaded.mode === 'invalidFrontmatter' : false);
+  const showSourceRef = useRef(showSource);
+  showSourceRef.current = showSource;
+  /** D-146 with slice OL: the heading of the current section keeps its place in the viewport across the toggle. */
+  const readingAnchor = useRef<{ i: number; top: number; view: 'editor' | 'source' } | null>(null);
   const toggle = async () => {
     if (!showSource) await flush();
+    const src = getOutline();
+    const main = root.current?.closest('main') as HTMLElement | null;
+    const i = getCurrent();
+    const el = src && i !== null ? rendered(src.element(i)) : null;
+    readingAnchor.current = src && el && main && i !== null ? { i, top: el.getBoundingClientRect().top - main.getBoundingClientRect().top, view: src.view } : null;
     setSource(!showSource);
   };
   const first = useRef(true);
@@ -825,7 +879,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     requestAnimationFrame(() => {
       const main = root.current?.closest('main');
       if (restoreScroll !== undefined && main) { if (!readerActed.current) main.scrollTop = restoreScroll; }
-      else if (fragment) scrollToFragment(root.current, fragment);
+      else if (fragment) scrollToFragment(root.current, fragment, edRef.current);
       onRestored?.();
       placeFocus.current();
       // NFR-PERF-05 AC-4 (D-247): an editable note is ready once the editor is mounted and the caret placed (onEditor).
@@ -930,8 +984,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       } else if (fragment) {
         // D-1189 b: the caret keeps the scroll position it found, which can still be the previous note's (clamped); a
         // `#Heading` / `#^id` open lands on its target, after the caret's own restore in the next frame.
-        scrollToFragment(root.current, fragment);
-        requestAnimationFrame(() => scrollToFragment(root.current, fragment));
+        scrollToFragment(root.current, fragment, edRef.current);
+        requestAnimationFrame(() => scrollToFragment(root.current, fragment, edRef.current));
       }
       return;
     }
@@ -957,11 +1011,132 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     const from = prevKey.current;
     prevKey.current = widthKey;
     if (!widthKey || from === widthKey) return;
+    if (from) onRekeyFolds?.(from, widthKey);
     if (from && widths?.[from] !== undefined && widths?.[widthKey] === undefined) onRekeyWidth?.(from, widthKey, widths[from]);
     else if (!from && draftWidth && widths?.[widthKey] === undefined) { onRekeyWidth?.(null, widthKey, draftWidth); setDraftWidth(null); }
   }, [widthKey]);
 
+  // ------------------------------------------------------------------ slice OL: the outline source (v1-outline §3.3)
+  // The editor's outline is refreshed REFRESH_MS after the last doc-changing transaction (never during a composition),
+  // the source view's on each text it shows; the read view and a page without text publish nothing (D-1619).
+  const outlineKey = useRef<string | null>(widthKey);
+  outlineKey.current = widthKey;
+  const [outline, setOutline] = useState<OutlineSource | null>(null);
+  const outlineRef = useRef(outline);
+  outlineRef.current = outline;
+  type Snap = { version: number; headings: OutlineHeading[]; pos: number[]; heading: boolean[]; tree: OutlineNode[]; key: string | null };
+  const snap = useRef<Snap | null>(null);
+  const outlineTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastKey = useRef<number | null>(null);
+  const editorSource = (sn: Snap): OutlineSource => ({
+    view: 'editor', key: sn.key, version: sn.version, tree: sn.tree,
+    element: (i) => {
+      const ed = edRef.current;
+      if (!ed || sn.pos[i] === undefined) return null;
+      const p = ed.headingPos(sn.version, sn.pos[i]);
+      return p === null ? null : (ed.view.nodeDOM(p) as HTMLElement | null);
+    },
+    jump: (i) => (sn.pos[i] === undefined ? 'stale' : pane.current?.jumpToHeading(sn.version, sn.pos[i]) ?? 'stale'),
+    refocus: () => pane.current?.refocus(),
+    refresh: () => refreshOutline.current(true),
+  });
+  const refreshOutline = useRef<(force?: boolean) => void>(() => {});
+  refreshOutline.current = (force = false) => {
+    if (outlineTimer.current) { clearTimeout(outlineTimer.current); outlineTimer.current = null; }
+    const ed = edRef.current;
+    if (!ed || live.current.loaded?.mode !== 'edit' || showSourceRef.current || gone) return;
+    if (!force && (isHeld() || ed.view.composing)) return;
+    const o = ed.outline();
+    const prev = snap.current;
+    const same = !!prev && prev.key === outlineKey.current && outlineRef.current?.view === 'editor' && prev.headings.length === o.headings.length
+      && prev.headings.every((h, i) => h.level === o.headings[i].level && h.text === o.headings[i].text && h.from === o.headings[i].from)
+      && prev.pos.every((p, i) => p === o.pos[i]) && prev.heading.every((x, i) => x === o.heading[i]);
+    if (same) return;
+    const sn: Snap = { ...o, tree: outlineTree(o.headings), key: outlineKey.current };
+    snap.current = sn;
+    setOutline(editorSource(sn));
+    // §8: the perf line of test builds, from the last printable key to the frame that paints the new rows.
+    const t0 = lastKey.current;
+    if (t0 !== null && probeOn()) {
+      lastKey.current = null;
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const ms = performance.now() - t0;
+        void ipc.perfOutline(Math.max(1, Math.round(ms / (1000 / 60))), ms).catch(() => {});
+      }));
+    }
+  };
+  const scheduleOutline = useRef(() => {
+    if (outlineTimer.current) clearTimeout(outlineTimer.current);
+    outlineTimer.current = setTimeout(() => { outlineTimer.current = null; refreshOutline.current(false); }, REFRESH_MS);
+  });
+  useEffect(() => () => { if (outlineTimer.current) clearTimeout(outlineTimer.current); }, []);
+  const sourceVersion = useRef(0);
+  useEffect(() => {
+    if (!loaded || gone) { snap.current = null; setOutline(null); return; }
+    if (showSource) {
+      snap.current = null;
+      const text = diskText || loaded.text;
+      const tree = outlineTree(outlineHeadings(text));
+      const lines = tree.map((h) => 1 + (text.slice(0, h.from).match(/\n/g)?.length ?? 0));
+      const el = (i: number) => (lines[i] === undefined ? null : root.current?.querySelector<HTMLElement>(`.source-line[data-line="${lines[i]}"]`) ?? null);
+      sourceVersion.current++;
+      setOutline({
+        view: 'source', key: outlineKey.current, version: sourceVersion.current, tree, element: el,
+        jump: (i) => {
+          const line = el(i);
+          const main = root.current?.closest('main') as HTMLElement | null;
+          if (!line || !main) return 'stale';
+          const place = () => { main.scrollTop = jumpTop(line.getBoundingClientRect().top - main.getBoundingClientRect().top, main.scrollTop, main.scrollHeight - main.clientHeight); };
+          place();
+          requestAnimationFrame(place);
+          startFlash((phase) => {
+            line.toggleAttribute('data-outline-flash', phase === 'on');
+            line.toggleAttribute('data-outline-fade', phase === 'fade');
+            if (phase === 'on') void getComputedStyle(line).backgroundColor; // resolved now: the fade is a transition from it
+          });
+          return 'ok';
+        },
+        // CP-9 (D-1636): the source view's section, without scrolling.
+        refocus: () => root.current?.querySelector<HTMLElement>('.source-view')?.focus({ preventScroll: true }),
+        refresh: () => {},
+      });
+      return;
+    }
+    if (loaded.mode !== 'edit') { snap.current = null; setOutline(null); return; }
+    // A save (a new `loaded`) or a width change refreshes like typing does: a test hold (D-1644) or IME composition
+    // keeps the shown outline; a new note, or leaving the source view, always gets its outline at once.
+    refreshOutline.current(!snap.current || snap.current.key !== outlineKey.current || outlineRef.current?.view !== 'editor');
+  }, [loaded, showSource, diskText, gone, widthKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { publishOutline(outline); }, [outline]);
+  useEffect(() => () => { if (getOutline() === outlineRef.current) publishOutline(null); }, []);
+  useEffect(() => {
+    const main = root.current?.closest('main') as HTMLElement | null;
+    if (!outline || !main) return;
+    const a = readingAnchor.current;
+    if (a && a.view !== outline.view) {
+      readingAnchor.current = null;
+      const el = rendered(outline.element(a.i));
+      if (el) main.scrollTop += el.getBoundingClientRect().top - main.getBoundingClientRect().top - a.top;
+    }
+    return trackCurrent(main, outline, root.current?.querySelector('.note-column') ?? null);
+  }, [outline]);
+  // §8: the time of the last printable key (test builds with the latency probe).
+  const probeOn = () => {
+    const w = window as { __TEGG_TEST__?: { latencyProbe?: boolean }; __TEGG_TEST_MODE__?: boolean };
+    return !!w.__TEGG_TEST__?.latencyProbe || !!w.__TEGG_TEST_MODE__;
+  };
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const onKey = (e: KeyboardEvent) => { if (probeOn() && !e.metaKey && !e.ctrlKey && e.key.length === 1) lastKey.current = performance.now(); };
+    el.addEventListener('keydown', onKey, true);
+    return () => el.removeEventListener('keydown', onKey, true);
+  }, [!!loaded]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (gone) {
+    // Slice OL (FR-EDT-11 AC-18): a page that shows no note text has no editor; its test hook goes with it.
+    const w = window as { __TEGG_TEST__?: { editor?: unknown } };
+    if (w.__TEGG_TEST__?.editor && edHook.current === w.__TEGG_TEST__.editor) delete w.__TEGG_TEST__.editor;
     return (
       <div className="note-column">
         <h1 ref={heading} tabIndex={-1} className="note-title sr-only">{t('note.gone')}</h1>

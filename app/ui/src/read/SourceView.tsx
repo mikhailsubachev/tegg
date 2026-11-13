@@ -23,11 +23,14 @@ export function SourceView({ text, warning }: { text: string; warning?: Frontmat
   return (
     <div className="source-view-wrap">
       {warning && <WarningBanner warning={warning} />}
-      <section className="source-view" aria-label={t('note.source')} data-user-content>
+      {/* Slice OL (CP-9, D-1636): Esc, ⌘J and Tab in the outline give the focus back to this section. */}
+      <section className="source-view" aria-label={t('note.source')} tabIndex={-1} data-user-content>
+        {/* Slice OL (outline.md FR-EDT-11 AC-12): the line element holds only its text; the gutter is its previous
+            sibling, so the outline's jump and flash act on the line itself. */}
         {lines.map((l, i) => (
-          <div key={i} className="source-line" data-line={i + 1}>
+          <div key={i} className="source-row">
             <span className="source-gutter" aria-hidden="true">{i + 1}</span>
-            <span className="source-text">{l}</span>
+            <div className="source-line" data-line={i + 1}><span className="source-text">{l}</span></div>
           </div>
         ))}
       </section>

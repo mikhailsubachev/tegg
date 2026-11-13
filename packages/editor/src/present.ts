@@ -87,6 +87,8 @@ export interface EditorUi {
   mindmapText?: (key: 'figure' | 'untitled' | 'view' | 'map' | 'list' | 'empty' | 'notOneList' | 'expand' | 'collapse' | 'layout' | 'layoutRight' | 'layoutSpider' | 'editNode', title?: string) => string
   /** Slice MM: the mindmap icon (`data-icon="mindmap"`). */
   mindmapIcon?: () => Element
+  /** Slice OL (D-159): a callout type's label, the fold button's name of an untitled folding callout. */
+  calloutLabel?: (type: string) => string
   /** Name and visible text of the placeholder for an embed (`![[…]]`), a query or a mindmap block (R5). */
   placeholder(kind: 'embed' | 'query' | 'mindmap', value: string): { name: string; text: string; id?: string; note?: boolean }
   /** `chip`: where the clicked chip is (its node position and DOM), for the Create offer of a broken link (4A).
@@ -687,6 +689,10 @@ export const focusedMindmap = new WeakMap<EditorView, HTMLElement>()
 /** The live mindmap node view of each block, per editor: a redraw (a save sets the frontmatter attribute, which
  *  redraws the document) replaces node views, and a map's controls always act through the block's current one. */
 const liveMindmaps = new WeakMap<EditorView, Map<number, CalloutView>>()
+/** Slice OL (R172 rule 3, D-159): the folding callouts' views by their DOM, for `revealPos`; their fold, a view state
+ *  never written, kept by position for a view that is created again in place. */
+export const calloutFolds = new WeakMap<HTMLElement, { folded: boolean; setFolded(f: boolean): void }>()
+const foldKept = new WeakMap<EditorView, Map<number, boolean>>()
 
 type CalloutKind = 'callout' | 'mindmap' | 'hint'
 /** Slice MM2: a located list item (`locate`). */
@@ -748,6 +754,25 @@ class CalloutView implements NodeView {
         hint.contentEditable = 'false'
         hint.textContent = text('notOneList')
         this.dom.appendChild(hint)
+      } else if (node.attrs.fold === '+' || node.attrs.fold === '-') {
+        // Slice OL (R172 rule 3, D-159): a folding callout (`[!type]-` / `+`) folds in the editor too, as view state
+        // only: the `-` marker is never written by a fold, and nothing is a transaction.
+        const kept = foldKept.get(pm)?.get(getPos() ?? -1)
+        this.folded = kept ?? node.attrs.fold === '-'
+        this.foldBtn = document.createElement('button')
+        this.foldBtn.type = 'button'
+        this.foldBtn.tabIndex = 0
+        this.foldBtn.className = 'callout-fold'
+        this.foldBtn.contentEditable = 'false'
+        this.foldBtn.addEventListener('mousedown', (e) => e.preventDefault())
+        this.foldBtn.addEventListener('click', (e) => { e.preventDefault(); this.setFolded(!this.folded) })
+        // After the content and without a text node of its own (the glyph is CSS), so the block's text starts with its title.
+        this.contentDOM = document.createElement('div')
+        this.contentDOM.className = 'callout-content'
+        this.dom.appendChild(this.contentDOM)
+        this.dom.appendChild(this.foldBtn)
+        calloutFolds.set(this.dom, this)
+        this.renderFold()
       } else this.contentDOM = this.dom
       return
     }
@@ -892,6 +917,27 @@ class CalloutView implements NodeView {
       handle.update({ now: true })
     } else this.handle = ui.mindmap?.(this.mapBox, ctl) ?? null
     this.render()
+  }
+  /** Slice OL: a folding callout's fold (view state). */
+  setFolded(f: boolean) {
+    if (!this.foldBtn || this.kind !== 'callout' || f === this.folded) return
+    this.folded = f
+    const p = this.getPos()
+    if (p !== undefined) {
+      let m = foldKept.get(this.pm)
+      if (!m) foldKept.set(this.pm, (m = new Map()))
+      m.set(p, f)
+    }
+    this.renderFold()
+  }
+  private renderFold() {
+    if (!this.foldBtn || this.kind !== 'callout') return
+    const text = (k: 'expand' | 'collapse', title: string) => this.ui.mindmapText?.(k, title) ?? `${k} ${title}`
+    const type = String(this.node.attrs.calloutType)
+    const title = this.node.firstChild?.textContent.trim() || (this.ui.calloutLabel?.(type) ?? type)
+    this.dom.toggleAttribute('data-folded', this.folded)
+    this.foldBtn.setAttribute('aria-label', text(this.folded ? 'expand' : 'collapse', title))
+    this.foldBtn.setAttribute('aria-expanded', String(!this.folded))
   }
   private at = -1
   private register() {
@@ -1206,17 +1252,22 @@ class CalloutView implements NodeView {
   update(node: PMNode) {
     if (node.type !== this.node.type || calloutKind(node) !== this.kind) return false
     if (this.kind !== 'mindmap' && String(node.attrs.calloutType).toLowerCase() !== String(this.node.attrs.calloutType).toLowerCase()) return false
+    // A fold marker added or removed changes the view's structure: built again.
+    if (this.kind === 'callout' && !!this.foldBtn !== (node.attrs.fold === '+' || node.attrs.fold === '-')) return false
     this.node = node
     if (this.kind === 'mindmap') this.register()
     this.render()
+    this.renderFold()
     return true
   }
   stopEvent(e: Event) {
+    if (this.foldBtn && !!(e.target as Node | null) && this.foldBtn.contains(e.target as Node)) return true
     return this.kind === 'mindmap' && !!(e.target as Node | null) && (this.mapBox!.contains(e.target as Node) || this.dom.querySelector('.mindmap-header')!.contains(e.target as Node))
   }
   ignoreMutation(m: { target: Node; type: string }) {
     if (this.kind === 'mindmap') return !this.contentDOM.contains(m.target) || m.target === this.contentDOM && m.type === 'attributes'
     if (this.kind === 'hint') return !this.contentDOM.contains(m.target)
+    if (this.foldBtn) return !this.contentDOM.contains(m.target) || (m.target === this.dom && m.type === 'attributes')
     return false
   }
   destroy() {

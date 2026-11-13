@@ -395,7 +395,8 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-TAG-05 | M | The tag color is used wherever the tag appears: tag chips in the attribute panel, inline `#tags`, query views,… | D-370 moved it to v1.0; **D-707 (2026-10-22) brings it back to MS4 (4D-lite)**, graph nodes v1.0 (D-275); graph nodes: ACs `docs/acceptance/graph.md` FR-GRP-08, FR-TAG-05 AC-9 (G1) |
 | FR-TSK-06 | M | Calendar view (month/week) by due date. Dragging a task to another day changes its due date. Tasks without a d… | D-371: calendar after the daily-use point (5C or v1.0) |
 | FR-HOM-02 | M | Pinned objects and saved queries can be added to Home and the sidebar. | D-376: with saved queries; sidebar only, Home dropped (D-800) |
-| FR-EDT-11 | S | Outline (table of contents) of the current note's headings in the side panel. | D-376 |
+| FR-EDT-11 | S | Outline (table of contents) of the current note's headings in the side panel. | D-376 ; slice OL, ACs `docs/acceptance/outline.md` (D-1600…D-1627) |
+| FR-EDT-16 | S | Outline rail on the note's right edge; hover or ⌘J opens the outline card. | D-1600 (new, 2026-11-13); slice OL with FR-EDT-11 |
 | FR-SET-04 | S | Keyboard shortcuts customization, including the global hotkeys (FR-CAP-05). | D-376: the D-71 hotkey-failure display stays in MS5 with FR-CAP-05 |
 | FR-ATT-03 | M | Image resize (stored as `\|width`), alignment, caption (stored as alt text), click to open full-size. | D-376 |
 | FR-ATT-09 | M | Deleting a note never deletes the Image/PDF objects it uses. The "Unused attachments" tool (FR-ATT-04) lists I… | D-376 |

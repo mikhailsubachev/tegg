@@ -9,7 +9,7 @@ export function groupOf(command: string): ShortcutGroup {
   if (command.startsWith('daily.')) return 'daily';
   if (command.startsWith('task')) return 'tasks';
   if (command.startsWith('inbox.') || command === 'goto.inbox') return 'inbox';
-  if (command.startsWith('nav.') || command.startsWith('vault.recent.') || (command.startsWith('goto.') && !command.startsWith('goto.settings'))) return 'navigation';
+  if (command.startsWith('nav.') || command.startsWith('outline.') || command.startsWith('vault.recent.') || (command.startsWith('goto.') && !command.startsWith('goto.settings'))) return 'navigation';
   return 'general';
 }
 
@@ -22,7 +22,9 @@ export function grouped(list: ShortcutDef[] = SHORTCUTS): Map<ShortcutGroup, Sho
 /** Titles of commands that exist only on some routes (the palette lists them there), by catalog key. */
 export const ROUTE_TITLES: Record<string, string> = { 'daily.previous': 'daily.previous', 'daily.next': 'daily.next', 'media.add': 'cmd.mediaAdd', 'object.trash': 'cmd.trash',
   // Slice PIN (R136): listed only while a pinned row has the focus.
-  'sidebar.pinned.moveUp': 'pinned.moveUp', 'sidebar.pinned.moveDown': 'pinned.moveDown' };
+  'sidebar.pinned.moveUp': 'pinned.moveUp', 'sidebar.pinned.moveDown': 'pinned.moveDown',
+  // Slice OL (v1-outline §6): listed on note routes only.
+  'outline.jump': 'cmd.outline.jump' };
 
 /** Inbox keys on a focused card (D-561), not in the registry: they act only inside the Inbox list. */
 export const INBOX_KEYS: [string, string][] = [['R', 'cmd.markReviewed'], ['C', 'cmd.inbox.convert'], ['A', 'cmd.inbox.append'], ['L', 'cmd.inbox.link'], ['#', 'cmd.inbox.tags'], ['Space', 'help.inbox.select'], ['↩', 'help.inbox.open']];

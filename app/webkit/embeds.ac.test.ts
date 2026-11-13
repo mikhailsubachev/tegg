@@ -866,9 +866,9 @@ test('fr_emb_02_ac9_open_section_scrolls_to_the_heading', async ({ page }) => {
     let s: Element | null = h.parentElement;
     while (s && !(s.scrollHeight > s.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(s).overflowY))) s = s.parentElement;
     const top = s ? Math.max(s.getBoundingClientRect().top, 0) : 0;
-    return Math.abs(h.getBoundingClientRect().top - top);
+    return Math.abs(h.getBoundingClientRect().top - top - 24);
   }), (x) => x !== null && x <= 8, 2000);
-  assert.ok(d !== null && d <= 8, `Úvod at the top of the centre pane (± 8 px), off by ${d}`);
+  assert.ok(d !== null && d <= 8, `Úvod 24 px below the top of the centre pane (± 8 px, D-1625, D-1659), off by ${d}`);
 });
 
 // Issue #59: a click while Back still restores the scroll lost its mouse-up to another embed; the test waits for the
