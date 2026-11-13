@@ -30,6 +30,8 @@ export interface Block {
 export interface FrontmatterEntry {
   key: string
   range: Range // whole lines of this entry, absolute, including the line terminator
+  /** The entry's parsed value (`data[key]`). Read by the I1 red test `fr_imp_15_ac6_import_note_frontmatter_shape`. */
+  value: unknown
 }
 
 export interface Frontmatter {
@@ -165,9 +167,11 @@ function parseFrontmatter(text: string, start: number): { frontmatter: Frontmatt
         if (!isScalar(item.key) || !item.key.range) continue
         const keyStart = item.key.range[0]
         const valueEnd = (item.value as { range?: [number, number, number] } | null)?.range?.[1] ?? item.key.range[1]
+        const key = String(item.key.value)
         entries.push({
-          key: String(item.key.value),
+          key,
           range: [innerStart + lineStart(inner, keyStart), innerStart + lineEnd(inner, valueEnd)],
+          value: data[key],
         })
       }
     }

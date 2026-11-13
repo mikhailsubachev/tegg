@@ -105,9 +105,91 @@ struct JobState {
 struct State {
     next: JobId,
     jobs: HashMap<JobId, JobState>,
-    queue: VecDeque<(JobId, JobOp, Option<String>)>,
+    queue: VecDeque<(JobId, Work)>,
     last_undoable: Option<JobId>,
     running: bool,
+}
+
+/// What a queued job runs: a planned op, or an import handed in through `Jobs::start_import` (v1-import §12.1).
+enum Work {
+    Op(JobOp, Option<String>),
+    Import(Arc<dyn ImportJob>),
+}
+
+/// v1-import §12.1: the seam through which the `tegg-import` crate runs inside this engine's queue, phases, backup,
+/// cancel and progress. The engine calls, on its job thread and in this order: `prepare` (phase `planning`),
+/// `needs_backup`, then for a backup `before_backup`, the zip (phase `backup`) and `after_backup`, then `write` (phase
+/// `writing`, not cancellable), and at the end `finished`. A cancel is honoured after each call up to `after_backup`.
+/// A panic inside a call unwinds the job thread as a kill does: no clean-up, no report, the journal left.
+pub trait ImportJob: Send + Sync {
+    /// The space: the journal header's `title` (§9.6).
+    fn title(&self) -> String;
+    /// The source's file or folder name: the journal header's `source`.
+    fn source(&self) -> String;
+    /// `planning` (§9.2): checks and rendering, nothing written. Returns the number of files the run will create (the
+    /// job's `total`). `Err`: the job is `failed`.
+    fn prepare(&self, ctx: &ImportCtx<'_>) -> Result<usize, String>;
+    /// §9.2 step 4, asked after `prepare`: whether a backup zip is made first (D-1549 (5)).
+    fn needs_backup(&self, ctx: &ImportCtx<'_>) -> bool;
+    /// The backup zip's time (§9.3): the import answers `Some(env.clock at start)`; `None`: the system clock.
+    fn backup_time(&self) -> Option<chrono::DateTime<chrono::Utc>>;
+    /// Before the zip, still in `planning` (cancellable).
+    fn before_backup(&self, ctx: &ImportCtx<'_>) -> Result<(), String> {
+        let _ = ctx;
+        Ok(())
+    }
+    /// The zip is complete; `zip` is its file name (`20261112-090000-import.zip`). No vault file is written yet.
+    fn after_backup(&self, ctx: &ImportCtx<'_>, zip: &str) -> Result<(), String> {
+        let _ = (ctx, zip);
+        Ok(())
+    }
+    /// `writing`: not cancellable. `Err`: the job is `failed` (the job did its own roll-back first).
+    fn write(&self, ctx: &ImportCtx<'_>) -> Result<(), String>;
+    /// Exactly once, with the final phase (`Done`, `Cancelled` or `Failed`), before the engine publishes its report
+    /// and final progress event. For a job cancelled while `queued` it is called on the cancelling thread.
+    fn finished(&self, phase: Phase, error: Option<&str>);
+}
+
+/// What an [`ImportJob`] gets from the engine while it runs.
+pub struct ImportCtx<'a> {
+    pub job: JobId,
+    pub host: &'a dyn Host,
+    inner: &'a Inner,
+}
+
+impl ImportCtx<'_> {
+    /// The user cancelled the job (honoured by the job between files while it is cancellable, §9.2).
+    pub fn cancelled(&self) -> bool {
+        self.inner.cancelled(self.job)
+    }
+    /// The job's `total` for `JobProgress` (the files to create); `prepare`'s return value sets it too.
+    pub fn set_total(&self, total: usize) {
+        if let Some(j) = lock(&self.inner.state).jobs.get_mut(&self.job) {
+            j.progress.total = total;
+        }
+    }
+    /// `done` for `JobProgress`; never decreases.
+    pub fn step(&self, done: usize) {
+        self.inner.step(self.job, done);
+    }
+}
+
+/// Stops a running job's heartbeat when the job ends or its thread unwinds (touches no file).
+struct Beat {
+    stop: Arc<AtomicBool>,
+    thread: Option<std::thread::JoinHandle<()>>,
+}
+
+impl Drop for Beat {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::SeqCst);
+        if let Some(t) = self.thread.take() {
+            t.thread().unpark();
+            if !std::thread::panicking() {
+                let _ = t.join();
+            }
+        }
+    }
 }
 
 pub(crate) struct Inner {
@@ -249,18 +331,28 @@ impl Jobs {
         Ok(())
     }
 
-    /// `NotCancellable` outside the kind's cancellable phases.
+    /// v1-import §12.1: queues an import. It waits behind this vault's other jobs and they wait behind it (R153).
+    pub fn start_import(&self, job: Arc<dyn ImportJob>) -> Result<JobId, JobError> {
+        let host = self.inner.host.clone().ok_or(JobError::NotImplemented)?;
+        // The job exists (and can be cancelled) before it is in the queue, so its `queued` event (§10.2) always comes
+        // before the job thread's `planning`.
+        let (id, queued) = {
+            let mut s = lock(&self.inner.state);
+            let id = s.next;
+            s.next += 1;
+            let progress = JobProgress { job: id, kind: JobKind::Import, phase: Phase::Queued, done: 0, total: 0, counts: None };
+            s.jobs.insert(id, JobState { kind: JobKind::Import, phase: Phase::Queued, plan: None, report: None, cancel: false, undo: None, undone: false, confirmed: false, progress: progress.clone() });
+            (id, progress)
+        };
+        host.progress(queued);
+        queue_job(&self.inner, id, Work::Import(job))?;
+        Ok(id)
+    }
+
+    /// `NotCancellable` outside the kind's cancellable phases. An `import` that still waits in the queue leaves it at
+    /// once (v1-import §9.1, D-1554): it ends `cancelled` with a final progress event and never reaches `planning`.
     pub fn cancel(&self, job: JobId) -> Result<(), JobError> {
-        let mut s = lock(&self.inner.state);
-        let j = s.jobs.get_mut(&job).ok_or(JobError::NotFound)?;
-        if j.phase == Phase::Queued || j.kind.flags().cancellable.contains(&j.phase) {
-            j.cancel = true;
-            drop(s);
-            self.inner.changed.notify_all();
-            Ok(())
-        } else {
-            Err(JobError::NotCancellable)
-        }
+        cancel_in(&self.inner, job)
     }
 
     pub fn wait(&self, job: JobId, timeout: Duration) -> Option<JobReport> {
@@ -365,7 +457,13 @@ impl Jobs {
 
     pub fn interrupted(&self) -> Vec<Interrupted> {
         match &self.inner.host {
-            Some(h) => crate::journal::interrupted(h.as_ref()),
+            Some(h) => {
+                // v1-import §9.6: an import's journal is listed with the rename journals, by job id.
+                let mut out = crate::journal::interrupted(h.as_ref());
+                out.extend(crate::import_journal::interrupted(h.as_ref()));
+                out.sort_by_key(|i| i.job);
+                out
+            }
             None => Vec::new(),
         }
     }
@@ -376,6 +474,20 @@ impl Jobs {
         choice: ResolveChoice,
     ) -> Result<JobId, JobError> {
         let host = self.inner.host.clone().ok_or(JobError::NotImplemented)?;
+        // v1-import §9.6: an import is never resumed. `Undo` is the roll-back from the log alone (no transformer, no
+        // source); then both journal files go. The backup zip stays.
+        if crate::import_journal::exists(host.as_ref(), job) {
+            if choice == ResolveChoice::Finish {
+                return Err(JobError::NotImplemented);
+            }
+            // Not while that very job still runs in this engine (its journal is then not a leftover).
+            if lock(&self.inner.state).jobs.get(&job).is_some_and(|j| !j.phase.is_final()) {
+                return Err(JobError::Busy);
+            }
+            crate::import_journal::roll_back(host.as_ref(), job);
+            crate::import_journal::finish(host.as_ref(), job);
+            return Ok(job);
+        }
         crate::journal::resolve(host.as_ref(), &InnerTransformer(&self.inner), job, choice)?;
         Ok(job)
     }
@@ -436,43 +548,62 @@ fn enqueue_in(inner: &Arc<Inner>, op: JobOp, from_title: Option<String>) -> Resu
             }
             _ => return Err(JobError::NotImplemented),
         };
-        let mut s = lock(&inner.state);
-        let id = s.next;
-        s.next += 1;
-        let progress = JobProgress {
-            job: id,
-            kind,
-            phase: Phase::Queued,
-            done: 0,
-            total: 0,
-            counts: None,
-        };
-        s.jobs.insert(
-            id,
-            JobState {
-                kind,
-                phase: Phase::Queued,
-                plan: None,
-                report: None,
-                cancel: false,
-                undo: None,
-                undone: false,
-                confirmed: false,
-                progress,
-            },
-        );
-        s.queue.push_back((id, op, from_title));
-        if !s.running {
-            s.running = true;
-            let weak = Arc::downgrade(&inner);
-            std::thread::Builder::new()
-                .name("tegg-jobs".into())
-                .spawn(move || worker(weak))
-                .map_err(|e| JobError::Core(e.to_string()))?;
-        }
-        inner.changed.notify_all();
-        Ok(id)
+        push_job(inner, kind, Work::Op(op, from_title))
     }
+
+/// A new job at the end of the FIFO queue (D-393); starts the job thread when none runs.
+fn push_job(inner: &Arc<Inner>, kind: JobKind, work: Work) -> Result<JobId, JobError> {
+    let mut s = lock(&inner.state);
+    let id = s.next;
+    s.next += 1;
+    let progress = JobProgress { job: id, kind, phase: Phase::Queued, done: 0, total: 0, counts: None };
+    s.jobs.insert(id, JobState { kind, phase: Phase::Queued, plan: None, report: None, cancel: false, undo: None, undone: false, confirmed: false, progress });
+    queue_locked(inner, &mut s, id, work)?;
+    Ok(id)
+}
+
+/// Puts the job `id` (already in `jobs`) at the end of the queue; starts the job thread when none runs.
+fn queue_job(inner: &Arc<Inner>, id: JobId, work: Work) -> Result<(), JobError> {
+    queue_locked(inner, &mut lock(&inner.state), id, work)
+}
+
+fn queue_locked(inner: &Arc<Inner>, s: &mut State, id: JobId, work: Work) -> Result<(), JobError> {
+    s.queue.push_back((id, work));
+    if !s.running {
+        s.running = true;
+        let weak = Arc::downgrade(inner);
+        std::thread::Builder::new().name("tegg-jobs".into()).spawn(move || worker(weak)).map_err(|e| JobError::Core(e.to_string()))?;
+    }
+    inner.changed.notify_all();
+    Ok(())
+}
+
+/// `Jobs::cancel` and `JobsRef::cancel` (v1-import §9.1: an import run cancels through a weak handle).
+fn cancel_in(inner: &Arc<Inner>, job: JobId) -> Result<(), JobError> {
+    let mut s = lock(&inner.state);
+    if s.jobs.get(&job).is_some_and(|j| j.kind == JobKind::Import && j.phase == Phase::Queued) {
+        if let Some(at) = s.queue.iter().position(|(id, _)| *id == job) {
+            let Some((_, Work::Import(import))) = s.queue.remove(at) else { return Err(JobError::NotFound) };
+            // Off the queue: the worker can't take it any more. Its end is published after `finished`.
+            if let Some(j) = s.jobs.get_mut(&job) {
+                j.cancel = true;
+            }
+            drop(s);
+            import.finished(Phase::Cancelled, None);
+            inner.end_import(job, Phase::Cancelled, None);
+            return Ok(());
+        }
+    }
+    let j = s.jobs.get_mut(&job).ok_or(JobError::NotFound)?;
+    if j.phase == Phase::Queued || j.kind.flags().cancellable.contains(&j.phase) {
+        j.cancel = true;
+        drop(s);
+        inner.changed.notify_all();
+        Ok(())
+    } else {
+        Err(JobError::NotCancellable)
+    }
+}
 
 /// D-819: a weak handle on a vault's engine (the core's tidy scheduler starts jobs through it).
 #[derive(Clone)]
@@ -482,6 +613,11 @@ impl JobsRef {
     pub fn start(&self, op: JobOp) -> Result<JobId, JobError> {
         let inner = self.0.upgrade().ok_or(JobError::NotFound)?;
         enqueue_in(&inner, op, None)
+    }
+    /// `Jobs::cancel` through the handle (an import run holds one, v1-import §9.1); `NotFound` once the engine is gone.
+    pub fn cancel(&self, job: JobId) -> Result<(), JobError> {
+        let inner = self.0.upgrade().ok_or(JobError::NotFound)?;
+        cancel_in(&inner, job)
     }
     pub fn wait(&self, job: JobId, timeout: Duration) -> Option<JobReport> {
         let inner = self.0.upgrade()?;
@@ -556,8 +692,10 @@ fn worker(weak: Weak<Inner>) {
                 }
             }
         };
-        if let Some((id, op, from_title)) = next {
-            inner.run(id, op, from_title);
+        match next {
+            Some((id, Work::Op(op, from_title))) => inner.run(id, op, from_title),
+            Some((id, Work::Import(job))) => inner.run_import(id, job),
+            None => {}
         }
     }
 }
@@ -755,6 +893,145 @@ impl Inner {
             j.progress.clone()
         };
         crate::journal::finish(self.host().as_ref(), id);
+        self.host().progress(progress);
+        self.changed.notify_all();
+    }
+
+    // -------------------------------------------------------------------------------------------- import (v1-import §9)
+
+    fn heartbeat(self: &Arc<Self>, id: JobId) -> Beat {
+        let stop = Arc::new(AtomicBool::new(false));
+        let (me, flag) = (Arc::downgrade(self), stop.clone());
+        let thread = std::thread::spawn(move || {
+            while !flag.load(Ordering::SeqCst) {
+                std::thread::park_timeout(HEARTBEAT);
+                if flag.load(Ordering::SeqCst) {
+                    break;
+                }
+                let Some(me) = me.upgrade() else { break };
+                let p = lock(&me.state).jobs.get(&id).map(|j| j.progress.clone());
+                if let Some(p) = p.filter(|p| !p.phase.is_final() && p.phase != Phase::Queued) {
+                    me.host().progress(p);
+                }
+            }
+        });
+        Beat { stop, thread: Some(thread) }
+    }
+
+    /// An import job, from the queue to its report. A panic in one of the job's calls unwinds this thread as it is:
+    /// nothing is cleaned up, no report is made and the journal stays for the next open (§2.1, §9.6).
+    fn run_import(self: &Arc<Self>, id: JobId, job: Arc<dyn ImportJob>) {
+        // Cancelled before it was queued or between the queue and here (`Jobs::cancel` didn't find it in the queue):
+        // under the state lock the job is either cancelled or `planning`, so it never reaches `planning` cancelled.
+        let planning = {
+            let mut s = lock(&self.state);
+            match s.jobs.get_mut(&id) {
+                Some(j) if !j.cancel => {
+                    j.phase = Phase::Planning;
+                    j.progress.phase = Phase::Planning;
+                    Some(j.progress.clone())
+                }
+                _ => None,
+            }
+        };
+        let Some(progress) = planning else {
+            job.finished(Phase::Cancelled, None);
+            self.end_import(id, Phase::Cancelled, None);
+            return;
+        };
+        self.host().progress(progress);
+        self.changed.notify_all();
+        let beat = self.heartbeat(id);
+        let ctx = ImportCtx { job: id, host: self.host().as_ref(), inner: self };
+        let result = self.execute_import(&ctx, job.as_ref());
+        drop(beat);
+        let (phase, error) = match result {
+            Ok(phase) => (phase, None),
+            Err(e) => (Phase::Failed, Some(e)),
+        };
+        job.finished(phase, error.as_deref());
+        self.end_import(id, phase, error);
+    }
+
+    /// §9: `planning` (`prepare`), the backup when the job asks for one, then `writing`.
+    fn execute_import(&self, ctx: &ImportCtx<'_>, job: &dyn ImportJob) -> Result<Phase, String> {
+        let id = ctx.job;
+        let total = job.prepare(ctx)?;
+        ctx.set_total(total);
+        if self.cancelled(id) {
+            return Ok(Phase::Cancelled);
+        }
+        let mut zip: Option<PathBuf> = None;
+        if job.needs_backup(ctx) {
+            job.before_backup(ctx)?;
+            if self.cancelled(id) {
+                return Ok(Phase::Cancelled);
+            }
+            self.set_phase(id, Phase::Backup, 0, total);
+            // ms4-jobs §6: every `.md` and every file under `.tegg/`, plus the manifest entry of ms4-tags §5.1 with
+            // the label `backups.label.import` `{ space }` (v1-import §9.3, D-1566 (5)), so Settings › Backups lists
+            // it as "Import · <space>". A restore of it has no moves to reverse: it gives the zipped files back and
+            // leaves the imported ones in place.
+            let time = job.backup_time().unwrap_or_else(chrono::Utc::now);
+            let manifest = serde_json::json!({
+                "version": 1,
+                "kind": JobKind::Import.as_str(),
+                "label": { "key": "backups.label.import", "args": { "space": job.title() } },
+                "vault": self.host().vault_name(),
+                "time": time.format("%Y-%m-%dT%H:%M:%SZ").to_string(),
+                "job": id,
+                "planned": { "renames": [], "creates": [], "trashes": [] },
+                "done": serde_json::Value::Null,
+            });
+            let path = self.backup_at(JobKind::Import, Some(&manifest), None, job.backup_time()).map_err(|e| format!("BackupFailed: {e}"))?;
+            let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            zip = Some(path);
+            if !self.cancelled(id) {
+                job.after_backup(ctx, &name)?;
+            }
+        }
+        // The last moment a cancel counts: under the state lock the job is either cancelled or `writing`, never both.
+        let writing = {
+            let mut s = lock(&self.state);
+            match s.jobs.get_mut(&id) {
+                Some(j) if !j.cancel => {
+                    j.phase = Phase::Writing;
+                    j.progress.phase = Phase::Writing;
+                    j.progress.total = total;
+                    Some(j.progress.clone())
+                }
+                _ => None,
+            }
+        };
+        let Some(progress) = writing else {
+            // Cancelled during or after the zip: the zip goes (§9.3, §10.2); nothing in the vault was written.
+            if let Some(z) = zip {
+                self.host().local_remove(&z);
+            }
+            return Ok(Phase::Cancelled);
+        };
+        self.host().progress(progress);
+        self.changed.notify_all();
+        job.write(ctx)?;
+        Ok(Phase::Done)
+    }
+
+    /// Publishes an import's end: its report, then the final progress event (`done == total` for `Done`).
+    fn end_import(&self, id: JobId, phase: Phase, error: Option<String>) {
+        let progress = {
+            let mut s = lock(&self.state);
+            let Some(j) = s.jobs.get_mut(&id) else { return };
+            j.phase = phase;
+            j.report = Some(JobReport { job: id, kind: JobKind::Import, phase, renamed: None, written: Vec::new(), unchanged: Vec::new(), skipped: Vec::new(), error, moved: Vec::new(), kept_type: false });
+            let done = if phase == Phase::Done { j.progress.total } else { j.progress.done.min(j.progress.total) };
+            j.progress = JobProgress { job: id, kind: JobKind::Import, phase, done, total: j.progress.total, counts: Some(Counts::default()) };
+            j.progress.clone()
+        };
+        // A finished import has no journal (§9.6: a failed one rolled back and removed it; this is the same removal).
+        // A job that never reached `writing` never had one.
+        if phase == Phase::Done {
+            crate::import_journal::finish(self.host().as_ref(), id);
+        }
         self.host().progress(progress);
         self.changed.notify_all();
     }
@@ -1587,6 +1864,12 @@ impl Inner {
     // -------------------------------------------------------------------------------------------- backup (§6)
 
     fn backup(&self, kind: JobKind, manifest: Option<&serde_json::Value>, keep: Option<&std::path::Path>) -> Result<PathBuf, String> {
+        self.backup_at(kind, manifest, keep, None)
+    }
+
+    /// `at`: the zip's time when the job gives one (v1-import §9.3, §12.1: an import hands in its clock's value);
+    /// `None`: the system clock, as every other kind.
+    fn backup_at(&self, kind: JobKind, manifest: Option<&serde_json::Value>, keep: Option<&std::path::Path>, at: Option<chrono::DateTime<chrono::Utc>>) -> Result<PathBuf, String> {
         let host = self.host();
         let dir = host.app_dir().join("backups").join(host.vault_key());
         let mut entries = Vec::new();
@@ -1610,7 +1893,7 @@ impl Inner {
             .into_iter()
             .filter_map(|p| p.file_name().map(|n| n.to_string_lossy().chars().take(15).collect()))
             .collect();
-        let mut t = chrono::Utc::now();
+        let mut t = at.unwrap_or_else(chrono::Utc::now);
         while taken.contains(&t.format("%Y%m%d-%H%M%S").to_string()) {
             t += chrono::Duration::seconds(1);
         }

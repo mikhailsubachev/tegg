@@ -83,7 +83,7 @@ function resolver(objs: Obj[]) {
     byId.set(id, [...pool].sort((a, b) => created(a) - created(b) || [...a.path].length - [...b.path].length || byCode(a.path, b.path))[0]);
   }
   const daily = new Map<string, Obj>();
-  const order = (a: Obj, b: Obj) => doc.dailyOrder({ path: a.path, created: a.attributes.created, modified: a.attributes.modified }, { path: b.path, created: b.attributes.created, modified: b.attributes.modified });
+  const order = (a: Obj, b: Obj) => doc.dailyOrder({ path: a.path, created: a.attributes.created, modified: a.attributes.modified, importId: a.attributes['import-id'] }, { path: b.path, created: b.attributes.created, modified: b.attributes.modified, importId: b.attributes['import-id'] });
   for (const o of [...objs].filter((x) => x.type === 'daily-note').sort(order)) {
     const d = o.attributes.date != null ? doc.parseDate(String(o.attributes.date).trim().slice(0, 10)) : null;
     if (d && !daily.has(d)) daily.set(d, o);

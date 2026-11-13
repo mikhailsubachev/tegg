@@ -233,13 +233,15 @@ export function instantOf(v: string): Instant | null {
 
 /** D-319, D-335: the winner order of two Daily Notes (newest `created`, then `modified`, missing oldest, then the
  *  UTF-8 bytes of the NFC path). The fake core's one copy of the rule. */
-export function dailyOrder(a: { path: string; created?: unknown; modified?: unknown }, b: { path: string; created?: unknown; modified?: unknown }): number {
+export function dailyOrder(a: { path: string; created?: unknown; modified?: unknown; importId?: unknown }, b: { path: string; created?: unknown; modified?: unknown; importId?: unknown }): number {
+  // D-1546 (v1-import §12.3): a note without `import-id` (a non-empty string) comes before a note with one.
+  const imported = (x: { importId?: unknown }) => (typeof x.importId === 'string' && x.importId !== '' ? 1 : 0)
   const n = (v: unknown) => (typeof v === 'string' ? instantOf(v)?.nanos ?? null : null)
   const by = (x: bigint | null, y: bigint | null) => (x !== null && y !== null ? (y > x ? 1 : y < x ? -1 : 0) : x !== null ? -1 : y !== null ? 1 : 0)
   const enc = new TextEncoder()
   const bytes = (p: string) => enc.encode(p.normalize('NFC'))
   const cmp = (x: Uint8Array, y: Uint8Array) => { for (let i = 0; i < Math.min(x.length, y.length); i++) if (x[i] !== y[i]) return x[i] - y[i]; return x.length - y.length }
-  return by(n(a.created), n(b.created)) || by(n(a.modified), n(b.modified)) || cmp(bytes(a.path), bytes(b.path))
+  return imported(a) - imported(b) || by(n(a.created), n(b.created)) || by(n(a.modified), n(b.modified)) || cmp(bytes(a.path), bytes(b.path))
 }
 
 // ---------------------------------------------------------------- slice 5A-1 (ms5-tasks §1)

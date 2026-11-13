@@ -1,0 +1,30 @@
+[package]
+name = "tegg-import"
+version = "0.0.0"
+edition.workspace = true
+publish.workspace = true
+description = "Tegg core: the Capacities import engine (docs/contracts/v1-import.md)."
+
+# Platform-neutral (AR-03): no Tauri, no desktop APIs, no network crate (contract §1.1).
+[dependencies]
+tegg-format = { path = "../tegg-format" }
+tegg-schema = { path = "../tegg-schema" }
+tegg-vault = { path = "../tegg-vault" }
+tegg-jobs = { path = "../tegg-jobs" }
+tegg-core = { path = "../tegg-core" }
+chrono.workspace = true
+chrono-tz.workspace = true
+serde = { version = "1", features = ["derive"] }
+serde_json.workspace = true
+zip = { version = "2", default-features = false, features = ["deflate"] }
+yaml-rust2 = "0.13"
+regex = "1"
+unicode-normalization = "0.1"
+percent-encoding = "2"
+
+# What the AC tests in tests/ use.
+[dev-dependencies]
+tegg-core = { path = "../tegg-core", features = ["test-hooks"] }
+tempfile.workspace = true
+flate2 = "1"
+crc32fast = "1"
