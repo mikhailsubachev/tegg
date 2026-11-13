@@ -70,7 +70,9 @@ export function ImportDialog() {
   }, [s.open, s.quitAsk]);
   // After every step change: the focus on the heading and one announcement; back from 4b on the row's status button.
   useEffect(() => {
-    if (!s.open) { prevStep.current = null; return; }
+    // Closed: the last announcement goes too, so the closed window's heading (`Import finished`) doesn't stay in the
+    // accessibility tree (the live region outlives the window).
+    if (!s.open) { prevStep.current = null; setAnnounce(null); return; }
     const from = prevStep.current;
     prevStep.current = s.step;
     if (getImport().quitAsk) { /* the quit question on top keeps the focus (§6.3) */ }
@@ -209,7 +211,7 @@ function StartStep() {
   const later = t('import.source.laterHelp');
   return (
     <RadioGroup label={t('import.source.group')} checked="capacities" onCheck={() => {}} className="import-sources" items={[
-      { key: 'capacities', label: t('import.source.capacities'), description: t('import.source.capacitiesHelp'),
+      { key: 'capacities', label: t('import.source.capacities'), ariaLabel: t('import.source.capacities'), description: t('import.source.capacitiesHelp'),
         content: <span className="import-radio-text"><span className="import-radio-label">{t('import.source.capacities')}</span><span className="import-help">{t('import.source.capacitiesHelp')}</span></span> },
       { key: 'obsidian', label: t('import.source.obsidian'), disabled: true, ariaLabel: t('import.source.obsidian'), description: `${t('import.source.obsidianHelp')} ${later}`,
         content: <span className="import-radio-text"><span className="import-radio-label">{t('import.source.obsidian')} <span className="badge">{t('import.source.later')}</span></span><span className="import-help">{t('import.source.obsidianHelp')}</span></span> },

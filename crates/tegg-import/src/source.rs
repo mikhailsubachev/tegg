@@ -109,8 +109,10 @@ impl<'a> Ticker<'a> {
             return Err(ImportError::Cancelled);
         }
         if self.last.is_none_or(|t| t.elapsed() >= Duration::from_millis(100)) || done == self.total {
-            self.emit(self.phase.clone(), done);
+            // The interval counts from an event's start, not its end: a sink that takes 100 ms or more (the shell's
+            // `TEGG_TEST_IMPORT_PACE` sleep, v1-import-window §8) then sees every step as an event.
             self.last = Some(Instant::now());
+            self.emit(self.phase.clone(), done);
         }
         Ok(())
     }

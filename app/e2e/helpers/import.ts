@@ -81,9 +81,10 @@ export function ensureDir(p: string): string {
   mkdirSync(p, { recursive: true });
   return p;
 }
-/** The focused element's label (XCUIElement `hasKeyboardFocus`). */
+/** The focused element's label. mac2 has no `hasKeyboardFocus` attribute in predicates; its own `amHasKeyboardInputFocus`
+ *  matches the window, the web view and the focused web element, in that order, so the last match is the focused control. */
 export async function focusedLabel(d: Driver): Promise<string> {
-  const all = await d.$$('-ios predicate string:hasKeyboardFocus == 1').catch(() => [] as any[]);
+  const all = await d.$$('-ios predicate string:amHasKeyboardInputFocus == 1').catch(() => [] as any[]);
   const e = all[all.length - 1];
   if (!e || !(await e.isExisting().catch(() => false))) return '';
   return String((await e.getAttribute('label').catch(() => '')) || (await e.getAttribute('title').catch(() => '')) || '');
