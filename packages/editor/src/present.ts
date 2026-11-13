@@ -766,10 +766,11 @@ class CalloutView implements NodeView {
         this.foldBtn.contentEditable = 'false'
         this.foldBtn.addEventListener('mousedown', (e) => e.preventDefault())
         this.foldBtn.addEventListener('click', (e) => { e.preventDefault(); this.setFolded(!this.folded) })
-        this.dom.appendChild(this.foldBtn)
+        // After the content and without a text node of its own (the glyph is CSS), so the block's text starts with its title.
         this.contentDOM = document.createElement('div')
         this.contentDOM.className = 'callout-content'
         this.dom.appendChild(this.contentDOM)
+        this.dom.appendChild(this.foldBtn)
         calloutFolds.set(this.dom, this)
         this.renderFold()
       } else this.contentDOM = this.dom
@@ -937,7 +938,6 @@ class CalloutView implements NodeView {
     this.dom.toggleAttribute('data-folded', this.folded)
     this.foldBtn.setAttribute('aria-label', text(this.folded ? 'expand' : 'collapse', title))
     this.foldBtn.setAttribute('aria-expanded', String(!this.folded))
-    this.foldBtn.textContent = this.folded ? '›' : '⌄'
   }
   private at = -1
   private register() {

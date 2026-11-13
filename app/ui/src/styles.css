@@ -1510,7 +1510,11 @@ button.tag-tile { cursor: pointer; }
 [data-outline-flash] { background: var(--link-bg); box-shadow: 0 0 0 5px var(--link-bg); transition: none; border-radius: 2px; }
 [data-outline-fade] { transition: background-color 300ms, box-shadow 300ms; }
 /* Slice OL (R172 rule 3, D-159): a folding callout in the editor; the fold is view state only. */
-.editor-host .ProseMirror [data-callout] > .callout-fold { float: right; margin: 0 0 0 6px; padding: 0 4px; border: none; background: none; color: var(--muted); cursor: pointer; font: inherit; line-height: 1.4; }
+.editor-host .ProseMirror [data-callout]:has(> .callout-fold) { position: relative; padding-right: 32px; }
+.editor-host .ProseMirror [data-callout] > .callout-fold { position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; padding: 0; border: none; border-radius: 4px; background: none; color: var(--muted); cursor: pointer; font: inherit; line-height: 1; }
+.editor-host .ProseMirror [data-callout] > .callout-fold::before { content: '⌄'; }
+.editor-host .ProseMirror [data-callout][data-folded] > .callout-fold::before { content: '›'; }
+.editor-host .ProseMirror [data-callout] > .callout-fold:hover { background: var(--hover); color: var(--text); }
 .editor-host .ProseMirror [data-callout][data-folded] > .callout-content > :not([data-callout-title]) { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .outline-chevron, .outline-rail, [data-outline-fade] { transition: none; }
