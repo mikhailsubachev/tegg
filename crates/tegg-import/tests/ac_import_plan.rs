@@ -331,7 +331,10 @@ fn fr_imp_19_ac8_report_page() {
     let first = some!(path_of(&c10.plan, "Meetings/Tomáš  Eva (1).md"), "the first meeting by source path").trim_end_matches(".md").to_string();
     let amb = rows(&report, &sec("ambiguous"));
     assert_eq!(amb.len(), 1, "one ambiguous link: {amb:?}");
-    assert!(amb[0].starts_with("[[Tomáš]] · `Tomáš : Eva` · [[") && amb[0].contains(&first), "the linking object, the title, the object chosen (the first by source path, D-76): {amb:?}");
+    // The object chosen is written in D-184 short form: only one note has the stem `Tomáš Eva` as seen from `Pages/`.
+    let stem = first.rsplit('/').next().unwrap_or(&first).to_string();
+    assert_eq!(stem, "Tomáš Eva", "the first meeting by source path is written as `Tomáš Eva`: {first}");
+    assert_eq!(amb[0], format!("[[Tomáš]] · `Tomáš : Eva` · [[{stem}]]"), "the linking object, the title, the object chosen (the first by source path, D-76) as its link text: {amb:?}");
 
     // A second import on the same day gets ` (2)`.
     let sb = sandbox();

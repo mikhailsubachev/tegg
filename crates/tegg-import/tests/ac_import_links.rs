@@ -196,7 +196,9 @@ fn fr_imp_10_ac8_nfd_targets_resolve() {
     let zip = sb.base.join("nfd").join("c20-file-name-edges.zip");
     write_zip(&zip, &entries);
     let env = ok!(env(&sb), "env");
-    let target = new_target(&sb);
+    // A fresh target: the import above already made the vault `new_target(&sb)` names, so plan into a new sandbox.
+    let fresh = sandbox();
+    let target = new_target(&fresh);
     let from_zip = ok!(plan_of(&ok!(scan_of(&zip, &env), "scan the NFD zip"), SPACE, &target, &Mapping::default(), &env), "plan the NFD zip");
     let from_dir = ok!(plan_of(&ok!(scan_of(&dir, &env), "scan the folder"), SPACE, &target, &Mapping::default(), &env), "plan the folder");
     assert!(from_zip.same_as(&from_dir), "the NFD zip gives the same plan as the NFC folder");

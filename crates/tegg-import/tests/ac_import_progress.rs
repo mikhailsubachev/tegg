@@ -110,7 +110,9 @@ fn fr_imp_07_ac3_a_large_zip_reports_progress_and_can_be_cancelled() {
         let a = at.clone();
         let progress: Arc<dyn Fn(&ImportProgress) + Send + Sync> = Arc::new(move |p: &ImportProgress| {
             e.lock().unwrap_or_else(|x| x.into_inner()).push((Instant::now(), p.clone()));
-            if p.done >= 2 && !c.is_cancelled() {
+            // Cancel on the phase's first progress event (D-1567): a fast scan or plan can finish within one
+            // 100 ms progress interval, so a later event may already be the last step.
+            if !c.is_cancelled() {
                 c.cancel();
                 *a.lock().unwrap_or_else(|x| x.into_inner()) = Some(Instant::now());
             }
