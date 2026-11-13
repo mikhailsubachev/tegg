@@ -661,7 +661,7 @@ pub enum NotExported { QueryDefinitions, TagColoursAndCollections, Comments }
 | `cleanup` | one row per count above 0, in the order U+200B, U+FEFF, U+200C, U+200D, CRLF: the code point's name as plain text (`U+200B`, not from the catalog, no code span) · count, so `- U+200B · 4`; then `cleanup.crlf` · `crlf_files` |
 | `notExported` | `notExported.queries`; `notExported.tags`; `notExported.comments` |
 
-**Catalog keys** (`import.report.` + the key; `ReportStrings`, §2). R155 gives the rule "one key per section name and reason of R150"; this is the list. Texts marked † aren't given word for word by R150 or R155: they are the author's wording of R150's row descriptions and are approved with the expected outputs (§16.2), like every byte of the report.
+**Catalog keys** (`import.report.` + the key; `ReportStrings`, §2). R155 gives the rule "one key per section name and reason of R150"; this is the list. Texts marked † aren't given word for word by R150 or R155: they are the author's wording of R150's row descriptions. The 33 † texts and `stub.note` are **approved as written by D-1580** (owner, 2026-11-13: "Approve all"; listed in `docs/contracts/v1-import-window.md` §11); like every byte of the report, they are also held by the expected outputs (§16.2).
 
 | Key | English |
 | --- | --- |
@@ -679,6 +679,7 @@ pub enum NotExported { QueryDefinitions, TagColoursAndCollections, Comments }
 | `skip.yaml`, `.noType`, `.notUtf8`, `.read`, `.encrypted`, `.engine`, `.badName`, `.traversal`, `.tagCollection`, `.csv`, `.dotfile`, `.outsideSpace`, `.unreadableEntry`, `.type` | `frontmatter isn’t valid YAML` †, `no type` †, `not UTF-8` †, `couldn’t be read` †, `password-protected` †, `couldn’t be converted` †, `unreadable name` †, `unsafe path` †, `tag collection` †, `CSV file` †, `hidden file` †, `outside every space` †, `unreadable entry` †, `type not imported` † |
 | `cleanup.crlf` | `files with CRLF` |
 | `notExported.queries`, `.tags`, `.comments` | `Query definitions`, `Tag colours and collections`, `Comments` |
+| `stub.note` | `This query was imported from Capacities. Its definition wasn’t exported, so it needs rebuilding.` (the query stub's body line, FR-IMP-16 AC-1; D-1580) |
 
 **Rows, to the byte.** A tally row of the Summary is the label, then each number followed by one space and its word, the three groups joined by ` · `: `- Objects · 3 imported · 0 reported · 3 total` (with keys for words: `- ⟦summary.objects⟧ · 3 ⟦summary.imported⟧ · 0 ⟦summary.reported⟧ · 3 ⟦summary.total⟧`). The source row quotes the source name, the space and date rows don't: `` - Source · `c09-unresolved-links` ``, `- Space · PKM`, `- Date · 2026-11-12`. A type row has no code span (`- Trip · 2 · Trip · new`). The L1 red tests (`fr_imp_19_ac8_import_new_report_*`) hold every row kind of the table above.
 
@@ -1364,7 +1365,7 @@ None of these edits is a pure addition today, because the crate doesn't exist ye
 
 **Still open.** One point **comes to the owner with the red tests**:
 
-- The wording of the report's own words marked † in §5.3: R150 describes the rows but gives no text for them. They are approved with the expected outputs (§16.2) unless the owner wants them as a separate point.
+- The wording of the report's own words marked † in §5.3: R150 describes the rows but gives no text for them. They are approved with the expected outputs (§16.2) unless the owner wants them as a separate point. *(Decided: the 33 † texts and `stub.note` approved as written, D-1580, 2026-11-13, through `docs/contracts/v1-import-window.md` §11.)*
 
 ## 20. After the red tests: gaps closed, and points for the owner (CP-8…CP-11)
 
