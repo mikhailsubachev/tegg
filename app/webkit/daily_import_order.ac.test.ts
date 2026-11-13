@@ -10,7 +10,7 @@ import { D, dailyVault, duplicateNotice, editorBody, flat, gotoDaily, must, seen
 const D12C = 'Daily/2026-10-12 (3).md';
 const IMPORT_LINE = 'import-id: "capacities:PKM/DailyNotes/2026-10-12.md"\n';
 const imported = (line: string) =>
-  `---\nid: 01JB4B0000000000000000D012\ntype: daily-note\ntitle: "2026-10-12"\ndate: 2026-10-12\nreview: unreviewed\n${line}created: 2026-11-12T10:00:00+01:00\nmodified: 2026-11-12T10:00:00+01:00\n---\nImportovaný zápis.\n`;
+  `---\nid: 01JB4B0000000000000000D015\ntype: daily-note\ntitle: "2026-10-12"\ndate: 2026-10-12\nreview: unreviewed\n${line}created: 2026-11-12T10:00:00+01:00\nmodified: 2026-11-12T10:00:00+01:00\n---\nImportovaný zápis.\n`;
 
 test('fr_dly_01_ac12_an_imported_note_never_takes_the_day', async ({ page }) => {
   const core = await startDaily(page, { vault: dailyVault((files) => { files[D12C] = imported(IMPORT_LINE); }) });

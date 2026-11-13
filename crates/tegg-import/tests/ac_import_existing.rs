@@ -330,11 +330,13 @@ fn fr_his_04_ac12_backup_before_import() {
     assert!(stamp.len() == 15 && stamp.char_indices().all(|(i, c)| if i == 8 { c == '-' } else { c.is_ascii_digit() }), "named <UTC yyyymmdd-hhmmss>-import.zip: {name}");
     assert_eq!(run.report.backup.as_deref(), Some(name.as_str()), "the run's report names the zip");
     let mut held = read_zip(&zips[0]);
-    // The backup's manifest entry (ms4-tags §5.1, v1-import §9.3) is allowed; every other entry is a vault file.
-    if let Some(manifest) = held.remove("tegg-backup.json") {
-        assert!(!before.contains_key("tegg-backup.json"), "setup: the vault has no file of the manifest's name");
-        assert!(String::from_utf8_lossy(&manifest).contains("backups.label.import"), "the manifest labels the backup as an import's");
-    }
+    // The import backup has the manifest entry (ms4-tags §5.1, v1-import §9.3, D-1566 (5)) labelled
+    // `backups.label.import` `{ space }`; every other entry is a vault file.
+    assert!(!before.contains_key("tegg-backup.json"), "setup: the vault has no file of the manifest's name");
+    let manifest = some!(held.remove("tegg-backup.json"), "the import backup has its manifest tegg-backup.json");
+    let manifest: serde_json::Value = ok!(serde_json::from_slice(&manifest), "the manifest is JSON");
+    assert_eq!(manifest["label"]["key"].as_str(), Some("backups.label.import"), "the manifest labels the backup as an import's: {manifest}");
+    assert_eq!(manifest["label"]["args"]["space"].as_str(), Some(SPACE), "the label's space is the imported space: {manifest}");
     let want: BTreeSet<String> = before.keys().filter(|k| !k.ends_with('/') && (k.ends_with(".md") || k.starts_with(".tegg/"))).cloned().collect();
     assert_eq!(held.keys().map(|k| nfc(k)).collect::<BTreeSet<_>>(), want, "it holds every .md (those in .trash/ too) and every file under .tegg/, with NFC UTF-8 names");
     assert!(held.keys().all(|k| nfc(k) == *k), "the names are NFC");

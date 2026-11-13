@@ -150,7 +150,8 @@ fn fr_imp_03_ac3_atomic_writes_survive_a_kill() {
             let files: Vec<&String> = left.keys().filter(|k| !k.ends_with('/')).collect();
             assert!(files.len() <= 1 && files.iter().all(|k| k.starts_with("..tegg-import.") && k.ends_with(".tegg-tmp")), "kill {i} at {point:?}: it holds nothing or only the marker's temp file: {:?}", left.keys().collect::<Vec<_>>());
         }
-        // Reopening: the next import of that name moves the leftover to the Trash and writes a whole vault.
+        // Reopening: the next import of that name removes the unmarked leftover (CP-8, D-1562; a marked one would go to
+        // the Trash, D-1559) and writes a whole vault.
         if !finished {
             let again = some!(ok!(run_new(&sb, &src, &ok!(common::env(&sb), "env"), None), format!("kill {i}: the next import")), "its report");
             assert_eq!(again.phase, Phase::Done, "kill {i}: the next import finishes: {:?}", again.error);

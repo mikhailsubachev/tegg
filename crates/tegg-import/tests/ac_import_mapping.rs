@@ -318,6 +318,8 @@ fn fr_imp_08_ac10_value_variants() {
     let before = some!(read_text(&repo_root().join("tests/fixtures/vaults/new-empty/.tegg"), "types/task.yml"), "the fixture's task.yml");
     let after = some!(read_text(&off.root, ".tegg/types/task.yml"), "the written task.yml");
     let planned: Vec<(String, String)> = off.plan.types.iter().filter(|t| t.source_type == "Task").flat_map(|t| t.attributes.iter()).filter(|a| a.action == AttrAction::New).map(|a| (a.key.clone().unwrap_or_default(), a.r#type.clone().unwrap_or_default())).collect();
+    assert_eq!(planned.iter().map(|(k, _)| k.as_str()).collect::<Vec<_>>(), ["people"], "the plan's only new Task attribute is c21's people: {planned:?}");
+    assert!(!planned[0].1.is_empty(), "the planned people attribute has a kind: {planned:?}");
     assert!(after.starts_with(&before), "task.yml keeps its bytes and only gains appended attributes:\n{after}");
     assert_eq!(type_attrs(&after), [type_attrs(&before), planned.clone()].concat(), "task.yml gains exactly the planned attribute(s): {planned:?}");
     // Values that differ by more than case or surrounding spaces are never merged by default.

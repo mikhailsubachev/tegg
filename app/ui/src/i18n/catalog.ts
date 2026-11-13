@@ -1496,6 +1496,7 @@ export const en: Catalog = {
   'backups.label.tidy': 'Tidy folders',
   'backups.label.valueRemove': 'Delete property {name}', // ms4-jobs §14.9.1
   'backups.label.typeDelete': 'Delete type {name}',
+  'backups.label.import': 'Import · {space}', // v1-import §9.3, D-1566 (5)
   'tag.duplicateWarning': 'Another Tag file for #{tag} exists: {path}. Merge them on Duplicate titles first.',
   'tag.unknownColour': 'Unknown colour "{value}"',
   'tag.renameTemplates': { text: 'Updates {count} and {templates}. A backup is made first.', count: { one: '{n} note', other: '{n} notes' }, templates: { one: '{n} template', other: '{n} templates' } },
