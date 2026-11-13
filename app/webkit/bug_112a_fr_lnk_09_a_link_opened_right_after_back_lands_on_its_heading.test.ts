@@ -5,7 +5,7 @@
 // is the same on every run.
 import { test } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { NOW, PV, ZONE, eventually, main, mustBeOn, need, needOdkazyLink, startPreviews, topInScroller } from './previews-helpers';
+import { NOW, PV, ZONE, eventually, main, mustBeOn, need, needOdkazyLink, startPreviews, topBelowToolbar } from './previews-helpers';
 
 test.use({ timezoneId: ZONE });
 
@@ -25,6 +25,6 @@ test('bug_112a_fr_lnk_09_a_link_opened_right_after_back_lands_on_its_heading', a
   await mustBeOn(page, 'Rozpočet 2027', 'a click on [[Rozpočet 2027#Rozsah]] before Odkazy\'s first frame opens it');
   await page.clock.resume();
   const hd = await need(main(page).locator('h2').filter({ hasText: /^\s*Rozsah\s*$/ }), 'the heading Rozsah');
-  const top = await eventually(() => topInScroller(hd), (t) => t !== null && Math.abs(t - 24) <= 8, 3000);
-  assert.ok(top !== null && Math.abs(top - 24) <= 8, `Rozpočet 2027#Rozsah opens with Rozsah 24 px below the top of the centre pane (± 8 px, D-1625), not at Back's scroll position: ${top}`);
+  const top = await eventually(() => topBelowToolbar(hd), (t) => t !== null && Math.abs(t - 24) <= 8, 3000);
+  assert.ok(top !== null && Math.abs(top - 24) <= 8, `Rozpočet 2027#Rozsah opens with Rozsah 24 px below the toolbar (± 8 px, D-1625, D-1673), not at Back's scroll position: ${top}`);
 });

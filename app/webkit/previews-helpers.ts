@@ -480,6 +480,18 @@ export async function topInScroller(loc: Locator): Promise<number | null> {
     return e.getBoundingClientRect().top - (sc ?? document.documentElement).getBoundingClientRect().top;
   }).catch(() => null);
 }
+/** An element's top below the viewport's top (D-1673): the bottom of the sticky note toolbar (`data-sticky-top`) in
+ *  its scroller when shown, else the scroller's top. Where a heading link lands (D-1625). */
+export async function topBelowToolbar(loc: Locator): Promise<number | null> {
+  return loc.first().evaluate((e) => {
+    let sc: HTMLElement | null = e.parentElement;
+    while (sc && !(sc.scrollHeight > sc.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(sc).overflowY))) sc = sc.parentElement;
+    const box = sc ?? document.documentElement;
+    const bar = box.querySelector('[data-sticky-top]');
+    const vt = bar ? Math.max(box.getBoundingClientRect().top, bar.getBoundingClientRect().bottom) : box.getBoundingClientRect().top;
+    return e.getBoundingClientRect().top - vt;
+  }).catch(() => null);
+}
 /** The body article's own scroll state. */
 export async function scrollState(article: Locator): Promise<{ top: number; height: number; client: number; overflowY: string } | null> {
   return article.first().evaluate((a) => {
