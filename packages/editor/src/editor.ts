@@ -570,6 +570,30 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
     }
     updateState(state)
   }
+  // Slice OL (D-1660, QA review): a folded callout opens when the selection reaches past its title (arrow keys, a
+  // restored caret, a node selection), so the caret, an edit or a deletion never happens in hidden text. View state only.
+  editor.registerPlugin(new Plugin({
+    view: () => ({
+      update: (v, prev) => {
+        if (prev && prev.selection.eq(v.state.selection)) return
+        const sel = v.state.selection
+        const open = (pos: number) => {
+          const dom = v.nodeDOM(pos) as HTMLElement | null
+          const f = dom ? calloutFolds.get(dom) : undefined
+          if (f?.folded) f.setFolded(false)
+        }
+        if (sel instanceof NodeSelection && sel.node.type.name === 'callout') open(sel.from)
+        for (const $p of [sel.$from, sel.$to]) {
+          for (let d = 1; d <= $p.depth; d++) {
+            if ($p.node(d).type.name !== 'callout') continue
+            // Inside the title (the callout's first child) the fold stays as it is.
+            if (d < $p.depth && $p.index(d) === 0) continue
+            open($p.before(d))
+          }
+        }
+      },
+    }),
+  }))
   // 4F (FR-EMB-01 AC-9, D-419): a top-level paragraph that becomes a sole note embed is a block embed.
   editor.registerPlugin(new Plugin({
     appendTransaction: (trs, _old, state) => {
