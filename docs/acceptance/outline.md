@@ -327,7 +327,7 @@ Rules:
   - `Skrytý nadpis` expands `Sbalený callout`: its button becomes `Collapse Sbalený callout` with `aria-expanded="true"` (D-159). The caret lands at the end of `Skrytý nadpis`. The file stays untouched and still contains `> [!tip]- Sbalený callout` when the note is left.
   - `Nadpis v seznamu` and `Nadpis v calloutu` put the caret at the end of those headings, inside the list item and the callout.
   - `Nadpis podtržený` (setext) puts it at the end of its text line.
-  - With the fake core holding the outline refresh, a row whose heading was deleted just before the click does nothing (the caret and scroll are unchanged), and the tree is refreshed within 250 ms.
+  - With the outline refresh held (`__TEGG_TEST__.outline.hold(true)`, D-1640), a row whose heading was deleted just before the click does nothing (the caret and scroll are unchanged), and the tree is refreshed within 250 ms.
 
   *(L5)* Test: `fr_edt_11_ac11_jump_targets_by_position`
 - **AC-12** **The source view and read-only files (AP-1419).** On Plán in the source view (⌥⌘U), the tab lists the same 11 rows. A click on `Den 1`:
@@ -477,7 +477,7 @@ Rules:
 - **AC-12** **Live updates on the rail.** On Jeden with the panel closed, typing a second heading `## Termíny` makes the rail appear with 2 lines within 250 ms of the last keystroke. ⌘Z removes it within 250 ms. With the card open on Plán, typing `## Rezervy` at the end adds its row and line within 250 ms. *(L5)* Test: `fr_edt_16_ac12_rail_follows_typing`
 - **AC-13** **Many top-level headings (AP-1415).** At 1,440 × 900 (viewport about 850 px high) with the panel closed:
   - `Pages/Šedesát kapitol.md` draws 60 lines with a gap of at least 2 px, the whole rail within the viewport's height − 48 px.
-  - `Pages/Dvě stě kapitol.md` shows no rail. ⌘J opens the card, which lists 200 rows and scrolls.
+  - `Pages/Tři sta kapitol.md` (300 H1, made at runtime) shows no rail. ⌘J opens the card, which lists 300 rows and scrolls. (D-1634: 200 H1 still fit at a 2.5 px gap, R173.)
 
   *(L5)* Test: `fr_edt_16_ac13_many_top_level_headings`
 - **AC-14** [manual] **Design review.** The owner compares the built rail and card with boards E1–E4 and V1–V11 in light and dark (Plán, Architektura, Čtenářské; panel closed, on Backlinks, on Outline; 1,000 px). Each deviation is recorded as an issue or accepted. *(manual)*

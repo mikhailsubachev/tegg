@@ -1,6 +1,6 @@
 # Contract: the Outline, tab and edge rail (v1.0 slice OL)
 
-**Status: draft, 2026-11-13, written before the slice OL red tests.** Contract points CP-1…CP-14 (§14) wait for the owner.
+**Status: accepted, 2026-11-13, written before the slice OL red tests.** The owner accepted contract points CP-1…CP-14 (§14) as proposed ("Accept all 14"): D-1628…D-1641 (BRD v1.173; CP-n → D-(1627 + n)).
 
 Public interfaces of slice OL, for the test author (D-61) and the build. ACs: `docs/acceptance/outline.md` (R170…R177;
 FR-EDT-11 AC-1…AC-21, FR-EDT-16 AC-1…AC-14, FR-NAV-03 AC-15, AC-16, FR-NAV-05 AC-4, AC-5 and the changed AC-1 of
@@ -549,7 +549,7 @@ No new `qa.config.json` step: the tests live in packages that already have steps
 16. `outline-ready` is a once-per-process mark for L6 waits; the benchmark uses `perf_mark` lines named `outline`.
 17. The tab panel shows nothing (no tree, count or hint) while the source is null (FR-EDT-11 AC-18).
 
-## 14. Contract points (CP-1…CP-14, for the owner)
+## 14. Contract points (CP-1…CP-14 → D-1628…D-1641, accepted as proposed)
 
 | CP | Point | Choice in this contract (why) |
 | --- | --- | --- |

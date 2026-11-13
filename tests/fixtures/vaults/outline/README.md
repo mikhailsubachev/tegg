@@ -53,6 +53,6 @@ Architektura (18) and Plán (11) show every heading on the rail.
 
 - **NFD.** Architektura's line `### Složky podle typu` rewritten in NFD (FR-FMT-12 AC-10); Bez hlavičky opened through a route whose path is in NFD (`'Pages/Bez hlavičky.md'.normalize('NFD')`).
 - **Small notes.** `Pages/Dva nadpisy.md` (page, `## A`, `## B`, FR-EDT-16 AC-1); `Pages/Prázdné nadpisy.md` (page, body `#` and `##` lines only, FR-EDT-11 AC-6).
-- **Many headings.** `Pages/Šedesát kapitol.md` (60 H1 `Kapitola 01`…`Kapitola 60`, each with a one-line paragraph) and `Pages/Dvě stě kapitol.md` (200 H1), FR-EDT-16 AC-13; `Pages/Pět set nadpisů.md`: 100 H1 `Kapitola 001`…`Kapitola 100`, each with 4 H2 `Oddíl 001.1`…, every heading followed by a 30-word filler paragraph (500 headings), FR-EDT-11 AC-20 and NFR-PERF-06 AC-6. The benchmark copies it into the reference vault (`tools/gen-vault --seed 1`).
+- **Many headings.** `Pages/Šedesát kapitol.md` (60 H1 `Kapitola 01`…`Kapitola 60`, each with a one-line paragraph) and `Pages/Tři sta kapitol.md` (300 H1, D-1634), FR-EDT-16 AC-13; `Pages/Pět set nadpisů.md`: 100 H1 `Kapitola 001`…`Kapitola 100`, each with 4 H2 `Oddíl 001.1`…, every heading followed by a 30-word filler paragraph (500 headings), FR-EDT-11 AC-20 and NFR-PERF-06 AC-6. The benchmark copies it into the reference vault (`tools/gen-vault --seed 1`).
 - **ui-state.** A `ui-state.json` pre-seeded with 200 `outline.collapsed` entries for made-up ids `01JC5Z…` (FR-STO-07 AC-7).
 - **External edits** named in the criteria: by the helper process (L6) or the fake core (L5).
