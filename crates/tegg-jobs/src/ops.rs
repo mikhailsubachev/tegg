@@ -40,6 +40,10 @@ pub fn op_json(op: &TextOp) -> Value {
         TextOp::RemoveKey { key } => json!({ "op": "remove-key", "key": key }),
         // v1-queries §3.1 (slice Q).
         TextOp::RenameSavedQuery { from, to } => json!({ "op": "rename-saved-query", "from": from, "to": to }),
+        // v1-import §7.1 (slice I1).
+        TextOp::ImportScan => json!({ "op": "import-scan" }),
+        TextOp::ImportNote { spec } => json!({ "op": "import-note", "spec": &**spec }),
+        TextOp::ImportNew { spec } => json!({ "op": "import-new", "spec": &**spec }),
     }
 }
 
@@ -98,6 +102,9 @@ pub fn op_from_json(v: &Value) -> Option<TextOp> {
         }),
         "remove-key" => Some(TextOp::RemoveKey { key: s("key")? }),
         "rename-saved-query" => Some(TextOp::RenameSavedQuery { from: s("from")?, to: s("to")? }),
+        "import-scan" => Some(TextOp::ImportScan),
+        "import-note" => Some(TextOp::ImportNote { spec: std::sync::Arc::new(v.get("spec")?.clone()) }),
+        "import-new" => Some(TextOp::ImportNew { spec: std::sync::Arc::new(v.get("spec")?.clone()) }),
         "change-type" => Some(TextOp::ChangeType { r#type: s("type")?, now: v["now"].as_str().map(str::to_string), id: v["id"].as_str().map(str::to_string) }),
         _ => None,
     }

@@ -4,7 +4,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::{FileVersion, JobProgress, TextOp};
+use crate::{FileVersion, JobProgress, Staged, TextOp};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReadError {
@@ -239,6 +239,74 @@ pub trait Host: Send + Sync {
     fn query_rename_plan(&self, name: &str, title: &str) -> Result<QueryRenamePlan, crate::JobError> {
         let _ = (name, title);
         Err(crate::JobError::NotImplemented)
+    }
+
+    // -------------------------------------------------------------------------------- slice I1 (v1-import §12.1)
+    // Default bodies are stubs (TS-I1): every write is refused, nothing is found, nothing is removed.
+
+    /// §9.4 step 1 (`Vault::stage_new`): streams `src` into `<folder>/.<file name>.<tag>.tegg-tmp` next to `path`
+    /// (create-new, synced), **outside the vault lock**. The folder must exist. Nothing is at `path` yet.
+    fn stage_new(&self, path: &str, tag: &str, src: &mut dyn std::io::Read) -> Result<Staged, WriteError> {
+        let _ = (path, tag, src);
+        Err(WriteError::Io("I1 stub: Host::stage_new".into()))
+    }
+    /// §9.4 step 2 (`Vault::commit_new`): the name check and the no-replace rename, under the vault lock. `NameTaken`
+    /// when an entry has that name; the temp file is then removed and the entry there is never touched. After a
+    /// committed create the core updates the index and reports `vault:changed`, as for every job write.
+    fn commit_new(&self, staged: Staged) -> Result<FileVersion, WriteError> {
+        let _ = staged;
+        Err(WriteError::Io("I1 stub: Host::commit_new".into()))
+    }
+    /// Removes a staged file's temp file (a create given up before its rename).
+    fn discard_staged(&self, staged: Staged) {
+        let _ = staged;
+    }
+    /// The file id (inode) of the file at `path`; `None` when missing or unknown.
+    fn file_id(&self, path: &str) -> Option<u64> {
+        let _ = path;
+        None
+    }
+    /// The extended type file (§9.4): `write` against `base`, with `before_rename` run after the temp file is written
+    /// and before the rename (`Vault::write_with`); an `Err` from it fails the write and removes the temp file.
+    fn write_hooked(&self, path: &str, bytes: &[u8], base: &FileVersion, before_rename: &dyn Fn() -> std::io::Result<()>) -> Result<Wrote, WriteError> {
+        let _ = (path, bytes, base, before_rename);
+        Err(WriteError::Io("I1 stub: Host::write_hooked".into()))
+    }
+    /// §9.6: deletes `path` (not a move to `.trash/`) only while it still has `base`'s size and hash
+    /// (`Vault::discard_checked`); `Changed` otherwise, `Missing` when absent.
+    fn discard(&self, path: &str, base: &FileVersion) -> Result<(), WriteError> {
+        let _ = (path, base);
+        Err(WriteError::Io("I1 stub: Host::discard".into()))
+    }
+    /// §9.6: removes `.<file name>.tegg-tmp` (`tag` None) or `.<file name>.<tag>.tegg-tmp` next to `path`, whatever
+    /// its age, under the vault lock.
+    fn remove_temp(&self, path: &str, tag: Option<&str>) {
+        let _ = (path, tag);
+    }
+    /// §9.6 (`D` lines): removes the folder `dir` only when it is empty; `true` when it was removed.
+    fn remove_empty_dir(&self, dir: &str) -> bool {
+        let _ = dir;
+        false
+    }
+    /// The write-ahead log (§9.6): appends `line` and a newline to the machine-local file `path` and syncs it before
+    /// returning (`tegg_vault::append_local_file`).
+    fn local_append(&self, path: &Path, line: &[u8]) -> std::io::Result<()> {
+        let _ = (path, line);
+        Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "I1 stub: Host::local_append"))
+    }
+    /// Whether the vault has the folder `dir`.
+    fn dir_exists(&self, dir: &str) -> bool {
+        let _ = dir;
+        false
+    }
+    /// Creates the folder `dir` with its missing parents (the import logs a `D` line per missing level first).
+    fn create_dir(&self, dir: &str) -> Result<(), WriteError> {
+        let _ = dir;
+        Err(WriteError::Io("I1 stub: Host::create_dir".into()))
+    }
+    /// Every file of the vault (NFC), dot-folders included: §9.2 step 3's vault-wide name re-check.
+    fn all_files(&self) -> Vec<String> {
+        Vec::new()
     }
 }
 

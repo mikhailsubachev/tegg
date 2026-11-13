@@ -31,13 +31,25 @@ pub struct NodeTransformer {
 impl NodeTransformer {
     /// Starts `node <script>`. Fails when Node or the script is missing.
     pub fn start(script: &Path) -> io::Result<NodeTransformer> {
+        NodeTransformer::spawn(script, Stdio::inherit())
+    }
+    /// v1-import §12.1, §13: as `start`, with the child's stderr sent to the null device instead of inherited (the
+    /// real-export run must print nothing of a note's content).
+    pub fn start_quiet(script: &Path) -> io::Result<NodeTransformer> {
+        NodeTransformer::spawn(script, Stdio::null())
+    }
+    fn spawn(script: &Path, stderr: Stdio) -> io::Result<NodeTransformer> {
         if !script.is_file() {
             return Err(io::Error::new(io::ErrorKind::NotFound, format!("{} (run `npm run build` in packages/doc)", script.display())));
         }
-        let mut child = Command::new("node").arg(script).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::inherit()).spawn()?;
+        let mut child = Command::new("node").arg(script).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(stderr).spawn()?;
         let stdin = child.stdin.take().ok_or_else(|| io::Error::other("no stdin"))?;
         let stdout = BufReader::new(child.stdout.take().ok_or_else(|| io::Error::other("no stdout"))?);
         Ok(NodeTransformer { proc: Mutex::new(Proc { child, stdin, stdout, next: 1 }) })
+    }
+    /// v1-import §2.1, §12.1: the Node process's id (the tests sample its sockets with `lsof`).
+    pub fn pid(&self) -> u32 {
+        self.proc.lock().unwrap_or_else(|e| e.into_inner()).child.id()
     }
     /// `start(transform_cli(repo_root))`.
     pub fn from_repo(repo_root: &Path) -> io::Result<NodeTransformer> {

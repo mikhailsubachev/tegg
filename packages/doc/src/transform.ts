@@ -9,6 +9,7 @@ import { parse, type Doc, type FrontmatterEntry, type Range } from './parse.js'
 import { applyInboxChange, type InboxChange } from './inbox.js'
 import { mergeInto, removeTagPatches, renameTagPatches } from './tagops.js'
 import { renameSavedQueryPatches } from './queryfence.js'
+import { importNew, importNote, importScan, type ImportNewSpec, type ImportNoteSpec } from './import.js'
 import { isAlias, isMap, isScalar, isSeq, parseDocument, visit, type Node as YamlNode, type Pair } from 'yaml'
 
 export type TextOp =
@@ -44,6 +45,11 @@ export type TextOp =
   // Slice Q (v1-queries §3.1, D-1468): the `query-rename` job's usages: every `saved:` line of a query fence (any depth)
   // naming `from` (name key: NFC, case-insensitive) gets `to`; nothing else, no `modified` change.
   | { op: 'rename-saved-query'; from: string; to: string }
+  // Slice I1 (v1-import §7.1, D-1534): the Capacities import. Each is the only op of its call and answers `bytes` with
+  // no edits: `import-scan` the scan as JSON (never written to disk), the other two a new file's whole text.
+  | { op: 'import-scan' }
+  | { op: 'import-note'; spec: ImportNoteSpec }
+  | { op: 'import-new'; spec: ImportNewSpec }
 
 export type Transformed = { kind: 'bytes'; text: string; edits: { start: number; end: number }[] } | { kind: 'unchanged' }
 
@@ -56,6 +62,13 @@ type HoldTargets = Extract<TextOp, { op: 'hold-targets' }>
 
 /** Applies `ops` in order (D-82). Byte offsets in `edits` are UTF-8 offsets into the input. */
 export function transform(source: string, text: string, ops: TextOp[]): Transformed {
+  // I1 (v1-import §7.1): an import op makes a text, it doesn't edit one; it is never mixed with other ops.
+  if (ops.some((o) => o.op === 'import-scan' || o.op === 'import-note' || o.op === 'import-new')) {
+    if (ops.length !== 1) throw new Error('An import op is the only op of its call')
+    const o = ops[0]
+    const out = o.op === 'import-scan' ? JSON.stringify(importScan(text)) : o.op === 'import-note' ? importNote(source, text, o.spec) : o.op === 'import-new' ? importNew(source, o.spec) : text
+    return { kind: 'bytes', text: out, edits: [] }
+  }
   // 4D-lite (ms4-tags §4.2): merge and replace are whole-text changes; the edit is the changed span.
   if (ops.some((o) => o.op === 'merge-into' || o.op === 'replace')) {
     let out = text
@@ -290,7 +303,7 @@ function relativeUrl(url: string, fromFolder: string, toPath: string): string {
 }
 
 /** `to` (a vault path) relative to the folder `from`. */
-function relPath(from: string, to: string): string {
+export function relPath(from: string, to: string): string {
   const a = from ? from.split('/') : []
   const b = to.split('/')
   let i = 0

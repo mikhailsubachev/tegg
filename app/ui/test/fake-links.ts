@@ -110,7 +110,7 @@ function isDate(t: string): boolean {
 /** D-319, D-335: per date, the Daily Notes newest first (latest created, then modified; missing is oldest), then path. */
 function dailyGroups(objs: Obj[]): Map<string, Obj[]> {
   // The one copy of the rule in the fake: @tegg/doc dailyOrder, the twin of the Rust index (PR #38 review, D-365).
-  const order = (a: Obj, b: Obj) => docMod.dailyOrder({ path: a.path, created: a.attributes.created, modified: a.attributes.modified }, { path: b.path, created: b.attributes.created, modified: b.attributes.modified });
+  const order = (a: Obj, b: Obj) => docMod.dailyOrder({ path: a.path, created: a.attributes.created, modified: a.attributes.modified, importId: a.attributes['import-id'] }, { path: b.path, created: b.attributes.created, modified: b.attributes.modified, importId: b.attributes['import-id'] });
   const out = new Map<string, Obj[]>();
   for (const o of objs) if (o.daily) out.set(o.daily, [...(out.get(o.daily) ?? []), o]);
   for (const g of out.values()) g.sort(order);

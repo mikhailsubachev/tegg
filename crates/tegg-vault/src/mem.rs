@@ -10,7 +10,8 @@ use crate::{version_of, FileVersion, FsEntry, VaultFs};
 
 enum Node {
     Dir,
-    File { bytes: Vec<u8>, mtime_ns: i128 },
+    /// `id`: the file id (v1-import §12.2); a rename keeps it, a replace gives a new one, as an inode.
+    File { bytes: Vec<u8>, mtime_ns: i128, id: u64 },
 }
 
 /// Folded key → (path as spelled when created, node).
@@ -106,7 +107,7 @@ impl MemFs {
             Some((_, Node::File { .. })) if must_be_new => return Err(io::Error::new(io::ErrorKind::AlreadyExists, name)),
             _ => {}
         }
-        nodes.insert(k, (name, Node::File { bytes: bytes.to_vec(), mtime_ns }));
+        nodes.insert(k, (name, Node::File { bytes: bytes.to_vec(), mtime_ns, id: mtime_ns as u64 }));
         Ok(version_of(bytes, mtime_ns))
     }
 }
@@ -126,7 +127,7 @@ impl VaultFs for MemFs {
     fn read(&self, path: &str) -> io::Result<(Vec<u8>, FileVersion)> {
         let nodes = self.nodes.lock().expect("nodes");
         match nodes.get(&fold(path)) {
-            Some((_, Node::File { bytes, mtime_ns })) => Ok((bytes.clone(), version_of(bytes, *mtime_ns))),
+            Some((_, Node::File { bytes, mtime_ns, .. })) => Ok((bytes.clone(), version_of(bytes, *mtime_ns))),
             Some((_, Node::Dir)) => Err(io::Error::other(format!("{path}: is a directory"))),
             None => Err(not_found(path)),
         }
@@ -224,6 +225,39 @@ impl VaultFs for MemFs {
 
     fn is_placeholder(&self, path: &str) -> io::Result<bool> {
         Ok(self.placeholders.lock().expect("placeholders").contains(&fold(path)))
+    }
+
+    /// The twin of `LocalFs::write_temp_new`: the whole source is read, then created exclusively.
+    fn write_temp_new(&self, path: &str, tag: &str, src: &mut dyn io::Read) -> io::Result<(String, FileVersion, u64)> {
+        let temp = crate::temp_path(path, Some(tag))?;
+        let mut bytes = Vec::new();
+        src.read_to_end(&mut bytes)?;
+        let v = self.put(&temp, &bytes, true)?;
+        let id = self.file_id(&temp)?.unwrap_or_default();
+        Ok((temp, v, id))
+    }
+
+    fn file_id(&self, path: &str) -> io::Result<Option<u64>> {
+        Ok(match self.nodes.lock().expect("nodes").get(&fold(path)) {
+            Some((_, Node::File { id, .. })) => Some(*id),
+            Some((_, Node::Dir)) => Some(0),
+            None => None,
+        })
+    }
+
+    fn create_dir_new(&self, path: &str) -> io::Result<()> {
+        let name = spelled(path);
+        let mut nodes = self.nodes.lock().expect("nodes");
+        Self::check_parent(&nodes, &name)?;
+        if nodes.contains_key(&fold(&name)) {
+            return Err(io::Error::new(io::ErrorKind::AlreadyExists, name));
+        }
+        nodes.insert(fold(&name), (name, Node::Dir));
+        Ok(())
+    }
+
+    fn is_dir(&self, path: &str) -> io::Result<bool> {
+        Ok(matches!(self.nodes.lock().expect("nodes").get(&fold(path)), Some((_, Node::Dir))))
     }
 
     fn remove_file(&self, path: &str) -> io::Result<()> {

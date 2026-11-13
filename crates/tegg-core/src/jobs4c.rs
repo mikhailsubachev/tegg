@@ -28,6 +28,30 @@ impl CoreHost {
             let _ = lock(&self.shared.index).upsert(path, bytes, v);
         }
     }
+
+    /// v1-import §9.4, §12.1: what follows a file an import created, replaced or removed, as for every job write: the
+    /// index (a note is read back and indexed, or dropped when it is gone), the cache of non-note files, the type
+    /// definitions when a type file changed (as other type-file writes do), then `vault:changed`.
+    fn import_changed(&self, path: &str) {
+        *lock(&self.shared.files) = None;
+        if is_indexable(path) {
+            match self.shared.vault.read(path) {
+                Ok((bytes, v)) => {
+                    let _ = lock(&self.shared.index).upsert(path, &bytes, &v);
+                }
+                Err(_) => {
+                    let _ = lock(&self.shared.index).remove(path);
+                }
+            }
+        }
+        if path.starts_with(".tegg/") {
+            self.shared.load_default_type();
+            if path.starts_with(".tegg/types/") {
+                self.shared.refresh_types();
+            }
+        }
+        self.shared.emit(CoreEvent::VaultChanged { paths: vec![path.to_string()] });
+    }
 }
 
 impl Host for CoreHost {
@@ -444,6 +468,73 @@ impl Host for CoreHost {
             QueryError::Limit => tegg_jobs::JobError::Core("Limit".into()),
             QueryError::IndexNotReady => tegg_jobs::JobError::IndexNotReady,
         })
+    }
+
+    // ---------------------------------------------------------------- slice I1 (v1-import §12.1)
+
+    /// Outside the vault lock: an attachment's copy never holds the owner's saves (§9.4, FR-UX-07 AC-15).
+    fn stage_new(&self, path: &str, tag: &str, src: &mut dyn std::io::Read) -> Result<tegg_vault::Staged, WriteError> {
+        self.shared.vault.stage_new(path, tag, src).map_err(write_error)
+    }
+
+    /// Under the vault lock for the name check and the rename only; then the index and `vault:changed`.
+    fn commit_new(&self, staged: tegg_vault::Staged) -> Result<FileVersion, WriteError> {
+        let path = staged.path.clone();
+        let v = self.shared.vault.commit_new(staged).map_err(write_error)?;
+        self.import_changed(&path);
+        Ok(v)
+    }
+
+    fn discard_staged(&self, staged: tegg_vault::Staged) {
+        self.shared.vault.discard_staged(staged);
+    }
+
+    fn file_id(&self, path: &str) -> Option<u64> {
+        self.shared.vault.file_id(path).ok().flatten()
+    }
+
+    fn write_hooked(&self, path: &str, bytes: &[u8], base: &FileVersion, before_rename: &dyn Fn() -> std::io::Result<()>) -> Result<Wrote, WriteError> {
+        let path = nfc(path);
+        match self.shared.vault.write_with(&path, bytes, Some(base), before_rename) {
+            Ok(WriteOutcome::Written(v)) => {
+                self.import_changed(&path);
+                Ok(Wrote::Written(v))
+            }
+            Ok(WriteOutcome::Unchanged) => Ok(Wrote::Unchanged),
+            Err(e) => Err(write_error(e)),
+        }
+    }
+
+    /// The checked delete of a file the run created (`Vault::discard_checked`): never a move to `.trash/`.
+    fn discard(&self, path: &str, base: &FileVersion) -> Result<(), WriteError> {
+        let path = nfc(path);
+        self.shared.vault.discard_checked(&path, base).map_err(write_error)?;
+        self.import_changed(&path);
+        Ok(())
+    }
+
+    fn remove_temp(&self, path: &str, tag: Option<&str>) {
+        let _ = self.shared.vault.remove_temp(path, tag);
+    }
+
+    fn remove_empty_dir(&self, dir: &str) -> bool {
+        self.shared.vault.remove_empty_dir(dir)
+    }
+
+    fn local_append(&self, path: &Path, line: &[u8]) -> std::io::Result<()> {
+        tegg_vault::append_local_file(path, line)
+    }
+
+    fn dir_exists(&self, dir: &str) -> bool {
+        self.shared.vault.dir_exists(dir)
+    }
+
+    fn create_dir(&self, dir: &str) -> Result<(), WriteError> {
+        self.shared.vault.create_dir(dir).map_err(write_error)
+    }
+
+    fn all_files(&self) -> Vec<String> {
+        self.shared.vault.list_files().unwrap_or_default().into_iter().map(|p| nfc(&p)).collect()
     }
 
     /// v1-pinned §1.6: `pinned::read` + `pinned::patch_text`, written against the version just read (a conflict is the

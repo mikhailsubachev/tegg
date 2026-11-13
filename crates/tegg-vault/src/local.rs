@@ -6,7 +6,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use crate::{version_of, ChangeSink, FileVersion, FsChange, FsEntry, VaultFs, WatchGuard};
+use crate::{version_of, ChangeSink, FileVersion, FsChange, FsEntry, SystemTrash, VaultFs, WatchGuard, IMPORT_MARKER};
 
 /// Test hook (ms5-tasks §11.6, FR-CNV-03 AC-7): called with the vault path after a replacing write's temp file is
 /// written and before the rename. Only the app's test build installs it (`TEGG_TEST=1`); it may block forever.
@@ -42,6 +42,37 @@ impl LocalFs {
             return Err(e);
         }
         Ok(tmp)
+    }
+
+    /// v1-import §12.2: streams `src` into the new file `tmp` (create-new: an existing file is an error and is not
+    /// touched), syncs it and returns its size, BLAKE3, mtime and file id. A failed copy removes the file it created.
+    fn stream_new(tmp: &Path, src: &mut dyn io::Read) -> io::Result<(FileVersion, u64)> {
+        let mut f = fs::OpenOptions::new().write(true).create_new(true).open(tmp)?;
+        let mut copy = || -> io::Result<(FileVersion, u64)> {
+            let mut hasher = blake3::Hasher::new();
+            let mut size = 0u64;
+            let mut buf = vec![0u8; 64 * 1024];
+            loop {
+                let n = match src.read(&mut buf) {
+                    Ok(0) => break,
+                    Ok(n) => n,
+                    Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                    Err(e) => return Err(e),
+                };
+                f.write_all(&buf[..n])?;
+                hasher.update(&buf[..n]);
+                size += n as u64;
+            }
+            f.sync_all()?;
+            let md = f.metadata()?;
+            Ok((FileVersion { mtime_ns: mtime_ns(&md), size, hash: *hasher.finalize().as_bytes() }, inode(&md)))
+        };
+        let r = copy();
+        if r.is_err() {
+            drop(f);
+            let _ = fs::remove_file(tmp); // the file this call created; never leave a partial temp file behind
+        }
+        r
     }
 
     fn sync_dir(abs: &Path) {
@@ -159,6 +190,47 @@ impl VaultFs for LocalFs {
         fs::create_dir_all(self.abs(path))
     }
 
+    fn write_temp_new(&self, path: &str, tag: &str, src: &mut dyn io::Read) -> io::Result<(String, FileVersion, u64)> {
+        let temp = crate::temp_path(path, Some(tag))?;
+        let (v, id) = Self::stream_new(&self.abs(&temp), src)?;
+        Ok((temp, v, id))
+    }
+
+    fn file_id(&self, path: &str) -> io::Result<Option<u64>> {
+        match fs::symlink_metadata(self.abs(path)) {
+            Ok(md) => Ok(Some(inode(&md))),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
+    /// As `replace`, with the caller's hook between the temp file and the rename; `BEFORE_RENAME` is not called.
+    fn replace_with(&self, path: &str, bytes: &[u8], before_rename: &dyn Fn() -> io::Result<()>) -> io::Result<FileVersion> {
+        let abs = self.abs(path);
+        let tmp = Self::write_temp(&abs, bytes)?;
+        if let Err(e) = before_rename().and_then(|_| fs::rename(&tmp, &abs)) {
+            let _ = fs::remove_file(&tmp);
+            return Err(e);
+        }
+        Self::sync_dir(&abs);
+        self.version_at(&abs, bytes)
+    }
+
+    fn create_dir_new(&self, path: &str) -> io::Result<()> {
+        let abs = self.abs(path);
+        fs::create_dir(&abs)?;
+        Self::sync_dir(&abs);
+        Ok(())
+    }
+
+    fn is_dir(&self, path: &str) -> io::Result<bool> {
+        match fs::symlink_metadata(self.abs(path)) {
+            Ok(md) => Ok(md.is_dir()),
+            Err(e) if e.kind() == io::ErrorKind::NotFound || e.kind() == io::ErrorKind::NotADirectory => Ok(false),
+            Err(e) => Err(e),
+        }
+    }
+
     fn remove_file(&self, path: &str) -> io::Result<()> {
         fs::remove_file(self.abs(path))
     }
@@ -215,6 +287,19 @@ impl VaultFs for LocalFs {
         w.watch(&root, RecursiveMode::Recursive).map_err(io::Error::other)?;
         Ok(Some(Box::new(w)))
     }
+}
+
+/// The file id of an entry on its volume (v1-import §12.2): the inode.
+#[cfg(unix)]
+fn inode(md: &fs::Metadata) -> u64 {
+    use std::os::unix::fs::MetadataExt;
+    md.ino()
+}
+
+/// Portable fallback: no file ids (a roll-back then never takes a file for the run's by its id).
+#[cfg(not(unix))]
+fn inode(_md: &fs::Metadata) -> u64 {
+    0
 }
 
 /// D-112: APFS marks files whose content is only in the cloud with `SF_DATALESS`.
@@ -289,4 +374,92 @@ pub fn list_local_dir(path: &Path) -> Vec<std::path::PathBuf> {
 /// Creates a machine-local folder (Application Support).
 pub fn create_local_dir(path: &Path) -> io::Result<()> {
     fs::create_dir_all(path)
+}
+
+// ---------------------------------------------------------------- the import's folders and log (v1-import §9.5, §9.6, §12.2)
+
+/// A synced append for a write-ahead log in Application Support (v1-import §9.6): opens `path` with append (creating
+/// it, and then syncing its folder), writes `line` and a newline in one write and calls `sync_all` before it returns.
+pub fn append_local_file(path: &Path, line: &[u8]) -> io::Result<()> {
+    if let Some(dir) = path.parent() {
+        fs::create_dir_all(dir)?;
+    }
+    let existed = fs::symlink_metadata(path).is_ok();
+    let mut f = fs::OpenOptions::new().append(true).create(true).open(path)?;
+    let mut buf = Vec::with_capacity(line.len() + 1);
+    buf.extend_from_slice(line);
+    buf.push(b'\n');
+    f.write_all(&buf)?;
+    f.sync_all()?;
+    if !existed {
+        LocalFs::sync_dir(path);
+    }
+    Ok(())
+}
+
+/// Creates the one folder `path` outside a vault (`<parent>/<name>.tegg-importing`); `AlreadyExists` when an entry has
+/// that name. Its parent must exist.
+pub fn create_external_dir_new(path: &Path) -> io::Result<()> {
+    fs::create_dir(path)?;
+    LocalFs::sync_dir(path);
+    Ok(())
+}
+
+/// Renames the folder `from` to `to` and never replaces or merges: `AlreadyExists` when an entry is at `to`
+/// (v1-import §9.5 step 4). The same primitive as a file's exclusive create.
+pub fn rename_dir_no_replace(from: &Path, to: &Path) -> io::Result<()> {
+    if !fs::symlink_metadata(from)?.is_dir() {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "not a folder"));
+    }
+    rename_dir_excl(from, to)?;
+    LocalFs::sync_dir(to);
+    Ok(())
+}
+
+/// macOS: `renamex_np(RENAME_EXCL)` works for folders too.
+#[cfg(target_os = "macos")]
+fn rename_dir_excl(from: &Path, to: &Path) -> io::Result<()> {
+    rename_no_clobber(from, to)
+}
+
+/// Portable fallback (a folder can't be hard-linked): creating `to` fails when an entry has that name; `rename` then
+/// replaces only that new, empty folder, and fails when something was put into it meanwhile.
+#[cfg(not(target_os = "macos"))]
+fn rename_dir_excl(from: &Path, to: &Path) -> io::Result<()> {
+    fs::create_dir(to)?;
+    fs::rename(from, to).inspect_err(|_| {
+        let _ = fs::remove_dir(to);
+    })
+}
+
+/// Whether `dir` is a real folder (not a symbolic link) holding the import marker as a regular file.
+fn has_import_marker(dir: &Path) -> bool {
+    fs::symlink_metadata(dir).is_ok_and(|m| m.is_dir()) && fs::symlink_metadata(dir.join(IMPORT_MARKER)).is_ok_and(|m| m.is_file())
+}
+
+fn no_marker(dir: &Path) -> io::Error {
+    io::Error::new(io::ErrorKind::PermissionDenied, format!("{}: not an import's temporary folder (no {IMPORT_MARKER})", dir.display()))
+}
+
+/// Removes the folder `path` with everything in it (v1-import §9.5 step 6: the run's own temporary folder after a
+/// failure). **Refuses a folder without the marker `.tegg-import`**: nothing is removed then.
+pub fn remove_dir_tree(path: &Path) -> io::Result<()> {
+    if !has_import_marker(path) {
+        return Err(no_marker(path));
+    }
+    fs::remove_dir_all(path)
+}
+
+/// D-1559 (v1-import §9.5 step 1): moves a dead run's leftover folder whole to the system Trash through `sink`.
+/// Refuses a folder without the marker `.tegg-import` (nothing is moved); an error when the sink fails or `dir` is
+/// still there afterwards. Unlinks nothing itself.
+pub fn trash_import_leftover(dir: &Path, sink: &dyn SystemTrash) -> io::Result<()> {
+    if !has_import_marker(dir) {
+        return Err(no_marker(dir));
+    }
+    sink.trash(dir)?;
+    if fs::symlink_metadata(dir).is_ok() {
+        return Err(io::Error::other(format!("{}: still there after the move to the Trash", dir.display())));
+    }
+    Ok(())
 }

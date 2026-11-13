@@ -1,6 +1,7 @@
 //! Tegg core: all vault I/O. Interface: docs/contracts/ms1-core.md §3.
 //! Vault logic works only through `VaultFs` (AR-04); `local.rs` holds the only file-writing code.
 
+mod external;
 mod local;
 mod mem;
 mod new_vault;
@@ -13,8 +14,16 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use tegg_format::{nfc, sanitize_file_stem, unique_file_name};
 
-pub use local::{create_local_dir, list_local_dir, read_local_file, remove_local_path, write_local_file, LocalFs, BEFORE_RENAME};
+pub use external::{
+    free_space, has_entry_at_or_above, is_inside, list_external_dir, open_external_file, probe_new_vault, resolve_existing, stat_external, volume_id, ExternalFolder, ExternalRead,
+    NewVaultProbe, ReadSeek,
+};
+pub use local::{
+    append_local_file, create_external_dir_new, create_local_dir, list_local_dir, read_local_file, remove_dir_tree, remove_local_path, rename_dir_no_replace, trash_import_leftover,
+    write_local_file, LocalFs, BEFORE_RENAME,
+};
 pub use mem::MemFs;
+pub use new_vault::EMPTY_VAULT;
 pub use types::TypeDef;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -29,6 +38,31 @@ impl FileVersion {
     /// D-175: two versions are the same when size and content hash match; the mtime only decides re-hashing.
     pub fn same_content(&self, other: &FileVersion) -> bool {
         self.size == other.size && self.hash == other.hash
+    }
+
+    /// The content version of `bytes` (size and BLAKE3; `mtime_ns` 0): what a write-ahead log records before a file
+    /// exists (v1-import §9.6) and what `same_content` compares.
+    pub fn of(bytes: &[u8]) -> FileVersion {
+        version_of(bytes, 0)
+    }
+
+    /// `of` over a stream, without holding the bytes: the write-ahead `C` line of an attachment, whose size and hash
+    /// are known before its copy (v1-import §9.4, §9.6).
+    pub fn of_reader(src: &mut dyn io::Read) -> io::Result<FileVersion> {
+        let mut hasher = blake3::Hasher::new();
+        let mut buf = vec![0u8; 64 * 1024];
+        let mut size = 0u64;
+        loop {
+            let n = match src.read(&mut buf) {
+                Ok(0) => break,
+                Ok(n) => n,
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                Err(e) => return Err(e),
+            };
+            hasher.update(&buf[..n]);
+            size += n as u64;
+        }
+        Ok(FileVersion { mtime_ns: 0, size, hash: *hasher.finalize().as_bytes() })
     }
 }
 
@@ -99,6 +133,37 @@ pub trait VaultFs: Send + Sync {
     fn changed_ns(&self, _path: &str) -> io::Result<Option<i128>> {
         Ok(None)
     }
+    /// v1-import §12.2 (slice I1): streams `src` into `<folder>/.<file name>.<tag>.tegg-tmp` next to `path`, opened
+    /// create-new (an existing file of that name is an `AlreadyExists` error and is left as it is: never truncated),
+    /// and syncs it. Returns the temp file's vault path, the version of the bytes written and the file id. The folder
+    /// must exist. Default: a file system without staged creates.
+    fn write_temp_new(&self, path: &str, tag: &str, src: &mut dyn io::Read) -> io::Result<(String, FileVersion, u64)> {
+        let _ = (path, tag, src);
+        Err(io::Error::new(io::ErrorKind::Unsupported, "this file system has no staged create"))
+    }
+    /// v1-import §12.2: the file's id on its volume (`st_ino` on Unix), `None` when missing. A rename keeps it, so it
+    /// tells whether the file at a path is the temp file a run wrote. Default: no ids.
+    fn file_id(&self, _path: &str) -> io::Result<Option<u64>> {
+        Ok(None)
+    }
+    /// v1-import §12.2: `replace`, with `before_rename` run after the temp file is written and before the rename; an
+    /// `Err` from it fails the write and removes the temp file. Default (no temp file): the hook, then `replace`.
+    fn replace_with(&self, path: &str, bytes: &[u8], before_rename: &dyn Fn() -> io::Result<()>) -> io::Result<FileVersion> {
+        before_rename()?;
+        self.replace(path, bytes)
+    }
+    /// v1-import §12.2: creates the one folder `path`; `AlreadyExists` when an entry has that name. Its parent must exist.
+    fn create_dir_new(&self, path: &str) -> io::Result<()> {
+        if self.is_dir(path)? || self.version(path).is_ok_and(|v| v.is_some()) {
+            return Err(io::Error::new(io::ErrorKind::AlreadyExists, path.to_string()));
+        }
+        self.create_dir_all(path)
+    }
+    /// Whether `path` is a folder. Default: `list` searched.
+    fn is_dir(&self, path: &str) -> io::Result<bool> {
+        let want = fold(path.trim_matches('/'));
+        Ok(self.list()?.into_iter().any(|e| matches!(e, FsEntry::Dir { path } if fold(&path) == want)))
+    }
 }
 
 /// What a watcher reports: vault-relative NFC paths that may have changed (event kinds are never trusted,
@@ -153,6 +218,111 @@ impl<T: VaultFs + ?Sized> VaultFs for std::sync::Arc<T> {
     fn changed_ns(&self, path: &str) -> io::Result<Option<i128>> {
         (**self).changed_ns(path)
     }
+    fn list_dir(&self, dir: &str) -> io::Result<Vec<FsEntry>> {
+        (**self).list_dir(dir)
+    }
+    fn remove_empty_dir(&self, path: &str) -> io::Result<()> {
+        (**self).remove_empty_dir(path)
+    }
+    fn write_temp_new(&self, path: &str, tag: &str, src: &mut dyn io::Read) -> io::Result<(String, FileVersion, u64)> {
+        (**self).write_temp_new(path, tag, src)
+    }
+    fn file_id(&self, path: &str) -> io::Result<Option<u64>> {
+        (**self).file_id(path)
+    }
+    fn replace_with(&self, path: &str, bytes: &[u8], before_rename: &dyn Fn() -> io::Result<()>) -> io::Result<FileVersion> {
+        (**self).replace_with(path, bytes, before_rename)
+    }
+    fn create_dir_new(&self, path: &str) -> io::Result<()> {
+        (**self).create_dir_new(path)
+    }
+    fn is_dir(&self, path: &str) -> io::Result<bool> {
+        (**self).is_dir(path)
+    }
+}
+
+// ---------------------------------------------------------------- the staged exclusive create (v1-import §9.4, §12.2)
+
+/// The marker a new-vault import writes first into its temporary folder (v1-import §9.5); `remove_dir_tree` and
+/// `trash_import_leftover` refuse a folder without it.
+pub const IMPORT_MARKER: &str = ".tegg-import";
+
+/// A file staged by `stage_new`: its bytes are complete and synced in `temp`, next to `path`; nothing is at `path` yet.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Staged {
+    /// The vault path the file will get (NFC).
+    pub path: String,
+    /// The temp file's vault path: `<folder>/.<file name>.<tag>.tegg-tmp`.
+    pub temp: String,
+    /// Size and BLAKE3 of the bytes staged (and the temp file's mtime).
+    pub version: FileVersion,
+    /// The temp file's file id (inode); a rename keeps it.
+    pub file_id: u64,
+}
+
+/// `<folder>/.<file name>.tegg-tmp` (`tag` None) or `<folder>/.<file name>.<tag>.tegg-tmp` for the vault path `path`.
+/// A tag is letters, digits, `-` and `_` only, so the name can never leave the folder.
+pub(crate) fn temp_path(path: &str, tag: Option<&str>) -> io::Result<String> {
+    let path = nfc(path.trim_matches('/'));
+    let (dir, name) = path.rsplit_once('/').unwrap_or(("", &path));
+    if name.is_empty() || name == "." || name == ".." {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "no file name"));
+    }
+    let temp = match tag {
+        None => format!(".{name}.tegg-tmp"),
+        Some(t) if !t.is_empty() && t.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') => format!(".{name}.{t}.tegg-tmp"),
+        Some(_) => return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid temp tag")),
+    };
+    Ok(join(dir, &temp))
+}
+
+/// Folded names of the entries directly in `dir`, read from that folder only where the file system can.
+fn names_in_fs(fs: &dyn VaultFs, dir: &str) -> io::Result<Vec<String>> {
+    let entries = if dir.is_empty() {
+        fs.list()?.into_iter().filter(|e| matches!(e, FsEntry::File { path } | FsEntry::Dir { path } if !path.trim_matches('/').contains('/'))).collect()
+    } else {
+        fs.list_dir(dir)?
+    };
+    Ok(entries
+        .into_iter()
+        .map(|e| match e {
+            FsEntry::File { path } | FsEntry::Dir { path } => fold(path.trim_matches('/').rsplit('/').next().unwrap_or_default()),
+        })
+        .collect())
+}
+
+/// v1-import §9.4 step 1 on any `VaultFs` (the new-vault run's private `LocalFs` has no `Vault`): streams `src` into
+/// the run's own temp file next to `path` (create-new, synced). Takes no lock; creates no folder.
+pub fn stage_new_on(fs: &dyn VaultFs, path: &str, tag: &str, src: &mut dyn io::Read) -> io::Result<Staged> {
+    let path = nfc(path.trim_matches('/'));
+    temp_path(&path, Some(tag))?;
+    let (temp, version, file_id) = fs.write_temp_new(&path, tag, src)?;
+    Ok(Staged { path, temp, version, file_id })
+}
+
+/// v1-import §9.4 step 2 on any `VaultFs`: the name check (no entry of the folder has that name, NFC and case-folded)
+/// and the no-replace rename of the temp file onto `path`. `AlreadyExists` when the name is taken or the rename says
+/// so; on every failure the temp file is removed and nothing at `path` is touched.
+pub fn commit_new_on(fs: &dyn VaultFs, staged: Staged) -> io::Result<FileVersion> {
+    let commit = || -> io::Result<()> {
+        let (dir, name) = staged.path.rsplit_once('/').unwrap_or(("", &staged.path));
+        if names_in_fs(fs, dir)?.contains(&fold(name)) {
+            return Err(io::Error::new(io::ErrorKind::AlreadyExists, staged.path.clone()));
+        }
+        fs.rename_no_replace(&staged.temp, &staged.path)
+    };
+    match commit() {
+        Ok(()) => Ok(staged.version),
+        Err(e) => {
+            let _ = fs.remove_file(&staged.temp);
+            Err(e)
+        }
+    }
+}
+
+/// Removes a staged file's temp file (a create given up before its rename).
+pub fn discard_staged_on(fs: &dyn VaultFs, staged: Staged) {
+    let _ = fs.remove_file(&staged.temp);
 }
 
 /// ms6-trash-media §1.1 (D-619): moves a file or folder out of the vault into the system's trash (macOS: Finder's
@@ -371,6 +541,10 @@ impl Vault {
     /// disk content (size + hash, D-175) differs from `base` → `Conflict` (FR-SYN-03 AC-7); an mtime-only
     /// change is not a conflict; file gone while `base` is Some → `Gone`.
     pub fn write(&self, path: &str, bytes: &[u8], base: Option<&FileVersion>) -> Result<WriteOutcome, VaultError> {
+        self.write_inner(path, bytes, base, None)
+    }
+
+    fn write_inner(&self, path: &str, bytes: &[u8], base: Option<&FileVersion>, hook: Option<&dyn Fn() -> io::Result<()>>) -> Result<WriteOutcome, VaultError> {
         let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());
         let path = nfc(path);
         match self.fs.read(&path) {
@@ -383,7 +557,10 @@ impl Vault {
                 if !base.is_some_and(|b| b.same_content(&disk)) {
                     return Err(VaultError::Conflict { disk });
                 }
-                Ok(WriteOutcome::Written(self.fs.replace(&path, bytes)?))
+                Ok(WriteOutcome::Written(match hook {
+                    Some(h) => self.fs.replace_with(&path, bytes, h).map_err(VaultError::Io)?,
+                    None => self.fs.replace(&path, bytes)?,
+                }))
             }
             Err(e) if e.kind() == io::ErrorKind::NotFound => {
                 if base.is_some() {
@@ -391,6 +568,9 @@ impl Vault {
                 }
                 if let Some((dir, _)) = path.rsplit_once('/') {
                     self.fs.create_dir_all(dir)?;
+                }
+                if let Some(h) = hook {
+                    h().map_err(VaultError::Io)?;
                 }
                 match self.fs.create_new(&path, bytes) {
                     Ok(v) => Ok(WriteOutcome::Written(v)),
@@ -442,6 +622,72 @@ impl Vault {
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists => Err(VaultError::NameTaken),
             Err(e) => Err(VaultError::Io(e)),
         }
+    }
+
+    /// v1-import §9.4 step 1 (D-1547 (1)): **takes no vault lock.** Streams `src` into
+    /// `<folder>/.<file name>.<tag>.tegg-tmp` (create-new, never truncating) and syncs it. The folder must exist.
+    pub fn stage_new(&self, path: &str, tag: &str, src: &mut dyn io::Read) -> Result<Staged, VaultError> {
+        stage_new_on(self.fs.as_ref(), path, tag, src).map_err(VaultError::Io)
+    }
+
+    /// v1-import §9.4 step 2: holds the vault lock for the name check of `create_exact` and the no-replace rename only.
+    /// `NameTaken` when an entry has that name (NFC, case-folded) or the rename answers `AlreadyExists`; the temp file
+    /// is then removed. Whatever is at `path` is never touched.
+    pub fn commit_new(&self, staged: Staged) -> Result<FileVersion, VaultError> {
+        let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());
+        match commit_new_on(self.fs.as_ref(), staged) {
+            Ok(v) => Ok(v),
+            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => Err(VaultError::NameTaken),
+            Err(e) => Err(VaultError::Io(e)),
+        }
+    }
+
+    pub fn discard_staged(&self, staged: Staged) {
+        discard_staged_on(self.fs.as_ref(), staged);
+    }
+
+    /// v1-import §9.6: under the vault lock (no write can be in flight), removes `.<file name>.tegg-tmp` (`tag` None)
+    /// or `.<file name>.<tag>.tegg-tmp` next to `path`, whatever its age. `false` when there is none.
+    pub fn remove_temp(&self, path: &str, tag: Option<&str>) -> Result<bool, VaultError> {
+        let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());
+        let temp = temp_path(path, tag).map_err(VaultError::Io)?;
+        match self.fs.remove_file(&temp) {
+            Ok(()) => Ok(true),
+            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(false),
+            Err(e) => Err(VaultError::Io(e)),
+        }
+    }
+
+    /// v1-import §12.2: the file id (inode) of the file at `path`, `None` when missing.
+    pub fn file_id(&self, path: &str) -> Result<Option<u64>, VaultError> {
+        self.fs.file_id(&nfc(path)).map_err(VaultError::Io)
+    }
+
+    /// v1-import §12.2: `write`, with a per-call hook run after the temp file is written and before the rename; an
+    /// `Err` from it fails the write and removes the temp file (for a file that doesn't exist yet the hook runs before
+    /// the exclusive create).
+    pub fn write_with(&self, path: &str, bytes: &[u8], base: Option<&FileVersion>, before_rename: &dyn Fn() -> io::Result<()>) -> Result<WriteOutcome, VaultError> {
+        self.write_inner(path, bytes, base, Some(before_rename))
+    }
+
+    /// Whether the vault has the folder `dir`.
+    pub fn dir_exists(&self, dir: &str) -> bool {
+        self.fs.is_dir(&nfc(dir.trim_matches('/'))).unwrap_or(false)
+    }
+
+    /// Creates the folder `dir` with its missing parents.
+    pub fn create_dir(&self, dir: &str) -> Result<(), VaultError> {
+        self.fs.create_dir_all(&nfc(dir.trim_matches('/'))).map_err(VaultError::Io)
+    }
+
+    /// v1-import §9.6 (`D` lines): removes the folder `dir` only when it exists and is empty; `true` when it is gone.
+    pub fn remove_empty_dir(&self, dir: &str) -> bool {
+        let _guard = self.lock.lock().unwrap_or_else(|p| p.into_inner());
+        let dir = nfc(dir.trim_matches('/'));
+        if dir.is_empty() || !self.fs.is_dir(&dir).unwrap_or(false) {
+            return false;
+        }
+        self.fs.remove_empty_dir(&dir).is_ok() && !self.fs.is_dir(&dir).unwrap_or(true)
     }
 
     /// ms4-jobs §3 (D-389, FR-SYN-06 AC-11): a note rename as one atomic step: `bytes` go to a temp file in `to`'s
