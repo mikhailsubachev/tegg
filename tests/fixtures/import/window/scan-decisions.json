@@ -1,0 +1,21 @@
+{
+  "kind": "folder",
+  "name": "Rozhodnutí",
+  "size": null,
+  "files": 9,
+  "unreadable": [],
+  "outsideSpaces": 0,
+  "spaces": [
+    {
+      "name": "PKM",
+      "objects": 9,
+      "attachments": 0,
+      "types": [
+        {
+          "sourceType": "Page",
+          "objects": 9
+        }
+      ]
+    }
+  ]
+}

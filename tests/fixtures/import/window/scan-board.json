@@ -1,0 +1,53 @@
+{
+  "kind": "zip",
+  "name": "Capacities export.zip",
+  "size": 222298112,
+  "files": 1005,
+  "unreadable": [],
+  "outsideSpaces": 0,
+  "spaces": [
+    {
+      "name": "PKM",
+      "objects": 902,
+      "attachments": 101,
+      "types": [
+        {
+          "sourceType": "DailyNote",
+          "objects": 205
+        },
+        {
+          "sourceType": "Image",
+          "objects": 61
+        },
+        {
+          "sourceType": "Meeting",
+          "objects": 58
+        },
+        {
+          "sourceType": "PDF",
+          "objects": 40
+        },
+        {
+          "sourceType": "Page",
+          "objects": 310
+        },
+        {
+          "sourceType": "Person",
+          "objects": 31
+        },
+        {
+          "sourceType": "Query",
+          "objects": 11
+        },
+        {
+          "sourceType": "Task",
+          "objects": 142
+        },
+        {
+          "sourceType": "Weblink",
+          "objects": 44
+        }
+      ]
+    }
+  ]
+}
