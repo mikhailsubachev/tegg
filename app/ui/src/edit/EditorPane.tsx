@@ -720,7 +720,6 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     const restore = () => { for (const [e, top] of kept) e.scrollTop = top; };
     (ed.view.dom as HTMLElement).focus({ preventScroll: true });
     restore();
-    requestAnimationFrame(restore);
   };
 
   const caretToEnd = (): boolean => {
