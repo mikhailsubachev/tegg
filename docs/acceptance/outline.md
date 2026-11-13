@@ -327,7 +327,7 @@ Rules:
   - `Skrytý nadpis` expands `Sbalený callout`: its button becomes `Collapse Sbalený callout` with `aria-expanded="true"` (D-159). The caret lands at the end of `Skrytý nadpis`. The file stays untouched and still contains `> [!tip]- Sbalený callout` when the note is left.
   - `Nadpis v seznamu` and `Nadpis v calloutu` put the caret at the end of those headings, inside the list item and the callout.
   - `Nadpis podtržený` (setext) puts it at the end of its text line.
-  - With the outline refresh held (`__TEGG_TEST__.outline.hold(true)`, D-1640), a row whose heading was deleted just before the click does nothing (the caret and scroll are unchanged), and the tree is refreshed within 250 ms.
+  - With the outline refresh held (`__TEGG_TEST__.outline.hold(true)`, D-1640), a row whose heading was deleted just before the click does nothing (the caret and scroll are unchanged), and the tree is refreshed within 250 ms: the hold blocks only the debounced refresh after typing; a click on a stale row always refreshes (D-1644).
 
   *(L5)* Test: `fr_edt_11_ac11_jump_targets_by_position`
 - **AC-12** **The source view and read-only files (AP-1419).** On Plán in the source view (⌥⌘U), the tab lists the same 11 rows. A click on `Den 1`:
@@ -386,7 +386,7 @@ Rules:
 - **AC-19** **Same place as a heading link (AP-1425).** From Odkazy, following `[[Čtenářské poznámky#Zpoždění replikace]]` scrolls that heading's top to 24 px (± 2) below the viewport's top: the same place as the outline's jump. The link and the outline resolve `Zpoždění replikace` to the same `from` offset of `outlineHeadings`. *(L5; changes with AP-1425)* Test: `fr_edt_11_ac19_heading_link_lands_where_the_outline_jumps`
 - **AC-20** **A long note (AP-1423).** On the runtime `Pages/Pět set nadpisů.md`:
   - The tab shows `500 headings`.
-  - `Kapitola 100`'s row is reached with End, and ⏎ jumps there.
+  - End reaches the last visible row (`Oddíl 100.4` with every row expanded; D-1643); ↑ ×4 reaches `Kapitola 100`, and ⏎ jumps there.
   - Typing a character in `Oddíl 050.2` relabels its row within 250 ms.
   - On the reference machine, the p95 of 50 such edits, from keydown to the row's new text, is under **250 ms**. This is report-only until the v1.0 release gate, enforced at it (as D-940).
 
@@ -444,7 +444,7 @@ Rules:
 - **AC-8** **The card's content (V5, V8, AP-1416).** Opened by hover:
   - **Architektura.** 18 rows and no chevron. The current row (`Názvy souborů` when scrolled there) has the bar. Its ancestors `Úložiště`, `Rozvržení trezoru`, `Složky podle typu` and `Denní poznámky` are weight 600. No row shows a hidden count.
   - **Čtenářské with `Zpoždění replikace` current.**
-    - The 16 rows of the rail, the current row scrolled to the card's middle (± 13 px).
+    - The 16 rows of the rail, the current row visible; when the card scrolls, the current row is scrolled to its middle (± 13 px) or the card is at its scroll limit (D-1645).
     - Chevrons on the 11 H1 rows other than `Replikace`, and on `Vedoucí a následovníci`: 12 in all.
     - A click on `Transakce`'s chevron adds its 3 H2 to the card and to the rail (19 rows and 19 lines). Closing and reopening the card shows 16 again.
   - **Geometry.** The card is 256 px wide and its right edge is 52 px (± 1) left of the centre pane's right edge. It is centred on the viewport. Its height is ≤ min(520, 0.8 × viewport height), and it scrolls inside.
@@ -560,7 +560,7 @@ Rules:
 
   *(L1 for the registry; L5)* Test: `fr_ux_03_ac45_outline_commands_and_shortcut`
 - **AC-46** **The tree's keys (R174).** On Architektura with the tab shown:
-  - Tab from the tablist enters the tree on the current row (the first at scrollTop 0). Exactly one treeitem has `tabindex="0"`.
+  - Tab from the tablist passes the header's buttons, then enters the tree on the current row (the first at scrollTop 0) (D-1642). Exactly one treeitem has `tabindex="0"`.
   - ↓ / ↑ / Home / End move as R174.
   - On `Hlavička`: → (expanded) goes to `Povinné klíče`, ← goes back to `Hlavička`, ← collapses it, → expands it.
   - ⌥← on `Úložiště` collapses the branch; ⌥→ expands it.

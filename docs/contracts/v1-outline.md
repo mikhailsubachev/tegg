@@ -567,3 +567,8 @@ No new `qa.config.json` step: the tests live in packages that already have steps
 | CP-12 | **Heading links land at 24 px** (D-1625) instead of the pane's top. `app/webkit/bug_112a_fr_lnk_09_a_link_opened_right_after_back_lands_on_its_heading.test.ts` and `bug_v094gp_fr_lnk_09_section_embed_opens_at_its_heading.test.ts` assert the heading at 0 ± 8 px. | Change both to 24 ± 8 px in the build commit with `AC-Test-Change: D-1625, a heading link lands where the outline jumps; approved-by: owner`. |
 | CP-13 | **"The fake core holding the outline refresh"** (FR-EDT-11 AC-11): the outline makes no IPC, so the fake core can't hold it. | The hook `__TEGG_TEST__.outline.hold(on)` (§10); the AC's wording changes to "with the outline refresh held". |
 | CP-14 | **Which heading a duplicate `#Heading` link picks** (FR-LNK-06 shares the list): the first by text, as today. | The first heading in note order with that NFC text, case-insensitive (`headingForFragment`); FR-LNK-06's own criteria may refine it. |
+
+## 15. Red-test clarifications (2026-11-13; D-1642…D-1646)
+
+- D-1642…D-1646 (BRD v1.174) settle the four ambiguities the red tests found (Tab order, End, the test hold, the card's centring) and the test approximations. `hold(true)` (§10) blocks only the debounced refresh after typing; a stale click refreshes regardless (D-1644).
+- Contract choices (no owner decision): `toggle(tree, collapsed, id)` and `visibleRows` take `collapsed: Set<string>`; `folds.ts` takes the vault as its path string and keys it as `vault.normalize('NFC')`. On the rail, `i[data-outline-line]` is the row's 8.5 px pointer slot and the drawn stroke is its `::before` (width by level, R173).

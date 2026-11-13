@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.173, for review                                            |
+| **Document status** | Draft v1.174, for review                                            |
 | **Date**            | 2026-11-13                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -187,6 +187,7 @@
 | v1.171  | 2026-11-13 | D-1570 (owner, "Yes, rewrite it"): a bound link in a value kept as text under `<key>-text` is rewritten as the same link in a body |
 | v1.172  | 2026-11-13 | Outline, slice OL (v1.0; boards `Outline`, `OutlineDark`, prototype `outline-rail-prototype.html`): D-1600…D-1627 (AP-1400…AP-1427 of `docs/acceptance/outline.md`; owner, "Accept all 28"; numbered from D-1600 so they don't collide with the parallel import work): new requirement FR-EDT-16 (the outline rail on the note's edge, S, v1.0); which headings count and how they show, the current section, the jump and its Back entry, machine-local fold state, ⌘J and the palette commands, the rail's room and rows, VoiceOver, Reduce motion, live updates; AC-test changes approved (inbox.md FR-NAV-05 AC-1, app-shell R2, R4). FR-EDT-11 row noted |
 | v1.173  | 2026-11-13 | Outline, slice OL contract (`docs/contracts/v1-outline.md`): D-1628…D-1641 (CP-1…CP-14 of the contract; owner, "Accept all 14"): `%%` comments, read-only blocks, link text, footnotes and tables, draft folds and jumps, tooltips, the rail's fit rule, the source view's focus, Back never writes, duplicate heading links; FR-EDT-16 AC-13 (300 H1) and FR-EDT-11 AC-11 (refresh held) amended; the AC-test change of two heading-link regression tests (24 px) approved |
+| v1.174  | 2026-11-13 | Outline, slice OL red tests (e92d3db): D-1642…D-1646 (RT-1…RT-5; owner, "Accept all 5"): Tab passes the header buttons, End to the last visible row, the test hold blocks only the debounced refresh, the card centres only when it scrolls, the test approximations; FR-UX-03 AC-46, FR-EDT-11 AC-11, AC-20, FR-EDT-16 AC-8 reworded |
 
 ---
 
@@ -1626,6 +1627,11 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1639 | Heading links land at 24 px; two regression tests change (AC-test change approved) (CP-12, owner, 2026-11-13: "Accept all 14"; slice OL, `docs/contracts/v1-outline.md` §14) | Change both to 24 ± 8 px in the build commit with `AC-Test-Change: D-1625, a heading link lands where the outline jumps; approved-by: owner`. |
 | D-1640 | Holding the outline refresh in tests (amends FR-EDT-11 AC-11) (CP-13, owner, 2026-11-13: "Accept all 14"; slice OL, `docs/contracts/v1-outline.md` §14) | The hook `__TEGG_TEST__.outline.hold(on)` (§10); the AC's wording changes to "with the outline refresh held". |
 | D-1641 | Which heading a duplicate `#Heading` link picks (CP-14, owner, 2026-11-13: "Accept all 14"; slice OL, `docs/contracts/v1-outline.md` §14) | The first heading in note order with that NFC text, case-insensitive (`headingForFragment`); FR-LNK-06's own criteria may refine it. |
+| D-1642 | Tab order into the outline tree (RT-1 (owner, 2026-11-13: "Accept all 5"; slice OL red tests e92d3db)) | Tab from the panel's tablist passes the header's `Expand all` / `Collapse all` buttons, then enters the tree on the current row. FR-UX-03 AC-46 reworded. |
+| D-1643 | End in the outline tree (RT-2 (owner, 2026-11-13: "Accept all 5"; slice OL red tests e92d3db)) | End goes to the last visible row, as in any tree (on a 500-heading note with every row expanded, its last subheading). FR-EDT-11 AC-20 reworded. |
+| D-1644 | The test hold and a stale click (RT-3 (owner, 2026-11-13: "Accept all 5"; slice OL red tests e92d3db)) | `__TEGG_TEST__.outline.hold(true)` blocks only the debounced refresh after typing; a click on a row whose heading no longer exists does nothing to the caret or scroll and always refreshes the tree within 250 ms. FR-EDT-11 AC-11 reworded; contract §10 noted. |
+| D-1645 | The current row in the card (RT-4 (owner, 2026-11-13: "Accept all 5"; slice OL red tests e92d3db)) | The card centres the current row (± 13 px) only when it scrolls (or stops at its scroll limit); a card that doesn't scroll just shows it. FR-EDT-16 AC-8 reworded. |
+| D-1646 | Test approximations of slice OL (RT-5 (owner, 2026-11-13: "Accept all 5"; slice OL red tests e92d3db)) | Accepted as test choices: FR-STO-07 AC-7's second vault is seeded as another vault key in `ui-state.json`; FR-NAV-03 AC-15's "not kept across launches" is left to the existing AC-7; in FR-EDT-11 AC-7 `##` and a space keeps the empty state; FR-EDT-11 AC-17's `new/page` test allows a write to one `Pages/` file (the draft, D-520). |
 
 ---
 
