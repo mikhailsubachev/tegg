@@ -77,7 +77,7 @@ These tables are the expected content of the app's **route registry**, **panel r
 | Tab id | Tab | Status after 3A | Milestone | Requirements |
 | --- | --- | --- | --- | --- |
 | `backlinks` | Backlinks | TBD | MS4 | FR-LNK-01…04 |
-| `outline` | Outline | TBD | MS5 | FR-EDT-11 |
+| `outline` | Outline | built (slice OL, outline.md R170; D-1624) | v1.0 | FR-EDT-11, FR-NAV-05 |
 | `graph` | Graph | built (G2, graph-panel.md R114; D-920) | v1.0 | FR-GRP-01, FR-NAV-05 |
 
 No Attributes tab: attributes stay at the top of the note (D-127, settles AP-20).
@@ -111,6 +111,7 @@ No Attributes tab: attributes stay at the top of the note (D-127, settles AP-20)
 | ⌥⌘U | Toggle Markdown source | D-146 (slice 3B) |
 | ⌘T | New tab (disabled, v1.0) | FR-NAV-06 |
 | ⌘[ and ⌘] | Go back, Go forward | FR-NAV-03 (3B.1, D-165, D-166) |
+| ⌘J | Outline: jump to heading… (note routes; after ⇧⌘G in the registry) | outline.md R175 (slice OL, D-1617, D-1624) |
 | ⌃⌘1 … ⌃⌘9 | Open recent vault 1 … 9 | D-219 (FR-VLT-01 AC-17) |
 
 Shortcut labels are displayed with modifiers in Apple's order ⌃ ⌥ ⇧ ⌘ (e.g. `⇧⌘P`), AP-70.

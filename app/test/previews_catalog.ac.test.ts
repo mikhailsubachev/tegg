@@ -189,7 +189,7 @@ test('fr_ux_03_ac19_preview_commands_ids_titles_section_and_shortcuts', async ()
 test('fr_ux_03_ac19_alt_space_is_the_only_new_shortcut_and_nothing_conflicts', async () => {
   const { reg, cat, cmd } = await mods();
   const shortcuts = reg.SHORTCUTS as { keys: string; command: string }[];
-  assert.deepEqual(shortcuts.map((s) => s.keys).sort(), [...R4.map((r) => r.keys), '⌥Space', '⇧⌘G', '⌥⌘↑', '⌥⌘↓'].sort(), 'R4 plus ⌥Space, slice G1\'s ⇧⌘G (D-918) and slice PIN\'s ⌥⌘↑ / ⌥⌘↓ (R136), nothing else');
+  assert.deepEqual(shortcuts.map((s) => s.keys).sort(), [...R4.map((r) => r.keys), '⌥Space', '⇧⌘G', '⌥⌘↑', '⌥⌘↓', '⌘J'].sort(), 'R4 plus ⌥Space, slice G1\'s ⇧⌘G (D-918), slice PIN\'s ⌥⌘↑ / ⌥⌘↓ (R136) and slice OL\'s ⌘J (D-1624), nothing else');
   assert.equal(shortcuts.find((s) => s.keys === '⌥Space')?.command, 'preview.show', '⌥Space → preview.show');
   assert.equal(shortcuts.find((s) => s.keys === '⇧⌘K')?.command, 'edit.link', '⇧⌘K stays Insert link in R4 (at a chip it opens Edit link)');
   assert.ok(!RESERVED.includes('⌥Space'), '⌥Space isn\'t macOS-reserved (⌘Space is)');
