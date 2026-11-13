@@ -73,7 +73,7 @@ Each criterion names a suggested test name (`Test:`). A test may split a criteri
 - **Bez hlavičky:** no frontmatter, no `id`.
 
 **Shared definitions.**
-- **The viewport** is the visible rectangle of the centre pane's scrolling element.
+- **The viewport** is the visible rectangle of the centre pane's scrolling element. Its top is the bottom of the note's sticky toolbar when the toolbar is shown, else the scroller's top (D-1673); the rail and the card are placed on the scroller's whole rectangle.
 - **A heading's top** is the top of its rendered block: the heading element in the editor, the line element in the source view.
 - **Untouched** means bytes, mtime and inode unchanged.
 - **Depth** is a heading's place in the tree: 1 plus the number of its ancestors (R171). **Level** is its Markdown level, 1–6.

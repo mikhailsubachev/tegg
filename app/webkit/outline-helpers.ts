@@ -258,18 +258,26 @@ export async function setScroll(page: Page, top: number | 'end') {
   }, top);
   await sleep(80);
 }
-/** An element's top in `main`'s viewport (its rect top − main's rect top). */
+/** An element's top below the viewport's top. D-1673: the viewport's top is the bottom of the sticky note toolbar
+ *  (`data-sticky-top`) when it is shown, else `main`'s top. */
 export async function topIn(loc: Locator): Promise<number | null> {
   if (!(await seen(loc, 1000))) return null;
-  return loc.first().evaluate((e) => e.getBoundingClientRect().top - (document.querySelector('main') as HTMLElement).getBoundingClientRect().top).catch(() => null);
+  return loc.first().evaluate((e) => {
+    const m = document.querySelector('main') as HTMLElement;
+    const bar = m.querySelector('[data-sticky-top]');
+    const vt = bar ? Math.max(m.getBoundingClientRect().top, bar.getBoundingClientRect().bottom) : m.getBoundingClientRect().top;
+    return e.getBoundingClientRect().top - vt;
+  }).catch(() => null);
 }
 export const headingTop = (page: Page, text: string, n = 0) => topIn(headingEl(page, text, n));
-/** Scrolls `main` so that heading `text` has its top `y` px below the viewport's top. */
+/** Scrolls `main` so that heading `text` has its top `y` px below the viewport's top (D-1673). */
 export async function scrollHeadingTo(page: Page, text: string, y: number, n = 0) {
   const el = await must(headingEl(page, text, n), `heading "${text}" in the note`);
   await el.evaluate((e, yy) => {
     const m = document.querySelector('main') as HTMLElement;
-    m.scrollTop = m.scrollTop + e.getBoundingClientRect().top - m.getBoundingClientRect().top - yy;
+    const bar = m.querySelector('[data-sticky-top]');
+    const vt = bar ? Math.max(m.getBoundingClientRect().top, bar.getBoundingClientRect().bottom) : m.getBoundingClientRect().top;
+    m.scrollTop = m.scrollTop + e.getBoundingClientRect().top - vt - yy;
     m.dispatchEvent(new Event('scroll'));
   }, y);
   await sleep(120);

@@ -226,7 +226,7 @@ export type OutlineSource = {
 2. `source.jump(i, version)`; `'stale'` → nothing else happens (caret and scroll unchanged), the page refreshes the
    outline at once (FR-EDT-11 AC-11), the card stays as it was.
 3. Editor: `pos = ed.headingPos(version, pos[i])` (null → `'stale'`); `ed.revealPos(pos)`; the target element's top
-   (after the reveal) gives `main.scrollTop = jumpTop(…)`, set directly (never `scrollIntoView`, never smooth; the
+   (after the reveal) minus `viewportTop(main)` (§3.5, D-1673) gives `main.scrollTop = jumpTop(…)`, set directly (never `scrollIntoView`, never smooth; the
    centre pane has `scroll-behavior: auto`). Then the focus on the body with `preventScroll` and the selection collapsed at
    the end of the heading node's content (`pos + node.nodeSize − 1`, after a block id the editor shows); the scroll top is
    set again on the next frame (as `caretToStart`). A heading inside a read-only block: CP-2.
@@ -244,8 +244,9 @@ transition: none }`, `[data-outline-fade] { transition: background-color 300ms, 
 
 ### 3.5 The current section (R172 rules 1–7, D-1608)
 
-- The viewport is `main` (the centre pane's scroller). `tops[i] = element(i).getBoundingClientRect().top −
-  main.getBoundingClientRect().top`; `scrolls = scrollHeight > clientHeight`; `atEnd = scrollTop + clientHeight ≥
+- The viewport is `main` (the centre pane's scroller), its top `viewportTop(main)` (`tracker.ts`, D-1673): the bottom
+  of the sticky note toolbar (`data-sticky-top`) when it is shown, else `main`'s top. `tops[i] =
+  element(i).getBoundingClientRect().top − viewportTop(main)`; `scrolls = scrollHeight > clientHeight`; `atEnd = scrollTop + clientHeight ≥
   scrollHeight − END_TOLERANCE`.
 - `tracker.ts` caches each element's offset in the scroll content and binary-searches it on `scroll` (one rAF per
   frame, so within 100 ms of the last scroll event); the cache is rebuilt on a new source, on `ResizeObserver` of the
@@ -490,7 +491,7 @@ outline: {
 - L5 helpers (`app/webkit/outline-helpers.ts`, written by the test author): `outlineVault(edit?)` (the fixture plus
   `new-empty/.tegg`), `startOutline(page, route, { panel?: 'outline' | 'backlinks' | 'graph' | null, width?, rail?,
   folds?, viewport? })`, locators `outlineTab`, `outlinePanel`, `outlineTree`, `rows`, `row(text, n?)`, `rail`,
-  `railLines`, `card`, `cardTree`, `liveRegion`, and `headingTop(page, i)` (the element's top in `main`'s viewport).
+  `railLines`, `card`, `cardTree`, `liveRegion`, and `headingTop(page, i)` (the element's top below `viewportTop(main)`, D-1673).
 - **L6** (`app/e2e/outline.ac.test.ts`): a temporary copy of the fixture with `new-empty/.tegg`, a temporary Application
   Support seeded with `ui-state.json` (`rightPanel`, folds), `TEGG_ROUTE=note/<path>`, the marks `route-ready:…` and
   `note-ready`; the test build writes the mark `outline-ready` once, when the tab or the rail first paints rows. Keys are

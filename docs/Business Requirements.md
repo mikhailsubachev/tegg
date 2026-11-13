@@ -193,6 +193,7 @@
 | v1.177  | 2026-11-13 | Outline, slice OL red tests (038c962): D-1642…D-1646 (RT-1…RT-5; owner, "Accept all 5"): Tab passes the header buttons, End to the last visible row, the test hold blocks only the debounced refresh, the card centres only when it scrolls, the test approximations; FR-UX-03 AC-46, FR-EDT-11 AC-11, AC-20, FR-EDT-16 AC-8 reworded |
 | v1.178  | 2026-11-13 | Outline, slice OL build: D-1647…D-1659 (RT-6…RT-18; owner, "Accept all 13"): AC-test changes of the build (FR-EDT-11 AC-1, AC-7…AC-11, FR-STO-07 AC-7, FR-EDT-16 AC-8…AC-10, FR-UX-08 AC-22, FR-UX-05 AC-22, NFR-OTH-02 AC-19, six heading-link tests, D-1625); build decisions D-1660…D-1672 (callout folding in the editor, D-1660) |
 | v1.179  | 2026-11-13 | D-1586: five AC-test changes of the import real-app tests (owner, "Approve all five") |
+| v1.180  | 2026-11-13 | D-1673: the outline's viewport starts below the sticky note toolbar (owner, "Viewport starts below toolbar") |
 
 ---
 
@@ -1679,6 +1680,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1670 | Fold-all buttons (build decision, noted by the owner 2026-11-13: "Accept all 13"; slice OL build) | `Expand all` uses `outline.expandAll`, `Collapse all` `outline.collapseAllHint`; chevron-down and chevron-right. |
 | D-1671 | Card re-arm (build decision, noted by the owner 2026-11-13: "Accept all 13"; slice OL build) | A pointer resting on the rail opens the card again after a line jump closed it. |
 | D-1672 | No core change (build decision, noted by the owner 2026-11-13: "Accept all 13"; slice OL build) | Slice OL needs no Rust change. |
+| D-1673 | The viewport's top is below the sticky note toolbar (owner, 2026-11-13: "Viewport starts below toolbar"; preview report: a click in the outline landed just below the heading, its highlight above the viewport) | The note toolbar is sticky at the top of the centre pane's scroller, so a heading put 24 px below the scroller's top (D-1609) was behind it. "The viewport's top" in the outline ACs is the bottom of that toolbar when it is shown (else the scroller's top): the jump, heading links (FR-EDT-11 AC-19) and the current-section line (R172, + 30 px) measure from it. The rail and card geometry keep the scroller's rectangle. The outline tests' helpers `topIn`, `scrollHeadingTo` measure from it (AC-test change approved by the owner). |
 
 ---
 

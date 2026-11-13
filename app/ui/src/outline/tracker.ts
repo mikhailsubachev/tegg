@@ -17,6 +17,14 @@ export function rendered(el: HTMLElement | null): HTMLElement | null {
   return null;
 }
 
+/** D-1673: the viewport's top in client coordinates: the bottom of a sticky bar inside `main` (the note toolbar,
+ *  `data-sticky-top`), else `main`'s own top. The jump, heading links and the current-section line measure from it. */
+export function viewportTop(main: HTMLElement): number {
+  const mt = main.getBoundingClientRect().top;
+  const bar = main.querySelector<HTMLElement>('[data-sticky-top]');
+  return bar ? Math.max(mt, bar.getBoundingClientRect().bottom) : mt;
+}
+
 export function trackCurrent(main: HTMLElement, src: OutlineSource, body: Element | null): () => void {
   let offsets: number[] = [];
   const compute = () => {
@@ -26,7 +34,7 @@ export function trackCurrent(main: HTMLElement, src: OutlineSource, body: Elemen
     setCurrent(currentSection(offsets.map((o) => o - st), { scrolls, atEnd }));
   };
   const rebuild = () => {
-    const mt = main.getBoundingClientRect().top;
+    const mt = viewportTop(main);
     const st = main.scrollTop;
     let last = -Infinity;
     offsets = src.tree.map((_n, i) => {
