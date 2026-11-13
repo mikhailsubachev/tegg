@@ -112,7 +112,34 @@ function parseMarkdown(text: string): Root {
     mdastExtensions: [gfmFromMarkdown(), mathFromMarkdown(), mathFromMarkdownObsidian, wikiLinkFromMarkdown, tagFromMarkdown, inlineFromMarkdown],
   })
   expandHighlights(tree)
+  mergeCommentRegions(tree, text)
   return tree
+}
+
+// Dialect §2 (comment blocks `%%…%%` are raw, preserved) and D-1628: a `%%` comment can span a blank line or a
+// heading line, which the Markdown parser splits into several top-level nodes. A paragraph that starts with `%%` and
+// holds an odd number of `%%` opens a region; the next paragraph or heading with an odd number of `%%` that ends with
+// `%%` closes it. The region becomes one paragraph node of its source text, so it is classified `raw` and nothing
+// inside it (a heading, a link) is read as structure. An unclosed `%%` hides nothing. Positions are unchanged.
+function mergeCommentRegions(tree: Root, text: string): void {
+  const src = (n: RootContent) => text.slice(n.position!.start.offset!, n.position!.end.offset!)
+  const odd = (s: string) => (s.match(/%%/g) ?? []).length % 2 === 1
+  const kids = tree.children
+  for (let i = 0; i < kids.length; i++) {
+    const open = kids[i]
+    if (open.type !== 'paragraph' || !src(open).startsWith('%%') || !odd(src(open))) continue
+    let close = -1
+    for (let j = i + 1; j < kids.length; j++) {
+      const n = kids[j]
+      if ((n.type === 'paragraph' || n.type === 'heading') && odd(src(n))) { close = src(n).trimEnd().endsWith('%%') ? j : -2; break }
+    }
+    if (close < 0) continue
+    const start = { ...open.position!.start }
+    const end = { ...kids[close].position!.end }
+    const value = text.slice(start.offset!, end.offset!)
+    const merged: RootContent = { type: 'paragraph', children: [{ type: 'text', value, position: { start, end } }], position: { start, end } }
+    kids.splice(i, close - i + 1, merged)
+  }
 }
 
 // The highlight construct captures its inner text as one text node; parse that text as
