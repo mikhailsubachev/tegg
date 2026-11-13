@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.174, for review                                            |
+| **Document status** | Draft v1.175, for review                                            |
 | **Date**            | 2026-11-13                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -188,6 +188,7 @@
 | v1.172  | 2026-11-13 | Outline, slice OL (v1.0; boards `Outline`, `OutlineDark`, prototype `outline-rail-prototype.html`): D-1600…D-1627 (AP-1400…AP-1427 of `docs/acceptance/outline.md`; owner, "Accept all 28"; numbered from D-1600 so they don't collide with the parallel import work): new requirement FR-EDT-16 (the outline rail on the note's edge, S, v1.0); which headings count and how they show, the current section, the jump and its Back entry, machine-local fold state, ⌘J and the palette commands, the rail's room and rows, VoiceOver, Reduce motion, live updates; AC-test changes approved (inbox.md FR-NAV-05 AC-1, app-shell R2, R4). FR-EDT-11 row noted |
 | v1.173  | 2026-11-13 | Outline, slice OL contract (`docs/contracts/v1-outline.md`): D-1628…D-1641 (CP-1…CP-14 of the contract; owner, "Accept all 14"): `%%` comments, read-only blocks, link text, footnotes and tables, draft folds and jumps, tooltips, the rail's fit rule, the source view's focus, Back never writes, duplicate heading links; FR-EDT-16 AC-13 (300 H1) and FR-EDT-11 AC-11 (refresh held) amended; the AC-test change of two heading-link regression tests (24 px) approved |
 | v1.174  | 2026-11-13 | Outline, slice OL red tests (e92d3db): D-1642…D-1646 (RT-1…RT-5; owner, "Accept all 5"): Tab passes the header buttons, End to the last visible row, the test hold blocks only the debounced refresh, the card centres only when it scrolls, the test approximations; FR-UX-03 AC-46, FR-EDT-11 AC-11, AC-20, FR-EDT-16 AC-8 reworded |
+| v1.175  | 2026-11-13 | Outline, slice OL build: D-1647…D-1659 (RT-6…RT-18; owner, "Accept all 13"): AC-test changes of the build (FR-EDT-11 AC-1, AC-7…AC-11, FR-STO-07 AC-7, FR-EDT-16 AC-8…AC-10, FR-UX-08 AC-22, FR-UX-05 AC-22, NFR-OTH-02 AC-19, six heading-link tests, D-1625); build decisions D-1660…D-1672 (callout folding in the editor, D-1660) |
 
 ---
 
@@ -1632,6 +1633,32 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1644 | The test hold and a stale click (RT-3 (owner, 2026-11-13: "Accept all 5"; slice OL red tests e92d3db)) | `__TEGG_TEST__.outline.hold(true)` blocks only the debounced refresh after typing; a click on a row whose heading no longer exists does nothing to the caret or scroll and always refreshes the tree within 250 ms. FR-EDT-11 AC-11 reworded; contract §10 noted. |
 | D-1645 | The current row in the card (RT-4 (owner, 2026-11-13: "Accept all 5"; slice OL red tests e92d3db)) | The card centres the current row (± 13 px) only when it scrolls (or stops at its scroll limit); a card that doesn't scroll just shows it. FR-EDT-16 AC-8 reworded. |
 | D-1646 | Test approximations of slice OL (RT-5 (owner, 2026-11-13: "Accept all 5"; slice OL red tests e92d3db)) | Accepted as test choices: FR-STO-07 AC-7's second vault is seeded as another vault key in `ui-state.json`; FR-NAV-03 AC-15's "not kept across launches" is left to the existing AC-7; in FR-EDT-11 AC-7 `##` and a space keeps the empty state; FR-EDT-11 AC-17's `new/page` test allows a write to one `Pages/` file (the draft, D-520). |
+| D-1647 | Backlinks badge read with the Outline tab (RT-6) (owner, 2026-11-13: "Accept all 13"; slice OL build) | FR-EDT-11 AC-1 allows the panel's `index_backlinks` read: the Backlinks badge shows on every tab (backlinks.md). |
+| D-1648 | Test clock margin (RT-7) (owner, 2026-11-13: "Accept all 13"; slice OL build) | The outline tests pause the page clock 200 ms ahead, not 50 ms (Playwright's clock can lag up to 100 ms). |
+| D-1649 | FR-EDT-11 AC-8's last check (RT-8) (owner, 2026-11-13: "Accept all 13"; slice OL build) | It compares with the visible rows; the children of the collapsed `Program` stay hidden. |
+| D-1650 | FR-EDT-11 AC-9 list comparison (RT-9) (owner, 2026-11-13: "Accept all 13"; slice OL build) | The current-row lists are compared by content. |
+| D-1651 | Headings near the note's end (RT-10) (owner, 2026-11-13: "Accept all 13"; slice OL build) | With the scroll-past-end space (D-140) every heading reaches the 24 px landing line (D-1625); FR-EDT-11 AC-9, AC-10 reworded. |
+| D-1652 | A heading in a raw list item (RT-11) (owner, 2026-11-13: "Accept all 13"; slice OL build) | A heading inside a list item the editor shows as a read-only raw block: the jump scrolls to it and the caret stays put (D-1629); FR-EDT-11 AC-11 reworded. |
+| D-1653 | FR-STO-07 AC-7 seed (RT-12) (owner, 2026-11-13: "Accept all 13"; slice OL build) | The seeded `ui-state.json` also holds `typeSort` and `otherPropertiesOpen` (AP-764). |
+| D-1654 | FR-EDT-16 AC-8 for a card that doesn't scroll (RT-13) (owner, 2026-11-13: "Accept all 13"; slice OL build) | Only checks that the current row is visible (D-1645). |
+| D-1655 | FR-EDT-16 AC-9 click target (RT-14) (owner, 2026-11-13: "Accept all 13"; slice OL build) | The test clicks a paragraph in view after the line jump. |
+| D-1656 | Fades in the tests (RT-15) (owner, 2026-11-13: "Accept all 13"; slice OL build) | FR-EDT-16 AC-10 and FR-UX-08 AC-22 check that each fade is declared with its duration and its end state, not the fade mid-way in real time. |
+| D-1657 | FR-UX-05 AC-22 pointer (RT-16) (owner, 2026-11-13: "Accept all 13"; slice OL build) | The pointer leaves the rail before colours are read (a hovered line is lit, FR-EDT-16 AC-7). |
+| D-1658 | Pseudo-locale shortcut (RT-17) (owner, 2026-11-13: "Accept all 13"; slice OL build) | NFR-OTH-02 AC-19 accepts the pseudo form `⟦⌘J⟧`. |
+| D-1659 | Heading links in embeds and previews (RT-18) (owner, 2026-11-13: "Accept all 13"; slice OL build) | Six more tests (embeds FR-EMB-02 AC-9, previews FR-LNK-10 AC-7, FR-LNK-09 AC-10 ×3, FR-LNK-11 AC-17) expect the heading 24 ± 8 px below the pane's top (D-1625, as D-1639). |
+| D-1660 | Callout folding in the editor (build decision, noted by the owner 2026-11-13: "Accept all 13"; slice OL build) | Callouts marked `-` or `+` fold in the editor as view state with a D-159 button `Collapse/Expand <title or type>`; `-` starts folded; nothing is written (FR-EDT-11 AC-11, R172). |
+| D-1661 | Where the outline reads the text (build decision, noted by the owner 2026-11-13: "Accept all 13"; slice OL build) | `outline()` reads the editor's reconciled text before identity stamping; offsets may differ from `text()` on a note without frontmatter. |
+| D-1662 | Mapping a saved caret through edits (build decision, noted by the owner 2026-11-13: "Accept all 13"; slice OL build) | `followSelection`: a deleted position inside a surviving text block stays; else the end of the preceding text block, else the body's start. |
+| D-1663 | Reading position across ⌥⌘U (build decision, noted by the owner 2026-11-13: "Accept all 13"; slice OL build) | Kept by the current section's heading offset (D-146, FR-EDT-11 AC-12). |
+| D-1664 | Source view lines (build decision, noted by the owner 2026-11-13: "Accept all 13"; slice OL build) | The gutter is the line's previous sibling inside `.source-row`; the section has `tabindex=-1` (D-1636). |
+| D-1665 | Row names (build decision, noted by the owner 2026-11-13: "Accept all 13"; slice OL build) | Tree rows' accessible names are NFC; the visible text stays as written (FR-FMT-12 AC-10). |
+| D-1666 | Mouse in the tree (build decision, noted by the owner 2026-11-13: "Accept all 13"; slice OL build) | A click on a tree row never takes the focus; the note keeps it. |
+| D-1667 | Rail fades (build decision, noted by the owner 2026-11-13: "Accept all 13"; slice OL build) | The rail fades out only when the Outline tab comes on screen and fades in on every mount, except under Reduce motion. |
+| D-1668 | Test hook (build decision, noted by the owner 2026-11-13: "Accept all 13"; slice OL build) | `__TEGG_TEST__.editor` is removed once the note is gone. |
+| D-1669 | Text clearance (build decision, noted by the owner 2026-11-13: "Accept all 13"; slice OL build) | `.centre[data-outline-rail="narrow"]` when the pane is under 768 px. |
+| D-1670 | Fold-all buttons (build decision, noted by the owner 2026-11-13: "Accept all 13"; slice OL build) | `Expand all` uses `outline.expandAll`, `Collapse all` `outline.collapseAllHint`; chevron-down and chevron-right. |
+| D-1671 | Card re-arm (build decision, noted by the owner 2026-11-13: "Accept all 13"; slice OL build) | A pointer resting on the rail opens the card again after a line jump closed it. |
+| D-1672 | No core change (build decision, noted by the owner 2026-11-13: "Accept all 13"; slice OL build) | Slice OL needs no Rust change. |
 
 ---
 
