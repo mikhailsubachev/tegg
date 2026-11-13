@@ -41,6 +41,8 @@ export const ipc = {
   /** A timed mark (`TEGG_PERF_LOG`, FR-MMP-02 AC-14 `mindmap-layout`). */
   perfTimed: (mark: string, ms: number) => invoke<void>('perf_mark', { name: mark, mark, ms }),
   perfKey: (frame: number, ms: number) => invoke<void>('perf_mark', { name: 'key', mark: 'key', frame, ms }),
+  /** Slice OL (v1-outline §8): a refresh's rows painted, `ms` after the last printable key. */
+  perfOutline: (frame: number, ms: number) => invoke<void>('perf_mark', { name: 'outline', mark: 'outline', frame, ms }),
   // 3C (ms3-shell §13.2).
   noteWrite: (path: string, text: string, base: VersionDto | null) => invoke<WriteResultDto>('note_write', { path, text, base }),
   noteCreateExact: (path: string, text: string) => invoke<VersionDto>('note_create_exact', { path, text }),

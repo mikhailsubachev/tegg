@@ -1,4 +1,5 @@
 // The frame (FR-UX-02, docs/contracts/ms3-shell.md §3.7): title bar with one tab, sidebar, context panel.
+import { OutlineTab, type OutlineTabProps } from '../outline/OutlineTab';
 import { PopupMenu, type MenuEntry } from './Menu';
 import { vaultColor } from './vaultColor';
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -365,12 +366,14 @@ export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, 
   );
 }
 
-export function ContextPanel({ tab, onTab, backlinks, graph, width, room, limits, onWidth }: {
+export function ContextPanel({ tab, onTab, backlinks, graph, outline, width, room, limits, onWidth }: {
   tab: string; onTab: (t: 'backlinks' | 'outline' | 'graph') => void;
   /** 4A: the Backlinks tab's content (FR-LNK-01). */
   backlinks?: { path: string; date?: string; types: TypeDefDto[]; refresh: number; onOpen: OpenMention; focusFirst: number };
   /** G2 (v1-graph §15.2): the Graph tab's content; its canvas follows the drawn width. */
   graph?: Omit<GraphPanelProps, 'width'>;
+  /** Slice OL (v1-outline §3.1): the Outline tab's folds. */
+  outline?: OutlineTabProps;
   /** D-634: the stored width (clamped to the limits), the room the centre pane leaves, [min, max, default], and the
    * store, called when a drag ends or a key changes the width. */
   width: number; room: number; limits: [number, number, number]; onWidth: (w: number) => void;
@@ -429,7 +432,9 @@ export function ContextPanel({ tab, onTab, backlinks, graph, width, room, limits
         ? <BacklinksPanel key="backlinks" {...backlinks} onCount={setCount} />
         : current.id === 'graph' && current.status.built && graph
           ? <GraphPanel key="graph" {...graph} width={drawn} />
-          : <Placeholder def={current} compact />}
+          : current.id === 'outline' && current.status.built && outline
+            ? <OutlineTab key="outline" {...outline} />
+            : <Placeholder def={current} compact />}
       {current.id !== 'backlinks' && backlinks && <BadgeCount path={backlinks.path} date={backlinks.date} refresh={backlinks.refresh} onCount={setCount} />}
     </aside>
   );

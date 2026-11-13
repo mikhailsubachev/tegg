@@ -26,9 +26,12 @@ const SECTIONS: [string, string][] = [
 ];
 const CHOICES: [ThemeChoice, string][] = [['system', 'settings.theme.system'], ['light', 'settings.theme.light'], ['dark', 'settings.theme.dark']];
 
-export function SettingsPage({ id, theme, heading, onSection, onTheme, vault, types, refresh, dateTime, onDateTime, onStarter, onOpenFolder, commandTitle }: {
+export function SettingsPage({ id, theme, heading, onSection, onTheme, vault, types, refresh, dateTime, onDateTime, onStarter, onOpenFolder, commandTitle, outlineRail = true, onOutlineRail }: {
   id: string;
   theme: ThemeChoice;
+  /** Slice OL (FR-SET-02 AC-10, D-1601): `Show outline rail` (machine-local). */
+  outlineRail?: boolean;
+  onOutlineRail?: (on: boolean) => void;
   heading: React.RefObject<HTMLHeadingElement | null>;
   onSection: (id: string) => void;
   onTheme: (c: ThemeChoice) => void;
@@ -83,6 +86,15 @@ export function SettingsPage({ id, theme, heading, onSection, onTheme, vault, ty
                 </button>
               ))}
             </div>
+          </div>
+          <div className="setting">
+            <button type="button" tabIndex={0} role="switch" aria-checked={outlineRail} aria-label={t('settings.appearance.outlineRail')}
+              aria-description={t('settings.appearance.outlineRailNote')} className={`switch${outlineRail ? ' on' : ''}`} data-command="outline.toggleRail"
+              onClick={() => onOutlineRail?.(!outlineRail)}>
+              <span className="switch-knob" aria-hidden="true" />
+              <span>{t('settings.appearance.outlineRail')}</span>
+            </button>
+            <span className="muted setting-note">{t('settings.appearance.outlineRailNote')}</span>
           </div>
           <div className="setting-row">
             <Disabled control="ctl.font" />
