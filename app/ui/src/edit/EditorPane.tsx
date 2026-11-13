@@ -2,6 +2,7 @@
 // block menu (FR-EDT-01 AC-3…AC-6), the slash menu (FR-EDT-03), the formatting toolbar and link field (FR-EDT-05),
 // `[[` and `#` autocomplete (FR-EDT-06, -15), block selection (FR-EDT-13) and paste notices (FR-EDT-14). The editor
 // itself is @tegg/editor; every visible text comes from the catalog (NFR-OTH-02).
+import { importOpen } from '../import/store';
 import { chipPinRequest } from '../pinned/editorDrag';
 import { startPinDrag } from '../pinned/drag';
 import { TypeMenu } from '../shell/TypeMenu';
@@ -164,7 +165,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     const un = listen<{ paths: string[]; position: { x: number; y: number } }>('tauri://drag-drop', (e) => {
       const ed = edRef.current;
       const tg = mediaTarget();
-      if (!ed || !tg || !e.payload?.paths?.length) return;
+      if (!ed || !tg || !e.payload?.paths?.length || importOpen()) return; // slice I2 (§12 (8)): the Import window takes drops
       // Tauri reports physical pixels; accept logical ones too (the point must fall on the editor either way).
       const r = ed.view.dom.getBoundingClientRect();
       const inside = (px: number, py: number) => px >= r.left && px <= r.right && py >= r.top && py <= r.bottom;

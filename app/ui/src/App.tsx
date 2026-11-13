@@ -67,6 +67,9 @@ import { TagPage } from './tags/TagPage';
 import { AllTagsPage } from './tags/AllTagsPage';
 import { tagOfFile, useTags, loadTags, refreshTags } from './tags/store';
 import { findPin, editReason } from './pinned/model';
+import { ImportDialog } from './import/ImportDialog';
+import { ImportStatus } from './import/ImportStatus';
+import { importOpen, openImport as openImportWindow, quitRequested as importQuitRequested, setImportHost, startImportEvents } from './import/store';
 import { pinsForVault, pinsNow, pinTarget, unpin, usePins } from './pinned/store';
 import { focusedPinnedRow, moveFocusedPinned } from './pinned/PinnedSection';
 import type { PinRequestDto } from './ipc/pins';
@@ -296,7 +299,8 @@ export function App() {
   }, []);
 
   const land = useCallback(async () => {
-    const forced = (window as { __TEGG_ROUTE__?: string | null }).__TEGG_ROUTE__;
+    const forced = landingOverride.current ?? (window as { __TEGG_ROUTE__?: string | null }).__TEGG_ROUTE__;
+    landingOverride.current = null;
     const r = forced ? parseRoute(forced) : null;
     const landing: Route = r ?? await ipc.vaultLast().then((last) => (last ? (parseRoute(last.path)?.id === DAILY ? parseRoute(last.path)! : { id: 'note/<path>', param: last.path }) : { id: 'inbox' }), () => ({ id: 'inbox' }));
     history.current.clear(); // D-171: the history starts with the landing route
@@ -333,6 +337,24 @@ export function App() {
 
   // 4C (ms4-jobs §2.2, §10): job progress and the worker bridge for the whole session.
   useEffect(() => { startJobs(); return startBridge(); }, []);
+  // Slice I2 (v1-import-window §3.1, §3.11): the Import window's events from app mount, with or without a vault; how it
+  // opens a vault (the switcher's way) and its report Page.
+  const landingOverride = useRef<string | null>(null);
+  useEffect(() => { startImportEvents(); }, []);
+  useEffect(() => {
+    setImportHost({
+      openVault: async (path, report) => {
+        await flushNote();
+        const v = await ipc.vaultOpen(path);
+        landingOverride.current = report ? `note/${report}` : null;
+        opened(v);
+      },
+      vaultPath: () => liveVault.current?.path ?? null,
+      goNote: (path) => { void goRef.current?.({ id: 'note/<path>', param: path.normalize('NFC') }); },
+      quit: () => { void quitFlow.current(); },
+    });
+    return () => setImportHost(null);
+  }, [opened]);
   useEffect(() => {
     // A result after the cleanup is dropped: StrictMode runs this effect twice, and two `opened` calls would load the
     // landing page twice (NFR-PERF-05 AC-3: one link_resolve, one note_read).
@@ -602,16 +624,18 @@ export function App() {
   }, [routeKey, navKey]);
 
   // ------------------------------------------------------------------ quitting (FR-EDT-08 AC-7, AC-11; FR-SYN-03 AC-19; D-196)
-  useEffect(() => {
+  const quitFlow = useRef(async () => {
     const quit = () => { void ipc.appQuit().catch(() => {}); };
-    const un = events.quitRequested(async () => {
-      const api = noteApi.current;
-      if (!api) { quit(); return; }
-      if (api.mergeOpen()) { setQuitAsk('keepBoth'); return; }
-      await Promise.race([api.flush(), new Promise((r) => setTimeout(r, 2000))]);
-      if (api.pending()) setQuitAsk('unsaved');
-      else quit();
-    });
+    const api = noteApi.current;
+    if (!api) { quit(); return; }
+    if (api.mergeOpen()) { setQuitAsk('keepBoth'); return; }
+    await Promise.race([api.flush(), new Promise((r) => setTimeout(r, 2000))]);
+    if (api.pending()) setQuitAsk('unsaved');
+    else quit();
+  });
+  useEffect(() => {
+    // Slice I2 (v1-import-window §6.3): a running import asks first (writing) or is cancelled first (before writing).
+    const un = events.quitRequested(() => { if (!importQuitRequested()) void quitFlow.current(); });
     return () => void un.then((f) => f());
   }, []);
 
@@ -830,6 +854,7 @@ export function App() {
     forward: () => { void step('forward'); },
     toggleProperties: () => { if (isNoteRoute(route)) updateUi((u) => ({ ...u, propertiesOpen: !u.propertiesOpen })); },
     setPageWidth: (w) => { if (isNoteRoute(route)) noteApi.current?.setWidth(w); },
+    openImport: () => openImportWindow(pendingReturn.current ?? returnFocus.current ?? (document.activeElement as HTMLElement | null)),
     openChooser: (form: boolean) => { setDialog(null); void flushNote().then(() => setChooser({ form })); },
     openRecent: (n: number) => {
       void ipc.vaultRecent().then((list) => {
@@ -1014,6 +1039,7 @@ export function App() {
   live.current = { dialog, focusMode, available_commands, run, closeDialog };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (importOpen()) return; // slice I2 (FR-UX-03 AC-44): only the Import window's keys act while it is open
       const L = live.current;
       // WebKit goes back in history on ⌫ outside a text field, which would blank the read-only views (3B).
       const el = e.target as HTMLElement | null;
@@ -1189,6 +1215,8 @@ export function App() {
       <>
         <Chooser key={chooser ? `c${chooser.form}` : 'none'} startWithForm={chooser?.form ?? false} onOpened={opened} onCancel={vault ? () => setChooser(null) : undefined} />
         {dialog === 'palette' && <Palette list={available_commands} onRun={(c) => { closeDialog(); run(c); }} onClose={closeDialog} />}
+        <div className="chooser-status"><ImportStatus /></div>
+        <ImportDialog />
       </>
     );
   }
@@ -1469,10 +1497,12 @@ export function App() {
           )}
           {interrupted.map((i) => (
             <div key={i.jobId} className="banner" role="status">
-              <span>{i.kind === 'type-move'
+              <span>{i.kind === 'import'
+                ? t('job.interrupted.import', { space: i.title ?? '', done: i.done, total: i.total }) // slice I2 (§6.4): `Undo` only
+                : i.kind === 'type-move'
                 ? t('job.interrupted.typeMove', { title: i.title ?? i.from.split('/').pop()!.replace(/\.md$/i, ''), done: i.done, total: i.total })
                 : t('job.interrupted', { old: i.from.split('/').pop()!.replace(/\.md$/i, ''), done: i.done, total: i.total })}</span>
-              <button type="button" onClick={() => { void ipc.jobResolveInterrupted(i.jobId, 'finish').finally(() => setInterrupted((l) => l.filter((x) => x.jobId !== i.jobId))); }}>{t('job.finish')}</button>
+              {i.kind !== 'import' && <button type="button" onClick={() => { void ipc.jobResolveInterrupted(i.jobId, 'finish').finally(() => setInterrupted((l) => l.filter((x) => x.jobId !== i.jobId))); }}>{t('job.finish')}</button>}
               <button type="button" onClick={() => { void ipc.jobResolveInterrupted(i.jobId, 'undo').finally(() => setInterrupted((l) => l.filter((x) => x.jobId !== i.jobId))); }}>{t('job.undo')}</button>
             </div>
           ))}
@@ -1538,6 +1568,7 @@ export function App() {
       <QueryDialogs />
       <QueryPicker />
       <QueryNotices />
+      <ImportDialog />
     </div>
     </PreviewProvider>
   );

@@ -1,0 +1,55 @@
+{
+  "files": 8,
+  "kind": "zip",
+  "name": "c01-spaces.zip",
+  "outsideSpaces": 0,
+  "size": 1632,
+  "spaces": [
+    {
+      "attachments": 0,
+      "name": "PKM",
+      "objects": 3,
+      "types": [
+        {
+          "objects": 2,
+          "sourceType": "Page"
+        },
+        {
+          "objects": 1,
+          "sourceType": "Task"
+        }
+      ]
+    },
+    {
+      "attachments": 0,
+      "name": "Work",
+      "objects": 3,
+      "types": [
+        {
+          "objects": 2,
+          "sourceType": "Page"
+        },
+        {
+          "objects": 1,
+          "sourceType": "Task"
+        }
+      ]
+    },
+    {
+      "attachments": 0,
+      "name": "IDC",
+      "objects": 2,
+      "types": [
+        {
+          "objects": 1,
+          "sourceType": "Page"
+        },
+        {
+          "objects": 1,
+          "sourceType": "Task"
+        }
+      ]
+    }
+  ],
+  "unreadable": []
+}

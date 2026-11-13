@@ -317,7 +317,7 @@ fn probes_read_only_and_create_nothing() {
     let before = snapshot();
 
     let p = probe_new_vault(&place, "Nový").expect("probe");
-    assert_eq!(p, NewVaultProbe { parent: place.clone(), parent_is_dir: true, writable: true, final_exists: false, temp_exists: false, marker: None, inside_vault: false });
+    assert_eq!(p, NewVaultProbe { parent: place.clone(), parent_is_dir: true, parent_creatable: false, writable: true, final_exists: false, temp_exists: false, marker: None, inside_vault: false });
     // A missing parent, and a file as the parent.
     let p = probe_new_vault(&sb.base.join("Nikde/Hluboko"), "Nový").expect("probe");
     assert_eq!((p.parent.clone(), p.parent_is_dir, p.writable), (sb.base.join("Nikde/Hluboko"), false, false));

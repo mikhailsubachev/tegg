@@ -15,7 +15,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tegg_format::{nfc, sanitize_file_stem, unique_file_name};
 
 pub use external::{
-    free_space, has_entry_at_or_above, is_inside, list_external_dir, open_external_file, probe_new_vault, resolve_existing, stat_external, volume_id, ExternalFolder, ExternalRead,
+    free_space, has_entry_at_or_above, is_inside, list_external_dir, missing_creatable_parent, open_external_file, probe_new_vault, resolve_existing, stat_external, volume_id, ExternalFolder, ExternalRead,
     NewVaultProbe, ReadSeek,
 };
 pub use local::{

@@ -111,6 +111,8 @@ export type ShellActions = {
   newQuery?: () => void;
   /** Whether the note's editor had the focus (before the palette opened): `Insert query` is listed only then. */
   editorFocused?: () => boolean;
+  /** Slice I2 (v1-import-window §4.2): shows the Import window (brings it forward, or a new one at step 0). */
+  openImport?: () => void;
 };
 
 /** Slice G1 and G3 (v1-graph §4, §16.3): the graph route's commands, run by the shown graph page. */
@@ -144,7 +146,7 @@ export type Command = {
   id: string;
   title: string;
   vars?: Record<string, string>;
-  section: 'navigate' | 'create' | 'view' | 'vault' | 'app' | 'edit';
+  section: 'navigate' | 'create' | 'view' | 'vault' | 'app' | 'edit' | 'file';
   shortcut?: string;
   due?: Due;
   /** 5A-2 (FR-CNV-01 AC-5): why the command can't run here now, or null; listed disabled with the reason. */
@@ -205,6 +207,8 @@ export function commands(ctx: ShellContext): Command[] {
     { id: 'vault.openFolder', title: 'cmd.openFolderAsVault', section: 'vault', needsVault: true, run: (c) => a(c)?.openFolder() },
     ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n): Command => ({ id: `vault.recent.${n}`, title: `cmd.openRecentVault${n}`, section: 'vault', shortcut: shortcutOf(`vault.recent.${n}`), needsVault: true, run: (c) => a(c)?.openRecent(n) })),
     { id: 'app.about', title: 'cmd.about', section: 'app', needsVault: false, run: (c) => a(c)?.about() },
+    // Slice I2 (R154, D-1531, D-137): `File › Import…`, also with no vault open.
+    { id: 'import.open', title: 'cmd.import', section: 'file', needsVault: false, run: (c) => a(c)?.openImport?.() },
     { id: 'theme.system', title: 'cmd.theme.system', section: 'app', needsVault: false, run: (c) => a(c)?.setTheme('system') },
     { id: 'theme.light', title: 'cmd.theme.light', section: 'app', needsVault: false, run: (c) => a(c)?.setTheme('light') },
     { id: 'theme.dark', title: 'cmd.theme.dark', section: 'app', needsVault: false, run: (c) => a(c)?.setTheme('dark') },

@@ -1,0 +1,523 @@
+{
+  "alreadyImported": 0,
+  "attachments": [],
+  "backup": null,
+  "decisions": {
+    "ambiguous": [],
+    "caseLinks": [],
+    "tagLike": []
+  },
+  "links": [
+    {
+      "form": "wikilink",
+      "keptAsMarkdown": false,
+      "line": 7,
+      "n": 0,
+      "note": "Pages/Work home.md",
+      "outcome": {
+        "kind": "resolved"
+      },
+      "place": "body",
+      "simplified": false,
+      "target": "Work task",
+      "to": "Tasks/Work task.md",
+      "written": "[[Work task]]"
+    }
+  ],
+  "mapping": {
+    "caseLinks": [],
+    "types": {
+      "Page": {
+        "attributes": {
+          "tags": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "tags",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "title": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "title",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "type": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "type",
+              "kind": "existing"
+            },
+            "values": {}
+          }
+        },
+        "to": {
+          "key": "page",
+          "kind": "existing"
+        }
+      },
+      "Task": {
+        "attributes": {
+          "deadline": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "due",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "status": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "status",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "tags": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "tags",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "title": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "title",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "type": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "type",
+              "kind": "existing"
+            },
+            "values": {}
+          }
+        },
+        "to": {
+          "key": "task",
+          "kind": "existing"
+        }
+      }
+    },
+    "version": 1
+  },
+  "neededBytes": 227,
+  "objects": [
+    {
+      "frontmatter": [
+        [
+          "type",
+          "page"
+        ],
+        [
+          "title",
+          "Quarterly plan"
+        ],
+        [
+          "tags",
+          []
+        ],
+        [
+          "import-id",
+          "capacities:Work/Pages/Quarterly plan.md"
+        ]
+      ],
+      "importId": "capacities:Work/Pages/Quarterly plan.md",
+      "kind": "note",
+      "nameChanges": [],
+      "outcome": "imported",
+      "path": "Pages/Quarterly plan.md",
+      "source": "Pages/Quarterly plan.md",
+      "sourceType": "Page",
+      "title": "Quarterly plan",
+      "type": "page"
+    },
+    {
+      "frontmatter": [
+        [
+          "type",
+          "page"
+        ],
+        [
+          "title",
+          "Work home"
+        ],
+        [
+          "tags",
+          []
+        ],
+        [
+          "import-id",
+          "capacities:Work/Pages/Work home.md"
+        ]
+      ],
+      "importId": "capacities:Work/Pages/Work home.md",
+      "kind": "note",
+      "nameChanges": [],
+      "outcome": "imported",
+      "path": "Pages/Work home.md",
+      "source": "Pages/Work home.md",
+      "sourceType": "Page",
+      "title": "Work home",
+      "type": "page"
+    },
+    {
+      "frontmatter": [
+        [
+          "type",
+          "task"
+        ],
+        [
+          "title",
+          "Work task"
+        ],
+        [
+          "status",
+          "To do"
+        ],
+        [
+          "tags",
+          []
+        ],
+        [
+          "import-id",
+          "capacities:Work/Tasks/Work task.md"
+        ]
+      ],
+      "importId": "capacities:Work/Tasks/Work task.md",
+      "kind": "note",
+      "nameChanges": [],
+      "outcome": "imported",
+      "path": "Tasks/Work task.md",
+      "source": "Tasks/Work task.md",
+      "sourceType": "Task",
+      "title": "Work task",
+      "type": "task"
+    }
+  ],
+  "otherFiles": [],
+  "report": {
+    "ambiguous": [],
+    "attributes": [],
+    "caseLinks": [],
+    "cleanup": {
+      "crlfFiles": 0,
+      "u200b": 0,
+      "u200c": 0,
+      "u200d": 0,
+      "ufeff": 0
+    },
+    "dates": [
+      {
+        "kind": "importTime",
+        "objects": 3
+      }
+    ],
+    "files": [],
+    "merged": [],
+    "noDay": [],
+    "notExported": [
+      "queryDefinitions",
+      "tagColoursAndCollections",
+      "comments"
+    ],
+    "simplified": [],
+    "skipped": [],
+    "stubs": [],
+    "summary": {
+      "attachments": {
+        "imported": 0,
+        "reported": 0,
+        "total": 0
+      },
+      "backup": null,
+      "date": "2026-11-12",
+      "links": {
+        "imported": 1,
+        "reported": 0,
+        "total": 1
+      },
+      "objects": {
+        "imported": 3,
+        "reported": 0,
+        "total": 3
+      },
+      "source": "c01-spaces",
+      "space": "Work"
+    },
+    "types": [
+      {
+        "new": false,
+        "objects": 2,
+        "sourceType": "Page",
+        "target": "Page"
+      },
+      {
+        "new": false,
+        "objects": 1,
+        "sourceType": "Task",
+        "target": "Task"
+      }
+    ],
+    "unresolved": []
+  },
+  "reportPath": "Pages/Import report 2026-11-12 Work.md",
+  "source": {
+    "files": 8,
+    "kind": "folder",
+    "name": "c01-spaces",
+    "outsideSpaces": 0,
+    "size": null,
+    "spaces": [
+      {
+        "attachments": 0,
+        "name": "PKM",
+        "objects": 3,
+        "types": [
+          {
+            "objects": 2,
+            "sourceType": "Page"
+          },
+          {
+            "objects": 1,
+            "sourceType": "Task"
+          }
+        ]
+      },
+      {
+        "attachments": 0,
+        "name": "Work",
+        "objects": 3,
+        "types": [
+          {
+            "objects": 2,
+            "sourceType": "Page"
+          },
+          {
+            "objects": 1,
+            "sourceType": "Task"
+          }
+        ]
+      },
+      {
+        "attachments": 0,
+        "name": "IDC",
+        "objects": 2,
+        "types": [
+          {
+            "objects": 1,
+            "sourceType": "Page"
+          },
+          {
+            "objects": 1,
+            "sourceType": "Task"
+          }
+        ]
+      }
+    ],
+    "unreadable": []
+  },
+  "space": "Work",
+  "spaceBytes": 206,
+  "target": {
+    "kind": "newVault",
+    "name": "Capacities · Work",
+    "parent": "/fake/parent"
+  },
+  "totals": {
+    "attachments": {
+      "imported": 0,
+      "reported": 0,
+      "total": 0
+    },
+    "links": {
+      "imported": 1,
+      "reported": 0,
+      "total": 1
+    },
+    "objects": {
+      "imported": 3,
+      "reported": 0,
+      "total": 3
+    },
+    "otherFiles": {
+      "imported": 0,
+      "reported": 0,
+      "total": 0
+    }
+  },
+  "types": [
+    {
+      "attributes": [
+        {
+          "action": "consumed",
+          "key": "type",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "type",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 2
+        },
+        {
+          "action": "consumed",
+          "key": "title",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "title",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 2
+        },
+        {
+          "action": "consumed",
+          "key": "tags",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "tags",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 2
+        }
+      ],
+      "folder": "Pages",
+      "key": "page",
+      "name": "Page",
+      "new": false,
+      "objects": 2,
+      "plural": "Pages",
+      "sourceFolder": "Pages",
+      "sourceType": "Page",
+      "target": {
+        "key": "page",
+        "kind": "existing"
+      }
+    },
+    {
+      "attributes": [
+        {
+          "action": "consumed",
+          "key": "type",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "type",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 1
+        },
+        {
+          "action": "consumed",
+          "key": "title",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "title",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 1
+        },
+        {
+          "action": "consumed",
+          "key": "tags",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "tags",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 1
+        },
+        {
+          "action": "consumed",
+          "key": "status",
+          "merges": [],
+          "name": null,
+          "needsLook": true,
+          "nulls": 0,
+          "options": [
+            "To do"
+          ],
+          "sourceKey": "status",
+          "split": null,
+          "statuses": [
+            {
+              "count": 1,
+              "fallback": true,
+              "state": "open",
+              "to": "To do",
+              "value": "Not Started"
+            }
+          ],
+          "type": null,
+          "values": 1
+        },
+        {
+          "action": "consumed",
+          "key": "due",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 1,
+          "options": [],
+          "sourceKey": "deadline",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 0
+        }
+      ],
+      "folder": "Tasks",
+      "key": "task",
+      "name": "Task",
+      "new": false,
+      "objects": 1,
+      "plural": "Tasks",
+      "sourceFolder": "Tasks",
+      "sourceType": "Task",
+      "target": {
+        "key": "task",
+        "kind": "existing"
+      }
+    }
+  ],
+  "version": 1
+}

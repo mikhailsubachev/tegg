@@ -1,0 +1,686 @@
+{
+  "alreadyImported": 0,
+  "attachments": [],
+  "backup": null,
+  "decisions": {
+    "ambiguous": [],
+    "caseLinks": [],
+    "tagLike": [
+      {
+        "example": "[[in progress]]",
+        "objects": 2,
+        "selected": false,
+        "sourceKey": "status",
+        "sourceType": "Trip",
+        "values": [
+          "in progress",
+          "planned"
+        ]
+      }
+    ]
+  },
+  "links": [
+    {
+      "form": "wikilink",
+      "keptAsMarkdown": false,
+      "line": 9,
+      "n": 0,
+      "note": "DailyNotes/2026-02-01.md",
+      "outcome": {
+        "kind": "date-mention"
+      },
+      "place": "body",
+      "simplified": false,
+      "target": "Date/2026-02-03",
+      "to": null,
+      "written": "[[Date/2026-02-03]]"
+    },
+    {
+      "form": "wikilink",
+      "keptAsMarkdown": false,
+      "line": 9,
+      "n": 1,
+      "note": "DailyNotes/2026-02-01.md",
+      "outcome": {
+        "kind": "unresolved"
+      },
+      "place": "body",
+      "simplified": false,
+      "target": "NOTE/3f2c9a1e-0000-4000-8000-000000000001",
+      "to": null,
+      "written": "[[NOTE/3f2c9a1e-0000-4000-8000-000000000001]]"
+    },
+    {
+      "form": "wikilink",
+      "keptAsMarkdown": false,
+      "line": 11,
+      "n": 2,
+      "note": "DailyNotes/2026-02-01.md",
+      "outcome": {
+        "kind": "resolved"
+      },
+      "place": "body",
+      "simplified": false,
+      "target": "Lisbon",
+      "to": "Trips/Lisbon.md",
+      "written": "[[Lisbon]]"
+    },
+    {
+      "form": "wikilink",
+      "keptAsMarkdown": false,
+      "line": 11,
+      "n": 3,
+      "note": "DailyNotes/2026-02-01.md",
+      "outcome": {
+        "kind": "unresolved"
+      },
+      "place": "body",
+      "simplified": false,
+      "target": "Never exported",
+      "to": null,
+      "written": "[[Never exported]]"
+    },
+    {
+      "form": "wikilink",
+      "keptAsMarkdown": false,
+      "line": 5,
+      "n": 0,
+      "note": "Trips/Lisbon.md",
+      "outcome": {
+        "kind": "unresolved"
+      },
+      "place": {
+        "frontmatter": {
+          "key": "status"
+        }
+      },
+      "simplified": false,
+      "target": "in progress",
+      "to": null,
+      "written": "[[in progress]]"
+    },
+    {
+      "form": "markdown",
+      "keptAsMarkdown": false,
+      "line": 8,
+      "n": 1,
+      "note": "Trips/Lisbon.md",
+      "outcome": {
+        "kind": "unresolved"
+      },
+      "place": "body",
+      "simplified": false,
+      "target": "../Pages/Gone.md",
+      "to": null,
+      "written": "[Missing](../Pages/Gone.md)"
+    },
+    {
+      "form": "wikilink",
+      "keptAsMarkdown": false,
+      "line": 5,
+      "n": 0,
+      "note": "Trips/Oslo.md",
+      "outcome": {
+        "kind": "unresolved"
+      },
+      "place": {
+        "frontmatter": {
+          "key": "status"
+        }
+      },
+      "simplified": false,
+      "target": "planned",
+      "to": null,
+      "written": "[[planned]]"
+    }
+  ],
+  "mapping": {
+    "caseLinks": [],
+    "types": {
+      "DailyNote": {
+        "attributes": {
+          "date": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "date",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "reviewed": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "review",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "tags": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "tags",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "title": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "title",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "type": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "type",
+              "kind": "existing"
+            },
+            "values": {}
+          }
+        },
+        "to": {
+          "key": "daily-note",
+          "kind": "existing"
+        }
+      },
+      "Trip": {
+        "attributes": {
+          "status": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "kind": "new",
+              "name": "status",
+              "type": "relation"
+            },
+            "values": {}
+          },
+          "tags": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "tags",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "title": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "title",
+              "kind": "existing"
+            },
+            "values": {}
+          },
+          "type": {
+            "merge": null,
+            "split": null,
+            "to": {
+              "key": "type",
+              "kind": "existing"
+            },
+            "values": {}
+          }
+        },
+        "to": {
+          "kind": "new",
+          "name": "Trip"
+        }
+      }
+    },
+    "version": 1
+  },
+  "neededBytes": 440,
+  "objects": [
+    {
+      "frontmatter": [
+        [
+          "type",
+          "daily-note"
+        ],
+        [
+          "title",
+          "2026-02-01"
+        ],
+        [
+          "date",
+          {
+            "date": "2026-02-01"
+          }
+        ],
+        [
+          "review",
+          "reviewed"
+        ],
+        [
+          "tags",
+          []
+        ],
+        [
+          "import-id",
+          "capacities:PKM/DailyNotes/2026-02-01.md"
+        ]
+      ],
+      "importId": "capacities:PKM/DailyNotes/2026-02-01.md",
+      "kind": "note",
+      "nameChanges": [],
+      "outcome": "imported",
+      "path": "Daily/2026-02-01.md",
+      "source": "DailyNotes/2026-02-01.md",
+      "sourceType": "DailyNote",
+      "title": "2026-02-01",
+      "type": "daily-note"
+    },
+    {
+      "frontmatter": [
+        [
+          "type",
+          "trip"
+        ],
+        [
+          "title",
+          "Lisbon"
+        ],
+        [
+          "status",
+          {
+            "link": "in progress"
+          }
+        ],
+        [
+          "tags",
+          []
+        ],
+        [
+          "import-id",
+          "capacities:PKM/Trips/Lisbon.md"
+        ]
+      ],
+      "importId": "capacities:PKM/Trips/Lisbon.md",
+      "kind": "note",
+      "nameChanges": [],
+      "outcome": "imported",
+      "path": "Trips/Lisbon.md",
+      "source": "Trips/Lisbon.md",
+      "sourceType": "Trip",
+      "title": "Lisbon",
+      "type": "trip"
+    },
+    {
+      "frontmatter": [
+        [
+          "type",
+          "trip"
+        ],
+        [
+          "title",
+          "Oslo"
+        ],
+        [
+          "status",
+          {
+            "link": "planned"
+          }
+        ],
+        [
+          "tags",
+          []
+        ],
+        [
+          "import-id",
+          "capacities:PKM/Trips/Oslo.md"
+        ]
+      ],
+      "importId": "capacities:PKM/Trips/Oslo.md",
+      "kind": "note",
+      "nameChanges": [],
+      "outcome": "imported",
+      "path": "Trips/Oslo.md",
+      "source": "Trips/Oslo.md",
+      "sourceType": "Trip",
+      "title": "Oslo",
+      "type": "trip"
+    }
+  ],
+  "otherFiles": [],
+  "report": {
+    "ambiguous": [],
+    "attributes": [
+      {
+        "change": {
+          "key": "status",
+          "kind": "new",
+          "type": "relation"
+        },
+        "sourceKey": "status",
+        "sourceType": "Trip"
+      }
+    ],
+    "caseLinks": [],
+    "cleanup": {
+      "crlfFiles": 0,
+      "u200b": 0,
+      "u200c": 0,
+      "u200d": 0,
+      "ufeff": 0
+    },
+    "dates": [
+      {
+        "kind": "importTime",
+        "objects": 3
+      }
+    ],
+    "files": [],
+    "merged": [],
+    "noDay": [],
+    "notExported": [
+      "queryDefinitions",
+      "tagColoursAndCollections",
+      "comments"
+    ],
+    "simplified": [],
+    "skipped": [],
+    "stubs": [],
+    "summary": {
+      "attachments": {
+        "imported": 0,
+        "reported": 0,
+        "total": 0
+      },
+      "backup": null,
+      "date": "2026-11-12",
+      "links": {
+        "imported": 2,
+        "reported": 5,
+        "total": 7
+      },
+      "objects": {
+        "imported": 3,
+        "reported": 0,
+        "total": 3
+      },
+      "source": "c09-unresolved-links",
+      "space": "PKM"
+    },
+    "types": [
+      {
+        "new": false,
+        "objects": 1,
+        "sourceType": "DailyNote",
+        "target": "Daily Note"
+      },
+      {
+        "new": true,
+        "objects": 2,
+        "sourceType": "Trip",
+        "target": "Trip"
+      }
+    ],
+    "unresolved": [
+      {
+        "n": 1,
+        "note": "DailyNotes/2026-02-01.md",
+        "reason": {
+          "kind": "notInExport"
+        },
+        "written": "[[NOTE/3f2c9a1e-0000-4000-8000-000000000001]]"
+      },
+      {
+        "n": 3,
+        "note": "DailyNotes/2026-02-01.md",
+        "reason": {
+          "kind": "notInExport"
+        },
+        "written": "[[Never exported]]"
+      },
+      {
+        "n": 0,
+        "note": "Trips/Lisbon.md",
+        "reason": {
+          "kind": "notInExport"
+        },
+        "written": "[[in progress]]"
+      },
+      {
+        "n": 1,
+        "note": "Trips/Lisbon.md",
+        "reason": {
+          "kind": "notInExport"
+        },
+        "written": "[Missing](../Pages/Gone.md)"
+      },
+      {
+        "n": 0,
+        "note": "Trips/Oslo.md",
+        "reason": {
+          "kind": "notInExport"
+        },
+        "written": "[[planned]]"
+      }
+    ]
+  },
+  "reportPath": "Pages/Import report 2026-11-12 PKM.md",
+  "source": {
+    "files": 3,
+    "kind": "folder",
+    "name": "c09-unresolved-links",
+    "outsideSpaces": 0,
+    "size": null,
+    "spaces": [
+      {
+        "attachments": 0,
+        "name": "PKM",
+        "objects": 3,
+        "types": [
+          {
+            "objects": 1,
+            "sourceType": "DailyNote"
+          },
+          {
+            "objects": 2,
+            "sourceType": "Trip"
+          }
+        ]
+      }
+    ],
+    "unreadable": []
+  },
+  "space": "PKM",
+  "spaceBytes": 400,
+  "target": {
+    "kind": "newVault",
+    "name": "Capacities · PKM",
+    "parent": "/fake/parent"
+  },
+  "totals": {
+    "attachments": {
+      "imported": 0,
+      "reported": 0,
+      "total": 0
+    },
+    "links": {
+      "imported": 2,
+      "reported": 5,
+      "total": 7
+    },
+    "objects": {
+      "imported": 3,
+      "reported": 0,
+      "total": 3
+    },
+    "otherFiles": {
+      "imported": 0,
+      "reported": 0,
+      "total": 0
+    }
+  },
+  "types": [
+    {
+      "attributes": [
+        {
+          "action": "consumed",
+          "key": "type",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "type",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 1
+        },
+        {
+          "action": "consumed",
+          "key": "title",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "title",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 1
+        },
+        {
+          "action": "consumed",
+          "key": "date",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "date",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 1
+        },
+        {
+          "action": "consumed",
+          "key": "tags",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "tags",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 1
+        },
+        {
+          "action": "consumed",
+          "key": "review",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "reviewed",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 1
+        }
+      ],
+      "folder": "Daily",
+      "key": "daily-note",
+      "name": "Daily Note",
+      "new": false,
+      "objects": 1,
+      "plural": "Daily Notes",
+      "sourceFolder": "DailyNotes",
+      "sourceType": "DailyNote",
+      "target": {
+        "key": "daily-note",
+        "kind": "existing"
+      }
+    },
+    {
+      "attributes": [
+        {
+          "action": "consumed",
+          "key": "type",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "type",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 2
+        },
+        {
+          "action": "consumed",
+          "key": "title",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "title",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 2
+        },
+        {
+          "action": "consumed",
+          "key": "tags",
+          "merges": [],
+          "name": null,
+          "needsLook": false,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "tags",
+          "split": null,
+          "statuses": [],
+          "type": null,
+          "values": 2
+        },
+        {
+          "action": "new",
+          "key": "status",
+          "merges": [],
+          "name": "status",
+          "needsLook": true,
+          "nulls": 0,
+          "options": [],
+          "sourceKey": "status",
+          "split": null,
+          "statuses": [],
+          "type": "relation",
+          "values": 2
+        }
+      ],
+      "folder": "Trips",
+      "key": "trip",
+      "name": "Trip",
+      "new": true,
+      "objects": 2,
+      "plural": "Trips",
+      "sourceFolder": "Trips",
+      "sourceType": "Trip",
+      "target": {
+        "kind": "new",
+        "name": "Trip"
+      }
+    }
+  ],
+  "version": 1
+}

@@ -19,3 +19,12 @@ pub fn menubar(key: &str) -> &'static str {
     let full = format!("menubar.{key}");
     MENUBAR.iter().find(|(k, _)| *k == full).map(|(_, v)| *v).unwrap_or("")
 }
+
+/// Commands of the app menu (v1-import-window §4.1), keyed like the UI catalog; `app/test/import_catalog.ac.test.ts`
+/// checks `cmd.import` equals the catalog's English value.
+const COMMANDS: [(&str, &str); 1] = [("cmd.import", "Import…")];
+
+/// A command's English text by its full catalog key.
+pub fn command(key: &str) -> &'static str {
+    COMMANDS.iter().find(|(k, _)| *k == key).map(|(_, v)| *v).unwrap_or("")
+}

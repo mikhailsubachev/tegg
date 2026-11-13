@@ -1,0 +1,21 @@
+{
+  "files": 4,
+  "kind": "folder",
+  "name": "c12-task-dates",
+  "outsideSpaces": 0,
+  "size": null,
+  "spaces": [
+    {
+      "attachments": 0,
+      "name": "PKM",
+      "objects": 4,
+      "types": [
+        {
+          "objects": 4,
+          "sourceType": "Task"
+        }
+      ]
+    }
+  ],
+  "unreadable": []
+}

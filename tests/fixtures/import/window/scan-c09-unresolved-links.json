@@ -1,0 +1,25 @@
+{
+  "files": 3,
+  "kind": "folder",
+  "name": "c09-unresolved-links",
+  "outsideSpaces": 0,
+  "size": null,
+  "spaces": [
+    {
+      "attachments": 0,
+      "name": "PKM",
+      "objects": 3,
+      "types": [
+        {
+          "objects": 1,
+          "sourceType": "DailyNote"
+        },
+        {
+          "objects": 2,
+          "sourceType": "Trip"
+        }
+      ]
+    }
+  ],
+  "unreadable": []
+}
