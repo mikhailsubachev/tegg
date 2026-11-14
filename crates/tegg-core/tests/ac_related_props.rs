@@ -309,6 +309,11 @@ fn fr_lnk_15_ac8_property_incremental_equals_rebuilt() {
         let root = sb.base.join("Náhodný");
         random_vault(&root, &mut g, &mut r);
         let core = open(&root, &sb.dirs, true);
+        // Ask once before the changes, so the watched core builds its document-frequency map now and every later
+        // comparison checks the incrementally kept map against a rebuild, also on push (D-1757, D-1760).
+        if let Some(first) = objects_of(&root).first() {
+            let _ = core.related(first, false);
+        }
         for i in 0..steps() {
             let _ = step(&root, &mut g, &mut r);
             if i % 10 == 9 || i + 1 == steps() {
