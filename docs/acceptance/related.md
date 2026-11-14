@@ -4,7 +4,7 @@ See [README](README.md) for conventions. Slice **REL "Related notes"** (D-1677, 
 
 Related notes only read. They write nothing to the vault (DIA-8). Their only stored state is the machine-local `Show linked notes` switch (`ui-state.json`, `related.showLinked`, D-1695) and the remembered panel tab.
 
-**Status: approved, 2026-11-14.** AP-1449…AP-1477 (end of this file) are D-1696…D-1724 in order (owner, "Accept all proposals"; BRD v1.184): every proposal is the decision. Contract: `docs/contracts/v1-related.md` (to be written after these criteria, plan §9). The names used here (`index_related`, `stem_cs`, `RelatedParams`, `related.toggleLinked`, `data-related-excerpt`) are the proposal the contract starts from.
+**Status: approved, 2026-11-14.** AP-1449…AP-1477 (end of this file) are D-1696…D-1724 in order (owner, "Accept all proposals"; BRD v1.184): every proposal is the decision, except AP-1452, where the owner chose the order `Backlinks · Related · Graph` (D-1699). Contract: `docs/contracts/v1-related.md` (to be written after these criteria, plan §9). The names used here (`index_related`, `stem_cs`, `RelatedParams`, `related.toggleLinked`, `data-related-excerpt`) are the proposal the contract starts from.
 
 **Scope.**
 - **FR-LNK-15** (new, D-1677): the index side (R179…R181: folding, stop words, the two stemmers, the stem table, signature, candidates, the linked filter, the cut-off) and the panel side (R178, R182, R183: the tab, entries, excerpt, empty state, switch, commands, live updates, no background work). The plan's DIA-1…DIA-8 rules are criteria here (Trace).
@@ -100,7 +100,7 @@ Accessible names are catalog strings (R183) except titles and excerpt text (user
 
 | Part | Role / element | Name, content and rules |
 | --- | --- | --- |
-| Tab | `tab` `Related` in the `Context panel`'s `tablist`, `data-command="panel.related"` | the **third** tab: Backlinks, Graph, Related (board A; AP-1452). No count badge and no count description (D-1688). Selecting it stores `rightPanel.tab: 'related'` (AP-1457) |
+| Tab | `tab` `Related` in the `Context panel`'s `tablist`, `data-command="panel.related"` | the **second** tab: Backlinks, Related, Graph (AP-1452 → D-1699, owner's alternative; the board draws it third). No count badge and no count description (D-1688). Selecting it stores `rightPanel.tab: 'related'` (AP-1457) |
 | Tab panel | `tabpanel` `Related` | the header, then the list or one state; scrolls vertically; the header stays at the top |
 | Header | `switch` `Show linked notes` (`role="switch"`, `aria-checked`), `data-command="related.toggleLinked"` | shown in every state of the tab, including the empty state (board D) |
 | List | `list` `Related notes` (AP-1472) | at most 10 `listitem`s, in the order `index_related` returns; no groups, no group headers, no count heading (board A) |
@@ -297,7 +297,7 @@ Templates (`_templates/`) and `.trash/` have no `rel` row (AP-1463). `fts` and `
 ### FR-LNK-15 Related notes: the tab
 
 - **AC-21** **The tab (R178; AP-1452, AP-1457).**
-  - On `note/Pages/Rozpočet na offsite 2027.md`, the `Context panel`'s tabs are, in this order, `Backlinks`, `Graph`, `Related`.
+  - On `note/Pages/Rozpočet na offsite 2027.md`, the `Context panel`'s tabs are, in this order, `Backlinks`, `Related`, `Graph`.
   - `Related` has no badge, no count and no `aria-description` with a number.
   - With `rightPanel.tab: 'backlinks'`, clicking `Related` sends one `index_related` (`{ path: "Pages/Rozpočet na offsite 2027.md", showLinked: false }`) and one `ui_state_set` with `rightPanel.tab: 'related'`, then shows 2 entries.
   - Showing the tab calls `nav_opened` zero times.
@@ -578,14 +578,14 @@ Templates (`_templates/`) and `.trash/` have no `rel` row (AP-1463). `fts` and `
 **51 new criteria** (50 automated, 1 manual), plus the changed FR-NAV-05 AC-1 in inbox.md (AP-1476).
 
 **Changes in the commit that builds the slice** (after AP-1476 is decided):
-- **App-shell R2.** A row `related` | Related | built (slice REL, related.md R178) | v1.0 (0.3.0) | FR-LNK-15, FR-NAV-05, after `graph` (`PANEL_TABS` in `shell/registry.ts`). R1, R3 and R4 are unchanged (no new route, control or shortcut).
-- **FR-NAV-05 AC-1** in [inbox.md](inbox.md) lists the tabs Backlinks, Graph and Related (built, slice REL: selecting it shows R178). Its test `fr_nav_05_ac1_right_panel_tabs` changes with the trailer `AC-Test-Change: AP-1476, the Related tab is built in slice REL; approved-by: owner`.
+- **App-shell R2.** A row `related` | Related | built (slice REL, related.md R178) | v1.0 (0.3.0) | FR-LNK-15, FR-NAV-05, between `backlinks` and `graph` (`PANEL_TABS` in `shell/registry.ts`). R1, R3 and R4 are unchanged (no new route, control or shortcut).
+- **FR-NAV-05 AC-1** in [inbox.md](inbox.md) lists the tabs Backlinks, Related and Graph (built, slice REL: selecting it shows R178). Its test `fr_nav_05_ac1_right_panel_tabs` changes with the trailer `AC-Test-Change: AP-1476, the Related tab is built in slice REL; approved-by: owner`.
 - **README.** A row for this file is added to `docs/acceptance/README.md` when the APs are decided.
 - **Contract.** `docs/contracts/v1-related.md` (plan §9): `stem_cs`, the English stemmer's entry point, the pipeline, `rel`, `RelatedParams`, `index_related`'s DTO (AP-1475), the test hooks used above (signature, `rel` terms, the computed-lists counter), the fake core's twin, the UI state field.
 
 ---
 
-## Points for the owner (AP-1449…AP-1477 → D-1696…D-1724, decided: the proposals)
+## Points for the owner (AP-1449…AP-1477 → D-1696…D-1724, decided: the proposals, except AP-1452: Backlinks · Related · Graph)
 
 Raised while writing these criteria. Each criterion that depends on one names it and follows its **proposal**. AP-1449…AP-1451 record the owner's answers on the board (2026-11-14), which change decided text and so need a D-number. AP-1452…AP-1454 are the board's three open questions.
 
@@ -618,5 +618,5 @@ Raised while writing these criteria. Each criterion that depends on one names it
 | AP-1473 | **Conflict copies.** A sync conflict copy has the same `id` as the open object (D-56) and nearly the same text, so it would always be the first entry. | Never list a file with the same `id` as the open object: it is the same object, and conflicts have their own view (FR-SYN-04). | List it (it helps notice a conflict) | R181 rule 5 |
 | AP-1474 | **The board's chip caption.** Board C says "Click previews, double-click opens, hover shows the preview". That mixes two modes: since D-1164 the default is *Hover to preview, click to open*. | The chip follows R103 in every mode, exactly as a Backlinks chip (FR-LNK-15 AC-26). The board's caption is read as "as on Backlinks". | — (confirm only) | FR-LNK-15 AC-26 |
 | AP-1475 | **What `index_related` returns.** DIA-6 ("the same score against A as against B") and the cut-off need the score and the shared-stem count, and the plan's DTO has neither. With AP-1450, `reason` has no visible effect. | Each entry carries `score` (bm25, f64) and `shared` (distinct signature stems in common), used by tests and the evaluation command and not shown. `reason` stays (`null` / `'short'`). The contract adds read-only test hooks for the signature and `rel` terms. | No score in the DTO; tests read a debug-only command | FR-LNK-15 AC-13, AC-16, AC-17, AC-19 |
-| AP-1476 | **AC-test changes this slice brings.** inbox.md FR-NAV-05 AC-1 lists the tabs Backlinks and Graph; app-shell R2 has no `related` row. | Approve now, applied in the build commit with `AC-Test-Change: AP-1476, the Related tab is built in slice REL; approved-by: owner`: FR-NAV-05 AC-1 lists Backlinks, Graph and Related; R2 gains the `related` row (as in "Changes in the commit that builds the slice"). | Approve when the slice lands | inbox.md FR-NAV-05 AC-1, app-shell R2 |
+| AP-1476 | **AC-test changes this slice brings.** inbox.md FR-NAV-05 AC-1 lists the tabs Backlinks and Graph; app-shell R2 has no `related` row. | Approve now, applied in the build commit with `AC-Test-Change: AP-1476, the Related tab is built in slice REL; approved-by: owner`: FR-NAV-05 AC-1 lists Backlinks, Related and Graph (D-1699); R2 gains the `related` row (as in "Changes in the commit that builds the slice"). | Approve when the slice lands | inbox.md FR-NAV-05 AC-1, app-shell R2 |
 | AP-1477 | **AC numbers shared with parallel work.** Other sessions may add criteria to the same shared requirements. | Keep the numbers used here: FR-SYN-06 AC-47, FR-FMT-07 AC-31, FR-FMT-12 AC-11, FR-SRC-04 AC-12, FR-STO-07 AC-9, FR-NAV-05 AC-6, AC-7, NFR-PERF-06 AC-7, FR-UX-03 AC-48, AC-49, FR-UX-08 AC-23, FR-UX-05 AC-23, NFR-OTH-02 AC-20. Whichever set is approved second renumbers its clashes before its red tests (as D-1030). | Reserve fixed blocks per slice | every shared criterion here |
