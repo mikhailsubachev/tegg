@@ -111,6 +111,8 @@ export function OutlineTree({ tree, rows, current, ancestors, chevrons, tempOpen
             aria-posinset={sib.indexOf(i) + 1}
             aria-expanded={kids ? !coll : undefined}
             aria-current={current === i ? 'location' : undefined}
+            // L6 FR-UX-08 AC-21 (contract §9): macOS reads `aria-current` as nothing; AXSelected tells VoiceOver which row is current.
+            aria-selected={current === i ? true : undefined}
             tabIndex={roving === i ? 0 : -1}
             data-level={n.level}
             data-top={n.depth === 1 && n.level === 1 ? '' : undefined}
