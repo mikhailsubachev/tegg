@@ -1631,4 +1631,14 @@ mod ui_state_vaults_tests {
         assert_eq!(back["vaults"]["/tmp/Pinned"]["sidebar"]["pinnedCollapsed"], serde_json::json!(true), "pinnedCollapsed survives a save");
         assert_eq!(back["vaults"]["/tmp/Pinned"]["graph"]["full"]["depth"], serde_json::json!(2), "the graph state survives too");
     }
+
+    /// Regression test for slice OL's real-app run (L6, FR-SET-02 AC-10): `ui_state_set` dropped `outlineRail`, so turning
+    /// `Show outline rail` off never reached `ui-state.json` and the rail was back after a relaunch.
+    #[test]
+    fn bug_l6ol_fr_set_02_ac10_ui_state_keeps_outline_rail() {
+        let json = r#"{"version":1,"theme":"light","sidebarOpen":true,"rightPanel":{"open":false,"tab":"backlinks"},"outlineRail":false}"#;
+        let state: UiStateDto = serde_json::from_str(json).expect("parse");
+        let back: serde_json::Value = serde_json::to_value(&state).expect("serialize");
+        assert_eq!(back["outlineRail"], serde_json::json!(false), "outlineRail survives a save");
+    }
 }
