@@ -39,7 +39,7 @@ A second FTS5 table `rel(title, body)` in the same index database, holding each 
 
 ### 3.4 Ranking
 
-1. **Signature:** the open object's 25 stems with the highest tf·idf. A title or alias stem counts three times, a heading stem twice. A stem found in no other object, or in more than 10 % of objects, is skipped.
+1. **Signature:** the open object's 25 stems with the highest tf·idf. A title or alias stem counts three times, a heading stem twice. A stem found in no other object, or in more than 10 % of objects (never fewer than 2, D-1731), is skipped.
 2. **Candidates:** one FTS5 query, the signature stems joined by `OR`, ranked by `bm25(rel, 3.0, 1.0)`.
 3. **Removed:** the object itself, `_templates/`, `.trash/`, Tag, Image and PDF objects (AP-1437), and, unless the user switched them on, objects already linked with it in either direction (AP-1436).
 4. **Cut-off:** at most 10 entries, and only those sharing at least 3 signature stems with a score of at least 35 % of the best entry's (AP-1438). A note with fewer than 5 distinct stems gets no list.

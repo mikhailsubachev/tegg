@@ -12,7 +12,7 @@ A–F. Fixtures: `tests/fixtures/format/stem/cs.tsv` (+ README, the rule set) an
 Related notes **only read**. They write nothing in the vault (DIA-8): no note, no `.tegg/` file. The index gains one
 FTS5 table (`rel`), rebuilt from the files (AR-01). The only stored UI state is `ui-state.json`'s `related.showLinked`
 and the existing `rightPanel.tab` (§4). §9 lists the choices this contract makes where the ACs leave room; §10 lists the
-points that need the owner (CP-1…CP-6); §11 reports the stemmer check of D-1714.
+points for the owner (CP-1…CP-7 → D-1725…D-1731, decided: the proposals); §11 reports the stemmer check of D-1714.
 
 ## 1. Core (`tegg-index`, `tegg-format`, `tegg-core`; AR-03)
 
@@ -149,7 +149,8 @@ CREATE VIRTUAL TABLE IF NOT EXISTS rel_vocab USING fts5vocab(rel, 'row');
 #[derive(Debug, Clone, PartialEq)]
 pub struct RelatedParams {
     pub signature_size: usize,   // 25
-    pub df_ceiling: f64,         // 0.10: skip a stem when df > df_ceiling × N
+    pub df_ceiling: f64,         // 0.10: skip a stem when df > max(df_ceiling × N, df_floor) (D-1731)
+    pub df_floor: usize,         // 2: the ceiling never goes below 2 objects (CP-7, D-1731)
     pub title_weight: u32,       // 3
     pub heading_weight: u32,     // 2
     pub body_weight: u32,        // 1
@@ -174,7 +175,7 @@ constant of the pipeline (`stemming::MIN_STEM_CHARS`), not a ranking number. The
 pub struct TermCounts { pub title: u32, pub heading: u32, pub body: u32 }   // body = occurrences outside headings
 
 /// R181 rule 2. tf = title_weight·title + heading_weight·heading + body_weight·body; weight = tf × ln(n / df).
-/// Stems with df < 2 or (df as f64) > df_ceiling × (n as f64) are removed first; of the rest the
+/// Stems with df < 2 or (df as f64) > max(df_ceiling × (n as f64), df_floor as f64) are removed first (D-1731); of the rest the
 /// `signature_size` highest weights are kept, ties by stem in code-point order. Returned in that order.
 pub fn signature(terms: &BTreeMap<String, TermCounts>, df: &dyn Fn(&str) -> usize, n: usize, p: &RelatedParams) -> Vec<(String, f64)>;
 
@@ -657,7 +658,9 @@ Fixtures are committed (D-1692). Each L4 test copies the fixture into a temporar
 22. NFR-PERF-13 AC-1 times `Index::related` in the AC's file; AC-2 and AC-3 run through `Core` in `tegg-core`, where the
     reference-vault helpers are.
 
-## 10. Contract points for the owner (CP-1…CP-6)
+## 10. Contract points for the owner (CP-1…CP-7 → D-1725…D-1731)
+
+Decided 2026-11-14 (owner, "Accept all proposals"; BRD v1.185): every proposal is the decision. CP-n → D-(n+1724).
 
 | CP | Point | Proposal | Alternative | Affects |
 | --- | --- | --- | --- | --- |
@@ -667,9 +670,9 @@ Fixtures are committed (D-1692). Each L4 test copies the fixture into a temporar
 | CP-4 | **An AC test D-1723 doesn't list.** `app/test/outline_registry.ac.test.ts` `fr_ux_03_ac45_outline_commands_and_shortcut` asserts `PANEL_TABS` ids are exactly `['backlinks', 'graph']`, so it fails once `related` is added. | Change it in the build commit under the same trailer: `['backlinks', 'related', 'graph']`. | — (confirm only) | §8 |
 | CP-5 | **`cargo metadata` needs the network.** D-1717 names `cargo metadata`; it resolves the whole workspace, platform and dev dependencies included, and here fails `--offline` (it wants to download `arbitrary`). A commit hook shouldn't depend on the network. | Use `cargo tree --offline --locked -p tegg-index -e normal,build` (works offline from `Cargo.lock`), which lists the same runtime and build closure with each licence. | `cargo metadata` without `--offline` (fetches on first run) | §5 |
 | CP-6 | **AC-6's "no stop word of either list" is false for Hvězda 01.** Its body `Zápis z hvězdárny.` holds `z`, which AC-4 requires in the Czech list (every Hvězda note has it). Kytara's `a` is in both lists and ignored. The conclusion (Czech) holds. | Red-test reading: assert the three are Czech with stop counts (Czech-only, English-only) = (0, 0) for Souhvězdí and Kytara and (1, 0) for Hvězda 01, and no AC text change. | Correct AC-6's sentence to "no English stop word" | FR-LNK-15 AC-6 |
+| CP-7 | **Small vaults get no lists.** With the 10 % ceiling, a vault of fewer than 20 objects skips every stem (df ≥ 2 > 10 % of N), so every list is empty; under 30 objects only stems in exactly 2 objects count. | The ceiling never goes below 2 objects: a stem is skipped when df > max(10 % of N, 2) (`RelatedParams.df_floor = 2`). The fixture (N = 39, 40) is unchanged. | Accept: small vaults show no lists | R181 rule 2, `signature` |
 
-Not a point, noted for tuning (D-1690): with the 10 % ceiling, a vault of fewer than 20 objects skips every stem
-(df ≥ 2 > 10 % of N), so it shows no lists, and under 30 objects only stems in exactly 2 objects count.
+
 
 ## 11. The stemmer check (D-1714) and the fixture check
 

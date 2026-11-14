@@ -127,13 +127,13 @@ Templates (`_templates/`) and `.trash/` have no `rel` row (AP-1463). `fts` and `
 ### R181. Signature, candidates and cut-off (plan §3.4; D-1683…D-1685; AP-1455, AP-1462, AP-1463, AP-1465, AP-1473)
 
 1. **N and df.** N is the number of `rel` rows. A stem's df is the number of rows that contain it, from `rel`'s `fts5vocab`. Tag, Image and PDF objects have rows and count; templates and `.trash/` have none (AP-1463).
-2. **Signature.** Each stem of the open object is weighted: tf counts a title or alias occurrence 3 times, a heading occurrence 2 times, any other once; then tf·idf. Stems with df = 1 (no other object) or df > 10 % of N are removed first. Of the rest, the 25 with the highest tf·idf are the signature, ties broken by stem in code-point order (AP-1462).
+2. **Signature.** Each stem of the open object is weighted: tf counts a title or alias occurrence 3 times, a heading occurrence 2 times, any other once; then tf·idf. Stems with df = 1 (no other object) or df > max(10 % of N, 2) are removed first (D-1731: the ceiling never goes below 2 objects, so small vaults still get lists). Of the rest, the 25 with the highest tf·idf are the signature, ties broken by stem in code-point order (AP-1462).
 3. **Floor.** An object with fewer than 5 distinct stems gets no entries and `reason: 'short'` (D-1685, AP-1455). It can still be a candidate in other objects' lists.
 4. **Candidates.** One FTS5 query, the signature stems joined by `OR`, ranked by `bm25(rel, 3.0, 1.0)`.
 5. **Removed.** The object itself and any file with the same `id` (a conflict copy, AP-1473); Tag, Image and PDF objects (D-1684). When linked notes are hidden, every object linked with the open one in either direction (AP-1465: the two are linked when either is among the other's `index_backlinks` sources).
 6. **Cut-off.** An entry shares at least 3 signature stems and scores at least 35 % of the best remaining entry. At most 10 entries are kept, after the linked filter, so the cap applies to the list as shown (D-1695).
 7. **Order.** Score descending. Equal scores are ordered by title (D-122 collation, region), then by path in code-point order (AP-1462).
-8. **Numbers.** 25, 10 %, 3, 2, 1, 3.0, 1.0, 5, 3 shared, 35 % and 10 live in one `RelatedParams` in the core (plan §3.4). They are not a setting (D-1685).
+8. **Numbers.** 25, 10 % (floor 2), 3, 2, 1, 3.0, 1.0, 5, 3 shared, 35 % and 10 live in one `RelatedParams` in the core (plan §3.4). They are not a setting (D-1685).
 
 ### R182. The excerpt (board C; AP-1449, AP-1453, AP-1454, AP-1456; DIA-7)
 
