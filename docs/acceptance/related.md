@@ -1,10 +1,10 @@
 # Acceptance Criteria: Related notes (slice REL)
 
-See [README](README.md) for conventions. Slice **REL "Related notes"** (D-1677, D-1678; plan `docs/plans/related-notes-plan.md`), released as **0.3.0**. It adds a `Related` tab to the right panel. For the open object, the tab lists the objects whose text shares the most distinctive words with it, best first, as chips with one excerpt each. Words are compared by **stem** after **folding** case and diacritics, so `důležité`, `dulezite` and `důležitých` are one word (D-1682). The slice follows the owner's boards `design/edit-note-page/Related.dc.html` (light) and `RelatedDark.dc.html` (dark), sections A–F. Where the board and a decision differ, the board cites the owner's answers of 2026-11-14; those answers still need a D-number (AP-1449…AP-1451). Where neither decides, a criterion follows the **proposal** of an AP point at the end of this file and names it.
+See [README](README.md) for conventions. Slice **REL "Related notes"** (D-1677, D-1678; plan `docs/plans/related-notes-plan.md`), released as **0.3.0**. It adds a `Related` tab to the right panel. For the open object, the tab lists the objects whose text shares the most distinctive words with it, best first, as chips with one excerpt each. Words are compared by **stem** after **folding** case and diacritics, so `důležité`, `dulezite` and `důležitých` are one word (D-1682). The slice follows the owner's boards `design/edit-note-page/Related.dc.html` (light) and `RelatedDark.dc.html` (dark), sections A–F. Where the board and a decision differ, the board cites the owner's answers of 2026-11-14; those answers are D-1696…D-1698 (AP-1449…AP-1451). Where neither decides, a criterion follows the **proposal** of an AP point at the end of this file and names it.
 
 Related notes only read. They write nothing to the vault (DIA-8). Their only stored state is the machine-local `Show linked notes` switch (`ui-state.json`, `related.showLinked`, D-1695) and the remembered panel tab.
 
-**Status: draft, 2026-11-14.** AP-1449…AP-1477 (end of this file) are pending the owner. Contract: `docs/contracts/v1-related.md` (to be written after these criteria, plan §9). The names used here (`index_related`, `stem_cs`, `RelatedParams`, `related.toggleLinked`, `data-related-excerpt`) are the proposal the contract starts from.
+**Status: approved, 2026-11-14.** AP-1449…AP-1477 (end of this file) are D-1696…D-1724 in order (owner, "Accept all proposals"; BRD v1.184): every proposal is the decision. Contract: `docs/contracts/v1-related.md` (to be written after these criteria, plan §9). The names used here (`index_related`, `stem_cs`, `RelatedParams`, `related.toggleLinked`, `data-related-excerpt`) are the proposal the contract starts from.
 
 **Scope.**
 - **FR-LNK-15** (new, D-1677): the index side (R179…R181: folding, stop words, the two stemmers, the stem table, signature, candidates, the linked filter, the cut-off) and the panel side (R178, R182, R183: the tab, entries, excerpt, empty state, switch, commands, live updates, no background work). The plan's DIA-1…DIA-8 rules are criteria here (Trace).
@@ -585,7 +585,7 @@ Templates (`_templates/`) and `.trash/` have no `rel` row (AP-1463). `fts` and `
 
 ---
 
-## Points for the owner (AP-1449…AP-1477, pending)
+## Points for the owner (AP-1449…AP-1477 → D-1696…D-1724, decided: the proposals)
 
 Raised while writing these criteria. Each criterion that depends on one names it and follows its **proposal**. AP-1449…AP-1451 record the owner's answers on the board (2026-11-14), which change decided text and so need a D-number. AP-1452…AP-1454 are the board's three open questions.
 
