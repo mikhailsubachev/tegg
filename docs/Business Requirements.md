@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.188, for review                                            |
+| **Document status** | Draft v1.189, for review                                            |
 | **Date**            | 2026-11-14                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -202,6 +202,7 @@
 | v1.186  | 2026-11-14 | Related notes red tests (541c3fe7…830b83c1): red-test decisions D-1732…D-1746 (RT-1…RT-15; owner, "Accept all proposals") |
 | v1.187  | 2026-11-14 | Related notes build: D-1747…D-1757 (B-1…B-11; owner, "Accept all proposals"): six AC-test changes (D-1747…D-1752), re-asks only when idle, the panel tablist as one Tab stop with arrow keys, chips with the link role, `Loading…` timing, document frequencies kept in memory |
 | v1.188  | 2026-11-14 | D-1758: Related AC-23's test ignores `perf_mark` (owner, "Yes, approve") |
+| v1.189  | 2026-11-14 | QA review of slice REL: D-1759…D-1761 (QA-1…QA-3; owner, "Accept all proposals"): the typing benchmark counts asks, AC-8 compares the incremental df map on push, stems are exactly unicode61 tokens |
 
 ---
 
@@ -1774,6 +1775,9 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1756 | `Loading…` is drawn in the frame after 300 ms (B-10) (owner, 2026-11-14: "Accept all proposals"; slice REL build) | `Loading…` is drawn in the animation frame after the 300 ms timer, only if the answer hasn't arrived; within AC-30's 300 ms ± 1 frame. |
 | D-1757 | Document frequencies are kept in memory (B-11) (owner, 2026-11-14: "Accept all proposals"; slice REL build) | `Index::related` reads df from a map read once from `rel_vocab` and updated by each write, instead of per-term vocab lookups (about 3× faster on the 20,000-note vault); exact for folded Czech and English stems. |
 | D-1758 | AC-23 ignores test-build timing marks (owner, 2026-11-14: "Yes, approve"; slice REL push gate) | `fr_lnk_15_ac23_excerpt_plain_clamped_not_clickable`'s "no command sent" check ignores `perf_mark` (test-build timing marks), as `editor.ac.test.ts` and `embeds.ac.test.ts` do; one landed in its window under load. AC-test change. |
+| D-1759 | The typing benchmark counts asks, not redraws (QA-1) (owner, 2026-11-14: "Accept all proposals"; QA review of slice REL) | NFR-PERF-06 AC-7's test counts `related-request` marks (sent on every ask) to show the list was re-asked after Saved, not `related-ready` (sent only when the drawn list changes, which typing `a`×200 doesn't). AC-test change. |
+| D-1760 | AC-8 compares the incremental df map on push (QA-2) (owner, 2026-11-14: "Accept all proposals"; QA review of slice REL) | FR-LNK-15 AC-8's property asks the watched core for one list right after opening, so later comparisons use the document-frequency map kept by each write (D-1757), on push as well as nightly. AC-test change. |
+| D-1761 | Stems are exactly unicode61 tokens (QA-3) (owner, 2026-11-14: "Accept all proposals"; QA review of slice REL) | Every stem written to `rel` is exactly one token of SQLite's `unicode61` tokenizer: stems holding characters it wouldn't treat as token characters are dropped (conservatively, where Rust can't know SQLite's table), so the in-memory df map always equals a rebuild (AR-01, D-1757). Czech and English text is unaffected; a property test on arbitrary Unicode checks it. |
 
 ---
 
