@@ -140,6 +140,33 @@ fn fence(line: &str) -> Option<(char, usize)> {
     (n >= 3).then_some((c, n))
 }
 
+/// The stems of a body's ATX heading lines outside fenced code, in order (`RelRow.heading`).
+pub fn heading_stems(body: &str, lang: Lang) -> Vec<String> {
+    let mut out = Vec::new();
+    for_lines(body, |line, is_heading| {
+        if is_heading {
+            out.extend(stems(line, lang));
+        }
+    });
+    out
+}
+
+/// Each line of a body with whether it is an ATX heading outside fenced code.
+fn for_lines(body: &str, mut f: impl FnMut(&str, bool)) {
+    let mut open: Option<(char, usize)> = None;
+    for line in body.split('\n') {
+        let line = line.strip_suffix('\r').unwrap_or(line);
+        let mut is_heading = false;
+        match (open, fence(line)) {
+            (Some((c, n)), Some((c2, n2))) if c == c2 && n2 >= n && line.trim_start().trim_start_matches(c).trim().is_empty() => open = None,
+            (Some(_), _) => {}
+            (None, Some(f)) => open = Some(f),
+            (None, None) => is_heading = is_atx_heading(line),
+        }
+        f(line, is_heading);
+    }
+}
+
 /// The `rel` row of one note (R179 rule 1; §1.4).
 pub fn rel_row(title: &str, aliases: &[String], body: &str, tags: &[String]) -> RelRow {
     let mut words: Vec<String> = text::tokens(title);
@@ -159,22 +186,13 @@ pub fn rel_row(title: &str, aliases: &[String], body: &str, tags: &[String]) -> 
     // Line by line: a word never spans a line, so the concatenation equals `stems(body)`.
     let mut body_stems = Vec::new();
     let mut heading = Vec::new();
-    let mut open: Option<(char, usize)> = None;
-    for line in body.split('\n') {
-        let line = line.strip_suffix('\r').unwrap_or(line);
-        let mut is_heading = false;
-        match (open, fence(line)) {
-            (Some((c, n)), Some((c2, n2))) if c == c2 && n2 >= n && line.trim_start().trim_start_matches(c).trim().is_empty() => open = None,
-            (Some(_), _) => {}
-            (None, Some(f)) => open = Some(f),
-            (None, None) => is_heading = is_atx_heading(line),
-        }
+    for_lines(body, |line, is_heading| {
         let s = stems(line, lang);
         if is_heading {
             heading.extend(s.iter().cloned());
         }
         body_stems.extend(s);
-    }
+    });
     for t in tags {
         body_stems.extend(stems(t, lang));
     }

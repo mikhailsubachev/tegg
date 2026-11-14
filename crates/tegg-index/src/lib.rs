@@ -766,6 +766,9 @@ pub struct Index {
     graph: RefCell<Option<std::sync::Arc<graph::GraphData>>>,
     /// Slice REL (v1-related §1.10): calls of `Index::related` since open (FR-LNK-15 AC-29).
     related_calls: Cell<u64>,
+    /// Slice REL (v1-related §1.8 step 2): rows of `rel` holding each stem, derived from the `rel` rows on first use and
+    /// kept up to date by `apply` and `remove` (not dropped by `changed`).
+    rel_df: RefCell<Option<HashMap<String, u32>>>,
 }
 
 const SCHEMA: &str = "
@@ -806,7 +809,7 @@ impl Index {
                 connect(db_path)?
             }
         };
-        let mut idx = Index { conn, metas: HashMap::new(), by_path: HashMap::new(), vocab: RefCell::new(None), links: RefCell::new(None), graph: RefCell::new(None), related_calls: Cell::new(0) };
+        let mut idx = Index { conn, metas: HashMap::new(), by_path: HashMap::new(), vocab: RefCell::new(None), links: RefCell::new(None), graph: RefCell::new(None), related_calls: Cell::new(0), rel_df: RefCell::new(None) };
         idx.load()?;
         Ok(idx)
     }
@@ -833,6 +836,7 @@ impl Index {
             self.conn.execute_batch("DELETE FROM notes; DELETE FROM fts; DELETE FROM rel;")?;
             self.metas.clear();
             self.by_path.clear();
+            *self.rel_df.get_mut() = None;
         }
         Ok(())
     }
@@ -856,10 +860,15 @@ impl Index {
         if batch.is_empty() {
             return Ok(());
         }
+        // The df cache is taken out while the transaction runs: an error leaves it unset (rebuilt on next use).
+        let mut df = self.rel_df.get_mut().take();
         let tx = self.conn.transaction()?;
         let mut added = Vec::new();
         for p in batch {
             if let Some(old) = self.by_path.get(&p.path).copied() {
+                if let Some(df) = df.as_mut() {
+                    related::df_remove(df, &related::stored_rel(&tx, old)?);
+                }
                 tx.execute("DELETE FROM fts WHERE rowid = ?1", params![old])?;
                 tx.execute("DELETE FROM rel WHERE rowid = ?1", params![old])?;
                 tx.execute("DELETE FROM notes WHERE rowid = ?1", params![old])?;
@@ -871,9 +880,13 @@ impl Index {
             tx.execute("INSERT INTO fts (rowid, title, aliases, attrs, body) VALUES (?1, ?2, ?3, ?4, ?5)", params![rowid, p.fts[0], p.fts[1], p.fts[2], p.fts[3]])?;
             // v1-related §1.5: `notes`, `fts` and `rel` in the same transaction (FR-LNK-15 AC-9).
             tx.execute("INSERT INTO rel (rowid, title, body) VALUES (?1, ?2, ?3)", params![rowid, p.rel[0], p.rel[1]])?;
+            if let Some(df) = df.as_mut() {
+                related::df_add(df, &(p.rel[0].clone(), p.rel[1].clone()));
+            }
             added.push((rowid, p));
         }
         tx.commit()?;
+        *self.rel_df.get_mut() = df;
         for (rowid, p) in added {
             self.by_path.insert(p.path.clone(), rowid);
             self.metas.insert(rowid, Meta::new(rowid, p.path, p.mtime_ns, p.size, p.stored));
@@ -889,13 +902,18 @@ impl Index {
         if gone.is_empty() {
             return Ok(());
         }
+        let mut df = self.rel_df.get_mut().take();
         let tx = self.conn.transaction()?;
         for (_, r) in &gone {
+            if let Some(df) = df.as_mut() {
+                related::df_remove(df, &related::stored_rel(&tx, *r)?);
+            }
             tx.execute("DELETE FROM fts WHERE rowid = ?1", params![r])?;
             tx.execute("DELETE FROM rel WHERE rowid = ?1", params![r])?;
             tx.execute("DELETE FROM notes WHERE rowid = ?1", params![r])?;
         }
         tx.commit()?;
+        *self.rel_df.get_mut() = df;
         for (p, r) in gone {
             self.by_path.remove(&p);
             self.metas.remove(&r);

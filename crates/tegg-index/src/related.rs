@@ -197,6 +197,44 @@ pub(crate) fn rel_row_of(s: &Stored, body: &str) -> RelRow {
     stemming::rel_row(&title, &s.aliases, body, &tags)
 }
 
+/// The stored `rel` columns (title, body) of `rowid`; empty when it has no row.
+pub(crate) fn stored_rel(conn: &rusqlite::Connection, rowid: i64) -> rusqlite::Result<(String, String)> {
+    Ok(conn
+        .prepare_cached("SELECT title, body FROM rel WHERE rowid = ?1")?
+        .query_row(params![rowid], |r| Ok((r.get(0)?, r.get(1)?)))
+        .optional()?
+        .unwrap_or_default())
+}
+
+fn distinct_of(row: &(String, String)) -> HashSet<&str> {
+    row.0.split(' ').chain(row.1.split(' ')).filter(|x| !x.is_empty()).collect()
+}
+
+/// §1.8 step 2: df(s) = `rel_vocab`'s `doc` for `s` (the `rel` rows holding it in either column), read in one scan;
+/// `apply` and `remove` then keep the map current from the rows they write and delete.
+fn build_df(conn: &rusqlite::Connection) -> rusqlite::Result<HashMap<String, u32>> {
+    let mut stmt = conn.prepare("SELECT term, doc FROM rel_vocab")?;
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))?;
+    rows.map(|r| r.map(|(t, d)| (t, d.max(0) as u32))).collect()
+}
+
+pub(crate) fn df_add(df: &mut HashMap<String, u32>, row: &(String, String)) {
+    for s in distinct_of(row) {
+        *df.entry(s.to_string()).or_default() += 1;
+    }
+}
+
+pub(crate) fn df_remove(df: &mut HashMap<String, u32>, row: &(String, String)) {
+    for s in distinct_of(row) {
+        if let Some(n) = df.get_mut(s) {
+            *n = n.saturating_sub(1);
+            if *n == 0 {
+                df.remove(s);
+            }
+        }
+    }
+}
+
 /// D-633: a chip field, trimmed; empty reads as None.
 fn chip_str(attrs: &Value, key: &str) -> Option<String> {
     attrs.get(key).and_then(|v| v.as_str()).map(|s| s.trim().to_string()).filter(|s| !s.is_empty())
@@ -228,39 +266,42 @@ impl Index {
     }
 
     fn signature_for(&self, m: &Meta, p: &RelatedParams) -> Sig {
-        let row = rel_row_of(&m.s, &self.body_of(m));
-        let distinct: BTreeSet<&String> = row.title.iter().chain(&row.body).collect();
+        // Step 1: the stored `rel` row is `rel_row` of the note's text (both columns, in order); the heading stems are
+        // recomputed from the body's heading lines (contract §9.8).
+        let Ok((title, body)) = stored_rel(&self.conn, m.rowid) else { return Sig::Stems(Vec::new()) };
+        let row_title: Vec<&str> = title.split(' ').filter(|x| !x.is_empty()).collect();
+        let row_body: Vec<&str> = body.split(' ').filter(|x| !x.is_empty()).collect();
+        let distinct: BTreeSet<&str> = row_title.iter().chain(&row_body).copied().collect();
         if distinct.len() < p.min_stems {
             return Sig::Short;
         }
+        let heading_stems = stemming::heading_stems(&self.body_of(m), m.s.lang);
         let mut terms: BTreeMap<String, TermCounts> = BTreeMap::new();
-        for s in &row.title {
-            terms.entry(s.clone()).or_default().title += 1;
+        for s in &row_title {
+            terms.entry(s.to_string()).or_default().title += 1;
         }
         let mut heading: HashMap<&str, u32> = HashMap::new();
-        for s in &row.heading {
+        for s in &heading_stems {
             *heading.entry(s.as_str()).or_default() += 1;
         }
-        let mut body: HashMap<&str, u32> = HashMap::new();
-        for s in &row.body {
-            *body.entry(s.as_str()).or_default() += 1;
+        let mut counts: HashMap<&str, u32> = HashMap::new();
+        for s in &row_body {
+            *counts.entry(s).or_default() += 1;
         }
-        for (s, n) in body {
+        for (s, n) in counts {
             let h = heading.get(s).copied().unwrap_or(0).min(n);
             let t = terms.entry(s.to_string()).or_default();
             t.heading += h;
             t.body += n - h;
         }
-        let mut stmt = match self.conn.prepare_cached("SELECT doc FROM rel_vocab WHERE term = ?1") {
-            Ok(s) => s,
-            Err(_) => return Sig::Stems(Vec::new()),
-        };
-        let mut dfs: HashMap<String, usize> = HashMap::new();
-        for s in terms.keys() {
-            let d: i64 = stmt.query_row(params![s], |r| r.get(0)).optional().ok().flatten().unwrap_or(0);
-            dfs.insert(s.clone(), d.max(0) as usize);
+        // Step 2.
+        if self.rel_df.borrow().is_none() {
+            let Ok(map) = build_df(&self.conn) else { return Sig::Stems(Vec::new()) };
+            *self.rel_df.borrow_mut() = Some(map);
         }
-        Sig::Stems(signature(&terms, &|s: &str| dfs.get(s).copied().unwrap_or(0), self.metas.len(), p))
+        let cache = self.rel_df.borrow();
+        let df = cache.as_ref().expect("just built");
+        Sig::Stems(signature(&terms, &|s: &str| df.get(s).copied().unwrap_or(0) as usize, self.metas.len(), p))
     }
 
     /// The paths linked with `m` either way (§1.8 step 5: backlinks' sources and its own resolved links), NFC.
@@ -347,8 +388,14 @@ impl Index {
         let open_id = m.s.id.as_deref().map(|i| nfc(i.trim())).filter(|i| !i.is_empty());
         let mut linked = self.linked_with(m);
         linked.extend(extra_linked.iter().map(|p| nfc(p)));
+        // Only candidates sharing ≥ min_shared stems can be kept (step 8) or be the best (step 6), so the others are
+        // left out before the per-candidate checks; the answer is the same (NFR-PERF-13).
         let mut cands: Vec<(&Meta, f64, usize, bool)> = Vec::new();
         for (rowid, score) in scores {
+            let n_shared = shared.get(&rowid).copied().unwrap_or(0);
+            if n_shared < p.min_shared {
+                continue;
+            }
             let Some(c) = self.metas.get(&rowid) else { continue };
             if c.rowid == m.rowid || matches!(c.s.r#type.as_str(), "tag" | "image" | "pdf") {
                 continue;
@@ -360,10 +407,10 @@ impl Index {
             if is_linked && !show_linked {
                 continue;
             }
-            cands.push((c, score, shared.get(&rowid).copied().unwrap_or(0), is_linked));
+            cands.push((c, score, n_shared, is_linked));
         }
         // Step 6 (CP-3): the best score among candidates sharing ≥ min_shared stems.
-        let best = cands.iter().filter(|c| c.2 >= p.min_shared).map(|c| c.1).fold(f64::NEG_INFINITY, f64::max);
+        let best = cands.iter().map(|c| c.1).fold(f64::NEG_INFINITY, f64::max);
         // Step 7: score descending; equal scores by title, then path in code-point order (D-1709).
         cands.sort_by(|a, b| {
             b.1.total_cmp(&a.1)
