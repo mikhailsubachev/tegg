@@ -48,8 +48,8 @@ const find = (list: any[], id: string) => list.find((c) => c.id === id);
 test('fr_ux_03_ac45_outline_commands_and_shortcut', async () => {
   const { reg, cat, cmd, grp } = await mods();
   const title = (c: any) => cat.t(c.title, c.vars ?? {});
-  // R2 (D-1675): no Outline tab.
-  assert.deepEqual((reg.PANEL_TABS as any[]).map((t) => t.id), ['backlinks', 'graph'], 'PANEL_TABS: Backlinks, Graph (D-1675)');
+  // R2 (D-1675): no Outline tab; slice REL adds Related between Backlinks and Graph (D-1699, D-1728).
+  assert.deepEqual((reg.PANEL_TABS as any[]).map((t) => t.id), ['backlinks', 'related', 'graph'], 'PANEL_TABS: Backlinks, Related, Graph (D-1675, D-1699)');
   // R4: ⌘J → outline.jump, right after ⇧⌘G.
   const sc = reg.SHORTCUTS as { keys: string; command: string }[];
   const j = sc.findIndex((s) => s.keys === '⌘J');
