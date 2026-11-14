@@ -32,7 +32,7 @@ export type RelatedPanelProps = {
   /** App: opens `openRouteOf(entry)` (one `nav_opened`, as a Backlinks chip). */
   onOpen(entry: RelatedEntryDto): void;
   /** App's own-save listeners (as GraphPanel): re-ask after the page's `Saved`; `idle()` is true while the page has
-   *  nothing left to save (BP-1). */
+   *  nothing left to save (D-1753). */
   onOwnSave(f: (idle: () => boolean) => void): () => void;
   /** Changes when `Show related` ran. */
   focusFirst: number;
@@ -124,7 +124,7 @@ export function RelatedPanel({ path, showLinked, onToggleLinked, onOpen, onOwnSa
       void offB.then((f) => f()).catch(() => {});
     };
   }, [ask]);
-  // (3) The page's own `Saved` (never per keystroke). BP-1: the editor's 1 s maximum-wait writes save while the user
+  // (3) The page's own `Saved` (never per keystroke). D-1753: the editor's 1 s maximum-wait writes save while the user
   // is still typing, so a save asks once the page has stayed saved for DEBOUNCE (a keystroke since then: the next
   // save asks).
   useEffect(() => {
@@ -192,7 +192,7 @@ export function RelatedPanel({ path, showLinked, onToggleLinked, onOpen, onOwnSa
     return (
       <li key={e.path} className="related-entry" data-related-entry={e.path}>
         <BacklinkChip source={e.path} open={() => onOpen(e)}
-          /* BP-3: an explicit link role (FR-NAV-05 AC-6 reads the focused chip as a link). */
+          /* D-1755: an explicit link role (FR-NAV-05 AC-6 reads the focused chip as a link). */
           href="#" role="link" tabIndex={0} className="chip link-chip kind-note" data-link-kind="note" data-icon={icon.def} data-command="panel.related.open"
           aria-label={e.title} aria-description={description} title={e.title} {...parts.attrs}>
           {parts.icon ?? <Icon name={icon.glyph} dataIcon={icon.def} size={13} />}

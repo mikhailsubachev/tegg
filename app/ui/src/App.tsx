@@ -220,7 +220,7 @@ export function App() {
   const [refresh, setRefresh] = useState(0);
   /** Slice G2 (v1-graph §15.7): the note page's own saves, which the watcher doesn't report; the panel graph re-asks.
    *  A subscription, not state: an autosave doesn't re-render the App. */
-  /** Slice REL (BP-1): listeners get `idle()`, true while the page has nothing left to save, so the Related tab can skip
+  /** Slice REL (D-1753): listeners get `idle()`, true while the page has nothing left to save, so the Related tab can skip
    *  the 1 s maximum-wait writes made while the user is still typing (FR-LNK-15 AC-28). */
   const ownSaveListeners = useRef(new Set<(idle: () => boolean) => void>());
   const onOwnSave = useCallback((f: (idle: () => boolean) => void) => { ownSaveListeners.current.add(f); return () => { ownSaveListeners.current.delete(f); }; }, []);

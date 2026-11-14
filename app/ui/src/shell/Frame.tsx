@@ -412,7 +412,7 @@ export function ContextPanel({ tab, onTab, backlinks, related, graph, width, roo
           if (d && e.clientX !== d.x) onWidth(clamp(d.w + d.x - e.clientX));
         }}
         onPointerCancel={() => { drag.current = null; setDragging(null); }} />
-      {/* Slice REL (BP-2, related.md FR-UX-03 AC-49): one Tab stop, the selected tab (the WAI-ARIA tabs pattern), so ⇧Tab
+      {/* Slice REL (D-1754, related.md FR-UX-03 AC-49): one Tab stop, the selected tab (the WAI-ARIA tabs pattern), so ⇧Tab
           from a tab panel reaches its own tab; ←/→, Home and End move to and select another tab. */}
       <div className="panel-tabs" role="tablist" onKeyDown={(e) => {
         const at = PANEL_TABS.findIndex((p) => p.id === (document.activeElement as HTMLElement | null)?.dataset.tab);

@@ -123,8 +123,9 @@ fn main() {
                 println!("{l}");
             }
         }
-        Err(e) => {
-            eprintln!("related-eval: {e}");
+        Err(_) => {
+            // No error text: it can hold a path, i.e. a note title (D-1690, FR-LNK-15 AC-35: numbers only).
+            eprintln!("related-eval: failed to read the vault or build its index");
             std::process::exit(1)
         }
     }
