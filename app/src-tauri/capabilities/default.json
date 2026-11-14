@@ -107,6 +107,7 @@
     "allow-graph-presets-apply",
     "allow-pins-get",
     "allow-pins-apply",
+    "allow-index-related",
     "allow-type-move-plan",
     "allow-type-move",
     "allow-folder-move-preview",
