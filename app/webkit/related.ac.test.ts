@@ -136,7 +136,7 @@ test('fr_lnk_15_ac23_excerpt_plain_clamped_not_clickable', async ({ page }) => {
     await sleep(1300);
     assert.equal(await mainName(page), before, `${mode}: no route change`);
     assert.equal(await anyPreviewDialog(page).count(), 0, `${mode}: no preview`);
-    assert.deepEqual((await since(core, from)).map((c) => c.cmd), [], `${mode}: no command sent`);
+    assert.deepEqual((await since(core, from)).map((c) => c.cmd).filter((c) => c !== 'perf_mark'), [], `${mode}: no command sent`); // test-build timing marks aside, as editor and embeds tests (D-1758)
   }
 });
 

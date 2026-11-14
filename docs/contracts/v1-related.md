@@ -746,3 +746,4 @@ B-1…B-11 of the build, accepted as proposed (owner, 2026-11-14: "Accept all pr
 | D-1755 | **Related chips have the link role (B-9).** Related chips carry `role="link"` for VoiceOver; Backlinks chips are unchanged. |
 | D-1756 | **`Loading…` is drawn in the frame after 300 ms (B-10).** `Loading…` is drawn in the animation frame after the 300 ms timer, only if the answer hasn't arrived; within AC-30's 300 ms ± 1 frame. |
 | D-1757 | **Document frequencies are kept in memory (B-11).** `Index::related` reads df from a map read once from `rel_vocab` and updated by each write, instead of per-term vocab lookups (about 3× faster on the 20,000-note vault); exact for folded Czech and English stems. |
+| D-1758 | **AC-23 ignores `perf_mark`** (owner, "Yes, approve"; BRD v1.188). The excerpt-click check's "no command sent" ignores test-build timing marks, as the editor and embeds tests do. |

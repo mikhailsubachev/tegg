@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.187, for review                                            |
+| **Document status** | Draft v1.188, for review                                            |
 | **Date**            | 2026-11-14                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -201,6 +201,7 @@
 | v1.185  | 2026-11-14 | Related notes contract (`docs/contracts/v1-related.md`): D-1725…D-1731 (CP-1…CP-7; owner, "Accept all proposals"): `CC0-1.0` allowed, `cargo tree` offline, ICU root order for ties, the 35 % floor among ≥ 3-stem entries, an AC-test change for FR-UX-03 AC-45, AC-6 tested by counts, the df ceiling never below 2 objects |
 | v1.186  | 2026-11-14 | Related notes red tests (541c3fe7…830b83c1): red-test decisions D-1732…D-1746 (RT-1…RT-15; owner, "Accept all proposals") |
 | v1.187  | 2026-11-14 | Related notes build: D-1747…D-1757 (B-1…B-11; owner, "Accept all proposals"): six AC-test changes (D-1747…D-1752), re-asks only when idle, the panel tablist as one Tab stop with arrow keys, chips with the link role, `Loading…` timing, document frequencies kept in memory |
+| v1.188  | 2026-11-14 | D-1758: Related AC-23's test ignores `perf_mark` (owner, "Yes, approve") |
 
 ---
 
@@ -1772,6 +1773,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1755 | Related chips have the link role (B-9) (owner, 2026-11-14: "Accept all proposals"; slice REL build) | Related chips carry `role="link"` for VoiceOver; Backlinks chips are unchanged. |
 | D-1756 | `Loading…` is drawn in the frame after 300 ms (B-10) (owner, 2026-11-14: "Accept all proposals"; slice REL build) | `Loading…` is drawn in the animation frame after the 300 ms timer, only if the answer hasn't arrived; within AC-30's 300 ms ± 1 frame. |
 | D-1757 | Document frequencies are kept in memory (B-11) (owner, 2026-11-14: "Accept all proposals"; slice REL build) | `Index::related` reads df from a map read once from `rel_vocab` and updated by each write, instead of per-term vocab lookups (about 3× faster on the 20,000-note vault); exact for folded Czech and English stems. |
+| D-1758 | AC-23 ignores test-build timing marks (owner, 2026-11-14: "Yes, approve"; slice REL push gate) | `fr_lnk_15_ac23_excerpt_plain_clamped_not_clickable`'s "no command sent" check ignores `perf_mark` (test-build timing marks), as `editor.ac.test.ts` and `embeds.ac.test.ts` do; one landed in its window under load. AC-test change. |
 
 ---
 
