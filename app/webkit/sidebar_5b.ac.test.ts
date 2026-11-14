@@ -150,12 +150,7 @@ test('fr_nav_05_ac1_right_panel_tabs', async ({ page }) => {
   await page.keyboard.press('Meta+Backslash');
   const panel = await must(page.getByRole('complementary', { name: 'Context panel' }), 'the right panel');
   const tabs = (await panel.getByRole('tab').allInnerTexts()).map(flat);
-  assert.deepEqual(tabs.map((t) => t.replace(/\s*\d+$/, '')), ['Backlinks', 'Outline', 'Graph'], 'R2 tabs; no Attributes tab (D-127)');
-  // D-1624 (outline.md, slice OL): the Outline tab is built; selecting it shows the outline of R170.
-  const outline = panel.getByRole('tab', { name: /^Outline/ });
-  assert.doesNotMatch(await description(outline), /Coming in/, 'Outline: built, no `Coming in v1.0` description (D-1624)');
-  await click(outline, 'tab "Outline"');
-  await must(panel.getByRole('tabpanel', { name: 'Outline', exact: true }), 'selecting it shows the outline (outline.md R170)');
+  assert.deepEqual(tabs.map((t) => t.replace(/\s*\d+$/, '')), ['Backlinks', 'Graph'], 'R2 tabs; no Attributes tab (D-127), no Outline tab (D-1675)');
   // D-920 (graph-panel.md, slice G2): the Graph tab is built; selecting it shows the local graph of R114.
   const graph = panel.getByRole('tab', { name: /^Graph/ });
   assert.doesNotMatch(await description(graph), /Coming in/, 'Graph: built, no `Coming in v1.0` description (D-920)');

@@ -167,7 +167,7 @@ Never listed: Q3, D2, N2, P2, Holý, DQ, DP, both templates, Smazaná. Type filt
 
 ### FR-NAV-05 The right side panel (D-564)
 
-- **AC-1** **Tabs.** The right panel's tabs are, in this order, Backlinks (built, 4A), Outline (built, slice OL: no `Coming in v1.0` description; selecting it shows the outline of [outline.md](outline.md) R170) and Graph (built, G2: no `Coming in v1.0` description; selecting it shows the local graph of [graph-panel.md](graph-panel.md) R114); no Attributes tab (attributes stay at the top of the note, D-127); the panel toggles with its shortcut and the palette, and its open state and tab are kept per machine (FR-UX-02 AC-7, AC-10). *(L5)* *(Changed by D-920 in the commit that builds slice G2; before: Graph `Coming in v1.0`. Changed by D-1624 (AP-1424) in the commit that builds slice OL; before: Outline `Coming in v1.0`.)*
+- **AC-1** **Tabs.** The right panel's tabs are, in this order, Backlinks (built, 4A) and Graph (built, G2: no `Coming in v1.0` description; selecting it shows the local graph of [graph-panel.md](graph-panel.md) R114); no Attributes tab (attributes stay at the top of the note, D-127) and no Outline tab (the outline is the rail's card, [outline.md](outline.md) R173, D-1675); the panel toggles with its shortcut and the palette, and its open state and tab are kept per machine (FR-UX-02 AC-7, AC-10). *(L5)* *(Changed by D-920 in the commit that builds slice G2; before: Graph `Coming in v1.0`. Changed by D-1624 (AP-1424) in the commit that builds slice OL; before: Outline `Coming in v1.0`. Changed by D-1675; before: Backlinks, Outline (built, slice OL), Graph.)*
 
 ### FR-DLY-05 Review status in the Inbox (AC-1, AC-2, AC-4 in daily-notes.md; replaces AC-3)
 

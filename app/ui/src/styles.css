@@ -1456,12 +1456,7 @@ button.tag-tile { cursor: pointer; }
 .new-object-picker .nop-foot { display: flex; gap: 14px; padding: 8px 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); }
 .new-object-picker .nop-foot kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg); font: inherit; font-size: 11px; }
 
-/* ------------------------------------------------------------ slice OL: the Outline (outline.md R170, R173; v1-outline §3.4, §3.6, §3.7) */
-.context-panel > .panel-body.outline-panel { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; margin: 0 -12px; }
-.outline-header { display: flex; align-items: center; gap: 2px; padding: 0 8px 6px 12px; flex: none; font-size: 12px; color: var(--muted); }
-.outline-header .spacer { flex: 1; }
-.outline-header .icon-button { width: 24px; height: 24px; }
-.outline-scroll { flex: 1 1 0; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 0 4px; }
+/* ------------------------------------------------------------ slice OL: the Outline rail and card (outline.md R173; v1-outline §3.4, §3.6, §3.7; D-1675) */
 .outline-tree { display: flex; flex-direction: column; gap: 1px; }
 .outline-row { position: relative; display: flex; align-items: center; box-sizing: border-box; height: 26px; min-width: 0; padding-right: 2px; border-radius: 5px;
   font-size: 12.5px; font-weight: 400; color: var(--text); cursor: pointer; background: transparent; outline: none; }
@@ -1478,18 +1473,12 @@ button.tag-tile { cursor: pointer; }
 .outline-chevron:hover { color: var(--text); }
 .outline-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .outline-row[data-level="5"]:not([aria-current]) .outline-text, .outline-row[data-level="6"]:not([aria-current]) .outline-text { color: var(--muted); }
-.outline-hidden { flex: none; margin-left: 6px; font-size: 11px; font-weight: 400; color: var(--muted); }
 .outline-tip { position: absolute; left: 16px; top: calc(100% + 2px); z-index: 5; max-width: 240px; white-space: normal; padding: 4px 8px; border-radius: 6px;
   font-size: 12px; font-weight: 400; background: var(--pop); color: var(--text); border: 1px solid var(--border); pointer-events: none; }
-.outline-empty { padding: 4px 10px; }
-.outline-empty p { margin: 0 0 4px; font-size: 13px; color: var(--muted); }
-.outline-empty p:first-child { color: var(--text); font-weight: 500; }
-.outline-empty p:focus { outline: none; }
-.outline-empty code { font-size: 12px; padding: 0 3px; border-radius: 3px; background: var(--hover); color: var(--text); }
 /* The rail: a column of short lines on the note's right edge; each line's pointer target is its whole slot. */
 .outline-rail { position: absolute; right: 14px; z-index: 6; box-sizing: border-box; width: 34px; padding: 12px 8px; transform: translateY(-50%); opacity: 1;
   transition: opacity 150ms; }
-.outline-rail[data-entering], .outline-rail[data-leaving] { opacity: 0; }
+.outline-rail[data-entering] { opacity: 0; }
 .outline-rail [data-outline-line] { display: block; position: relative; width: 100%; cursor: pointer; }
 .outline-rail [data-outline-line]::before { content: ''; position: absolute; right: 0; top: 50%; height: 1.5px; transform: translateY(-50%); border-radius: 1px; background: var(--faint); }
 .outline-rail [data-outline-line][data-level="1"]::before { width: 18px; }

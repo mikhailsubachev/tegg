@@ -49,8 +49,8 @@ test('fr_nav_04_ac5_routes_follow_r62', async () => {
   // 6A (trash-media.md R75, D-613): `home` is removed. Slice PIN (pinned.md FR-NAV-04 AC-10, D-1375): `pinned` too.
   assert.equal(r('home'), undefined, 'home is removed in 6A (D-613)');
   assert.equal(r('pinned'), undefined, 'pinned is removed in slice PIN (D-1375)');
-  const outline = (reg.PANEL_TABS as any[]).find((t) => t.id === 'outline');
-  assert.equal(showDue(outline.status.due), 'v1.0', 'Outline tab: Coming in v1.0 (D-376)');
+  // Slice OL's Outline tab was removed by D-1675.
+  assert.equal((reg.PANEL_TABS as any[]).find((t) => t.id === 'outline'), undefined, 'no Outline tab (D-1675)');
   // FR-UX-02 AC-13 with VERIFY_MILESTONE=MS5: no 5B entry (R62) and none of AP-493's MS3 (3E) entries is overdue.
   const ms5 = (reg.overdue('MS5') as string[]).join('\n');
   for (const re of [/^inbox /m, /^home /m, /^pinned /m, /^capture /m, /^settings\/(vault|menu-bar|shortcuts|date-time) /m, /^outline /m, /\(MS3 \(3E\)\)/, /\(MS5\)/]) {

@@ -4,14 +4,14 @@
 // jumped-to heading and its highlight are seen, 24 px below the toolbar.
 import { test } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { P, eventually, headingEl, must, noteRoute, outlineTree, row, setScroll, startOutline, tabRows } from './outline-helpers';
+import { P, eventually, headingEl, jumpVia, must, noteRoute, outlineRows, setScroll, startOutline } from './outline-helpers';
 
 test('bug_olview_fr_edt_11_a_jump_lands_below_the_toolbar', async ({ page }) => {
   await startOutline(page, noteRoute(P.cten));
-  await must(outlineTree(page), 'Čtenářské: tree "Outline"');
-  await eventually(() => tabRows(page), (r) => r.length > 0);
+  await eventually(() => outlineRows(page), (r) => r.length > 0);
   await setScroll(page, 0);
-  await (await must(row(page, 'Zpoždění replikace'), 'row Zpoždění replikace')).click();
+  // D-1675: the jump from the rail's card (there is no Outline tab).
+  await jumpVia(page, 'Zpoždění replikace');
   await page.waitForTimeout(150);
   const heading = await must(headingEl(page, 'Zpoždění replikace'), 'the heading');
   const g = await heading.first().evaluate((h) => {

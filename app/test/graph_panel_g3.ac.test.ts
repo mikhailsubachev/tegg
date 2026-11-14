@@ -83,7 +83,7 @@ test('nfr_oth_02_ac15_panel_g3_strings_in_the_catalog_czech_plurals', async () =
 // ------------------------------------------------------------------------------------------------ FR-UX-03 AC-37 (registry)
 
 const VAULT = { name: 'Graf', path: '/tmp/Graf', placeholders: 0 };
-type Panel = { open: boolean; tab: 'backlinks' | 'outline' | 'graph' };
+type Panel = { open: boolean; tab: 'backlinks' | 'graph' };
 type Status = { view: 'graph' | 'list'; stored: boolean; modified: boolean; file: 'missing' | 'ok' | 'newer' | 'unreadable'; state?: string | null };
 const NOTE = { id: 'note/<path>', param: 'Pages/Plán čtvrtletí.md', path: 'Pages/Plán čtvrtletí.md', type: 'page' };
 const DAILY = { id: 'daily/YYYY-MM-DD', param: '2026-10-07', date: '2026-10-07', path: 'Daily/2026-10-07.md' };

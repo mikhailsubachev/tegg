@@ -59,7 +59,6 @@ export const en: Catalog = {
 
   // Right-panel tabs (R2, D-127).
   'tab.backlinks': 'Backlinks',
-  'tab.outline': 'Outline',
   'tab.graph': 'Graph',
 
   // Disabled later-feature controls (R3, D-130).
@@ -1803,21 +1802,12 @@ export const en: Catalog = {
   'query.op.notChecked': 'is not checked',
 
   // Slice OL (outline.md R177; v1-outline §6.2): the Outline tab, the edge rail and its card.
-  'outline.count': { one: '{count} heading', other: '{count} headings' },
   'outline.empty': 'No headings yet',
-  'outline.emptyHint': 'Start a line with {hash} to add one.',
   'outline.tree': 'Outline',
   'outline.card': 'Outline',
-  'outline.expandAll': 'Expand all',
-  'outline.collapseAll': 'Collapse all',
-  'outline.collapseAllHint': 'Collapse all · ⌥-click a chevron',
   'outline.expand': 'Expand',
   'outline.collapse': 'Collapse',
-  'outline.hidden': { one: '{count} hidden heading', other: '{count} hidden headings' },
-  'cmd.outline.show': 'Show outline',
   'cmd.outline.jump': 'Outline: jump to heading…',
-  'cmd.outline.expandAll': 'Outline: Expand all',
-  'cmd.outline.collapseAll': 'Outline: Collapse all',
   'cmd.outline.toggleRail': 'Toggle outline rail',
   'settings.appearance.outlineRail': 'Show outline rail',
   'settings.appearance.outlineRailNote': 'Short lines on the note’s right edge; hover them to see the outline.',

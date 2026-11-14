@@ -1,8 +1,6 @@
 // Slice OL (docs/contracts/v1-outline.md §3.1, §3.2; docs/acceptance/outline.md R170, R172, R173): the outline's pure
-// UI model, shared by the tab, the edge rail and its card. No DOM.
+// UI model, shared by the edge rail and its card. No DOM.
 import type { OutlineNode } from '@tegg/doc';
-import { t } from '../i18n/catalog';
-import { region } from '../i18n/collate';
 
 export const REFRESH_MS = 120;
 export const CURRENT_LINE = 30;
@@ -33,55 +31,6 @@ export const CARD_MAX_VH = 0.8;
 export const TEXT_CLEARANCE = 44;
 
 type Tree = readonly OutlineNode[];
-
-/** Rows with no collapsed ancestor, in note order. */
-export function visibleRows(tree: Tree, collapsed: ReadonlySet<string>): number[] {
-  const out: number[] = [];
-  for (const n of tree) {
-    let hidden = false;
-    for (let p = n.parent; p !== null; p = tree[p].parent) if (collapsed.has(tree[p].key)) { hidden = true; break; }
-    if (!hidden) out.push(n.index);
-  }
-  return out;
-}
-
-/** R172 rule 5: the current row, or its nearest visible ancestor. */
-export function shownCurrent(tree: Tree, visible: readonly number[], current: number | null): number | null {
-  if (current === null || !tree[current]) return null;
-  const vis = new Set(visible);
-  for (let i: number | null = current; i !== null; i = tree[i].parent) if (vis.has(i)) return i;
-  return null;
-}
-
-/** D-1612: each button only when it would change something. */
-export function foldButtons(tree: Tree, collapsed: ReadonlySet<string>): { expandAll: boolean; collapseAll: boolean } {
-  let expandAll = false;
-  let collapseAll = false;
-  for (const n of tree) {
-    if (!n.children.length) continue;
-    if (collapsed.has(n.key)) expandAll = true; else collapseAll = true;
-  }
-  return { expandAll, collapseAll };
-}
-
-/** One row, or (⌥, `branch`) the row and every descendant with children, take the row's new state. The result is the
- *  collapsed keys of headings with children, in note order. */
-export function toggle(tree: Tree, collapsed: ReadonlySet<string>, index: number, branch: boolean): string[] {
-  const row = tree[index];
-  const next = new Set(collapsed);
-  if (row && row.children.length) {
-    const collapse = !collapsed.has(row.key);
-    const set = (n: OutlineNode) => { if (collapse) next.add(n.key); else next.delete(n.key); };
-    set(row);
-    if (branch) for (let i = index + 1; i <= index + row.descendants; i++) if (tree[i]?.children.length) set(tree[i]);
-  }
-  return tree.filter((n) => n.children.length && next.has(n.key)).map((n) => n.key);
-}
-
-/** Keys of headings with children, in note order (`Collapse all`). */
-export function allKeys(tree: Tree): string[] {
-  return tree.filter((n) => n.children.length).map((n) => n.key);
-}
 
 /** R172 rules 1–4: `tops` in viewport coordinates, in note order. */
 export function currentSection(tops: readonly number[], o: { scrolls: boolean; atEnd: boolean }): number | null {
@@ -120,16 +69,4 @@ export function cardChevrons(tree: Tree, rows: readonly number[], tempOpen: Read
 /** §3.4 step 3: the scroll top that puts an element at `JUMP_TOP` px below the viewport's top. */
 export function jumpTop(elementTop: number, scrollTop: number, max: number): number {
   return Math.min(Math.max(elementTop + scrollTop - JUMP_TOP, 0), Math.max(0, max));
-}
-
-const fmt = (n: number) => new Intl.NumberFormat(region() ?? 'en-US').format(n);
-
-/** R170: `<n> headings` with the region's grouping. */
-export function countText(n: number): string {
-  return t('outline.count', { count: fmt(n) });
-}
-
-/** R170: the collapsed row's `aria-description`. */
-export function hiddenText(n: number): string {
-  return t('outline.hidden', { count: fmt(n) });
 }

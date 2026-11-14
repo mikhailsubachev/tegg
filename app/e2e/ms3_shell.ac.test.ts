@@ -211,17 +211,17 @@ test('fr_ux_02_ac10_layout_state_restored_and_machine_local', { timeout: 180_000
     assert.ok(await waitMark(log, `route-ready:note/${EVA}`), 'note route shown');
     press('s', ['control', 'command']);
     press('backslash', ['command']);
-    await (await byLabel(d, 'Outline')).click();
+    await (await byLabel(d, 'Graph')).click(); // D-1675: Graph instead of the removed Outline tab
     await sleep(500);
     await end(d);
     const state = JSON.parse(readFileSync(join(support, 'ui-state.json'), 'utf8'));
     assert.equal(state.sidebarOpen, false, 'sidebar state stored');
-    assert.deepEqual(state.rightPanel, { open: true, tab: 'outline' }, 'panel state stored');
+    assert.deepEqual(state.rightPanel, { open: true, tab: 'graph' }, 'panel state stored');
     d = await session(testEnv(support, log, { TEGG_VAULT: vault, TEGG_ROUTE: `note/${EVA}` }));
     assert.ok(await shown(d, 'Context panel', MARK_TIMEOUT), 'panel open after relaunch');
     assert.equal(await shown(d, 'Sidebar', 1000), false, 'sidebar collapsed after relaunch');
-    const outline = await byLabel(d, 'Outline');
-    assert.equal(String(await outline.getAttribute('selected')), 'true', 'Outline tab selected after relaunch');
+    const graph = await byLabel(d, 'Graph');
+    assert.equal(String(await graph.getAttribute('selected')), 'true', 'Graph tab selected after relaunch');
   } finally {
     await end(d);
   }

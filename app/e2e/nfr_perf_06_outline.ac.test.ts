@@ -3,9 +3,10 @@
 // --small-images`, or a copy of TEGG_REF_VAULT) with the runtime note `Pages/Pět set nadpisů.md` (fixture README: 100 H1
 // `Kapitola 001`…, each with 4 H2 `Oddíl 001.1`…, a 30-word paragraph after every heading) copied in:
 // - FR-EDT-11 AC-20: 50 edits in `Oddíl 050.2` (one key, a 400 ms pause), each measured from keydown to the painted row
-//   (perf line `outline`), p95 under 250 ms;
-// - NFR-PERF-06 AC-6: 200 characters typed into `Oddíl 050.2`, once with the panel on the Outline tab and once with the
-//   panel closed and the rail shown; ≥ 95 % of keystrokes painted in the next frame and none later than two (D-66, D-190).
+//   (perf line `outline`), p95 under 250 ms, with the panel closed and the rail shown;
+// - NFR-PERF-06 AC-6: 200 characters typed into `Oddíl 050.2` with the panel closed and the rail shown; ≥ 95 % of
+//   keystrokes painted in the next frame and none later than two (D-66, D-190).
+// D-1675: no Outline tab, so neither benchmark has a run with the panel on Outline.
 // Report-only until the v1.0 release gate, enforced there with TEGG_PERF_REF=1 on the reference machine (as D-940). Every
 // run must still reach the marks and write one perf line per edit (they are part of the slice OL contract), so the tests
 // are red until they exist. Keys go only to Tegg (helpers/osa.ts, D-758, D-799). Written from the ACs and the contract
@@ -47,15 +48,15 @@ function prepare(tmp: string): string {
   writeFileSync(join(vault!, NOTE), petSet());
   return vault!;
 }
-/** Launches the built app on the note with the panel `open` on Outline or closed, waits for `note-ready` and
- *  `outline-ready`, and puts the caret at the end of `Oddíl 050.2` (the leftmost element of that name: the note's heading). */
-async function launch(tmp: string, vault: string, panelOpen: boolean, log: string): Promise<Driver> {
-  const sup = join(tmp, `support-${panelOpen ? 'tab' : 'rail'}`);
+/** Launches the built app on the note with the panel closed, waits for `note-ready` and `outline-ready`, and puts the
+ *  caret at the end of `Oddíl 050.2` (the leftmost element of that name: the note's heading). */
+async function launch(tmp: string, vault: string, log: string): Promise<Driver> {
+  const sup = join(tmp, 'support-rail');
   mkdirSync(sup, { recursive: true });
-  writeFileSync(join(sup, 'ui-state.json'), JSON.stringify({ version: 1, theme: 'light', sidebarOpen: true, rightPanel: { open: panelOpen, tab: 'outline', width: 288 }, preview: { mode: 'off' } }));
+  writeFileSync(join(sup, 'ui-state.json'), JSON.stringify({ version: 1, theme: 'light', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks', width: 288 }, preview: { mode: 'off' } }));
   const d = await session({ TEGG_TEST: '1', TEGG_APP_SUPPORT: sup, TEGG_VAULT: vault, TEGG_ROUTE: `note/${NOTE}`, TEGG_PERF_LOG: log, TZ: 'Europe/Prague' });
   assert.ok(await waitFor(() => marks(log).includes('note-ready'), 240_000), 'note-ready');
-  assert.ok(await waitFor(() => marks(log).includes('outline-ready'), 10_000), `outline-ready (the ${panelOpen ? 'tab' : 'rail'} painted its rows)`);
+  assert.ok(await waitFor(() => marks(log).includes('outline-ready'), 10_000), 'outline-ready (the rail painted its rows)');
   let best: any = null, bx = Infinity;
   for (const e of await d.$$('-ios predicate string:label == "Oddíl 050.2" OR value == "Oddíl 050.2"').catch(() => [] as any[])) {
     const r = await d.getElementRect(e.elementId).catch(() => null);
@@ -75,7 +76,7 @@ test('fr_edt_11_ac20_five_hundred_headings', { timeout: 60 * 60_000 }, async () 
   try {
     const vault = prepare(tmp);
     const log = join(tmp, 'perf.jsonl');
-    d = await launch(tmp, vault, true, log);
+    d = await launch(tmp, vault, log);
     type50('x');
     await sleep(1000);
     const lines = outlineLines(log);
@@ -95,11 +96,11 @@ test('nfr_perf_06_ac6_typing_with_the_outline_on_screen', { timeout: 60 * 60_000
   const tmp = mkdtempSync(join(tmpdir(), 'tegg-ol-perf06-'));
   try {
     const vault = prepare(tmp);
-    for (const [label, panelOpen] of [['the panel on the Outline tab', true], ['the panel closed, the rail shown', false]] as const) {
-      const log = join(tmp, `perf-${panelOpen ? 'tab' : 'rail'}.jsonl`);
+    for (const label of ['the panel closed, the rail shown'] as const) {
+      const log = join(tmp, 'perf-rail.jsonl');
       let d: Driver | undefined;
       try {
-        d = await launch(tmp, vault, panelOpen, log);
+        d = await launch(tmp, vault, log);
         type200('a');
         await sleep(1000);
       } finally {
