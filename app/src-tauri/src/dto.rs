@@ -519,7 +519,7 @@ pub struct LastOpenedDto {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct RightPanelDto {
     pub open: bool,
-    /// `backlinks`, `outline` or `graph`.
+    /// `backlinks` or `graph` (a stored `outline`, from before D-1675, shows Backlinks).
     pub tab: String,
     /// D-634: the panel's width in px (240…480); absent until the user resizes it, read as 288.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -595,6 +595,10 @@ pub struct UiStateDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub queries: Option<QueriesUiDto>,
+    /// Slice OL (v1-outline §5, D-1601, FR-SET-02 AC-10): `Show outline rail`; missing reads as true.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub outline_rail: Option<bool>,
 }
 
 /// Slice Q (v1-queries §4.6): machine-local state of the Queries page.
@@ -1124,7 +1128,7 @@ fn yes() -> bool {
 
 impl Default for UiStateDto {
     fn default() -> Self {
-        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None, type_column_widths: None, vaults: None, queries: None }
+        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None, type_column_widths: None, vaults: None, queries: None, outline_rail: None }
     }
 }
 

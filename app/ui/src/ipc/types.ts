@@ -243,7 +243,7 @@ export type LastOpenedDto = { path: string, id: string | null, };
 export type RecentVaultDto = { name: string, path: string, exists: boolean, };
 export type RightPanelDto = { open: boolean, 
 /**
- * `backlinks`, `outline` or `graph`.
+ * `backlinks` or `graph` (a stored `outline`, from before D-1675, shows Backlinks).
  */
 tab: string, 
 /**
@@ -321,7 +321,11 @@ vaults?: Record<string, unknown>,
  * Slice Q (v1-queries §4.6, D-1485): the Queries page's sort (`created-desc` | `created-asc` | `updated-desc` |
  * `updated-asc` | `title`); missing reads as `created-desc`.
  */
-queries?: QueriesUiDto, };
+queries?: QueriesUiDto, 
+/**
+ * Slice OL (v1-outline §5, D-1601, FR-SET-02 AC-10): `Show outline rail`; missing reads as true.
+ */
+outlineRail?: boolean, };
 export type LinkTargetDto = { target: string, 
 /**
  * `note`, `daily`, `date-missing` or `unresolved`.
