@@ -1,14 +1,10 @@
-// Slice OL, L1: the outline's UI model and fold store (docs/acceptance/outline.md R170, R172, R173, R176; docs/contracts/
-// v1-outline.md §3.1, §3.2, §5). `model.ts`: the constants, `visibleRows`, `shownCurrent`, `foldButtons`, `toggle`,
-// `allKeys` (FR-EDT-11 AC-13), `currentSection` (AC-9), `jumpTop` (AC-10), `countText` (AC-1), `railGap` (FR-EDT-16
-// AC-13), `cardChevrons` (FR-EDT-16 AC-8). `folds.ts`: `noteKey`, `foldsOf`, `withFolds` (prune, the 200 cap, order of the
-// last change), `rekeyFolds` (FR-STO-07 AC-7, the L1 part). The trees are built here from the fixture's ATX lines with a
-// reference of R171 rules 5–6 (parent, depth, descendants, fold key), so these tests depend only on the UI modules.
-// Written from the ACs and the contract only (D-61). Modules load inside the tests (TS-I1).
-//
-// Red-test points (reported, not decided): `toggle`'s `collapsed` argument is passed as a `ReadonlySet<string>` like
-// `visibleRows` and `foldButtons` (§3.1 doesn't type it); `folds.ts`'s `vault` argument is passed as the vault's path
-// string (§5 says the key is `vault.path.normalize('NFC')`).
+// Slice OL, L1: the outline's UI model (docs/acceptance/outline.md R172, R173; docs/contracts/v1-outline.md §3.1, §3.2).
+// `model.ts`: the constants, `currentSection` (FR-EDT-11 AC-9), `jumpTop` (AC-10), `railGap` (FR-EDT-16 AC-13),
+// `cardChevrons` (FR-EDT-16 AC-8). D-1675: no Outline tab, so no fold model or fold store (`visibleRows`, `shownCurrent`,
+// `foldButtons`, `toggle`, `allKeys`, `countText`, `folds.ts`; FR-EDT-11 AC-13, FR-STO-07 AC-7 removed). The trees are
+// built here from the fixture's ATX lines with a reference of R171 rules 5–6 (parent, depth, descendants, key), so these
+// tests depend only on the UI modules. Written from the ACs and the contract only (D-61). Modules load inside the tests
+// (TS-I1).
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -21,11 +17,6 @@ async function load(path: string): Promise<Mod | null> {
 async function model(): Promise<Mod> {
   const m = await load('../ui/src/outline/model.ts');
   assert.ok(m, 'ui/src/outline/model.ts loads (v1-outline §3.1)');
-  return m!;
-}
-async function folds(): Promise<Mod> {
-  const m = await load('../ui/src/outline/folds.ts');
-  assert.ok(m, 'ui/src/outline/folds.ts loads (v1-outline §3.1, §5)');
   return m!;
 }
 function fnOf(m: Mod, name: string): (...a: any[]) => any {
@@ -60,10 +51,8 @@ function treeOf(rel: string): Node[] {
   return out;
 }
 const ARCH = () => treeOf('Pages/Architektura.md');
-const PLAN = () => treeOf('Pages/Plán offsitu 2026.md');
 const CTEN = () => treeOf('Pages/Čtenářské poznámky.md');
 const ix = (tree: Node[], text: string, nth = 0) => tree.filter((n) => n.text === text)[nth].index;
-const keyOf = (tree: Node[], text: string, nth = 0) => tree[ix(tree, text, nth)].key;
 const names = (tree: Node[], idx: number[]) => idx.map((i) => tree[i]?.text ?? `#${i}`);
 
 // ------------------------------------------------------------------------------------------------ §3.2 constants
@@ -85,16 +74,6 @@ test('fr_edt_11_ac10_click_jumps_to_the_heading_constants_and_jump_top', async (
   assert.equal(jumpTop(-200, 900, 10_000), 676, 'a heading above the viewport');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-EDT-11 AC-1 (count)
-
-test('fr_edt_11_ac1_outline_tab_lists_the_headings_count_text', async () => {
-  const m = await model();
-  const countText = fnOf(m, 'countText');
-  assert.equal(countText(11), '11 headings', 'outline.count, other');
-  assert.equal(countText(1), '1 heading', 'outline.count, one');
-  assert.equal(countText(18), '18 headings', 'Architektura');
-});
-
 // ------------------------------------------------------------------------------------------------ FR-EDT-11 AC-9
 
 test('fr_edt_11_ac9_current_section_follows_scrolling_rule', async () => {
@@ -109,52 +88,6 @@ test('fr_edt_11_ac9_current_section_follows_scrolling_rule', async () => {
   assert.equal(cs([60, 120], { scrolls: false, atEnd: true }), null, 'a note that doesn\'t scroll uses only rule 1');
   assert.equal(cs([10, 120], { scrolls: false, atEnd: true }), 0, 'a note that doesn\'t scroll, a heading above the line');
   assert.equal(cs([], { scrolls: true, atEnd: true }), null, 'no headings: nothing current');
-});
-
-// ------------------------------------------------------------------------------------------------ FR-EDT-11 AC-13
-
-test('fr_edt_11_ac13_collapse_and_expand_model', async () => {
-  const m = await model();
-  const [visibleRows, foldButtons, toggle, allKeys, shownCurrent] = ['visibleRows', 'foldButtons', 'toggle', 'allKeys', 'shownCurrent'].map((n) => fnOf(m, n));
-  const arch = ARCH();
-  assert.equal(arch.length, 18, 'fixture: Architektura has 18 headings');
-  const none = new Set<string>();
-  assert.deepEqual(visibleRows(arch, none), arch.map((n) => n.index), 'nothing collapsed: every row');
-  assert.deepEqual(foldButtons(arch, none), { expandAll: false, collapseAll: true }, 'nothing collapsed: only Collapse all');
-  // One row.
-  const hl = toggle(arch, none, ix(arch, 'Hlavička'), false);
-  assert.deepEqual(hl, [keyOf(arch, 'Hlavička')], 'the chevron of Hlavička collapses one row: ["3:Hlavička#1"]');
-  assert.equal(keyOf(arch, 'Hlavička'), '3:Hlavička#1', 'the reference key');
-  const hidden = names(arch, visibleRows(arch, new Set(hl)));
-  assert.equal(hidden.length, 16, 'its 2 children are hidden');
-  assert.ok(!hidden.includes('Povinné klíče') && !hidden.includes('Neznámé klíče'), 'Povinné klíče and Neznámé klíče hidden');
-  assert.deepEqual(foldButtons(arch, new Set(hl)), { expandAll: true, collapseAll: true }, 'both buttons');
-  assert.deepEqual(toggle(arch, new Set(hl), ix(arch, 'Hlavička'), false), [], 'a second click restores it');
-  // A whole branch (⌥-click).
-  const branch = toggle(arch, none, ix(arch, 'Úložiště'), true);
-  const BRANCH = ['Úložiště', 'Rozvržení trezoru', 'Složky podle typu', 'Denní poznámky', 'Názvy souborů', 'Hlavička', 'Indexování'];
-  assert.deepEqual(branch, BRANCH.map((t) => keyOf(arch, t)), '⌥-click on Úložiště: it and every descendant with children, in note order');
-  const plain = toggle(arch, new Set(branch), ix(arch, 'Úložiště'), false);
-  assert.deepEqual(plain, BRANCH.slice(1).map((t) => keyOf(arch, t)), 'a plain click then expands Úložiště only');
-  assert.deepEqual(names(arch, visibleRows(arch, new Set(plain))), ['Úložiště', 'Rozvržení trezoru', 'Indexování', 'Synchronizace', 'Konflikty', 'Stejný řádek upraven', 'Složky iCloudu'], '7 rows');
-  assert.deepEqual(toggle(arch, new Set(branch), ix(arch, 'Úložiště'), true), [], '⌥-click on the collapsed row expands it and its branch');
-  // All.
-  const all = allKeys(arch);
-  assert.deepEqual(all, arch.filter((n) => n.children.length).map((n) => n.key), 'allKeys: the 9 headings with children, in note order');
-  assert.deepEqual(names(arch, visibleRows(arch, new Set(all))), ['Úložiště', 'Synchronizace'], 'Collapse all leaves 2 rows');
-  assert.deepEqual(foldButtons(arch, new Set(all)), { expandAll: true, collapseAll: false }, 'only Expand all');
-  assert.equal(allKeys(CTEN()).length, 14, 'Čtenářské: 14 keys');
-  assert.deepEqual(foldButtons(treeOf('Pages/Jeden nadpis.md'), none), { expandAll: false, collapseAll: false }, 'Jeden: neither button');
-  assert.deepEqual(foldButtons(PLAN(), none), { expandAll: false, collapseAll: true }, 'Plán: Collapse all only');
-  // Current in a collapsed branch (R172 rule 5).
-  const coll = new Set([keyOf(arch, 'Úložiště')]);
-  const vis = visibleRows(arch, coll);
-  assert.equal(shownCurrent(arch, vis, ix(arch, 'Časová pásma')), ix(arch, 'Úložiště'), 'the nearest visible ancestor carries the mark');
-  assert.equal(shownCurrent(arch, arch.map((n) => n.index), ix(arch, 'Časová pásma')), ix(arch, 'Časová pásma'), 'visible: itself');
-  assert.equal(shownCurrent(arch, vis, null), null, 'nothing current');
-  // Keys in an NFD tree are NFC: a stored NFC key still collapses the NFD heading (FR-FMT-12 AC-10).
-  const nfd = arch.map((n) => ({ ...n, text: n.text.normalize('NFD') }));
-  assert.ok(!names(nfd, visibleRows(nfd, new Set(['3:Složky podle typu#1']))).some((t) => t.normalize('NFC') === 'Denní poznámky'), 'the NFC key folds the NFD heading');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-EDT-16 AC-13
@@ -193,55 +126,4 @@ test('fr_edt_16_ac8_card_rows_and_chevrons_model', async () => {
   assert.equal(chev2.length, 12, '12 chevrons after opening Transakce');
   const arch = ARCH();
   assert.equal((cardChevrons(arch, arch.map((n) => n.index), new Set<number>()) as Set<number>).size, 0, 'Architektura: every row shown, no chevron (V5)');
-});
-
-// ------------------------------------------------------------------------------------------------ FR-STO-07 AC-7 (L1)
-
-const VAULT = '/Users/test/Trezor Outline';
-const ID1 = '01JC5N00000000000000000001';
-const base = () => ({ version: 1, theme: 'light', sidebarOpen: true, rightPanel: { open: true, tab: 'outline', width: 288 }, propertiesOpen: true });
-
-test('fr_sto_07_ac7_fold_state_in_ui_state', async () => {
-  const f = await folds();
-  const [noteKey, foldsOf, withFolds, rekeyFolds] = ['noteKey', 'foldsOf', 'withFolds', 'rekeyFolds'].map((n) => fnOf(f, n));
-  assert.equal(f.OUTLINE_NOTES_MAX, 200, 'OUTLINE_NOTES_MAX = 200');
-  assert.equal(noteKey(ID1, 'Pages/Plán offsitu 2026.md'), ID1, 'the id when there is one');
-  assert.equal(noteKey(null, 'Pages/Bez hlavičky.md'.normalize('NFD')), 'Pages/Bez hlavičky.md'.normalize('NFC'), 'else the vault path in NFC');
-  const plan = PLAN();
-  const valid = plan.filter((n) => n.children.length).map((n) => n.key);
-  // Collapse.
-  const ui0 = base();
-  const ui1 = withFolds(ui0, VAULT, ID1, ['1:Program#1'], valid);
-  assert.deepEqual(ui1.vaults?.[VAULT]?.outline?.collapsed, { [ID1]: ['1:Program#1'] }, 'vaults[<vault>].outline.collapsed[<id>] = ["1:Program#1"]');
-  const { vaults: _v, ...rest } = ui1;
-  assert.deepEqual(rest, ui0, 'nothing else of the UI state changes');
-  assert.deepEqual(ui0, base(), 'the input is not mutated');
-  assert.deepEqual(foldsOf(ui1, VAULT, ID1), ['1:Program#1'], 'foldsOf reads them back');
-  assert.deepEqual(foldsOf(ui1, VAULT, 'Pages/Jiná.md') ?? [], [], 'another note: nothing collapsed');
-  assert.deepEqual(foldsOf(ui1, '/Users/test/Jiný trezor', ID1) ?? [], [], 'another vault: nothing collapsed');
-  // Expand removes the entry.
-  const ui2 = withFolds(ui1, VAULT, ID1, [], valid);
-  assert.equal(ui2.vaults?.[VAULT]?.outline?.collapsed?.[ID1], undefined, 'nothing collapsed: the note\'s entry is removed');
-  // Stale keys are dropped at the note's next fold write.
-  const stale = withFolds({ ...base(), vaults: { [VAULT]: { outline: { collapsed: { [ID1]: ['1:Program#1'] } } } } }, VAULT, ID1, ['1:Program#1', '1:Cíle#1'], valid.filter((k) => k !== '1:Program#1'));
-  assert.deepEqual(stale.vaults[VAULT].outline.collapsed[ID1], ['1:Cíle#1'], 'keys matching no heading are dropped');
-  // Order of the last change, and the 200 cap.
-  const seeded: Record<string, string[]> = {};
-  for (let i = 0; i < 200; i++) seeded[`01JC5Z${String(i).padStart(20, '0')}`] = ['1:Kapitola#1'];
-  const full = { ...base(), vaults: { [VAULT]: { outline: { collapsed: seeded }, sidebar: { pinnedCollapsed: true } } } };
-  const capped = withFolds(full, VAULT, ID1, ['1:Program#1'], valid);
-  const keys = Object.keys(capped.vaults[VAULT].outline.collapsed);
-  assert.equal(keys.length, 200, 'above 200 notes the oldest is dropped in the same write');
-  assert.equal(keys[0], Object.keys(seeded)[1], 'the entry changed longest ago is gone');
-  assert.equal(keys[keys.length - 1], ID1, 'Plán\'s entry is last');
-  assert.deepEqual(capped.vaults[VAULT].sidebar, { pinnedCollapsed: true }, 'the vault\'s other entries are kept');
-  const again = withFolds(capped, VAULT, keys[0], ['1:Kapitola#1', '1:Program#1'], ['1:Kapitola#1']);
-  assert.equal(Object.keys(again.vaults[VAULT].outline.collapsed).pop(), keys[0], 'a change moves the note\'s entry last');
-  // Re-key a path to the id after the first edit.
-  const path = 'Pages/Bez hlavičky.md';
-  const withPath = withFolds(base(), VAULT, path, ['1:Jedna#1'], ['1:Jedna#1']);
-  const moved = rekeyFolds(withPath, VAULT, path, '01JC5N0000000000000000NEW1');
-  assert.ok(moved, 'rekeyFolds moves the entry');
-  assert.deepEqual(moved.vaults[VAULT].outline.collapsed, { '01JC5N0000000000000000NEW1': ['1:Jedna#1'] }, 'the path key moves to the id key');
-  assert.equal(rekeyFolds(base(), VAULT, path, '01JC5N0000000000000000NEW1'), null, 'nothing to move: null');
 });

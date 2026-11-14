@@ -1,15 +1,14 @@
-// Slice OL (docs/contracts/v1-outline.md §3.1, §3.7, §3.8; outline.md R170, R174): the `tree` of the Outline tab and of
-// the rail's card. Rows are keyed by their fold key, so a relabel replaces one row and the others keep their DOM nodes
+// Slice OL (docs/contracts/v1-outline.md §3.1, §3.7, §3.8; outline.md R170, R174; D-1675): the `tree` of the rail's
+// card. Rows are keyed by their heading key, so a relabel replaces one row and the others keep their DOM nodes
 // (FR-EDT-11 AC-7). Roving focus, the WAI-ARIA tree keys, chevrons, the current bar and hover.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { OutlineNode } from '@tegg/doc';
 import { t } from '../i18n/catalog';
-import { hiddenText, INDENT } from './model';
+import { INDENT } from './model';
 
-export type FoldOp = 'toggle' | 'branch' | 'expand' | 'collapse' | 'expandBranch' | 'collapseBranch';
+export type FoldOp = 'toggle' | 'branch' | 'expand' | 'collapse';
 
-export function OutlineTree({ variant, tree, rows, current, ancestors, collapsed, chevrons, tempOpen, hoverRow, onHoverRow, onJump, onFold, onEscape, onLeave, focusReq }: {
-  variant: 'tab' | 'card';
+export function OutlineTree({ tree, rows, current, ancestors, chevrons, tempOpen, hoverRow, onHoverRow, onJump, onFold, onEscape, onLeave, focusReq }: {
   tree: readonly OutlineNode[];
   /** The rows drawn, in note order. */
   rows: readonly number[];
@@ -17,8 +16,6 @@ export function OutlineTree({ variant, tree, rows, current, ancestors, collapsed
   current: number | null;
   /** Card: the current section's ancestors (weight 600, V8). */
   ancestors?: ReadonlySet<number>;
-  /** Tab: the collapsed rows' fold keys. */
-  collapsed?: ReadonlySet<string>;
   /** Rows that show a chevron. */
   chevrons: ReadonlySet<number>;
   /** Card: rows opened in this card (D-1616). */
@@ -62,9 +59,8 @@ export function OutlineTree({ variant, tree, rows, current, ancestors, collapsed
     setFocusIdx(p ?? rows[0] ?? null);
   });
 
-  const hasKids = (i: number) => (tree[i]?.children.length ?? 0) > 0;
   const kidsShown = (i: number) => !!tree[i] && tree[i].children.length > 0 && tree[i].children.every((c) => shown.has(c));
-  const isCollapsed = (i: number) => (variant === 'tab' ? !!collapsed?.has(tree[i].key) : !kidsShown(i));
+  const isCollapsed = (i: number) => !kidsShown(i);
 
   const onKey = (e: React.KeyboardEvent, i: number) => {
     const at = rows.indexOf(i);
@@ -76,29 +72,15 @@ export function OutlineTree({ variant, tree, rows, current, ancestors, collapsed
     if (e.key === 'End') { stop(); focusRow(rows[rows.length - 1]); return; }
     if (e.key === 'Enter') { stop(); onJump(i); return; }
     if (e.key === 'Escape') { stop(); onEscape(); return; }
-    if (variant === 'card' && (e.key === 'Tab' || (e.key.toLowerCase() === 'j' && e.metaKey))) { stop(); onLeave?.(); return; }
+    if ((e.key === 'Tab' || (e.key.toLowerCase() === 'j' && e.metaKey))) { stop(); onLeave?.(); return; }
     if (e.key === 'ArrowRight') {
       stop();
-      if (variant === 'tab') {
-        if (e.altKey) { if (hasKids(i)) onFold(i, 'expandBranch'); return; }
-        if (!hasKids(i)) return;
-        if (isCollapsed(i)) onFold(i, 'expand');
-        else focusRow(tree[i].children[0]);
-        return;
-      }
       if (chevrons.has(i) && !kidsShown(i)) { onFold(i, 'expand'); return; }
       if (kidsShown(i)) focusRow(tree[i].children[0]);
       return;
     }
     if (e.key === 'ArrowLeft') {
       stop();
-      if (variant === 'tab') {
-        if (e.altKey) { if (hasKids(i)) onFold(i, 'collapseBranch'); return; }
-        if (hasKids(i) && !isCollapsed(i)) { onFold(i, 'collapse'); return; }
-        const p = parentShown();
-        if (p !== null) focusRow(p);
-        return;
-      }
       if (tempOpen?.has(i)) { onFold(i, 'collapse'); return; }
       const p = parentShown();
       if (p !== null) focusRow(p);
@@ -109,7 +91,7 @@ export function OutlineTree({ variant, tree, rows, current, ancestors, collapsed
   const siblingsOf = (n: OutlineNode) => (n.parent === null ? tree.filter((x) => x.parent === null).map((x) => x.index) : tree[n.parent].children);
 
   return (
-    <div role="tree" aria-label={t('outline.tree')} className={`outline-tree outline-tree-${variant}`}>
+    <div role="tree" aria-label={t('outline.tree')} className="outline-tree outline-tree-card">
       {rows.map((i) => {
         const n = tree[i];
         if (!n) return null;
@@ -117,7 +99,6 @@ export function OutlineTree({ variant, tree, rows, current, ancestors, collapsed
         const coll = kids && isCollapsed(i);
         const sib = siblingsOf(n);
         const chev = chevrons.has(i);
-        const hiddenCount = variant === 'tab' && coll ? n.descendants : null;
         return (
           <div
             key={n.key}
@@ -130,7 +111,8 @@ export function OutlineTree({ variant, tree, rows, current, ancestors, collapsed
             aria-posinset={sib.indexOf(i) + 1}
             aria-expanded={kids ? !coll : undefined}
             aria-current={current === i ? 'location' : undefined}
-            aria-description={hiddenCount !== null ? hiddenText(hiddenCount) : undefined}
+            // L6 FR-UX-08 AC-21 (contract §9): macOS reads `aria-current` as nothing; AXSelected tells VoiceOver which row is current.
+            aria-selected={current === i ? true : undefined}
             tabIndex={roving === i ? 0 : -1}
             data-level={n.level}
             data-top={n.depth === 1 && n.level === 1 ? '' : undefined}
@@ -165,7 +147,6 @@ export function OutlineTree({ variant, tree, rows, current, ancestors, collapsed
               )}
             </span>
             <span className="outline-text" data-user-content>{n.text}</span>
-            {hiddenCount !== null && <span className="outline-hidden" aria-hidden="true" data-outline-hidden="">{hiddenCount}</span>}
             {tip === i && <span role="tooltip" className="outline-tip" data-user-content>{n.text}</span>}
           </div>
         );

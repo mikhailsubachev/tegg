@@ -1,8 +1,8 @@
 // Slice OL, L5 (WebKit + fake core): the edge rail and its card (docs/acceptance/outline.md R173; FR-EDT-16 as D-1600 made
 // it): AC-1 (when it shows), AC-2 (narrow windows, the separator drag), AC-3 (place and line sizes, the text clearance),
-// AC-4 (line states, the same current section as the tab), AC-5 (the rows in a long note), AC-6 (it ignores the tab's
-// folding), AC-7 (hover timings), AC-8 (the card's rows, chevrons and geometry), AC-9 (jumps from the rail and the card),
-// AC-10 (beside the panel, the fade), AC-11 (the card by keyboard), AC-12 (live updates), AC-13 (many top-level headings).
+// AC-4 (line states, the same current section as the hook), AC-5 (the rows in a long note), AC-7 (hover timings), AC-8
+// (the card's rows, chevrons and geometry), AC-9 (jumps from the rail and the card), AC-10 (beside the panel, the fade-in;
+// no fade-out, D-1675), AC-11 (the card by keyboard), AC-12 (live updates), AC-13 (many top-level headings).
 // Interface docs/contracts/v1-outline.md §3.6, §3.7, §3.8, §6.1, §10; helpers outline-helpers.ts. Playwright's clock
 // drives the 150, 250 and 300 ms timings. Written from the ACs and the contract only (D-61). Every lookup goes through
 // `must` and node:assert (TS-I1).
@@ -12,9 +12,9 @@
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
-  CTEN_H1, ID, P, ZONE, animationsOf, another, backlinksTab, box, card, cardRow, cardRows, cardTree, caret, editorBody, editorState, eventually, flat, graphTab,
-  headingEl, headingTop, hook, hoverRail, liveRegion, mainScroll, must, noteRoute, openCardByHover, outlineTab, pauseClock, placeCaret, pointerToNote, rail, railLines,
-  runFor, scrollHeadingTo, seen, separator, setScroll, sleep, startOutline, tabRows, tokenColor, currentRows,
+  CTEN_H1, ID, P, ZONE, animationsOf, another, backlinksTab, box, card, cardRow, cardRows, cardTree, caret, ctxPanel, editorBody, editorState, eventually, flat,
+  graphTab, headingEl, headingTop, hook, hoverRail, liveRegion, mainScroll, must, noteRoute, openCardByHover, pauseClock, placeCaret, pointerToNote, rail,
+  railLines, runFor, scrollHeadingTo, seen, separator, setScroll, sleep, startOutline, tokenColor,
 } from './outline-helpers';
 
 test.use({ timezoneId: ZONE, locale: 'cs-CZ' });
@@ -58,8 +58,11 @@ test('fr_edt_16_ac1_when_the_rail_shows', async ({ page }) => {
   assert.ok(await shown(bl), 'panel on Backlinks: the rail shows');
   const { p: gr } = await another(page, noteRoute(P.plan), { panel: 'graph' });
   assert.ok(await shown(gr), 'panel on Graph: the rail shows');
-  const { p: ol } = await another(page, noteRoute(P.plan), { panel: 'outline' });
-  assert.ok(await none(ol), 'panel on Outline: no rail');
+  // D-1675: a remembered `outline` tab (the removed Outline tab) shows Backlinks, and the rail.
+  const { p: ol } = await another(page, noteRoute(P.plan), { extra: { rightPanel: { open: true, tab: 'outline', width: 288 } } });
+  assert.ok(await shown(ol), 'a remembered outline tab: the rail shows');
+  const sel = await ctxPanel(ol).getByRole('tab', { selected: true }).allInnerTexts();
+  assert.deepEqual(sel.map((t) => flat(t).replace(/\s*\d+$/, '')), ['Backlinks'], 'and the panel shows Backlinks');
   await page.keyboard.press('Meta+Shift+Backslash');
   assert.ok(await none(page), 'focus mode (⌘⇧\\): no rail');
   await page.keyboard.press('Meta+Shift+Backslash');
@@ -183,22 +186,19 @@ test('fr_edt_16_ac4_rail_line_states', async ({ page }) => {
   await setScroll(page, 'end');
   const l2 = await eventually(() => railLines(page), (l) => l[10]?.state === 'current');
   assert.deepEqual([near(l2[10]?.h, 2, 0.1), l2[10]?.color], [true, text], 'at the end Rozpočet\'s line is 2 px --text');
-  // The same current section as the tab, at 10 positions (the panel switched between Backlinks and Outline).
+  // The same current section as the outline's (`__TEGG_TEST__.outline.current()`), at 10 positions, beside Backlinks.
   const { p } = await another(page, noteRoute(P.plan), { panel: 'backlinks' });
   await must(rail(p), 'Plán beside Backlinks: the rail');
   const s = await mainScroll(p);
   const bad: string[] = [];
   for (let k = 0; k < 10; k++) {
     await setScroll(p, Math.round(((s.height - s.client) * k) / 9));
-    await (await must(backlinksTab(p), 'tab Backlinks')).click();
     await sleep(150);
     const railCur = (await railLines(p)).find((x) => x.state === 'current')?.index ?? null;
-    await (await must(outlineTab(p), 'tab Outline')).click();
-    await sleep(150);
-    const tabCur = (await tabRows(p)).find((x) => x.current === 'location')?.index ?? null;
-    if (railCur !== tabCur) bad.push(`position ${k}: rail ${railCur}, tab ${tabCur}`);
+    const hookCur = await hook<number | null>(p, 'current');
+    if (railCur !== hookCur) bad.push(`position ${k}: rail ${railCur}, outline ${hookCur}`);
   }
-  assert.deepEqual(bad, [], 'at every scroll position the rail\'s current line and the tab\'s current row are the same heading');
+  assert.deepEqual(bad, [], 'at every scroll position the rail\'s current line is the outline\'s current section');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-EDT-16 AC-5
@@ -242,19 +242,6 @@ test('fr_edt_16_ac5_rail_rows_in_a_long_note', async ({ page }) => {
       assert.equal((await railLines(p)).length, n, `${note} at ${at}: every heading (${n})`);
     }
   }
-});
-
-// ------------------------------------------------------------------------------------------------ FR-EDT-16 AC-6
-
-test('fr_edt_16_ac6_rail_ignores_outline_folding', async ({ page }) => {
-  await startOutline(page, noteRoute(P.arch), { folds: { [ID('02')]: ['1:Úložiště#1'] } });
-  await eventually(() => tabRows(page), (r) => r.length === 5);
-  assert.equal((await tabRows(page)).length, 5, 'setup: Úložiště collapsed in the tab (5 rows: Úložiště and the Synchronizace branch)');
-  await (await must(backlinksTab(page), 'tab Backlinks')).click();
-  await must(rail(page), 'the rail beside Backlinks');
-  assert.equal((await eventually(() => railLines(page), (l) => l.length === 18)).length, 18, '18 rail lines');
-  await openCardByHover(page);
-  assert.equal((await eventually(() => cardRows(page), (r) => r.length === 18)).length, 18, 'the card lists 18 rows');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-EDT-16 AC-7
@@ -443,25 +430,28 @@ test('fr_edt_16_ac10_rail_beside_the_panel', async ({ page }) => {
   // The fades are checked as declared (an opacity transition of 150 ms) plus their end state, not caught mid-way in real
   // time (D-1656).
   assert.deepEqual(await fadeOf(rail(page)), { ms: 150 }, 'the rail declares a 150 ms opacity transition');
-  await (await must(outlineTab(page), 'tab Outline')).click();
-  assert.ok(await eventually(async () => (await rail(page).count()) === 0, (x) => x, 1000), 'choosing Outline fades the rail out, then it is removed');
+  // D-1675: no panel tab hides the rail.
   await (await must(graphTab(page), 'tab Graph')).click();
-  await must(rail(page), 'choosing Graph shows the rail');
-  assert.deepEqual(await fadeOf(rail(page)), { ms: 150 }, 'choosing Graph: it fades in with the 150 ms opacity transition');
-  assert.equal(await eventually(() => opacityOf(rail(page)), (o) => o === 1, 1000), 1, 'and ends at opacity 1');
-  await (await must(outlineTab(page), 'tab Outline')).click();
-  await eventually(async () => (await rail(page).count()) === 0, (x) => x, 1000);
+  await sleep(300);
+  assert.equal(await rail(page).count(), 1, 'choosing Graph keeps the rail');
+  assert.equal(await opacityOf(rail(page)), 1, 'at opacity 1');
+  await (await must(backlinksTab(page), 'tab Backlinks')).click();
   await page.keyboard.press('Meta+Backslash');
-  await must(rail(page), 'closing the panel with ⌘\\ shows the rail');
-  assert.deepEqual(await fadeOf(rail(page)), { ms: 150 }, 'closing the panel with ⌘\\: it fades in with the 150 ms opacity transition');
+  await sleep(300);
+  assert.equal(await rail(page).count(), 1, 'closing the panel with ⌘\\ keeps the rail');
+  // Shown again (leaving focus mode): the fade-in; hidden (focus mode): removed at once, no fade-out.
+  await page.keyboard.press('Meta+Shift+Backslash');
+  assert.ok(await eventually(async () => (await rail(page).count()) === 0, (x) => x, 300), 'focus mode removes the rail at once (no fade-out)');
+  await page.keyboard.press('Meta+Shift+Backslash');
+  await must(rail(page), 'leaving focus mode shows the rail');
+  assert.deepEqual(await fadeOf(rail(page)), { ms: 150 }, 'it fades in with the 150 ms opacity transition');
   assert.equal(await eventually(() => opacityOf(rail(page)), (o) => o === 1, 1000), 1, 'and ends at opacity 1');
   // Reduce motion: no transition.
   const { p } = await another(page, noteRoute(P.plan), { panel: 'backlinks', reducedMotion: 'reduce' });
   await must(rail(p), 'Reduce motion: the rail');
-  await (await must(outlineTab(p), 'tab Outline')).click();
-  assert.deepEqual(await animationsOf(rail(p)), [], 'Reduce motion: hiding runs no transition');
-  assert.ok(await eventually(async () => (await rail(p).count()) === 0, (x) => x, 300), 'and removes it at once');
-  await (await must(graphTab(p), 'tab Graph')).click();
+  await p.keyboard.press('Meta+Shift+Backslash');
+  assert.ok(await eventually(async () => (await rail(p).count()) === 0, (x) => x, 300), 'Reduce motion: hiding removes it at once');
+  await p.keyboard.press('Meta+Shift+Backslash');
   await must(rail(p), 'the rail again');
   assert.deepEqual(await animationsOf(rail(p)), [], 'showing runs no transition');
 });
@@ -534,16 +524,15 @@ test('fr_edt_16_ac11_card_by_keyboard', async ({ page }) => {
   assert.deepEqual(await focusedRow(p), { label: 'Bez vedoucího', inCard: true }, 'setup: on Bez vedoucího');
   await p.keyboard.press('ArrowLeft');
   assert.deepEqual(await focusedRow(p), { label: 'Replikace', inCard: true }, 'on Bez vedoucího, ← goes to Replikace');
-  // Outline on screen: the tab's current row, no card.
-  const { p: o } = await another(page, noteRoute(P.plan), { panel: 'outline' });
+  // The panel open (D-1675: on any tab): ⌘J opens the card on the current row.
+  const { p: o } = await another(page, noteRoute(P.plan), { panel: 'graph' });
   await scrollHeadingTo(o, 'Den 1', 4);
-  await eventually(() => currentRows(o), (c) => c[0] === 'Den 1');
+  await eventually(() => hook<number | null>(o, 'current'), (c) => c === 4);
   await placeCaret(await must(editorBody(o).locator('p').nth(1), 'paragraph'), 2);
   await scrollHeadingTo(o, 'Den 1', 4);
   await o.keyboard.press('Meta+j');
-  await sleep(200);
-  assert.equal(await card(o).count(), 0, 'Outline on screen: no card');
-  assert.deepEqual(await focusedRow(o), { label: 'Den 1', inCard: false }, 'the tab\'s current row gets the focus');
+  await must(card(o), 'the panel on Graph: ⌘J opens the card');
+  assert.deepEqual(await focusedRow(o), { label: 'Den 1', inCard: true }, 'the card\'s current row gets the focus');
   // Rail hidden: focus mode, and 1,000 px with the panel on Backlinks.
   const { p: f } = await another(page, noteRoute(P.plan), { panel: null });
   await f.keyboard.press('Meta+Shift+Backslash');

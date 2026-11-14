@@ -61,7 +61,7 @@ type UiStateDto = {
   version: 1;
   theme: 'system' | 'light' | 'dark';                       // default 'system' (AP-72)
   sidebarOpen: boolean;                                     // default true
-  rightPanel: { open: boolean; tab: 'backlinks' | 'outline' | 'graph' };  // default closed, 'backlinks'
+  rightPanel: { open: boolean; tab: 'backlinks' | 'graph' };  // default closed, 'backlinks'; a stored 'outline' (removed tab, D-1675) shows Backlinks
 };
 ```
 
@@ -109,7 +109,7 @@ type RouteDef = {
   reqs: string[];                 // requirement IDs shown on the placeholder
   design: string | null;          // design board name ('Home', 'Ideas', …) or null
 };
-type TabDef = { id: 'backlinks' | 'outline' | 'graph'; name: string; status: RouteDef['status']; reqs: string[] };
+type TabDef = { id: 'backlinks' | 'graph'; name: string; status: RouteDef['status']; reqs: string[] };  // 'outline' removed by D-1675
 type DisabledControl = { label: string; where: string; due: Due; req: string };   // R3
 type ShortcutDef = { keys: string; command: string };                              // R4, keys in ⌃⌥⇧⌘ order
 

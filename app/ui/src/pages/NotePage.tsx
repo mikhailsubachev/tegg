@@ -138,7 +138,7 @@ function stamp(): string {
   return `${t.slice(0, 10)} ${t.slice(11, 13)}-${t.slice(14, 16)}`;
 }
 
-export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOpenSource, restoreScroll, restoreCaret, types, heading, onType, onMeta, onOpen, onTag, onRenamed, toggleSource, focusMode, onTogglePanel, onFocus, propertiesOpen, onToggleProperties, onRestored, knownId, onId, created, otherOpen = false, onToggleOther, onTypeSaved, onWritten, daily, onDaily, draft, widths, defaultWidth = 'normal', onWidth, onRekeyWidth, onRekeyFolds }: {
+export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOpenSource, restoreScroll, restoreCaret, types, heading, onType, onMeta, onOpen, onTag, onRenamed, toggleSource, focusMode, onTogglePanel, onFocus, propertiesOpen, onToggleProperties, onRestored, knownId, onId, created, otherOpen = false, onToggleOther, onTypeSaved, onWritten, daily, onDaily, draft, widths, defaultWidth = 'normal', onWidth, onRekeyWidth }: {
   apiRef?: Ref<NotePageApi>;
   path: string;
   fragment?: string;
@@ -191,9 +191,6 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   onWidth?: (key: string, width: PageWidth) => void;
   /** AP-753, AP-758: the entry moves from the path (or nothing) to the id the first write assigned. */
   onRekeyWidth?: (from: string | null, to: string, width: PageWidth) => void;
-  /** Slice OL (v1-outline §5): the outline's fold entry moves from the path key to the id, in the same effect (and the
-   *  same `ui_state_set`) as the page width's. */
-  onRekeyFolds?: (from: string, to: string) => void;
 }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   // 4F (ms4-embeds §6): the embeds of this page (tree, nested editors and their save states).
@@ -1011,7 +1008,6 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     const from = prevKey.current;
     prevKey.current = widthKey;
     if (!widthKey || from === widthKey) return;
-    if (from) onRekeyFolds?.(from, widthKey);
     if (from && widths?.[from] !== undefined && widths?.[widthKey] === undefined) onRekeyWidth?.(from, widthKey, widths[from]);
     else if (!from && draftWidth && widths?.[widthKey] === undefined) { onRekeyWidth?.(null, widthKey, draftWidth); setDraftWidth(null); }
   }, [widthKey]);

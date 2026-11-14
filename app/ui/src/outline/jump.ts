@@ -1,4 +1,4 @@
-// Slice OL (docs/contracts/v1-outline.md §3.4; outline.md R172, D-1609, D-1610): the jump to a heading from the tab,
+// Slice OL (docs/contracts/v1-outline.md §3.4; outline.md R172, D-1609, D-1610): the jump to a heading from
 // the rail, the card or the keyboard: the Back entry, the flash's timers, closing the card. Writes nothing.
 import type { Caret } from '../shell/history';
 import { FLASH_FADE_MS, FLASH_MS } from './model';
@@ -18,7 +18,7 @@ export function setJumpHost(h: JumpHost | null): void { host = h; }
 const sameCaret = (a: Caret | null, b: Caret | null) => (a?.anchor ?? null) === (b?.anchor ?? null) && (a?.head ?? null) === (b?.head ?? null);
 
 /** Jumps to heading `index` of the current source (§3.4 steps 1–7). */
-export function jump(index: number, via: 'tab' | 'rail' | 'card' | 'key'): void {
+export function jump(index: number, via: 'rail' | 'card' | 'key'): void {
   void via;
   const src = getOutline();
   if (!src || !src.tree[index]) return;

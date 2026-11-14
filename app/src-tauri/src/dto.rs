@@ -519,7 +519,7 @@ pub struct LastOpenedDto {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct RightPanelDto {
     pub open: bool,
-    /// `backlinks`, `outline` or `graph`.
+    /// `backlinks` or `graph` (a stored `outline`, from before D-1675, shows Backlinks).
     pub tab: String,
     /// D-634: the panel's width in px (240…480); absent until the user resizes it, read as 288.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -595,6 +595,10 @@ pub struct UiStateDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub queries: Option<QueriesUiDto>,
+    /// Slice OL (v1-outline §5, D-1601, FR-SET-02 AC-10): `Show outline rail`; missing reads as true.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub outline_rail: Option<bool>,
 }
 
 /// Slice Q (v1-queries §4.6): machine-local state of the Queries page.
@@ -1124,7 +1128,7 @@ fn yes() -> bool {
 
 impl Default for UiStateDto {
     fn default() -> Self {
-        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None, type_column_widths: None, vaults: None, queries: None }
+        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None, type_column_widths: None, vaults: None, queries: None, outline_rail: None }
     }
 }
 
@@ -1630,5 +1634,15 @@ mod ui_state_vaults_tests {
         let back: serde_json::Value = serde_json::to_value(&state).expect("serialize");
         assert_eq!(back["vaults"]["/tmp/Pinned"]["sidebar"]["pinnedCollapsed"], serde_json::json!(true), "pinnedCollapsed survives a save");
         assert_eq!(back["vaults"]["/tmp/Pinned"]["graph"]["full"]["depth"], serde_json::json!(2), "the graph state survives too");
+    }
+
+    /// Regression test for slice OL's real-app run (L6, FR-SET-02 AC-10): `ui_state_set` dropped `outlineRail`, so turning
+    /// `Show outline rail` off never reached `ui-state.json` and the rail was back after a relaunch.
+    #[test]
+    fn bug_l6ol_fr_set_02_ac10_ui_state_keeps_outline_rail() {
+        let json = r#"{"version":1,"theme":"light","sidebarOpen":true,"rightPanel":{"open":false,"tab":"backlinks"},"outlineRail":false}"#;
+        let state: UiStateDto = serde_json::from_str(json).expect("parse");
+        let back: serde_json::Value = serde_json::to_value(&state).expect("serialize");
+        assert_eq!(back["outlineRail"], serde_json::json!(false), "outlineRail survives a save");
     }
 }

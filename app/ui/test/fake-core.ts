@@ -29,6 +29,7 @@ export type UiStateDto = {
   version: 1;
   theme: 'system' | 'light' | 'dark';
   sidebarOpen: boolean;
+  /** `outline` only to seed a tab stored before D-1675 (it shows Backlinks). */
   rightPanel: { open: boolean; tab: 'backlinks' | 'outline' | 'graph' };
   /** Attribute strip expanded (ms3-shell §11.2, D-147); a missing field reads as `true`. */
   propertiesOpen?: boolean;

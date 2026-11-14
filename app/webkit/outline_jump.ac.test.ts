@@ -3,14 +3,15 @@
 // nothing written), AC-11 (targets by position, the folded callout, a stale row with the refresh held), AC-12 (the source
 // view and read-only files), AC-19 (a heading link lands where the outline jumps), FR-NAV-03 AC-15 and AC-16 (a jump is a
 // Back entry; Back after edits). Interface docs/contracts/v1-outline.md §2, §3.4, §3.5, §4, §10 (`__TEGG_TEST__.outline`);
-// helpers outline-helpers.ts. Playwright's clock drives the 100, 250 and 2,000 ms timings. Written from the ACs and the
+// helpers outline-helpers.ts. D-1675: no Outline tab; the jumps are made from the rail's card (`cardRowFor`, opening an
+// ancestor's chevron when the row isn't shown) and the current section is read from the hook. Playwright's clock drives the 100, 250 and 2,000 ms timings. Written from the ACs and the
 // contract only (D-61). Every lookup goes through `must` and node:assert (TS-I1).
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
-  P, TITLE, ZONE, another, callsSince, caret, count, currentRows, editorBody, editorState, eventually, frames, goToQuery, headingEl, headingTop, hold, hook, introPara,
-  mainScroll, must, mustBeOn, noteRoute, original, outlineTree, pauseClock, placeCaret, recordFrames, row, runFor, scrollHeadingTo, seen, selectText, setScroll, sleep,
-  sourceLine, sourceView, startOutline, tabRows, tokenColor, topIn, type FakeCoreHandle,
+  P, TITLE, ZONE, another, callsSince, caret, cardRowFor, count, currentRows, editorBody, editorState, eventually, frames, goToQuery, headingEl, headingTop, hold, hook,
+  introPara, jumpVia, mainScroll, must, mustBeOn, noteRoute, original, outlineRows, pauseClock, placeCaret, railLines, recordFrames, runFor, scrollHeadingTo, seen,
+  selectText, setScroll, sleep, sourceLine, sourceView, startOutline, tokenColor, topIn, type FakeCoreHandle,
 } from './outline-helpers';
 
 test.use({ timezoneId: ZONE, locale: 'cs-CZ' });
@@ -28,16 +29,15 @@ const near = (a: number | null | undefined, b: number, tol: number) => typeof a 
 
 test('fr_edt_11_ac9_current_section_follows_scrolling', async ({ page }) => {
   await startOutline(page, noteRoute(P.plan));
-  await must(outlineTree(page), 'Plán: tree "Outline"');
-  await eventually(() => tabRows(page), (r) => r.length === 11);
-  const one = async (what: string) => { const c = await currentRows(page); assert.ok(c.length <= 1, `${what}: at most one row has aria-current (${c.join(', ')})`); return c; };
+  await eventually(() => outlineRows(page), (r) => r.length === 11);
+  const one = async (what: string) => { const c = await currentRows(page); assert.ok(c.length <= 1, `${what}: at most one current section (${c.join(', ')})`); return c; };
   await setScroll(page, 0);
-  assert.deepEqual(await one('scrollTop 0'), [], 'at scrollTop 0 no row has aria-current');
+  assert.deepEqual(await one('scrollTop 0'), [], 'at scrollTop 0 nothing is current');
   await scrollHeadingTo(page, 'Den 1', 20);
   const den = await eventually(() => currentRows(page), (c) => c.length === 1 && c[0] === 'Den 1');
   assert.deepEqual(den, ['Den 1'], 'Den 1\'s top 10 px above the 30 px line: Den 1 is current');
   assert.deepEqual(await one('Den 1'), den);
-  assert.ok((await tabRows(page)).find((x) => x.label === 'Den 1')?.bar, 'Den 1 has the bar');
+  assert.equal((await eventually(() => railLines(page), (l) => l[4]?.state === 'current'))[4]?.state, 'current', 'Den 1\'s rail line is current');
   await scrollHeadingTo(page, 'Den 1', 31);
   assert.deepEqual(await eventually(() => currentRows(page), (c) => c[0] === 'Program'), ['Program'], 'Den 1\'s top 31 px below the viewport\'s top: Program');
   await setScroll(page, 'end');
@@ -50,11 +50,11 @@ test('fr_edt_11_ac9_current_section_follows_scrolling', async ({ page }) => {
   assert.deepEqual(await one('back to 0'), [], 'scrolling back to 0: no current row within 100 ms of the last scroll event');
   await page.clock.resume();
   const { p } = await another(page, noteRoute(P.jeden));
-  await must(outlineTree(p), 'Jeden: tree');
+  await eventually(() => outlineRows(p), (r) => r.length === 1);
   // With the scroll-past-end space (D-140) Jeden scrolls too; at its end Další kroky passes the line (D-1651).
   for (const t of [0, 200]) {
     await setScroll(p, t);
-    assert.deepEqual(await currentRows(p), [], `Jeden: no row is current (scroll ${t})`);
+    assert.deepEqual(await currentRows(p), [], `Jeden: nothing is current (scroll ${t})`);
   }
 });
 
@@ -63,8 +63,7 @@ test('fr_edt_11_ac9_current_section_follows_scrolling', async ({ page }) => {
 /** Čtenářské at scrollTop 0 with the caret at offset 5 of the intro paragraph. */
 async function ctenAtIntro(page: Page, route = noteRoute(P.cten)): Promise<FakeCoreHandle> {
   const core = await startOutline(page, route);
-  await must(outlineTree(page), 'Čtenářské: tree "Outline"');
-  await eventually(() => tabRows(page), (r) => r.length > 0);
+  await eventually(() => outlineRows(page), (r) => r.length > 0);
   await setScroll(page, 0);
   await placeCaret(await must(introPara(page), 'the intro paragraph'), 5);
   return core;
@@ -75,7 +74,7 @@ test('fr_edt_11_ac10_click_jumps_to_the_heading', async ({ page }) => {
   const name0 = await page.getByRole('main').getAttribute('aria-label');
   const depth0 = (await editorState(page)).depth;
   const calls0 = (await core.calls()).length;
-  const target = await must(row(page, 'Zpoždění replikace'), 'row Zpoždění replikace');
+  const target = await cardRowFor(page, 'Zpoždění replikace');
   await recordFrames(page);
   await pauseClock(page);
   await target.click();
@@ -100,7 +99,7 @@ test('fr_edt_11_ac10_click_jumps_to_the_heading', async ({ page }) => {
   const bg = await eventually(() => hd.evaluate((e) => getComputedStyle(e).backgroundColor), (b) => b === 'rgba(0, 0, 0, 0)', 1000);
   assert.equal(bg, 'rgba(0, 0, 0, 0)', 'the background reaches transparent by 2,400 ms');
   await page.clock.resume();
-  assert.deepEqual(await currentRows(page), ['Zpoždění replikace'], 'the row Zpoždění replikace is current');
+  assert.deepEqual(await currentRows(page), ['Zpoždění replikace'], 'Zpoždění replikace is current');
   const st = await editorState(page);
   assert.equal(st.dirty, false, 'dirty() is false');
   assert.equal(st.depth, depth0, 'historyDepth() is unchanged');
@@ -109,7 +108,7 @@ test('fr_edt_11_ac10_click_jumps_to_the_heading', async ({ page }) => {
   assert.ok(!since.includes('nav_opened') && !since.some((x) => /^note_(write|create)/.test(x)), `no write or nav_opened: ${since.join(', ')}`);
   await page.keyboard.type('X');
   assert.ok((await eventually(async () => (await editorState(page)).text ?? '', (t) => t.includes('## Zpoždění replikaceX'))).includes('## Zpoždění replikaceX'), 'typing X gives `Zpoždění replikaceX`');
-  await (await must(row(page, 'Další čtení'), 'row Další čtení')).click();
+  await jumpVia(page, 'Další čtení');
   // With the scroll-past-end space (D-140) the last heading also reaches the landing line (D-1651).
   const lt = await eventually(() => headingTop(page, 'Další čtení'), (t) => near(t, 24, 8));
   assert.ok(near(lt, 24, 8), `a click on Další čtení lands its top 24 ± 8 px below the viewport's top (${lt})`);
@@ -120,9 +119,8 @@ test('fr_edt_11_ac10_click_jumps_to_the_heading', async ({ page }) => {
 
 test('fr_edt_11_ac11_jump_targets_by_position', async ({ page }) => {
   const core = await startOutline(page, noteRoute(P.okraje));
-  await must(outlineTree(page), 'Okraje: tree');
-  await eventually(() => tabRows(page), (r) => r.length === 11);
-  const jump = async (text: string, n = 0) => { await (await must(row(page, text, n), `row ${text} #${n + 1}`)).click(); await sleep(150); return caret(page); };
+  await eventually(() => outlineRows(page), (r) => r.length === 11);
+  const jump = async (text: string, n = 0) => { await jumpVia(page, text, n); await sleep(150); return caret(page); };
   let c = await jump('Poznámky', 2);
   assert.ok(c && c.block === 'Poznámky' && c.tag === 'h2' && c.nth === 1 && c.offset === c.len, `the third Poznámky row: the caret at the end of the last \`## Poznámky\`: ${JSON.stringify(c)}`);
   c = await jump('Poznámky', 1);
@@ -156,8 +154,8 @@ test('fr_edt_11_ac11_jump_targets_by_position', async ({ page }) => {
 
   // A stale row with the outline refresh held (D-1640).
   const { p } = await another(page, noteRoute(P.okraje));
-  await must(outlineTree(p), 'Okraje (second window): tree');
-  await eventually(() => tabRows(p), (r) => r.length === 11);
+  await eventually(() => outlineRows(p), (r) => r.length === 11);
+  const stale = await cardRowFor(p, 'Poznámky', 2);
   await hold(p, true);
   const last = await must(headingEl(p, 'Poznámky', 2), 'the last ## Poznámky');
   await selectText(last, 'Poznámky');
@@ -165,15 +163,16 @@ test('fr_edt_11_ac11_jump_targets_by_position', async ({ page }) => {
   await p.keyboard.press('Backspace');
   await sleep(100);
   assert.equal(await headingEl(p, 'Poznámky', 2).count(), 0, 'setup: the last Poznámky heading is gone from the editor');
-  assert.equal((await tabRows(p)).length, 11, 'setup: the held outline still shows its row');
+  assert.equal((await outlineRows(p)).length, 11, 'setup: the held outline still lists the heading');
+  assert.ok(await seen(stale, 300), 'setup: the card still shows its row');
   const before = { c: await caret(p), s: (await mainScroll(p)).top };
   await pauseClock(p);
-  await (await must(row(p, 'Poznámky', 2), 'the stale row')).click();
+  await stale.click();
   await runFor(p, 20);
   assert.deepEqual({ c: await caret(p), s: (await mainScroll(p)).top }, before, 'a click on the stale row does nothing (caret and scroll unchanged)');
   await runFor(p, 250);
-  const r = await tabRows(p);
-  assert.equal(r.filter((x) => x.label === 'Poznámky').length, 2, 'the tree is refreshed within 250 ms (two Poznámky left)');
+  const r = await outlineRows(p);
+  assert.equal(r.filter((x) => x.label === 'Poznámky').length, 2, 'the outline is refreshed within 250 ms (two Poznámky left)');
   await p.clock.resume();
 });
 
@@ -181,17 +180,19 @@ test('fr_edt_11_ac11_jump_targets_by_position', async ({ page }) => {
 
 test('fr_edt_11_ac12_outline_in_the_source_view', async ({ page }) => {
   await startOutline(page, noteRoute(P.plan));
-  await must(outlineTree(page), 'Plán: tree');
+  await eventually(() => outlineRows(page), (r) => r.length === 11);
   await page.keyboard.press('Alt+Meta+u');
   const src = await must(sourceView(page), 'the source view (⌥⌘U)');
-  assert.deepEqual((await eventually(() => tabRows(page), (r) => r.length === 11)).map((x) => [x.label, Number(x.level)]),
+  await sleep(300);
+  assert.deepEqual((await eventually(() => outlineRows(page), (r) => r.length === 11)).map((x) => [x.label, Number(x.level)]),
     [['Cíle', 1], ['Co od toho chceme', 2], ['Kdo jede', 2], ['Program', 1], ['Den 1', 2], ['Ráno: strategie', 3], ['Odpoledne: plán', 3], ['Den 2', 2], ['Logistika', 1], ['Cesta', 2], ['Rozpočet', 2]],
     'the source view lists the same 11 rows');
   await src.focus().catch(() => {});
   const sel0 = await page.evaluate(() => { const s = window.getSelection(); return s && s.rangeCount ? `${s.anchorNode?.textContent?.slice(0, 20)}|${s.anchorOffset}|${s.toString()}` : null; });
   const focus0 = await page.evaluate(() => !!document.activeElement?.closest('[aria-label="Markdown source"]') || document.activeElement?.getAttribute('aria-label') === 'Markdown source');
+  const den = await cardRowFor(page, 'Den 1');
   await pauseClock(page);
-  await (await must(row(page, 'Den 1'), 'row Den 1')).click();
+  await den.click();
   await runFor(page, 20);
   const line = sourceLine(page, '## Den 1');
   const top = await topIn(line);
@@ -213,8 +214,7 @@ test('fr_edt_11_ac12_outline_in_the_source_view', async ({ page }) => {
   assert.deepEqual(await eventually(() => currentRows(page), (c) => c[0] === 'Den 1'), ['Den 1'], 'toggling back keeps the reading position (D-146)');
   const { p } = await another(page, noteRoute(P.rozbita));
   await must(sourceView(p), 'Rozbitá opens in the source view (NFR-REL-03)');
-  await must(outlineTree(p), 'Rozbitá: tree');
-  const r = await eventually(() => tabRows(p), (x) => x.length === 2);
+  const r = await eventually(() => outlineRows(p), (x) => x.length === 2);
   assert.deepEqual(r.map((x) => [x.label, Number(x.level)]), [['První v rozbité', 1], ['Druhý v rozbité', 2]], 'Rozbitá lists První v rozbité and Druhý v rozbité, nothing from its broken frontmatter');
 });
 
@@ -253,12 +253,12 @@ test('fr_nav_03_ac15_outline_jump_is_a_back_entry', async ({ page }) => {
   await goToQuery(page, TITLE[P.cten]);
   await page.keyboard.press('Enter');
   await mustBeOn(page, TITLE[P.cten], 'Čtenářské opened from search');
-  await must(outlineTree(page), 'Čtenářské: tree');
+  await eventually(() => outlineRows(page), (r) => r.length > 0);
   await setScroll(page, 0);
   await placeCaret(await must(introPara(page), 'intro'), 5);
   const nav0 = await count(core, 'nav_opened');
   const reads0 = await count(core, 'note_read');
-  await (await must(row(page, 'Zpoždění replikace'), 'row Zpoždění replikace')).click();
+  await jumpVia(page, 'Zpoždění replikace');
   await atHeading(page, 'Zpoždění replikace', 'the jump');
   assert.ok(await enabled(page, 'Back'), 'the jump enables the title-bar Back');
   assert.equal(await count(core, 'nav_opened'), nav0, 'nav_opened isn\'t called');
@@ -278,12 +278,12 @@ test('fr_nav_03_ac15_outline_jump_is_a_back_entry', async ({ page }) => {
   await sleep(300);
   const orig = (await mainScroll(page)).top;
   // Two jumps.
-  await (await must(row(page, 'Transakce'), 'row Transakce')).click();
+  await jumpVia(page, 'Transakce');
   await atHeading(page, 'Transakce', 'jump to Transakce');
-  await (await must(row(page, 'Proudy'), 'row Proudy')).click();
+  await jumpVia(page, 'Proudy');
   await atHeading(page, 'Proudy', 'jump to Proudy');
   // A jump to where the caret already is, the heading already at 24 px: no entry.
-  await (await must(row(page, 'Proudy'), 'row Proudy')).click();
+  await jumpVia(page, 'Proudy');
   await sleep(200);
   await page.keyboard.press('Meta+BracketLeft');
   await atHeading(page, 'Transakce', '⌘[ after two jumps (the repeated Proudy jump added no entry)');
@@ -291,12 +291,10 @@ test('fr_nav_03_ac15_outline_jump_is_a_back_entry', async ({ page }) => {
   await sleep(200);
   assert.ok(near((await mainScroll(page)).top, orig, 1), '⌘[ again: the original place');
   // A jump after ⌘[ drops the forward entries.
-  await (await must(row(page, 'Závěr'), 'row Závěr')).click();
+  await jumpVia(page, 'Závěr');
   await atHeading(page, 'Závěr', 'jump after ⌘[');
   assert.equal(await enabled(page, 'Forward'), false, 'the forward entries are dropped');
-  // From the card and by ⌘J ⏎.
-  await page.keyboard.press('Meta+Backslash');
-  await sleep(300);
+  // By ⌘J ⏎.
   await page.keyboard.press('Meta+j');
   await must(page.getByRole('dialog', { name: 'Outline', exact: true }), 'the card (⌘J)');
   await page.keyboard.press('ArrowDown');
@@ -304,7 +302,7 @@ test('fr_nav_03_ac15_outline_jump_is_a_back_entry', async ({ page }) => {
   await sleep(300);
   const placeAfterCard = (await mainScroll(page)).top;
   await page.keyboard.press('Meta+BracketLeft');
-  await atHeading(page, 'Závěr', '⌘J ⏎ is a Back entry like a tab jump');
+  await atHeading(page, 'Závěr', '⌘J ⏎ is a Back entry like a click in the card');
   assert.notEqual(placeAfterCard, (await mainScroll(page)).top, 'the card jump had moved the note');
 });
 
@@ -312,7 +310,7 @@ test('fr_nav_03_ac15_outline_jump_is_a_back_entry', async ({ page }) => {
 
 test('fr_nav_03_ac16_back_after_edits', async ({ page }) => {
   const core = await ctenAtIntro(page);
-  await (await must(row(page, 'Zpoždění replikace'), 'row Zpoždění replikace')).click();
+  await jumpVia(page, 'Zpoždění replikace');
   await atHeading(page, 'Zpoždění replikace', 'the jump');
   await page.keyboard.type(' X');
   // Let the autosave of ` X` happen first, so any later write would be Back's.
@@ -339,10 +337,10 @@ test('fr_nav_03_ac16_back_after_edits', async ({ page }) => {
 
   // A fresh window: the intro is deleted after the jump.
   const { p } = await another(page, noteRoute(P.cten));
-  await must(outlineTree(p), 'Čtenářské (second window): tree');
+  await eventually(() => outlineRows(p), (r) => r.length > 0);
   await setScroll(p, 0);
   await placeCaret(await must(introPara(p), 'intro'), 5);
-  await (await must(row(p, 'Zpoždění replikace'), 'row')).click();
+  await jumpVia(p, 'Zpoždění replikace');
   await atHeading(p, 'Zpoždění replikace', 'second window: the jump');
   const intro = await must(introPara(p), 'intro');
   await selectText(intro, 'Poznámky z dlouhé knihy o datových systémech.');

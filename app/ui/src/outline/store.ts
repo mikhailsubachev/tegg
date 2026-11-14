@@ -1,5 +1,5 @@
 // Slice OL (docs/contracts/v1-outline.md §3.3, §3.5, §10): the window's one outline source, the current section, the
-// card's state and the test hook. The tab, the rail and the card all read from here, so they can't disagree (R172 rule
+// card's state and the test hook. The rail and the card read from here, so they can't disagree (R172 rule
 // 7). Nothing here calls IPC or writes anything.
 import { useSyncExternalStore } from 'react';
 import type { OutlineNode } from '@tegg/doc';
@@ -7,7 +7,7 @@ import type { OutlineNode } from '@tegg/doc';
 /** What the outline reads (R171 rule 1, D-1619, D-1620): the text the centre pane shows. */
 export type OutlineSource = {
   view: 'editor' | 'source';
-  /** Fold-state key (§5): the note's `id`, else its vault path in NFC; null for an unwritten `new/<type>` draft. */
+  /** The note's key: its `id`, else its vault path in NFC; null for an unwritten `new/<type>` draft. A new key closes the card. */
   key: string | null;
   version: number;
   tree: OutlineNode[];
@@ -26,8 +26,8 @@ let current: number | null = null;
 let card: Card = { open: false, by: 'hover', tempOpen: new Set() };
 let held = false;
 let railShown: number[] = [];
-/** A request to focus a tree row (`tab` or `card`); OutlineTab and OutlineEdge consume it. */
-let focusReq: { where: 'tab' | 'card'; n: number } | null = null;
+/** A request to focus a card row; OutlineEdge consumes it. */
+let focusReq: { where: 'card'; n: number } | null = null;
 let liveText = '';
 const listeners = new Set<() => void>();
 const emit = () => { for (const f of listeners) f(); };
@@ -78,11 +78,11 @@ export function setTempOpen(i: number, on: boolean): void {
 export const isHeld = () => held;
 export function setRailRows(rows: number[]): void { railShown = rows; }
 
-export function requestFocus(where: 'tab' | 'card'): void {
+export function requestFocus(where: 'card'): void {
   focusReq = { where, n: (focusReq?.n ?? 0) + 1 };
   emit();
 }
-export function takeFocus(where: 'tab' | 'card'): boolean {
+export function takeFocus(where: 'card'): boolean {
   if (focusReq?.where !== where) return false;
   focusReq = null;
   return true;

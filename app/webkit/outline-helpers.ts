@@ -1,7 +1,7 @@
 // Helpers for the slice OL WebKit tests (L5): the outline fixture in the fake core (docs/contracts/v1-outline.md §10), the
-// test clock of docs/acceptance/outline.md (2026-11-13 10:00 in Prague, region `cs`, 1,440 × 900, the panel open on
-// Outline at 288 px), locators of §3.7 (R170, R173) and probes of the tab, the rail, the card, the editor's selection and
-// the centre pane's scroll. No AC assertions here except `must` and `click` (re-exported) and setup checks, which turn a
+// test clock of docs/acceptance/outline.md (2026-11-13 10:00 in Prague, region `cs`, 1,440 × 900, the panel closed; no
+// Outline tab, D-1675), locators of §3.7 (R173) and probes of the outline (the test hook), the rail, the card, the
+// editor's selection and the centre pane's scroll. No AC assertions here except `must` and `click` (re-exported) and setup checks, which turn a
 // missing element into an AssertionError instead of a Playwright timeout (TS-I1). Synthetic data only (D-50, D-62).
 import type { Locator, Page } from '@playwright/test';
 import assert from 'node:assert/strict';
@@ -86,20 +86,20 @@ export function outlineVault(edit?: (files: Record<string, string>) => void): Fa
 }
 export const original = (path: string) => outlineVault().files[nfc(path)];
 
-export type Panel = 'outline' | 'backlinks' | 'graph' | null;
+export type Panel = 'backlinks' | 'graph' | null;
 export type OutlineUi = {
-  panel?: Panel; width?: number; rail?: boolean; folds?: Record<string, string[]>; theme?: 'light' | 'dark'; vaultKey?: string;
+  panel?: Panel; width?: number; rail?: boolean; theme?: 'light' | 'dark';
   noteWidth?: Record<string, 'normal' | 'wide'>; extra?: Record<string, unknown>;
 };
-/** The machine-local UI state of the test clock: the panel open on Outline at 288 px, no `outline` entry, preview Off. */
+/** The machine-local UI state of the test clock: the panel closed (Backlinks, 288 px when opened), preview Off (D-1675:
+ *  no Outline tab). */
 export function outlineUi(o: OutlineUi = {}): UiStateDto {
-  const panel = o.panel === undefined ? 'outline' : o.panel;
+  const panel = o.panel === undefined ? null : o.panel;
   return {
     version: 1, theme: o.theme ?? 'light', sidebarOpen: true, propertiesOpen: true,
-    rightPanel: { open: panel !== null, tab: panel ?? 'outline', width: o.width ?? 288 },
+    rightPanel: { open: panel !== null, tab: panel ?? 'backlinks', width: o.width ?? 288 },
     preview: { mode: 'off' },
     ...(o.rail !== undefined ? { outlineRail: o.rail } : {}),
-    ...(o.folds ? { vaults: { [nfc(o.vaultKey ?? VAULT_PATH)]: { outline: { collapsed: o.folds } } } } : {}),
     ...(o.noteWidth ? { noteWidth: o.noteWidth } : {}),
     ...(o.extra ?? {}),
   } as unknown as UiStateDto;
@@ -142,18 +142,8 @@ export async function another(page: Page, route: string, o: StartOutline = {}): 
 // ------------------------------------------------------------------------------------------------ §3.7 locators
 
 export const ctxPanel = (page: Page) => page.getByRole('complementary', { name: 'Context panel' });
-export const outlineTab = (page: Page) => ctxPanel(page).getByRole('tab', { name: /^⟦?Outline/ });
 export const backlinksTab = (page: Page) => ctxPanel(page).getByRole('tab', { name: /^⟦?Backlinks/ });
 export const graphTab = (page: Page) => ctxPanel(page).getByRole('tab', { name: /^⟦?Graph/ });
-export const outlinePanel = (page: Page) => ctxPanel(page).getByRole('tabpanel', { name: /^⟦?Outline⟧?$/ });
-export const outlineTree = (page: Page) => outlinePanel(page).getByRole('tree', { name: /^⟦?Outline⟧?$/ });
-export const rows = (page: Page) => outlineTree(page).getByRole('treeitem');
-export const row = (page: Page, text: string, n = 0) => outlineTree(page).getByRole('treeitem', { name: nfc(text), exact: true }).nth(n);
-export const countEl = (page: Page) => outlinePanel(page).locator('[data-outline-count]');
-export const expandAllBtn = (page: Page) => outlinePanel(page).getByRole('button', { name: /^⟦?Expand all⟧?$/ });
-export const collapseAllBtn = (page: Page) => outlinePanel(page).getByRole('button', { name: /^⟦?Collapse all⟧?$/ });
-export const scrollBox = (page: Page) => outlinePanel(page).locator('[data-outline-scroll]');
-export const emptyState = (page: Page) => outlinePanel(page).locator('.outline-empty');
 /** The rail (`div.centre` carries `data-outline-rail` too while the rail is shown, §3.7). */
 export const rail = (page: Page) => page.locator('[data-outline-rail]:not(.centre)');
 export const railLinesLoc = (page: Page) => rail(page).locator('[data-outline-line]');
@@ -199,18 +189,62 @@ export async function rowsOf(tree: Locator): Promise<RowInfo[]> {
     };
   })).catch(() => []);
 }
-export const tabRows = (page: Page) => rowsOf(outlineTree(page));
 export const cardRows = (page: Page) => rowsOf(cardTree(page));
-export const labels = async (page: Page) => (await tabRows(page)).map((r) => r.label);
+
+/** The outline as `__TEGG_TEST__.outline.headings()` lists it (D-1675: no Outline tab): text (NFC) and depth, in note
+ *  order; [] when the hook lists nothing. */
+export type HookRow = { index: number; label: string; level: string };
+export async function outlineRows(page: Page): Promise<HookRow[]> {
+  const h = await hook<{ text: string; depth: number }[]>(page, 'headings').catch(() => null);
+  return (h ?? []).map((x, i) => ({ index: i, label: x.text.normalize('NFC'), level: String(x.depth) }));
+}
+export const labels = async (page: Page) => (await outlineRows(page)).map((r) => r.label);
 export async function rowsAre(page: Page, want: string[], ms = 3000): Promise<string[]> {
   return eventually(() => labels(page), (l) => JSON.stringify(l) === JSON.stringify(want.map(nfc)), ms);
 }
-/** The tab's header count text ('' when none). */
-export async function countText(page: Page): Promise<string> {
-  return (await countEl(page).count()) ? flat(await countEl(page).first().innerText().catch(() => '')) : '';
+/** The current section's heading text as `__TEGG_TEST__.outline.current()` gives it; [] when none. */
+export async function currentRows(page: Page): Promise<string[]> {
+  const i = await hook<number | null>(page, 'current').catch(() => null);
+  if (i === null || i === undefined) return [];
+  const r = (await outlineRows(page))[i];
+  return r ? [r.label] : [];
 }
-export async function currentRows(page: Page, tree: Locator = outlineTree(page)): Promise<string[]> {
-  return (await rowsOf(tree)).filter((r) => r.current === 'location').map((r) => r.label);
+/** The card's row of heading `index` (`data-outline-row`). */
+export const cardRowAt = (page: Page, index: number) => cardTree(page).locator(`[data-outline-row="${index}"]`);
+/** The `n`-th heading named `text` (hook order) and its ancestors, outermost first. */
+async function chainOf(page: Page, text: string, n: number): Promise<{ index: number; ancestors: number[] }> {
+  const r = await outlineRows(page);
+  const hits = r.filter((x) => x.label === nfc(text));
+  assert.ok(hits[n], `the outline lists heading "${text}" #${n + 1} (${hits.length} found)`);
+  const index = hits[n].index;
+  const ancestors: number[] = [];
+  let d = Number(r[index].level);
+  for (let i = index - 1; i >= 0 && d > 1; i--) if (Number(r[i].level) < d) { ancestors.unshift(i); d = Number(r[i].level); }
+  return { index, ancestors };
+}
+/** The card's row of the `n`-th heading named `text`: opens the card by hover when it is closed, then its ancestors'
+ *  chevrons (temporary opens, D-1616) until the row shows. */
+export async function cardRowFor(page: Page, text: string, n = 0): Promise<Locator> {
+  const { index, ancestors } = await chainOf(page, text, n);
+  if (!(await card(page).count())) {
+    await pointerToNote(page);
+    await sleep(350);
+    await openCardByHover(page);
+  }
+  for (const a of ancestors) {
+    if (await cardRowAt(page, index).count()) break;
+    const ar = await must(cardRowAt(page, a), `the card's row of an ancestor of "${text}"`);
+    const kids = await ar.getAttribute('aria-expanded');
+    if (kids === 'false') {
+      await (await must(ar.locator('[data-outline-chevron]'), `the chevron of the card's row ${a}`)).click();
+      await sleep(80);
+    }
+  }
+  return must(cardRowAt(page, index), `the card's row "${text}" #${n + 1}`);
+}
+/** A jump from the card (D-1675: the card replaces the tab's rows). */
+export async function jumpVia(page: Page, text: string, n = 0) {
+  await (await cardRowFor(page, text, n)).click();
 }
 
 export type LineInfo = { index: number; state: string | null; hover: boolean; w: number; h: number; color: string; top: number; bottom: number; right: number; left: number };
@@ -396,11 +430,6 @@ const WRITES = /^(note_write|note_create|note_create_exact|note_delete|note_rena
 export async function vaultWrites(core: FakeCoreHandle): Promise<string[]> {
   return (await core.calls()).map((c) => c.cmd).filter((c) => WRITES.test(c) && !/^(type_get|type_template|type_usage|type_misfits|type_move_plan|job_report|job_plan|job_cancel|value_remove_start|type_delete_start)$/.test(c));
 }
-/** `vaults[<vault>].outline.collapsed` as the app stored it. */
-export async function foldsStored(core: FakeCoreHandle, vault = VAULT_PATH): Promise<Record<string, string[]> | null> {
-  const s = (await core.uiState()) as any;
-  return s?.vaults?.[nfc(vault)]?.outline?.collapsed ?? null;
-}
 export async function uiSets(core: FakeCoreHandle): Promise<number> {
   return count(core, 'ui_state_set');
 }
@@ -464,15 +493,3 @@ export async function openCardByHover(page: Page) {
   await must(card(page), 'dialog "Outline" (the card, opened by hover)', 2000);
 }
 export { pseudoLocale, searchQueryField as searchField };
-
-/** Focuses the tab `Outline`, then presses Tab until a treeitem of the tab's tree has the focus (at most 4 presses; the
- *  header's buttons may come first in the tab order). Returns the presses it took, or -1. */
-export async function tabIntoTree(page: Page): Promise<number> {
-  await (await must(outlineTab(page), 'tab "Outline"')).focus();
-  for (let i = 1; i <= 4; i++) {
-    await page.keyboard.press('Tab');
-    const inTree = await page.evaluate(() => document.activeElement?.getAttribute('role') === 'treeitem' && !!document.activeElement.closest('[role="tabpanel"]'));
-    if (inTree) return i;
-  }
-  return -1;
-}

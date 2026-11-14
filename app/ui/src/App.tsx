@@ -96,13 +96,10 @@ import { openNameDialog } from './queries/dialogs';
 import { selectedQueryBlock } from './queries/selection';
 import { forgetPreviewCaches } from './preview/load';
 import { OutlineEdge } from './outline/OutlineEdge';
-import type { OutlineTabProps } from './outline/OutlineTab';
-import { announce, closeCard, getCard, getOutline, openCard, requestFocus, useOutline } from './outline/store';
+import { announce, closeCard, getCard, getOutline, openCard, requestFocus } from './outline/store';
 import { syncTracker } from './outline/tracker';
 import { setJumpHost } from './outline/jump';
 import { installMultiClickGuard, routeChanged } from './shell/multiClick';
-import { allKeys, foldButtons } from './outline/model';
-import { foldsOf, rekeyFolds, withFolds } from './outline/folds';
 
 const DAILY = 'daily/YYYY-MM-DD';
 /** The webview history mirror of the app's in-memory history (see the `popstate` effect in App). */
@@ -147,7 +144,7 @@ const QUICK_ADD = 'main [data-quick-add] input';
 const TASK_SEARCH = 'main [data-command="tasks.search"], main input.type-filter';
 
 type Dialog = 'palette' | 'newType' | 'starter' | 'newObject' | null;
-type PanelTab = 'backlinks' | 'outline' | 'graph';
+type PanelTab = 'backlinks' | 'graph';
 
 /** 3D (ms3-shell §14.7.1): `typeSort` and `otherPropertiesOpen`; missing fields read as defaults, `version` stays 1. */
 type UiState = UiStateDto & { typeSort?: Record<string, TypeSort>; otherPropertiesOpen?: boolean; noteWidth?: Record<string, PageWidth>; preview?: PreviewUiDto;
@@ -771,31 +768,6 @@ export function App() {
   const panelFits = panelRoom >= PANEL_MIN;
   const showSidebar = ui.sidebarOpen && !focusMode;
   const showPanel = isObject && ui.rightPanel.open && panelFits && !focusMode;
-  // Slice OL (v1-outline §3, §5, §6): the outline's source, the note's folds (machine-local, R176; an unwritten draft keeps
-  // them in page state, CP-5) and whether the Outline is on screen.
-  const outlineSrc = useOutline();
-  const outlineOnScreen = showPanel && ui.rightPanel.tab === 'outline';
-  const outlineOnScreenRef = useRef(outlineOnScreen);
-  outlineOnScreenRef.current = outlineOnScreen;
-  const [draftFolds, setDraftFolds] = useState<string[] | null>(null);
-  useEffect(() => { setDraftFolds(null); }, [navKey]);
-  const outlineVault = vault ? vault.path.normalize('NFC') : '';
-  const outlineKey = outlineSrc?.key ?? null;
-  const storedFolds = outlineKey && vault ? foldsOf(ui, outlineVault, outlineKey) : undefined;
-  const outlineCollapsed = useMemo(() => (outlineKey ? storedFolds ?? draftFolds ?? [] : draftFolds ?? []), [outlineKey, storedFolds, draftFolds]);
-  const onOutlineFolds = useCallback((keys: string[]) => {
-    const src = getOutline();
-    if (!src) return;
-    if (!src.key || !liveVault.current) { setDraftFolds(keys); return; }
-    const vk = liveVault.current.path.normalize('NFC');
-    const key = src.key;
-    const valid = allKeys(src.tree);
-    updateUi((u) => withFolds(u, vk, key, keys, valid));
-    setDraftFolds(null);
-  }, [updateUi]);
-  const outlineStatus = outlineOnScreen && outlineSrc ? foldButtons(outlineSrc.tree, new Set(outlineCollapsed)) : null;
-  const outlineStatusSig = outlineStatus ? `${outlineStatus.expandAll}:${outlineStatus.collapseAll}` : '';
-
   /** 6A: Move to trash for the current route (FR-HIS-01 AC-1, AC-3): a note page saves first and goes Back (or to the
    *  Inbox); the Trash page asks to delete the focused row; elsewhere the focused row or card with a `data-path`. */
   const trashHere = async () => {
@@ -918,14 +890,7 @@ export function App() {
       updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, open: true, tab: 'backlinks' } }));
       setFocusBacklinks((n) => n + 1);
     },
-    // Slice OL (R175, §6.1): `Show outline`, ⌘J, the fold commands, `Toggle outline rail`.
-    showOutline: () => {
-      if (!isNoteRoute(route)) return;
-      const rp = uiRef.current?.rightPanel;
-      if (!(rp?.open && rp.tab === 'outline')) updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, open: true, tab: 'outline' } }));
-      syncTracker();
-      requestFocus('tab');
-    },
+    // Slice OL (R175, §6.1; D-1675): ⌘J opens the card; `Toggle outline rail`.
     outlineJump: () => {
       if (!isNoteRoute(route)) return;
       const src = getOutline();
@@ -933,13 +898,8 @@ export function App() {
       if (!src) return;
       if (!src.tree.length) { announce(t('outline.empty')); return; }
       syncTracker(); // the focused row is the current section of the scroll position now (a scroll's frame may be pending)
-      if (outlineOnScreenRef.current) { requestFocus('tab'); return; }
       openCard('key');
       requestFocus('card');
-    },
-    outlineFold: (all) => {
-      const src = getOutline();
-      if (src) onOutlineFolds(all === 'expand' ? [] : allKeys(src.tree));
     },
     toggleOutlineRail: () => updateUi((u) => ({ ...u, outlineRail: u.outlineRail === false })),
     // Slice G2 (FR-NAV-05 AC-2, D-918): one write of `rightPanel.open` and `tab`.
@@ -1051,7 +1011,7 @@ export function App() {
       const el = (inDialog ? returnFocus.current : document.activeElement) as HTMLElement | null;
       return !!el?.closest?.('main [contenteditable="true"]');
     },
-  }), [go, step, route?.id, route?.param, updateUi, noteDaily, tagList, dailyFile, meta?.title, types, pinsState, queryList, onOutlineFolds]);
+  }), [go, step, route?.id, route?.param, updateUi, noteDaily, tagList, dailyFile, meta?.title, types, pinsState, queryList]);
 
   // Slice G2 (v1-graph §15.2): the right panel's Graph tab, around the page's object (D-1038: no file on new/<type>
   // and a virtual day).
@@ -1094,13 +1054,14 @@ export function App() {
   setDateTimeSetting(ui.dateTime);
   const ctxRoute = route?.id === DAILY ? { ...route, date: route.param, path: objectPathOf(route) } : route?.id === 'note/<path>' ? { ...route, path: route.param ?? null, type: meta?.type, review: meta?.review, hasFrontmatter: meta?.hasFrontmatter }
     : route?.id === 'tag/<key>' ? { ...route, path: objectPathOf(route) } : route;
-  panelShowsGraph.current = showPanel && ui.rightPanel.tab === 'graph';
-  const ctx: ShellContext = { vault: vault ?? null, types, counts, actions, route: ctxRoute ?? null, panel: { open: showPanel, tab: ui.rightPanel.tab as PanelTab },
-    outline: outlineStatus ? { canExpandAll: outlineStatus.expandAll, canCollapseAll: outlineStatus.collapseAll } : null };
+  // D-1675: a remembered `outline` tab (the removed Outline tab) shows Backlinks.
+  const panelTab: PanelTab = ui.rightPanel.tab === 'graph' ? 'graph' : 'backlinks';
+  panelShowsGraph.current = showPanel && panelTab === 'graph';
+  const ctx: ShellContext = { vault: vault ?? null, types, counts, actions, route: ctxRoute ?? null, panel: { open: showPanel, tab: panelTab } };
   // G3 (R123): `Show as list` / `Show as graph` follow the graph's stored view.
   const graphView = vault ? ui.vaults?.[vault.path.normalize('NFC')]?.graph?.full?.view : undefined;
   const panelView = vault ? ui.vaults?.[vault.path.normalize('NFC')]?.graph?.panel?.view : undefined;
-  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey, graphView, panelView, noteDaily?.path, noteDaily?.date, dailyFile, tagList, meta?.type, meta?.review, meta?.hasFrontmatter, showPanel, ui.rightPanel.tab, dialog /* slice PIN: ⌥⌘↑/↓ listed when opened from a pinned row */, outlineStatusSig]);
+  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey, graphView, panelView, noteDaily?.path, noteDaily?.date, dailyFile, tagList, meta?.type, meta?.review, meta?.hasFrontmatter, showPanel, panelTab, dialog /* slice PIN: ⌥⌘↑/↓ listed when opened from a pinned row */]);
   const chooserShown = vault === null || chooser !== null;
   const available_commands = useMemo(() => (chooserShown ? list.filter((c) => !c.needsVault) : list), [list, chooserShown]);
 
@@ -1367,12 +1328,6 @@ export function App() {
         defaultWidth={vaultWidth}
         onWidth={setNoteWidth}
         onRekeyWidth={(from, to, w) => setNoteWidth(to, w, from)}
-        onRekeyFolds={(from, to) => {
-          // Slice OL (§5, FR-STO-07 AC-7): the same render (one `ui_state_set`) as the page width's re-key.
-          const v = liveVault.current;
-          if (!v || !uiRef.current || !rekeyFolds(uiRef.current, v.path.normalize('NFC'), from, to)) return;
-          updateUi((u) => rekeyFolds(u, v.path.normalize('NFC'), from, to) ?? u);
-        }}
         onTypeSaved={loadTypes}
         onWritten={() => { for (const f of ownSaveListeners.current) f(); }}
         daily={daily}
@@ -1628,14 +1583,13 @@ export function App() {
             {body}
           </main>
           {/* Slice OL (FR-EDT-16): the rail, its card and the live region, on the note routes. */}
-          {isObject && <OutlineEdge wanted={!focusMode && ui.outlineRail !== false} outlineOnScreen={outlineOnScreen} />}
+          {isObject && <OutlineEdge wanted={!focusMode && ui.outlineRail !== false} />}
         </div>
-        {showPanel && <ContextPanel tab={ui.rightPanel.tab} onTab={(tab: PanelTab) => updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, tab } }))}
+        {showPanel && <ContextPanel tab={panelTab} onTab={(tab: PanelTab) => updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, tab } }))}
           width={panelWidth} room={panelRoom} limits={[PANEL_MIN, PANEL_MAX, PANEL_W]}
           onWidth={(w) => updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, width: w } }))}
           backlinks={route?.param ? { path: route.param, date: isDaily ? route.param : undefined, types, refresh, onOpen: (s, o) => openMention(s, o), focusFirst: focusBacklinks } : undefined}
-          graph={panelGraphProps}
-          outline={{ collapsed: outlineCollapsed, onFolds: onOutlineFolds } satisfies OutlineTabProps} />}
+          graph={panelGraphProps} />}
         {offer && (
           <CreateLinkOffer req={offer} types={types} onClose={() => setOffer(null)}
             onCreated={(p) => { if (offer.stay) return; justCreated.current = p.normalize('NFC'); openNote(p); }}

@@ -1,11 +1,11 @@
 // Slice OL (docs/contracts/v1-outline.md §3.6, §3.7, §3.8; outline.md R173, FR-EDT-16): the edge rail, its card and the
 // outline's live region, mounted in `div.centre` after `main` on the note routes. The rail is a pointer shortcut
-// (`aria-hidden`); the card is a non-modal dialog with the same tree as the tab. Nothing here writes or calls IPC.
+// (`aria-hidden`); the card is a non-modal dialog with the outline's tree. Nothing here writes or calls IPC.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { railRows } from '@tegg/doc';
 import { t } from '../i18n/catalog';
 import { jump } from './jump';
-import { CARD_MAX_H, CARD_MAX_VH, cardChevrons, HOVER_CLOSE_MS, HOVER_OPEN_MS, RAIL_FADE_MS, RAIL_LINE, RAIL_MARGIN, RAIL_MIN_PANE, railGap } from './model';
+import { CARD_MAX_H, CARD_MAX_VH, cardChevrons, HOVER_CLOSE_MS, HOVER_OPEN_MS, RAIL_LINE, RAIL_MARGIN, RAIL_MIN_PANE, railGap } from './model';
 import { OutlineTree } from './OutlineTree';
 import { markOutlineReady } from './ready';
 import { closeCard, getCard, openCard, setRailRows, setTempOpen, takeFocus, useCard, useCurrent, useFocusReq, useLive, useOutline } from './store';
@@ -14,11 +14,9 @@ import { closeCard, getCard, openCard, setRailRows, setTempOpen, takeFocus, useC
 const CARD_PAD = 6;
 const reduceMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-export function OutlineEdge({ wanted, outlineOnScreen }: {
+export function OutlineEdge({ wanted }: {
   /** The rail may show on this route: not focus mode, `Show outline rail` on (D-1601, D-1602). */
   wanted: boolean;
-  /** The Outline tab is on screen (the rail fades out, R173). */
-  outlineOnScreen: boolean;
 }) {
   const source = useOutline();
   const current = useCurrent();
@@ -56,22 +54,16 @@ export function OutlineEdge({ wanted, outlineOnScreen }: {
   const rows = useMemo(() => railRows(tree, current, card.tempOpen), [tree, current, card.tempOpen]);
   const gap = railGap(rows.length, geo.mainH - RAIL_MARGIN);
   const fits = tree.length >= 2 && geo.paneW >= RAIL_MIN_PANE && gap !== null;
-  const shown = wanted && !outlineOnScreen && fits;
-  // The fade (R173): out when the Outline comes on screen, in when it leaves; none under Reduce motion.
-  const [phase, setPhase] = useState<'shown' | 'leaving' | 'gone'>(shown ? 'shown' : 'gone');
+  const shown = wanted && fits;
+  // The fade-in (R173); none under Reduce motion. D-1675: no fade-out (it was for the removed Outline tab).
+  const [phase, setPhase] = useState<'shown' | 'gone'>(shown ? 'shown' : 'gone');
   const entering = useRef(false);
   useLayoutEffect(() => {
     if (shown) {
       if (phase !== 'shown') { entering.current = !reduceMotion(); setPhase('shown'); }
       return;
     }
-    if (phase !== 'shown') return;
-    if (wanted && outlineOnScreen && fits && !reduceMotion()) {
-      setPhase('leaving');
-      const h = setTimeout(() => setPhase('gone'), RAIL_FADE_MS);
-      return () => clearTimeout(h);
-    }
-    setPhase('gone');
+    if (phase === 'shown') setPhase('gone');
   }, [shown]); // eslint-disable-line react-hooks/exhaustive-deps
   useLayoutEffect(() => {
     const el = railRef.current;
@@ -159,7 +151,7 @@ export function OutlineEdge({ wanted, outlineOnScreen }: {
   return (
     <>
       {railOn && source && (
-        <div ref={railRef} className="outline-rail" data-outline-rail="" aria-hidden="true" data-leaving={phase === 'leaving' ? '' : undefined}
+        <div ref={railRef} className="outline-rail" data-outline-rail="" aria-hidden="true"
           style={{ top: geo.mainMid }}
           onPointerEnter={enter} onPointerLeave={() => { leave(); setHover(null); }}
           onPointerMove={(e) => {
@@ -183,7 +175,7 @@ export function OutlineEdge({ wanted, outlineOnScreen }: {
           onMouseDown={(e) => e.preventDefault()}
           onPointerEnter={() => clear(closeT)} onPointerLeave={leave}>
           <div className="outline-card-scroll" ref={cardScroll} style={{ maxHeight: Math.min(CARD_MAX_H, CARD_MAX_VH * geo.mainH) - 2 * CARD_PAD - 2 }}>
-            <OutlineTree variant="card" tree={tree} rows={rows} current={current} ancestors={ancestors} chevrons={chevrons} tempOpen={card.tempOpen}
+            <OutlineTree tree={tree} rows={rows} current={current} ancestors={ancestors} chevrons={chevrons} tempOpen={card.tempOpen}
               hoverRow={hover} onHoverRow={setHover}
               onJump={(i) => jump(i, 'card')}
               onFold={(i, op) => setTempOpen(i, op === 'expand' ? true : op === 'collapse' ? false : !card.tempOpen.has(i))}

@@ -67,10 +67,10 @@ export const R1: R1Row[] = [
   { id: 'settings/previews', page: 'Settings: Previews', built: true, due: d('v1.0'), reqs: 'FR-SET-07', design: null, goto: 'Go to Settings: Previews' },
 ];
 
-export type R2Row = { id: 'backlinks' | 'outline' | 'graph'; tab: string; built: boolean; due: Due; reqs: string };
+export type R2Row = { id: 'backlinks' | 'graph'; tab: string; built: boolean; due: Due; reqs: string };
 export const R2: R2Row[] = [
   { id: 'backlinks', tab: 'Backlinks', built: true, due: d('MS4', '4A'), reqs: 'FR-LNK-01, FR-LNK-02' }, // built in 4A (backlinks.md R16, D-293)
-  { id: 'outline', tab: 'Outline', built: true, due: d('v1.0'), reqs: 'FR-EDT-11, FR-NAV-05' }, // slice OL (outline.md R170, D-1624)
+  // Slice OL's Outline tab (outline.md R170, D-1624) is removed by D-1675.
   { id: 'graph', tab: 'Graph', built: true, due: d('v1.0'), reqs: 'FR-GRP-01, FR-NAV-05' }, // G2 (graph-panel.md, D-920)
 ];
 
