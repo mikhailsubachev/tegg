@@ -44,14 +44,14 @@ test('nfr_perf_06_ac7_typing_with_the_related_tab_on_screen', { timeout: 60 * 60
     osa('tell application id "app.tegg.desktop" to activate');
     osa('tell application "System Events" to tell (first process whose bundle identifier is "app.tegg.desktop")\nset {x, y} to position of window 1\nclick at {x + 600, y + 450}\nend tell');
     await sleep(500);
-    const readyBefore = marks(log).filter((m) => m === 'related-ready').length;
+    const askedBefore = marks(log).filter((m) => m === 'related-request').length; // D-1759: every ask, drawn or not
     type200('a');
     await sleep(2500);
     const s = summary(keyLines(log));
-    const reasked = marks(log).filter((m) => m === 'related-ready').length - readyBefore;
-    console.log(`NFR-PERF-06 AC-7 (Related tab shown): ${s.n} keys, frame 1 ${(s.frame1 * 100).toFixed(1)} %, late ${s.late}, p50 ${s.p50} ms, p95 ${s.p95} ms; lists re-drawn after Saved: ${reasked}`);
+    const reasked = marks(log).filter((m) => m === 'related-request').length - askedBefore;
+    console.log(`NFR-PERF-06 AC-7 (Related tab shown): ${s.n} keys, frame 1 ${(s.frame1 * 100).toFixed(1)} %, late ${s.late}, p50 ${s.p50} ms, p95 ${s.p95} ms; lists re-asked after Saved: ${reasked}`);
     assert.equal(s.n, 200, `the probe wrote one key line per keystroke (got ${s.n})`);
-    assert.ok(reasked >= 1, 'the list was re-asked after Saved (a related-ready mark after typing)');
+    assert.ok(reasked >= 1, 'the list was re-asked after Saved (a related-request mark after typing)');
     if (enforce) {
       assert.ok(s.frame1 >= 0.95, `≥ 95 % in frame 1 (${(s.frame1 * 100).toFixed(1)} %)`);
       assert.equal(s.late, 0, 'none after frame 2');
