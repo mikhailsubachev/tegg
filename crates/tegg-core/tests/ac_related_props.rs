@@ -3,7 +3,8 @@
 //! watches the vault (create, edit, rename, delete, NFD rewrite, diacritics removed, into `.trash/` and out, `type`
 //! changed between page, tag and image, a link added or removed), then, once the index is idle, `index_related` for every
 //! object (linked hidden and shown) equals the answer of a core freshly built on the same files. Random vaults of 20…200
-//! notes from the golden list's words (tests/fixtures/format/stem/cs.tsv); nightly (`QA_PROPERTY_SCALE` ≥ 100) also
+//! notes from the golden list's words (tests/fixtures/format/stem/cs.tsv), each note drawn from one of small disjoint
+//! groups of 5 stems so stems stay under the 10 % df ceiling and lists exist (D-1749); nightly (`QA_PROPERTY_SCALE` ≥ 100) also
 //! the generated reference vault, checked on the changed objects and 100 more chosen by the seed.
 //!
 //! Seeds (TS-L2): a fixed seed plus one random seed per run (`QA_SEED` when set, else the clock); nightly 10 seeds × 1,000
@@ -60,10 +61,25 @@ fn steps() -> usize {
     }
 }
 
-fn golden_words() -> Vec<String> {
+/// The golden list's words in disjoint groups of `GROUP` stems: group → stem → its word forms (D-1749). Stems under 3
+/// characters (dropped by the pipeline) are left out.
+const GROUP: usize = 5;
+fn golden_groups() -> Vec<Vec<Vec<String>>> {
     let p = related_setup::fixture_dir().join("../../format/stem/cs.tsv");
     let text = std::fs::read_to_string(p).expect("setup: cs.tsv");
-    text.lines().skip(1).filter_map(|l| l.split('\t').next()).map(str::to_string).collect()
+    let mut by_stem: std::collections::BTreeMap<String, Vec<String>> = std::collections::BTreeMap::new();
+    for l in text.lines().skip(1) {
+        let mut cols = l.split('\t');
+        let (Some(w), Some(st)) = (cols.next(), cols.next()) else { continue };
+        if w.is_empty() || st.chars().count() < 3 {
+            continue;
+        }
+        by_stem.entry(st.to_string()).or_default().push(w.to_string());
+    }
+    let stems: Vec<Vec<String>> = by_stem.into_values().collect();
+    let groups: Vec<Vec<Vec<String>>> = stems.chunks(GROUP).filter(|c| c.len() == GROUP).map(|c| c.to_vec()).collect();
+    assert!(groups.len() >= 10, "setup: the golden list gives at least 10 groups of {GROUP} stems ({})", groups.len());
+    groups
 }
 fn strip(s: &str) -> String {
     s.chars()
@@ -106,14 +122,21 @@ fn answer(core: &Core, p: &str) -> String {
 }
 
 struct Gen {
-    words: Vec<String>,
+    groups: Vec<Vec<Vec<String>>>,
     next_id: usize,
 }
 impl Gen {
-    fn note(&mut self, r: &mut Rng, title: &str, ty: &str, links: &[String]) -> String {
+    /// A word of the group `g`.
+    fn word(&self, r: &mut Rng, g: usize) -> String {
+        let stem = &self.groups[g][r.below(GROUP)];
+        stem[r.below(stem.len())].clone()
+    }
+    /// A note whose body is one form of every stem of the group `g` (so ≥ 5 distinct stems) plus more of its words.
+    fn note(&mut self, r: &mut Rng, title: &str, ty: &str, links: &[String], g: usize) -> String {
         self.next_id += 1;
-        let n = 8 + r.below(30);
-        let body: Vec<String> = (0..n).map(|_| self.words[r.below(self.words.len())].clone()).collect();
+        let mut body: Vec<String> = self.groups[g].iter().map(|stem| stem[r.below(stem.len())].clone()).collect();
+        let n = 3 + r.below(30);
+        body.extend((0..n).map(|_| self.word(r, g)));
         let l: String = links.iter().map(|t| format!(" [[{t}]]")).collect();
         format!("---\ntype: {ty}\ntitle: {title}\n---\n{}.{l}\n", body.join(" "))
     }
@@ -128,16 +151,18 @@ fn step(root: &Path, g: &mut Gen, r: &mut Rng) -> Vec<String> {
     let pick = |r: &mut Rng| objs[r.below(objs.len())].clone();
     match r.below(10) {
         0 => {
-            let t = format!("Nová {} {}", g.words[r.below(g.words.len())], g.next_id);
+            let gi = r.below(g.groups.len());
+            let t = format!("Nová {} {}", g.word(r, gi), g.next_id);
             let rel = format!("Pages/{t}.md");
-            let text = g.note(r, &t, "page", &[]);
+            let text = g.note(r, &t, "page", &[], gi);
             write_raw(root, &rel, text.as_bytes());
             vec![rel]
         }
         1 if !objs.is_empty() => {
             let p = pick(r);
             let t = title_of(&p);
-            let text = g.note(r, &t, "page", &[]);
+            let gi = r.below(g.groups.len());
+            let text = g.note(r, &t, "page", &[], gi);
             write_raw(root, &p, text.as_bytes());
             vec![p]
         }
@@ -177,6 +202,9 @@ fn step(root: &Path, g: &mut Gen, r: &mut Rng) -> Vec<String> {
             vec![p]
         }
         7 => {
+            if !root.join(".trash").is_dir() {
+                return Vec::new();
+            }
             let trashed: Vec<String> = related_setup::files(&root.join(".trash")).into_iter().map(|(r, _)| r).filter(|r| r.ends_with(".md")).collect();
             if trashed.is_empty() {
                 return Vec::new();
@@ -223,10 +251,14 @@ fn random_vault(root: &Path, g: &mut Gen, r: &mut Rng) {
     std::fs::create_dir_all(root.join(".tegg")).expect("setup: .tegg");
     related_setup::copy_dir(&related_setup::fixture_dir().join("../new-empty/.tegg"), &root.join(".tegg"), &[]);
     let n = 20 + r.below(181);
-    let titles: Vec<String> = (0..n).map(|i| format!("Poznámka {} {i:03}", g.words[r.below(g.words.len())])).collect();
-    for t in &titles {
+    // Notes 2k and 2k + 1 share a group, groups taken in turn: a stem's df is 2 × the group's uses, within the ceiling
+    // max(10 % of N, 2) for the groups used the fewest times (D-1749).
+    let ng = g.groups.len();
+    let group_of = move |i: usize| (i / 2) % ng;
+    let titles: Vec<String> = (0..n).map(|i| format!("Poznámka {} {i:03}", g.word(r, group_of(i)))).collect();
+    for (i, t) in titles.iter().enumerate() {
         let links: Vec<String> = if r.below(4) == 0 { vec![titles[r.below(titles.len())].clone()] } else { vec![] };
-        let text = g.note(r, t, "page", &links);
+        let text = g.note(r, t, "page", &links, group_of(i));
         write_raw(root, &format!("Pages/{t}.md"), text.as_bytes());
     }
 }
@@ -267,12 +299,12 @@ fn compare(core: &Core, root: &Path, sb: &common::Sandbox, name: &str, only: Opt
 
 #[test]
 fn fr_lnk_15_ac8_property_incremental_equals_rebuilt() {
-    let words = golden_words();
+    let groups = golden_groups();
     let mut bad = Vec::new();
     for seed in seeds() {
         println!("seed = {seed}");
         let mut r = Rng::new(seed);
-        let mut g = Gen { words: words.clone(), next_id: 0 };
+        let mut g = Gen { groups: groups.clone(), next_id: 0 };
         let sb = sandbox();
         let root = sb.base.join("Náhodný");
         random_vault(&root, &mut g, &mut r);
@@ -295,7 +327,7 @@ fn fr_lnk_15_ac8_property_incremental_equals_rebuilt() {
         let root = reference_vault_copy(&sb);
         let core = open(&root, &sb.dirs, true);
         let mut r = Rng::new(FIXED_SEED);
-        let mut g = Gen { words: words.clone(), next_id: 0 };
+        let mut g = Gen { groups: groups.clone(), next_id: 0 };
         let mut touched = Vec::new();
         for _ in 0..50 {
             touched.extend(step(&root, &mut g, &mut r).into_iter().map(|p| nfc(&p)));

@@ -89,10 +89,15 @@ const CS_MINIMUM: &str = "a ale aby by do i je jak jeho jen jeste jsem jsou k ke
 #[test]
 fn fr_lnk_15_ac4_stop_words_numbers_and_short_stems() {
     for lang in [Lang::Cs, Lang::En] {
-        for text in ["který ktery KTERÝ protože protoze ještě jeste", "the and with from", "10 2027 27. 11.", "den", "řeka"] {
+        for text in ["který ktery KTERÝ protože protoze ještě jeste", "the and with from", "10 2027 27. 11."] {
             assert_eq!(stems(text, lang), Vec::<String>::new(), "{lang:?}: no stem for {text:?}");
             assert_eq!(stems(&nfd(text), lang), Vec::<String>::new(), "{lang:?}: no stem for {text:?} in NFD bytes");
         }
+    }
+    // D-1747: the short-stem cases are Czech only; under English, `stem_en` keeps `den` and `reka` (3+ characters).
+    for text in ["den", "řeka"] {
+        assert_eq!(stems(text, Lang::Cs), Vec::<String>::new(), "Cs: no stem for {text:?}");
+        assert_eq!(stems(&nfd(text), Lang::Cs), Vec::<String>::new(), "Cs: no stem for {text:?} in NFD bytes");
     }
     // `den` → `dn` and `řeka` → `rk` are the stemmer's answers; the pipeline drops them for being under 3 characters.
     assert_eq!((stem_cs("den"), stem_cs("reka")), ("dn".to_string(), "rk".to_string()), "the golden list's short stems");

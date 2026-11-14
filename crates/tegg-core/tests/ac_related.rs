@@ -107,15 +107,18 @@ fn progress_runs(rx: &std::sync::mpsc::Receiver<CoreEvent>) -> usize {
 fn fr_lnk_15_ac9_index_version_rebuild_and_crash_safety() {
     let sb = sandbox();
     let root = related_vault(&sb);
-    let core = open(&root, &sb.dirs, false);
+    // D-1748: the first open goes through `open_with` too, so the version is lowered in the same `index.sqlite`
+    // that the counting core reopens below (`open_with` keys its local folder on the fs identity, not the path).
+    let core = open_with(CountingFs::new(local_fs(&root)), &sb.dirs);
     let db = index_db(&core);
     drop(core);
     let v = sqlite(&db, "PRAGMA user_version").unwrap_or_default().parse::<i64>().unwrap_or(0);
     assert!(v >= 7, "the index's schema version is at least 7 (contract §1.5): {v}");
-    assert!(sqlite(&db, &format!("PRAGMA user_version = {}", v - 1)).is_ok(), "setup: the version is set one lower");
+    assert!(sqlite(&db, "PRAGMA user_version = 6").is_ok(), "setup: the version is set to 6 (before Related)");
     let before = snapshot(&root);
     let counting = CountingFs::new(local_fs(&root));
     let core = open_with(counting.clone(), &sb.dirs);
+    assert_eq!(index_db(&core), db, "setup: the counting core reopens the database whose version was lowered");
     let rx = core.events();
     assert_eq!(progress_runs(&rx), 1, "one index:progress run to done");
     let notes = objects().len();
