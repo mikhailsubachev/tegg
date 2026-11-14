@@ -92,7 +92,7 @@ test('fr_syn_06_ac47_related_tour_writes_nothing', async ({ page }) => {
   const core = await openRelated(page, R.souhvezdi);
   const files = await core.files();
   const tour: [string, string][] = [
-    ['Rozpočet na offsite', TITLE[R.rozpocet]], ['Důležité termíny', TITLE[R.terminyA]], ['Zahrada na jaře', 'Zahrada na jaře'], ['Včelstvo', TITLE[R.vcelstvo]],
+    ['Rozpočet na offsite', TITLE[R.rozpocet]], ['Zahrada na jaře', 'Zahrada na jaře'], ['Včelstvo', TITLE[R.vcelstvo]],
     ['Úl u lesa', 'Úl u lesa'], ['Hiking', TITLE[R.hiking]], ['gear list', 'gear list'], ['Buben', 'Buben'], ['Svatba', TITLE[R.svatba]], ['Prázdná', 'Prázdná'],
   ];
   for (const [q, t] of tour) {
@@ -100,6 +100,11 @@ test('fr_syn_06_ac47_related_tour_writes_nothing', async ({ page }) => {
     await must(relPanel(page), `${t}: the Related tab`);
     await sleep(300);
   }
+  // D-1752 (B-6): Důležité termíny školení is opened by its route, since Search ranks its unaccented twin first.
+  const ter = await page.context().newPage();
+  const cTer = await startRelated(ter, noteRoute(R.terminyA));
+  await must(relPanel(ter), `${TITLE[R.terminyA]}: the Related tab`);
+  await sleep(300);
   const den = await page.context().newPage();
   const cDen = await startRelated(den, 'daily/2026-09-30');
   await must(relPanel(den), 'Den 30. 9.: the Related tab');
@@ -142,7 +147,7 @@ test('fr_syn_06_ac47_related_tour_writes_nothing', async ({ page }) => {
   await sleep(200);
   await page.keyboard.press('Meta+Backslash');
   await must(ctxPanel(page), 'the panel reopened');
-  for (const [c, what] of [[core, 'the tour'], [cDen, 'Den 30. 9.'], [cVirt, 'daily/2026-11-14']] as [FakeCoreHandle, string][]) {
+  for (const [c, what] of [[core, 'the tour'], [cTer, TITLE[R.terminyA]], [cDen, 'Den 30. 9.'], [cVirt, 'daily/2026-11-14']] as [FakeCoreHandle, string][]) {
     assert.equal(await c.writes(), 0, `${what}: the fake core counts 0 write commands`);
     assert.ok(!(nfc('Daily/2026-11-14.md') in (await c.files())), `${what}: no Daily/2026-11-14.md`);
   }

@@ -65,7 +65,8 @@ test('fr_lnk_15_ac22_entries_are_chips_in_one_flat_list', async ({ page }) => {
   const ukolIcon = await icon(R.ukol);
   assert.ok(ukolIcon && !['file-text', 'calendar'].includes(ukolIcon), `Úkol: a task icon (${ukolIcon})`);
   const suffix = await (await chip(R.ukol)).evaluate((a) => (a.querySelector('.chip-suffix') as HTMLElement | null)?.innerText.replace(/\s+/g, ' ').trim() ?? null);
-  assert.equal(suffix, 'Fri 27 Nov · To do', 'Úkol: the suffix Fri 27 Nov · To do (R44 label)');
+  // D-1750 (B-4): the en-US label of the shared chip code under the test clock's region, as a Backlinks chip shows it.
+  assert.equal(suffix, 'Fri, Nov 27 · To do', 'Úkol: the suffix Fri, Nov 27 · To do (R44 label, en-US region)');
   for (const p of [R.den, R.ukol]) {
     const a = await chip(p);
     assert.deepEqual([await a.getAttribute('data-link-kind'), await a.getAttribute('tabindex'), await a.getAttribute('data-command')], ['note', '0', 'panel.related.open'], `${p}: a.chip.link-chip (§3.3)`);
@@ -79,19 +80,21 @@ test('fr_lnk_15_ac22_entries_are_chips_in_one_flat_list', async ({ page }) => {
   await li.hover();
   await sleep(150);
   assert.equal(await li.evaluate((e) => getComputedStyle(e).backgroundColor), await tokenRgb(page, '--hover'), 'a hovered entry has the --hover background');
-  // On Termíny, Školení's chip has the amber ring and the description Unreviewed.
-  await openFromSearch(page, 'Důležité termíny', TITLE[R.terminyA]);
-  await pathsWhen(page, [R.terminyB, R.skoleni]);
-  const sk = await chip(R.skoleni);
+  // On Termíny, Školení's chip has the amber ring and the description Unreviewed. D-1752 (B-6): Termíny is opened by its
+  // route, since Search ranks its unaccented twin first.
+  const tp = await page.context().newPage();
+  const tc = await openRelated(tp, R.terminyA);
+  await pathsWhen(tp, [R.terminyB, R.skoleni]);
+  const sk = await must(chipOf(tp, R.skoleni), `${R.skoleni}: the chip`);
   assert.equal(await sk.getAttribute('data-review'), 'unreviewed', 'Školení: data-review="unreviewed" (the amber ring)');
   assert.ok((await description(sk)).includes('Unreviewed'), 'Školení: the description Unreviewed');
   // A 120-character title wraps inside the 288 px panel (backlinks.md FR-LNK-01 AC-25).
   const long = 'Velmi dlouhý název poznámky o přípravě podkladů pro celoroční plánování celého týmu a všech jeho projektů v příštím roce';
   assert.equal(long.length >= 115 && long.length <= 125, true, 'setup: about 120 characters');
-  await core.relatedAnswer(R.terminyA, 'both', { entries: [entry('Pages/Dlouhý název.md', { title: long, excerpt: 'Krátká věta.' })], reason: null });
-  await core.emit('vault:changed', { paths: [] });
-  const lc = await must(chipOf(page, 'Pages/Dlouhý název.md'), 'the long title\'s chip', 4000);
-  const pb = await boxOf(relPanel(page), 'the tab panel');
+  await tc.relatedAnswer(R.terminyA, 'both', { entries: [entry('Pages/Dlouhý název.md', { title: long, excerpt: 'Krátká věta.' })], reason: null });
+  await tc.emit('vault:changed', { paths: [] });
+  const lc = await must(chipOf(tp, 'Pages/Dlouhý název.md'), 'the long title\'s chip', 4000);
+  const pb = await boxOf(relPanel(tp), 'the tab panel');
   const cb = await boxOf(lc, 'the long chip');
   assert.ok(cb.width <= pb.width + 0.5 && cb.height > 30, `it wraps inside the panel (chip ${cb.width}×${cb.height}, panel ${pb.width})`);
   assert.equal(await lc.getAttribute('title'), long, 'title = the full title');

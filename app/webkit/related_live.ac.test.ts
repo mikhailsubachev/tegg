@@ -9,8 +9,8 @@ import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
   R, TITLE, ZONE, chipOf, click, drawn, drawnPaths, editorBody, entry, eventually, focusName, hv, linkedSwitch, listsDrawn, loadingStatus, must, nfc,
-  noteRoute, onlyEmpty, openFromSearch, openRelated, pathsWhen, pauseClock, recordLists, relCalls, relPanel, relTab, runFor, saved, seen, setWhen, sleep,
-  startRelated, uiSetCalls, type FakeCoreHandle,
+  noteRoute, onlyEmpty, openFromSearch, openRelated, pathsWhen, pauseClock, recordLists, relCalls, relPanel, relTab, relatedVault, runFor, saved, seen, setWhen,
+  sleep, startRelated, uiSetCalls, type FakeCoreHandle,
 } from './related-helpers';
 
 test.use({ timezoneId: ZONE, locale: 'en-US' });
@@ -41,11 +41,19 @@ const sameSet = (a: string[], b: string[]) => key([...a].map(nfc).sort()) === ke
 
 // ------------------------------------------------------------------------------------------------ FR-LNK-15 AC-27
 
+// D-1751 (B-5): opening from Search adds a history entry (D-1217), so Hiking is opened by its route: a sidebar pin of
+// Hiking (`.tegg/pinned.yml`), whose row opens `note/<path>` directly, and ⌘[ goes back to Rozpočet.
+const HIKING_PIN = `version: 1\npins:\n  - id: 01JRE000000000000000000031\n    path: ${R.hiking}\n`;
+async function openHikingByRoute(page: Page) {
+  await click(page.locator('.sidebar-pinned [data-pinned-row]').first(), `the sidebar pin of ${TITLE[R.hiking]} (note/${R.hiking})`);
+  await page.mouse.move(720, 860); // off the row, so no hover preview opens over it
+}
+
 test('fr_lnk_15_ac27_list_follows_navigation', async ({ page }) => {
-  const core = await openRelated(page, R.rozpocet);
+  const core = await openRelated(page, R.rozpocet, { vault: relatedVault((f) => { f['.tegg/pinned.yml'] = HIKING_PIN; }) });
   await pathsWhen(page, ROZ);
   await recordLists(page);
-  await openFromSearch(page, 'Hiking', TITLE[R.hiking]);
+  await openHikingByRoute(page);
   assert.deepEqual(await pathsWhen(page, HIK, 2000), HIK, 'Hiking\'s 2 entries within 2 s');
   await page.keyboard.press('Meta+BracketLeft');
   assert.deepEqual(await pathsWhen(page, ROZ, 2000), ROZ, '⌘[ shows Rozpočet\'s again');
