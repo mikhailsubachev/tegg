@@ -22,7 +22,7 @@ Everything in this section is platform-neutral Rust: no Tauri, no desktop API, n
 
 | Crate | Module | Owns |
 | --- | --- | --- |
-| `tegg-index` | `src/stemming/mod.rs` (`pub mod stemming`) | `Lang`, `stem_cs`, `stem_en`, the stop-word lists, `is_stop_word`, `language_of`, `stems`, `rel_row` (§1.2–§1.4) |
+| `tegg-index` | `src/stemming/mod.rs` (`pub mod stemming`) | `Lang`, `stem_cs`, `stem_en`, the stop-word lists, `is_stop_word`, `language_of`, `stems`, `rel_row`, `is_rel_token_char` (§1.2–§1.4) |
 | `tegg-index` | `src/stemming/cs.rs` | the folded Czech stemmer (R180), private; exported as `stemming::stem_cs` |
 | `tegg-index` | `src/stemming/stop_cs.txt`, `stop_en.txt` | the lists of §1.3, `include_str!`'d; one folded word per line, LF, sorted, no duplicates |
 | `tegg-index` | `src/related.rs` (`pub mod related`) | `RelatedParams`, `TermCounts`, `signature`, `cut_off`, `sentences`, `by_code_point`, `RelatedList`, `RelatedEntry`, `RelatedReason`; `Index::related` (§1.6–§1.9) |
@@ -97,7 +97,7 @@ dropped like any stop word.
 ```rust
 /// R179 rules 2–6 on one text, with a given language: `text::words` → `text::fold` → drop stop words (both lists) →
 /// drop numbers (a word whose every char `is_numeric()`) → stem (`stem_cs` / `stem_en`) → drop stems of fewer than
-/// 3 chars. In text order, duplicates kept.
+/// 3 chars → drop stems with a character that is not `is_rel_token_char` (D-1761). In text order, duplicates kept.
 pub fn stems(text: &str, lang: Lang) -> Vec<String>;
 
 /// R179 rule 7 on folded words (stop words not yet dropped): words in both lists are ignored; `En` when the note has
@@ -123,6 +123,11 @@ pub struct RelRow {
 - **Headings** are in the body column once; the signature counts a heading occurrence 2 instead of 1 (§1.7). Setext
   headings count as body text.
 - `stems` and `rel_row` are pure: the same bytes give the same row, NFC or NFD (folding runs first, FR-FMT-12).
+- **Stems are exactly `unicode61` tokens** (D-1761): a stem is kept only when every character is
+  `pub fn is_rel_token_char(c: char) -> bool` (a lower-case-stable letter or number, not a mark, outside the code points
+  the bundled SQLite's `unicode61 remove_diacritics 0` folds or separates, such as `ς`, `ſ`, `µ`, `ⓐ`), else it is
+  dropped, so each stem in `rel` is one token equal to itself and the kept df map equals a rebuild from `rel_vocab`
+  (D-1757, AR-01); folded Czech and English (ASCII letters and digits) are unaffected.
 
 ### 1.5 The `rel` table and the schema version (R179, R181 rule 1; D-1694)
 
@@ -747,3 +752,13 @@ B-1…B-11 of the build, accepted as proposed (owner, 2026-11-14: "Accept all pr
 | D-1756 | **`Loading…` is drawn in the frame after 300 ms (B-10).** `Loading…` is drawn in the animation frame after the 300 ms timer, only if the answer hasn't arrived; within AC-30's 300 ms ± 1 frame. |
 | D-1757 | **Document frequencies are kept in memory (B-11).** `Index::related` reads df from a map read once from `rel_vocab` and updated by each write, instead of per-term vocab lookups (about 3× faster on the 20,000-note vault); exact for folded Czech and English stems. |
 | D-1758 | **AC-23 ignores `perf_mark`** (owner, "Yes, approve"; BRD v1.188). The excerpt-click check's "no command sent" ignores test-build timing marks, as the editor and embeds tests do. |
+
+## 14. QA decisions (D-1759…D-1761, BRD v1.189)
+
+QA-1…QA-3 of the QA review, accepted as proposed (owner, 2026-11-14: "Accept all proposals").
+
+| D | Decision |
+| --- | --- |
+| D-1759 | **The typing benchmark counts asks, not redraws (QA-1).** NFR-PERF-06 AC-7's test counts `related-request` marks (sent on every ask) to show the list was re-asked after Saved, not `related-ready` (sent only when the drawn list changes, which typing `a`×200 doesn't). AC-test change. |
+| D-1760 | **AC-8 compares the incremental df map on push (QA-2).** FR-LNK-15 AC-8's property asks the watched core for one list right after opening, so later comparisons use the document-frequency map kept by each write (D-1757), on push as well as nightly. AC-test change. |
+| D-1761 | **Stems are exactly unicode61 tokens (QA-3).** Every stem written to `rel` is exactly one token of SQLite's `unicode61` tokenizer: stems holding characters it wouldn't treat as token characters are dropped (conservatively, where Rust can't know SQLite's table), so the in-memory df map always equals a rebuild (AR-01, D-1757). Czech and English text is unaffected; a property test on arbitrary Unicode checks it. |

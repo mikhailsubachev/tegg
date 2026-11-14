@@ -4,6 +4,7 @@
 use std::sync::LazyLock;
 
 use serde::{Deserialize, Serialize};
+use unicode_normalization::char::is_combining_mark;
 
 use crate::text;
 
@@ -60,7 +61,45 @@ fn is_number(w: &str) -> bool {
     w.chars().all(char::is_numeric)
 }
 
-/// R179 rules 3–6 on folded words.
+/// Characters that Rust's `is_alphanumeric` takes as lower-case letters or numbers but SQLite's `unicode61` tokenizer
+/// (the bundled SQLite's tables, `remove_diacritics 0`) does not keep as themselves: it folds them to another
+/// character (`µ`, `ſ`, `ς`, …) or treats them as separators (`ⓐ`, `🄰`, New Tai Lue digits, …). Found by checking
+/// every code point against SQLite (tests/bug_qarel_fr_lnk_15_df_map_equals_rebuild.rs), D-1761.
+const NOT_UNICODE61: &[(char, char)] = &[
+    ('\u{00B5}', '\u{00B5}'),
+    ('\u{017F}', '\u{017F}'),
+    ('\u{03C2}', '\u{03C2}'),
+    ('\u{03D0}', '\u{03D1}'),
+    ('\u{03D5}', '\u{03D6}'),
+    ('\u{03F0}', '\u{03F1}'),
+    ('\u{03F5}', '\u{03F5}'),
+    ('\u{19B0}', '\u{19C0}'),
+    ('\u{19C8}', '\u{19C9}'),
+    ('\u{1CF2}', '\u{1CF3}'),
+    ('\u{1E9B}', '\u{1E9B}'),
+    ('\u{1FBE}', '\u{1FBE}'),
+    ('\u{24D0}', '\u{24E9}'),
+    ('\u{1F130}', '\u{1F149}'),
+    ('\u{1F150}', '\u{1F169}'),
+    ('\u{1F170}', '\u{1F189}'),
+];
+
+/// D-1761 (v1-related §1.4): `c` is a character that SQLite's `unicode61` tokenizer keeps as itself in a token: a
+/// lower-case-stable letter or number that is not a mark and not in `NOT_UNICODE61`. Conservative: a test checks every
+/// code point this accepts against the bundled SQLite, so a newer Rust Unicode table can't add one SQLite lacks
+/// unnoticed. ASCII lower-case letters and digits (all folded Czech and English) are always accepted.
+pub fn is_rel_token_char(c: char) -> bool {
+    if c.is_ascii() {
+        return c.is_ascii_lowercase() || c.is_ascii_digit();
+    }
+    c.is_alphanumeric()
+        && !is_combining_mark(c)
+        && c.to_lowercase().eq([c])
+        && NOT_UNICODE61.binary_search_by(|&(lo, hi)| if hi < c { std::cmp::Ordering::Less } else if lo > c { std::cmp::Ordering::Greater } else { std::cmp::Ordering::Equal }).is_err()
+}
+
+/// R179 rules 3–6 on folded words; a stem with a character that is not `is_rel_token_char` is dropped, so every stem
+/// written to `rel` is exactly one `unicode61` token (D-1761).
 fn stems_of_words<'a>(words: impl Iterator<Item = &'a str>, lang: Lang, out: &mut Vec<String>) {
     for w in words {
         if w.is_empty() || is_stop_word(w) || is_number(w) {
@@ -70,14 +109,14 @@ fn stems_of_words<'a>(words: impl Iterator<Item = &'a str>, lang: Lang, out: &mu
             Lang::Cs => stem_cs(w),
             Lang::En => stem_en(w),
         };
-        if s.chars().count() >= MIN_STEM_CHARS {
+        if s.chars().count() >= MIN_STEM_CHARS && s.chars().all(is_rel_token_char) {
             out.push(s);
         }
     }
 }
 
 /// R179 rules 2–6 on one text: words → fold → drop stop words (both lists) → drop numbers → stem → drop stems under
-/// 3 characters. In text order, duplicates kept.
+/// 3 characters and stems that are not exactly one `unicode61` token (D-1761). In text order, duplicates kept.
 pub fn stems(text: &str, lang: Lang) -> Vec<String> {
     let mut out = Vec::new();
     let words = text::words(text);

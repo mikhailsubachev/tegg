@@ -461,6 +461,11 @@ impl Index {
             Sig::Stems(s) => s,
         })
     }
+    /// D-1757, D-1761: the document-frequency map kept by `apply` / `remove` (None until a list built it) and a fresh
+    /// read of `rel_vocab`, as a reopened index would build it.
+    pub fn rel_df_maps(&self) -> (Option<HashMap<String, u32>>, HashMap<String, u32>) {
+        (self.rel_df.borrow().clone(), build_df(&self.conn).unwrap_or_default())
+    }
     /// §1.10: `rel` rows.
     pub fn rel_rows(&self) -> usize {
         self.conn.query_row("SELECT count(*) FROM rel", [], |r| r.get::<_, i64>(0)).map(|n| n as usize).unwrap_or(0)
