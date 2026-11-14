@@ -9,6 +9,8 @@ pub mod date;
 pub mod daily;
 /// v1.0 slice Q (docs/contracts/v1-queries.md §1.3): ```query fences in a note.
 pub mod query_fence;
+/// v1.0 slice REL (docs/contracts/v1-related.md §1.9): plain text of a body's eligible blocks (the excerpt).
+pub mod plain;
 
 use chrono::{DateTime, FixedOffset, NaiveDate};
 use unicode_normalization::UnicodeNormalization;

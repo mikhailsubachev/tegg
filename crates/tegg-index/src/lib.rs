@@ -9,8 +9,14 @@ pub mod graph;
 pub use graph::{CancelFlag, EdgeKind, EdgeWay, GraphEdge, GraphError, GraphNode, GraphRequest, GraphResult, NodeId};
 #[cfg(any(test, feature = "test-hooks"))]
 pub use graph::PauseHook;
+// Slice REL (docs/contracts/v1-related.md §1): stems, the `rel` table and Related lists.
+pub mod stemming;
+pub mod related;
+pub use related::{RelatedEntry, RelatedList, RelatedParams, RelatedReason};
+#[cfg(any(test, feature = "test-hooks"))]
+pub use related::RelTerms;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::Path;
 use std::sync::LazyLock;
@@ -27,7 +33,7 @@ pub use text::fold;
 use text::{contains_item, contains_item_exact, contains_sequence, parse_query, tokens, within_one_edit, Item};
 
 /// Bump on any change to what is stored; a different version means rebuild (architecture §3.1).
-const SCHEMA_VERSION: i64 = 6; // 6: the `saved:` names of query fences (slice Q, v1-queries §1.3); 5: content hash and UTF-8 flag (5A-1, ms5-tasks §2.1); 2: matched type key, `type_raw`, `type_single` (3D, D-239); 3: link attributes (D-257);
+pub const SCHEMA_VERSION: i64 = 7; // 7: the `rel` stem table (slice REL, v1-related §1.5); 6: the `saved:` names of query fences (slice Q, v1-queries §1.3); 5: content hash and UTF-8 flag (5A-1, ms5-tasks §2.1); 2: matched type key, `type_raw`, `type_single` (3D, D-239); 3: link attributes (D-257);
 // 4: link positions and block texts (4A, ms4-links §2.3)
 /// Frontmatter keys whose values are not searchable attribute text (they have their own fields or are ids/dates).
 const NOT_ATTRIBUTE_TEXT: &[&str] = &["id", "type", "title", "aliases", "tags", "created", "modified"];
@@ -337,6 +343,9 @@ struct Stored {
     /// Slice Q (v1-queries §1.3, D-1465): the `saved:` names of the note's query fences (NFC, file order, repeats kept).
     #[serde(default)]
     queries: Vec<String>,
+    /// Slice REL (v1-related §1.5): the note's language (R179 rule 7), `"cs"` / `"en"`.
+    #[serde(default)]
+    lang: stemming::Lang,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -387,6 +396,8 @@ pub struct Prepared {
     stored: Stored,
     raw: String,
     fts: [String; 4],
+    /// Slice REL (v1-related §1.5): the `rel` row's columns, stems joined by single spaces (title, body).
+    rel: [String; 2],
 }
 
 impl Prepared {
@@ -679,7 +690,10 @@ pub fn prepare(path: &str, bytes: &[u8], version: &FileVersion) -> Option<Prepar
         Some(Value::String(t)) if !t.trim().is_empty() => (tegg_format::type_key(t), true, Some(nfc(t.trim()))),
         Some(_) => ("page".to_string(), false, None),
     };
-    let fts = [text::fts_text(&ex.title), text::fts_text(&aliases.join(" \n ")), text::fts_text(&attribute_text(&attributes)), text::fts_text(body)];
+    // The body is split into folded words once, line by line, for `fts` (all words in order, as `fts_text`) and `rel`.
+    let lines = stemming::body_lines(body);
+    let body_fts = lines.iter().flat_map(|l| l.0.iter().map(String::as_str)).collect::<Vec<_>>().join(" ");
+    let fts = [text::fts_text(&ex.title), text::fts_text(&aliases.join(" \n ")), text::fts_text(&attribute_text(&attributes)), body_fts];
     let stored = Stored {
         id: ex.id,
         r#type,
@@ -704,8 +718,14 @@ pub fn prepare(path: &str, bytes: &[u8], version: &FileVersion) -> Option<Prepar
         hash: Some(version.hash),
         utf8: std::str::from_utf8(bytes).is_ok(),
         queries: tegg_format::query_fences(&raw).into_iter().filter_map(|f| f.saved).collect(),
+        lang: stemming::Lang::Cs,
     };
-    Some(Prepared { path: path.to_string(), mtime_ns: version.mtime_ns as i64, size: version.size as i64, stored, raw, fts })
+    // Slice REL (R179, v1-related §1.4): computed here, outside the index lock, like `fts` (FR-UX-07 AC-2).
+    let row = related::rel_row_of(&stored, &lines);
+    let mut stored = stored;
+    stored.lang = row.lang;
+    let rel = [row.title.join(" "), row.body.join(" ")];
+    Some(Prepared { path: path.to_string(), mtime_ns: version.mtime_ns as i64, size: version.size as i64, stored, raw, fts, rel })
 }
 
 // ---------------------------------------------------------------- the index
@@ -747,6 +767,11 @@ pub struct Index {
     links: RefCell<Option<Links>>,
     /// G1 (v1-graph §1): the vault-wide graph, derived on first use.
     graph: RefCell<Option<std::sync::Arc<graph::GraphData>>>,
+    /// Slice REL (v1-related §1.10): calls of `Index::related` since open (FR-LNK-15 AC-29).
+    related_calls: Cell<u64>,
+    /// Slice REL (v1-related §1.8 step 2): rows of `rel` holding each stem, derived from the `rel` rows on first use and
+    /// kept up to date by `apply` and `remove` (not dropped by `changed`).
+    rel_df: RefCell<Option<HashMap<String, u32>>>,
 }
 
 const SCHEMA: &str = "
@@ -754,6 +779,8 @@ CREATE TABLE IF NOT EXISTS notes (rowid INTEGER PRIMARY KEY, path TEXT NOT NULL 
   size INTEGER NOT NULL, meta TEXT NOT NULL, raw TEXT NOT NULL);
 CREATE VIRTUAL TABLE IF NOT EXISTS fts USING fts5(title, aliases, attrs, body, tokenize = 'unicode61 remove_diacritics 0');
 CREATE VIRTUAL TABLE IF NOT EXISTS fts_vocab USING fts5vocab(fts, 'row');
+CREATE VIRTUAL TABLE IF NOT EXISTS rel USING fts5(title, body, tokenize = 'unicode61 remove_diacritics 0');
+CREATE VIRTUAL TABLE IF NOT EXISTS rel_vocab USING fts5vocab(rel, 'row');
 ";
 
 fn connect(db_path: &Path) -> Result<Connection, IndexError> {
@@ -761,7 +788,7 @@ fn connect(db_path: &Path) -> Result<Connection, IndexError> {
     conn.execute_batch("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;")?;
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     if version != SCHEMA_VERSION {
-        conn.execute_batch("DROP TABLE IF EXISTS fts_vocab; DROP TABLE IF EXISTS fts; DROP TABLE IF EXISTS notes;")?;
+        conn.execute_batch("DROP TABLE IF EXISTS rel_vocab; DROP TABLE IF EXISTS rel; DROP TABLE IF EXISTS fts_vocab; DROP TABLE IF EXISTS fts; DROP TABLE IF EXISTS notes;")?;
         conn.execute_batch(SCHEMA)?;
         conn.execute_batch(&format!("PRAGMA user_version = {SCHEMA_VERSION}"))?;
     }
@@ -785,7 +812,7 @@ impl Index {
                 connect(db_path)?
             }
         };
-        let mut idx = Index { conn, metas: HashMap::new(), by_path: HashMap::new(), vocab: RefCell::new(None), links: RefCell::new(None), graph: RefCell::new(None) };
+        let mut idx = Index { conn, metas: HashMap::new(), by_path: HashMap::new(), vocab: RefCell::new(None), links: RefCell::new(None), graph: RefCell::new(None), related_calls: Cell::new(0), rel_df: RefCell::new(None) };
         idx.load()?;
         Ok(idx)
     }
@@ -809,9 +836,10 @@ impl Index {
         drop(stmt);
         if bad {
             // Unreadable rows: start over; the caller re-indexes from the files (AR-01).
-            self.conn.execute_batch("DELETE FROM notes; DELETE FROM fts;")?;
+            self.conn.execute_batch("DELETE FROM notes; DELETE FROM fts; DELETE FROM rel;")?;
             self.metas.clear();
             self.by_path.clear();
+            *self.rel_df.get_mut() = None;
         }
         Ok(())
     }
@@ -835,11 +863,17 @@ impl Index {
         if batch.is_empty() {
             return Ok(());
         }
+        // The df cache is taken out while the transaction runs: an error leaves it unset (rebuilt on next use).
+        let mut df = self.rel_df.get_mut().take();
         let tx = self.conn.transaction()?;
         let mut added = Vec::new();
         for p in batch {
             if let Some(old) = self.by_path.get(&p.path).copied() {
+                if let Some(df) = df.as_mut() {
+                    related::df_remove(df, &related::stored_rel(&tx, old)?);
+                }
                 tx.execute("DELETE FROM fts WHERE rowid = ?1", params![old])?;
+                tx.execute("DELETE FROM rel WHERE rowid = ?1", params![old])?;
                 tx.execute("DELETE FROM notes WHERE rowid = ?1", params![old])?;
                 self.metas.remove(&old);
             }
@@ -847,9 +881,15 @@ impl Index {
             tx.execute("INSERT INTO notes (path, mtime, size, meta, raw) VALUES (?1, ?2, ?3, ?4, ?5)", params![p.path, p.mtime_ns, p.size, meta, p.raw])?;
             let rowid = tx.last_insert_rowid();
             tx.execute("INSERT INTO fts (rowid, title, aliases, attrs, body) VALUES (?1, ?2, ?3, ?4, ?5)", params![rowid, p.fts[0], p.fts[1], p.fts[2], p.fts[3]])?;
+            // v1-related §1.5: `notes`, `fts` and `rel` in the same transaction (FR-LNK-15 AC-9).
+            tx.execute("INSERT INTO rel (rowid, title, body) VALUES (?1, ?2, ?3)", params![rowid, p.rel[0], p.rel[1]])?;
+            if let Some(df) = df.as_mut() {
+                related::df_add(df, &(p.rel[0].clone(), p.rel[1].clone()));
+            }
             added.push((rowid, p));
         }
         tx.commit()?;
+        *self.rel_df.get_mut() = df;
         for (rowid, p) in added {
             self.by_path.insert(p.path.clone(), rowid);
             self.metas.insert(rowid, Meta::new(rowid, p.path, p.mtime_ns, p.size, p.stored));
@@ -865,12 +905,18 @@ impl Index {
         if gone.is_empty() {
             return Ok(());
         }
+        let mut df = self.rel_df.get_mut().take();
         let tx = self.conn.transaction()?;
         for (_, r) in &gone {
+            if let Some(df) = df.as_mut() {
+                related::df_remove(df, &related::stored_rel(&tx, *r)?);
+            }
             tx.execute("DELETE FROM fts WHERE rowid = ?1", params![r])?;
+            tx.execute("DELETE FROM rel WHERE rowid = ?1", params![r])?;
             tx.execute("DELETE FROM notes WHERE rowid = ?1", params![r])?;
         }
         tx.commit()?;
+        *self.rel_df.get_mut() = df;
         for (p, r) in gone {
             self.by_path.remove(&p);
             self.metas.remove(&r);

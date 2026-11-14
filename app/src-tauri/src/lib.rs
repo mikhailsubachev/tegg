@@ -16,6 +16,7 @@ mod shellg3;
 mod shellimport;
 mod shellpin;
 mod shellq;
+mod shellrel;
 
 use std::io::Write;
 use std::path::PathBuf;
@@ -691,10 +692,34 @@ fn perf_mark(app: AppHandle, name: String, frame: Option<u32>, ms: Option<f64>) 
                 let _ = f.write_all(format!("{line}\n").as_bytes()); // one write per line: lines from parallel writers never interleave
             }
         }
-        // v1-import-window §8: `import-step:<step>` once per step change (a step can be shown again), `import-done`
-        // per import; the shell also writes `import-done` itself.
-        _ if name.starts_with("import-step:") || name == "import-done" => mark_repeat(&name),
+        _ if repeatable_ui_mark(&name) => mark_repeat(&name),
         _ => mark(&app, &name),
+    }
+}
+
+/// UI marks written on every occurrence; every other mark at most once per process (`mark`). v1-import-window §8:
+/// `import-step:<step>` once per step change (a step can be shown again), `import-done` per import (the shell also
+/// writes `import-done` itself). v1-related §1.13 (D-1759): `related-request` on every ask of the Related tab, which the
+/// typing benchmark (NFR-PERF-06 AC-7) counts after Saved.
+fn repeatable_ui_mark(name: &str) -> bool {
+    name.starts_with("import-step:") || name == "import-done" || name == "related-request"
+}
+
+/// Bug QA REL (NFR-PERF-06 AC-7): `related-request` was written once per process, so the re-asks after Saved never
+/// reached the perf log and the benchmark saw none.
+#[cfg(test)]
+mod bug_qarel_nfr_perf_06_related_request_on_every_ask {
+    use super::repeatable_ui_mark;
+
+    #[test]
+    fn bug_qarel_nfr_perf_06_related_request_is_written_on_every_ask() {
+        assert!(repeatable_ui_mark("related-request"), "every ask of the Related tab is one line (D-1759)");
+        for m in ["import-step:2", "import-done"] {
+            assert!(repeatable_ui_mark(m), "{m}");
+        }
+        for m in ["note-ready", "note-saved", "related-ready", "ui-ready"] {
+            assert!(!repeatable_ui_mark(m), "{m} stays once per process");
+        }
     }
 }
 
@@ -1832,6 +1857,7 @@ pub fn run() {
             shellg1::graph_neighbourhood,
             shellg3::graph_presets_get, shellg3::graph_presets_apply,
             shellpin::pins_get, shellpin::pins_apply,
+            shellrel::index_related,
             shellq::queries_list, shellq::query_get, shellq::query_run, shellq::query_apply, shellq::query_revert, shellq::query_create,
             shellq::query_duplicate, shellq::query_rename, shellq::query_trash, shellq::query_restore, shellq::query_usages,
             shellimport::import_pick_source, shellimport::import_scan, shellimport::import_cancel, shellimport::import_where,

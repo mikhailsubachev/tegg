@@ -78,6 +78,8 @@ import type { TagPageUi, TagsSort } from './tags/model';
 import { PreviewProvider } from './preview/PreviewProvider';
 import { GraphPage } from './graph/GraphPage';
 import type { GraphPanelCommands, GraphPanelProps } from './graph/GraphPanel';
+import type { RelatedPanelProps } from './related/RelatedPanel';
+import { centrePath, openRouteOf, showLinkedOf, withShowLinked } from './related/model';
 import type { GraphHandover } from './shell/history';
 import type { GraphViewStateDto } from './graph/types';
 import { close as closePreview, getPrefs as getPreviewPrefs, setPreviewHost, setStoredPrefs, showPreviewAction, updatePrefs } from './preview/store';
@@ -144,7 +146,7 @@ const QUICK_ADD = 'main [data-quick-add] input';
 const TASK_SEARCH = 'main [data-command="tasks.search"], main input.type-filter';
 
 type Dialog = 'palette' | 'newType' | 'starter' | 'newObject' | null;
-type PanelTab = 'backlinks' | 'graph';
+type PanelTab = 'backlinks' | 'related' | 'graph';
 
 /** 3D (ms3-shell §14.7.1): `typeSort` and `otherPropertiesOpen`; missing fields read as defaults, `version` stays 1. */
 type UiState = UiStateDto & { typeSort?: Record<string, TypeSort>; otherPropertiesOpen?: boolean; noteWidth?: Record<string, PageWidth>; preview?: PreviewUiDto;
@@ -204,6 +206,8 @@ export function App() {
   const [focusBacklinks, setFocusBacklinks] = useState(0);
   /** Slice G2 (FR-NAV-05 AC-2): `Show local graph` puts the focus on `Depth and filters`. */
   const [focusGraph, setFocusGraph] = useState(0);
+  /** Slice REL (FR-NAV-05 AC-6): `Show related` puts the focus on the first entry (else the switch). */
+  const [focusRelated, setFocusRelated] = useState(0);
   /** Slice G2 (v1-graph §15.5): the shown history entry's hand-over from the panel to the full view. */
   const [handover, setHandover] = useState<GraphHandover | null>(null);
   /** Slice G2: the shown panel graph's commands (`Graph: Depth n`, ⌘⇧G); whether the panel shows the Graph tab. */
@@ -216,8 +220,10 @@ export function App() {
   const [refresh, setRefresh] = useState(0);
   /** Slice G2 (v1-graph §15.7): the note page's own saves, which the watcher doesn't report; the panel graph re-asks.
    *  A subscription, not state: an autosave doesn't re-render the App. */
-  const ownSaveListeners = useRef(new Set<() => void>());
-  const onOwnSave = useCallback((f: () => void) => { ownSaveListeners.current.add(f); return () => { ownSaveListeners.current.delete(f); }; }, []);
+  /** Slice REL (D-1753): listeners get `idle()`, true while the page has nothing left to save, so the Related tab can skip
+   *  the 1 s maximum-wait writes made while the user is still typing (FR-LNK-15 AC-28). */
+  const ownSaveListeners = useRef(new Set<(idle: () => boolean) => void>());
+  const onOwnSave = useCallback((f: (idle: () => boolean) => void) => { ownSaveListeners.current.add(f); return () => { ownSaveListeners.current.delete(f); }; }, []);
   // Slice PW (AP-754, AP-759): the vault's default page width, read again after every vault change (live).
   const [vaultWidth, setVaultWidth] = useState<PageWidth>('normal');
   // 4B: the calendar popover (R18) and the daily info of a note route showing a Daily Note that doesn't win (D-319).
@@ -908,6 +914,14 @@ export function App() {
       updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, open: true, tab: 'graph' } }));
       setFocusGraph((n) => n + 1);
     },
+    // Slice REL (R183, FR-NAV-05 AC-6): one write of `rightPanel.open` and `tab`.
+    showRelated: () => {
+      if (!isNoteRoute(route)) return;
+      updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, open: true, tab: 'related' } }));
+      setFocusRelated((n) => n + 1);
+    },
+    // Slice REL (R183, FR-LNK-15 AC-25): one `ui_state_set`; never opens the panel.
+    toggleRelatedLinked: () => updateUi((u) => withShowLinked(u, !showLinkedOf(u))),
     toggleFocus: () => {
       if (!isNoteRoute(route)) return;
       setFocusMode((f) => !f);
@@ -1054,14 +1068,25 @@ export function App() {
   setDateTimeSetting(ui.dateTime);
   const ctxRoute = route?.id === DAILY ? { ...route, date: route.param, path: objectPathOf(route) } : route?.id === 'note/<path>' ? { ...route, path: route.param ?? null, type: meta?.type, review: meta?.review, hasFrontmatter: meta?.hasFrontmatter }
     : route?.id === 'tag/<key>' ? { ...route, path: objectPathOf(route) } : route;
-  // D-1675: a remembered `outline` tab (the removed Outline tab) shows Backlinks.
-  const panelTab: PanelTab = ui.rightPanel.tab === 'graph' ? 'graph' : 'backlinks';
+  // D-1675: a remembered `outline` tab (the removed Outline tab), or any unknown tab, shows Backlinks (FR-NAV-05 AC-7).
+  const panelTab: PanelTab = ui.rightPanel.tab === 'graph' ? 'graph' : ui.rightPanel.tab === 'related' ? 'related' : 'backlinks';
+  const showLinked = showLinkedOf(ui);
+  // Slice REL (v1-related §3.1): the Related tab around the page's object (no request on new/<type> or a virtual day).
+  const panelRelatedProps: RelatedPanelProps | undefined = vault && isNoteRoute(route) ? {
+    path: centrePath(route, route?.id === DAILY ? objectPathOf(route) : null),
+    showLinked,
+    onToggleLinked: () => updateUi((u) => withShowLinked(u, !showLinkedOf(u))),
+    onOpen: (e) => { const r = parseRoute(openRouteOf(e)); if (r) void go(r); },
+    onOwnSave,
+    focusFirst: focusRelated,
+    types,
+  } : undefined;
   panelShowsGraph.current = showPanel && panelTab === 'graph';
-  const ctx: ShellContext = { vault: vault ?? null, types, counts, actions, route: ctxRoute ?? null, panel: { open: showPanel, tab: panelTab } };
+  const ctx: ShellContext = { vault: vault ?? null, types, counts, actions, route: ctxRoute ?? null, panel: { open: showPanel, tab: panelTab }, related: { showLinked } };
   // G3 (R123): `Show as list` / `Show as graph` follow the graph's stored view.
   const graphView = vault ? ui.vaults?.[vault.path.normalize('NFC')]?.graph?.full?.view : undefined;
   const panelView = vault ? ui.vaults?.[vault.path.normalize('NFC')]?.graph?.panel?.view : undefined;
-  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey, graphView, panelView, noteDaily?.path, noteDaily?.date, dailyFile, tagList, meta?.type, meta?.review, meta?.hasFrontmatter, showPanel, panelTab, dialog /* slice PIN: ⌥⌘↑/↓ listed when opened from a pinned row */]);
+  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey, graphView, panelView, noteDaily?.path, noteDaily?.date, dailyFile, tagList, meta?.type, meta?.review, meta?.hasFrontmatter, showPanel, panelTab, showLinked, dialog /* slice PIN: ⌥⌘↑/↓ listed when opened from a pinned row */]);
   const chooserShown = vault === null || chooser !== null;
   const available_commands = useMemo(() => (chooserShown ? list.filter((c) => !c.needsVault) : list), [list, chooserShown]);
 
@@ -1329,7 +1354,7 @@ export function App() {
         onWidth={setNoteWidth}
         onRekeyWidth={(from, to, w) => setNoteWidth(to, w, from)}
         onTypeSaved={loadTypes}
-        onWritten={() => { for (const f of ownSaveListeners.current) f(); }}
+        onWritten={() => { const idle = () => !noteApi.current?.pending(); for (const f of ownSaveListeners.current) f(idle); }}
         daily={daily}
         draft={draftInfo}
         onDaily={(date) => onNoteDaily(path, date)}
@@ -1589,6 +1614,7 @@ export function App() {
           width={panelWidth} room={panelRoom} limits={[PANEL_MIN, PANEL_MAX, PANEL_W]}
           onWidth={(w) => updateUi((u) => ({ ...u, rightPanel: { ...u.rightPanel, width: w } }))}
           backlinks={route?.param ? { path: route.param, date: isDaily ? route.param : undefined, types, refresh, onOpen: (s, o) => openMention(s, o), focusFirst: focusBacklinks } : undefined}
+          related={panelRelatedProps}
           graph={panelGraphProps} />}
         {offer && (
           <CreateLinkOffer req={offer} types={types} onClose={() => setOffer(null)}

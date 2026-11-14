@@ -121,6 +121,8 @@ const COMMANDS: &[&str] = &[
     // Slice PIN (v1-pinned §2).
     "pins_get",
     "pins_apply",
+    // Slice REL (v1-related §2).
+    "index_related",
     // 4E (ms4-jobs §14): type moves, tidy and delete jobs (bug v0.122: they were registered but not in the manifest).
     "type_move_plan",
     "type_move",

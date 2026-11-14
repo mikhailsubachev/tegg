@@ -77,6 +77,7 @@ These tables are the expected content of the app's **route registry**, **panel r
 | --- | --- | --- | --- | --- |
 | `backlinks` | Backlinks | TBD | MS4 | FR-LNK-01…04 |
 | ~~`outline`~~ | ~~Outline~~ | removed by D-1675 (was built in slice OL, D-1624); the outline is the rail's card | — | — |
+| `related` | Related | built (slice REL, related.md R178; D-1699, D-1723) | v1.0 (0.3.0) | FR-LNK-15, FR-NAV-05 |
 | `graph` | Graph | built (G2, graph-panel.md R114; D-920) | v1.0 | FR-GRP-01, FR-NAV-05 |
 
 No Attributes tab: attributes stay at the top of the note (D-127, settles AP-20).

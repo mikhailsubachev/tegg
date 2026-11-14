@@ -15,12 +15,16 @@ rusqlite = { version = "0.40", features = ["bundled"] }
 unicode-normalization = "0.1"
 regex = "1"
 serde = { version = "1", features = ["derive"] }
+# v1-related §1.2 (slice REL): the Snowball English (Porter2) stemmer.
+rust-stemmers = "1.2"
 
 [features]
 # v1-graph §1.5 (G1): the L4 pause hook of `GraphRequest` (FR-GRP-01 AC-9).
 test-hooks = []
 
 [dev-dependencies]
+# v1-related §1.13 (slice REL): the generated vaults of FR-LNK-15 AC-3 and NFR-PERF-13 AC-1.
+gen-vault = { path = "../../tools/gen-vault" }
 tegg-index = { path = ".", features = ["test-hooks"] }
 tempfile.workspace = true
 tegg-vault = { path = "../tegg-vault" }

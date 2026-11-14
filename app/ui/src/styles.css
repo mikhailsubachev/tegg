@@ -1117,6 +1117,29 @@ button.tag-tile { cursor: pointer; }
 .backlink-entry .chip-text > [data-user-content] { overflow: visible; text-overflow: clip; }
 .backlink-entry .chip-suffix { display: inline-flex; white-space: nowrap; vertical-align: 1px; }
 
+/* ------------------------------------------------------------ the Related tab (slice REL, related.md R178; boards Related, RelatedDark) */
+.context-panel > .panel-body.related { flex: 1 1 0; min-height: 0; overflow: auto; margin: 0 -10px; padding: 0 10px 8px; display: flex; flex-direction: column; }
+.related-header { position: sticky; top: 0; z-index: 1; display: flex; justify-content: flex-end; padding: 0 0 8px; background: var(--panel); flex: none; }
+.related-switch { display: inline-flex; align-items: center; gap: 8px; height: 24px; padding: 0 2px 0 6px; border: 0; border-radius: 6px; background: none; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
+.related-switch:hover { color: var(--text); }
+.related-track { position: relative; width: 28px; height: 16px; border-radius: 8px; background: var(--border); flex: none; }
+.related-track.on { background: var(--text); }
+.related-knob { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 6px; background: var(--bg); box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 25%, transparent); }
+.related-track.on .related-knob { left: 14px; }
+.related-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.related-entry { padding: 7px 8px; margin: 0 -8px; border-radius: 8px; }
+.related-entry:hover { background: var(--hover); }
+.related-entry .link-chip { white-space: normal; align-items: flex-start; padding: 2px 7px; line-height: 1.45; box-sizing: border-box; vertical-align: top; }
+.related-entry .link-chip > .icon, .related-entry .link-chip > svg { margin-top: 3px; flex: none; }
+.related-entry .chip-text { min-width: 0; overflow-wrap: anywhere; }
+.related-entry .chip-text > [data-user-content] { overflow: visible; text-overflow: clip; }
+.related-entry .chip-suffix { display: inline-flex; white-space: nowrap; vertical-align: 1px; }
+.related-linked { display: inline-flex; align-items: center; gap: 4px; height: 18px; margin: 2px 0 0 6px; padding: 0 6px; border-radius: 4px; border: 1px solid var(--border); color: var(--muted); font-size: 11px; font-weight: 600; white-space: nowrap; vertical-align: top; box-sizing: border-box; }
+.related-excerpt { margin: 4px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--muted); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; overflow-wrap: anywhere; }
+.related-empty-box { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 0 12px 80px; text-align: center; color: var(--muted); }
+.related-empty { margin: 0; font-size: 13px; font-weight: 600; color: var(--text); }
+.related-loading { padding: 8px 0; font-size: 13px; color: var(--muted); }
+
 /* Slice MM (docs/acceptance/mindmap.md R91, R92; board Main): the mindmap block, its header and Map / List switch, the
    map drawn from `layoutMindmap` (nodes over SVG elbow connectors), and the hint callout. */
 .mindmap-block, .editor-host .ProseMirror figure.mindmap-block[data-callout] {

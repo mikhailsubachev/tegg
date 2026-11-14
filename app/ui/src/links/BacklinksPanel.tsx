@@ -30,8 +30,9 @@ export type OpenMention = (source: string, occurrence: OccurrenceDto | null, rea
 /** 4B (D-348): a daily route asks by its date, so a virtual note has backlinks too. */
 const panelOf = (path: string, date?: string) => (date ? ipc.dailyBacklinks(date) : ipc.backlinks(path));
 
-/** A source chip (R104 row 5): a reference to the source note (D-929: ⏎ on it is the mode's click). */
-function BacklinkChip({ source, open, children, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { source: string; open: () => void; 'aria-description'?: string }) {
+/** A source chip (R104 row 5): a reference to the source note (D-929: ⏎ on it is the mode's click). Slice REL's
+ *  Related entries use the same chip (v1-related §3.1, D-600/D-633). */
+export function BacklinkChip({ source, open, children, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { source: string; open: () => void; 'aria-description'?: string }) {
   const { props } = useReference({ target: { path: source.normalize('NFC'), fragment: null, kind: 'note' }, kind: 'chip', open }, { description: rest['aria-description'] });
   return <a {...rest} {...props}>{children}</a>;
 }

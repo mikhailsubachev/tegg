@@ -519,7 +519,7 @@ pub struct LastOpenedDto {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct RightPanelDto {
     pub open: bool,
-    /// `backlinks` or `graph` (a stored `outline`, from before D-1675, shows Backlinks).
+    /// `backlinks`, `related` or `graph` (a stored `outline`, from before D-1675, shows Backlinks).
     pub tab: String,
     /// D-634: the panel's width in px (240…480); absent until the user resizes it, read as 288.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -599,6 +599,37 @@ pub struct UiStateDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub outline_rail: Option<bool>,
+    /// Slice REL (v1-related §4, D-1695): `{ showLinked }`, kept as stored (the UI reads only `showLinked === true`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "{ showLinked?: unknown }")]
+    pub related: Option<serde_json::Value>,
+}
+
+// Slice REL (v1-related §2): `index_related`'s answer. `review`, `status`, `due`, `completed` are the chip fields of
+// D-633; `score` (−bm25, higher is better) and `shared` (distinct signature stems) are not shown.
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct RelatedEntryDto {
+    pub path: String,
+    pub title: String,
+    #[serde(rename = "type")]
+    #[ts(rename = "type")]
+    pub type_key: String,
+    pub review: Option<String>,
+    pub status: Option<String>,
+    pub due: Option<String>,
+    pub completed: Option<String>,
+    pub linked: bool,
+    pub excerpt: Option<String>,
+    pub score: f64,
+    pub shared: u32,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct RelatedDto {
+    pub entries: Vec<RelatedEntryDto>,
+    // `short` when the open object has fewer than 5 distinct stems, else null.
+    #[ts(type = "'short' | null")]
+    pub reason: Option<String>,
 }
 
 /// Slice Q (v1-queries §4.6): machine-local state of the Queries page.
@@ -1128,7 +1159,7 @@ fn yes() -> bool {
 
 impl Default for UiStateDto {
     fn default() -> Self {
-        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None, type_column_widths: None, vaults: None, queries: None, outline_rail: None }
+        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None, type_column_widths: None, vaults: None, queries: None, outline_rail: None, related: None }
     }
 }
 
@@ -1594,6 +1625,8 @@ pub fn typescript() -> String {
         PlanWarningDto::decl(),
         MergeConflictDto::decl(),
         JobPlanDto::decl(),
+        RelatedEntryDto::decl(),
+        RelatedDto::decl(),
     ];
     let mut out = String::from("// Generated from app/src-tauri/src/dto.rs by ts-rs. Do not edit: run\n// `UPDATE_TYPES=1 cargo test --manifest-path app/src-tauri/Cargo.toml types_file_is_current`.\n\n");
     for d in decls {

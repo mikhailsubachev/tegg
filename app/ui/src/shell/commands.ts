@@ -92,6 +92,10 @@ export type ShellActions = {
   graphStatus?: () => GraphStatus | null;
   /** Slice G2 (FR-NAV-05 AC-2, D-918): opens the Context panel on the Graph tab, focus on `Depth and filters`. */
   showLocalGraph?: () => void;
+  /** Slice REL (R183, FR-NAV-05 AC-6): opens the Context panel on the Related tab, focus on the first entry (else the switch). */
+  showRelated?: () => void;
+  /** Slice REL (R183): flips `Show linked notes` (one `ui_state_set`); never opens the panel. */
+  toggleRelatedLinked?: () => void;
   /** Slice PIN (v1-pinned §3.4, R136): the current route's pin state (null: nothing pinnable here), pin or unpin it, and
    *  move the focused pinned row; whether a pinned row has the focus (D-1395). */
   pinStatus?: () => { pinned: boolean; disabled: string | null } | null;
@@ -142,7 +146,9 @@ export type ShellContext = {
   /** The current route (3D: R13 commands depend on it); `param` is the type key or note path. */
   route?: { id: string; param?: string; key?: string; type?: string; date?: string; path?: string | null; review?: unknown; hasFrontmatter?: boolean } | null;
   /** Slice G2 (D-1045): the right panel as drawn on the current route. */
-  panel?: { open: boolean; tab: 'backlinks' | 'graph' };
+  panel?: { open: boolean; tab: 'backlinks' | 'related' | 'graph' };
+  /** Slice REL (R183): the stored `Show linked notes` choice; `related.toggleLinked`'s title follows it. */
+  related?: { showLinked: boolean };
 };
 
 export type Command = {
@@ -403,6 +409,11 @@ export function commands(ctx: ShellContext): Command[] {
   }
   if (ctx.route?.id === 'note/<path>' || ctx.route?.id === 'new/<type>' || dailyDate) {
     list.push({ id: 'panel.backlinks', title: 'commands.showBacklinks', section: 'view', needsVault: true, run: (c) => a(c)?.showBacklinks?.() });
+    // Slice REL (related.md R183, FR-UX-03 AC-48): no shortcuts; the toggle's title follows the stored choice.
+    list.push(
+      { id: 'panel.related', title: 'cmd.related.show', section: 'view', needsVault: true, run: (c) => a(c)?.showRelated?.() },
+      { id: 'related.toggleLinked', title: ctx.related?.showLinked ? 'cmd.related.hideLinked' : 'cmd.related.showLinked', section: 'view', needsVault: true, run: (c) => a(c)?.toggleRelatedLinked?.() },
+    );
     // Slice G2 (FR-NAV-05 AC-2, FR-UX-03 AC-21): no shortcut.
     list.push({ id: 'panel.graph', title: 'cmd.graph.showLocal', section: 'view', needsVault: true, run: (c) => a(c)?.showLocalGraph?.() });
     // Slice OL (outline.md R175, D-1617, D-1618; D-1675: no `Show outline`, no fold commands).

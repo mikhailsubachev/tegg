@@ -1658,6 +1658,17 @@ export const en: Catalog = {
   'graph.panel.noFile': 'The graph appears once this note is saved.',
   'graph.panel.inFullGraph': 'In full graph',
   'cmd.graph.showLocal': 'Show local graph',
+  // Slice REL (related.md R183, NFR-OTH-02 AC-20): no plurals.
+  'related.tab': 'Related',
+  'related.list': 'Related notes',
+  'related.showLinked': 'Show linked notes',
+  'related.linked': 'Linked',
+  'related.linkedDescription': 'Linked with this note',
+  'related.empty': 'No related notes',
+  'related.loading': 'Loading…',
+  'cmd.related.show': 'Show related',
+  'cmd.related.showLinked': 'Related: Show linked notes',
+  'cmd.related.hideLinked': 'Related: Hide linked notes',
   // ------------------------------------------------------------------ slice Q (queries.md R145, v1-queries §4.5)
   'route.queries': 'Queries',
   'route.query': 'Query',

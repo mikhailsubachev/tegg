@@ -13,6 +13,7 @@ import { ImportStatus } from '../import/ImportStatus';
 import { NotUpdatedEntry } from '../jobs/notUpdated';
 import { BacklinksPanel, useBacklinkCount, type OpenMention } from '../links/BacklinksPanel';
 import { GraphPanel, type GraphPanelProps } from '../graph/GraphPanel';
+import { RelatedPanel, type RelatedPanelProps } from '../related/RelatedPanel';
 import { localDate } from '../zone';
 import { longDate } from '../daily/Calendar';
 import { PANEL_TABS, ROUTES, SHORTCUTS, showDue } from './registry';
@@ -367,10 +368,12 @@ export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, 
   );
 }
 
-export function ContextPanel({ tab, onTab, backlinks, graph, width, room, limits, onWidth }: {
-  tab: string; onTab: (t: 'backlinks' | 'graph') => void;
+export function ContextPanel({ tab, onTab, backlinks, related, graph, width, room, limits, onWidth }: {
+  tab: string; onTab: (t: 'backlinks' | 'related' | 'graph') => void;
   /** 4A: the Backlinks tab's content (FR-LNK-01). */
   backlinks?: { path: string; date?: string; types: TypeDefDto[]; refresh: number; onOpen: OpenMention; focusFirst: number };
+  /** Slice REL (v1-related §3.1): the Related tab's content. */
+  related?: RelatedPanelProps;
   /** G2 (v1-graph §15.2): the Graph tab's content; its canvas follows the drawn width. */
   graph?: Omit<GraphPanelProps, 'width'>;
   /** D-634: the stored width (clamped to the limits), the room the centre pane leaves, [min, max, default], and the
@@ -409,10 +412,23 @@ export function ContextPanel({ tab, onTab, backlinks, graph, width, room, limits
           if (d && e.clientX !== d.x) onWidth(clamp(d.w + d.x - e.clientX));
         }}
         onPointerCancel={() => { drag.current = null; setDragging(null); }} />
-      <div className="panel-tabs" role="tablist">
+      {/* Slice REL (D-1754, related.md FR-UX-03 AC-49): one Tab stop, the selected tab (the WAI-ARIA tabs pattern), so ⇧Tab
+          from a tab panel reaches its own tab; ←/→, Home and End move to and select another tab. */}
+      <div className="panel-tabs" role="tablist" onKeyDown={(e) => {
+        const at = PANEL_TABS.findIndex((p) => p.id === (document.activeElement as HTMLElement | null)?.dataset.tab);
+        if (at < 0 || e.metaKey || e.altKey || e.ctrlKey || e.shiftKey) return;
+        const n = PANEL_TABS.length;
+        const to = e.key === 'ArrowRight' ? (at + 1) % n : e.key === 'ArrowLeft' ? (at + n - 1) % n : e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : -1;
+        if (to < 0) return;
+        e.preventDefault();
+        const next = PANEL_TABS[to];
+        (e.currentTarget.querySelector(`[data-tab="${next.id}"]`) as HTMLElement | null)?.focus();
+        if (next.id !== current.id) onTab(next.id);
+      }}>
         {PANEL_TABS.map((p) => (
-          <button tabIndex={0}
+          <button tabIndex={p.id === current.id ? 0 : -1}
             key={p.id}
+            data-tab={p.id}
             type="button"
             role="tab"
             aria-selected={p.id === current.id}
@@ -429,9 +445,11 @@ export function ContextPanel({ tab, onTab, backlinks, graph, width, room, limits
       </div>
       {current.id === 'backlinks' && current.status.built && backlinks
         ? <BacklinksPanel key="backlinks" {...backlinks} onCount={setCount} />
-        : current.id === 'graph' && current.status.built && graph
-          ? <GraphPanel key="graph" {...graph} width={drawn} />
-          : <Placeholder def={current} compact />}
+        : current.id === 'related' && current.status.built && related
+          ? <RelatedPanel key="related" {...related} />
+          : current.id === 'graph' && current.status.built && graph
+            ? <GraphPanel key="graph" {...graph} width={drawn} />
+            : <Placeholder def={current} compact />}
       {current.id !== 'backlinks' && backlinks && <BadgeCount path={backlinks.path} date={backlinks.date} refresh={backlinks.refresh} onCount={setCount} />}
     </aside>
   );

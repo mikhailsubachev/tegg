@@ -21,6 +21,7 @@ import type { PresetOpDto } from '../src/graph/types';
 import { handle as handleSearch } from './fake-search';
 import { handle as handlePins, type PinOpDto } from './fake-pins';
 import { handle as handleQueries } from './fake-queries';
+import { handle as handleRelated, type RelatedDto } from './fake-related';
 import { fakeImportMain, handleImport, type FakeImportHandle, type FakeImportOptions } from './fake-import';
 
 /** `bin` (6A, ms6-trash-media §9.2): binary vault files (images, PDFs), vault path → base64. */
@@ -30,7 +31,9 @@ export type UiStateDto = {
   theme: 'system' | 'light' | 'dark';
   sidebarOpen: boolean;
   /** `outline` only to seed a tab stored before D-1675 (it shows Backlinks). */
-  rightPanel: { open: boolean; tab: 'backlinks' | 'outline' | 'graph' };
+  rightPanel: { open: boolean; tab: 'backlinks' | 'outline' | 'graph' | 'related'; width?: number };
+  /** Slice REL (v1-related §4, D-1695): the `Show linked notes` switch, kept as stored (only `showLinked === true` is on). */
+  related?: { showLinked?: unknown };
   /** Attribute strip expanded (ms3-shell §11.2, D-147); a missing field reads as `true`. */
   propertiesOpen?: boolean;
   /** ms5-tasks §6.3 (D-481): the Tasks page's remembered state. */
@@ -188,6 +191,17 @@ export type FakeCoreHandle = FakeImportHandle & {
   /** While on, `query_run` answers `indexReady: false` with no rows (the first index build runs); turning it off emits
    *  `index:progress` with `state: 'done'`. */
   queriesNotReady(on: boolean): Promise<void>;
+  // ---------------------------------------------------------------- slice REL (v1-related §6)
+  /** The `index_related` calls in order, each with its arguments and when it was asked (`calls()` has them too). */
+  relatedCalls(): Promise<{ path: string; showLinked: boolean; at: number }[]>;
+  /** Answers `index_related` for `path` (and `showLinked`, or both states) with `answer` instead of the data row;
+   *  `null` removes the override. */
+  relatedAnswer(path: string, showLinked: boolean | 'both', answer: RelatedDto | null): Promise<void>;
+  /** Later `index_related` answers (or only those for `path`) come after `ms` (page timers, so Playwright's clock drives
+   *  them); 0 removes the delay. */
+  relatedDelay(ms: number, path?: string): Promise<void>;
+  /** While on, `index_related` answers `NotReady`; turning it off emits `index:progress` with `state: 'done'`. */
+  relatedNotReady(on: boolean): Promise<void>;
 };
 /** ms4-jobs §4 (4C). */
 export type SkipReason = 'changed' | 'missing' | 'placeholder' | 'readOnly' | 'io';
@@ -357,6 +371,8 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
   await page.exposeFunction('__teggQueries', (cmd: string, args: unknown, files: Record<string, string>, invalid: string[], ready: boolean) =>
     handleQueries(cmd, args, files, invalid, ready)).catch(() => {});
   // Search page redesign (v1-search §2): `index_search` in Node (fake-search.ts) with the real @tegg/doc.
+  // Slice REL (v1-related §6): `index_related` from the fixture README's expected lists in Node (fake-related.ts).
+  await page.exposeFunction('__teggRelated', (cmd: string, args: unknown, files: Record<string, string>) => handleRelated(cmd, args, files)).catch(() => {});
   await page.exposeFunction('__teggSearch', (cmd: string, args: unknown, files: Record<string, string>) => handleSearch(cmd, args, files)).catch(() => {});
   // #112: `index_tags` over unchanged files is answered once. The app asks it several times at start (every `useTags`
   // surface mounted before the first answer, and the shell), and each answer parses every file in Node: ~270 ms for the
@@ -498,6 +514,30 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
     importRelease: () => ev(() => { (window as any).__teggFake.importRelease(); }),
     importFail: (fl) => page.evaluate((x) => { (window as any).__teggFake.importState.fail = x; }, fl),
     importQueued: (on) => page.evaluate((q) => { (window as any).__teggFake.importState.queued = q; }, on),
+    // Slice REL (v1-related §6).
+    relatedCalls: () => ev(() => (window as any).__teggFake.calls.filter((c: any) => c.cmd === 'index_related')
+      .map((c: any) => ({ path: c.args?.path, showLinked: c.args?.showLinked, at: c.at }))),
+    relatedAnswer: (path, showLinked, answer) => page.evaluate(([p, s, a]) => {
+      const f = (window as any).__teggFake;
+      const o = (f.relatedOverrides ??= {});
+      for (const v of s === 'both' ? [false, true] : [s]) {
+        const k = `${String(p).normalize('NFC')}|${v}`;
+        if (a === null) delete o[k];
+        else o[k] = a;
+      }
+    }, [path, showLinked, answer === null ? null : JSON.parse(JSON.stringify(answer))] as const).then(() => undefined),
+    relatedDelay: (ms, path) => page.evaluate(([m, p]) => {
+      const f = (window as any).__teggFake;
+      if (p) (f.relatedDelayFor ??= {})[String(p).normalize('NFC')] = m;
+      else f.relatedDelayMs = m;
+    }, [ms, path ?? null] as const).then(() => undefined),
+    relatedNotReady: (on) => page.evaluate((o) => {
+      const f = (window as any).__teggFake;
+      const was = !!f.relatedNotReady;
+      f.relatedNotReady = o;
+      if (was && !o) return f.emit('index:progress', { done: 1, total: 1, state: 'done' });
+      return undefined;
+    }, on).then(() => undefined),
     queriesNotReady: (on) => page.evaluate((o) => {
       const f = (window as any).__teggFake;
       const was = !!f.queriesNotReady;
@@ -541,6 +581,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     'graph_neighbourhood', // G1 (v1-graph §2): read-only, no recency
     'graph_presets_get', // G3 (v1-graph §16.2): read-only
     'pins_get', // slice PIN (v1-pinned §2): read-only
+    'index_related', // slice REL (v1-related §2, §6): read-only, no recency
     'queries_list', 'query_get', 'query_run', 'query_usages', // slice Q (v1-queries §2): read-only
     'index_path_by_id', // slice P (v1-previews §2): read-only
     'nav_swipe_scroll', // D-1511 (ms3-shell §12.2): reads the macOS setting
@@ -1966,6 +2007,19 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       }
       if (r.error) throw r.error.disk ? { ...r.error, disk: { ...r.error.disk, version: state.ver(PINS) } } : r.error;
       return { ...r.result, version: state.ver(PINS) };
+    },
+    // Slice REL (v1-related §2, §6): the expected lists in Node; `relatedDelay` / `relatedNotReady` / `relatedAnswer` here.
+    index_related: async (a) => {
+      const path = String(a?.path ?? '').normalize('NFC');
+      const show = !!a?.showLinked;
+      const ms = Number((x.relatedDelayFor ?? {})[path] ?? x.relatedDelayMs ?? 0);
+      if (ms > 0) await new Promise((r) => setTimeout(r, ms));
+      if (x.relatedNotReady) throw err('NotReady', 'fake: the index is being built');
+      if (!state.vault) throw err('NoVault', 'fake: no vault');
+      const override = (x.relatedOverrides ?? {})[`${path}|${show}`] ?? null;
+      const r = await w.__teggRelated('index_related', { path, showLinked: show, override }, state.vault.files);
+      if (r.error) throw r.error;
+      return r.result;
     },
     // Slice Q (v1-queries §2, §5): the queries twin in Node; versions and base checks here (they need the mtimes).
     queries_list: async () => {
