@@ -728,3 +728,21 @@ RT-1…RT-15 of the test author, accepted as proposed (owner, 2026-11-14: "Accep
 | D-1744 | **The L6 tours (RT-13).** The tour relaunches on each route (as G2's), with D-1676's filter; AC-32 runs its own copy with the socket monitor (two runs). |
 | D-1745 | **Gate wiring left to the build (RT-14).** The build commit adds the `rust-licences` step and puts `ac_nfr_perf_13.rs` and `ac_related_perf.rs` in the nightly `core-perf-ac` step; the push run carries AC-9's 100 kill cycles and AC-29's 60 s idle wait. |
 | D-1746 | **AC-35's object count (RT-15).** The evaluation command's test also asserts `objects: 39` (the fixture's `rel` rows). |
+
+## 13. Build decisions (D-1747…D-1757, BRD v1.187)
+
+B-1…B-11 of the build, accepted as proposed (owner, 2026-11-14: "Accept all proposals"); B-n → D-(n+1746).
+
+| D | Decision |
+| --- | --- |
+| D-1747 | **AC-4's short-stem cases are Czech only (B-1).** FR-LNK-15 AC-4's `den` / `řeka` cases (stems `dn`, `rk` dropped) run for Czech notes only; under English `stem_en` keeps `den` and `reka`. AC-test change. |
+| D-1748 | **AC-9's core rebuild test lowers the reopened index (B-2).** The test lowers the schema version in the index database that the counting core then reopens, so it really checks one rebuild from 6 to 7. AC-test change. |
+| D-1749 | **AC-8's random vaults use small word groups (B-3).** The AC-8 property's generator draws each note from small disjoint word groups so stems stay under the df ceiling and lists exist; the non-vacuity check stays. AC-test change. |
+| D-1750 | **AC-22's date label follows the test region (B-4).** AC-22 expects the en-US label of the shared chip code (`Fri, Nov 27 · To do`), as a Backlinks chip shows under the test clock's region. AC-test change. |
+| D-1751 | **AC-27 opens Hiking by its route (B-5).** Opening from Search adds a history entry (D-1217), so AC-27 opens Hiking by its route and ⌘[ shows Rozpočet's list again. AC-test change. |
+| D-1752 | **The accented note is opened by its route (B-6).** FR-SYN-06 AC-47 and FR-LNK-15 AC-22 open `Důležité termíny školení` by its route, since Search ranks its unaccented twin first. AC-test change. |
+| D-1753 | **Related re-asks after an own save only when idle (B-7).** While the user types, the editor's maximum-wait autosave writes about every second; Related re-asks 300 ms after an own save only if the page is still saved (`noteApi.pending()` is false), so no request is sent while typing (AC-28). |
+| D-1754 | **The panel's tablist is one Tab stop (B-8).** The right panel's tablist (Backlinks, Related, Graph) is one Tab stop, the selected tab; ←/→/Home/End move to and select a tab (WAI-ARIA tabs). Applies to all panel tabs. |
+| D-1755 | **Related chips have the link role (B-9).** Related chips carry `role="link"` for VoiceOver; Backlinks chips are unchanged. |
+| D-1756 | **`Loading…` is drawn in the frame after 300 ms (B-10).** `Loading…` is drawn in the animation frame after the 300 ms timer, only if the answer hasn't arrived; within AC-30's 300 ms ± 1 frame. |
+| D-1757 | **Document frequencies are kept in memory (B-11).** `Index::related` reads df from a map read once from `rel_vocab` and updated by each write, instead of per-term vocab lookups (about 3× faster on the 20,000-note vault); exact for folded Czech and English stems. |

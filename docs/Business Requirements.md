@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.186, for review                                            |
+| **Document status** | Draft v1.187, for review                                            |
 | **Date**            | 2026-11-14                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -200,6 +200,7 @@
 | v1.184  | 2026-11-14 | Related notes ACs (`docs/acceptance/related.md`): D-1696…D-1724 (AP-1449…AP-1477; owner, "Accept all proposals"): one sentence excerpt with no highlights (D-1696, amends D-1686), one empty state `No related notes` (D-1697, amends D-1685), `Show related` command (D-1698), tab order Backlinks · Related · Graph (D-1699, owner: "Backlinks Related Graph", amends D-1677), the folded Czech stemmer's rules incl. `ct`/`st` → `ck`/`sk` after the fleeting `e` (D-1714, D-1715), NFR-PERF-13 measured in the core at 75 ms (D-1716), a licence allow-list step in `./verify commit` (D-1717), AC-test changes for the Related tab approved (D-1723) |
 | v1.185  | 2026-11-14 | Related notes contract (`docs/contracts/v1-related.md`): D-1725…D-1731 (CP-1…CP-7; owner, "Accept all proposals"): `CC0-1.0` allowed, `cargo tree` offline, ICU root order for ties, the 35 % floor among ≥ 3-stem entries, an AC-test change for FR-UX-03 AC-45, AC-6 tested by counts, the df ceiling never below 2 objects |
 | v1.186  | 2026-11-14 | Related notes red tests (541c3fe7…830b83c1): red-test decisions D-1732…D-1746 (RT-1…RT-15; owner, "Accept all proposals") |
+| v1.187  | 2026-11-14 | Related notes build: D-1747…D-1757 (B-1…B-11; owner, "Accept all proposals"): six AC-test changes (D-1747…D-1752), re-asks only when idle, the panel tablist as one Tab stop with arrow keys, chips with the link role, `Loading…` timing, document frequencies kept in memory |
 
 ---
 
@@ -1760,6 +1761,17 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1744 | The L6 tours (RT-13) (owner, 2026-11-14: "Accept all proposals"; slice REL red tests 541c3fe7…830b83c1) | The tour relaunches on each route (as G2's), with D-1676's filter; AC-32 runs its own copy with the socket monitor (two runs). |
 | D-1745 | Gate wiring left to the build (RT-14) (owner, 2026-11-14: "Accept all proposals"; slice REL red tests 541c3fe7…830b83c1) | The build commit adds the `rust-licences` step and puts `ac_nfr_perf_13.rs` and `ac_related_perf.rs` in the nightly `core-perf-ac` step; the push run carries AC-9's 100 kill cycles and AC-29's 60 s idle wait. |
 | D-1746 | AC-35's object count (RT-15) (owner, 2026-11-14: "Accept all proposals"; slice REL red tests 541c3fe7…830b83c1) | The evaluation command's test also asserts `objects: 39` (the fixture's `rel` rows). |
+| D-1747 | AC-4's short-stem cases are Czech only (B-1) (owner, 2026-11-14: "Accept all proposals"; slice REL build) | FR-LNK-15 AC-4's `den` / `řeka` cases (stems `dn`, `rk` dropped) run for Czech notes only; under English `stem_en` keeps `den` and `reka`. AC-test change. |
+| D-1748 | AC-9's core rebuild test lowers the reopened index (B-2) (owner, 2026-11-14: "Accept all proposals"; slice REL build) | The test lowers the schema version in the index database that the counting core then reopens, so it really checks one rebuild from 6 to 7. AC-test change. |
+| D-1749 | AC-8's random vaults use small word groups (B-3) (owner, 2026-11-14: "Accept all proposals"; slice REL build) | The AC-8 property's generator draws each note from small disjoint word groups so stems stay under the df ceiling and lists exist; the non-vacuity check stays. AC-test change. |
+| D-1750 | AC-22's date label follows the test region (B-4) (owner, 2026-11-14: "Accept all proposals"; slice REL build) | AC-22 expects the en-US label of the shared chip code (`Fri, Nov 27 · To do`), as a Backlinks chip shows under the test clock's region. AC-test change. |
+| D-1751 | AC-27 opens Hiking by its route (B-5) (owner, 2026-11-14: "Accept all proposals"; slice REL build) | Opening from Search adds a history entry (D-1217), so AC-27 opens Hiking by its route and ⌘[ shows Rozpočet's list again. AC-test change. |
+| D-1752 | The accented note is opened by its route (B-6) (owner, 2026-11-14: "Accept all proposals"; slice REL build) | FR-SYN-06 AC-47 and FR-LNK-15 AC-22 open `Důležité termíny školení` by its route, since Search ranks its unaccented twin first. AC-test change. |
+| D-1753 | Related re-asks after an own save only when idle (B-7) (owner, 2026-11-14: "Accept all proposals"; slice REL build) | While the user types, the editor's maximum-wait autosave writes about every second; Related re-asks 300 ms after an own save only if the page is still saved (`noteApi.pending()` is false), so no request is sent while typing (AC-28). |
+| D-1754 | The panel's tablist is one Tab stop (B-8) (owner, 2026-11-14: "Accept all proposals"; slice REL build) | The right panel's tablist (Backlinks, Related, Graph) is one Tab stop, the selected tab; ←/→/Home/End move to and select a tab (WAI-ARIA tabs). Applies to all panel tabs. |
+| D-1755 | Related chips have the link role (B-9) (owner, 2026-11-14: "Accept all proposals"; slice REL build) | Related chips carry `role="link"` for VoiceOver; Backlinks chips are unchanged. |
+| D-1756 | `Loading…` is drawn in the frame after 300 ms (B-10) (owner, 2026-11-14: "Accept all proposals"; slice REL build) | `Loading…` is drawn in the animation frame after the 300 ms timer, only if the answer hasn't arrived; within AC-30's 300 ms ± 1 frame. |
+| D-1757 | Document frequencies are kept in memory (B-11) (owner, 2026-11-14: "Accept all proposals"; slice REL build) | `Index::related` reads df from a map read once from `rel_vocab` and updated by each write, instead of per-term vocab lookups (about 3× faster on the 20,000-note vault); exact for folded Czech and English stems. |
 
 ---
 
