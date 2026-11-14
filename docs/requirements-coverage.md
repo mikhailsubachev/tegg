@@ -397,6 +397,8 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-HOM-02 | M | Pinned objects and saved queries can be added to Home and the sidebar. | D-376: with saved queries; sidebar only, Home dropped (D-800) |
 | FR-EDT-11 | S | Outline (table of contents) of the current note's headings in the side panel. | D-376 ; slice OL, ACs `docs/acceptance/outline.md` (D-1600…D-1627) |
 | FR-EDT-16 | S | Outline rail on the note's right edge; hover or ⌘J opens the outline card. | D-1600 (new, 2026-11-13); slice OL with FR-EDT-11 |
+| FR-LNK-15 | S | Related notes: objects with similar text, in the right panel's `Related` tab. | D-1677 (new, 2026-11-14); slice REL, built now as 0.3.0 (D-1678); plan `docs/plans/related-notes-plan.md` |
+| NFR-PERF-13 | S | Related notes list ready < 100 ms p95 on the 20,000-note reference vault. | Added by D-1687; slice REL with FR-LNK-15 |
 | FR-SET-04 | S | Keyboard shortcuts customization, including the global hotkeys (FR-CAP-05). | D-376: the D-71 hotkey-failure display stays in MS5 with FR-CAP-05 |
 | FR-ATT-03 | M | Image resize (stored as `\|width`), alignment, caption (stored as alt text), click to open full-size. | D-376 |
 | FR-ATT-09 | M | Deleting a note never deletes the Image/PDF objects it uses. The "Unused attachments" tool (FR-ATT-04) lists I… | D-376 |
