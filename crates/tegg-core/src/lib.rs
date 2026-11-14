@@ -1196,7 +1196,7 @@ pub use tags4d::{TagFileRef, TagObjectRow, TagRow, TagUsage};
 // ------------------------------------------------------------------------------------------------ slice G1
 // docs/contracts/v1-graph.md §1, §2: the local graph's neighbourhood query (`tegg_index::graph`, `graphg1.rs`).
 mod graphg1;
-// docs/contracts/v1-related.md §1.11 (slice REL): `index_related` (compile-only stubs until the build).
+// docs/contracts/v1-related.md §1.11 (slice REL): `index_related`.
 mod related;
 pub use related::RelatedError;
 pub use tegg_index::{RelatedEntry, RelatedList, RelatedParams, RelatedReason};

@@ -1621,7 +1621,7 @@ static COLLATORS: LazyLock<Mutex<HashMap<String, Arc<Coll>>>> = LazyLock::new(||
 
 /// ICU4X collation for `locale`, strength primary, numeric on: the twin of `Intl.Collator(locale, { sensitivity:
 /// 'base', numeric: true })` (D-122, D-1450). An unknown locale collates as the root.
-fn collator(locale: &str) -> Arc<Coll> {
+pub(crate) fn collator(locale: &str) -> Arc<Coll> {
     let mut m = lock(&COLLATORS);
     if let Some(c) = m.get(locale) {
         return c.clone();

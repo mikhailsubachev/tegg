@@ -72,11 +72,11 @@ struct Frontmatter {
 }
 
 static CLOSE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?m)^(?:---|\.\.\.)[ \t]*(?:\r?\n|$)").unwrap());
-static WIKILINK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(!?)\[\[([^\[\]\n]+?)\]\]").unwrap());
+pub(crate) static WIKILINK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(!?)\[\[([^\[\]\n]+?)\]\]").unwrap());
 static PIPE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\\?\|").unwrap());
 static TAG_RUN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[\p{L}\p{M}\p{N}_\-/]+").unwrap());
 static TAG_NON_DIGIT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[\p{L}_\-/]").unwrap());
-static COMMENT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?s)%%.*?%%").unwrap());
+pub(crate) static COMMENT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?s)%%.*?%%").unwrap());
 
 pub fn nfc(s: &str) -> String {
     s.nfc().collect()
@@ -380,7 +380,7 @@ fn excluded(text: &str, body_start: usize) -> (Vec<Range<usize>>, Vec<Range<usiz
 /// paragraph; it ends at a line of ≤ 3 spaces + at least as many `$` + spaces, or at the end of
 /// the note. Top level only, outside fenced code: inside lists and quotes the rules depend on
 /// container continuation, which this pre-pass doesn't model (see FINDINGS.md, P3).
-fn math_blocks(body: &str) -> Vec<Range<usize>> {
+pub(crate) fn math_blocks(body: &str) -> Vec<Range<usize>> {
     let mut out = Vec::new();
     let mut open: Option<(usize, usize)> = None; // (start, fence length)
     let mut fence: Option<(char, usize)> = None; // code fence
