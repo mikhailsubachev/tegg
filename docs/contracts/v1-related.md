@@ -706,3 +706,25 @@ fixture words, FTS5's bm25 with k1 = 1.2, b = 0.75 and column weights 3 / 1) rep
   {Včelstvo, Prohlídka}); both readings of CP-3 give the same lists.
 
 The only discrepancy found is CP-6 (AC-6's wording). The twins are not in the repository (D-1714: a check, not code).
+
+## 12. Red-test decisions (D-1732…D-1746, BRD v1.186; red tests 541c3fe7…830b83c1)
+
+RT-1…RT-15 of the test author, accepted as proposed (owner, 2026-11-14: "Accept all proposals"); RT-n → D-(n+1731).
+
+| D | Decision |
+| --- | --- |
+| D-1732 | **Compile-only Rust stubs by the test author (RT-1).** The compile-only stubs of commit 541c3fe7 (written by the test author, not the main session as D-1398 says) stay; the build replaces them. |
+| D-1733 | **AC-4's `.tegg/` clause is not tested (RT-2).** The stop-word lists are compiled in (`&'static`), so no file can change them; FR-LNK-15 AC-4's "no file in `.tegg/` changes either list" has no test of its own. |
+| D-1734 | **The English stop-word list is checked exactly (RT-3).** FR-LNK-15 AC-4 asserts the English list equals Snowball's English list without its apostrophe entries (constant `SNOWBALL_EN` in the test); the build verifies that constant against the Snowball source and reports any difference. |
+| D-1735 | **AC-11's `souvisí` variant (RT-4).** The variant removes the paragraph `Patří k [[Zahrada na jaře]].` and adds the relation property. |
+| D-1736 | **AC-9's rebuild at L4 (RT-5).** "Rebuilds once" is one `IndexProgress Done` with every note read (`CountingFs`); "no second rebuild" is fewer `.md` reads than notes; the version is `PRAGMA user_version` ≥ 7. |
+| D-1737 | **AC-9's kill test reads the tables with `sqlite3` (RT-6).** After each SIGKILL the test checks `count(fts) = count(rel)` and that every `rel` rowid is in `notes`, by the contract's table names. |
+| D-1738 | **AC-8 nightly samples objects (RT-7).** On the generated vault, AC-8 checks the changed objects plus 100 chosen by the seed, not every object. |
+| D-1739 | **AC-23's visible end (RT-8).** Checked as computed `-webkit-line-clamp: 3`, `overflow: hidden` and the text clipped, not the drawn ellipsis. |
+| D-1740 | **Fake-core override entries (RT-9).** The fake core keeps test override entries without a file (AC-22's long title, AC-23's long sentence); contract §6's "entries whose file is missing are dropped" applies to the fixture's data rows only. |
+| D-1741 | **FR-UX-03 AC-48's audit (RT-10).** Every control in the Related tab has a `data-command` or is a Tab stop, and excerpts are not controls; FR-UX-03 AC-7 (no shortcut clashes) is checked at L1. |
+| D-1742 | **AC-26's scroll on Back (RT-11).** The test overrides Rozpočet's answer with 10 entries so the tab can scroll. |
+| D-1743 | **AC-22's task icon (RT-12).** The To do box is asserted as a task icon other than `file-text` or `calendar`; the contract names no icon. |
+| D-1744 | **The L6 tours (RT-13).** The tour relaunches on each route (as G2's), with D-1676's filter; AC-32 runs its own copy with the socket monitor (two runs). |
+| D-1745 | **Gate wiring left to the build (RT-14).** The build commit adds the `rust-licences` step and puts `ac_nfr_perf_13.rs` and `ac_related_perf.rs` in the nightly `core-perf-ac` step; the push run carries AC-9's 100 kill cycles and AC-29's 60 s idle wait. |
+| D-1746 | **AC-35's object count (RT-15).** The evaluation command's test also asserts `objects: 39` (the fixture's `rel` rows). |

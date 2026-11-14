@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.185, for review                                            |
+| **Document status** | Draft v1.186, for review                                            |
 | **Date**            | 2026-11-14                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -199,6 +199,7 @@
 | v1.183  | 2026-11-14 | Related notes, slice REL (`docs/plans/related-notes-plan.md`): D-1677…D-1695 (AP-1430…AP-1448; owner: four answers in the owner's words, the others "Accept the rest"): new FR-LNK-15 (a `Related` tab in the right panel: lexical matching by stem, Czech and English stemmers on folded text so `důležité` = `dulezite`, flat list as Backlinks, a `Show linked notes` switch off by default, Tag, Image and PDF objects out, Daily Notes in), new NFR-PERF-13 (< 100 ms p95 on the 20,000-note vault), built now and released as 0.3.0, the owner's `Related` board before the ACs |
 | v1.184  | 2026-11-14 | Related notes ACs (`docs/acceptance/related.md`): D-1696…D-1724 (AP-1449…AP-1477; owner, "Accept all proposals"): one sentence excerpt with no highlights (D-1696, amends D-1686), one empty state `No related notes` (D-1697, amends D-1685), `Show related` command (D-1698), tab order Backlinks · Related · Graph (D-1699, owner: "Backlinks Related Graph", amends D-1677), the folded Czech stemmer's rules incl. `ct`/`st` → `ck`/`sk` after the fleeting `e` (D-1714, D-1715), NFR-PERF-13 measured in the core at 75 ms (D-1716), a licence allow-list step in `./verify commit` (D-1717), AC-test changes for the Related tab approved (D-1723) |
 | v1.185  | 2026-11-14 | Related notes contract (`docs/contracts/v1-related.md`): D-1725…D-1731 (CP-1…CP-7; owner, "Accept all proposals"): `CC0-1.0` allowed, `cargo tree` offline, ICU root order for ties, the 35 % floor among ≥ 3-stem entries, an AC-test change for FR-UX-03 AC-45, AC-6 tested by counts, the df ceiling never below 2 objects |
+| v1.186  | 2026-11-14 | Related notes red tests (541c3fe7…830b83c1): red-test decisions D-1732…D-1746 (RT-1…RT-15; owner, "Accept all proposals") |
 
 ---
 
@@ -1744,6 +1745,21 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1729 | The licence check reads `cargo tree` offline (CP-5) (owner, 2026-11-14: "Accept all proposals"; slice REL contract `docs/contracts/v1-related.md` §10) | D-1717's step reads `cargo tree --offline --locked -p tegg-index -e normal,build` instead of `cargo metadata`, which needs the network. |
 | D-1730 | AC-6's stop words are tested by count (CP-6) (owner, 2026-11-14: "Accept all proposals"; slice REL contract `docs/contracts/v1-related.md` §10) | FR-LNK-15 AC-6's "no stop word of either list" is wrong for Hvězda 01 (`z`); its red test asserts the stop-word counts (0,0), (1,0), (0,0) and the conclusion (Czech). The AC text stays. |
 | D-1731 | The document-frequency ceiling never goes below 2 objects (CP-7) (owner, 2026-11-14: "Accept all proposals"; slice REL contract `docs/contracts/v1-related.md` §10) | A stem is skipped when its df > max(10 % of N, 2) (`RelatedParams.df_floor = 2`), so vaults of fewer than 20 objects still get Related lists. Amends D-1685 / R181 rule 2. |
+| D-1732 | Compile-only Rust stubs by the test author (RT-1) (owner, 2026-11-14: "Accept all proposals"; slice REL red tests 541c3fe7…830b83c1) | The compile-only stubs of commit 541c3fe7 (written by the test author, not the main session as D-1398 says) stay; the build replaces them. |
+| D-1733 | AC-4's `.tegg/` clause is not tested (RT-2) (owner, 2026-11-14: "Accept all proposals"; slice REL red tests 541c3fe7…830b83c1) | The stop-word lists are compiled in (`&'static`), so no file can change them; FR-LNK-15 AC-4's "no file in `.tegg/` changes either list" has no test of its own. |
+| D-1734 | The English stop-word list is checked exactly (RT-3) (owner, 2026-11-14: "Accept all proposals"; slice REL red tests 541c3fe7…830b83c1) | FR-LNK-15 AC-4 asserts the English list equals Snowball's English list without its apostrophe entries (constant `SNOWBALL_EN` in the test); the build verifies that constant against the Snowball source and reports any difference. |
+| D-1735 | AC-11's `souvisí` variant (RT-4) (owner, 2026-11-14: "Accept all proposals"; slice REL red tests 541c3fe7…830b83c1) | The variant removes the paragraph `Patří k [[Zahrada na jaře]].` and adds the relation property. |
+| D-1736 | AC-9's rebuild at L4 (RT-5) (owner, 2026-11-14: "Accept all proposals"; slice REL red tests 541c3fe7…830b83c1) | "Rebuilds once" is one `IndexProgress Done` with every note read (`CountingFs`); "no second rebuild" is fewer `.md` reads than notes; the version is `PRAGMA user_version` ≥ 7. |
+| D-1737 | AC-9's kill test reads the tables with `sqlite3` (RT-6) (owner, 2026-11-14: "Accept all proposals"; slice REL red tests 541c3fe7…830b83c1) | After each SIGKILL the test checks `count(fts) = count(rel)` and that every `rel` rowid is in `notes`, by the contract's table names. |
+| D-1738 | AC-8 nightly samples objects (RT-7) (owner, 2026-11-14: "Accept all proposals"; slice REL red tests 541c3fe7…830b83c1) | On the generated vault, AC-8 checks the changed objects plus 100 chosen by the seed, not every object. |
+| D-1739 | AC-23's visible end (RT-8) (owner, 2026-11-14: "Accept all proposals"; slice REL red tests 541c3fe7…830b83c1) | Checked as computed `-webkit-line-clamp: 3`, `overflow: hidden` and the text clipped, not the drawn ellipsis. |
+| D-1740 | Fake-core override entries (RT-9) (owner, 2026-11-14: "Accept all proposals"; slice REL red tests 541c3fe7…830b83c1) | The fake core keeps test override entries without a file (AC-22's long title, AC-23's long sentence); contract §6's "entries whose file is missing are dropped" applies to the fixture's data rows only. |
+| D-1741 | FR-UX-03 AC-48's audit (RT-10) (owner, 2026-11-14: "Accept all proposals"; slice REL red tests 541c3fe7…830b83c1) | Every control in the Related tab has a `data-command` or is a Tab stop, and excerpts are not controls; FR-UX-03 AC-7 (no shortcut clashes) is checked at L1. |
+| D-1742 | AC-26's scroll on Back (RT-11) (owner, 2026-11-14: "Accept all proposals"; slice REL red tests 541c3fe7…830b83c1) | The test overrides Rozpočet's answer with 10 entries so the tab can scroll. |
+| D-1743 | AC-22's task icon (RT-12) (owner, 2026-11-14: "Accept all proposals"; slice REL red tests 541c3fe7…830b83c1) | The To do box is asserted as a task icon other than `file-text` or `calendar`; the contract names no icon. |
+| D-1744 | The L6 tours (RT-13) (owner, 2026-11-14: "Accept all proposals"; slice REL red tests 541c3fe7…830b83c1) | The tour relaunches on each route (as G2's), with D-1676's filter; AC-32 runs its own copy with the socket monitor (two runs). |
+| D-1745 | Gate wiring left to the build (RT-14) (owner, 2026-11-14: "Accept all proposals"; slice REL red tests 541c3fe7…830b83c1) | The build commit adds the `rust-licences` step and puts `ac_nfr_perf_13.rs` and `ac_related_perf.rs` in the nightly `core-perf-ac` step; the push run carries AC-9's 100 kill cycles and AC-29's 60 s idle wait. |
+| D-1746 | AC-35's object count (RT-15) (owner, 2026-11-14: "Accept all proposals"; slice REL red tests 541c3fe7…830b83c1) | The evaluation command's test also asserts `objects: 39` (the fixture's `rel` rows). |
 
 ---
 
