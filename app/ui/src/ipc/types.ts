@@ -243,7 +243,7 @@ export type LastOpenedDto = { path: string, id: string | null, };
 export type RecentVaultDto = { name: string, path: string, exists: boolean, };
 export type RightPanelDto = { open: boolean, 
 /**
- * `backlinks` or `graph` (a stored `outline`, from before D-1675, shows Backlinks).
+ * `backlinks`, `related` or `graph` (a stored `outline`, from before D-1675, shows Backlinks).
  */
 tab: string, 
 /**
@@ -325,7 +325,11 @@ queries?: QueriesUiDto,
 /**
  * Slice OL (v1-outline §5, D-1601, FR-SET-02 AC-10): `Show outline rail`; missing reads as true.
  */
-outlineRail?: boolean, };
+outlineRail?: boolean, 
+/**
+ * Slice REL (v1-related §4, D-1695): `{ showLinked }`, kept as stored (the UI reads only `showLinked === true`).
+ */
+related?: { showLinked?: unknown }, };
 export type LinkTargetDto = { target: string, 
 /**
  * `note`, `daily`, `date-missing` or `unresolved`.
@@ -560,4 +564,6 @@ export type JobPlanDto = { jobId: number, kind: string, files: number, templates
  * ms4-jobs §14.9.2 (4E-2): objects of the type with the key but no value (FR-TYP-04 AC-6).
  */
 empty: number, renames: Array<RenamePairDto>, trashes: Array<string>, warnings: Array<PlanWarningDto>, conflicts: Array<MergeConflictDto>, };
+export type RelatedEntryDto = { path: string, title: string, type: string, review: string | null, status: string | null, due: string | null, completed: string | null, linked: boolean, excerpt: string | null, score: number, shared: number, };
+export type RelatedDto = { entries: Array<RelatedEntryDto>, reason: 'short' | null, };
 export type TypeDefDto = TypeDto;

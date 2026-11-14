@@ -15,7 +15,7 @@ export type RouteDef = {
   reqs: string[];
   design: string | null;
 };
-export type TabDef = { id: 'backlinks' | 'graph'; name: string; status: RouteDef['status']; reqs: string[] };
+export type TabDef = { id: 'backlinks' | 'related' | 'graph'; name: string; status: RouteDef['status']; reqs: string[] };
 export type DisabledControl = { label: string; where: string; due: Due; req: string };
 export type ShortcutDef = { keys: string; command: string };
 
@@ -79,6 +79,8 @@ export const ROUTES: RouteDef[] = [
 
 export const PANEL_TABS: TabDef[] = [
   { id: 'backlinks', name: 'tab.backlinks', status: { built: true, due: { milestone: 'MS4', slice: '4A' } }, reqs: ['FR-LNK-01', 'FR-LNK-02'] }, // built in 4A (D-293)
+  // Slice REL (related.md R178, D-1699): Backlinks · Related · Graph.
+  { id: 'related', name: 'related.tab', status: { built: true, due: { milestone: 'v1.0' } }, reqs: ['FR-LNK-15', 'FR-NAV-05'] },
   // G2 (graph-panel.md R114, D-920): the local graph in the panel.
   { id: 'graph', name: 'tab.graph', status: { built: true, due: { milestone: 'v1.0' } }, reqs: ['FR-GRP-01', 'FR-NAV-05'] },
 ];

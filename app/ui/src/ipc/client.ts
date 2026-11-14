@@ -13,7 +13,7 @@ import type {
   LinkCreatePlanDto, LinkCreatedDto, DailyViewDto, DailyDraftDto, DailyCreatedDto, DailyContextDto, EmbedNoteDto,
   NoteRenameDto, JobIdDto, JobReportDto, JobProgressDto, RetryDto, InterruptedDto, TaskListDto, DailyTasksDto,
   InboxRowDto, VaultSettingsDto, ShellSettingsDto, HotkeyStateDto,
-  TrashEntryDto, MovedDto, TrashRemovalDto, MediaAddedDto, MediaAddResultDto, StagedMediaResultDto,
+  TrashEntryDto, MovedDto, TrashRemovalDto, MediaAddedDto, MediaAddResultDto, StagedMediaResultDto, RelatedDto,
 } from './types';
 
 export const ipc = {
@@ -104,6 +104,8 @@ export const ipc = {
   starterAdd: () => invoke<StarterPlanDto>('starter_add'),
   // 4A (ms4-links §4).
   backlinks: (path: string) => invoke<BacklinksPanelDto>('index_backlinks', { path }),
+  /** Slice REL (v1-related §2): the Related list of the object at `path` (NFC); read-only. */
+  related: (path: string, showLinked: boolean) => invoke<RelatedDto>('index_related', { path, showLinked }),
   brokenLinks: () => invoke<BrokenLinksDto>('index_broken_links'),
   duplicateTitles: () => invoke<DuplicateGroupDto[]>('index_duplicate_titles'),
   linkCreatePlan: (from: string, target: string, relationTo: string[] | null) => invoke<LinkCreatePlanDto>('link_create_plan', { from, target, relationTo }),
