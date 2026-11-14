@@ -16,6 +16,7 @@ mod shellg3;
 mod shellimport;
 mod shellpin;
 mod shellq;
+mod shellrel;
 
 use std::io::Write;
 use std::path::PathBuf;
@@ -1832,6 +1833,7 @@ pub fn run() {
             shellg1::graph_neighbourhood,
             shellg3::graph_presets_get, shellg3::graph_presets_apply,
             shellpin::pins_get, shellpin::pins_apply,
+            shellrel::index_related,
             shellq::queries_list, shellq::query_get, shellq::query_run, shellq::query_apply, shellq::query_revert, shellq::query_create,
             shellq::query_duplicate, shellq::query_rename, shellq::query_trash, shellq::query_restore, shellq::query_usages,
             shellimport::import_pick_source, shellimport::import_scan, shellimport::import_cancel, shellimport::import_where,
