@@ -21,6 +21,8 @@ serde = { version = "1", features = ["derive"] }
 test-hooks = []
 
 [dev-dependencies]
+# v1-related §1.13 (slice REL): the generated vaults of FR-LNK-15 AC-3 and NFR-PERF-13 AC-1.
+gen-vault = { path = "../../tools/gen-vault" }
 tegg-index = { path = ".", features = ["test-hooks"] }
 tempfile.workspace = true
 tegg-vault = { path = "../tegg-vault" }

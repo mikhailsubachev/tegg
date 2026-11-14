@@ -9,6 +9,12 @@ pub mod graph;
 pub use graph::{CancelFlag, EdgeKind, EdgeWay, GraphEdge, GraphError, GraphNode, GraphRequest, GraphResult, NodeId};
 #[cfg(any(test, feature = "test-hooks"))]
 pub use graph::PauseHook;
+// Slice REL (docs/contracts/v1-related.md §1): stems, the `rel` table and Related lists (compile-only stubs until the build).
+pub mod stemming;
+pub mod related;
+pub use related::{RelatedEntry, RelatedList, RelatedParams, RelatedReason};
+#[cfg(any(test, feature = "test-hooks"))]
+pub use related::RelTerms;
 
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
