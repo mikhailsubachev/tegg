@@ -363,8 +363,9 @@ impl Core {
   a copy of the 5,000-note reference vault, time to `wait_idle` (< 18 s, asserted under the same rule) and the 20,000
   vault's (reported); index database size (`index.sqlite` + `-wal`, after a checkpoint) with `rel`, and on a copy of
   the database after `DROP TABLE rel; DROP TABLE rel_vocab; VACUUM` without it, for both vaults (reported, no target).
-- UI marks (reported, no target): `perfMark('related-request')` when a request is sent, `perfMark('related-ready')` two
-  animation frames after its list is drawn. `perf_mark` takes a name only (as G2, v1-graph §15.7).
+- UI marks (reported, no target): `perfMark('related-request')` when a request is sent (a repeatable mark: one line per
+  request, D-1759), `perfMark('related-ready')` two animation frames after its list is drawn (once per process, as
+  every other mark). `perf_mark` takes a name only (as G2, v1-graph §15.7).
 - All three files' tests are named `nfr_perf_13_…`, so the push step's `--skip nfr_perf_` skips them; the nightly
   `core-perf-ac` step runs them (§5).
 
