@@ -51,7 +51,7 @@ The Outline has no core (L4) part. The heading list is computed in the UI from t
 **Test clock** (L5, L6 with `TEGG_TEST=1`), unless a criterion says otherwise:
 - `2026-11-13T10:00:00+01:00` (a Friday), Europe/Prague, region `cs`.
 - Window 1,440 × 900, sidebar open (232 px).
-- `ui-state.json` holds `rightPanel: { open: true, tab: 'backlinks', width: 288 }`, so the centre pane is 920 px wide. (Before D-1675 the tab was `'outline'`; a stored `'outline'` now shows Backlinks.)
+- `ui-state.json` holds `rightPanel: { open: false, tab: 'backlinks', width: 288 }`: the panel is closed, so the centre pane is 1,208 px wide. (Before D-1675 the panel was open on `'outline'`, 920 px; a stored `'outline'` now shows Backlinks.)
 - Normal page width.
 - `prefers-reduced-motion` off.
 
@@ -265,7 +265,7 @@ Where a criterion says "the outline lists", it is observed through `__TEGG_TEST_
   - Within 2 s the outline lists 12 headings, with `Rezervy` at depth 2 after `Rozpočet` (under `Logistika`), and the card shows its row.
   - If the editor has unsaved edits, the editor's merge flow decides (editor.md), and the outline lists the headings of the text the editor then shows.
 
-  *(L5; L6 once with the helper process)* Test: `fr_edt_11_ac8_external_change_updates_the_outline`
+  *(L5; L6 once with the helper process, appending `\n# Rezervy\n\nText.\n` instead: a top-level row the card always shows, since L6 can't read the test hook)* Test: `fr_edt_11_ac8_external_change_updates_the_outline`
 - **AC-9** **The current section (R172, AP-1408; boards B, V2, V3; T2).** On Plán, the current section is read from `__TEGG_TEST__.outline.current()`, the card's `aria-current` row and the rail's current line, which agree:
   - At scrollTop 0 (the intro and `Cíle` below the 30 px line), nothing is current.
   - Scrolled so that `Den 1`'s top is 10 px above the viewport's top + 30 px: exactly `Den 1` is current (`aria-current="location"` and the bar in the card).
@@ -285,7 +285,7 @@ Where a criterion says "the outline lists", it is observed through `__TEGG_TEST_
   - Before the typing: `__TEGG_TEST__.editor.dirty()` is false, `historyDepth()` is unchanged, the route string is unchanged, and no write or `nav_opened` call was sent.
   - A click on the card's `Další čtení` (the last heading, under `Závěr`) lands its top 24 px (± 8) below the viewport's top, as the scroll-past-end space (D-140) allows, and makes it current (D-1651).
 
-  *(L5; L6 once in the built app: caret and text after typing)* Test: `fr_edt_11_ac10_click_jumps_to_the_heading`
+  *(L5; L6 once in the built app: a click on the card's top-level row `Replikace`, then typing `X` gives `# ReplikaceX`)* Test: `fr_edt_11_ac10_click_jumps_to_the_heading`
 - **AC-11** **Jump targets by position (AP-1404, AP-1409; T1, T2).** On Okraje, by clicks on the card's rows:
   - The third `Poznámky` row (level 2, the last heading) puts the caret at the end of the **last** `## Poznámky`, not the first.
   - The second (level 3) lands in `### Poznámky`.
@@ -313,7 +313,7 @@ Where a criterion says "the outline lists", it is observed through `__TEGG_TEST_
   - on the virtual `daily/2026-11-13` (D-322, the template expanded): `Deník 13. 11. 2026`, `Úkoly`, `Poznámky`, and nothing is written;
   - on `new/page`, after typing `# Koncept` in the body: `Koncept`, and the outline itself writes nothing (the draft's own create rule applies, D-520).
 
-  ⌘J opens the card with those rows on each. `tag/<key>`, `type/page`, `search`, `tasks` and `graph/<path>` show no rail, and ⌘J does nothing there.
+  On `daily/2026-11-12` the card shows those rows. `tag/<key>`, `type/page`, `search`, `tasks` and `graph/<path>` show no rail, and ⌘J does nothing there.
 
   *(L5)* Test: `fr_edt_11_ac17_outline_on_each_route`
 - **AC-18** **What the outline follows (T2).** The outline always lists exactly the headings of the text the centre pane shows.
@@ -481,7 +481,7 @@ Where a criterion says "the outline lists", it is observed through `__TEGG_TEST_
   2. Press ⌘J, move to `Den 1` and press ⏎.
   3. Type `A` and undo it.
   4. ⌘[ back, then ⌘J, ↓, Esc.
-  5. ⌘\ to close the panel, then ⌘J, ↓ and ⏎.
+  5. ⌘J and ⏎.
 
   Every focused element shows the indicator of app-shell FR-UX-03 AC-13 (b): rows `--hover`, other controls a 2 px `focus` outline. No step needs the pointer.
 
@@ -490,9 +490,9 @@ Where a criterion says "the outline lists", it is observed through `__TEGG_TEST_
 ### FR-UX-08 Accessibility (adds to import-capacities.md AC-19, AC-20; AP-1421, AP-1422)
 
 - **AC-21** **VoiceOver names and states.**
-  - The card is a `dialog` `Outline` without `aria-modal`, containing a `tree` `Outline`. Each row is a `treeitem` named by its heading text, with `aria-level` = depth, `aria-setsize` and `aria-posinset` among its siblings, `aria-expanded` on headings with children, and `aria-current="location"` on the current row.
+  - The card is a `dialog` `Outline` without `aria-modal`, containing a `tree` `Outline`. Each row is a `treeitem` named by its heading text, with `aria-level` = depth, `aria-setsize` and `aria-posinset` among its siblings, `aria-expanded` on headings with children, and `aria-current="location"` and `aria-selected="true"` on the current row (no other row has `aria-selected`).
   - The rail is `aria-hidden="true"`.
-  - ⌘J with no headings announces `No headings yet` in a polite live region.
+  - (⌘J with no headings announcing `No headings yet` is FR-EDT-16 AC-11.)
   - In the built app, the macOS accessibility tree shows the outline's rows by name, and the current one is reported as selected or current.
 
   *(L5; L6 once)* Test: `fr_ux_08_ac21_outline_voiceover`

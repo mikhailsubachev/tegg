@@ -8,7 +8,7 @@ let rebuildNow: (() => void) | null = null;
 /** After a folded callout opened (a reveal), the offsets change. */
 export function invalidateTracker(): void { rebuildNow?.(); }
 let computeNow: (() => void) | null = null;
-/** The current section from the scroll position now, not after the next frame (⌘J and `Show outline` read it). */
+/** The current section from the scroll position now, not after the next frame (⌘J reads it). */
 export function syncTracker(): void { computeNow?.(); }
 
 /** A rendered element: itself, else its nearest ancestor that has a layout box (inside a folded callout). */

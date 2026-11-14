@@ -14,7 +14,7 @@ rail's constants and row rule). Fixture: `tests/fixtures/vaults/outline/` (its R
 row). Precedents: the Graph tab in the panel ([v1-graph.md](v1-graph.md) §15, §17), machine-local state as page width
 and [v1-pinned.md](v1-pinned.md) §4, history as [ms3-shell.md](ms3-shell.md) §12.1, the editor as §13.
 
-OL adds **no IPC command, no event and no Rust code** (the perf line of §8 uses the existing `perf_mark`). It **writes
+OL adds **no IPC command and no event** (the perf line of §8 uses the existing `perf_mark`); its only Rust change is the `outlineRail` field of `UiStateDto` (§5). It **writes
 nothing to the vault** (§9). Its only write is `ui-state.json` in Application Support (the `outlineRail` switch), through `ui_state_set` (§5).
 The heading list is computed in the UI from the text the centre pane shows; there is no L4 part.
 
@@ -285,7 +285,7 @@ transition: none }`, `[data-outline-fade] { transition: background-color 300ms, 
 | Part | Element | Attributes |
 | --- | --- | --- |
 | Tree | `div[role=tree]` | `aria-label` `outline.tree`, inside the card |
-| Row | `div[role=treeitem]` | `data-outline-row="<index>"`, `aria-label` = heading text, `aria-level` = depth, `aria-setsize` / `aria-posinset` among its siblings, `aria-expanded` only with children, `aria-current="location"`, `tabindex` 0 on one row else −1, `data-level` = level; `title` = full text (CP-6); `padding-left: 14 × (depth − 1)` px |
+| Row | `div[role=treeitem]` | `data-outline-row="<index>"`, `aria-label` = heading text, `aria-level` = depth, `aria-setsize` / `aria-posinset` among its siblings, `aria-expanded` only with children, `aria-current="location"` and `aria-selected="true"` on the current row (AXSelected for VoiceOver, FR-UX-08 AC-21), `tabindex` 0 on one row else −1, `data-level` = level; `title` = full text (CP-6); `padding-left: 14 × (depth − 1)` px |
 | Row text | `span.outline-text` | `data-user-content`; one line, `text-overflow: ellipsis` |
 | Chevron | `span.outline-chevron` | `aria-hidden="true"`, `data-outline-chevron`, `title` `outline.collapse` / `outline.expand`; rotation `transition: transform 120ms` (none under Reduce motion) |
 | Current bar | the row's `::before` | 3 px wide, `--text`, `top: 7px; bottom: 7px; left: 0`; the row's background stays transparent |
@@ -355,11 +355,11 @@ type UiStateDto = {
 };
 ```
 
-- The Rust `UiState` keeps unknown top-level fields and `vaults` in its flattened map: no Rust change.
+- The Rust `UiStateDto` has no catch-all for unknown top-level fields, so `outlineRail` is a typed field (`outline_rail: Option<bool>`; its absence dropped the switch in the L6 run on 357fa81). `vaults` is kept as written (`BTreeMap<String, Value>`).
 - `outlineRail` is written by the Settings switch and `Toggle outline rail` (one `ui_state_set` each).
 - ~~Fold state~~ (D-1611; FR-STO-07 AC-7, AC-8): removed by D-1675 with `folds.ts` (`noteKey`, `foldsOf`, `withFolds`,
   `rekeyFolds`, `OUTLINE_NOTES_MAX`) and `NotePage`'s `onRekeyFolds`. `vaults[<vault>].outline.collapsed` entries an
-  earlier build stored are kept as they are (the flattened map) and never read or written.
+  earlier build stored are kept as they are (inside `vaults`, kept as written) and never read or written.
 - `rightPanel.tab: 'outline'`, stored by an earlier build, shows Backlinks (`App.tsx` maps any tab other than
   `'graph'` to `'backlinks'`); it is rewritten only when the user picks a tab.
 

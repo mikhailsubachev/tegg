@@ -26,6 +26,7 @@ export type PanelUi = {
   /** The `vaults` key (default the fake's `/fake/Graf`). */
   vaultKey?: string;
   open?: boolean;
+  /** `outline` only to seed a tab stored before D-1675 (it shows Backlinks). */
   tab?: 'backlinks' | 'outline' | 'graph';
   width?: number;
   sidebarOpen?: boolean;

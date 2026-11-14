@@ -191,8 +191,6 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   onWidth?: (key: string, width: PageWidth) => void;
   /** AP-753, AP-758: the entry moves from the path (or nothing) to the id the first write assigned. */
   onRekeyWidth?: (from: string | null, to: string, width: PageWidth) => void;
-  /** Slice OL (v1-outline §5): the outline's fold entry moves from the path key to the id, in the same effect (and the
-   *  same `ui_state_set`) as the page width's. */
 }) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   // 4F (ms4-embeds §6): the embeds of this page (tree, nested editors and their save states).
