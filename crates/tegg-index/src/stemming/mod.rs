@@ -169,32 +169,41 @@ fn for_lines(body: &str, mut f: impl FnMut(&str, bool)) {
 
 /// The `rel` row of one note (R179 rule 1; §1.4).
 pub fn rel_row(title: &str, aliases: &[String], body: &str, tags: &[String]) -> RelRow {
-    let mut words: Vec<String> = text::tokens(title);
-    for a in aliases {
-        words.extend(text::tokens(a));
-    }
-    let body_words = text::tokens(body);
-    words.extend(body_words.iter().cloned());
-    for t in tags {
-        words.extend(text::tokens(t));
-    }
-    let lang = language_of(&words);
-    let mut title_stems = stems(title, lang);
-    for a in aliases {
-        title_stems.extend(stems(a, lang));
+    rel_row_from_lines(title, aliases, &body_lines(body), tags)
+}
+
+/// The folded words of each body line, with whether the line is an ATX heading outside fenced code. Joined in order
+/// they are exactly `text::tokens(body)`: a word never spans a line.
+pub(crate) fn body_lines(body: &str) -> Vec<(Vec<String>, bool)> {
+    let mut lines = Vec::new();
+    for_lines(body, |line, is_heading| lines.push((text::tokens(line), is_heading)));
+    lines
+}
+
+/// `rel_row` on a body already split by `body_lines` (the index splits it once for `fts` and `rel`).
+pub(crate) fn rel_row_from_lines(title: &str, aliases: &[String], lines: &[(Vec<String>, bool)], tags: &[String]) -> RelRow {
+    // Each text is split into folded words once; the language is decided on all of them, then they are stemmed.
+    let mut names: Vec<Vec<String>> = vec![text::tokens(title)];
+    names.extend(aliases.iter().map(|a| text::tokens(a)));
+    let tag_words: Vec<Vec<String>> = tags.iter().map(|t| text::tokens(t)).collect();
+    let all: Vec<String> = names.iter().flatten().chain(lines.iter().flat_map(|l| &l.0)).chain(tag_words.iter().flatten()).cloned().collect();
+    let lang = language_of(&all);
+    let mut title_stems = Vec::new();
+    for n in &names {
+        stems_of_words(n.iter().map(String::as_str), lang, &mut title_stems);
     }
     // Line by line: a word never spans a line, so the concatenation equals `stems(body)`.
     let mut body_stems = Vec::new();
     let mut heading = Vec::new();
-    for_lines(body, |line, is_heading| {
-        let s = stems(line, lang);
-        if is_heading {
-            heading.extend(s.iter().cloned());
+    for (words, is_heading) in lines {
+        let from = body_stems.len();
+        stems_of_words(words.iter().map(String::as_str), lang, &mut body_stems);
+        if *is_heading {
+            heading.extend(body_stems[from..].iter().cloned());
         }
-        body_stems.extend(s);
-    });
-    for t in tags {
-        body_stems.extend(stems(t, lang));
+    }
+    for t in &tag_words {
+        stems_of_words(t.iter().map(String::as_str), lang, &mut body_stems);
     }
     RelRow { lang, title: title_stems, body: body_stems, heading }
 }

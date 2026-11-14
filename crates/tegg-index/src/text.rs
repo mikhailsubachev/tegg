@@ -12,6 +12,10 @@ use unicode_normalization::UnicodeNormalization;
 
 /// NFC → lower case → combining marks removed (FR-SRC-04, FR-FMT-12): `Čtení` → `cteni`.
 pub fn fold(s: &str) -> String {
+    // ASCII is its own NFD and NFC and has no combining marks: only the case changes (the same result, faster).
+    if s.is_ascii() {
+        return s.to_ascii_lowercase();
+    }
     s.nfd().filter(|c| !is_combining_mark(*c)).flat_map(char::to_lowercase).nfc().collect()
 }
 

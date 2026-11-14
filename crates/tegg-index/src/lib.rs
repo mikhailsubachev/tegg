@@ -690,7 +690,10 @@ pub fn prepare(path: &str, bytes: &[u8], version: &FileVersion) -> Option<Prepar
         Some(Value::String(t)) if !t.trim().is_empty() => (tegg_format::type_key(t), true, Some(nfc(t.trim()))),
         Some(_) => ("page".to_string(), false, None),
     };
-    let fts = [text::fts_text(&ex.title), text::fts_text(&aliases.join(" \n ")), text::fts_text(&attribute_text(&attributes)), text::fts_text(body)];
+    // The body is split into folded words once, line by line, for `fts` (all words in order, as `fts_text`) and `rel`.
+    let lines = stemming::body_lines(body);
+    let body_fts = lines.iter().flat_map(|l| l.0.iter().map(String::as_str)).collect::<Vec<_>>().join(" ");
+    let fts = [text::fts_text(&ex.title), text::fts_text(&aliases.join(" \n ")), text::fts_text(&attribute_text(&attributes)), body_fts];
     let stored = Stored {
         id: ex.id,
         r#type,
@@ -718,7 +721,7 @@ pub fn prepare(path: &str, bytes: &[u8], version: &FileVersion) -> Option<Prepar
         lang: stemming::Lang::Cs,
     };
     // Slice REL (R179, v1-related §1.4): computed here, outside the index lock, like `fts` (FR-UX-07 AC-2).
-    let row = related::rel_row_of(&stored, body);
+    let row = related::rel_row_of(&stored, &lines);
     let mut stored = stored;
     stored.lang = row.lang;
     let rel = [row.title.join(" "), row.body.join(" ")];

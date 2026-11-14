@@ -15,58 +15,58 @@ const CASES: [(usize, &[&str], usize); 4] = [
     (4, &["em", "es", "im", "um", "at", "am", "os", "us", "ym", "mi", "ou"], 2),
 ];
 
-fn ends_with(w: &[char], suffix: &str) -> bool {
-    let s: Vec<char> = suffix.chars().collect();
-    w.len() >= s.len() && w[w.len() - s.len()..] == s[..]
-}
+// Every ending is ASCII, so a matched ending is removed by its byte length; lengths are compared in characters.
 
-fn remove_case(w: &mut Vec<char>) {
-    let len = w.len();
+fn remove_case(w: &mut String, len: usize) -> usize {
     for (min, endings, n) in CASES {
-        if len > min && endings.iter().any(|e| ends_with(w, e)) {
-            w.truncate(len - n);
-            return;
+        if len > min && endings.iter().any(|e| w.ends_with(e)) {
+            w.truncate(w.len() - n);
+            return len - n;
         }
     }
-    if len > 3 && matches!(w[len - 1], 'a' | 'e' | 'i' | 'o' | 'u' | 'y') {
-        w.truncate(len - 1);
+    if len > 3 && w.ends_with(['a', 'e', 'i', 'o', 'u', 'y']) {
+        w.pop();
+        return len - 1;
     }
+    len
 }
 
-fn remove_possessive(w: &mut Vec<char>) {
-    if w.len() > 5 && ["ov", "in", "uv"].iter().any(|e| ends_with(w, e)) {
+fn remove_possessive(w: &mut String, len: usize) -> usize {
+    if len > 5 && ["ov", "in", "uv"].iter().any(|e| w.ends_with(e)) {
         w.truncate(w.len() - 2);
+        return len - 2;
     }
+    len
 }
 
 /// Rules 3.1 and 3.2: `ct` → `ck`, `st` → `sk`. True when one ran.
-fn ct_st(w: &mut [char]) -> bool {
-    let len = w.len();
-    if ends_with(w, "ct") || ends_with(w, "st") {
-        w[len - 1] = 'k';
+fn ct_st(w: &mut String) -> bool {
+    if w.ends_with("ct") || w.ends_with("st") {
+        w.pop();
+        w.push('k');
         return true;
     }
     false
 }
 
-fn normalize(w: &mut Vec<char>) {
-    if w.is_empty() || ct_st(w) {
+fn normalize(w: &mut String, len: usize) {
+    if len == 0 || ct_st(w) {
         return;
     }
-    let len = w.len();
-    match w[len - 1] {
-        'c' => {
-            w[len - 1] = 'k';
-            return;
-        }
-        'z' => {
-            w[len - 1] = 'h';
-            return;
-        }
-        _ => {}
+    if w.ends_with('c') {
+        w.pop();
+        w.push('k');
+        return;
     }
-    if len > 1 && w[len - 2] == 'e' {
-        w.remove(len - 2);
+    if w.ends_with('z') {
+        w.pop();
+        w.push('h');
+        return;
+    }
+    let mut it = w.char_indices().rev();
+    let (Some(_), Some((i, prev))) = (it.next(), it.next()) else { return };
+    if prev == 'e' {
+        w.remove(i);
         // Rule 3.5 (AP-1468 → D-1715): `rozpocet` → `rozpoct` → `rozpock`.
         ct_st(w);
     }
@@ -74,9 +74,10 @@ fn normalize(w: &mut Vec<char>) {
 
 /// R180: the stem of one folded word.
 pub fn stem(word: &str) -> String {
-    let mut w: Vec<char> = word.chars().collect();
-    remove_case(&mut w);
-    remove_possessive(&mut w);
-    normalize(&mut w);
-    w.into_iter().collect()
+    let mut w = word.to_string();
+    let len = w.chars().count();
+    let len = remove_case(&mut w, len);
+    let len = remove_possessive(&mut w, len);
+    normalize(&mut w, len);
+    w
 }

@@ -187,14 +187,14 @@ pub struct RelTerms {
 
 /// R179 rule 1 for a stored note: its displayed title (a Daily Note's date, D-320), aliases, raw body and the names in
 /// its frontmatter `tags:` (inline `#tags` are already body words).
-pub(crate) fn rel_row_of(s: &Stored, body: &str) -> RelRow {
+pub(crate) fn rel_row_of(s: &Stored, lines: &[(Vec<String>, bool)]) -> RelRow {
     let daily = (s.r#type == "daily-note").then(|| crate::daily_date(&s.attributes)).flatten();
     let title = daily.map(tegg_format::format_date).unwrap_or_else(|| s.title.clone());
     let mut tags = Vec::new();
     if let Some(v) = s.attributes.get("tags") {
         crate::value_texts(v, &mut tags);
     }
-    stemming::rel_row(&title, &s.aliases, body, &tags)
+    stemming::rel_row_from_lines(&title, &s.aliases, lines, &tags)
 }
 
 /// The stored `rel` columns (title, body) of `rowid`; empty when it has no row.
