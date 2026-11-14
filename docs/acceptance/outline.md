@@ -461,7 +461,7 @@ Where a criterion says "the outline lists", it is observed through `__TEGG_TEST_
   - On each: scroll through the note; open the card by hover and by ⌘J and open and close its chevrons; jump from the rail, the card and ⌘J (Okraje's folded callout included); go Back and Forward.
   - Switch the panel between Backlinks and Graph and close it; resize the panel and the window across 640 px; turn focus mode on and off; turn `Show outline rail` off and on; relaunch.
 
-  Afterwards every vault file's bytes, mtime and inode are unchanged, and no file or folder was created (no `Daily/2026-11-13.md`, nothing under `.tegg/`). Only `ui-state.json` in the temporary Application Support changed, written atomically (a new inode). In L5 the fake core counts 0 write commands over the same tour.
+  Afterwards every vault file's bytes, mtime and inode are unchanged, and no file or folder was created (no `Daily/2026-11-13.md`, nothing under `.tegg/`). In the temporary Application Support, apart from what opening a vault writes (`last-vault`, `recent-vaults`, the index `vaults/<hash>/index.sqlite*` and `vaults/<hash>/last-opened.json`; D-1676), only `ui-state.json` changed, written atomically (a new inode). In L5 the fake core counts 0 write commands over the same tour.
 
   *(L6; L5)* Test: `fr_syn_06_ac46_outline_tour_writes_nothing`
 

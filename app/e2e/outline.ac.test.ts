@@ -254,7 +254,9 @@ test('fr_syn_06_ac46_outline_tour_writes_nothing', { timeout: 900_000 }, async (
     assert.deepEqual(changedPaths(before, after), [], 'every vault file keeps its bytes, mtime and inode; nothing was created');
     assert.ok(!existsSync(join(c.vault, 'Daily/2026-11-13.md')), 'no Daily/2026-11-13.md');
     const supAfter = tree(c.sup);
-    assert.deepEqual(changedPaths(supBefore, supAfter).filter((p) => p !== 'ui-state.json' && !p.endsWith('.jsonl')), [], 'only ui-state.json changed in the Application Support');
+    // D-1676: what opening a vault writes (the recent vaults, the index, the last-opened record) is not the Outline's.
+    const opening = (p: string) => p === 'last-vault' || p === 'recent-vaults' || p === 'vaults/' || /^vaults\/[^/]+\/(index\.sqlite(-shm|-wal)?|last-opened\.json)?$/.test(p);
+    assert.deepEqual(changedPaths(supBefore, supAfter).filter((p) => p !== 'ui-state.json' && !p.endsWith('.jsonl') && !opening(p)), [], 'apart from opening the vault, only ui-state.json changed in the Application Support');
     assert.notEqual(lstatSync(join(c.sup, 'ui-state.json')).ino, ui0, 'ui-state.json was written atomically (a new inode)');
     void d;
   } finally {
