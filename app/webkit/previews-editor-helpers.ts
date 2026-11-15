@@ -8,8 +8,8 @@ import type { Locator, Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { createRequire } from 'node:module';
 import { loadFixtureVault, type CallRecord, type FakeVault, type UiStateDto } from '../ui/test/fake-core';
+import { contrastWhenSettled } from './read-helpers';
 import { READ_COMMANDS, eventually, focusSettled, mainName, must, mustBeOn, runCommand, seen, sleep, start, type FakeCoreHandle, type StartOptions } from './helpers';
 
 export { eventually, focusSettled, mainName, must, mustBeOn, runCommand, seen, sleep };
@@ -364,16 +364,11 @@ export async function isDisabled(loc: Locator): Promise<boolean> {
   return loc.first().evaluate((e) => (e as HTMLButtonElement).disabled === true || e.getAttribute('aria-disabled') === 'true');
 }
 
-const AXE = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
-/** axe `color-contrast` violations inside `scope` (FR-UX-05 AC-4), as target selectors. */
+/** axe `color-contrast` violations inside `scope` (FR-UX-05 AC-4), as target selectors, once previews are opaque. */
 export async function axeContrastIn(page: Page, scope: Locator): Promise<string[]> {
-  if (!(await page.evaluate(() => 'axe' in window))) await page.addScriptTag({ path: AXE });
   const el = await scope.first().elementHandle();
   assert.ok(el, 'axe scope element');
-  return page.evaluate(async (node) => {
-    const r = await (window as any).axe.run(node, { runOnly: { type: 'rule', values: ['color-contrast'] } });
-    return r.violations.flatMap((x: any) => x.nodes.map((n: any) => n.target.join(' ')));
-  }, el);
+  return contrastWhenSettled(page, el);
 }
 
 /** Computed colours inside `scope` that aren't a token of the theme (FR-UX-05 AC-5), as in the read-view theme test. */
