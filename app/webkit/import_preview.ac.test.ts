@@ -119,7 +119,9 @@ async function closesWithNothingWritten(page: Page, core: FakeCoreHandle, what: 
 
 test('fr_imp_05_ac10_cancel_writes_nothing: steps 0–4a, Cancel and Esc', async ({ page }) => {
   const core = await startImport(page, { imports: C01() });
-  const route = await mainName(page);
+  // The route is ready before it is read (state, not time), as on the second page below.
+  const route = await eventually(() => mainName(page), (n) => !!n, 5000);
+  assert.ok(route, 'the page shows its route after start');
   const reach: Record<string, () => Promise<void>> = {
     '0': () => openImport(page),
     '1': () => goTo(page, '1'),
