@@ -4,7 +4,7 @@
 // before the route changed acts on nothing; the next single click works as usual.
 import { test } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { PV, ZONE, chipNamed, editorBody, mark, mustBeOn, navsSince, need, nfc, startPreviews, topEmbed } from './previews-helpers';
+import { PV, ZONE, chipNamed, editorBody, eventually, mark, mustBeOn, navsSince, need, nfc, sleep, startPreviews, topEmbed } from './previews-helpers';
 
 test.use({ timezoneId: ZONE });
 
@@ -19,7 +19,19 @@ test('bug_olview_fr_ux_03_a_double_clicks_second_click_does_not_act_on_the_opene
   await mustBeOn(page, 'Rozpočet 2027', 'the first click opens Rozpočet 2027', 5000);
   // The second click of the same double-click lands on the Jana Nováková link in the opened note.
   const jana = await need(chipNamed(editorBody(page), 'Jana Nováková'), 'the Jana Nováková link in Rozpočet 2027');
-  const jb = (await jana.boundingBox())!;
+  // The opened note can still be scrolled where the previous page was (the link above the pane, y < 0) until it lands
+  // at its top; under load that takes a while, and a click at a position measured before then hits nothing.
+  let last = '';
+  const settled = await eventually(async () => {
+    const r = await jana.boundingBox();
+    const key = JSON.stringify(r);
+    const same = key === last;
+    last = key;
+    await sleep(50);
+    return { r, same };
+  }, ({ r, same }) => same && !!r && r.y >= 0 && r.y + r.height <= page.viewportSize()!.height, 5000);
+  assert.ok(settled.same && settled.r && settled.r.y >= 0, `the Jana Nováková link settles inside the pane (last ${last})`);
+  const jb = settled.r!;
   await page.mouse.move(jb.x + 4, jb.y + jb.height / 2);
   await page.mouse.down({ clickCount: 2 });
   await page.mouse.up({ clickCount: 2 });
