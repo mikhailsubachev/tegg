@@ -1,7 +1,7 @@
 // Helpers for the MS3 slice 3B WebKit tests (L5): the read-view fixture in the fake core and page probes. No AC
 // assertions here except `must` (re-exported), which turns a missing element into an AssertionError (TS-I1).
 // Labels from docs/contracts/ms3-shell.md §11.4.
-import type { Locator, Page } from '@playwright/test';
+import type { ElementHandle, Locator, Page } from '@playwright/test';
 import { createRequire } from 'node:module';
 import { loadFixtureVault, type FakeVault, type UiStateDto } from '../ui/test/fake-core';
 import { must, mustBeOn, start, type FakeCoreHandle, type StartOptions } from './helpers';
@@ -102,13 +102,33 @@ export async function firstVisibleBlockText(page: Page): Promise<string | null> 
 }
 
 const AXE = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
+/**
+ * Runs axe `color-contrast` on `root` (the document when null) only while every preview popover is fully opaque: a
+ * popover fades in from opacity 0 (slice P, 120 ms, `.shown` added a frame after it mounts), and axe measures text at
+ * partial opacity as low contrast. It waits up to 3 s for opacity 1, and measures again when a popover appeared or
+ * stopped being opaque during the run (bug_axefade, D-1055).
+ */
+export async function contrastWhenSettled(page: Page, root: ElementHandle<Element> | null): Promise<string[]> {
+  if (!(await page.evaluate(() => 'axe' in window))) await page.addScriptTag({ path: AXE });
+  return page.evaluate(async (node) => {
+    const frame = () => new Promise((r) => requestAnimationFrame(() => r(null)));
+    const popovers = () => [...document.querySelectorAll('[data-preview-popover]')];
+    const opaque = () => popovers().every((e) => getComputedStyle(e).opacity === '1');
+    for (let attempt = 0; ; attempt++) {
+      const until = performance.now() + 3000;
+      while (!opaque() && performance.now() < until) await frame();
+      const before = popovers();
+      const r = await (window as any).axe.run(node ?? document, { runOnly: { type: 'rule', values: ['color-contrast'] } });
+      const after = popovers();
+      const same = after.length === before.length && after.every((e, i) => e === before[i]);
+      if ((same && opaque()) || attempt === 2) return r.violations.flatMap((x: any) => x.nodes.map((n: any) => n.target.join(' ')));
+    }
+  }, root);
+}
+
 /** axe `color-contrast` violations on the page (FR-UX-05 AC-4), as target selectors. */
 export async function axeContrast(page: Page): Promise<string[]> {
-  if (!(await page.evaluate(() => 'axe' in window))) await page.addScriptTag({ path: AXE });
-  return page.evaluate(async () => {
-    const r = await (window as any).axe.run(document, { runOnly: { type: 'rule', values: ['color-contrast'] } });
-    return r.violations.flatMap((x: any) => x.nodes.map((n: any) => n.target.join(' ')));
-  });
+  return contrastWhenSettled(page, null);
 }
 
 /** Computed colours that aren't a token of the theme (FR-UX-05 AC-5), as in the 3A theme test. */
