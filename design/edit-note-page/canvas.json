@@ -101,6 +101,22 @@
       "x": 1520,
       "y": 0
     },
+    "Import.dc.html": {
+      "h": 4440,
+      "page": "page-import",
+      "title": "Import · Capacities and Obsidian (requirements check + flow)",
+      "w": 1680,
+      "x": 0,
+      "y": 0
+    },
+    "ImportDark.dc.html": {
+      "h": 4440,
+      "page": "page-import",
+      "title": "Import · Capacities and Obsidian (dark)",
+      "w": 1680,
+      "x": 1760,
+      "y": 0
+    },
     "Inbox.dc.html": {
       "expand": "fill",
       "h": 1100,
@@ -110,12 +126,60 @@
       "x": 1760,
       "y": 3380
     },
+    "LayoutNormal.dc.html": {
+      "expand": "fill",
+      "h": 1840,
+      "is_interactive": true,
+      "page": "page-width",
+      "title": "Page width · Normal, no panel",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "LayoutNormalPanel.dc.html": {
+      "expand": "fill",
+      "h": 1840,
+      "is_interactive": true,
+      "page": "page-width",
+      "title": "Page width · Normal, right panel",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "LayoutWide.dc.html": {
+      "expand": "fill",
+      "h": 1840,
+      "is_interactive": true,
+      "page": "page-width",
+      "title": "Page width · Wide, no panel",
+      "w": 1440,
+      "x": 1520,
+      "y": 1960
+    },
+    "LayoutWidePanel.dc.html": {
+      "expand": "fill",
+      "h": 1840,
+      "is_interactive": true,
+      "page": "page-width",
+      "title": "Page width · Wide, right panel",
+      "w": 1440,
+      "x": 0,
+      "y": 1960
+    },
     "LinkChips.dc.html": {
       "h": 1200,
       "title": "Link chip variants",
       "w": 1680,
       "x": 6560,
       "y": 2420
+    },
+    "LogoDots.dc.html": {
+      "h": 1440,
+      "page": "page-logodots",
+      "title": "Logo · cross-connected dots",
+      "w": 1680,
+      "x": 0,
+      "y": 0
     },
     "Logos.dc.html": {
       "h": 2320,
@@ -131,6 +195,15 @@
       "title": "Edit note · Meeting",
       "w": 1440,
       "x": 0,
+      "y": 0
+    },
+    "MainDark.dc.html": {
+      "expand": "fill",
+      "h": 1840,
+      "is_interactive": true,
+      "title": "Edit note · Meeting (dark)",
+      "w": 1440,
+      "x": 9840,
       "y": 0
     },
     "MainProperties.dc.html": {
@@ -151,6 +224,102 @@
       "x": 6800,
       "y": 3540
     },
+    "MindmapLayouts.dc.html": {
+      "h": 1700,
+      "page": "page-mindmap",
+      "title": "Mindmap · layouts (right, spider) and map editing",
+      "w": 1680,
+      "x": 0,
+      "y": 0
+    },
+    "Outline.dc.html": {
+      "h": 4660,
+      "page": "page-outline",
+      "title": "Outline · page-edge rail (E1) and variations",
+      "w": 1680,
+      "x": 0,
+      "y": 0
+    },
+    "OutlineArchive.dc.html": {
+      "h": 1830,
+      "page": "page-outline-archive",
+      "title": "Archive · Outline tab in the right panel",
+      "w": 1680,
+      "x": 0,
+      "y": 0
+    },
+    "OutlineArchiveDark.dc.html": {
+      "h": 1830,
+      "page": "page-outline-archive",
+      "title": "Archive · Outline tab (dark)",
+      "w": 1680,
+      "x": 1760,
+      "y": 0
+    },
+    "OutlineDark.dc.html": {
+      "h": 4660,
+      "page": "page-outline",
+      "title": "Outline (dark)",
+      "w": 1680,
+      "x": 1760,
+      "y": 0
+    },
+    "QueriesAll.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "is_interactive": true,
+      "page": "page-queries",
+      "title": "Queries · all queries (sidebar entry)",
+      "w": 1440,
+      "x": 0,
+      "y": 3800
+    },
+    "QueriesAllDark.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "is_interactive": true,
+      "page": "page-queries",
+      "title": "Queries · all queries (dark)",
+      "w": 1440,
+      "x": 0,
+      "y": 5000
+    },
+    "QueryBlock.dc.html": {
+      "h": 3720,
+      "page": "page-queries",
+      "title": "Query block · embedded in a note (list and table)",
+      "w": 1680,
+      "x": 0,
+      "y": 0
+    },
+    "QueryBlockDark.dc.html": {
+      "h": 3720,
+      "page": "page-queries",
+      "title": "Query block · embedded (dark)",
+      "w": 1680,
+      "x": 1760,
+      "y": 0
+    },
+    "QueryPage.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "is_interactive": true,
+      "page": "page-queries",
+      "title": "Query page · Open tasks from this meeting",
+      "w": 1440,
+      "x": 1520,
+      "y": 3800
+    },
+    "QueryPageDark.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "is_interactive": true,
+      "page": "page-queries",
+      "title": "Query page (dark)",
+      "w": 1440,
+      "x": 1520,
+      "y": 5000
+    },
     "QuickCapture.dc.html": {
       "h": 2000,
       "is_interactive": true,
@@ -158,6 +327,82 @@
       "w": 1680,
       "x": 3040,
       "y": 5100
+    },
+    "Search.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "is_interactive": true,
+      "page": "page-search",
+      "title": "Search · results (exact phrase; type and tag filters)",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "SearchDark.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "is_interactive": true,
+      "page": "page-search",
+      "title": "Search · results (dark)",
+      "w": 1440,
+      "x": 0,
+      "y": 1200
+    },
+    "SearchNoMatch.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "is_interactive": true,
+      "page": "page-search",
+      "title": "Search · no match, no filters (create page)",
+      "w": 1440,
+      "x": 3040,
+      "y": 0
+    },
+    "SearchNoMatchDark.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "is_interactive": true,
+      "page": "page-search",
+      "title": "Search · no match, no filters (dark)",
+      "w": 1440,
+      "x": 3040,
+      "y": 1200
+    },
+    "SearchNoResults.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "is_interactive": true,
+      "page": "page-search",
+      "title": "Search · no results with filters",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "SearchNoResultsDark.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "is_interactive": true,
+      "page": "page-search",
+      "title": "Search · no results with filters (dark)",
+      "w": 1440,
+      "x": 1520,
+      "y": 1200
+    },
+    "SidebarPinned.dc.html": {
+      "h": 1880,
+      "page": "page-pinned",
+      "title": "Sidebar · Pinned (pin, unpin, drag)",
+      "w": 1680,
+      "x": 0,
+      "y": 0
+    },
+    "SidebarPinnedDark.dc.html": {
+      "h": 1880,
+      "page": "page-pinned",
+      "title": "Sidebar · Pinned (dark)",
+      "w": 1680,
+      "x": 1760,
+      "y": 0
     },
     "TagPage.dc.html": {
       "expand": "fill",
@@ -221,6 +466,14 @@
       "x": 5040,
       "y": 3500
     },
+    "TypeJobs.dc.html": {
+      "h": 4300,
+      "page": "page-4e",
+      "title": "Type moves and schema rewrites · dialogs (4E)",
+      "w": 1680,
+      "x": 0,
+      "y": 0
+    },
     "TypeSettings.dc.html": {
       "expand": "fill",
       "h": 2100,
@@ -236,154 +489,21 @@
       "x": 0,
       "y": 3520
     },
-    "MainDark.dc.html": {
-      "expand": "fill",
-      "h": 1840,
-      "is_interactive": true,
-      "title": "Edit note · Meeting (dark)",
-      "w": 1440,
-      "x": 9840,
-      "y": 0
-    },
-    "LogoDots.dc.html": {
-      "h": 1440,
+    "Related.dc.html": {
+      "h": 2080,
       "w": 1680,
       "x": 0,
       "y": 0,
-      "page": "page-logodots",
-      "title": "Logo · cross-connected dots"
+      "page": "page-related",
+      "title": "Related notes · right panel tab (FR-LNK-15)"
     },
-    "MindmapLayouts.dc.html": {
-      "h": 1700,
-      "w": 1680,
-      "x": 0,
-      "y": 0,
-      "page": "page-mindmap",
-      "title": "Mindmap · layouts (right, spider) and map editing"
-    },
-    "LayoutNormalPanel.dc.html": {
-      "expand": "fill",
-      "h": 1840,
-      "is_interactive": true,
-      "page": "page-width",
-      "title": "Page width · Normal, right panel",
-      "w": 1440,
-      "x": 0,
-      "y": 0
-    },
-    "LayoutNormal.dc.html": {
-      "expand": "fill",
-      "h": 1840,
-      "is_interactive": true,
-      "page": "page-width",
-      "title": "Page width · Normal, no panel",
-      "w": 1440,
-      "x": 1520,
-      "y": 0
-    },
-    "LayoutWidePanel.dc.html": {
-      "expand": "fill",
-      "h": 1840,
-      "is_interactive": true,
-      "page": "page-width",
-      "title": "Page width · Wide, right panel",
-      "w": 1440,
-      "x": 0,
-      "y": 1960
-    },
-    "LayoutWide.dc.html": {
-      "expand": "fill",
-      "h": 1840,
-      "is_interactive": true,
-      "page": "page-width",
-      "title": "Page width · Wide, no panel",
-      "w": 1440,
-      "x": 1520,
-      "y": 1960
-    },
-    "TypeJobs.dc.html": {
-      "h": 4300,
-      "w": 1680,
-      "x": 0,
-      "y": 0,
-      "page": "page-4e",
-      "title": "Type moves and schema rewrites · dialogs (4E)"
-    },
-    "Search.dc.html": {
-      "expand": "fill",
-      "h": 1120,
-      "w": 1440,
-      "x": 0,
-      "y": 0,
-      "is_interactive": true,
-      "page": "page-search",
-      "title": "Search · results (exact phrase; type and tag filters)"
-    },
-    "SearchNoResults.dc.html": {
-      "expand": "fill",
-      "h": 1120,
-      "w": 1440,
-      "x": 1520,
-      "y": 0,
-      "is_interactive": true,
-      "page": "page-search",
-      "title": "Search · no results with filters"
-    },
-    "SearchDark.dc.html": {
-      "expand": "fill",
-      "h": 1120,
-      "w": 1440,
-      "x": 0,
-      "y": 1200,
-      "is_interactive": true,
-      "page": "page-search",
-      "title": "Search · results (dark)"
-    },
-    "SearchNoMatch.dc.html": {
-      "expand": "fill",
-      "h": 1120,
-      "w": 1440,
-      "x": 3040,
-      "y": 0,
-      "is_interactive": true,
-      "page": "page-search",
-      "title": "Search · no match, no filters (create page)"
-    },
-    "SearchNoResultsDark.dc.html": {
-      "expand": "fill",
-      "h": 1120,
-      "w": 1440,
-      "x": 1520,
-      "y": 1200,
-      "is_interactive": true,
-      "page": "page-search",
-      "title": "Search · no results with filters (dark)"
-    },
-    "SearchNoMatchDark.dc.html": {
-      "expand": "fill",
-      "h": 1120,
-      "w": 1440,
-      "x": 3040,
-      "y": 1200,
-      "is_interactive": true,
-      "page": "page-search",
-      "title": "Search · no match, no filters (dark)"
-    },
-    "SidebarPinned.dc.html": {
-      "h": 1880,
-      "w": 1680,
-      "x": 0,
-      "y": 0,
-      "page": "page-pinned",
-      "title": "Sidebar · Pinned (pin, unpin, drag)"
-    },
-    "SidebarPinnedDark.dc.html": {
-      "h": 1880,
+    "RelatedDark.dc.html": {
+      "h": 2080,
       "w": 1680,
       "x": 1760,
       "y": 0,
-      "page": "page-pinned",
-      "title": "Sidebar · Pinned (dark)"
+      "page": "page-related",
+      "title": "Related notes (dark)"
     },
     "ObjectPreview.dc.html": {
       "h": 3480,
@@ -408,78 +528,6 @@
       "y": 0,
       "page": "page-new-object",
       "title": "New object · type picker (proposal)"
-    },
-    "QueryBlock.dc.html": {
-      "h": 3720,
-      "w": 1680,
-      "x": 0,
-      "y": 0,
-      "page": "page-queries",
-      "title": "Query block · embedded in a note (list and table)"
-    },
-    "QueryBlockDark.dc.html": {
-      "h": 3720,
-      "w": 1680,
-      "x": 1760,
-      "y": 0,
-      "page": "page-queries",
-      "title": "Query block · embedded (dark)"
-    },
-    "QueriesAll.dc.html": {
-      "expand": "fill",
-      "h": 1120,
-      "w": 1440,
-      "x": 0,
-      "y": 3800,
-      "is_interactive": true,
-      "page": "page-queries",
-      "title": "Queries · all queries (sidebar entry)"
-    },
-    "QueryPage.dc.html": {
-      "expand": "fill",
-      "h": 1120,
-      "w": 1440,
-      "x": 1520,
-      "y": 3800,
-      "is_interactive": true,
-      "page": "page-queries",
-      "title": "Query page · Open tasks from this meeting"
-    },
-    "QueriesAllDark.dc.html": {
-      "expand": "fill",
-      "h": 1120,
-      "w": 1440,
-      "x": 0,
-      "y": 5000,
-      "is_interactive": true,
-      "page": "page-queries",
-      "title": "Queries · all queries (dark)"
-    },
-    "QueryPageDark.dc.html": {
-      "expand": "fill",
-      "h": 1120,
-      "w": 1440,
-      "x": 1520,
-      "y": 5000,
-      "is_interactive": true,
-      "page": "page-queries",
-      "title": "Query page (dark)"
-    },
-    "Outline.dc.html": {
-      "h": 6700,
-      "w": 1680,
-      "x": 0,
-      "y": 0,
-      "page": "page-outline",
-      "title": "Outline · right panel tab and page-edge rail"
-    },
-    "OutlineDark.dc.html": {
-      "h": 6700,
-      "w": 1680,
-      "x": 1760,
-      "y": 0,
-      "page": "page-outline",
-      "title": "Outline (dark)"
     }
   },
   "createdOnFiles": {
@@ -536,17 +584,23 @@
     "SearchNoMatchDark.dc.html",
     "SidebarPinned.dc.html",
     "SidebarPinnedDark.dc.html",
-    "ObjectPreview.dc.html",
-    "ObjectPreviewDark.dc.html",
-    "NewObjectPicker.dc.html",
     "QueryBlock.dc.html",
     "QueryBlockDark.dc.html",
     "QueriesAll.dc.html",
     "QueryPage.dc.html",
     "QueriesAllDark.dc.html",
     "QueryPageDark.dc.html",
+    "Import.dc.html",
+    "ImportDark.dc.html",
     "Outline.dc.html",
-    "OutlineDark.dc.html"
+    "OutlineDark.dc.html",
+    "OutlineArchive.dc.html",
+    "OutlineArchiveDark.dc.html",
+    "Related.dc.html",
+    "RelatedDark.dc.html",
+    "ObjectPreview.dc.html",
+    "ObjectPreviewDark.dc.html",
+    "NewObjectPicker.dc.html"
   ],
   "pages": [
     {
@@ -582,20 +636,32 @@
       "name": "Pinned"
     },
     {
+      "id": "page-queries",
+      "name": "Queries"
+    },
+    {
+      "id": "page-import",
+      "name": "Import"
+    },
+    {
+      "id": "page-outline",
+      "name": "Outline"
+    },
+    {
+      "id": "page-related",
+      "name": "Related"
+    },
+    {
+      "id": "page-outline-archive",
+      "name": "_Archive"
+    },
+    {
       "id": "page-previews",
       "name": "Object preview (P)"
     },
     {
       "id": "page-new-object",
       "name": "New object (type picker)"
-    },
-    {
-      "id": "page-queries",
-      "name": "Queries"
-    },
-    {
-      "id": "page-outline",
-      "name": "Outline"
     }
   ],
   "title": "Tegg – Edit note page"
