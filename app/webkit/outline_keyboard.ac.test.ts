@@ -10,6 +10,7 @@ import {
   P, TITLE, ZONE, another, caret, card, cardTree, eventually, flat, headingEl, headingTop, must, mustBeOn, noteRoute, openCardByHover, outlineRows, paletteDialog,
   paletteOptions, pauseClock, placeCaret, rail, runFor, searchField, sleep, startOutline, tokenColor,
 } from './outline-helpers';
+import { settledFirstResult } from './helpers';
 
 test.use({ timezoneId: ZONE, locale: 'cs-CZ' });
 
@@ -93,7 +94,7 @@ test('fr_ux_03_ac47_outline_keyboard_only', async ({ page }) => {
   const q = await must(searchField(page), 'the Search page\'s field');
   await q.focus();
   await page.keyboard.type('Plán offsitu');
-  await sleep(400);
+  assert.ok(await settledFirstResult(page, 'Plán offsitu', 5000), 'Plán offsitu is the first result');
   await page.keyboard.press('Enter');
   await mustBeOn(page, TITLE[P.plan], 'Plán opened from Search with ⏎');
   // 2. ⌘J, move to Den 1, ⏎ (D-1675: the card instead of `Show outline` and the tab).
