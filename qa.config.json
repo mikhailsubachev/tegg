@@ -42,7 +42,7 @@
     { "id": "app-ui-test", "lane": "browser", "inputs": ["app","packages","crates","tests/fixtures","tools/gen-vault"], "dir": "app",
       "run": "npx vitest run --maxWorkers 2 --reporter=default --reporter=junit --outputFile.junit=\"$VERIFY_RESULTS/app-ui.xml\"",
       "level": "push" },
-    { "id": "app-webkit", "lane": "browser", "inputs": ["app","packages","crates","tests/fixtures","tools/gen-vault"], "dir": "app",
+    { "id": "app-webkit", "lane": "browser", "inputs": ["app","packages","crates","tests/fixtures","tools/gen-vault","tools/qa/src/port.ts","tools/qa/src/gate-lock.ts"], "dir": "app",
       "timeout": 3600, "testFiles": "^app/webkit/[^/]+\\.test\\.ts$",
       "run": "PLAYWRIGHT_JUNIT_OUTPUT_NAME=\"$VERIFY_RESULTS/app-webkit.xml\" npx playwright test --reporter=list,junit,./webkit/flaky-reporter.ts {files}",
       "level": "push" },

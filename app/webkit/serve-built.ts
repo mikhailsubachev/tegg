@@ -86,7 +86,13 @@ if (!Number.isInteger(port) || port <= 0) {
 
 const files = await bundle();
 const server = http.createServer((req, res) => {
-  const pathname = decodeURIComponent(new URL(req.url ?? '/', 'http://localhost').pathname);
+  let pathname: string;
+  try {
+    pathname = decodeURIComponent(new URL(req.url ?? '/', 'http://localhost').pathname);
+  } catch {
+    res.writeHead(400, { 'content-type': 'text/plain' }).end('malformed path\n');
+    return;
+  }
   const fsPrefix = `/@fs${REPO.split(path.sep).join('/')}/`;
   const name = pathname === '/' ? '/index.html' : pathname.startsWith(fsPrefix) ? `/fs/${pathname.slice(fsPrefix.length)}` : pathname;
   const body = files.get(name);
@@ -100,5 +106,11 @@ server.on('error', (e) => {
   process.stderr.write(`serve-built: ${e.message}\n`);
   process.exit(1);
 });
+// If the runner that started this server is gone (killed without cleanup), the server would keep the run's port:
+// it ends itself once its parent changes.
+const parent = process.ppid;
+setInterval(() => {
+  if (process.ppid !== parent) process.exit(0);
+}, 2_000).unref();
 // `localhost` like the dev server did; the port is this run's own (VERIFY_PORT_BASE or TEGG_WEBKIT_PORT).
 server.listen(port, 'localhost', () => process.stdout.write(`serve-built: ${files.size} files on http://localhost:${port}\n`));

@@ -4,7 +4,8 @@ import { gatePortBase } from '../tools/qa/src/port.ts';
 // L5 (test-strategy §4): the real UI on WebKit (the engine of Tauri's WKWebView) with the fake core over mocked IPC
 // (ui/test/fake-core.ts, docs/contracts/ms3-shell.md §5). Every run builds the UI and serves that bundle from memory
 // (webkit/serve-built.ts, D-1880) on its own port and never reuses a running server, so it tests the checkout's code.
-// TEGG_WEBKIT_DEV=1 serves the Vite dev server instead (source maps and unminified code while debugging a test).
+// Outside a gate TEGG_WEBKIT_DEV=1 serves the Vite dev server instead (source maps and unminified code while
+// debugging a test); a gate ignores it, so a variable left in the shell can't make a gate test the dev build.
 const gate = !!process.env.VERIFY_GATE;
 // Under the gate the port comes from the runner (VERIFY_PORT_BASE, CONTRACT §3.2.1), one per run, so two gates of the
 // same repository can run at the same time (D-343).
@@ -39,5 +40,5 @@ export default defineConfig({
   use: { baseURL: `http://localhost:${port}`, actionTimeout: 3_000, viewport: { width: 1440, height: 900 } },
   projects: [{ name: 'webkit', use: { ...devices['Desktop Safari'], viewport: { width: 1440, height: 900 } } }],
   // The build takes a few seconds before the port answers; the limit is generous for a loaded machine.
-  webServer: { command: process.env.TEGG_WEBKIT_DEV ? `npx vite --port ${port} --strictPort` : `node webkit/serve-built.ts ${port}`, port, reuseExistingServer: false, timeout: 180_000 },
+  webServer: { command: !gate && process.env.TEGG_WEBKIT_DEV ? `npx vite --port ${port} --strictPort` : `node webkit/serve-built.ts ${port}`, port, reuseExistingServer: false, timeout: 180_000 },
 });
