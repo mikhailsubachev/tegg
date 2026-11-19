@@ -291,7 +291,7 @@ export async function runTreeGate(root: string, cfg: Config, gate: Gate, opts: G
     const planned = gateSteps.filter((s) => {
       const key = keyOf.get(s.id);
       const e = consult && key ? memo[key] : undefined;
-      if (!e) {
+      if (!e || e.failed) {
         const fp = stepFingerprint(s);
         const plan = consult && fp ? planPartial(root, sha, s, runs[fp]) : undefined;
         if (!plan) return true;
@@ -341,7 +341,8 @@ export async function runTreeGate(root: string, cfg: Config, gate: Gate, opts: G
       }
       if (!key || !r) continue;
       if (r.result === 'pass') memo[key] = { step: s.id, gate, commit: sha, startedAt, runId, reports: reportNames(s).filter((n) => fs.existsSync(path.join(results, n))), results };
-      else if (r.result === 'fail') delete memo[key];
+      // A failure is recorded too, as no pass: deleting the key would leave other checkouts' copies of it in force.
+      else if (r.result === 'fail') memo[key] = { step: s.id, gate, commit: sha, startedAt, runId, reports: [], failed: true };
     }
     saveStepMemo(root, memo);
     if (recordedRuns) saveStepRuns(root, runs);

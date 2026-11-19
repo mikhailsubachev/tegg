@@ -67,6 +67,7 @@ export function loadConfig(root: string): Config {
     }
     if (s.timeout !== undefined && (typeof s.timeout !== 'number' || !Number.isFinite(s.timeout) || s.timeout <= 0)) throw new UsageError(`qa.config.json: steps[${i}].timeout must be a positive number of seconds`);
     const testFiles = s.testFiles === undefined ? undefined : regex(s.testFiles, `steps[${i}].testFiles`);
+    if (testFiles === undefined && s.run.includes('{files}')) throw new UsageError(`qa.config.json: steps[${i}].run contains {files} but the step has no testFiles`);
     return { id: s.id, dir: s.dir ?? '.', run: s.run, level: s.level, changedOnly: s.changedOnly === true, cargoCache: s.cargoCache !== false, lane: s.lane ?? 'default', inputs, timeout: s.timeout, testFiles };
   });
   const acTestPatterns = (raw.acTestPatterns ?? DEFAULT_AC_TEST_PATTERNS).map((p: unknown, i: number) => regex(p, `acTestPatterns[${i}]`));

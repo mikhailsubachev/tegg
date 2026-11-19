@@ -64,6 +64,8 @@ export function execAsync(cmd: string, args: string[], opts: RunOpts): Promise<R
       clearTimeout(kill);
       // The leader is gone and its pipes are closed; whatever it left behind in its group goes with it.
       if (timedOut && pid) signalGroup(pid, 'SIGKILL');
+      // An empty group is forgotten, so a later signal to the gate can't reach a process that reuses its id.
+      if (pid && !signalGroup(pid, 0)) groups.delete(pid);
       resolve(timedOut ? { status: 124, stdout, stderr, timedOut } : { status: code ?? 1, stdout, stderr });
     });
     if (child.stdin) {

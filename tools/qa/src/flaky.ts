@@ -55,7 +55,11 @@ export function recordFlaky(root: string, sha: string, gate: Gate, startedAt: st
   if (tests.length === 0) return;
   const cutoff = Date.now() - MAX_AGE_MS;
   const kept = loadFlaky(root).filter((r) => !(Date.parse(r.startedAt) < cutoff));
-  for (const t of tests) kept.push({ file: t.file, test: t.test, blob: blobOf(root, sha, t.file), commit: sha, gate, startedAt });
+  for (const t of tests) {
+    const blob = blobOf(root, sha, t.file);
+    if (blob === '') process.stderr.write(`verify: warning: flaky test file ${t.file} is not in the checked commit; its record can't count for the flaky check\n`);
+    kept.push({ file: t.file, test: t.test, blob, commit: sha, gate, startedAt });
+  }
   saveFlaky(root, kept);
 }
 

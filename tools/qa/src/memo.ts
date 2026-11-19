@@ -12,8 +12,10 @@ import { readJson, sharedDir, writeJson } from './shared.ts';
  *  2: keys of version 1 missed the object id of an input that contains the step's directory (bug_pr54). */
 export const STEP_MEMO_VERSION = 2;
 
-/** `results`: the absolute results folder of the recorded run, which may be another worktree's (D-1831). */
-export type MemoEntry = { step: string; gate: Gate; commit: string; startedAt: string; runId: string; reports: string[]; results?: string };
+/** `results`: the absolute results folder of the recorded run, which may be another worktree's (D-1831).
+ *  `failed`: the step failed under this key. Such a record is no pass; it is kept so that the shared memo masks
+ *  the copy of an earlier pass that another checkout still holds in its own file (CONTRACT §3.2.3). */
+export type MemoEntry = { step: string; gate: Gate; commit: string; startedAt: string; runId: string; reports: string[]; results?: string; failed?: true };
 export type StepMemo = Record<string, MemoEntry>;
 
 export function memoFile(root: string): string {
@@ -40,7 +42,7 @@ function parseMemo(raw: unknown): StepMemo {
     for (const [k, v] of Object.entries(raw)) {
       const e = v as Partial<MemoEntry> | null;
       if (e && typeof e.step === 'string' && typeof e.gate === 'string' && typeof e.commit === 'string' && typeof e.startedAt === 'string' && typeof e.runId === 'string') {
-        memo[k] = { step: e.step, gate: e.gate as Gate, commit: e.commit, startedAt: e.startedAt, runId: e.runId, reports: Array.isArray(e.reports) ? e.reports.filter((r) => typeof r === 'string') : [], ...(typeof e.results === 'string' ? { results: e.results } : {}) };
+        memo[k] = { step: e.step, gate: e.gate as Gate, commit: e.commit, startedAt: e.startedAt, runId: e.runId, reports: Array.isArray(e.reports) ? e.reports.filter((r) => typeof r === 'string') : [], ...(typeof e.results === 'string' ? { results: e.results } : {}), ...(e.failed === true ? { failed: true as const } : {}) };
       }
     }
     return memo;

@@ -41,9 +41,16 @@ export function readJson(file: string): unknown {
   }
 }
 
-export function writeJson(file: string, value: unknown): void {
+/** Writes a temporary file next to `file` and renames it, so a crash never leaves half a file. */
+export function writeAtomic(file: string, text: string): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, JSON.stringify(value, null, 2) + '\n');
+  const tmp = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, text);
+  fs.renameSync(tmp, file);
+}
+
+export function writeJson(file: string, value: unknown): void {
+  writeAtomic(file, JSON.stringify(value, null, 2) + '\n');
 }
 
 function readLines(file: string): string[] {
@@ -75,5 +82,5 @@ export function recordPassedTree(root: string, tree: string): void {
   if (!dir) return;
   const file = path.join(dir, 'passed-trees');
   const trees = [...readLines(file).filter((t) => t !== tree), tree].slice(-MAX_PASSED_TREES);
-  fs.writeFileSync(file, trees.join('\n') + '\n');
+  writeAtomic(file, trees.join('\n') + '\n');
 }
