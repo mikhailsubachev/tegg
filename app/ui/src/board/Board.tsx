@@ -271,6 +271,12 @@ export function Board(p: BoardProps) {
       if (!to || to.id === id) return;
       const movable = live.current.data.filter((l) => l.grip).map((l) => l.id);
       const before = to.before ? to.id : movable[movable.indexOf(to.id) + 1] ?? null;
+      // A drop that leaves the order as it is writes nothing (R187, FR-QRY-05 AC-19, FR-SYN-06): e.g. on the near half of
+      // a neighbour, where `before` is the dragged lane itself or the lane already after it.
+      const rest = movable.filter((m) => m !== id);
+      const at = before === null || before === id ? (before === id ? movable.indexOf(id) : rest.length) : rest.indexOf(before);
+      const next = [...rest.slice(0, at), id, ...rest.slice(at)];
+      if (next.every((m, i) => m === movable[i])) return;
       live.current.onLaneDrop(id, before === id ? null : before);
     };
     window.addEventListener('mousemove', moveH, true);

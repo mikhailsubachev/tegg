@@ -285,7 +285,7 @@ export function applyBoardMove(text: string, move: BoardMove): { text: string; i
   `Host::query_rename_plan` from `Core::query_view_usages(name)` and `tegg_schema::rename_view(text, old name, new
   name)` (rows with `None` are left out). Base check: a type file whose version changed since the scan stops the job
   before any write (as the usages, D-1496). Write order: the file rename, the usages' `saved:` lines, the type files'
-  `views:` lines (direct rows: `Written { direct: true }`, byte rows in the undo record, journal entries), last the
+  `views:` lines (direct rows: `Written { direct: true }`, byte rows in the undo record; no journal, as slice Q's query rename, D-1829), last the
   pins. Undo restores every byte. Report `written` lists the type files.
 - **Link patches** (4C `note-rename`, 4E-1 moves): `QueryPatch::ObjectMoved` also rewrites `lane_order` entries that
   are links resolving to `from` (D-1467 text; `|alias` / `#sub` kept; `modified:` untouched), in `patch_job_text`.

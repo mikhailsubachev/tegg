@@ -328,7 +328,7 @@ export function TypeViews({ typeKey, type, types, plural, all }: {
                 step(e.key === 'ArrowRight' ? 1 : -1, true);
               }
             }}>
-            <div role="tab" id={tabId(null)} data-view-tab="" data-view-kind="table" aria-selected={shownName === null} tabIndex={shownName === null ? 0 : -1}
+            <div role="tab" id={tabId(null)} data-command="views.next" data-view-tab="" data-view-kind="table" aria-selected={shownName === null} tabIndex={shownName === null ? 0 : -1}
               aria-posinset={1} aria-setsize={items.length + 1} aria-controls={shownName === null ? 'view-panel' : undefined}
               className={`view-tab${shownName === null ? ' on' : ''}${tabDrag && tabDrag.before === (items[0]?.name ?? null) && tabDrag.name !== items[0]?.name ? '' : ''}`}
               onClick={() => { if (shownName !== null) select(null); }}
@@ -342,7 +342,7 @@ export function TypeViews({ typeKey, type, types, plural, all }: {
               const dropBefore = tabDrag && tabDrag.name !== it.name && tabDrag.before !== undefined && tabDrag.before !== null && nfc(tabDrag.before) === nfc(it.name);
               const dropAfter = tabDrag && tabDrag.before === null && i === items.length - 1 && tabDrag.name !== it.name;
               return (
-                <div key={it.name} role="tab" id={tabId(it.name)} data-view-tab={it.draft ? 'New view' : nfc(it.name)} data-view-kind={it.kind ?? undefined}
+                <div key={it.name} role="tab" id={tabId(it.name)} data-command="views.next" data-view-tab={it.draft ? t('views.newName') : nfc(it.name)} data-view-kind={it.kind ?? undefined}
                   data-view-state={st && (on || it.draft || st === 'trashed' || st === 'missing') ? st : undefined} aria-selected={on} aria-haspopup={it.draft ? undefined : 'menu'}
                   aria-posinset={i + 2} aria-setsize={items.length + 1} tabIndex={on ? 0 : -1}
                   className={`view-tab${on ? ' on' : ''}${tabDrag?.name === it.name ? ' dragging' : ''}${dropBefore ? ' drop-before' : ''}${dropAfter ? ' drop-after' : ''}`}

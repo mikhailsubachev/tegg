@@ -2041,8 +2041,8 @@ pub fn rename_view(text: &str, from: &str, to: &str) -> Option<String> {
             let Some(after) = t.strip_prefix("- ") else { continue };
             let at = line.len() - after.len();
             let body = after.trim_end_matches('\r');
-            // A trailing comment stays: the token ends before ` #`.
-            let tok_end = body.find(" #").unwrap_or(body.len());
+            // A trailing comment stays: the token ends before a ` #` outside quotes (`- "Čtu # 2"` is one name).
+            let tok_end = comment_start(body).unwrap_or(body.len());
             let tok = body[..tok_end].trim_end();
             let tok_start = after.len() - after.trim_start().len();
             let tok = &tok[tok_start.min(tok.len())..];
@@ -2060,5 +2060,35 @@ pub fn rename_view(text: &str, from: &str, to: &str) -> Option<String> {
         return None;
     }
     let out = join_lines(&lines, final_nl);
-    (parse("", &out).readability == Readability::Ok).then_some(out)
+    // Read back: the file stays readable and its views are the old list with exactly the renamed entries changed.
+    let after = parse("", &out);
+    let expect: Vec<String> = parsed.def.views.as_ref()?.iter().map(|v| if view_name_key(v) == want { nfc(to) } else { v.clone() }).collect();
+    (after.readability == Readability::Ok && after.def.views.as_ref() == Some(&expect)).then_some(out)
+}
+
+/// The byte index of a YAML comment's ` #` in a block-list item's body, outside single and double quotes.
+fn comment_start(body: &str) -> Option<usize> {
+    let mut quote: Option<char> = None;
+    let mut prev = ' ';
+    let mut chars = body.char_indices().peekable();
+    while let Some((i, c)) = chars.next() {
+        match quote {
+            Some('"') if c == '\\' => {
+                chars.next();
+            }
+            Some(q) if c == q => {
+                if q == '\'' && chars.peek().map(|&(_, n)| n) == Some('\'') {
+                    chars.next();
+                } else {
+                    quote = None;
+                }
+            }
+            Some(_) => {}
+            None if (c == '"' || c == '\'') && (prev == ' ' || i == 0) => quote = Some(c),
+            None if c == '#' && prev == ' ' && i > 0 => return Some(i - 1),
+            None => {}
+        }
+        prev = c;
+    }
+    None
 }

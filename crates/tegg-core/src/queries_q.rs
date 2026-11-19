@@ -2894,7 +2894,10 @@ impl QCore<'_> {
             let e = {
                 let idx = lock(&self.shared.index);
                 let mut e = idx.with_query_objects(|objs, resolve| evaluate(objs, resolve, &defs, &def, host, env));
-                for row in e.rows.iter_mut() {
+                // Versions, excerpts and read-only flags serve the board's cards and moves only: a List or Table run reads
+                // no note text (QA review of Q2; NFR-PERF-07, NFR-PERF-08).
+                let rows: &mut [QueryRow] = if e.group.is_some() { &mut e.rows } else { &mut [] };
+                for row in rows.iter_mut() {
                     if let Some(st) = idx.note_state(&row.path) {
                         row.version = st.version;
                         row.excerpt = st.excerpt;

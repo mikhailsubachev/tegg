@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.195, for review                                            |
+| **Document status** | Draft v1.196, for review                                            |
 | **Date**            | 2026-11-14                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -209,6 +209,7 @@
 | v1.193  | 2026-11-19 | Slice Q2 red tests (258519e1): D-1813…D-1823 (RT-1…RT-11; owner, each as proposed): stubs plus type-only edits of slice Q's tests before the second red commit, a separate L3 file, the fake core built with the slice, the type page's count as `<n> <plural>`, contract precision (direction, choice lists, view-tab rows, the card-move mark), FR-QRY-01 AC-8 without L1, the expected-bytes step order, `Čtu` for the NFD clause |
 | v1.194  | 2026-11-19 | Slice Q2 build: D-1824, D-1825, four AC-test fixes (the board-move property's generator, the `query.*` key set with R192's keys, the twin test reading only files in `expected/`, FR-QRY-09 AC-7 restoring the type file) |
 | v1.195  | 2026-11-19 | Slice Q2 UI build: D-1826 (six WebKit test fixes), D-1827 (type pages have no right panel; FR-TYP-09 AC-35) |
+| v1.196  | 2026-11-19 | QA review of slice Q2: D-1828 (card-move writes covered by AC-13's L4 test), D-1829 (no journal for query renames), D-1830 (the design review after the release) |
 
 ---
 
@@ -1850,6 +1851,9 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1825 | FR-QRY-09 AC-7's last step restores the type file (owner, 2026-11-19; slice Q2 build) | `crates/tegg-core/tests/ac_views_writes.rs` `fr_qry_09_ac7_lanes_follow_the_type_file` renamed the `Read` option and never restored it, so its last step waited for a `Read` lane that can't exist; the test now writes `book.yml` back before the external `lane_order` change (`AC-Test-Change`) |
 | D-1826 | Q2 WebKit test fixes (owner, 2026-11-19; slice Q2 build) | Approved `AC-Test-Change`s: FR-QRY-07 AC-5 activates the greyed item with a plain click; FR-QRY-08 AC-2 presses ⏎ (the first write, D-522); FR-QRY-09 AC-7 restores `book.yml` before the external `lane_order` (as D-1825); FR-UX-03 AC-51 reads the selected tab inside the views tablist; NFR-OTH-02 AC-21 leaves the card excerpt (user content) out of the UI-string check; types.md FR-TYP-01 AC-9 no longer expects Type settings' Views section (D-1801) |
 | D-1827 | Type pages have no right panel (owner, 2026-11-19; slice Q2 build) | FR-TYP-09 AC-35 drops "with the panel open the content narrows": the right panel exists only on note routes, and Q2 doesn't add one to type pages |
+| D-1828 | Card-move writes at L4 (owner, 2026-11-19; QA review of slice Q2) | FR-QRY-05 AC-14, AC-16 and AC-21 take their bytes at L1 (`@tegg/doc`); their write through `note_write` is the path FR-QRY-05 AC-13's L4 test covers, so they have no L4 test of their own |
+| D-1829 | No journal for query renames (owner, 2026-11-19; QA review of slice Q2) | `query-rename` keeps slice Q's behaviour: no crash journal, also for the type files' `views:` lines (contract §1.10 corrected). A crash mid-rename leaves at worst a not-found tab, fixed by renaming again or `Remove` |
+| D-1830 | The Q2 design review after the release (owner, 2026-11-19; QA review of slice Q2) | FR-QRY-07 AC-16 (manual design review) is done by the owner on the installed 0.4.0 and recorded in `qa/manual/`, as 0.3.0's AC-33 |
 
 ---
 

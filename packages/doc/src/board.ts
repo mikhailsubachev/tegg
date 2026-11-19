@@ -26,7 +26,9 @@ const scalarText = (v: unknown): string | null =>
 export function applyBoardMove(text: string, move: BoardMove): { text: string; inlineKept: boolean } | null {
   const doc = parse(text)
   if (doc.frontmatter?.error || doc.frontmatterError) return null
-  const key = nfc(move.key)
+  // The key as the note writes it: matched after NFC (FR-FMT-12, rule 9), so an NFD key is edited, never duplicated.
+  const wanted = nfc(move.key)
+  const key = doc.frontmatter?.entries.find((e) => nfc(e.key) === wanted)?.key ?? wanted
   const data = (doc.frontmatter?.data ?? {}) as Record<string, unknown>
   const add = move.add === null ? null : nfc(move.add)
   if (move.shape === 'scalar') {

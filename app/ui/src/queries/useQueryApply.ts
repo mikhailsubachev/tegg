@@ -39,7 +39,8 @@ export function useQueryApply(name: string | null, result: QueryResultDto | null
       } catch (e) {
         disk.current = null;
         const k = errorKind(e);
-        queryAlert(k === 'Io' ? t('query.saveFailed') : t('query.editor.changedOutside'));
+        // Only a changed or deleted file is "changed outside"; anything else (Io, a read-back failure) didn't save (§2.1).
+        queryAlert(k === 'Conflict' || k === 'Gone' ? t('query.editor.changedOutside') : t('query.saveFailed'));
       } finally {
         pending.current--;
         rerun();
