@@ -1,0 +1,14 @@
+# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Seskupeno podle data.
+version: 1
+title: Seskupeno podle data
+types: [book]
+match: all
+filters: []
+sort: { by: title, order: asc }
+limit: 50
+view: board
+group_by: finished
+lanes: vertical
+columns: [author]
+created: 2026-10-14T20:00:00+02:00
+modified: 2026-10-14T20:00:00+02:00
