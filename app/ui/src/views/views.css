@@ -1,0 +1,86 @@
+/* Slice Q2 (boards Views A, B, E, ViewsApp and their Dark variants): the type page's view tabs, the view toolbar, the
+   sort popover and the Add view menu. Colours only from the theme tokens (FR-UX-05). */
+
+/* D-1772: type pages, Queries and query pages fill the centre pane, 40 px side padding. */
+.page-column.page-wide { max-width: none; margin: 0; padding-left: 40px; padding-right: 40px; }
+
+.view-bar { display: flex; align-items: flex-end; gap: 10px; border-bottom: 1px solid var(--border); margin: 16px 0 12px; min-width: 0; flex-wrap: wrap; }
+.view-tabs-wrap { display: flex; align-items: flex-end; flex: 1 1 auto; min-width: 0; }
+.view-tabs { display: flex; gap: 2px; align-items: flex-end; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.view-tabs::-webkit-scrollbar { display: none; }
+.view-tabs .view-tab {
+  display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 10px; font-size: 13px; font-weight: 600; color: var(--muted);
+  border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; background: none; border-radius: 0; cursor: default; user-select: none;
+}
+.view-tabs .view-tab:hover { color: var(--text); }
+.view-tabs .view-tab.on { color: var(--text); border-bottom-color: var(--text); }
+.view-tabs .view-tab.dragging { opacity: .55; }
+.view-tabs .view-tab.drop-before { box-shadow: inset 2px 0 0 var(--focus); }
+.view-tabs .view-tab.drop-after { box-shadow: inset -2px 0 0 var(--focus); }
+.view-tabs .view-tab:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.view-tab-icon { display: inline-flex; }
+.view-chevron { display: inline-flex; color: var(--muted); border-radius: 4px; padding: 2px; }
+.view-chevron:hover { background: var(--hover); color: var(--text); }
+.view-add { width: 32px; height: 40px; color: var(--muted); border-radius: 6px; }
+.view-add[aria-disabled="true"] { color: var(--faint); }
+.view-toolbar-slot { display: flex; align-items: center; padding-bottom: 6px; margin-left: auto; }
+.view-toolbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.view-toolbar .type-filter { width: 160px; }
+.view-toolbar .text-button { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); white-space: nowrap; }
+.view-toolbar .text-button:hover, .view-toolbar .text-button[aria-expanded="true"] { color: var(--text); background: var(--hover); }
+.view-toolbar .text-button[aria-disabled="true"] { color: var(--faint); }
+.view-toolbar .sort-first { color: var(--text); }
+.view-toolbar .sort-more, .view-tags-count { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+.view-toolbar .view-more { width: 30px; height: 30px; }
+.lanes-switch [role="radio"] { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 7px; font-size: 12.5px; color: var(--muted); }
+.lanes-switch [role="radio"][aria-checked="true"] { background: var(--bg); color: var(--text); font-weight: 600; }
+.lanes-switch [role="radio"][aria-disabled="true"] { opacity: .6; }
+.view-panel { min-width: 0; }
+.view-panel .query-message { color: var(--muted); font-size: 13px; }
+.view-notice { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; margin: 0 0 10px; }
+.view-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.view-tag-popover { position: fixed; z-index: 40; min-width: 300px; max-width: 420px; padding: 8px; overflow: visible; max-height: none; }
+.view-panel .query-table-box { overflow-x: auto; }
+
+/* The All tab: with view tabs its sorted header carries the arrow as text (the marker), not as generated content. */
+.type-table.marked-sort th[aria-sort]::after { content: none; }
+.sort-marker { color: var(--text); }
+.sort-marker sup { font-size: 9px; vertical-align: super; line-height: 0; }
+
+/* The Add view menu (board B). */
+.view-add-menu .menu-item { display: flex; align-items: center; gap: 8px; }
+.view-add-menu .menu-item[aria-disabled="true"] { color: var(--muted); }
+.view-add-menu .menu-group-head { padding: 6px 10px 2px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.view-add-menu .menu-hint { margin-left: auto; font-size: 12px; color: var(--muted); padding-left: 12px; white-space: nowrap; }
+
+/* Queries page marks (FR-QRY-06 AC-23). */
+.page-mark { display: inline-flex; align-items: center; margin-left: 8px; padding: 0 6px; border-radius: 5px; font-size: 12px; color: var(--muted); background: var(--hover); }
+
+/* The sort popover (board A). */
+.sort-popover { position: fixed; z-index: 40; min-width: 420px; max-width: calc(100vw - 16px); max-height: none; overflow: visible; padding: 8px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.sort-level { display: flex; align-items: center; gap: 6px; padding: 2px; border-radius: 6px; }
+.sort-level.dragging { opacity: .55; }
+.sort-level.drop-over { box-shadow: inset 0 2px 0 var(--focus); }
+.sort-grip { display: inline-flex; color: var(--muted); cursor: grab; border-radius: 4px; padding: 2px; }
+.sort-grip:hover { background: var(--hover); color: var(--text); }
+.sort-lead { width: 56px; color: var(--muted); font-size: 12.5px; }
+.sort-popover .qe-combo { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; min-width: 120px; background: var(--bg); color: var(--text); }
+.sort-popover .qe-combo .qe-combo-text { flex: 1; }
+.sort-actions { display: flex; gap: 6px; padding-top: 4px; border-top: 1px solid var(--border); margin-top: 4px; }
+.sort-actions .qe-add { display: inline-flex; align-items: center; height: 26px; padding: 0 8px; border-radius: 6px; color: var(--text); font-size: 12.5px; }
+.sort-actions .qe-add:hover { background: var(--hover); }
+.query-sort .sort-count { font-size: 12px; color: var(--muted); }
+
+/* The editor's Board rows (R189). */
+.query-editor .qe-fixed { margin: 0; }
+.query-editor .qe-cards { color: var(--text); font-size: 13px; }
+
+/* Q2 (D-1767): a saved query's table in a block or a view resizes its columns as the type page does (type-columns §4). */
+.query-table.fixed { table-layout: fixed; }
+.query-table th { position: relative; }
+.query-table.fixed th, .query-table.fixed td { overflow: hidden; text-overflow: ellipsis; }
+.query-table .col-resize { position: absolute; top: 0; bottom: 0; right: 0; width: 9px; cursor: col-resize; touch-action: none; z-index: 2; }
+.query-table .col-resize::after { content: ''; position: absolute; top: 25%; bottom: 25%; right: 3px; width: 2px; border-radius: 1px; background: var(--muted); opacity: 0.35; }
+.query-table th:hover .col-resize::after, .query-table .col-resize:focus-visible::after { opacity: 1; }
+.query-table .col-resize:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.query-table th.reordering { cursor: grabbing; color: var(--text); }

@@ -1,0 +1,13 @@
+# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Odložené.
+version: 1
+title: Odložené
+types: [book]
+match: all
+filters:
+  - tags: { has_any_of: [odloženo] }
+sort: { by: title, order: asc }
+limit: 50
+view: table
+columns: [author, status]
+created: 2026-09-10T20:00:00+02:00
+modified: 2026-09-10T20:00:00+02:00

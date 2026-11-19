@@ -125,22 +125,25 @@ test('fr_qry_01_ac3_and_or_two_levels', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ FR-QRY-01 AC-4
 
 test('fr_qry_01_ac4_sort_and_limit', async ({ page }) => {
+  // Slice Q2 (D-1795, AP-1511; views.md "Existing criteria this slice changes"): the editor has no Sort row; the orders are
+  // reached through the block's sort popover (R188), each change one write. The result orders and the Limit part stand.
   const core = await startQueries(page, { route: noteRoute(P.porada7) });
   const b = block(page, Q.table);
   await mustResults(b, TABLE7, 'precondition', 8000);
-  await openEditor(b, page);
-  const sortBox = editor(page).getByRole('combobox', { name: /^⟦?Sort⟧?$/ });
-  const order = editor(page).getByRole('combobox', { name: /^⟦?(Order|Sort order)⟧?$/ }).or(editor(page).getByRole('radio', { name: /^⟦?Descending⟧?$/ })).first();
-  await click(order, 'order');
-  if (await seen(page.getByRole('option', { name: /^Descending$/ }), 300)) await pickOption(page, 'Descending');
+  await click(b.locator('button[data-command="sort.open"]'), 'the block\'s sort button');
+  const dlg = await must(page.getByRole('dialog', { name: /^⟦?Sort⟧?$/ }), 'dialog Sort');
+  const level0 = dlg.locator('[role="group"][data-sort-level="0"]');
+  const order = level0.getByRole('combobox', { name: /^⟦?Order⟧?$/ });
+  await click(order, 'order'); await pickOption(page, 'Newest first');
   assert.deepEqual(await resultsAre(b, [P.t3, P.t2, P.t1, P.t5, P.t4]), [P.t3, P.t2, P.t1, P.t5, P.t4], 'Due descending: empty still last');
-  await click(sortBox, 'Sort'); await pickOption(page, 'Priority');
+  await click(level0.getByRole('combobox', { name: /^⟦?Sort by⟧?$/ }), 'Sort by'); await pickOption(page, 'Priority');
   await click(order, 'order');
-  if (await seen(page.getByRole('option', { name: /^Ascending$/ }), 300)) await pickOption(page, 'Ascending');
-  else await click(editor(page).getByRole('radio', { name: /^⟦?Ascending⟧?$/ }), 'Ascending');
+  await click(page.getByRole('option').first(), 'the ascending order');
   assert.deepEqual(await resultsAre(b, [P.t1, P.t3, P.t5, P.t2, P.t4]), [P.t1, P.t3, P.t5, P.t2, P.t4], 'Priority ascending: option order, ties by title');
-  await click(sortBox, 'Sort'); await pickOption(page, 'Title');
+  await click(level0.getByRole('combobox', { name: /^⟦?Sort by⟧?$/ }), 'Sort by'); await pickOption(page, 'Title');
   assert.deepEqual(await resultsAre(b, [P.t1, P.t3, P.t5, P.t2, P.t4]), [P.t1, P.t3, P.t5, P.t2, P.t4], 'Title (cs): Poslat…, Připravit…, Uzavřít…, Zarezervovat…, Zeptat…');
+  await page.keyboard.press('Escape');
+  await openEditor(b, page);
   const lim = await must(limitField(page), 'Limit');
   for (const bad of ['0', '1001', 'abc']) {
     await lim.fill(bad);
@@ -157,8 +160,9 @@ test.describe('(C) en-US', () => {
     await startQueries(page, { route: noteRoute(P.porada7), region: 'en-US' });
     const b = block(page, Q.table);
     await mustResults(b, TABLE7, 'precondition', 8000);
-    await openEditor(b, page);
-    await click(editor(page).getByRole('combobox', { name: /^⟦?Sort⟧?$/ }), 'Sort');
+    await click(b.locator('button[data-command="sort.open"]'), 'the block\'s sort button');
+    const dlg = await must(page.getByRole('dialog', { name: /^⟦?Sort⟧?$/ }), 'dialog Sort');
+    await click(dlg.locator('[role="group"][data-sort-level="0"]').getByRole('combobox', { name: /^⟦?Sort by⟧?$/ }), 'Sort by');
     await pickOption(page, 'Title');
     assert.deepEqual(await resultsAre(b, [P.t1, P.t3, P.t5, P.t2, P.t4]), [P.t1, P.t3, P.t5, P.t2, P.t4], 'Title with en-US');
   });

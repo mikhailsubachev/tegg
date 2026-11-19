@@ -83,6 +83,12 @@ const PATHS: Record<string, string> = {
   x: 'M6 6l12 12M18 6L6 18',
   // Slice P (board ObjectPreview): the popover's resize corner.
   resize: 'M20 12l-8 8M20 17l-3 3',
+  // Slice Q2 (boards Views, ViewsApp): the view kinds and the sort button.
+  table: 'M4 5h16v14H4zM4 10h16M10 5v14',
+  list: 'M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01',
+  board: 'M4 5h4v14H4zM10 5h4v9h-4zM16 5h4v11h-4z',
+  sort: 'M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4',
+  columns: 'M4 5h16v14H4zM10 5v14M16 5v14',
 };
 
 /** R14 icon names a type file may use (D-236); others fall back to the generic type icon. */

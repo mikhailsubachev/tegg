@@ -93,9 +93,11 @@ test('nfr_oth_02_ac17_query_strings', async () => {
     if (got !== want) bad.push(`${key} ${JSON.stringify(vars)}: want ${JSON.stringify(want)}, got ${JSON.stringify(got)}`);
   }
   assert.deepEqual(bad, [], 'R145\'s keys with their English texts');
-  const keys = new Set(R145.map(([k]) => k));
+  // Slice Q2 adds its own `query.editor.*` keys (views.md R192, D-1812); they are checked by views_catalog.ac.test.ts.
+  const R192_QUERY = ['query.editor.usedOnPage', 'query.editor.showFixed', 'query.editor.board', 'query.editor.groupBy', 'query.editor.groupByHint', 'query.editor.lanes', 'query.editor.onCards', 'query.editor.onCardsChange'];
+  const keys = new Set([...R145.map(([k]) => k), ...R192_QUERY]);
   const extra = Object.keys(en).filter((k) => (k.startsWith('queries.') || k.startsWith('query.')) && !keys.has(k));
-  assert.deepEqual(extra, [], 'no other `queries.*` / `query.*` key (exactly R145\'s)');
+  assert.deepEqual(extra, [], 'no other `queries.*` / `query.*` key (exactly R145\'s and R192\'s)');
   for (const k of REMOVED) assert.ok(!(k in en), `${k} removed`);
   for (const k of ['picker.title']) assert.ok(k in en, `${k} (\`Choose {name}\`) stays: R145's picker title is \`query.picker.title\` (D-1481)`);
 });

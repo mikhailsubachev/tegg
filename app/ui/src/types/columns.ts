@@ -83,9 +83,5 @@ export function defaultSort(cols: string[]): { column: string; dir: 'asc' | 'des
   return cols.includes('modified') ? { column: 'modified', dir: 'desc' } : { column: 'title', dir: 'asc' };
 }
 
-export const WIDTH = { default: 160, min: 80, max: 960, titleMin: 160, titleFill: 240 } as const; // R130, D-1248
-
-/** A width within R130's limits (`title` has its own minimum). */
-export function clampWidth(key: string, px: number): number {
-  return Math.round(Math.min(WIDTH.max, Math.max(key === 'title' ? WIDTH.titleMin : WIDTH.min, px)));
-}
+// Slice Q2 (v1-views §4.2, D-1767): the width limits live in the shared width helper; re-exported unchanged.
+export { WIDTH, clampWidth } from '../tables/widths';

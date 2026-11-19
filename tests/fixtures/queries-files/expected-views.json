@@ -1,0 +1,704 @@
+{
+  "reads": {
+    ".tegg/queries/Rozečtené.yml": {
+      "state": "ok",
+      "line": null,
+      "def": {
+        "title": "Rozečtené",
+        "types": [
+          "book"
+        ],
+        "match": "all",
+        "filters": [
+          {
+            "kind": "filter",
+            "key": "status",
+            "op": "is_any_of",
+            "value": [
+              "Reading",
+              "To read"
+            ],
+            "src": [
+              0
+            ]
+          },
+          {
+            "kind": "filter",
+            "key": "tags",
+            "op": "has_none_of",
+            "value": [
+              "odloženo"
+            ],
+            "src": [
+              1
+            ]
+          }
+        ],
+        "sort": [
+          {
+            "by": "status",
+            "order": "asc"
+          },
+          {
+            "by": "modified",
+            "order": "desc"
+          }
+        ],
+        "limit": 50,
+        "view": "board",
+        "groupBy": "status",
+        "lanes": "vertical",
+        "laneOrder": [
+          "Reading",
+          "To read",
+          "Read"
+        ],
+        "columns": [
+          "author",
+          "rating"
+        ]
+      },
+      "broken": [],
+      "usesThis": false
+    },
+    ".tegg/queries/Přečtené 2026.yml": {
+      "state": "ok",
+      "line": null,
+      "def": {
+        "title": "Přečtené 2026",
+        "types": [
+          "book"
+        ],
+        "match": "all",
+        "filters": [
+          {
+            "kind": "filter",
+            "key": "status",
+            "op": "is",
+            "value": "Read",
+            "src": [
+              0
+            ]
+          },
+          {
+            "kind": "filter",
+            "key": "finished",
+            "op": "between",
+            "value": [
+              "2026-01-01",
+              "2026-12-31"
+            ],
+            "src": [
+              1
+            ]
+          }
+        ],
+        "sort": [
+          {
+            "by": "finished",
+            "order": "desc"
+          },
+          {
+            "by": "rating",
+            "order": "asc"
+          },
+          {
+            "by": "title",
+            "order": "asc"
+          }
+        ],
+        "limit": 50,
+        "view": "table",
+        "groupBy": null,
+        "lanes": "vertical",
+        "laneOrder": null,
+        "columns": [
+          "author",
+          "rating",
+          "finished"
+        ]
+      },
+      "broken": [],
+      "usesThis": false
+    },
+    ".tegg/queries/Výborné knihy.yml": {
+      "state": "ok",
+      "line": null,
+      "def": {
+        "title": "Výborné knihy",
+        "types": [
+          "book"
+        ],
+        "match": "all",
+        "filters": [
+          {
+            "kind": "filter",
+            "key": "rating",
+            "op": "is",
+            "value": "Excellent",
+            "src": [
+              0
+            ]
+          }
+        ],
+        "sort": [
+          {
+            "by": "title",
+            "order": "asc"
+          }
+        ],
+        "limit": 50,
+        "view": "table",
+        "groupBy": null,
+        "lanes": "vertical",
+        "laneOrder": null,
+        "columns": [
+          "author",
+          "status",
+          "finished"
+        ]
+      },
+      "broken": [],
+      "usesThis": false
+    },
+    ".tegg/queries/Podle žánru.yml": {
+      "state": "ok",
+      "line": null,
+      "def": {
+        "title": "Podle žánru",
+        "types": [
+          "book"
+        ],
+        "match": "all",
+        "filters": [],
+        "sort": [
+          {
+            "by": "title",
+            "order": "asc"
+          }
+        ],
+        "limit": 50,
+        "view": "board",
+        "groupBy": "genres",
+        "lanes": "horizontal",
+        "laneOrder": null,
+        "columns": [
+          "author",
+          "rating"
+        ]
+      },
+      "broken": [],
+      "usesThis": false
+    },
+    ".tegg/queries/Podle autora.yml": {
+      "state": "ok",
+      "line": null,
+      "def": {
+        "title": "Podle autora",
+        "types": [
+          "book"
+        ],
+        "match": "all",
+        "filters": [],
+        "sort": [
+          {
+            "by": "title",
+            "order": "asc"
+          }
+        ],
+        "limit": 50,
+        "view": "board",
+        "groupBy": "author",
+        "lanes": "vertical",
+        "laneOrder": null,
+        "columns": [
+          "rating",
+          "genres"
+        ]
+      },
+      "broken": [],
+      "usesThis": false
+    },
+    ".tegg/queries/Seskupeno podle data.yml": {
+      "state": "ok",
+      "line": null,
+      "def": {
+        "title": "Seskupeno podle data",
+        "types": [
+          "book"
+        ],
+        "match": "all",
+        "filters": [],
+        "sort": [
+          {
+            "by": "title",
+            "order": "asc"
+          }
+        ],
+        "limit": 50,
+        "view": "board",
+        "groupBy": "finished",
+        "lanes": "vertical",
+        "laneOrder": null,
+        "columns": [
+          "author"
+        ]
+      },
+      "broken": [],
+      "usesThis": false
+    },
+    ".tegg/queries/Autoři.yml": {
+      "state": "ok",
+      "line": null,
+      "def": {
+        "title": "Autoři",
+        "types": [
+          "autor"
+        ],
+        "match": "all",
+        "filters": [],
+        "sort": [
+          {
+            "by": "title",
+            "order": "asc"
+          }
+        ],
+        "limit": 50,
+        "view": "list",
+        "groupBy": null,
+        "lanes": "vertical",
+        "laneOrder": null,
+        "columns": [
+          "poznámka"
+        ]
+      },
+      "broken": [],
+      "usesThis": false
+    },
+    ".tegg/queries/Knihy a autoři.yml": {
+      "state": "ok",
+      "line": null,
+      "def": {
+        "title": "Knihy a autoři",
+        "types": [
+          "book",
+          "autor"
+        ],
+        "match": "all",
+        "filters": [],
+        "sort": [
+          {
+            "by": "title",
+            "order": "asc"
+          }
+        ],
+        "limit": 50,
+        "view": "list",
+        "groupBy": null,
+        "lanes": "vertical",
+        "laneOrder": null,
+        "columns": [
+          "type",
+          "modified"
+        ]
+      },
+      "broken": [],
+      "usesThis": false
+    },
+    ".tegg/queries/Knihy odkazované odsud.yml": {
+      "state": "ok",
+      "line": null,
+      "def": {
+        "title": "Knihy odkazované odsud",
+        "types": [
+          "book"
+        ],
+        "match": "all",
+        "filters": [
+          {
+            "kind": "filter",
+            "key": "linked_from",
+            "op": "is",
+            "value": "this",
+            "src": [
+              0
+            ]
+          }
+        ],
+        "sort": [
+          {
+            "by": "title",
+            "order": "asc"
+          }
+        ],
+        "limit": 50,
+        "view": "list",
+        "groupBy": null,
+        "lanes": "vertical",
+        "laneOrder": null,
+        "columns": [
+          "author",
+          "status"
+        ]
+      },
+      "broken": [],
+      "usesThis": true
+    },
+    ".trash/.tegg/queries/Odložené.yml": {
+      "state": "ok",
+      "line": null,
+      "def": {
+        "title": "Odložené",
+        "types": [
+          "book"
+        ],
+        "match": "all",
+        "filters": [
+          {
+            "kind": "filter",
+            "key": "tags",
+            "op": "has_any_of",
+            "value": [
+              "odloženo"
+            ],
+            "src": [
+              0
+            ]
+          }
+        ],
+        "sort": [
+          {
+            "by": "title",
+            "order": "asc"
+          }
+        ],
+        "limit": 50,
+        "view": "table",
+        "groupBy": null,
+        "lanes": "vertical",
+        "laneOrder": null,
+        "columns": [
+          "author",
+          "status"
+        ]
+      },
+      "broken": [],
+      "usesThis": false
+    }
+  },
+  "groups": [
+    {
+      "query": "Rozečtené",
+      "env": {
+        "today": "2026-11-19",
+        "zone": "Europe/Prague",
+        "weekStart": 1,
+        "locale": "cs"
+      },
+      "key": "status",
+      "kind": "select",
+      "lanes": [
+        {
+          "id": "option:Reading",
+          "label": "Reading",
+          "excluded": false,
+          "dropTarget": true,
+          "paths": [
+            "Books/Noční vlak.md",
+            "Books/Účetní ze Žižkova.md",
+            "Books/Světla přístavu.md"
+          ]
+        },
+        {
+          "id": "option:To read",
+          "label": "To read",
+          "excluded": false,
+          "dropTarget": true,
+          "paths": [
+            "Books/Dům u řeky.md",
+            "Books/Kniha o horách.md"
+          ]
+        },
+        {
+          "id": "option:Read",
+          "label": "Read",
+          "excluded": true,
+          "dropTarget": true,
+          "paths": []
+        }
+      ]
+    },
+    {
+      "query": "Podle žánru",
+      "env": {
+        "today": "2026-11-19",
+        "zone": "Europe/Prague",
+        "weekStart": 1,
+        "locale": "cs"
+      },
+      "key": "genres",
+      "kind": "multiSelect",
+      "lanes": [
+        {
+          "id": "option:Román",
+          "label": "Román",
+          "excluded": false,
+          "dropTarget": true,
+          "paths": [
+            "Books/Čarovná mapa.md",
+            "Books/Dům u řeky.md",
+            "Books/Mapa bez severu.md",
+            "Books/Noční vlak.md",
+            "Books/Sto zimních dní.md",
+            "Books/Účetní ze Žižkova.md"
+          ]
+        },
+        {
+          "id": "option:Detektivka",
+          "label": "Detektivka",
+          "excluded": false,
+          "dropTarget": true,
+          "paths": [
+            "Books/Čtvrtá zima.md",
+            "Books/Tiché město.md",
+            "Books/Účetní ze Žižkova.md"
+          ]
+        },
+        {
+          "id": "option:Poezie",
+          "label": "Poezie",
+          "excluded": false,
+          "dropTarget": true,
+          "paths": [
+            "Books/Písně z dálky.md",
+            "Books/Zahrada v dešti.md"
+          ]
+        },
+        {
+          "id": "option:Eseje",
+          "label": "Eseje",
+          "excluded": false,
+          "dropTarget": true,
+          "paths": [
+            "Books/Kniha o čaji.md",
+            "Books/Sto zimních dní.md",
+            "Books/Světla přístavu.md"
+          ]
+        },
+        {
+          "id": "option:Cestopis",
+          "label": "Cestopis",
+          "excluded": false,
+          "dropTarget": true,
+          "paths": [
+            "Books/Cizí přístavy.md",
+            "Books/Čarovná mapa.md",
+            "Books/Kniha o horách.md",
+            "Books/Šest cest k moři.md",
+            "Books/Zápisník z Tater.md"
+          ]
+        },
+        {
+          "id": "none",
+          "label": "",
+          "excluded": false,
+          "dropTarget": false,
+          "paths": [
+            "Books/Ostrov bez jména.md"
+          ]
+        }
+      ]
+    },
+    {
+      "query": "Podle autora",
+      "env": {
+        "today": "2026-11-19",
+        "zone": "Europe/Prague",
+        "weekStart": 1,
+        "locale": "cs"
+      },
+      "key": "author",
+      "kind": "relation",
+      "lanes": [
+        {
+          "id": "relation:Autoři/Eva Lindová.md",
+          "label": "Eva Lindová",
+          "excluded": false,
+          "dropTarget": true,
+          "paths": [
+            "Books/Cizí přístavy.md",
+            "Books/Mapa bez severu.md",
+            "Books/Písně z dálky.md",
+            "Books/Světla přístavu.md"
+          ]
+        },
+        {
+          "id": "relation:Autoři/Jana Brázdová.md",
+          "label": "Jana Brázdová",
+          "excluded": false,
+          "dropTarget": true,
+          "paths": [
+            "Books/Šest cest k moři.md",
+            "Books/Účetní ze Žižkova.md",
+            "Books/Zápisník z Tater.md"
+          ]
+        },
+        {
+          "id": "relation:Autoři/Lucie Horká.md",
+          "label": "Lucie Horká",
+          "excluded": false,
+          "dropTarget": true,
+          "paths": [
+            "Books/Čarovná mapa.md",
+            "Books/Dům u řeky.md",
+            "Books/Zahrada v dešti.md"
+          ]
+        },
+        {
+          "id": "relation:Autoři/Marek Sova.md",
+          "label": "Marek Sova",
+          "excluded": false,
+          "dropTarget": true,
+          "paths": [
+            "Books/Čtvrtá zima.md",
+            "Books/Kniha o čaji.md",
+            "Books/Kniha o horách.md"
+          ]
+        },
+        {
+          "id": "relation:Autoři/Tomáš Rybář.md",
+          "label": "Tomáš Rybář",
+          "excluded": false,
+          "dropTarget": true,
+          "paths": [
+            "Books/Noční vlak.md",
+            "Books/Sto zimních dní.md",
+            "Books/Tiché město.md"
+          ]
+        },
+        {
+          "id": "none",
+          "label": "",
+          "excluded": false,
+          "dropTarget": false,
+          "paths": [
+            "Books/Ostrov bez jména.md"
+          ]
+        }
+      ]
+    }
+  ],
+  "results": [
+    {
+      "query": "Přečtené 2026",
+      "env": {
+        "today": "2026-11-19",
+        "zone": "Europe/Prague",
+        "weekStart": 1,
+        "locale": "cs"
+      },
+      "paths": [
+        "Books/Mapa bez severu.md",
+        "Books/Sto zimních dní.md",
+        "Books/Cizí přístavy.md",
+        "Books/Čarovná mapa.md",
+        "Books/Šest cest k moři.md",
+        "Books/Kniha o čaji.md",
+        "Books/Tiché město.md",
+        "Books/Zahrada v dešti.md"
+      ],
+      "state": "ok",
+      "broken": []
+    },
+    {
+      "query": "Přečtené 2026",
+      "env": {
+        "today": "2026-11-19",
+        "zone": "Europe/Prague",
+        "weekStart": 7,
+        "locale": "en-US"
+      },
+      "paths": [
+        "Books/Mapa bez severu.md",
+        "Books/Sto zimních dní.md",
+        "Books/Čarovná mapa.md",
+        "Books/Cizí přístavy.md",
+        "Books/Šest cest k moři.md",
+        "Books/Kniha o čaji.md",
+        "Books/Tiché město.md",
+        "Books/Zahrada v dešti.md"
+      ],
+      "state": "ok",
+      "broken": []
+    },
+    {
+      "query": "Výborné knihy",
+      "env": {
+        "today": "2026-11-19",
+        "zone": "Europe/Prague",
+        "weekStart": 1,
+        "locale": "cs"
+      },
+      "paths": [
+        "Books/Cizí přístavy.md",
+        "Books/Čarovná mapa.md",
+        "Books/Mapa bez severu.md"
+      ],
+      "state": "ok",
+      "broken": []
+    },
+    {
+      "query": "Výborné knihy",
+      "env": {
+        "today": "2026-11-19",
+        "zone": "Europe/Prague",
+        "weekStart": 7,
+        "locale": "en-US"
+      },
+      "paths": [
+        "Books/Čarovná mapa.md",
+        "Books/Cizí přístavy.md",
+        "Books/Mapa bez severu.md"
+      ],
+      "state": "ok",
+      "broken": []
+    },
+    {
+      "query": "Seskupeno podle data",
+      "env": {
+        "today": "2026-11-19",
+        "zone": "Europe/Prague",
+        "weekStart": 1,
+        "locale": "cs"
+      },
+      "paths": [
+        "Books/Cizí přístavy.md",
+        "Books/Čarovná mapa.md",
+        "Books/Čtvrtá zima.md",
+        "Books/Dům u řeky.md",
+        "Books/Kniha o čaji.md",
+        "Books/Kniha o horách.md",
+        "Books/Mapa bez severu.md",
+        "Books/Noční vlak.md",
+        "Books/Ostrov bez jména.md",
+        "Books/Písně z dálky.md",
+        "Books/Sto zimních dní.md",
+        "Books/Světla přístavu.md",
+        "Books/Šest cest k moři.md",
+        "Books/Tiché město.md",
+        "Books/Účetní ze Žižkova.md",
+        "Books/Zahrada v dešti.md",
+        "Books/Zápisník z Tater.md"
+      ],
+      "state": "ok",
+      "broken": [
+        {
+          "reason": "badValue",
+          "at": null,
+          "key": "group_by",
+          "type": null
+        }
+      ]
+    }
+  ]
+}

@@ -35,6 +35,8 @@ pub struct TypeInfo {
     /// D-1245 (type-columns §2): `columns` entries that aren't properties, and a `columns` value that isn't a list.
     pub columns_ignored: Vec<String>,
     pub columns_unreadable: bool,
+    /// v1-views §1.3: `views` is present but not a list of strings (the tabs can't be written, R184).
+    pub views_unreadable: bool,
     /// D-417 (ms4-embeds §3): the effective default embed mode and the raw `embed` value.
     pub embed: tegg_schema::EmbedMode,
     pub embed_raw: Option<String>,
@@ -114,6 +116,7 @@ pub(crate) fn info(key: &str, text: Option<&[u8]>, version: Option<FileVersion>)
         preview_ignored: parsed.preview_ignored.clone(),
         columns_ignored: parsed.columns_ignored.clone(),
         columns_unreadable: parsed.columns_unreadable,
+        views_unreadable: parsed.views_unreadable,
         embed: tegg_schema::effective_embed(&d.key, parsed.embed_raw.as_deref()),
         embed_raw: parsed.embed_raw.clone(),
     }
@@ -322,7 +325,9 @@ impl Core {
             (Err(VaultError::NotFound), Some(_)) => return Err(CoreError::Vault(VaultError::Gone)),
             (Err(e), _) => return Err(e.into()),
         };
-        let types = self.types();
+        // Only a folder change checks the other types (`check_folder`); every other op patches the file alone, so
+        // a view-tab write (v1-views §1.3) doesn't read every type file first.
+        let types = if ops.iter().any(|o| matches!(o, TypeOp::SetFolder(_))) { self.types() } else { Vec::new() };
         let names = names_of(&types, &key);
         let others = as_names(&names);
         // D-501, D-502: option usage of the attributes a rename touches, counted here (FR-TSK-02 AC-5).

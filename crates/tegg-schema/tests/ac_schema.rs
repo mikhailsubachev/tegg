@@ -179,6 +179,7 @@ fn type_from_json(v: &Value) -> TypeFile {
         preview: vec![],
         hidden: vec![],
         columns: None,
+        views: None,
         template: None,
         attributes: v["attributes"]
             .as_array()

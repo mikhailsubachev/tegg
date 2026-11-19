@@ -84,14 +84,11 @@ export const R3: R3Control[] = [
   // object` is built.
   { label: 'Copy link to block', where: 'block menu', due: d('v1.0'), req: 'FR-LNK-06', route: null },
   // 3D (types.md R3 changes): Filter, Sort, Views and New <Type> of the type page are built; these are added.
-  { label: 'Filter', where: 'type page', due: d('v1.0'), req: 'FR-QRY-01', route: 'type/<type>' },
-  { label: 'Group', where: 'type page', due: d('v1.0'), req: 'FR-QRY-05', route: 'type/<type>' },
-  { label: 'Add view', where: 'type page', due: d('v1.0'), req: 'FR-QRY-07', route: 'type/<type>' },
+  // Slice Q2 (views.md, AP-1517 / D-1801): the type page's Filter, Group, Add view and the Type settings Views rows
+  // are removed.
   // D-372, D-748: slice 4E is v1.0.
   { label: 'New template', where: 'type settings, Templates', due: d('v1.0'), req: 'FR-TPL-01', route: 'type-settings/<type>' },
   { label: 'Edit', where: 'type settings, Templates', due: d('v1.0'), req: 'FR-TPL-01', route: 'type-settings/<type>' },
-  { label: 'Add view', where: 'type settings, Views', due: d('v1.0'), req: 'FR-QRY-07', route: 'type-settings/<type>' },
-  { label: 'Edit', where: 'type settings, Views', due: d('v1.0'), req: 'FR-QRY-07', route: 'type-settings/<type>' },
   // 6A (trash-media.md R75): the `File` row (`ctl.rowFile`) is built.
   // 4D-lite (R87): the Tag `color` row is removed (a Tag has no note page, D-692).
   { label: 'recurrence', where: 'attribute panel row', due: d('v1.0'), req: 'FR-TSK-01', route: 'note/<path>' }, // D-381 (5A-1)

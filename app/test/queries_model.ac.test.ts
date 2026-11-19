@@ -42,7 +42,7 @@ afterEach(async () => {
 const files = queriesVault();
 const TYPES = listTypes(files, {});
 const typesOf = (...keys: string[]) => keys.map((k) => TYPES.find((t: any) => t.key === k)).filter(Boolean);
-const def = (o: Partial<QueryDefDto>): QueryDefDto => ({ title: 'Dotaz', types: [], match: 'all', filters: [], sort: { by: 'modified', order: 'desc' }, limit: 50, view: 'list', columns: ['type', 'modified'], ...o });
+const def = (o: Partial<QueryDefDto>): QueryDefDto => ({ title: 'Dotaz', types: [], match: 'all', filters: [], sort: [{ by: 'modified', order: 'desc' }], limit: 50, view: 'list', groupBy: null, lanes: 'vertical', laneOrder: null, columns: ['type', 'modified'], ...o });
 const read = (name: string) => queryRead(files[qfile(name)], true, name).def;
 
 /** A label as text: a catalog key through `t`, else the text itself. */
