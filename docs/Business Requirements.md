@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.196, for review                                            |
+| **Document status** | Draft v1.198, for review                                            |
 | **Date**            | 2026-11-14                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -210,6 +210,7 @@
 | v1.194  | 2026-11-19 | Slice Q2 build: D-1824, D-1825, four AC-test fixes (the board-move property's generator, the `query.*` key set with R192's keys, the twin test reading only files in `expected/`, FR-QRY-09 AC-7 restoring the type file) |
 | v1.195  | 2026-11-19 | Slice Q2 UI build: D-1826 (six WebKit test fixes), D-1827 (type pages have no right panel; FR-TYP-09 AC-35) |
 | v1.196  | 2026-11-19 | QA review of slice Q2: D-1828 (card-move writes covered by AC-13's L4 test), D-1829 (no journal for query renames), D-1830 (the design review after the release) |
+| v1.198  | 2026-11-19 | 0.4.0 feedback (`docs/feedback/q2-v040.md`): D-1835 (trashing a view removes its tab), D-1836 (sort, columns and widths per usage), D-1837 (slice Q2.1, released as 0.5.0); the view menu outside the window is a bug fix (F1). (v1.197 is the verify-gate decisions D-1831…D-1834 on their own branch.) |
 
 ---
 
@@ -1854,6 +1855,9 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1828 | Card-move writes at L4 (owner, 2026-11-19; QA review of slice Q2) | FR-QRY-05 AC-14, AC-16 and AC-21 take their bytes at L1 (`@tegg/doc`); their write through `note_write` is the path FR-QRY-05 AC-13's L4 test covers, so they have no L4 test of their own |
 | D-1829 | No journal for query renames (owner, 2026-11-19; QA review of slice Q2) | `query-rename` keeps slice Q's behaviour: no crash journal, also for the type files' `views:` lines (contract §1.10 corrected). A crash mid-rename leaves at worst a not-found tab, fixed by renaming again or `Remove` |
 | D-1830 | The Q2 design review after the release (owner, 2026-11-19; QA review of slice Q2) | FR-QRY-07 AC-16 (manual design review) is done by the owner on the installed 0.4.0 and recorded in `qa/manual/`, as 0.3.0's AC-33 |
+| D-1835 | Trashing a view removes its tab (F2) (owner, 2026-11-19; 0.4.0 feedback, `docs/feedback/q2-v040.md`) | `Move to trash` in a view's menu writes `views:` without the name and moves the query file to `.trash/`, with one Undo (8 s) restoring both. Notes that embed the query keep D-1435's trashed state with `Restore`; a query trashed elsewhere while still listed in `views:` keeps the trashed tab. Amends D-1435 for views and FR-QRY-07 AC-11 |
+| D-1836 | Sort, columns and widths per usage (F3) (owner, 2026-11-19; 0.4.0 feedback, `docs/feedback/q2-v040.md`) | Each usage (a type-page tab, a block in a note) keeps its own `sort` and `columns` in the vault (the block in its fence, the tab in its `views:` entry) and its own column widths on this Mac. The query file's `sort` and `columns` are the defaults for a usage without its own; filters, `group_by`, `lanes`, `lane_order` stay shared. Amends D-1437, D-1444, D-1766, D-1767; shapes and edge cases are AC points AP-1519 onward |
+| D-1837 | Slice Q2.1 ships as 0.5.0 (F4) (owner, 2026-11-19; 0.4.0 feedback, `docs/feedback/q2-v040.md`) | The view-menu fix (F1), D-1835 and D-1836 are one slice, Q2.1, released together as 0.5.0 before Q2-T |
 
 ---
 
