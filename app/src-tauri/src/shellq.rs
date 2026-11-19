@@ -9,7 +9,7 @@ use serde_json::Value;
 use tauri::State;
 
 use tegg_core::queries_q::{
-    Broken, BrokenReason, FilterItem, Form, Lookup, Match, Op, Order, QueryCreate, QueryDef, QueryEnv, QueryError, QueryRead, QueryResult,
+    Broken, BrokenReason, FilterItem, Form, Lanes, Lookup, Match, Op, Order, QueryCreate, QueryDef, QueryEnv, QueryError, QueryRead, QueryResult,
     QueryRow, QuerySource, QuerySummary, QueryUsage, RunState, Sort, View,
 };
 use tegg_core::tegg_jobs::{JobError, JobOp};
@@ -205,7 +205,8 @@ pub(crate) fn def_dto(d: QueryDef) -> QueryDefDto {
         types: d.types,
         r#match: match_str(d.r#match).into(),
         filters: d.filters.into_iter().map(item_dto).collect(),
-        sort: SortDto { by: d.sort.by, order: if d.sort.order == Order::Desc { "desc" } else { "asc" }.into() },
+        // Red-test stub (D-1813): the DTO keeps slice Q's one level until Q2's IPC is built (v1-views §2).
+        sort: d.sort.into_iter().next().map(|s| SortDto { by: s.by, order: if s.order == Order::Desc { "desc" } else { "asc" }.into() }).unwrap_or(SortDto { by: "modified".into(), order: "desc".into() }),
         limit: d.limit,
         view: if d.view == View::Table { "table" } else { "list" }.into(),
         columns: d.columns,
@@ -230,9 +231,12 @@ pub(crate) fn def_from(d: QueryDefDto) -> Result<QueryDef, IpcError> {
         types: d.types,
         r#match: if d.r#match == "any" { Match::Any } else { Match::All },
         filters: d.filters.into_iter().map(item_from).collect::<Result<_, _>>()?,
-        sort: Sort { by: d.sort.by, order: if d.sort.order == "desc" { Order::Desc } else { Order::Asc } },
+        sort: vec![Sort { by: d.sort.by, order: if d.sort.order == "desc" { Order::Desc } else { Order::Asc } }],
         limit: d.limit,
         view: if d.view == "table" { View::Table } else { View::List },
+        group_by: None,
+        lanes: Lanes::Vertical,
+        lane_order: None,
         columns: d.columns,
     })
 }

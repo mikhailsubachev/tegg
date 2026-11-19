@@ -164,6 +164,9 @@ pub struct TypeFile {
     pub hidden: Vec<String>,
     /// The type page's columns after Title, as written (D-1240); None = key absent (the page falls back to `preview`).
     pub columns: Option<Vec<String>>,
+    /// The type page's view tabs, query names in order (v1-views §1.3, D-1782); None = key absent.
+    /// Red-test stub (D-1813): not read yet.
+    pub views: Option<Vec<String>>,
     /// Vault path of the default template (D-232).
     pub template: Option<String>,
     pub attributes: Vec<AttrDef>,
@@ -191,6 +194,8 @@ pub struct Parsed {
     pub columns_unreadable: bool,
     /// D-1245: `columns` entries that are neither attributes nor universal keys (`title` excluded), each once.
     pub columns_ignored: Vec<String>,
+    /// v1-views §1.3: `views` is present but not a list of strings. Red-test stub (D-1813): always false yet.
+    pub views_unreadable: bool,
 }
 
 /// Display mode of an embed (FR-EMB-02, D-416, D-417; ms4-embeds §3).
@@ -296,6 +301,7 @@ fn fallback_def(key: &str) -> TypeFile {
         preview: Vec::new(),
         hidden: Vec::new(),
         columns: None,
+        views: None,
         template: None,
         attributes: Vec::new(),
     }
@@ -351,9 +357,9 @@ pub fn parse(key: &str, text: &str) -> Parsed {
                 }
             }
             let columns_unreadable = columns_unreadable(text);
-            Parsed { def, readability, preview_ignored, embed_raw: embed_raw(text), columns_unreadable, columns_ignored }
+            Parsed { def, readability, preview_ignored, embed_raw: embed_raw(text), columns_unreadable, columns_ignored, views_unreadable: false }
         }
-        Err((message, line)) => Parsed { def: fallback_def(&key), readability: Readability::Invalid { message, line: line.max(1) }, preview_ignored: Vec::new(), embed_raw: None, columns_unreadable: false, columns_ignored: Vec::new() },
+        Err((message, line)) => Parsed { def: fallback_def(&key), readability: Readability::Invalid { message, line: line.max(1) }, preview_ignored: Vec::new(), embed_raw: None, columns_unreadable: false, columns_ignored: Vec::new(), views_unreadable: false },
     }
 }
 
@@ -482,6 +488,7 @@ fn read_def(key: &str, text: &str) -> Result<(TypeFile, Readability), (String, u
             Some(Value::Array(a)) if a.iter().all(Value::is_string) => Some(a.iter().filter_map(|v| v.as_str().map(str::to_string)).collect()),
             _ => None,
         },
+        views: None,
         template: text_of("template"),
         attributes,
         name,
@@ -570,6 +577,8 @@ pub enum RuleError {
     PreviewFull,
     /// D-1245 (type-columns §1): a `SetColumns` on a file whose `columns` value can't be read.
     ColumnsUnreadable,
+    /// v1-views §1.3 (D-1803): a `SetViews` on a file whose `views` value can't be read.
+    ViewsUnreadable,
     /// Slice 5A-1 (D-473): no `status` option of the Task type with state Open / Done would remain.
     NeedOpen,
     NeedDone,
@@ -989,6 +998,7 @@ pub fn new_type_file_in(name: &str, plural: &str, folder: Option<&str>) -> Strin
         preview: Vec::new(),
         hidden: Vec::new(),
         columns: None,
+        views: None,
         template: None,
         attributes: Vec::new(),
         name,
@@ -1013,6 +1023,8 @@ pub enum TypeOp {
     SetHidden(Vec<String>),
     /// D-1240 (type-columns §1): the `columns` line, one flow list in NFC, no limit.
     SetColumns(Vec<String>),
+    /// v1-views §1.3 (D-1803): the `views` line, one flow list in NFC.
+    SetViews(Vec<String>),
     /// D-417 (ms4-embeds §3): the type's default embed mode.
     SetEmbed(EmbedMode),
     AddAttribute(AttrDef),
@@ -1189,6 +1201,10 @@ fn apply(def: &mut TypeFile, lines: &mut Vec<String>, op: &TypeOp, system: bool,
                 def.preview = keys;
                 set_top(lines, "preview", render_top("preview", def));
             }
+        }
+        TypeOp::SetViews(_) => {
+            // Red-test stub (D-1813): not built yet; refused without a write.
+            return Err(RuleError::ViewsUnreadable.into());
         }
         TypeOp::SetColumns(keys) => {
             // D-1243, D-1245: an unchanged list on an existing key writes nothing; a block list becomes one flow line.
@@ -1874,4 +1890,9 @@ pub fn option_state(o: &OptionDef) -> Option<&str> {
 /// `patch` with the option usage counts the `optionUsed` refusal needs (label, number of objects using it; D-501).
 pub fn patch_with_usage(key: &str, text: &str, ops: &[TypeOp], ctx: &PatchContext, used: &[(&str, usize)]) -> Result<Option<String>, SchemaError> {
     patch_inner(key, text, ops, ctx, used)
+}
+
+/// v1-views §1.3: the rename job's patch of `views:` (D-1797). Red-test stub (D-1813): never patches yet.
+pub fn rename_view(_text: &str, _from: &str, _to: &str) -> Option<String> {
+    None
 }

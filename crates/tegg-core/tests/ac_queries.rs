@@ -606,13 +606,13 @@ fn fr_qry_05_ac6_header_click_sorts() {
     let fence = format!("```query\nsaved: {UKOLY}\n```\n");
     note_write(&core, P14, &(fixture_s(P14) + "\n" + &fence));
     let before = snapshot(&root);
-    ok!(commit(&core, UKOLY, NOW, |d| d.sort.order = Order::Desc), "header click: due ↓");
+    ok!(commit(&core, UKOLY, NOW, |d| d.sort[0].order = Order::Desc), "header click: due ↓");
     let want = swapped(&qfixture(UKOLY), &[("sort: { by: due, order: asc }", "sort: { by: due, order: desc }"), ("modified: 2026-10-07T12:00:00+02:00", &format!("modified: {NOW}"))]);
     assert_eq!(disk_s(&root, &qpath(UKOLY)), Some(want), "`sort:` written once");
     assert_eq!(files_changed(&before, &snapshot(&root)), set(&[&qpath(UKOLY)]), "no note written");
     assert_eq!(paths(&run(&core, UKOLY, Some(P7))), strs(&[T3, T2, T1, T5, T4]), "Porada 7's table follows");
     let second = run_fence(&core, &format!("saved: {UKOLY}\n"), Some(P14));
-    assert_eq!(second.def.map(|d| d.sort.order), Some(Order::Desc), "the second fence in Porada 14 follows");
+    assert_eq!(second.def.map(|d| d.sort[0].order), Some(Order::Desc), "the second fence in Porada 14 follows");
 }
 
 #[test]

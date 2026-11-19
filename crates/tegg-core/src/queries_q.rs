@@ -44,6 +44,14 @@ pub enum Match {
 pub enum View {
     List,
     Table,
+    /// Slice Q2 (v1-views §1.1). Red-test stub (D-1813): not read from files yet.
+    Board,
+}
+/// Board lanes (v1-views §1.1, R185); a missing `lanes` reads as Vertical.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Lanes {
+    Vertical,
+    Horizontal,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Order {
@@ -69,6 +77,7 @@ impl View {
         match self {
             View::List => "list",
             View::Table => "table",
+            View::Board => "board",
         }
     }
 }
@@ -177,9 +186,13 @@ pub struct QueryDef {
     pub types: Vec<String>,
     pub r#match: Match,
     pub filters: Vec<FilterItem>,
-    pub sort: Sort,
+    /// The levels as written (v1-views §1.1). Red-test stub (D-1813): only the single-mapping form is read yet.
+    pub sort: Vec<Sort>,
     pub limit: u32,
     pub view: View,
+    pub group_by: Option<String>,
+    pub lanes: Lanes,
+    pub lane_order: Option<Vec<String>>,
     pub columns: Vec<String>,
 }
 
@@ -322,6 +335,58 @@ pub struct QueryRow {
     pub values: serde_json::Map<String, Value>,
     pub links: Vec<LinkTarget>,
     pub task: Option<TaskBits>,
+    /// v1-views §1.1. Red-test stubs (D-1813): not filled yet.
+    pub version: FileVersion,
+    pub excerpt: String,
+    pub read_only: bool,
+}
+
+/// v1-views §1.1 (R187). Red-test stubs (D-1813): no run produces a grouping yet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LaneKind {
+    Option,
+    Unknown,
+    Tag,
+    Relation,
+    Unresolved,
+    None,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LaneCard {
+    pub row: usize,
+    pub raw: Vec<String>,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Lane {
+    pub id: String,
+    pub kind: LaneKind,
+    pub value: Option<String>,
+    pub label: String,
+    pub color: Option<String>,
+    pub target: Option<String>,
+    pub excluded: bool,
+    pub drop_target: bool,
+    pub cards: Vec<LaneCard>,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GroupKind {
+    Select,
+    MultiSelect,
+    Tags,
+    Relation { multiple: bool },
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Grouping {
+    pub key: String,
+    pub kind: GroupKind,
+    pub name: String,
+    pub lanes: Vec<Lane>,
+}
+/// A type file that lists a query in `views:` (v1-views §1.1, D-1804).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ViewUsage {
+    pub type_key: String,
+    pub path: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -338,6 +403,8 @@ pub struct QueryResult {
     pub uses_relative: bool,
     pub rows: Vec<QueryRow>,
     pub index_ready: bool,
+    /// v1-views §1.1. Red-test stub (D-1813): always None yet.
+    pub group: Option<Grouping>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -351,6 +418,9 @@ pub struct QuerySummary {
     pub modified: Option<String>,
     pub uses_this: bool,
     pub version: FileVersion,
+    /// v1-views §1.1. Red-test stubs (D-1813): always None yet.
+    pub view: Option<View>,
+    pub types: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -410,15 +480,23 @@ pub fn name_key(s: &str) -> String {
     nfc(trim_ws(s)).to_lowercase()
 }
 
+/// The first sort level, or R138's default when there is none (red-test stub, D-1813: slice Q's one-level behaviour).
+fn first_sort(def: &QueryDef) -> Sort {
+    def.sort.first().cloned().unwrap_or(Sort { by: "modified".into(), order: Order::Desc })
+}
+
 fn default_def(title: &str, columns: Vec<String>) -> QueryDef {
     QueryDef {
         title: nfc(title),
         types: Vec::new(),
         r#match: Match::All,
         filters: Vec::new(),
-        sort: Sort { by: "modified".into(), order: Order::Desc },
+        sort: vec![Sort { by: "modified".into(), order: Order::Desc }],
         limit: 50,
         view: View::List,
+        group_by: None,
+        lanes: Lanes::Vertical,
+        lane_order: None,
         columns,
     }
 }
@@ -799,7 +877,7 @@ fn read_text(text: &str) -> QueryFile {
             _ => None,
         };
         match ok {
-            Some((by, order)) => def.sort = Sort { by: nfc(trim_ws(&by)), order },
+            Some((by, order)) => def.sort = vec![Sort { by: nfc(trim_ws(&by)), order }],
             None => bad_key("sort"),
         }
     }
@@ -933,7 +1011,11 @@ fn top_line(k: &str, def: &QueryDef) -> Option<String> {
     Some(match k {
         "types" => format!("types: {}", flow_list(&def.types)),
         "match" => format!("match: {}", def.r#match.as_str()),
-        "sort" => format!("sort: {{ by: {}, order: {} }}", scalar_in(&def.sort.by, true), def.sort.order.as_str()),
+        "sort" => {
+            // Red-test stub (D-1813): writes the first level as R138's single mapping, as slice Q.
+            let first = first_sort(def);
+            format!("sort: {{ by: {}, order: {} }}", scalar_in(&first.by, true), first.order.as_str())
+        }
         "limit" => format!("limit: {}", def.limit),
         "view" => format!("view: {}", def.view.as_str()),
         "columns" => format!("columns: {}", flow_list(&def.columns)),
@@ -964,7 +1046,10 @@ fn effective(def: &QueryDef, k: &str, keep_raw: bool) -> Value {
         "types" => json!(def.types.iter().map(|t| nfc(t)).collect::<Vec<_>>()),
         "match" => json!(def.r#match.as_str()),
         "filters" => norm_items(&def.filters, keep_raw),
-        "sort" => json!([nfc(&def.sort.by), def.sort.order.as_str()]),
+        "sort" => {
+            let first = first_sort(def);
+            json!([nfc(&first.by), first.order.as_str()])
+        }
         "limit" => json!(def.limit),
         "view" => json!(def.view.as_str()),
         "columns" => json!(def.columns.iter().map(|c| nfc(c)).collect::<Vec<_>>()),
@@ -1979,8 +2064,9 @@ struct SortKey {
 
 fn sort_rows(hits: &mut [usize], def: &QueryDef, chosen: &[String], ctx: &Ctx, broken: &mut Vec<Broken>) {
     let coll = collator(&ctx.env.locale);
-    let mut by = nfc(&def.sort.by);
-    let mut order = def.sort.order;
+    let first = first_sort(def);
+    let mut by = nfc(&first.by);
+    let mut order = first.order;
     let mut options: Vec<String> = Vec::new();
     let mut kind = match by.as_str() {
         "title" => Some(Kind::Text),
@@ -2095,6 +2181,9 @@ fn row_of(o: &QueryObject, def: &QueryDef, ctx: &Ctx) -> QueryRow {
         values,
         links: Vec::new(),
         task,
+        version: FileVersion { mtime_ns: 0, size: 0, hash: [0; 32] },
+        excerpt: String::new(),
+        read_only: false,
     }
 }
 
@@ -2236,6 +2325,10 @@ impl Core {
         self.q().query_restore(name)
     }
     /// Indexed notes then templates that use `name`, each with its title and type, path order.
+    /// v1-views §1.5 (D-1804). Red-test stub (D-1813): lists nothing yet.
+    pub fn query_view_usages(&self, _name: &str) -> Vec<ViewUsage> {
+        Vec::new()
+    }
     pub fn query_usages(&self, name: &str) -> Vec<QueryUsage> {
         self.q().query_usages(name)
     }
@@ -2342,7 +2435,7 @@ impl QCore<'_> {
                 };
                 let name = stem_of(&p);
                 let title = if lookup == Lookup::Unreadable { name.clone() } else { f.def.title.clone() };
-                Some(QuerySummary { name, title, path: p, lookup, line, created: f.created, modified: f.modified, uses_this: f.uses_this, version: v })
+                Some(QuerySummary { name, title, path: p, lookup, line, created: f.created, modified: f.modified, uses_this: f.uses_this, version: v, view: None, types: None })
             })
             .collect()
     }
@@ -2395,6 +2488,7 @@ impl QCore<'_> {
             uses_relative: false,
             rows: Vec::new(),
             index_ready,
+            group: None,
         };
         let run = |mut r: QueryResult, def: QueryDef, syntactic: Vec<Broken>| -> QueryResult {
             let e = lock(&self.shared.index).with_query_objects(|objs, resolve| evaluate(objs, resolve, &defs, &def, host, env));
@@ -2735,7 +2829,7 @@ impl QCore<'_> {
         let to = format!("{QUERIES_DIR}/{stem}.yml");
         let post = retitle_text(text, &f, &title).into_bytes();
         let usages = self.query_usage_paths(&from_name).into_iter().filter_map(|u| self.shared.vault.version(&u).ok().flatten().map(|v| (u, v))).collect();
-        Ok(tegg_jobs::host::QueryRenamePlan { from: p, to, from_name, to_name: stem, pre: bytes, pre_v: v, post, usages })
+        Ok(tegg_jobs::host::QueryRenamePlan { from: p, to, from_name, to_name: stem, pre: bytes, pre_v: v, post, usages, views: Vec::new() })
     }
 
     /// The name another query already has (`NameTaken`'s `existing`), for the job's refusal.

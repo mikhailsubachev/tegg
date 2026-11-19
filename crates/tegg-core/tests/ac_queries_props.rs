@@ -20,7 +20,7 @@ use chrono::{DateTime, Datelike, Duration as Days, FixedOffset, NaiveDate, TimeZ
 use common::sandbox;
 use queries_setup::{copy_dir, env_at, f, nfd, plain};
 use serde_json::{json, Value};
-use tegg_core::queries_q::{self, FileState, FilterItem, Match, Op, Order, QueryDef, QueryEnv, QuerySource, RunState, Sort, View};
+use tegg_core::queries_q::{self, FileState, FilterItem, Lanes, Match, Op, Order, QueryDef, QueryEnv, QuerySource, RunState, Sort, View};
 use tegg_core::{Core, CoreOptions};
 use tegg_format::nfc;
 
@@ -436,7 +436,7 @@ fn oracle(ctx: &Ctx, d: &QueryDef) -> (RunState, Vec<String>) {
     }
     let key = |c: usize| -> Option<K> {
         let o = &ctx.objs[c];
-        match d.sort.by.as_str() {
+        match d.sort[0].by.as_str() {
             "title" => Some(K::T(o.title.clone())),
             "created" => o.created.map(|x| K::D(x.timestamp())),
             "rozpočet" => o.rozpocet.as_ref().map(|Num::Int(n)| K::N(*n)),
@@ -452,7 +452,7 @@ fn oracle(ctx: &Ctx, d: &QueryDef) -> (RunState, Vec<String>) {
             (Some(_), None) => std::cmp::Ordering::Less,
             (Some(x), Some(y)) => {
                 let o = x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal);
-                if d.sort.order == Order::Desc { o.reverse() } else { o }
+                if d.sort[0].order == Order::Desc { o.reverse() } else { o }
             }
         };
         primary.then_with(|| ctx.objs[*a].title.cmp(&ctx.objs[*b].title)).then_with(|| nfc(&ctx.objs[*a].path).cmp(&nfc(&ctx.objs[*b].path)))
@@ -518,9 +518,12 @@ fn evaluator_seed(seed: u64, runs: usize) -> Vec<String> {
                 types: types.iter().map(|s| s.to_string()).collect(),
                 r#match: if rng.chance(30) { Match::Any } else { Match::All },
                 filters,
-                sort: Sort { by: rng.pick(&sort_keys).to_string(), order: if rng.chance(50) { Order::Asc } else { Order::Desc } },
+                sort: vec![Sort { by: rng.pick(&sort_keys).to_string(), order: if rng.chance(50) { Order::Asc } else { Order::Desc } }],
                 limit: 50,
                 view: View::List,
+                group_by: None,
+                lanes: Lanes::Vertical,
+                lane_order: None,
                 columns: vec!["type".into(), "modified".into()],
             };
             let today = format!("2026-11-{:02}", 5 + rng.below(11));
@@ -655,7 +658,7 @@ fn gen_query_file(rng: &mut Rng) -> (Vec<Line>, QueryDef) {
     if rng.chance(30) {
         push(&mut lines, "", "# konec".into());
     }
-    let d = QueryDef { title: nfc(&title), types, r#match: m, filters, sort: Sort { by, order }, limit, view, columns: vec!["stav".into(), "modified".into()] };
+    let d = QueryDef { title: nfc(&title), types, r#match: m, filters, sort: vec![Sort { by, order }], limit, view, group_by: None, lanes: Lanes::Vertical, lane_order: None, columns: vec!["stav".into(), "modified".into()] };
     (lines, d)
 }
 
@@ -689,7 +692,7 @@ fn patch_seed(seed: u64, cases: usize) -> Vec<String> {
                 vec!["limit"]
             }
             2 => {
-                d.sort = Sort { by: "title".into(), order: if d.sort.order == Order::Asc && d.sort.by == "title" { Order::Desc } else { Order::Asc } };
+                d.sort = vec![Sort { by: "title".into(), order: if d.sort[0].order == Order::Asc && d.sort[0].by == "title" { Order::Desc } else { Order::Asc } }];
                 vec!["sort"]
             }
             3 => {

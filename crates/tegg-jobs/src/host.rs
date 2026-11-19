@@ -345,6 +345,17 @@ pub struct QueryRenamePlan {
     pub pre_v: FileVersion,
     pub post: Vec<u8>,
     pub usages: Vec<(String, FileVersion)>,
+    /// Type files whose `views:` lists the query (v1-views §1.10, D-1762). Red-test stub (D-1813): always empty yet.
+    pub views: Vec<ViewsRow>,
+}
+
+/// One type file's `views:` patch in a query rename (v1-views §1.10).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ViewsRow {
+    pub path: String,
+    pub pre: Vec<u8>,
+    pub pre_v: FileVersion,
+    pub post: Vec<u8>,
 }
 
 /// The pins file (v1-pinned §1.1): a job row with this path is the pin patch (§1.6).
