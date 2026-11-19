@@ -1,0 +1,18 @@
+# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Podle žánru.
+# Napsáno ručně: komentáře a klíče x- musí přežít každý zápis.
+version: 1
+title: Podle žánru
+x-barva: zelená
+types: [book]
+match: all
+filters: []
+sort: { by: title, order: asc }   # jedna úroveň
+limit: 50
+# tabule po řádcích
+view: board
+group_by: genres
+lanes: horizontal            # vertical nebo horizontal
+lane_order: [Cestopis, Román, Detektivka, Poezie, Eseje]
+columns: [author, rating]
+created: 2026-10-10T20:00:00+02:00
+modified: 2026-11-19T10:00:00+01:00
