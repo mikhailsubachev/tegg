@@ -77,7 +77,7 @@ test('fr_ux_03_ac51_views_keyboard_only', async ({ page }) => {
   assert.ok(await fileWhen(core, BOOK_YML, (x) => !!x && x.includes(`views: [Rozečtené, Přečtené 2026, ${Q.autor}, Výborné knihy]\n`)), 'Move view left: one write');
   await runCommand(page, 'Next view');
   await runCommand(page, 'Previous view');
-  assert.equal(await eventually(() => page.evaluate(() => document.querySelector('[role="tab"][aria-selected="true"]')?.getAttribute('data-view-tab')?.normalize('NFC') ?? null), (s) => s === Q.autor), Q.autor, 'Next / Previous view reach it');
+  assert.equal(await eventually(() => page.evaluate(() => document.querySelector('[data-views-tablist] [role="tab"][aria-selected="true"]')?.getAttribute('data-view-tab')?.normalize('NFC') ?? null), (s) => s === Q.autor), Q.autor, 'Next / Previous view reach it');
   await runCommand(page, 'Switch lanes');
   assert.ok(await fileWhen(core, qfile(Q.autor), (x) => x === expectedView('podle-autora-lanes-horizontal.yml')), 'Switch lanes: one write');
   // Tab to a card, Move card to previous lane (one book write).
@@ -198,7 +198,7 @@ test('nfr_oth_02_ac21_view_strings', async ({ page }) => {
     if (scope.length < 3) out.push('missing: the tablist, the toolbar or the board');
     for (const root of scope) {
       for (const e of root.querySelectorAll('button, [role="button"], [role="tab"], [role="radio"], section[role="region"], article, h2, p, [aria-label], [aria-description]')) {
-        for (const t of [e.getAttribute('aria-label'), e.getAttribute('aria-description'), e.getAttribute('title'), e.matches('p, h2') ? (e as HTMLElement).innerText : null]) {
+        for (const t of [e.getAttribute('aria-label'), e.getAttribute('aria-description'), e.getAttribute('title'), e.matches('p:not(.card-excerpt), h2') ? (e as HTMLElement).innerText : null /* D-1826: a card's excerpt is user content (AC-12) */]) {
           const s = (t ?? '').trim().normalize('NFC');
           if (!s || e.closest('[data-user-content]') === e && userContent.includes(s) || userContent.includes(s)) continue;
           if (!/^⟦[\s\S]*⟧$/.test(s)) out.push(s);

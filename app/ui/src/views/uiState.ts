@@ -26,6 +26,22 @@ export function setLastTab(typeKey: string, name: string | null): void {
   impl.update((u) => ({ ...u, typeViews: { ...(u.typeViews ?? {}), lastTab: { ...(u.typeViews?.lastTab ?? {}), [k]: v } } }));
 }
 
+/** The folded rows of a saved query's horizontal board (lane ids, R190). */
+export function foldedOf(name: string): string[] {
+  return [...(impl?.get()?.boardFolded?.[nfc(name)] ?? [])];
+}
+
+/** One `ui_state_set` per fold toggle (R190); an empty list drops the query's entry. */
+export function setFolded(name: string, ids: string[]): void {
+  if (!impl) return;
+  const k = nfc(name);
+  impl.update((u) => {
+    const all = { ...(u.boardFolded ?? {}) };
+    if (ids.length) all[k] = ids; else delete all[k];
+    return { ...u, boardFolded: all };
+  });
+}
+
 /** The state after a query rename (§1.10): `queryColumnWidths[from]`, `boardFolded[from]` and every remembered tab
  *  `from` renamed to `to` (by name key); the same object when nothing names `from`. */
 export function movedQueryState<U extends ViewsUi>(u: U, from: string, to: string): U {

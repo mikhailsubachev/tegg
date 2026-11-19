@@ -737,6 +737,8 @@ export const en: Catalog = {
   'typePage.views': 'Views',
   // Slice Q2 (v1-views §4.6, R192 as fixed by D-1812; D-1816): views on type pages, boards and the sort popover.
   'typePage.countPlural': '{count} {plural}',
+  // An accessible name with a count after it (a board lane: `Reading, 3 cards`).
+  'a11y.nameCount': '{name}, {count}',
   'views.all': 'All {plural}',
   'views.add': 'Add view',
   'views.addMenu': 'Add view',

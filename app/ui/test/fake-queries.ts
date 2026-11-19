@@ -1109,9 +1109,11 @@ export async function evaluate(def: QueryDefDto, host: string | null, env: Query
   const hits = candidates.filter((o) => evalItems(active, def.match, o, ctx));
   const sorted = sortRows(hits, def, chosen, ctx, broken);
   // v1-views §1.6: a board groups its rows; the grouping key is in `values` too (D-1769).
-  const group = def.view === 'board' ? grouping(def, sorted, chosen, active, ctx, broken) : null;
-  const cols = [...new Set([...def.columns.map(nfc), ...(group ? [group.key] : []), 'type', 'tags'])];
   const d = await doc();
+  // D-185: a tag lane is named by the tag's most frequent spelling among the results (the first on a tie).
+  const spell = (o: Obj): string[] => { try { return ((d.tags(d.parse(files[o.path] ?? '')) as { name: string }[]) ?? []).map((x) => nfc(String(x.name).replace(/^#/, ''))); } catch { return []; } };
+  const group = def.view === 'board' ? grouping(def, sorted, chosen, active, ctx, broken, spell) : null;
+  const cols = [...new Set([...def.columns.map(nfc), ...(group ? [group.key] : []), 'type', 'tags'])];
   const rows: QueryRowDto[] = sorted.map((o) => {
     const values: Record<string, unknown> = {};
     for (const k of cols) values[k] = k === 'type' ? o.type : k === 'tags' ? (o.tags ?? []) : (o.attributes ?? {})[k] ?? null;
@@ -1132,7 +1134,8 @@ function bodyExcerpt(d: any, text: string | undefined): string {
 
 /** v1-views §1.6 (R187; D-1769, D-1770, D-1791, D-1805, D-1807, D-1808): the board's lanes over the sorted rows, or
  *  null with `group_by` broken. */
-function grouping(def: QueryDefDto, rows: Obj[], chosen: string[], active: Active[], ctx: Ctx, broken: BrokenDto[]): GroupingDto | null {
+function grouping(def: QueryDefDto, rows: Obj[], chosen: string[], active: Active[], ctx: Ctx, broken: BrokenDto[], spell: (o: Obj) => string[] = () => []): GroupingDto | null {
+  const spellings = new Map<string, Map<string, number>>();
   const bad = () => { broken.push({ reason: 'badValue', at: null, key: 'group_by', type: null }); return null; };
   if (def.groupBy === null) return bad();
   const key = nfc(def.groupBy);
@@ -1172,6 +1175,11 @@ function grouping(def: QueryDefDto, rows: Obj[], chosen: string[], active: Activ
       const keys = [...new Set((o.tags ?? []).map(tagKeyOf))];
       if (!keys.length) { add(none(), []); return; }
       const fm = strs(o.attributes?.tags).map(nfc);
+      for (const sp of spell(o)) {
+        const k = tagKeyOf(sp);
+        const m = spellings.get(k) ?? spellings.set(k, new Map()).get(k)!;
+        m.set(sp, (m.get(sp) ?? 0) + 1);
+      }
       for (const k of keys) add(lane(`tag:${k}`, 'tag', k, k, { rank: 0, sortKey: k }), fm.filter((x) => tagKeyOf(x) === k));
       return;
     }
@@ -1204,6 +1212,14 @@ function grouping(def: QueryDefDto, rows: Obj[], chosen: string[], active: Activ
   // then unresolved links by their text (collation, then NFC bytes).
   const byKey = (x: L[]) => x.sort((p, q) => coll.compare(p.sortKey, q.sortKey) || byBytes(p.sortKey, q.sortKey));
   const all = [...lanes.values()];
+  for (const l of all) {
+    if (l.kind !== 'tag' || l.value === null) continue;
+    const m = spellings.get(l.value);
+    if (!m || !m.size) continue;
+    let best: string | null = null, n = -1;
+    for (const [sp, c] of m) if (c > n) { best = sp; n = c; }
+    if (best !== null) l.label = best;
+  }
   let order: L[] = G.kind === 'tags' ? byKey(all.filter((l) => l.kind === 'tag'))
     : G.kind === 'relation' ? [...byKey(all.filter((l) => l.kind === 'relation')), ...byKey(all.filter((l) => l.kind === 'unresolved'))]
       : [...all.filter((l) => l.kind === 'option'), ...byKey(all.filter((l) => l.kind === 'unknown'))];

@@ -16,6 +16,8 @@ import { nowIso } from './env';
 import { queryNav } from './nav';
 import { refreshQueries } from './store';
 import { setLastQueryRename } from './QueryMenu';
+import { moveQueryState } from '../views/uiState';
+import { showToast } from '../trash/toast';
 import './pages.css';
 
 const stemOf = (p: string) => (p.split('/').pop() ?? p).replace(/\.yml$/i, '').normalize('NFC');
@@ -47,12 +49,26 @@ function NameDialog({ req }: { req: NameDialogRequest }) {
     setNotReady(false);
     try {
       if (req.kind === 'rename') {
+        let jobId: number | null = null;
         const id = await runConfirmed(() => ipc.queryRename(req.name, title), {
           confirm: false,
-          started: (jobId) => { setLastQueryRename(jobId); close(); },
+          started: (id) => { jobId = id; setLastQueryRename(id); close(); },
           finished: (rep) => {
             void refreshQueries();
-            if (rep?.phase === 'done') req.onRenamed?.(rep.renamed ? stemOf(rep.renamed.to) : req.name);
+            if (rep?.phase === 'done') {
+              const to = rep.renamed ? stemOf(rep.renamed.to) : req.name;
+              // Slice Q2 (D-1797): the query's machine-local keys (widths, folds, remembered tabs) follow the new name.
+              if (to !== req.name) moveQueryState(req.name, to);
+              req.onRenamed?.(to);
+              // FR-QRY-06 AC-6, FR-QRY-07 AC-8: Undo restores every byte (⌘Z, or the status's `Undo`).
+              if (rep.written.length && jobId !== null) {
+                const from = req.name;
+                showToast(t('job.rename.done', { count: rep.written.length }), () => {
+                  setLastQueryRename(null);
+                  void ipc.jobUndo(jobId!).then(() => { if (to !== from) moveQueryState(to, from); setTimeout(() => void refreshQueries(), 300); }, () => {});
+                });
+              }
+            }
           },
         });
         if (id === null) close();

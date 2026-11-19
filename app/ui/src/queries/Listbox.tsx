@@ -60,6 +60,14 @@ export function Chooser({ role = 'combobox', label, display, faint, options, gro
   const onKey = (e: React.KeyboardEvent) => {
     if (!open) {
       if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); show(); }
+      else if (role === 'combobox' && !disabled && e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        // Typing on a closed combobox opens it filtered by the typed text (slice Q2: `Add sort level`, then a column).
+        e.preventDefault();
+        e.stopPropagation();
+        show();
+        setQ(e.key);
+        onQuery?.(e.key);
+      }
       return;
     }
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {

@@ -23,6 +23,8 @@ import { typeErrorMessage } from '../types/util';
 import { attrTypeLabel, colorName, dateText, dateTimeText, nfc, rawText, wiki } from '../types/util';
 
 import { WIDTH, clampWidth, columnChoices, columnsRequest, defaultSort, dropColumn, effectiveColumns, moveColumn, toggleColumn } from '../types/columns';
+import { HeaderCell } from '../tables/HeaderCell';
+import { TypeViews, hasViews } from '../views/TypeViews';
 
 export type TypeSort = { column: string; dir: 'asc' | 'desc' };
 /** Column widths in px by column key (D-1241); a missing key is the R130 default. */
@@ -289,7 +291,7 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
   const settled = async (): Promise<TypeDto | undefined> => { await queue.current; return disk.current ?? latest.current; };
 
   return (
-    <div className="page-column type-page">
+    <div className="page-column page-wide type-page">
       {header ?? <header className="page-header type-header">
         <span className="type-badge" aria-hidden="true" style={{ ['--type' as string]: `var(--type-${colorName(type?.color)})` }}>
           <Icon name={typeIconName(typeKey, type?.icon)} size={20} />
@@ -297,7 +299,7 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
         <div className="type-header-text">
           <h1 ref={heading} tabIndex={-1}><span data-user-content>{pluralName}</span></h1>
           {type?.description && <p className="type-description" data-user-content>{type.description}</p>}
-          {rows && <p className="type-count">{t('typePage.count', { count: rows.length })}</p>}
+          {rows && <p className="type-count">{t('typePage.countPlural', { count: rows.length, plural: '\u0000' }).split('\u0000')[0]}<span data-user-content>{pluralName}</span>{t('typePage.countPlural', { count: rows.length, plural: '\u0000' }).split('\u0000')[1]}</p>}
         </div>
         {type && (
           <div className="page-actions">
@@ -324,70 +326,93 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
           </p>
         );
       })()}
-      <div className="page-toolbar type-toolbar">
-        {!header && <aside className="view-tabs-wrap"><div role="tablist" aria-label={t('typePage.views')} className="view-tabs">
-          <span role="tab" data-command="typePage.view" aria-selected="true" tabIndex={0} className="view-tab on" data-user-content>{t('views.all', { plural: pluralName })}</span>
-        </div></aside>}
-        <span className="spacer" />
-        <input type="search" role="searchbox" className="type-filter" aria-label={t('typePage.filter', { plural: pluralName })} placeholder={t('typePage.filter', { plural: pluralName })}
-          value={filter} spellCheck={false} autoComplete="off" onChange={(e) => setFilter(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setFilter(''); } else if (e.key === 'ArrowDown') { e.preventDefault(); focusRow(0); } }} />
-        {type && (
+      {(() => {
+        const views = !header && !!type && hasViews(typeKey, type);
+        // Slice Q2 (D-1767, AP-1500): with view tabs the All tab's sorted header shows its arrow as text too, as the views do.
+        const marks = views && !!type?.views?.length;
+        const filterField = (
+          <input type="search" role="searchbox" className="type-filter" aria-label={t('typePage.filter', { plural: pluralName })} placeholder={t('typePage.filter', { plural: pluralName })}
+            value={filter} spellCheck={false} autoComplete="off" onChange={(e) => setFilter(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setFilter(''); } else if (e.key === 'ArrowDown') { e.preventDefault(); focusRow(0); } }} />
+        );
+        const columnsButton = type && (
           <button ref={addBtn} type="button" className="text-button" data-command="typePage.columns" aria-haspopup="menu" aria-expanded={columnsOpen}
             aria-disabled={menuOk ? undefined : 'true'} aria-description={menuOk ? undefined : columnsReason}
             onClick={() => { if (menuOk) { setNotice(null); setColumnsOpen((o) => !o); } }}>
             <Icon name="panel" size={12} />{t('typePage.columns')}
           </button>
-        )}
-      </div>
-      {rows && filter.trim() && shown.length === 0 && <p role="status" className="empty">{t('typePage.noMatch', { plural: pluralName, text: filter.trim() })}</p>}
-      <div className="table-scroll" ref={scrollBox}>
-        <table className="type-table" aria-label={pluralName} style={{ width: tableWidth }}>
-          <colgroup>{columns.map((c) => <col key={c.key} style={{ width: widthOf(c.key) }} />)}</colgroup>
-          <thead>
-            <tr>
-              {columns.map((c, i) => (
-                <HeaderCell key={c.key} col={c} first={i === 0} sort={current.column === c.key ? current.dir : null} width={widthOf(c.key)}
-                  movable={i > 0 && writable && !cur?.columnsUnreadable} scroller={scrollBox} titleWidth={widthOf('title')}
-                  onSort={() => activate(c.key)}
-                  onMove={(delta) => writeColumns((x) => moveColumn(x, c.key, delta))}
-                  onDrop={(before) => writeColumns((x) => dropColumn(x, c.key, before))}
-                  onWidth={(px, save) => setWidth(c.key, px, save)}
-                  onCancelWidth={() => setDraft(null)} />
-              ))}
-            </tr>
-          </thead>
-          <tbody ref={tbody}>
-            {shown.slice(win.from, win.to).map((r, j) => {
-              const i = win.from + j;
-              // AC-33: the first and last rendered rows hold the height of the rows left out above and below.
-              const padTop = j === 0 ? win.from * win.rowH : 0;
-              const padBottom = i === win.to - 1 ? (shown.length - win.to) * win.rowH : 0;
-              return (
-                // Slice P (R104 row 9, D-930): a click anywhere on the row previews it; ⏎ and a double-click open it.
-                <RefElement as="tr" reference={{ target: { path: r.path.normalize('NFC'), fragment: null, kind: 'note' }, kind: 'row', open: () => onOpen(r.path) }}
-                  key={r.path} tabIndex={i === Math.min(Math.max(cursor, win.from), win.to - 1, shown.length - 1) ? 0 : -1} className="type-row"
-                  data-path={r.path.normalize('NFC')} data-title={r.title} data-index={i}
-                  // 6A (FR-HIS-01 AC-3): the row's context menu has Move to trash (⌘⌫ on a focused row).
-                  onContextMenu={(e) => { e.preventDefault(); const el = e.currentTarget; el.focus(); setRowMenu(el); }}
-                  {...pinDragSource({ request: { kind: 'object', path: r.path.normalize('NFC') }, label: r.title, icon: pinIconName(typeKey, type?.icon), color: type?.color })}
-                  onFocus={() => setCursor(i)}
-                  onKeyDown={(e) => {
-                    if (e.target !== e.currentTarget) return;
-                    if (e.key === 'F10' && e.shiftKey) { e.preventDefault(); setRowMenu(e.currentTarget); return; }
-                    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); focusRow(i + (e.key === 'ArrowDown' ? 1 : -1)); }
-                  }}>
-                  {columns.map((c) => (
-                    <td key={c.key} style={padTop || padBottom ? { paddingTop: 6 + padTop, paddingBottom: 6 + padBottom } : undefined}>
-                      <Cell row={r} col={c} type={type} types={types} onOpen={onOpen} onTag={onTag} typeKey={typeKey} />
-                    </td>
-                  ))}
-                </RefElement>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+        );
+        const body = (
+          <>
+            {rows && filter.trim() && shown.length === 0 && <p role="status" className="empty">{t('typePage.noMatch', { plural: pluralName, text: filter.trim() })}</p>}
+            <div className="table-scroll" ref={scrollBox}>
+              <table className={`type-table${marks ? ' marked-sort' : ''}`} aria-label={pluralName} style={{ width: tableWidth }}>
+                <colgroup>{columns.map((c) => <col key={c.key} style={{ width: widthOf(c.key) }} />)}</colgroup>
+                <thead>
+                  <tr>
+                    {columns.map((c, i) => {
+                      const sorted = current.column === c.key ? current.dir : null;
+                      return (
+                        <HeaderCell key={c.key} col={c} first={i === 0} width={widthOf(c.key)} ariaSort={sorted ? (sorted === 'asc' ? 'ascending' : 'descending') : 'none'}
+                          marker={marks && sorted ? { arrow: sorted === 'asc' ? '↑' : '↓', n: null } : null}
+                          movable={i > 0 && writable && !cur?.columnsUnreadable} keys scroller={scrollBox} titleWidth={widthOf('title')}
+                          onSort={() => activate(c.key)}
+                          onMove={(delta) => writeColumns((x) => moveColumn(x, c.key, delta))}
+                          onDrop={(before) => writeColumns((x) => dropColumn(x, c.key, before))}
+                          onWidth={(px, save) => setWidth(c.key, px, save)}
+                          onCancelWidth={() => setDraft(null)} />
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody ref={tbody}>
+                  {shown.slice(win.from, win.to).map((r, j) => {
+                    const i = win.from + j;
+                    // AC-33: the first and last rendered rows hold the height of the rows left out above and below.
+                    const padTop = j === 0 ? win.from * win.rowH : 0;
+                    const padBottom = i === win.to - 1 ? (shown.length - win.to) * win.rowH : 0;
+                    return (
+                      // Slice P (R104 row 9, D-930): a click anywhere on the row previews it; ⏎ and a double-click open it.
+                      <RefElement as="tr" reference={{ target: { path: r.path.normalize('NFC'), fragment: null, kind: 'note' }, kind: 'row', open: () => onOpen(r.path) }}
+                        key={r.path} tabIndex={i === Math.min(Math.max(cursor, win.from), win.to - 1, shown.length - 1) ? 0 : -1} className="type-row"
+                        data-path={r.path.normalize('NFC')} data-query-result={r.path.normalize('NFC')} data-title={r.title} data-index={i}
+                        // 6A (FR-HIS-01 AC-3): the row's context menu has Move to trash (⌘⌫ on a focused row).
+                        onContextMenu={(e) => { e.preventDefault(); const el = e.currentTarget; el.focus(); setRowMenu(el); }}
+                        {...pinDragSource({ request: { kind: 'object', path: r.path.normalize('NFC') }, label: r.title, icon: pinIconName(typeKey, type?.icon), color: type?.color })}
+                        onFocus={() => setCursor(i)}
+                        onKeyDown={(e) => {
+                          if (e.target !== e.currentTarget) return;
+                          if (e.key === 'F10' && e.shiftKey) { e.preventDefault(); setRowMenu(e.currentTarget); return; }
+                          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); focusRow(i + (e.key === 'ArrowDown' ? 1 : -1)); }
+                        }}>
+                        {columns.map((c) => (
+                          <td key={c.key} style={padTop || padBottom ? { paddingTop: 6 + padTop, paddingBottom: 6 + padBottom } : undefined}>
+                            <Cell row={r} col={c} type={type} types={types} onOpen={onOpen} onTag={onTag} typeKey={typeKey} />
+                          </td>
+                        ))}
+                      </RefElement>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        );
+        if (views && type) {
+          return <TypeViews typeKey={typeKey} type={type} types={types} plural={pluralName}
+            all={{ toolbar: <div className="view-toolbar">{filterField}{columnsButton}</div>, body }} />;
+        }
+        return (
+          <>
+            <div className="page-toolbar type-toolbar">
+              <span className="spacer" />
+              {filterField}
+              {columnsButton}
+            </div>
+            {body}
+          </>
+        );
+      })()}
       {rows && rows.length === 0 && <p className="empty">{t('typePage.empty')}</p>}
       {notice && <p role={notice.alert ? 'alert' : 'status'} className={notice.alert ? 'warning-text' : 'type-notice'}>{notice.text}</p>}
       {rowMenu && (
@@ -495,101 +520,3 @@ function useRowWindow(tbody: React.RefObject<HTMLTableSectionElement | null>, bo
   };
 }
 
-/** A column header: sorts on click / ⏎ / Space (AC-3); is dragged or moved with ⌥←/⌥→ to reorder (D-1244); ends with
- *  its resize handle, a WAI-ARIA window splitter (D-1248, D-1249). */
-function HeaderCell({ col, first, sort, width, movable, scroller, titleWidth, onSort, onMove, onDrop, onWidth, onCancelWidth }: {
-  col: Column; first: boolean; sort: 'asc' | 'desc' | null; width: number; movable: boolean;
-  scroller: React.RefObject<HTMLDivElement | null>; titleWidth: number;
-  onSort: () => void; onMove: (delta: number) => void; onDrop: (before: string | null) => void;
-  onWidth: (px: number | null, save: 'now' | 'later' | 'no') => void; onCancelWidth: () => void;
-}) {
-  const press = useRef<{ x: number; moved: boolean } | null>(null);
-  const dragged = useRef(false);
-  const resize = useRef<{ x: number; w: number; last: number } | null>(null);
-  const [reordering, setReordering] = useState(false);
-  /** AC-23: the column a header dropped at `x` goes before (null = at the end; never before Title). */
-  const dropTarget = (th: HTMLElement, x: number): string | null => {
-    const hs = [...(th.parentElement?.children ?? [])] as HTMLElement[];
-    for (const h of hs.slice(1)) {
-      const r = h.getBoundingClientRect();
-      if (x < r.left + r.width / 2) return h.dataset.key ?? null;
-    }
-    return null;
-  };
-  /** AC-29: a focused header is scrolled fully into view right of the sticky Title column. */
-  const reveal = (el: HTMLElement) => {
-    const box = scroller.current;
-    if (!box || first) return;
-    const r = el.getBoundingClientRect(), b = box.getBoundingClientRect();
-    if (r.left < b.left + titleWidth) box.scrollLeft -= b.left + titleWidth - r.left;
-    else if (r.right > b.left + box.clientWidth) box.scrollLeft += r.right - (b.left + box.clientWidth);
-  };
-  const min = first ? WIDTH.titleMin : WIDTH.min;
-  return (
-    <th role="columnheader" tabIndex={0} data-key={col.key} aria-label={col.label} aria-sort={sort ? (sort === 'asc' ? 'ascending' : 'descending') : 'none'}
-      className={[sort ? 'sorted' : '', first ? 'col-title' : '', reordering ? 'reordering' : ''].filter(Boolean).join(' ') || undefined}
-      onFocus={(e) => { if (e.target === e.currentTarget) reveal(e.currentTarget); }}
-      onClick={() => { if (dragged.current) { dragged.current = false; return; } onSort(); }}
-      onKeyDown={(e) => {
-        if (e.target !== e.currentTarget) return;
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onSort(); }
-        else if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); e.stopPropagation(); if (movable) onMove(e.key === 'ArrowLeft' ? -1 : 1); }
-      }}
-      onPointerDown={(e) => { if (movable && e.button === 0) { press.current = { x: e.clientX, moved: false }; e.currentTarget.setPointerCapture(e.pointerId); } }}
-      onPointerMove={(e) => {
-        const p = press.current;
-        if (p && !p.moved && Math.abs(e.clientX - p.x) > 4) { p.moved = true; setReordering(true); }
-      }}
-      onPointerUp={(e) => {
-        const p = press.current;
-        press.current = null;
-        setReordering(false);
-        if (p?.moved) { dragged.current = true; onDrop(dropTarget(e.currentTarget, e.clientX)); }
-      }}
-      onPointerCancel={() => { press.current = null; setReordering(false); }}>
-      <span className="th-label" data-user-content={col.userNamed ? '' : undefined}>{col.label}</span>
-      <span role="separator" aria-orientation="vertical" aria-label={t('typePage.resize', { column: col.label })} tabIndex={0} className="col-resize"
-        aria-valuenow={Math.round(width)} aria-valuemin={min} aria-valuemax={WIDTH.max}
-        onFocus={(e) => reveal(e.currentTarget.parentElement as HTMLElement)}
-        onClick={(e) => e.stopPropagation()}
-        onDoubleClick={(e) => { e.stopPropagation(); onWidth(null, 'now'); }}
-        onPointerDown={(e) => {
-          if (e.button !== 0) return;
-          e.stopPropagation();
-          e.preventDefault();
-          e.currentTarget.setPointerCapture(e.pointerId);
-          resize.current = { x: e.clientX, w: width, last: width };
-          const esc = (k: KeyboardEvent) => {
-            if (k.key !== 'Escape' || !resize.current) return;
-            k.preventDefault(); k.stopPropagation();
-            resize.current = null;
-            onCancelWidth();
-          };
-          window.addEventListener('keydown', esc, { capture: true });
-          const end = () => { window.removeEventListener('keydown', esc, { capture: true }); window.removeEventListener('pointerup', end, true); };
-          window.addEventListener('pointerup', end, true);
-        }}
-        onPointerMove={(e) => {
-          const r = resize.current;
-          if (!r) return;
-          r.last = clampWidth(col.key, r.w + e.clientX - r.x);
-          onWidth(r.last, 'no');
-        }}
-        onPointerUp={(e) => {
-          e.stopPropagation();
-          const r = resize.current;
-          resize.current = null;
-          if (r && r.last !== r.w) onWidth(r.last, 'now'); // a press without a move stores nothing
-        }}
-        onKeyDown={(e) => {
-          const step = e.shiftKey ? 50 : 10;
-          const next = e.key === 'ArrowRight' ? width + step : e.key === 'ArrowLeft' ? width - step : e.key === 'Home' ? min : e.key === 'End' ? WIDTH.max
-            : e.key === 'Backspace' || e.key === 'Delete' ? null : undefined;
-          if (next === undefined) return;
-          e.preventDefault();
-          e.stopPropagation();
-          onWidth(next, 'later');
-        }} />
-    </th>
-  );
-}

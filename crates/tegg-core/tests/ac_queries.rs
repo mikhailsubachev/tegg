@@ -93,9 +93,6 @@ fn changed(a: &BTreeMap<String, Entry>, b: &BTreeMap<String, Entry>) -> BTreeSet
 fn files_changed(a: &BTreeMap<String, Entry>, b: &BTreeMap<String, Entry>) -> BTreeSet<String> {
     changed(a, b).into_iter().filter(|k| !k.ends_with('/')).collect()
 }
-fn reason(b: &queries_q::Broken) -> BrokenReason {
-    b.reason
-}
 fn note_write(core: &Core, path: &str, text: &str) {
     let (_, v) = ok!(core.read_note(path, SystemTime::now()), format!("read {path}"));
     ok!(core.write_note(path, text.as_bytes(), Some(&v)), format!("write {path}"));

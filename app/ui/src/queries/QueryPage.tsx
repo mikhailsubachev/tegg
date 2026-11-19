@@ -6,7 +6,9 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Mutable
 import { t } from '../i18n/catalog';
 import { collator } from '../i18n/collate';
 import { events, ipc } from '../ipc/client';
-import type { QueryDto, QueryUsageDto } from '../ipc/queries';
+import type { QueryDto, QueryUsageDto, ViewUsageDto } from '../ipc/queries';
+import { chipTypes } from '../links/icons';
+import { setLastTab } from '../views/uiState';
 import { Icon } from '../shell/Icon';
 import { useReference } from '../preview/useReference';
 import { chipIcon } from '../links/icons';
@@ -52,6 +54,7 @@ function UsageChip({ u }: { u: QueryUsageDto }) {
 export function QueryPage({ name, heading, onAll, commandRef, statusRef, onRenamed, onTrashed }: QueryPageProps) {
   const [q, setQ] = useState<QueryDto | null>(null);
   const [usages, setUsages] = useState<QueryUsageDto[] | null>(null);
+  const [pages, setPages] = useState<ViewUsageDto[]>([]);
   const [menu, setMenu] = useState<HTMLElement | null>(null);
   const editBtn = useRef<HTMLButtonElement | null>(null);
   const moreBtn = useRef<HTMLButtonElement | null>(null);
@@ -62,6 +65,8 @@ export function QueryPage({ name, heading, onAll, commandRef, statusRef, onRenam
     let live = true;
     void ipc.queryGet(name).then((r) => { if (live) setQ((o) => (JSON.stringify(o) === JSON.stringify(r) ? o : r)); }, () => {});
     void ipc.queryUsages(name).then((r) => { if (live) setUsages((o) => (JSON.stringify(o) === JSON.stringify(r) ? o : r)); }, () => {});
+    // Slice Q2 (D-1804, FR-QRY-06 AC-24): the type pages showing it as a view, first in `Used on`.
+    void ipc.queryViewUsages(name).then((r) => { if (live) setPages((o) => (JSON.stringify(o) === JSON.stringify(r) ? o : r)); }, () => {});
     return () => { live = false; };
   }, [name]);
   useEffect(() => load(), [load]);
@@ -69,7 +74,7 @@ export function QueryPage({ name, heading, onAll, commandRef, statusRef, onRenam
     let timer: ReturnType<typeof setTimeout> | null = null;
     const un = events.changed((c) => {
       const paths = c.paths ?? [];
-      if (!paths.some((p) => isQueryPath(p) || p.endsWith('.md'))) return;
+      if (!paths.some((p) => isQueryPath(p) || p.endsWith('.md') || p.normalize('NFC').startsWith('.tegg/types/'))) return;
       if (timer) clearTimeout(timer);
       timer = setTimeout(() => { timer = null; load(); }, 300);
     });
@@ -99,7 +104,7 @@ export function QueryPage({ name, heading, onAll, commandRef, statusRef, onRenam
   const coll = collator();
   const sorted = [...(usages ?? [])].sort((a, b) => Number(a.template) - Number(b.template) || coll.compare(a.title, b.title) || (a.path < b.path ? -1 : 1));
   return (
-    <div className="page-column query-page">
+    <div className="page-column page-wide query-page">
       <nav className="query-crumbs">
         <a href="#" tabIndex={0} className="query-back" data-command="queries.go" aria-label={t('query.back')} onClick={(e) => { e.preventDefault(); onAll(); }}>‹ {t('query.back')}</a>
       </nav>
@@ -128,9 +133,22 @@ export function QueryPage({ name, heading, onAll, commandRef, statusRef, onRenam
       {state === 'trashed' && <p className="query-page-message">{t('query.block.trashed', { name })}</p>}
       <section className="query-used-on">
         <h2>{t('query.usedOn')}</h2>
-        {usages && sorted.length === 0 && <p className="muted">{t('query.notUsed')}</p>}
-        {sorted.length > 0 && (
+        {usages && sorted.length === 0 && pages.length === 0 && <p className="muted">{t('query.notUsed')}</p>}
+        {(sorted.length > 0 || pages.length > 0) && (
           <ul className="query-usages" aria-label={t('query.usedOn')}>
+            {pages.map((v) => {
+              const plural = (chipTypes() as { key: string; plural?: string }[]).find((x) => x.key.normalize('NFC') === v.type.normalize('NFC'))?.plural ?? v.type;
+              const [before, after = ''] = t('views.pageMark', { plural: '\u0000' }).split('\u0000');
+              return (
+                <li key={`type:${v.type}`}>
+                  <a href="#" tabIndex={0} className="chip link-chip kind-note query-usage" data-command="query.openUsage" data-usage-type={v.type.normalize('NFC')}
+                    onClick={(e) => { e.preventDefault(); setLastTab(v.type, q?.name ?? name); queryNav()?.go({ id: 'type/<type>', param: v.type.normalize('NFC') }); }}>
+                    <Icon name="table" size={13} />
+                    <span className="chip-text">{before}<span data-user-content>{plural}</span>{after}</span>
+                  </a>
+                </li>
+              );
+            })}
             {sorted.map((u) => <UsageChip key={u.path} u={u} />)}
           </ul>
         )}

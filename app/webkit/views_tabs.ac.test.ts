@@ -181,7 +181,7 @@ test('fr_qry_07_ac5_show_a_saved_query', async ({ page }) => {
     ['Autoři', true, 'Shows Autor, not Book'], ['Knihy a autoři', true, 'Shows several types, not only Book'], ['Knihy odkazované odsud', true, 'Needs the note it is used on'],
     ['Nečitelný pohled', true, 'Can\'t be read'],
   ], 'enabled first by title, then greyed by title with their reasons (R193)');
-  await click(saved.locator('[data-query="Autoři"]'), 'a greyed item');
+  await saved.locator('[data-query="Autoři"]').click({ force: true }); // D-1826: a plain click (the item is aria-disabled)
   assert.deepEqual(await writeCalls(core), [], 'activating a greyed item writes nothing');
   await click(saved.locator(`[data-query="${Q.zanr}"]`), 'Podle žánru');
   assert.equal(await fileWhen(core, BOOK_YML, (x) => x === expectedView('types/book-views-podle-zanru.yml')), expectedView('types/book-views-podle-zanru.yml'), 'views: [… , Podle žánru] (line 13 only)');
@@ -614,11 +614,7 @@ test('fr_typ_09_ac35_type_page_is_wide', async ({ page }) => {
   await sleep(300);
   assert.ok(near((await measure()).content, 2248), 'at 2,560 × 1,440: 2,248 ± 1 px');
   await page.setViewportSize({ width: 1440, height: 900 });
-  await runCommand(page, 'Toggle right panel');
-  await sleep(300);
-  const withPanel = await measure();
-  assert.ok(withPanel.content < 1128 && near(withPanel.content, withPanel.pane - 80), 'with the panel open the content narrows with the pane');
-  await runCommand(page, 'Toggle right panel');
+  // D-1827: type pages have no right panel.
   await openNote(page, 'Čtení 2026');
   const body = await must(page.getByRole('textbox', { name: /^⟦?Note body⟧?$/ }), 'Čtení\'s body');
   const bb = await body.boundingBox();

@@ -126,7 +126,9 @@ export type ShellActions = {
 
 /** Slice Q2 (v1-views §4.7): what the view, sort and board commands depend on. */
 export type ViewsStatus = {
-  typeKey: string | null; tab: string | null; writable: boolean;
+  /** `writable`: the type file can be written (tab changes); `viewWritable`: the shown query can be (sort, lanes);
+   *  missing = `writable`. */
+  typeKey: string | null; tab: string | null; writable: boolean; viewWritable?: boolean;
   board: { lanes: 'vertical' | 'horizontal'; laneOrder: boolean; cardFocused: boolean; laneFocused: boolean } | null;
   sortable: boolean;
 };
@@ -330,9 +332,10 @@ export function commands(ctx: ShellContext): Command[] {
     if (onType) list.push(cmd('views.next', 'cmd.nextView'), cmd('views.previous', 'cmd.previousView'));
     if (onType && vs.tab !== null && vs.writable) list.push(cmd('views.moveLeft', 'cmd.moveViewLeft'), cmd('views.moveRight', 'cmd.moveViewRight'));
     const b = vs.board;
-    if (b && vs.writable) list.push(cmd('board.switchLanes', 'cmd.switchLanes'));
-    if (vs.sortable && vs.writable) list.push(cmd('sort.addLevel', 'cmd.addSortLevel'));
-    if (b && b.laneOrder && vs.writable) list.push(cmd('board.resetLaneOrder', 'cmd.resetLaneOrder'));
+    const vw = vs.viewWritable ?? vs.writable;
+    if (b && vw) list.push(cmd('board.switchLanes', 'cmd.switchLanes'));
+    if (vs.sortable && vw) list.push(cmd('sort.addLevel', 'cmd.addSortLevel'));
+    if (b && b.laneOrder && vw) list.push(cmd('board.resetLaneOrder', 'cmd.resetLaneOrder'));
     if (b && b.cardFocused) list.push(cmd('board.cardNext', 'cmd.cardNext'), cmd('board.cardPrevious', 'cmd.cardPrevious'));
     if (b && (b.cardFocused || b.laneFocused)) {
       if (b.lanes === 'vertical') list.push(cmd('board.laneLeft', 'cmd.laneLeft'), cmd('board.laneRight', 'cmd.laneRight'));

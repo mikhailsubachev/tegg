@@ -35,6 +35,10 @@ function watchTyping() {
 
 export type RunState = { result: QueryResultDto | null; loading: boolean; error: boolean };
 
+/** The run of a list that was just unmounted: React's StrictMode mounts every effect twice in development, and a
+ *  remount with the same source right away reuses the answer in flight instead of asking the core again. */
+let disposed: { key: string; answer: Promise<QueryResultDto> } | null = null;
+
 /** `source` null: nothing runs (a draft). `key` re-runs at once when it changes (the fence's text, the host). */
 export function useQueryRun(source: QuerySourceDto | null, host: string | null): RunState & { rerun: () => void } {
   // No core to ask (a view rendered outside the app shell): the run fails at once, so the block shows its source.
@@ -51,11 +55,14 @@ export function useQueryRun(source: QuerySourceDto | null, host: string | null):
     let alive = true;
     let seq = 0;
     let timer: ReturnType<typeof setTimeout> | null = null;
-    const go = () => {
+    let last: Promise<QueryResultDto> | null = null;
+    const go = (reuse: Promise<QueryResultDto> | null = null) => {
       const s = live.current.source;
       if (!s) return;
       const n = ++seq;
-      ipc.queryRun(s, live.current.host, queryEnv()).then((r) => {
+      const answer = reuse ?? ipc.queryRun(s, live.current.host, queryEnv());
+      last = answer;
+      answer.then((r) => {
         if (!alive || n !== seq) return;
         const same = live.current.result && JSON.stringify(live.current.result) === JSON.stringify(r);
         live.current.result = r;
@@ -74,7 +81,9 @@ export function useQueryRun(source: QuerySourceDto | null, host: string | null):
     run.current = () => later(0);
     live.current.result = null;
     setState((x) => ({ ...x, loading: true, error: noCore }));
-    go();
+    const again = disposed && disposed.key === key ? disposed.answer : null;
+    disposed = null;
+    go(again);
     const r = () => live.current.result;
     // (a) the query file, the queries folder while it can't be found or read, the trash's queries, the type files.
     const unChanged = events.changed((c) => {
@@ -132,6 +141,12 @@ export function useQueryRun(source: QuerySourceDto | null, host: string | null):
     const unProgress = events.progress((p) => { if (p.state === 'done' && r() && !r()!.indexReady) later(0); });
     return () => {
       alive = false;
+      if (last) {
+        // StrictMode's remount comes in the same task; a later mount asks again.
+        const d = { key, answer: last };
+        disposed = d;
+        queueMicrotask(() => { if (disposed === d) disposed = null; });
+      }
       if (timer) clearTimeout(timer);
       clearInterval(tick);
       void unChanged.then((f) => f()).catch(() => {});

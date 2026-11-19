@@ -190,11 +190,13 @@ test('fr_qry_05_ac8_read_only_cells_two_views', async ({ page }) => {
   assert.equal(await description(cb), 'Edit the task to change it.', 'with `Edit the task to change it.`');
   await openEditor(block(page, Q.open), page);
   const views = await editor(page).getByRole('radio').or(editor(page).getByRole('button', { name: /^(List|Table|Board|Calendar)$/ })).allInnerTexts();
-  assert.deepEqual(views.filter((v) => /List|Table|Board|Calendar/.test(v)).map((v) => v.trim()), ['List', 'Table'], 'the View control has only List and Table');
+  // Slice Q2 (D-1775, FR-QRY-05 AC-10): the Board part is superseded: `view: board` is valid and View offers Board; a board
+  // without `group_by` is drawn as a List with the group_by notice (D-1807).
+  assert.deepEqual(views.filter((v) => /List|Table|Board|Calendar/.test(v)).map((v) => v.trim()), ['Table', 'List', 'Board'], 'the View control has Table, List and Board');
   await page.keyboard.press('Escape');
   await openNote(page, 'Desky');
   const d = block(page, 'Desky');
-  assert.ok((await textOf(blockNotice(d))).includes('The setting view can\'t be read, so its default is used.'), '`view: board` is a broken part');
+  assert.ok((await textOf(blockNotice(d))).includes('The setting group_by can\'t be read, so its default is used.'), '`view: board` without `group_by`: the group_by notice');
   assert.ok(await seen(d.getByRole('list'), 1000), 'shown as List');
   assert.ok((await queryFileText(core, 'Desky'))?.includes('view: board'), 'kept in the file');
 });

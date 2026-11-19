@@ -6,13 +6,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t } from '../i18n/catalog';
 import { ipc, errorKind } from '../ipc/client';
-import type { TypeDefDto, SwitcherItemDto } from '../ipc/types';
-import type { FilterItemDto, QueryDefDto, QueryDto, QueryOp, QueryResultDto, SortDto } from '../ipc/queries';
+import type { TypeDefDto, SwitcherItemDto, TypeDto } from '../ipc/types';
+import type { FilterItemDto, QueryDefDto, QueryDto, QueryOp, QueryResultDto } from '../ipc/queries';
 import { Icon } from '../shell/Icon';
 import { announceQuery, editorClosed, queryAlert, useEditorRequest, type EditorRequest } from './editorHost';
 import { queryEnv, nowIso } from './env';
 import { FLAG_OPS, UNIVERSAL, attributeGroups, attributeOf, columnsAfterTypes, defEquals, isValidRow, operatorsFor, parseLimit, type AttrItem } from './model';
 import { Chooser, type ListOption } from './Listbox';
+import { defaultGroupBy, groupByChoices } from '../views/model';
+import { ColumnsMenu } from './QueryBlock';
 import './editor.css';
 
 type Filter = Extract<FilterItemDto, { kind: 'filter' }>;
@@ -42,6 +44,10 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
   const [def, setDef] = useState<QueryDefDto | null>(orig);
   const [title, setTitle] = useState(orig?.title ?? '');
   const [usages, setUsages] = useState(0);
+  // Slice Q2 (R189, D-1795): the type pages listing the query (`Used on the <plural> page and <n> notes.`).
+  const [pages, setPages] = useState<string[]>([]);
+  const [cardsOpen, setCardsOpen] = useState(false);
+  const cardsBtn = useRef<HTMLButtonElement | null>(null);
   const [result, setResult] = useState<QueryResultDto | null>(null);
   const [limitText, setLimitText] = useState(orig ? String(orig.limit) : '');
   const [source, setSource] = useState(false);
@@ -68,6 +74,7 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
       setLimitText(String(d.limit));
     }, () => finish(false));
     ipc.queryUsages(req.name).then((u) => { if (live) setUsages(u.length); }, () => {});
+    ipc.queryViewUsages(req.name).then((v) => { if (live) setPages(v.map((x) => x.type)); }, () => {});
     return () => { live = false; };
   }, []);
 
@@ -135,7 +142,7 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
     if (back?.isConnected && !document.querySelector('.query-name-dialog')) back.focus({ preventScroll: true });
   };
 
-  async function finish(commit: boolean) {
+  async function finish(commit: boolean, done = false) {
     if (closing.current) return;
     closing.current = true;
     const { def: d, title: tt, orig: o, query: q, result: r } = state.current;
@@ -144,7 +151,9 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
     const newTitle = nfc(tt.trim());
     const titleChanged = !!newTitle && newTitle !== nfc(o.title);
     if (req.name === null) {
-      if (cur.types.length || cur.filters.length || titleChanged) {
+      // D-1781: a New view draft is created by `Done`, or by a close after a change; Esc with no change drops it.
+      const wanted = req.viewDraft ? done || titleChanged || !defEquals(cur, clean(o)) : cur.types.length || cur.filters.length || titleChanged;
+      if (wanted) {
         const name = newTitle || o.title;
         try { await req.onDraftCommit?.(name, { ...cur, title: name }); } catch { queryAlert(t('query.saveFailed')); }
       } else req.onDraftDrop?.();
@@ -177,6 +186,20 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
   const typeDtos = def.types.map((k) => types.find((x) => nfc(x.key) === nfc(k))).filter((x): x is TypeDefDto => !!x);
   const typeName = (k: string) => types.find((x) => nfc(x.key) === nfc(k))?.name ?? k;
   const update = (f: (d: QueryDefDto) => QueryDefDto) => setDef((d) => (d ? f(d) : d));
+  const oneType = def.types.length === 1 ? (types.find((x) => nfc(x.key) === nfc(def.types[0])) as never as TypeDto | undefined) : undefined;
+  const groupLabel = (k: string | null): { label: string; user: boolean } => {
+    if (k === null) return { label: '', user: false };
+    if (nfc(k) === 'tags') return { label: t('attr.tags'), user: false };
+    const a = oneType?.attributes.find((x) => nfc(x.key) === nfc(k));
+    return a ? { label: a.name, user: true } : { label: k, user: true };
+  };
+  const columnLabel = (k: string): string => {
+    const a = oneType?.attributes.find((x) => nfc(x.key) === nfc(k));
+    if (a) return a.name;
+    if (nfc(k) === 'modified') return t('typePage.modified');
+    const u = UNIVERSAL.find((x) => x.key === nfc(k));
+    return u ? t(u.label) : k;
+  };
   const setTypes = (next: string[]) => update((d) => ({ ...d, types: next, columns: columnsAfterTypes(d.columns, d.types, next, types) }));
 
   // ------------------------------------------------------------------ filter items, by their path
@@ -210,20 +233,12 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
   };
 
   const hostTitle = req.host ? stem(req.host) : null;
-  const usedOn = usages > 1 ? t('query.editor.usedOn', { count: usages }) : null;
+  const pagePlural = pages.length ? (types.find((x) => nfc(x.key) === nfc(pages[0]))?.plural ?? pages[0]) : null;
+  const usedOn = pagePlural && usages >= 1 ? t('query.editor.usedOnPage', { plural: pagePlural, count: usages }) : usages > 1 ? t('query.editor.usedOn', { count: usages }) : null;
   const count = result ? (result.total ?? result.rows.length) : null;
 
-  // Sort: Title, Created, Modified and the chosen types' attributes.
+  // The attribute choices of the filter rows (no Sort row: sorting is on the view, D-1795).
   const groups = attributeGroups(types, def.types);
-  const own = groups.find((g) => g.id === 'type')?.items ?? [];
-  const sortOpts: ListOption[] = [
-    { id: 'title', label: t('typePage.title') }, { id: 'created', label: t('attr.created') }, { id: 'modified', label: t('attr.modified') },
-    ...own.map((a) => ({ id: a.key, label: a.label, userNamed: true })),
-  ];
-  // Slice Q2: the editor's Sort row shows and edits the first level (the sort popover owns the others, D-1795).
-  const sort0 = def.sort[0] ?? { by: 'modified', order: 'desc' as const };
-  const setSort0 = (d: QueryDefDto, l: Partial<SortDto>): QueryDefDto => ({ ...d, sort: [{ ...(d.sort[0] ?? sort0), ...l }, ...d.sort.slice(1)] });
-  const sortLabel = sortOpts.find((o) => o.id === nfc(sort0.by))?.label ?? sort0.by;
   const limitBad = parseLimit(limitText) === null;
 
   const connector = (match: 'all' | 'any', onPick: (m: 'all' | 'any') => void) => {
@@ -341,13 +356,18 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
         <div className="qe-types">
           {def.types.map((k) => (
             <span key={k} className="qe-chip"><span data-user-content>{typeName(k)}</span>
-              <button tabIndex={0} type="button" className="qe-chip-x" aria-label={t('query.editor.removeType', { type: typeName(k) })}
-                onClick={() => setTypes(def.types.filter((x) => x !== k))}><Icon name="x" size={11} /></button>
+              {!req.fixedType && (
+                <button tabIndex={0} type="button" className="qe-chip-x" aria-label={t('query.editor.removeType', { type: typeName(k) })}
+                  onClick={() => setTypes(def.types.filter((x) => x !== k))}><Icon name="x" size={11} /></button>
+              )}
             </span>
           ))}
-          <Chooser role="button" className="qe-add" label={t('query.editor.type')} display={<><Icon name="plus" size={12} />{t('query.editor.type')}</>}
-            options={typeOpts} onPick={(k) => setTypes([...def.types, k])} />
-          {!def.types.length && <span className="qe-hint">{t('query.editor.allTypes')}</span>}
+          {!req.fixedType && (
+            <Chooser role="button" className="qe-add" label={t('query.editor.type')} display={<><Icon name="plus" size={12} />{t('query.editor.type')}</>}
+              options={typeOpts} onPick={(k) => setTypes([...def.types, k])} />
+          )}
+          {req.fixedType && <p className="qe-hint qe-fixed">{t('query.editor.showFixed', { plural: req.fixedType.plural })}</p>}
+          {!def.types.length && !req.fixedType && <span className="qe-hint">{t('query.editor.allTypes')}</span>}
         </div>
       </div>
       <div className="qe-filters">{items}</div>
@@ -355,38 +375,66 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
         <button tabIndex={0} type="button" className="qe-add" onClick={addFilter}><Icon name="plus" size={12} />{t('query.editor.addFilter')}</button>
         <button tabIndex={0} type="button" className="qe-add" onClick={addGroup}><Icon name="plus" size={12} />{t('query.editor.addGroup')}</button>
       </div>
-      <div className="qe-section qe-sort">
-        <div className="qe-label">{t('query.editor.sort')}</div>
-        <Chooser label={t('query.editor.sort')} display={sortLabel} options={sortOpts} current={nfc(sort0.by)}
-          onPick={(by) => update((d) => setSort0(d, { by }))} className="qe-sortby" />
-        <div className="qe-segment" role="radiogroup">
-          {(['asc', 'desc'] as const).map((o) => (
-            <button key={o} tabIndex={0} type="button" role="radio" aria-checked={sort0.order === o} className={sort0.order === o ? 'on' : ''}
-              onClick={() => update((d) => setSort0(d, { order: o }))}>{t(o === 'asc' ? 'query.editor.asc' : 'query.editor.desc')}</button>
-          ))}
+      {def.view !== 'board' && (
+        // D-1795: no Sort row (sorting is on the view, R188); `Limit` hidden while View is Board.
+        <div className="qe-section qe-sort">
+          <label className="qe-limit">
+            <span>{t('query.editor.limit')}</span>
+            <input type="text" inputMode="numeric" aria-label={t('query.editor.limit')} value={limitText} aria-invalid={limitBad || undefined}
+              aria-describedby={limitBad ? 'qe-limit-error' : undefined}
+              onChange={(e) => { setLimitText(e.target.value); const n = parseLimit(e.target.value); if (n !== null) update((d) => ({ ...d, limit: n })); }} />
+          </label>
         </div>
-        <label className="qe-limit">
-          <span>{t('query.editor.limit')}</span>
-          <input type="text" inputMode="numeric" aria-label={t('query.editor.limit')} value={limitText} aria-invalid={limitBad || undefined}
-            aria-describedby={limitBad ? 'qe-limit-error' : undefined}
-            onChange={(e) => { setLimitText(e.target.value); const n = parseLimit(e.target.value); if (n !== null) update((d) => ({ ...d, limit: n })); }} />
-        </label>
-      </div>
+      )}
       {limitBad && <p id="qe-limit-error" className="field-error">{t('query.editor.limitError')}</p>}
       <div className="qe-section">
         <div className="qe-label">{t('query.editor.view')}</div>
         <div className="qe-segment" role="radiogroup" aria-label={t('query.editor.view')}>
-          {(['list', 'table'] as const).map((v) => (
+          {(['table', 'list', 'board'] as const).map((v) => (
             <button key={v} tabIndex={0} type="button" role="radio" aria-checked={def.view === v} className={def.view === v ? 'on' : ''}
-              onClick={() => update((d) => ({ ...d, view: v }))}>{t(v === 'list' ? 'query.editor.list' : 'query.editor.table')}</button>
+              onClick={() => update((d) => ({ ...d, view: v, groupBy: v === 'board' && d.groupBy === null && oneType ? defaultGroupBy(oneType) : d.groupBy }))}>
+              {t(v === 'list' ? 'query.editor.list' : v === 'table' ? 'query.editor.table' : 'query.editor.board')}
+            </button>
           ))}
         </div>
-        <span className="qe-hint">{t('query.editor.tableHint')}</span>
+        {def.view !== 'board' && <span className="qe-hint">{t('query.editor.tableHint')}</span>}
       </div>
+      {def.view === 'board' && (
+        <>
+          <div className="qe-section">
+            <div className="qe-label">{t('query.editor.groupBy')}</div>
+            <Chooser label={t('query.editor.groupBy')} display={<span data-user-content={groupLabel(def.groupBy).user ? '' : undefined}>{groupLabel(def.groupBy).label}</span>}
+              options={groupByChoices(oneType).map((k) => ({ id: k, label: groupLabel(k).label, userNamed: groupLabel(k).user }))} current={def.groupBy}
+              onPick={(k) => update((d) => ({ ...d, groupBy: k }))} className="qe-groupby" describedBy="qe-groupby-hint" />
+            <span id="qe-groupby-hint" className="qe-hint">{t('query.editor.groupByHint')}</span>
+          </div>
+          <div className="qe-section">
+            <div className="qe-label">{t('query.editor.lanes')}</div>
+            <div className="qe-segment" role="radiogroup" aria-label={t('query.editor.lanes')}>
+              {(['vertical', 'horizontal'] as const).map((l) => (
+                <button key={l} tabIndex={0} type="button" role="radio" aria-checked={def.lanes === l} className={def.lanes === l ? 'on' : ''}
+                  onClick={() => update((d) => ({ ...d, lanes: l }))}>{t(l === 'vertical' ? 'board.vertical' : 'board.horizontal')}</button>
+              ))}
+            </div>
+          </div>
+          <div className="qe-section" role="group" aria-label={t('query.editor.onCards')}>
+            <div className="qe-label">{t('query.editor.onCards')}</div>
+            <span className="qe-cards" data-user-content>{def.columns.map((k) => columnLabel(k)).join(', ')}</span>
+            <button ref={cardsBtn} tabIndex={0} type="button" className="qe-add" aria-haspopup="menu" aria-expanded={cardsOpen}
+              onClick={() => setCardsOpen((o) => !o)}>{t('query.editor.onCardsChange')}</button>
+          </div>
+        </>
+      )}
+      {cardsOpen && (
+        <ColumnsMenu def={def} types={types as never} anchor={cardsBtn.current}
+          onToggle={(key, on) => update((d) => ({ ...d, columns: on ? [...d.columns.filter((c) => nfc(c) !== nfc(key)), nfc(key)] : d.columns.filter((c) => nfc(c) !== nfc(key)) }))}
+          onNewProperty={() => setCardsOpen(false)}
+          onClose={() => { setCardsOpen(false); cardsBtn.current?.focus(); }} />
+      )}
       <div className="qe-foot">
         <p className="qe-results">{count === null ? '' : t('query.editor.results', { count })}</p>
         {req.name !== null && <button tabIndex={0} type="button" className="qe-add" onClick={() => setSource(true)}>{t('query.editor.source')}</button>}
-        <button tabIndex={0} type="button" className="qe-done" onClick={() => void finish(true)}>{t('query.editor.done')}</button>
+        <button tabIndex={0} type="button" className="qe-done" onClick={() => void finish(true, true)}>{t('query.editor.done')}</button>
       </div>
       {source && query && (
         <div role="dialog" aria-label={t('query.editor.source')} className="qe-source">

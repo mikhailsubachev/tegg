@@ -239,21 +239,15 @@ test('fr_typ_01_ac8_templates_and_views_sections', async ({ page }) => {
     assert.equal(await b.getAttribute('aria-disabled'), 'true');
     assert.equal(await description(b), 'Coming in v1.0');
   }
-  const views = await must(section(page, 'Views'), 'section Views');
-  assert.ok(await seen(views.getByText('All Nápady')), 'All Nápady');
-  assert.ok(await seen(views.getByText('Default', { exact: true })), 'marked Default');
-  for (const l of ['Add view', 'Edit']) {
-    const b = await must(views.getByRole('button', { name: l, exact: true }), l);
-    assert.equal(await b.getAttribute('aria-disabled'), 'true');
-    assert.equal(await description(b), 'Coming in v1.0');
-  }
+  // Slice Q2 (FR-QRY-07 AC-17, AP-1517): the Views section is gone; views live on the type page.
+  assert.equal(await section(page, 'Views').count(), 0, 'no section Views');
 });
 
 test('fr_typ_01_ac9_sections_contrast_and_palette_commands', async ({ page }) => {
   await openTypes(page);
   await gotoSettings(page, 'Projekty', 'Projekt');
   const nav = await must(main(page).getByRole('navigation', { name: 'Settings sections' }), 'Settings sections');
-  assert.deepEqual((await nav.getByRole('link').allInnerTexts()).map((t) => t.trim()), ['General', 'Properties', 'Built in on every type', 'Preview properties', 'Hidden properties', 'Embeds', 'Review workflow', 'Templates', 'Views', 'Delete type']);
+  assert.deepEqual((await nav.getByRole('link').allInnerTexts()).map((t) => t.trim()), ['General', 'Properties', 'Built in on every type', 'Preview properties', 'Hidden properties', 'Embeds', 'Review workflow', 'Templates', 'Delete type']); // D-1801, D-1826: no Views section
   await must(main(page).getByText(/^Applies to 3 objects · stored in \.tegg\/types\/projekt\.yml$/), 'Applies line');
   for (const n of ['Stav', 'Období', 'Rozpočet', 'Aktivní', 'Oblasti', 'Web', 'Poznámka']) await expand(page, n);
   for (const theme of ['Theme: Light', 'Theme: Dark']) {

@@ -374,6 +374,7 @@ export const READ_COMMANDS = new Set([
   'pins_get', // slice PIN (v1-pinned §2; AP-1270, D-1413): read-only, never creates `.tegg/pinned.yml`
   'index_related', // slice REL (v1-related §2): read-only, no recency
   'queries_list', 'query_get', 'query_run', 'query_usages', // slice Q (v1-queries §2): read-only (the sidebar's Queries count reads on every route)
+  'query_view_usages', // slice Q2 (v1-views §2, D-1804): read-only
   'nav_swipe_scroll', // D-1511 (ms3-shell §12.2, FR-NAV-03 AC-14): reads the macOS setting
   // Slice I2 (v1-import-window §2.1): the Import window's session writes nothing before `import_start`; `import_status`
   // is asked at app mount (a run that outlived a reload).

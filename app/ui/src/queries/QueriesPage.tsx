@@ -13,6 +13,9 @@ import { localDate } from '../zone';
 import { openNameDialog } from './dialogs';
 import { QueryMenu, useUndoQueryRename } from './QueryMenu';
 import { SORTS, SORT_LABEL, refreshQueries, useQueries, type QueriesSort } from './store';
+import { chipTypes, onChipTypes } from '../links/icons';
+import type { TypeDto } from '../ipc/types';
+import { nameKey, pageMarks } from '../views/model';
 import './pages.css';
 
 export type QueriesPageProps = {
@@ -53,6 +56,10 @@ export function dayText(iso: string | null): string {
 
 export function QueriesPage({ heading, sort: sort0, onSort, onOpen }: QueriesPageProps) {
   const list = useQueries();
+  // Slice Q2 (D-1764, FR-QRY-06 AC-23): a `<plural> page` mark per type page that shows the query as a view.
+  const [types, setTypes] = useState(() => chipTypes() as TypeDto[]);
+  useEffect(() => onChipTypes(() => setTypes(chipTypes() as TypeDto[])), []);
+  const marks = pageMarks(types, list ?? []);
   useEffect(() => { void refreshQueries(); }, []);
   useUndoQueryRename();
   const sort = sort0 && SORTS.includes(sort0) ? sort0 : 'created-desc';
@@ -78,7 +85,7 @@ export function QueriesPage({ heading, sort: sort0, onSort, onOpen }: QueriesPag
   };
   const openMenu = (q: QuerySummaryDto, anchor: HTMLElement) => setRowMenu({ q, anchor });
   return (
-    <div className="page-column queries-page">
+    <div className="page-column page-wide queries-page">
       <header className="page-header query-page-header">
         <span className="query-tile" aria-hidden="true"><Icon name="query" size={22} /></span>
         <div className="type-header-text">
@@ -131,11 +138,14 @@ export function QueriesPage({ heading, sort: sort0, onSort, onOpen }: QueriesPag
                       }
                     }}>
                     <td>
-                      <span className="query-chip">
+                      <a href="#" tabIndex={-1} className="query-chip" draggable={false} onClick={(e) => e.preventDefault()}>
                         <Icon name="query" size={13} dataIcon="query" />
                         <span data-user-content>{bad ? q.name : q.title}</span>
-                      </span>
+                      </a>
                       {bad && <span className="query-unreadable">{t('queries.unreadable')}</span>}
+                      {(marks.get(nameKey(q.name)) ?? []).map((pl, i) => (
+                        <span key={i} className="page-mark">{t('views.pageMark', { plural: '\u0000' }).split('\u0000')[0]}<span data-user-content>{pl}</span>{t('views.pageMark', { plural: '\u0000' }).split('\u0000')[1]}</span>
+                      ))}
                     </td>
                     <td className="muted nowrap"><span data-user-content>{dayText(q.created)}</span></td>
                     <td className="muted nowrap"><span data-user-content>{dayText(q.modified)}</span></td>

@@ -5,6 +5,7 @@ import { ShortcutsPage } from './pages/ShortcutsPage';
 import { resetMindmapViews } from './mindmap/mount';
 import { registerConvertPrefs } from './convert/prefs';
 import { registerViewsUiState } from './views/uiState';
+import { viewsActions, watchFocus } from './views/actions';
 import { registerWidthsStore, widthsChanged } from './tables/widths';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { t } from './i18n/catalog';
@@ -87,7 +88,7 @@ import type { GraphViewStateDto } from './graph/types';
 import { close as closePreview, getPrefs as getPreviewPrefs, setPreviewHost, setStoredPrefs, showPreviewAction, updatePrefs } from './preview/store';
 import type { PreviewTarget, PreviewUiDto } from './preview/types';
 import { editorLinkAction } from './preview/editorLink';
-import { setAttribute as setFmAttribute } from '@tegg/doc';
+import { applyBoardMove, setAttribute as setFmAttribute } from '@tegg/doc';
 import { QueriesPage } from './queries/QueriesPage';
 import { QueryPage, type QueryPageCommand } from './queries/QueryPage';
 import { QueryDialogs } from './queries/QueryDialogs';
@@ -304,6 +305,7 @@ export function App() {
   useEffect(() => { setStoredPrefs(ui.preview); }, [ui.preview]);
   useEffect(() => registerConvertPrefs({ get: () => uiRef.current?.convert ?? undefined, set: (c) => updateUi((u) => ({ ...u, convert: c })) }), [updateUi]);
   // Slice Q2 (v1-views §4.7): the remembered tabs, query column widths and folded lanes live in the same state.
+  useEffect(() => { watchFocus(); }, []);
   useEffect(() => registerViewsUiState({ get: () => uiRef.current ?? undefined, update: (f) => updateUi((u) => f(u)) }), [updateUi]);
   useEffect(() => registerWidthsStore({ get: () => uiRef.current ?? undefined, update: (f) => updateUi((u) => f(u)) }), [updateUi]);
   useEffect(() => { widthsChanged(); }, [ui.typeColumnWidths, ui.queryColumnWidths]);
@@ -678,7 +680,13 @@ export function App() {
       const pre = pendingPrefill.current;
       pendingPrefill.current = null;
       if (pre && pre.type.normalize('NFC') === key.normalize('NFC')) {
-        for (const [k, v] of pre.values) { try { text = setFmAttribute(parseDoc(text), k, v as never); } catch { /* invalid frontmatter: as rendered */ } }
+        for (const [k, v] of pre.values) {
+          try {
+            // Slice Q2 (§4.5): a list value from a board lane is one flow line (`genres: [Poezie]`), as a card move writes it.
+            if (Array.isArray(v)) { for (const x of v) { const r = applyBoardMove(text, { key: k, shape: 'list', remove: [], add: String(x) }); if (r) text = r.text; } }
+            else text = setFmAttribute(parseDoc(text), k, v as never);
+          } catch { /* invalid frontmatter: as rendered */ }
+        }
       }
       setDraft({ route: at, path: `${p.folder ? `${p.folder}/` : ''}${t('newObject.untitled')}.md`, info: { text, stamp, onCreate } });
     }, () => setMessage(t('error.io')));
@@ -1006,6 +1014,8 @@ export function App() {
     },
     movePinned: (dir) => moveFocusedPinned(dir),
     pinnedRowFocused: () => focusedPinnedRow() !== null,
+    // Slice Q2 (v1-views §4.7): the shown view tab, query page or selected query block.
+    views: viewsActions,
     // Slice Q (v1-queries §4.6): the query page's query or the note's selected query block.
     queryStatus: () => {
       if (route?.id === 'query/<name>') {

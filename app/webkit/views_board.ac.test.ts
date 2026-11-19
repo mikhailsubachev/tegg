@@ -405,7 +405,10 @@ test('fr_qry_08_ac2_new_object_from_a_lane', async ({ page }) => {
   assert.ok(await eventually(() => mainName(page), (n) => n !== null, 3000), 'new/book opens');
   assert.ok(await seen(page.getByRole('region', { name: 'Properties', exact: true }).getByText('Reading'), 3000), 'new/book with Status Reading in the attribute panel');
   assert.deepEqual(await writes(core), [], 'nothing written yet');
+  // D-522, D-1826: the title takes the focus once its page is drawn; ⏎ is the draft's first write.
+  await must(page.getByRole('textbox', { name: 'Title', exact: true }).and(page.locator(':focus')), 'the focused Title field');
   await page.keyboard.type('Nová kniha');
+  await page.keyboard.press('Enter');
   const p = await eventually(async () => Object.keys(await core.files()).find((k) => k.startsWith('Books/Nová kniha')), (x) => !!x, 3000);
   assert.ok(p && (await fileText(core, p))?.includes('status: Reading\n'), 'the first keystroke writes the book with status: Reading');
   await page.goBack();
@@ -414,7 +417,9 @@ test('fr_qry_08_ac2_new_object_from_a_lane', async ({ page }) => {
   for (const [view, laneId, want] of [[Q.zanr, 'option:Poezie', 'genres: [Poezie]'], [Q.autor, 'relation:Autoři/Marek Sova.md', 'author: "[[Marek Sova]]"'], ['Výborné na tabuli', 'option:To read', 'rating: Excellent']] as const) {
     const bb = await openBoard(page, view);
     await click(newInLane(bb, laneId), `New in ${laneId}`);
+    await must(page.getByRole('textbox', { name: 'Title', exact: true }).and(page.locator(':focus')), 'the focused Title field');
     await page.keyboard.type(`Kniha ${view}`);
+    await page.keyboard.press('Enter');
     const f = await eventually(async () => Object.keys(await core.files()).find((k) => k.startsWith(`Books/Kniha ${view}`)), (x) => !!x, 3000);
     assert.ok(f && (await fileText(core, f))?.includes(`${want}\n`), `${view}: pre-filled ${want}`);
     await page.goBack();
@@ -451,8 +456,11 @@ test('fr_qry_09_ac7_lanes_follow_the_type_file', async ({ page }) => {
   const l2 = await eventually(() => lanes(b), (l) => l.some((x) => x.id === 'option:Done reading'), 2000);
   assert.deepEqual(l2.map((l) => [l.id, l.cards.length]), [['option:To read', 3], ['option:Reading', 3], ['option:Done reading', 0], ['unknown:Read', 9], ['unknown:Rozečteno', 1], ['none', 1]], 'renaming Read: an empty `Done reading` and a `Read` unknown lane with 9');
   assert.deepEqual((await writes(core)).filter((p) => p.endsWith('.md') || p.startsWith('.tegg/queries/')), [], 'nothing is rewritten');
+  // D-1826 (as D-1825): book.yml back to the fixture (the `Read` option) before the external lane_order step.
+  await core.setFile(BOOK_YML, original(BOOK_YML).replace('views: [Rozečtené, Přečtené 2026, Výborné knihy]', 'views: [Rozečtené, Přečtené 2026, Výborné knihy, Podle stavu]'));
   await selectTab(page, Q.roz);
   const r = await must(board(page, Q.roz), 'Rozečtené');
+  await eventually(() => lanes(r), (l) => l.some((x) => x.id === 'option:Read'), 2000);
   await core.setFile(qfile(Q.roz), swap(original(qfile(Q.roz)), 'lane_order: [Reading, To read, Read]\n', 'lane_order: [Read, Reading, To read]\n'));
   assert.deepEqual((await eventually(() => lanes(r), (l) => l[0]?.id === 'option:Read', 2000)).map((l) => l.id).slice(0, 1), ['option:Read'], 'an external lane_order reorders within 2 s');
   // A drag on a card whose file changed on disk is refused.
