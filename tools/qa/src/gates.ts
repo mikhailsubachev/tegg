@@ -15,14 +15,27 @@ import {
   type CheckResult,
 } from './checks.ts';
 import { l6Problems, milestoneCheck, milestones } from './coverage.ts';
+import { flakyCheck, readFlakyReports, recordFlaky, type FlakyTest } from './flaky.ts';
 import { loadStepMemo, reportNames, saveStepMemo, stepMemoKey } from './memo.ts';
+import { loadStepRuns, pendingAfter, planPartial, saveStepRuns, stepCommand, stepFingerprint, testFilesAt, type PartialPlan } from './partial.ts';
+import { recordPassedTree } from './shared.ts';
 import { exec, execAsync, git, gitTry, shortSha, strippedEnv } from './proc.ts';
 import { gatePortBase } from './port.ts';
 
 export { gatePortBase };
 
-/** `lane`: tree gates only (CONTRACT §3.2.2). `reuses`: a step skipped by the step memo names the run it reuses (§3.2.3). */
-export type StepResult = { id: string; result: 'pass' | 'fail' | 'skipped'; durationMs: number; seeds: number[]; lane?: string; reuses?: string };
+/** `lane`: tree gates only (CONTRACT §3.2.2). `reuses`: a step skipped by the step memo names the run it reuses (§3.2.3).
+ *  `timedOut`: the step was stopped by its timeout (§3.2.4). `partial`: only these test files ran (§3.2.5). */
+export type StepResult = {
+  id: string;
+  result: 'pass' | 'fail' | 'skipped';
+  durationMs: number;
+  seeds: number[];
+  lane?: string;
+  reuses?: string;
+  timedOut?: boolean;
+  partial?: { files: string[]; since: string };
+};
 
 export type Summary = {
   gate: Gate;
@@ -34,6 +47,8 @@ export type Summary = {
   seed: number;
   checks: CheckResult[];
   steps: StepResult[];
+  /** Tree gates: the tests that failed and then passed on a retry in this run (CONTRACT §3.6). */
+  flaky?: FlakyTest[];
 };
 
 /** `fromHook`: the range was set by the pre-push hook, so a pass may still be recorded (CONTRACT §3.2).
@@ -69,7 +84,7 @@ function runStep(step: Step, checkout: string, env: NodeJS.ProcessEnv): StepResu
     log(`✗ ${step.id}: directory ${step.dir} doesn't exist`);
     return { id: step.id, result: 'fail', durationMs: Date.now() - t0, seeds: [] };
   }
-  const r = exec('sh', ['-c', step.run], { cwd, env });
+  const r = exec('sh', ['-c', stepCommand(step, undefined)], { cwd, env });
   if (r.stdout) process.stdout.write(r.stdout.endsWith('\n') ? r.stdout : r.stdout + '\n');
   if (r.stderr) process.stderr.write(r.stderr.endsWith('\n') ? r.stderr : r.stderr + '\n');
   const durationMs = Date.now() - t0;
@@ -81,7 +96,7 @@ function runStep(step: Step, checkout: string, env: NodeJS.ProcessEnv): StepResu
 
 /** A step of a tree gate (CONTRACT §3.2.2): a start line when it starts; its stdout, stderr and result line as one
  *  contiguous block when it finishes, so concurrent lanes never interleave inside a step. */
-async function runStepAsync(step: Step, checkout: string, env: NodeJS.ProcessEnv): Promise<StepResult> {
+async function runStepAsync(step: Step, checkout: string, env: NodeJS.ProcessEnv, command: string): Promise<StepResult> {
   const cwd = path.join(checkout, step.dir);
   const t0 = Date.now();
   // The command is printed with the result, not here: the start line of one step must not carry text that
@@ -91,14 +106,16 @@ async function runStepAsync(step: Step, checkout: string, env: NodeJS.ProcessEnv
     log(`✗ ${step.id}: directory ${step.dir} doesn't exist`);
     return { id: step.id, result: 'fail', durationMs: Date.now() - t0, seeds: [], lane: step.lane };
   }
-  const r = await execAsync('sh', ['-c', step.run], { cwd, env });
+  const r = await execAsync('sh', ['-c', command], { cwd, env, timeoutMs: step.timeout === undefined ? undefined : step.timeout * 1000 });
   const durationMs = Date.now() - t0;
-  const result = r.status === 0 ? 'pass' : 'fail';
+  const result = r.status === 0 && !r.timedOut ? 'pass' : 'fail';
+  // CONTRACT §3.2.4: the block of a step stopped by its timeout ends with this line.
+  const late = r.timedOut ? `✗ ${step.id}: timed out after ${step.timeout} s and was stopped\n` : '';
   const nl = (s: string) => (s.length === 0 || s.endsWith('\n') ? s : s + '\n');
   // One write per stream, with nothing awaited in between: the block stays contiguous.
-  process.stdout.write(`${nl(r.stdout)}${result === 'pass' ? '✓' : '✗'} ${step.id} (${(durationMs / 1000).toFixed(1)} s): ${step.run}\n`);
+  process.stdout.write(`${nl(r.stdout)}${result === 'pass' ? '✓' : '✗'} ${step.id} (${(durationMs / 1000).toFixed(1)} s): ${command}\n${late}`);
   if (r.stderr) process.stderr.write(nl(r.stderr));
-  return { id: step.id, result, durationMs, seeds: seedsOf(`${r.stdout}\n${r.stderr}`), lane: step.lane };
+  return { id: step.id, result, durationMs, seeds: seedsOf(`${r.stdout}\n${r.stderr}`), lane: step.lane, ...(r.timedOut ? { timedOut: true } : {}) };
 }
 
 /** Runs each lane's steps in config order and the lanes concurrently (`lanes === 1`: one lane); results in config order. */
@@ -240,10 +257,12 @@ export async function runTreeGate(root: string, cfg: Config, gate: Gate, opts: G
   }
 
   const range = opts.range ? revList(root, opts.range) : defaultRange(root, sha);
-  const checks: CheckResult[] = [privacyTree(root, sha), fixtureTrailers(root, range), acTestProtection(root, cfg, range), redFirst(root, cfg, range)];
+  // `flaky` judges the earlier runs only: this run's flaky tests are recorded after its steps (CONTRACT §3.6).
+  const checks: CheckResult[] = [privacyTree(root, sha), fixtureTrailers(root, range), acTestProtection(root, cfg, range), redFirst(root, cfg, range), flakyCheck(root, sha)];
   checks.forEach(printCheck);
 
   const steps: StepResult[] = [];
+  let flaky: FlakyTest[] = [];
   const wt = createWorktree(root, sha, { stable: true });
   try {
     // D-382: real-app ACs tested only at lower layers, on the committed tree (CONTRACT §9.5).
@@ -265,13 +284,26 @@ export async function runTreeGate(root: string, cfg: Config, gate: Gate, opts: G
     const consult = gate === 'push' && !opts.all;
     const keyOf = new Map(gateSteps.map((s) => [s.id, stepMemoKey(root, sha, s)]));
     const skipped = new Map<string, StepResult>();
+    // Partial runs (CONTRACT §3.2.5, D-1834): only push plans them, every tree gate records the step's run.
+    const runs = loadStepRuns(root);
+    const plans = new Map<string, PartialPlan>();
+    const nothingToRun = new Map<string, StepResult>();
     const planned = gateSteps.filter((s) => {
       const key = keyOf.get(s.id);
       const e = consult && key ? memo[key] : undefined;
-      if (!e) return true;
+      if (!e || e.failed) {
+        const fp = stepFingerprint(s);
+        const plan = consult && fp ? planPartial(root, sha, s, runs[fp]) : undefined;
+        if (!plan) return true;
+        plans.set(s.id, plan);
+        log(`- ${s.id}: partial run of ${plan.files.length} test file(s) (other inputs unchanged since ${plan.since.gate} run ${plan.since.startedAt} at ${shortSha(plan.since.commit)})`);
+        if (plan.files.length > 0) return true;
+        nothingToRun.set(s.id, { id: s.id, result: 'pass', durationMs: 0, seeds: [], lane: s.lane, partial: { files: [], since: plan.since.commit } });
+        return false;
+      }
       log(`- ${s.id}: skipped (inputs unchanged; reuses ${e.gate} run ${e.startedAt} at ${shortSha(e.commit)})`);
       for (const name of e.reports) {
-        const from = path.join(root, '.verify', 'results', e.runId, name);
+        const from = path.join(e.results ?? path.join(root, '.verify', 'results', e.runId), name);
         if (!fs.existsSync(from)) continue;
         fs.mkdirSync(path.dirname(path.join(results, name)), { recursive: true });
         fs.copyFileSync(from, path.join(results, name));
@@ -280,17 +312,45 @@ export async function runTreeGate(root: string, cfg: Config, gate: Gate, opts: G
       return false;
     });
 
-    const ran = new Map((await runLanes(planned, (step) => runStepAsync(step, wt.dir, step.cargoCache ? cached : env), opts.lanes ?? 'all')).map((r) => [r.id, r]));
+    const runOne = async (step: Step): Promise<StepResult> => {
+      const plan = plans.get(step.id);
+      const r = await runStepAsync(step, wt.dir, step.cargoCache ? cached : env, stepCommand(step, plan?.files));
+      return plan ? { ...r, partial: { files: plan.files, since: plan.since.commit } } : r;
+    };
+    const ran = new Map((await runLanes(planned, runOne, opts.lanes ?? 'all')).map((r) => [r.id, r]));
+    for (const [id, r] of nothingToRun) ran.set(id, r);
     steps.push(...gateSteps.map((s) => ran.get(s.id) ?? skipped.get(s.id)!));
 
+    let recordedRuns = false;
     for (const s of gateSteps) {
       const key = keyOf.get(s.id);
       const r = ran.get(s.id);
+      const fp = stepFingerprint(s);
+      if (fp && (r || skipped.has(s.id))) {
+        // What isn't known to pass at this commit. A failed run that names no failed file isn't trusted: every
+        // file it should have run stays pending (a full run: unknown, so the next run is full again).
+        let pending: string[] | null = [];
+        if (r && r.result !== 'pass') {
+          const plan = plans.get(s.id);
+          const should = plan ? plan.files : testFilesAt(root, sha, s);
+          const found = r.timedOut ? undefined : pendingAfter(should, reportNames(s).map((n) => path.join(results, n)));
+          pending = found && found.length > 0 ? found : plan ? plan.files : null;
+        }
+        runs[fp] = { step: s.id, commit: sha, gate, startedAt, pending };
+        recordedRuns = true;
+      }
       if (!key || !r) continue;
-      if (r.result === 'pass') memo[key] = { step: s.id, gate, commit: sha, startedAt, runId, reports: reportNames(s).filter((n) => fs.existsSync(path.join(results, n))) };
-      else if (r.result === 'fail') delete memo[key];
+      if (r.result === 'pass') memo[key] = { step: s.id, gate, commit: sha, startedAt, runId, reports: reportNames(s).filter((n) => fs.existsSync(path.join(results, n))), results };
+      // A failure is recorded too, as no pass: deleting the key would leave other checkouts' copies of it in force.
+      else if (r.result === 'fail') memo[key] = { step: s.id, gate, commit: sha, startedAt, runId, reports: [], failed: true };
     }
     saveStepMemo(root, memo);
+    if (recordedRuns) saveStepRuns(root, runs);
+
+    // Flaky tests of this run (CONTRACT §3.6, D-1833): printed, put in the summary and counted in the shared list.
+    flaky = readFlakyReports(results);
+    for (const f of flaky) log(`⚠ flaky: ${f.file} :: ${f.test} (failed, then passed on a retry)`);
+    recordFlaky(root, sha, gate, startedAt, flaky);
   } finally {
     wt.remove();
   }
@@ -318,11 +378,12 @@ export async function runTreeGate(root: string, cfg: Config, gate: Gate, opts: G
     seed,
     checks,
     steps,
+    flaky,
   };
   writeSummary(root, summary);
   const recordPass = opts.range === undefined || opts.fromHook === true;
   if (gate === 'push' && summary.result === 'pass' && !recordPass) log('verify: explicit --range: last-pass not recorded');
-  if (gate === 'push' && summary.result === 'pass' && recordPass) fs.writeFileSync(path.join(root, '.verify', 'last-pass'), `${tree}\n`);
+  if (gate === 'push' && summary.result === 'pass' && recordPass) recordPassedTree(root, tree);
   if (gate === 'nightly') recordNightly(root, summary);
   reportBudget(cfg, summary);
   log(`verify ${gate}: ${summary.result.toUpperCase()}`);

@@ -3,32 +3,46 @@
 // artifact can never stand in for changed sources; an undeclared input is the one risk, covered by the nightly gate.
 
 import { createHash } from 'node:crypto';
-import fs from 'node:fs';
 import path from 'node:path';
 import type { Gate, Step } from './config.ts';
 import { gitTry } from './proc.ts';
+import { readJson, sharedDir, writeJson } from './shared.ts';
 
 /** Bump when the tooling's semantics change so that recorded passes must not be reused.
  *  2: keys of version 1 missed the object id of an input that contains the step's directory (bug_pr54). */
 export const STEP_MEMO_VERSION = 2;
 
-export type MemoEntry = { step: string; gate: Gate; commit: string; startedAt: string; runId: string; reports: string[] };
+/** `results`: the absolute results folder of the recorded run, which may be another worktree's (D-1831).
+ *  `failed`: the step failed under this key. Such a record is no pass; it is kept so that the shared memo masks
+ *  the copy of an earlier pass that another checkout still holds in its own file (CONTRACT §3.2.3). */
+export type MemoEntry = { step: string; gate: Gate; commit: string; startedAt: string; runId: string; reports: string[]; results?: string; failed?: true };
 export type StepMemo = Record<string, MemoEntry>;
 
 export function memoFile(root: string): string {
   return path.join(root, '.verify', 'step-memo.json');
 }
 
-/** A missing, unreadable or malformed file is empty (CONTRACT §3.2.3). */
+/** The memo shared by every worktree of the repository (CONTRACT §1.2), undefined when there is no shared folder. */
+function sharedMemoFile(root: string, create = false): string | undefined {
+  const dir = sharedDir(root, create);
+  return dir ? path.join(dir, 'step-memo.json') : undefined;
+}
+
+/** The checkout's memo and the shared one together; the shared record wins for the same key (CONTRACT §3.2.3). */
 export function loadStepMemo(root: string): StepMemo {
+  const shared = sharedMemoFile(root);
+  return { ...parseMemo(readJson(memoFile(root))), ...(shared ? parseMemo(readJson(shared)) : {}) };
+}
+
+/** A missing, unreadable or malformed file is empty (CONTRACT §3.2.3). */
+function parseMemo(raw: unknown): StepMemo {
   try {
-    const raw = JSON.parse(fs.readFileSync(memoFile(root), 'utf8'));
     if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {};
     const memo: StepMemo = {};
     for (const [k, v] of Object.entries(raw)) {
       const e = v as Partial<MemoEntry> | null;
       if (e && typeof e.step === 'string' && typeof e.gate === 'string' && typeof e.commit === 'string' && typeof e.startedAt === 'string' && typeof e.runId === 'string') {
-        memo[k] = { step: e.step, gate: e.gate as Gate, commit: e.commit, startedAt: e.startedAt, runId: e.runId, reports: Array.isArray(e.reports) ? e.reports.filter((r) => typeof r === 'string') : [] };
+        memo[k] = { step: e.step, gate: e.gate as Gate, commit: e.commit, startedAt: e.startedAt, runId: e.runId, reports: Array.isArray(e.reports) ? e.reports.filter((r) => typeof r === 'string') : [], ...(typeof e.results === 'string' ? { results: e.results } : {}), ...(e.failed === true ? { failed: true as const } : {}) };
       }
     }
     return memo;
@@ -38,8 +52,9 @@ export function loadStepMemo(root: string): StepMemo {
 }
 
 export function saveStepMemo(root: string, memo: StepMemo): void {
-  fs.mkdirSync(path.dirname(memoFile(root)), { recursive: true });
-  fs.writeFileSync(memoFile(root), JSON.stringify(memo, null, 2) + '\n');
+  writeJson(memoFile(root), memo);
+  const shared = sharedMemoFile(root, true);
+  if (shared) writeJson(shared, memo);
 }
 
 /** The step's inputs plus `<dir>/package-lock.json`, which decides its node_modules (§3.2). */

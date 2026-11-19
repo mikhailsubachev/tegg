@@ -8,8 +8,10 @@ import { loadConfig, type Config, type Gate } from './config.ts';
 import { checkRed, protectedChanges } from './checks.ts';
 import { acquireGateLock } from './gate-lock.ts';
 import { writeReport } from './coverage.ts';
+import { clearFlaky, flakyLines } from './flaky.ts';
 import { cargoCacheDir, nightlyWarning, runCommitGate, runTreeGate } from './gates.ts';
 import { AC_TEST_CHANGE_TRAILER, UsageError, git, gitTry, hasTrailer, parseNameStatusZ, repoRoot, treeOf } from './proc.ts';
+import { hasPassed, lastPass } from './shared.ts';
 
 const USAGE = `Usage: ./verify <command> [options]
 
@@ -17,7 +19,8 @@ Gates (docs/test-strategy.md §8):
   commit                          G0: privacy check on staged files, commit-level steps
   push [--commit <rev>] [--range <a>..<b>] [--lanes 1] [--all]
                                   G1: checks + steps in a fresh worktree; records .verify/last-pass
-                                  (--lanes 1: steps one after another; --all: ignore the step memo)
+                                  (--lanes 1: steps one after another; --all: ignore the step memo
+                                  and run every step in full)
   nightly                         G2: push + nightly steps; reports failures in qa/nightly/
   milestone --milestone <MSn>     G3: nightly + milestone steps + milestone AC check
   release                         G4: everything + AC check for all milestones
@@ -28,6 +31,7 @@ Tools:
   check-red <commit>              AC tests added by <commit> must fail by assertion (TS-I AC-2)
   counts-only [file]              real-export output must contain counts only (TS-P AC-3)
   review-prep [--base <rev>]      write .verify/review/ for the QA reviewer agent
+  flaky [--clear <file>]          list the flaky tests the gates recorded; --clear removes a test file's records
   clean                           delete the gates' Cargo build cache (.verify/cargo-target)
   install                         use .githooks/ as git hooks
   install-nightly [--dry-run]     install the launchd job running the nightly gate
@@ -67,14 +71,6 @@ function warnings(root: string): void {
   if (w) process.stderr.write(w + '\n');
 }
 
-function lastPass(root: string): string {
-  try {
-    return fs.readFileSync(path.join(root, '.verify', 'last-pass'), 'utf8').trim();
-  } catch {
-    return '';
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Hooks (CONTRACT §4)
 // ---------------------------------------------------------------------------
@@ -90,7 +86,7 @@ async function hookPrePush(root: string): Promise<number> {
     if (parts.length < 4) continue;
     const [, localSha, , remoteSha] = parts;
     if (ZERO.test(localSha)) continue;
-    if (treeOf(root, localSha) === lastPass(root)) {
+    if (hasPassed(root, treeOf(root, localSha))) {
       console.log(`verify: ${localSha.slice(0, 10)} already passed ./verify push; skipping`);
       continue;
     }
@@ -134,7 +130,7 @@ function hookClaudePreTool(): number {
     if (!fs.existsSync(path.join(root, 'qa.config.json'))) return 0;
     const head = gitTry(root, ['rev-parse', 'HEAD^{tree}']);
     if (head.status !== 0) return 0;
-    if (lastPass(root) === head.stdout.trim()) return 0;
+    if (hasPassed(root, head.stdout.trim())) return 0;
     process.stderr.write(
       'Blocked: ./verify push has not passed for the current HEAD tree. Run ./verify push first (D-60, TS-HOOKS AC-2); if it fails, fix the problems, commit, and run it again.\n',
     );
@@ -321,6 +317,17 @@ async function main(argv: string[]): Promise<number> {
     return installNightly(root, dry);
   }
   warnings(root);
+  if (cmd === 'flaky') {
+    // CONTRACT §3.6: the list, or `--clear <file>` for a flaky test that was fixed outside its test file.
+    if (args.includes('--clear')) {
+      const file = option(args, '--clear');
+      console.log(`verify flaky: removed ${clearFlaky(root, file!)} record(s) of ${file}`);
+      return 0;
+    }
+    const lines = flakyLines(root);
+    console.log(lines.length > 0 ? lines.join('\n') : 'verify flaky: no flaky tests recorded');
+    return 0;
+  }
   if (cmd === 'install') {
     git(root, ['config', 'core.hooksPath', '.githooks']);
     console.log('verify: git hooks installed (core.hooksPath = .githooks)');

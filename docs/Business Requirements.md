@@ -2,8 +2,8 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.196, for review                                            |
-| **Date**            | 2026-11-14                                                          |
+| **Document status** | Draft v1.197, for review                                            |
+| **Date**            | 2026-11-19                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
 
@@ -210,6 +210,7 @@
 | v1.194  | 2026-11-19 | Slice Q2 build: D-1824, D-1825, four AC-test fixes (the board-move property's generator, the `query.*` key set with R192's keys, the twin test reading only files in `expected/`, FR-QRY-09 AC-7 restoring the type file) |
 | v1.195  | 2026-11-19 | Slice Q2 UI build: D-1826 (six WebKit test fixes), D-1827 (type pages have no right panel; FR-TYP-09 AC-35) |
 | v1.196  | 2026-11-19 | QA review of slice Q2: D-1828 (card-move writes covered by AC-13's L4 test), D-1829 (no journal for query renames), D-1830 (the design review after the release) |
+| v1.197  | 2026-11-19 | Push-gate speed and reliability (owner, 2026-11-19: "Build 1–4"; run history of 13–19 November: `app-webkit` was 27 of 28 minutes and 12 of 13 failed runs): D-1831 (passes shared by all worktrees), D-1832 (step timeout), D-1833 (one WebKit retry in the gates, flaky list and `flaky` check), D-1834 (partial runs of failed or changed WebKit test files). ACs TS-VERIFY AC-9…AC-12, `tools/qa/CONTRACT.md` §1.2, §3.2.4, §3.2.5, §3.6. |
 
 ---
 
@@ -1854,6 +1855,10 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1828 | Card-move writes at L4 (owner, 2026-11-19; QA review of slice Q2) | FR-QRY-05 AC-14, AC-16 and AC-21 take their bytes at L1 (`@tegg/doc`); their write through `note_write` is the path FR-QRY-05 AC-13's L4 test covers, so they have no L4 test of their own |
 | D-1829 | No journal for query renames (owner, 2026-11-19; QA review of slice Q2) | `query-rename` keeps slice Q's behaviour: no crash journal, also for the type files' `views:` lines (contract §1.10 corrected). A crash mid-rename leaves at worst a not-found tab, fixed by renaming again or `Remove` |
 | D-1830 | The Q2 design review after the release (owner, 2026-11-19; QA review of slice Q2) | FR-QRY-07 AC-16 (manual design review) is done by the owner on the installed 0.4.0 and recorded in `qa/manual/`, as 0.3.0's AC-33 |
+| D-1831 | Gate passes are shared by all worktrees (owner, 2026-11-19: "Build 1–4") | The step memo (D-611) and the passed trees were kept per checkout, so a pass in a worktree didn't count on `main` after the merge and a design-only commit reran every step there. They are now also kept in `<git common dir>/tegg-verify/`, shared by the main checkout and every worktree; the checkout's `.verify/step-memo.json` and `.verify/last-pass` are still written and still count. The hooks let a tree through that passed in any worktree. TS-VERIFY AC-9, CONTRACT §1.2 |
+| D-1832 | Step timeout (owner, 2026-11-19: "Build 1–4") | A step may set `timeout` (seconds) in `qa.config.json`; a tree gate stops it and everything it started after that time and reports it failed. One run had waited 13 hours on a dead dev server. Opt-in per step, because nightly and milestone steps differ widely in length; `app-webkit` gets 3,600 s. TS-VERIFY AC-10, CONTRACT §3.2.4 |
+| D-1833 | One retry for WebKit tests in the gates, with a flaky list (owner, 2026-11-19: "Build 1–4"; refines test-strategy §8.4 and D-688) | Under `./verify` Playwright retries a failed test once. A test that passes on the retry doesn't fail the gate; it is printed, put in the summary and recorded in a shared flaky list. A test recorded twice with an unchanged test file fails the `flaky` check of every later gate until its file changes (a fix or the `@flaky` quarantine tag) or the owner's `./verify flaky --clear <file>`. Outside the gates nothing is retried. The vitest steps aren't retried. TS-VERIFY AC-11, CONTRACT §3.6 |
+| D-1834 | Partial runs of the WebKit step (owner, 2026-11-19: "Build 1–4") | A push step may declare its independent test files (`testFiles`). When the only input changes since the step's last recorded run are test files, the push gate runs those files plus the ones that failed in that run; any other change, a missing report, `--all` and the nightly, milestone and release gates run everything. `app-webkit` declares `app/webkit/*.test.ts`; helpers and app code always cause a full run. TS-VERIFY AC-12, CONTRACT §3.2.5 |
 
 ---
 
