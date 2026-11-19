@@ -1221,7 +1221,7 @@ export function usePopupPlacement(ref: RefObject<HTMLElement>, opener: Box | { x
   included). They are placed in a layout effect before paint, again when their size changes (`ResizeObserver`) and
   after a window `resize` (next animation frame), so none stays outside once a resize ends.
 - **Users** (D-1848, CP-19, D-1861): `PopupMenu` with `fit` (the tab menu, the toolbar `⋯` `views.menu`, `Add view`, the
-  Columns menu of tabs, blocks and the page, the block's `⋯` `QueryMenu`, the card menu and its `Move to` / `Also add
+  Columns menu of tabs, blocks and the page (D-1873: no block `⋯`), the card menu and its `Move to` / `Also add
   to` submenus), `SortPopover`, and `QueryEditor` when anchored (from a tab, a block, the page). Other menus of the app
   keep their placement.
 - `data-popup` ids: `views.tabMenu`, `views.menu`, `views.addMenu`, `columns`, `sort`, `query.menu`, `card.menu`,
@@ -1357,3 +1357,18 @@ Each point was decided as proposed; the alternatives are kept for the record.
    `query_trash` failure).
 5. Usage keys are plain strings built and parsed by one pure module (`views/usage.ts`).
 6. A view tab is run with `{ kind: 'view' }`; `query/<name>` keeps `{ kind: 'saved' }` (the defaults).
+
+### 22.3 Red-test decisions (RT-12…RT-21 → D-1865…D-1874, accepted by the owner 2026-11-19)
+
+| RT | Decision |
+| --- | --- |
+| RT-12 → D-1865 | `notes/seznam-knih-new.md` holds the body only; tests check that the new note ends with it (its id and dates come from other rules) |
+| RT-13 → D-1866 | Its name-key field is `nameKey` |
+| RT-14 → D-1867 | A submenu taller than the window gets a `maxHeight` like a menu (D-1848) |
+| RT-15 → D-1868 | A re-emitted `views:` item is written NFC throughout (rule 9); unchanged items keep their bytes, NFD included; tests check the NFD `by` only when read |
+| RT-16 → D-1869 | `x-barva` and a comment inside the item after `name:`; ⇧-click `Finished` on `Výborné knihy`, then a click on `Finished` on `Přečtené 2026`; the three `xbarva` expected files approved; (e) gives the plain `"Čtu, až bude čas"` item an own `title ↑` |
+| RT-17 → D-1870 | `notes/knihy-na-cesty-b5-click-finished.md` starts from the overlay |
+| RT-18 → D-1871 | A small L6 test `fr_qry_07_ac19_view_menus_stay_in_the_window` (800 × 500, toolbar `⋯` and the sort popover) besides the bug twin |
+| RT-19 → D-1872 | Choosing Number is the combobox `Type`, option `Number`, then the button `Add` |
+| RT-20 → D-1873 | A query block in a note has no `Query actions` menu; contract §20's placed popups for blocks are the sort popover and Columns |
+| RT-21 → D-1874 | Its bytes are Q2's `query_apply` bytes, already covered; L5 checks the query page |

@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.200, for review                                            |
+| **Document status** | Draft v1.201, for review                                            |
 | **Date**            | 2026-11-19                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -214,6 +214,7 @@
 | v1.198  | 2026-11-19 | 0.4.0 feedback (`docs/feedback/q2-v040.md`): D-1835 (trashing a view removes its tab), D-1836 (sort, columns and widths per usage), D-1837 (slice Q2.1, released as 0.5.0); the view menu outside the window is a bug fix (F1). (v1.197 is the verify-gate decisions D-1831…D-1834, PR #146.) |
 | v1.199  | 2026-11-19 | Slice Q2.1 ACs (`docs/acceptance/views.md` part two, overlay `tests/fixtures/vaults/views-usage/`): D-1838…D-1851 (AP-1519…AP-1532; owner, each as proposed): fence lines and `views:` mapping items for own settings, writes through the editor, reset actions, defaults on the query page, rename/Duplicate/trash with settings, On cards per usage, usage keys, templates, trash order, popups inside the window, view and limit shared, strings, the changed tests |
 | v1.200  | 2026-11-19 | Slice Q2.1 contract (`docs/contracts/v1-views.md` part two): D-1852…D-1863 (CP-10…CP-21; owner, each as proposed) and D-1864 (eight AC fixes) |
+| v1.201  | 2026-11-19 | Slice Q2.1 red tests (a13bca2d): D-1865…D-1874 (RT-12…RT-21; owner, each as proposed) |
 
 ---
 
@@ -1892,6 +1893,16 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1862 | ⌘Z after a block write (CP-20) (owner, 2026-11-19; slice Q2.1 contract, `docs/contracts/v1-views.md` §22) | ⌘Z / ⇧⌘Z inside a query block go to the note's editor history |
 | D-1863 | Duplicate (CP-21) (owner, 2026-11-19; slice Q2.1 contract, `docs/contracts/v1-views.md` §22) | Duplicate copies only the tab's own `sort` and `columns`, not unknown keys of its item |
 | D-1864 | AC problems found by the Q2.1 contract (owner, 2026-11-19: "Accept all"; `docs/contracts/v1-views.md` §22) | `docs/acceptance/views.md` part two is fixed as proposed: D-1851's trailer wording; tab sort and column controls disabled on a Newer or invalid type file; FR-QRY-07 AC-23 names `+ Add sort`, AC-24 the Number property `Stran`; FR-QRY-01 AC-14 (b)'s focus reworded; AC-19 `Edit view`; "own value" includes broken ones (R199, FR-UX-03 AC-52); the overlay README is no longer a draft |
+| D-1865 | A note from a template (RT-12) (owner, 2026-11-19; slice Q2.1 red tests a13bca2d) | `notes/seznam-knih-new.md` holds the body only; tests check that the new note ends with it (its id and dates come from other rules) |
+| D-1866 | `parseUsageKey` (RT-13) (owner, 2026-11-19; slice Q2.1 red tests a13bca2d) | Its name-key field is `nameKey` |
+| D-1867 | Tall submenus (RT-14) (owner, 2026-11-19; slice Q2.1 red tests a13bca2d) | A submenu taller than the window gets a `maxHeight` like a menu (D-1848) |
+| D-1868 | NFC when an item is rewritten (RT-15) (owner, 2026-11-19; slice Q2.1 red tests a13bca2d) | A re-emitted `views:` item is written NFC throughout (rule 9); unchanged items keep their bytes, NFD included; tests check the NFD `by` only when read |
+| D-1869 | FR-QRY-07 AC-25 (c) steps (RT-16) (owner, 2026-11-19; slice Q2.1 red tests a13bca2d) | `x-barva` and a comment inside the item after `name:`; ⇧-click `Finished` on `Výborné knihy`, then a click on `Finished` on `Přečtené 2026`; the three `xbarva` expected files approved; (e) gives the plain `"Čtu, až bude čas"` item an own `title ↑` |
+| D-1870 | An expected note's start (RT-17) (owner, 2026-11-19; slice Q2.1 red tests a13bca2d) | `notes/knihy-na-cesty-b5-click-finished.md` starts from the overlay |
+| D-1871 | FR-QRY-07 AC-19 in the real app (RT-18) (owner, 2026-11-19; slice Q2.1 red tests a13bca2d) | A small L6 test `fr_qry_07_ac19_view_menus_stay_in_the_window` (800 × 500, toolbar `⋯` and the sort popover) besides the bug twin |
+| D-1872 | The New property dialog (RT-19) (owner, 2026-11-19; slice Q2.1 red tests a13bca2d) | Choosing Number is the combobox `Type`, option `Number`, then the button `Add` |
+| D-1873 | No block `⋯` menu (RT-20) (owner, 2026-11-19; slice Q2.1 red tests a13bca2d) | A query block in a note has no `Query actions` menu; contract §20's placed popups for blocks are the sort popover and Columns |
+| D-1874 | FR-QRY-01 AC-15 without a new L4 test (RT-21) (owner, 2026-11-19; slice Q2.1 red tests a13bca2d) | Its bytes are Q2's `query_apply` bytes, already covered; L5 checks the query page |
 
 ---
 
