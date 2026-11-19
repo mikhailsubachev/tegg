@@ -1,6 +1,6 @@
 # Plan: slice Q2, views on type pages (FR-QRY-07, FR-QRY-05, FR-QRY-01, FR-QRY-08)
 
-Status: **draft for the owner**. The owner decided the split on 2026-11-19: Q2 comes first and Q2-T follows it (§7). The design boards are committed together with Q2's code, on its branch. The open points in §8 (AP-1478…AP-1496) are still open. Once the owner decides them, they become decisions from D-1762 on.
+Status: **decided**. The owner decided the split on 2026-11-19: Q2 comes first and Q2-T follows it (§7). The design boards are committed together with Q2's code, on its branch. The owner decided the open points in §8 (AP-1478…AP-1496) the same day; they are D-1762…D-1780 (BRD v1.190).
 
 Designs (uncommitted on 2026-11-19, `design/edit-note-page/`):
 - `Views` / `ViewsDark`: boards A–G, views on a type page.
@@ -94,15 +94,15 @@ The write rules stay as in D-1436: a commit replaces only the top-level keys tha
 - Column resize in `QueryBlock.tsx`: the type-columns code (`types/columns.ts`, `<colgroup>`, `table-layout: fixed`, write on pointer release; `docs/contracts/type-columns.md`) moves to a shared helper keyed by view instead of by type.
 - Query editor: `Group by`, `Lanes`, `On cards`; `Show` locked when it is opened from a tab.
 - The Queries page shows a `<Type> page` mark on a view (AP-1480).
-- Palette (FR-UX-03):
+- Palette (FR-UX-03), with no new shortcuts (D-1771):
   - `New view`, `Edit view`, `Next view` / `Previous view`;
   - `Switch lanes`, `Add sort level`, `Reset lane order`;
-  - for keyboard moves of cards and lanes: ⌥← / ⌥→ (as D-1357), plus ⌥↑ / ⌥↓ for rows (AP-1487).
+  - `Move card to next lane` / `previous lane`, `Move lane left` / `right` (up / down for rows).
 - Strings are externalised. Light and dark use the dark boards.
 
 ## 5. How it is built (the usual flow, D-61)
 
-1. Owner decides §8, and the BRD gets D-1762… (v1.190).
+1. Done: the owner decided §8, and the BRD has D-1762…D-1780 (v1.190).
 2. `ac-author` writes `docs/acceptance/views.md` (FR-QRY-07, FR-QRY-05 Board, FR-QRY-01 group by and multi-sort, FR-QRY-08 on boards, the block sort and resize, NFR-PERF). It also writes the fixture `tests/fixtures/vaults/views/` (Books with Status, Rating, Author, multi-select Genres, tags, Czech titles; synthetic, D-62).
 3. Contract `docs/contracts/v1-views.md` (IPC, DOM, strings), plus any CP points the owner decides.
 4. `test-author` commits the red tests (Rust `tests/ac_views*.rs`, WebKit `views_*.ac.test.ts`), then `./verify check-red`.
@@ -138,28 +138,28 @@ Boards `TasksQSpec`, `TasksQSchedule`, `TasksQKanban`:
 
 Q2-T then ships as 0.5.0. If the owner prefers one slice, the build order of §5 simply adds Q2-T's steps at the end, and the release waits for both.
 
-## 8. Open points for the owner
+## 8. Decisions (owner, 2026-11-19)
 
-From the boards' "To decide", plus gaps found while planning. Each has a proposal, the option given first.
+The owner went through the points one by one and accepted each proposal, except AP-1487, where they chose palette only. The BRD records them as D-1762…D-1780 (v1.190).
 
-| AP | Question | Proposal |
+| AP | Decision | What was decided |
 |---|---|---|
-| AP-1478 | Are views saved queries referenced from the type file, or definitions inside the type file? | Saved queries, as drawn. Your brief says "views are defined as queries". |
-| AP-1479 | What does `Show a saved query` accept? | Exactly that one type and no `this` filter; anything else is greyed with the reason (board B). |
-| AP-1480 | Do views show in the Queries list? | Yes, with a `<Type> page` mark. |
-| AP-1481 | Which tab opens first? | The last tab used on this Mac, per type (as D-481 for Tasks). `All books` on first open. |
-| AP-1482 | Header click and ⇧-click | A click sorts by that column alone (it replaces the sort); ⇧-click adds the column as the next level or flips its order. Both write `sort:` once (D-1444). |
-| AP-1483 | Where are column widths kept, for views and blocks? | Machine-local per query (`ui-state.json` `queryColumnWidths[name][col]`), shared by the tab and every block of that query; the type page keeps its own (D-1241). |
-| AP-1484 | The `sort` list form, and `version` | Write a list only for ≥ 2 levels; `version` stays 1 (an older Tegg shows a broken sort and keeps the file, D-1442). |
-| AP-1485 | Grouping by a multi-value attribute | A card shows in each of its lanes, with all its values. A drag replaces the source lane's value (Alt keeps both). `No <attribute>` lane last. |
-| AP-1486 | Which attribute types can be grouped by? | Select, status, multi-select, tags, relation (one lane per linked object). Not dates (date periods are Q2-T, AP-1492) and not numbers or text. |
-| AP-1487 | Keyboard | ⌃⇥ / ⌃⇧⇥ switch tabs; ⌥←→ / ⌥↑↓ move a focused card or lane; palette commands for each. |
-| AP-1488 | Do the wide pages apply to `All <type>` and Queries as well? | Yes: the type page, every view, Queries and a query page. Notes keep their centred column. |
-| AP-1489 | Board cards in an embedded block | Yes: a board in a note uses the same component, sized to the note column, scrolling sideways. |
-| AP-1490 | Performance | A board with 500 cards in 6 lanes renders in ≤ 225 ms p95 (as NFR-PERF-07), with lanes virtualised; a card drag is shown in ≤ 100 ms. |
-| AP-1491 | Out of Q2 | Editable table cells, FR-QRY-04 (cross-type) and Gallery stay for a later slice (they were in Q2 under D-1438). |
-| AP-1492 | `Due · by period` grouping | Q2-T, for any date attribute (Books by Finished) or only Task's Due? Proposal: any date attribute, built in Q2-T. |
-| AP-1493 | Default task views | Written as files when a vault is created (and when an existing vault first opens with Q2-T), with `Restore default views` in Type settings. |
-| AP-1494 | Calendar removed | FR-QRY-05 becomes "Table, List, Board". FR-TSK-06 (task calendar) moves to W, or stays as a later v1.x item? |
-| AP-1495 | Q2-T header and filters | The Tasks page takes the type-page header and tabs (the D-517 segmented control goes). All / Today / This week are dropped. The tag and text filters stay in the toolbar, not saved. |
-| AP-1496 | FR-TSK-10 quick add, removed from the Tasks page (owner, 2026-11-19) | Reword FR-TSK-10: tasks come from `New Task`, a lane's dashed tile, ⌘N and the global hotkey; quick-add tokens (D-380) stay in the capture window's title field. |
+| AP-1478 | D-1762 | Views are saved queries. The type file lists them as `views:`, and `All <type>` is always first. |
+| AP-1479 | D-1763 | `Show a saved query` offers queries whose type is exactly the page's type and that have no `this` filter. Others are greyed out, with the reason. |
+| AP-1480 | D-1764 | Views show on the Queries page, with a `<Type> page` mark. |
+| AP-1481 | D-1765 | A type page opens on the last tab used on this Mac. The first open shows `All <type>`. |
+| AP-1482 | D-1766 | A header click makes that column the only sort; ⇧-click adds it as a level or flips its order. Either writes `sort:` once. |
+| AP-1483 | D-1767 | Column widths are kept on this Mac, per query, shared by its tab and every block that uses it. |
+| AP-1484 | D-1768 | `sort:` is written as a list only for two or more levels. `version` stays 1. |
+| AP-1485 | D-1769 | With a multi-value attribute, a card shows in each of its lanes. A drag replaces the value; Alt-drag keeps both. `No <attribute>` comes last. |
+| AP-1486 | D-1770 | A board groups by select, status, multi-select, tags or relation. |
+| AP-1487 | D-1771 | **Palette only**: no new shortcuts for views and boards. |
+| AP-1488 | D-1772 | The type page, the Queries page and a query page become wide. Notes stay centred. |
+| AP-1489 | D-1773 | A board view shows as a board in a note too. |
+| AP-1490 | D-1774 | A board with 500 cards in 6 lanes renders in ≤ 225 ms p95. A drag shows within 100 ms. |
+| AP-1491 | D-1775 | Editable cells, FR-QRY-04 and Gallery are out of Q2. |
+| AP-1492 | D-1776 | Q2-T: grouping by period works for any date attribute. |
+| AP-1493 | D-1777 | Q2-T: the default task views are written as files, with `Restore default views` in Type settings. |
+| AP-1494 | D-1778 | No Calendar view. FR-TSK-06 moves to v1.x, priority C. |
+| AP-1495 | D-1779 | Q2-T: the Tasks page takes the type-page header and tabs. All / Today / This week go; the tag and text filters stay, not saved. |
+| AP-1496 | D-1780 | Q2-T: quick add is removed from the Tasks page. Its tokens work in the capture window's title field. FR-TSK-10 is reworded when Q2-T ships. |
