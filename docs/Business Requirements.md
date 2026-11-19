@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.198, for review                                            |
+| **Document status** | Draft v1.199, for review                                            |
 | **Date**            | 2026-11-14                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -211,6 +211,7 @@
 | v1.195  | 2026-11-19 | Slice Q2 UI build: D-1826 (six WebKit test fixes), D-1827 (type pages have no right panel; FR-TYP-09 AC-35) |
 | v1.196  | 2026-11-19 | QA review of slice Q2: D-1828 (card-move writes covered by AC-13's L4 test), D-1829 (no journal for query renames), D-1830 (the design review after the release) |
 | v1.198  | 2026-11-19 | 0.4.0 feedback (`docs/feedback/q2-v040.md`): D-1835 (trashing a view removes its tab), D-1836 (sort, columns and widths per usage), D-1837 (slice Q2.1, released as 0.5.0); the view menu outside the window is a bug fix (F1). (v1.197 is the verify-gate decisions D-1831…D-1834 on their own branch.) |
+| v1.199  | 2026-11-19 | Slice Q2.1 ACs (`docs/acceptance/views.md` part two, overlay `tests/fixtures/vaults/views-usage/`): D-1838…D-1851 (AP-1519…AP-1532; owner, each as proposed): fence lines and `views:` mapping items for own settings, writes through the editor, reset actions, defaults on the query page, rename/Duplicate/trash with settings, On cards per usage, usage keys, templates, trash order, popups inside the window, view and limit shared, strings, the changed tests |
 
 ---
 
@@ -1858,6 +1859,20 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1835 | Trashing a view removes its tab (F2) (owner, 2026-11-19; 0.4.0 feedback, `docs/feedback/q2-v040.md`) | `Move to trash` in a view's menu writes `views:` without the name and moves the query file to `.trash/`, with one Undo (8 s) restoring both. Notes that embed the query keep D-1435's trashed state with `Restore`; a query trashed elsewhere while still listed in `views:` keeps the trashed tab. Amends D-1435 for views and FR-QRY-07 AC-11 |
 | D-1836 | Sort, columns and widths per usage (F3) (owner, 2026-11-19; 0.4.0 feedback, `docs/feedback/q2-v040.md`) | Each usage (a type-page tab, a block in a note) keeps its own `sort` and `columns` in the vault (the block in its fence, the tab in its `views:` entry) and its own column widths on this Mac. The query file's `sort` and `columns` are the defaults for a usage without its own; filters, `group_by`, `lanes`, `lane_order` stay shared. Amends D-1437, D-1444, D-1766, D-1767; shapes and edge cases are AC points AP-1519 onward |
 | D-1837 | Slice Q2.1 ships as 0.5.0 (F4) (owner, 2026-11-19; 0.4.0 feedback, `docs/feedback/q2-v040.md`) | The view-menu fix (F1), D-1835 and D-1836 are one slice, Q2.1, released together as 0.5.0 before Q2-T |
+| D-1838 | A block's own sort and columns (AP-1519) (owner, 2026-11-19; slice Q2.1 ACs, `docs/acceptance/views.md` part two) | Top-level `sort:` / `columns:` lines inside the ```` ```query ```` fence after `saved:`, in R185's style; every other line, the info string and prefixes kept |
+| D-1839 | How a block is written (AP-1520) (owner, 2026-11-19; slice Q2.1 ACs, `docs/acceptance/views.md` part two) | Through the editor: one transaction, one autosave, `modified:` set (D-55), ⌘Z undoes it. In the read view, the Trash view and embeds the sort and Columns controls are disabled; resizing still works |
+| D-1840 | A tab's own settings in `views:` (AP-1521) (owner, 2026-11-19; slice Q2.1 ACs, `docs/acceptance/views.md` part two) | An item is a plain name or a mapping `{ name, sort, columns }` (only when it has own settings); a flow line while all items are names, a block list otherwise; unchanged items keep their lines; `version` stays 1 |
+| D-1841 | Back to the query's defaults (AP-1522) (owner, 2026-11-19; slice Q2.1 ACs, `docs/acceptance/views.md` part two) | `Use the query's sort` and `Use the query's columns` (in the sort popover, in Columns and in the palette) remove the usage's own value; `Clear` keeps its meaning; an own value equal to the query's stays own |
+| D-1842 | Where defaults are set (AP-1523) (owner, 2026-11-19; slice Q2.1 ACs, `docs/acceptance/views.md` part two) | The query page `query/<name>` sets the query file's `sort` and `columns`, the defaults, with a scope line; the Edit query dialog writes the shared keys and says that sort and columns are set on each tab and block |
+| D-1843 | Rename, Duplicate, Remove and trash with own settings (AP-1524) (owner, 2026-11-19; slice Q2.1 ACs, `docs/acceptance/views.md` part two) | Rename patches only the name (`views:` items, fences' `saved:`); Duplicate copies the tab's own settings, not its widths; Remove and trash drop the entry with its settings; Undo restores the bytes |
+| D-1844 | On cards per usage (AP-1525) (owner, 2026-11-19; slice Q2.1 ACs, `docs/acceptance/views.md` part two) | A board's `On cards` is the usage's `columns`; `Change…` writes where that opener's Columns writes; `lanes` stay shared |
+| D-1845 | Machine-local usage keys (AP-1526) (owner, 2026-11-19; slice Q2.1 ACs, `docs/acceptance/views.md` part two) | Widths and folds per usage, keyed `tab:<type>/<name>`, `block:<note id or path>/<name>#<n>`, `page:<name>`; 0.4.0's per-query widths are ignored and left in the file |
+| D-1846 | Templates (AP-1527) (owner, 2026-11-19; slice Q2.1 ACs, `docs/acceptance/views.md` part two) | A template's query fence is copied byte for byte: each new note starts with the template's own settings and owns them |
+| D-1847 | Trashing a view: order, failure, Undo (AP-1528) (owner, 2026-11-19; slice Q2.1 ACs, `docs/acceptance/views.md` part two) | `views:` is written first (base-checked), then the file is moved; a failed move puts `views:` back; Undo restores the file, then the old `views:` bytes; only this type page's entry goes; disabled for a newer type file |
+| D-1848 | Popups stay in the window (AP-1529) (owner, 2026-11-19; slice Q2.1 ACs, `docs/acceptance/views.md` part two) | One placement rule for every view and query-block popup (tab menu, toolbar `⋯`, sort popover, `+` menu, Columns): an 8 px margin, opening leftwards or upwards when needed; tested at four window sizes and once in the real app |
+| D-1849 | View type and limit stay shared (AP-1530) (owner, 2026-11-19; slice Q2.1 ACs, `docs/acceptance/views.md` part two) | `view` and `limit` are shared by every usage, with filters, `group_by`, `lanes`, `lane_order` |
+| D-1850 | Strings and commands (AP-1531) (owner, 2026-11-19; slice Q2.1 ACs, `docs/acceptance/views.md` part two) | R199's texts and the palette commands `Use the query's sort`, `Use the query's columns` |
+| D-1851 | Changed AC tests of Q2.1 (AP-1532) (owner, 2026-11-19; slice Q2.1 ACs, `docs/acceptance/views.md` part two) | The tests in part two's "Existing criteria this slice changes" change in the commits that build Q2.1, with `AC-Test-Change: slice Q2.1 builds per-usage settings and trash (D-1835, D-1836); approved-by: owner` (and `Fixture-Change:` for fixture text), as D-1802 |
 
 ---
 

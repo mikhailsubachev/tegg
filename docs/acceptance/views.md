@@ -446,7 +446,7 @@ Slice **Q2.1** (feedback `docs/feedback/q2-v040.md`, owner 2026-11-19; decisions
 - **F2, D-1835.** `Move to trash` in a view's menu also removes its tab: one `views:` write plus the trash move, one Undo (8 s) restoring both. Notes that embed the query keep D-1435's trashed state with `Restore`; a query trashed elsewhere while listed in `views:` keeps its trashed tab. Amends D-1435 for views and FR-QRY-07 AC-11.
 - **F3, D-1836.** Each **usage** (a tab on a type page, a block in a note) keeps its own `sort` and `columns` in the vault (the tab in its `views:` entry, the block in its fence) and its own column widths on this Mac. The query file's `sort` and `columns` are the **defaults** for a usage with none of its own; filters, `group_by`, `lanes` and `lane_order` stay shared. Amends D-1437, D-1444, D-1766, D-1767.
 
-**Status: draft, 2026-11-19.** The shapes and edge cases D-1836 leaves open are AP-1519…AP-1532 at the end of this part. Where a criterion depends on one, it follows the **proposal** and names it. No contract yet: the names used here (`usageColumnWidths`, `usageFolded`, the usage keys of R198, the commands and catalog keys of R199) are the proposal the contract starts from.
+**Status: approved, 2026-11-19.** The shapes and edge cases D-1836 left open, AP-1519…AP-1532 at the end of this part, are decided as proposed: D-1838…D-1851 (BRD v1.199). Where a criterion names an AP, its proposal is the decision. No contract yet: the names used here (`usageColumnWidths`, `usageFolded`, the usage keys of R198, the commands and catalog keys of R199) are the proposal the contract starts from.
 
 **Scope.**
 - **FR-QRY-07**: menus inside the window (F1); trash removes the tab (F2); a tab's own sort and columns in `views:` (F3).
@@ -728,7 +728,9 @@ Catalog keys: `sort.scope.tab` `This tab's sort` · `sort.scope.block` `This blo
 
 ---
 
-## Points for the owner (AP-1519…AP-1532, open)
+## Points for the owner (AP-1519…AP-1532 → D-1838…D-1851, decided 2026-11-19)
+
+The owner accepted every proposal (AP-1519 → D-1838 … AP-1532 → D-1851).
 
 D-1835, D-1836 and D-1837 settle the direction; these points settle the shapes and edge cases they leave open. Each criterion above that depends on one follows its **proposal**.
 
