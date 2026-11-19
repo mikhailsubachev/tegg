@@ -6,7 +6,10 @@ import { gatePortBase } from '../tools/qa/src/port.ts';
 // (webkit/serve-built.ts, D-1880) on its own port and never reuses a running server, so it tests the checkout's code.
 // Outside a gate TEGG_WEBKIT_DEV=1 serves the Vite dev server instead (source maps and unminified code while
 // debugging a test); a gate ignores it, so a variable left in the shell can't make a gate test the dev build.
+// The nightly step `app-webkit-dev` sets VERIFY_WEBKIT_DEV=1 (D-1882): once a night the suite runs on the dev
+// server, a development build, where React's StrictMode runs effects twice; the bundle can't show a missing guard.
 const gate = !!process.env.VERIFY_GATE;
+const devServer = gate ? !!process.env.VERIFY_WEBKIT_DEV : !!process.env.TEGG_WEBKIT_DEV;
 // Under the gate the port comes from the runner (VERIFY_PORT_BASE, CONTRACT §3.2.1), one per run, so two gates of the
 // same repository can run at the same time (D-343).
 // Outside the gate every run gets its own free port too, picked once in the runner (the workers load this config again
@@ -25,9 +28,9 @@ export default defineConfig({
   // Tests inside a file run on parallel workers too (D-343): every test starts its own page and fake core, so none
   // shares state. Under ./verify 6 workers (D-1881, 12-core reference Mac). With the dev server 6 drove the load
   // average to ~24 next to the gate's other lanes, so D-1347 set 4; with the built bundle 6 workers load the machine
-  // less than 4 did then, and finish in about 56% of the time. Otherwise Playwright's default.
+  // less than 4 did then, and finish in about 56% of the time; the nightly dev-server run keeps 4. Otherwise Playwright's default.
   fullyParallel: true,
-  workers: gate ? 6 : undefined,
+  workers: gate ? (devServer ? 4 : 6) : undefined,
   // D-1833: under a gate a failed test runs once more. One that then passes doesn't fail the gate; the step's
   // reporter `webkit/flaky-reporter.ts` hands it to the gate, which counts it in the flaky list (CONTRACT §3.6).
   // Not outside a gate, where a failure should show at once, and not for the quarantined run.
@@ -40,5 +43,5 @@ export default defineConfig({
   use: { baseURL: `http://localhost:${port}`, actionTimeout: 3_000, viewport: { width: 1440, height: 900 } },
   projects: [{ name: 'webkit', use: { ...devices['Desktop Safari'], viewport: { width: 1440, height: 900 } } }],
   // The build takes a few seconds before the port answers; the limit is generous for a loaded machine.
-  webServer: { command: !gate && process.env.TEGG_WEBKIT_DEV ? `npx vite --port ${port} --strictPort` : `node webkit/serve-built.ts ${port}`, port, reuseExistingServer: false, timeout: 180_000 },
+  webServer: { command: devServer ? `npx vite --port ${port} --strictPort` : `node webkit/serve-built.ts ${port}`, port, reuseExistingServer: false, timeout: 180_000 },
 });
