@@ -8,12 +8,16 @@ AC-24, FR-UX-05 AC-24, NFR-OTH-02 AC-21). Decisions: D-1762…D-1780 (plan, BRD 
 (BRD v1.191). Plan: `docs/plans/q2-views-plan.md`. Boards: `design/edit-note-page/Views.dc.html` (A–G), `ViewsDark`,
 `ViewsApp`, `ViewsAppDark`. Fixtures: `tests/fixtures/vaults/views/` (README there) and `tests/fixtures/queries-files/`.
 
+**Status: approved, 2026-11-19.** Contract decisions CP-1…CP-9 accepted by the owner as D-1803…D-1811 (§9); the AC
+problems of §10 fixed in `docs/acceptance/views.md` as D-1812.
+
 This contract **extends** [v1-queries.md](v1-queries.md) (slice Q): every rule there holds unless a section here
 changes it, and section numbers here mirror it. Precedents followed where the ACs leave room: type columns
 ([type-columns.md](type-columns.md): `columns` in the type file, widths, the resize handle), the Tasks Kanban
 ([ms5-tasks.md](ms5-tasks.md) §5 the write path, §14 column moves, D-513 the `task-moved` mark) and the jobs
 ([ms4-jobs.md](ms4-jobs.md)). Where this contract and the ACs disagree, the ACs win and this contract is corrected before
-the red tests. §9 lists the interface questions the ACs don't settle (CP-1…), §10 the ACs that can't hold as written.
+the red tests. §9 records the interface questions the ACs left open (CP-1…CP-9, decided as D-1803…D-1811), §10
+the AC fixes (D-1812).
 
 **What Q2 writes.** (1) A type file's `views:` line (tab add, drag, remove, Move view left / right; the query rename job).
 (2) Query files: `sort`, `view`, `group_by`, `lanes`, `lane_order`, `columns` (sort popover, header click and ⇧-click,
@@ -38,7 +42,7 @@ pub struct Sort { pub by: String, pub order: Order }          // one level
 pub struct QueryDef {
     pub title: String, pub types: Vec<String>, pub r#match: Match, pub filters: Vec<FilterItem>,
     /// The levels as written, in file order (repeats kept, §1.2); never empty: a missing or broken `sort` reads as
-    /// `[Sort { by: "modified", order: Desc }]`. A file `sort: []` reads as `[]` (CP-4).
+    /// `[Sort { by: "modified", order: Desc }]`. A file `sort: []` reads as `[]` (D-1806).
     pub sort: Vec<Sort>,
     pub limit: u32,
     pub view: View,
@@ -67,7 +71,7 @@ pub struct Lane {
     pub color: Option<String>,          // the option's colour name (Select / multi-select option lanes), else None
     pub target: Option<String>,         // Relation: the resolved path
     pub excluded: bool,                 // R187 excluded lane (§1.6); always false outside Option lanes
-    pub drop_target: bool,              // Option, Tag, Relation lanes (excluded ones included); false for Unknown, Unresolved, None (CP-3)
+    pub drop_target: bool,              // Option, Tag, Relation lanes (excluded ones included); false for Unknown, Unresolved, None (D-1805)
     pub cards: Vec<LaneCard>,           // in the view's order (rows' order)
 }
 /// `row`: index into `QueryResult.rows`. `raw`: the frontmatter values of the grouping key, exactly as written (NFC),
@@ -105,7 +109,7 @@ pub struct QuerySummary {               // v1-queries §1.1 plus (for tab icons,
     pub types: Option<Vec<String>>,     // None when Unreadable
 }
 
-/// A type file that lists a query in `views:` (FR-QRY-06 AC-24, the rename job, CP-2).
+/// A type file that lists a query in `views:` (FR-QRY-06 AC-24, the rename job, D-1804).
 pub struct ViewUsage { pub type_key: String, pub path: String }
 ```
 
@@ -138,7 +142,7 @@ pub struct ViewUsage { pub type_key: String, pub path: String }
   `views_unreadable: bool`: a `views` that is present but not a list of strings (scalar, mapping, a non-string item)
   reads as None with `views_unreadable: true`; the file stays `Ok` (as `columns_unreadable`, type-columns §1).
 - `TOP_ORDER` gains `views` right after `columns`: `… preview, hidden, columns, views, embed, template, attributes`
-  (R184; see §10 problem 1 for `embed`). New, starter and built-in type files have no `views` (`serialize` writes it
+  (R184 as fixed by D-1812, `embed` included). New, starter and built-in type files have no `views` (`serialize` writes it
   only when the definition has one). `CURRENT_VERSION` stays 1.
 - `TypeOp::SetViews(Vec<String>)`: writes only the `views` line(s) as one flow list (`render_top`, D-230 quoting via
   `yaml_text::scalar`, NFC), inserted at its TOP place when absent; a hand-written block list is replaced by the one flow
@@ -191,13 +195,13 @@ impl Core {
 - `queries()` fills `view` and `types` from the parse. `query_apply`, `query_create`, `query_duplicate`, `query_trash`,
   `query_restore`, `query_usages` keep their signatures and rules (v1-queries §1.5); they carry the new `QueryDef` fields.
 - The `views:` write is `type_patch(key, base, &[TypeOp::SetViews(names)])` (ms3-shell §14; base check `Conflict`,
-  D-90 create, Newer / invalid refusals), CP-1.
+  D-90 create, Newer / invalid refusals), D-1803.
 - The card move writes through the existing `note_read` / `note_write` (§1.9). No new core write function.
 
 ### 1.6 The evaluator (R185, R187; changes to v1-queries §1.6)
 
 - **Multi-key sort** (D-1768, FR-QRY-01 AC-8). Levels are `def.sort` with repeats of a `by` dropped after its first
-  level (CP-4 for `[]`). Each level is checked as today's single `sort` (title / created / modified / an attribute of
+  level (D-1806 for `[]`). Each level is checked as today's single `sort` (title / created / modified / an attribute of
   every chosen type with one kind); any invalid level → the whole `sort` `BadValue`, the default `[modified desc]`
   applies. Compare level by level with the v1-queries §1.6 rules per kind (numbers, instants, Select / `review` by
   option order then unknown values by collation after the last option, checkbox false < true, the rest by collation of
@@ -207,13 +211,13 @@ impl Core {
   - `group_by` resolves when it is `tags`, or an attribute key of **every** chosen type with the same groupable kind:
     Select (incl. `status`), multi-select, relation (single or multiple). Anything else (missing key, an unknown key,
     another kind such as Date or Text, a relation with differing `multiple`, no types) → `Broken { BadValue, key:
-    "group_by" }` and `group: None` (R185: drawn as a List with `query.block.brokenKey`). CP-5 (missing key, several
+    "group_by" }` and `group: None` (R185: drawn as a List with `query.block.brokenKey`). D-1807 (missing key, several
     types).
   - Membership. Select: the value's NFC text equals an option label (exact, case-sensitive) → that option lane, else an
     `Unknown` lane per distinct NFC value; empty → `none`. Multi-select: each distinct entry as Select. Tags: one lane
     per tag key of the object (frontmatter and inline, tags.md R79 keys). Relation: each link value resolved as
     `Core::resolve_link` from the object's path (D-291) → a `Relation` lane per target path; an unresolved value → an
-    `Unresolved` lane per link text; empty → `none`. Lane matching is CP-6.
+    `Unresolved` lane per link text; empty → `none`. Lane matching: D-1808.
   - Lane order: Select / multi-select: every option in the type file's order (empty lanes included), then `Unknown`
     lanes by collation of the value; tags: by collation of the key; relation: `Relation` lanes by collation of the
     target's title, then `Unresolved` lanes by collation of the text; then `lane_order` moves its listed lanes to the
@@ -270,7 +274,7 @@ export function applyBoardMove(text: string, move: BoardMove): { text: string; i
 - The UI's write path (`app/ui/src/queries/board/write.ts`, `writeCardMove(row, move)`): `note_read(row.path)`; a
   version different from `row.version` → conflict (no write); else `applyBoardMove` + `touchModified` + `note_write(path,
   text, row.version)`. `Conflict` / version mismatch → the card goes back to its disk state's lane when the run
-  re-runs, and the alert `task.changedOutside`-style text of FR-TSK-02 AC-11 (key `board.changedOutside`, §10 problem 4)
+  re-runs, and the alert `task.changedOutside`-style text of FR-TSK-02 AC-11 (key `board.changedOutside`, R192)
   names the object; `NotFound` (deleted) → nothing written, the card disappears on the next run; `Io` → the card goes
   back, `query.saveFailed`. One write per object in flight (as `writeTask`). `read_only` rows are never written.
 
@@ -311,7 +315,7 @@ New Tauri module: none. `app/src-tauri/src/shellq.rs` and `lib.rs` change; TS in
 type SortDto = { by: string; order: 'asc' | 'desc' };
 type QueryDefDto = {
   title: string; types: string[]; match: 'all' | 'any'; filters: FilterItemDto[];
-  sort: SortDto[];                                   // was one mapping (AC-test change, §10 problem 6)
+  sort: SortDto[];                                   // was one mapping (type-only AC-test change, D-1802 / D-1812)
   limit: number; view: 'list' | 'table' | 'board';
   groupBy: string | null; lanes: 'vertical' | 'horizontal'; laneOrder: string[] | null;
   columns: string[];
@@ -335,7 +339,7 @@ type ViewUsageDto = { type: string; path: string };
 - `type_patch` `views` refused with `Conflict` / version mismatch (FR-SYN-03 AC-30): nothing written, the page reloads
   the type (`disk`), the tabs go back, alert `views.changedOutside` (`"Books" changed outside Tegg. The views weren't
   changed.`). After a **query create** (New view, Duplicate) the same refusal gives `views.addFailed` instead (FR-QRY-07
-  AC-4 (d); §10 problem 3), the query stays.
+  AC-4 (d), D-1812), the query stays.
 - `viewsUnreadable`, Newer, invalid: the controls were already `aria-disabled` (R184, AR-07 AC-3); no call is made.
 - Query-file writes from a view (sort, lanes, lane order, columns, editor): as v1-queries §2.1 (`query.editor.changedOutside`).
 - Card move: §1.9.
@@ -410,7 +414,7 @@ change, no history entry). A pinned type page opens its remembered tab. `query/<
 | View menu | `[role=menu]` | `aria-label` `views.menu`; `menuitem`s `views.edit`, `views.rename`, `views.duplicate`, `views.openAsQuery` (`aria-description` `views.openAsQueryHint`), separator, `views.remove` (`aria-description` `views.removeHint`), `views.trash`; from the toolbar also `board.resetOrder` when the board has `lane_order` |
 | View toolbar | `div.view-toolbar` | `input[type=search]` `aria-label` `typePage.filter`; the tag filter of `tasks/TagFilter.tsx` (button `tasks.tagFilter`); sort button; `Columns` (Table: `button` `typePage.columns`, `data-command="view.columns"`, `aria-haspopup="menu"`) or the lanes `radiogroup` (Board); `button` `aria-label` `views.menu`, visible `⋯`, `aria-haspopup="menu"`, `data-command="views.menu"` |
 | Sort button | `button` | `aria-label` `sort.button` (`Sort`), `aria-haspopup="dialog"`, `aria-expanded`, `data-command="sort.open"`; visible `span.sort-first` (`Finished ↓`, from `sort.buttonText`) and `span.sort-more` (`sort.more`, `+2`) when > 1 level; in a block header: an icon and `span.sort-count` (`3`), same name |
-| Sort popover | `div[role=dialog]` | `aria-label` `sort.dialog`, not modal; one `div[role=group][data-sort-level="<i>"]` per level with `aria-label` `<sort.by \| sort.then> <column>, <order label>`; inside: grip `span[role=button][tabIndex=0]` `sort.drag`; `combobox` (`aria-label` `sort.by` / `sort.then`) whose `option`s are `sortChoices` minus keys used at other levels; `combobox` `aria-label` `sort.orderLabel` (§10 problem 4) with two `option`s from `orderLabels`; `button` `sort.remove`; then `button` `sort.add`, `button` `sort.clear` |
+| Sort popover | `div[role=dialog]` | `aria-label` `sort.dialog`, not modal; one `div[role=group][data-sort-level="<i>"]` per level with `aria-label` `<sort.by \| sort.then> <column>, <order label>`; inside: grip `span[role=button][tabIndex=0]` `sort.drag`; `combobox` (`aria-label` `sort.by` / `sort.then`) whose `option`s are `sortChoices` minus keys used at other levels; `combobox` `aria-label` `sort.orderLabel` (R192) with two `option`s from `orderLabels`; `button` `sort.remove`; then `button` `sort.add`, `button` `sort.clear` |
 | Sorted header | `[role=columnheader]` | `tabIndex=0`; `aria-sort` on the first level only (`ascending` / `descending`); other levels `aria-description` `sort.level` (`Sort level 2, ascending`); visible marker `span.sort-marker[aria-hidden=true]` (`↑`, `↓`, with `sup` `1`, `2`, `3` when ≥ 2 levels); `draggable` except Title (D-1798); then the resize `separator` of type-columns §4 (`typePage.resize`) |
 | Lanes switch | `div[role=radiogroup]` | `aria-label` `board.lanes`; `[role=radio]` `board.vertical` / `board.horizontal` (`title` `board.verticalTitle` / `board.horizontalTitle`), `aria-checked`; `data-command="board.switchLanes"` |
 | Board | `div[role=group]` | `aria-label` = the query's title (`data-user-content`); `data-board`; `data-lanes="vertical\|horizontal"`; `data-group-by="<key>"`; `data-board-name="<name>"` (null for inline); the sideways scroller is `div.board-scroll` (its own `scrollLeft`) |
@@ -419,7 +423,7 @@ change, no history entry). A pinned type page opens its remembered tab. `query/<
 | Lane grip | `span[role=button]` | `tabIndex=0`, `aria-label` `board.dragColumn` (vertical) / `board.dragRow` (horizontal), `aria-describedby` the heading, `data-command="board.laneDrag"`; absent on `none` |
 | Fold chevron | `button` | horizontal only; `aria-label` `board.collapse` / `board.expand` (`{lane}` = label), `aria-expanded`; ⌥-click folds or unfolds every row |
 | New in lane | `button` | `aria-label` `board.newIn` (`New Book in Reading`); vertical: `+` at the lane's end; horizontal: the dashed tile, visible `board.newTile`; `data-command="board.newIn"`; absent on `none`, unknown, unresolved and excluded lanes |
-| Card | `article` | `aria-label` `board.card` (`Book: Účetní ze Žižkova`, §10 problem 4); `data-board-card="<path NFC>"`, `data-lane="<id>"`, `tabIndex` roving; title link `a[data-card-title]` (opens `note/<path>`, previews per D-1164); `button` `task.more` (`More actions for "<title>"`, `aria-haspopup="menu"`); tags `span.card-tag` (`#doporučené`); body `p.card-excerpt` (2 lines); pills `span.card-pill[data-attribute="<key>"]` in `columns` order (the grouping key only for a multi-value card with ≥ 2 values, then all its values); an empty value `span.card-pill[data-attribute][data-empty]` with `board.none` in `--faint`; relation values as link chips `a.chip[data-attribute="<key>"]` in `footer` |
+| Card | `article` | `aria-label` `board.card` (`Book: Účetní ze Žižkova`); `data-board-card="<path NFC>"`, `data-lane="<id>"`, `tabIndex` roving; title link `a[data-card-title]` (opens `note/<path>`, previews per D-1164); `button` `task.more` (`More actions for "<title>"`, `aria-haspopup="menu"`); tags `span.card-tag` (`#doporučené`); body `p.card-excerpt` (2 lines); pills `span.card-pill[data-attribute="<key>"]` in `columns` order (the grouping key only for a multi-value card with ≥ 2 values, then all its values); an empty value `span.card-pill[data-attribute][data-empty]` with `board.none` in `--faint`; relation values as link chips `a.chip[data-attribute="<key>"]` in `footer` |
 | Drop label | `div.board-drop[role=presentation]` | over the target lane during a drag: `board.dropSet` (`Drop to set Status: Reading`) or, with Alt on a list kind, `board.dropAdd`; absent over non-targets |
 | Live region | `div.sr-live` | `role="status"`, `aria-live="polite"`: `board.moved`, `board.added`, `board.leftView`, `board.inlineKept`, `board.laneMoved`, `views.moved`, once per action |
 | Editor | `div[role=dialog]` `query.editor.dialog` | from a tab: the type chip without `query.editor.removeType`, no `query.editor.type` button, `p` `query.editor.showFixed`; `radiogroup` `query.editor.view` with `query.editor.list`, `query.editor.table`, `query.editor.board`; Board only: `combobox` `query.editor.groupBy` (`aria-description` `query.editor.groupByHint`), `radiogroup` `query.editor.lanes` (`board.vertical`, `board.horizontal`), `div[role=group]` `query.editor.onCards` with the names and `button` `query.editor.onCardsChange` (`aria-haspopup="menu"`, the R130 Columns menu); no Sort row; no Limit with Board; notice `p` `query.editor.usedOnPage` |
@@ -437,7 +441,7 @@ change, no history entry). A pinned type page opens its remembered tab. `query/<
   the editor (from the tab, title `New view` selected) with `newViewDef`; results by `query_run({ kind: 'def' })`. Esc
   with no change, or leaving the page: the draft goes, nothing written. `Done` (changed or not) or a change then close:
   `query_create({ title, def, free: true })` (exclusive; ` (2)` when taken, D-1477), then `type_patch` with the created
-  name appended. Undo: CP-7.
+  name appended. Undo: D-1809.
 - **Show a saved query**: `type_patch` with the name appended; the tab is selected; the query file is untouched.
 - **Duplicate** (D-1788): `query_duplicate`, then `type_patch` with the copy right after the original; selected.
 - **Remove** (`views.remove`): `type_patch` without every copy; the previous tab is selected (`All` when none).
@@ -472,10 +476,10 @@ change, no history entry). A pinned type page opens its remembered tab. `query/<
 - **Read-only views** (`version` > 1): every write control `aria-disabled` with `query.block.readOnly` (sort button,
   header click, Columns, lanes switch, lane grips, card drag, `Move to`, New in lane); results shown.
 - **Types changed** (D-1763): when the view's `types` isn't exactly `[<page type>]`, the panel shows `views.brokenTypes`
-  above the results as written (`{types}` = the types' Names joined by `Intl.ListFormat(locale, { type: 'conjunction' })`).
+  above the results as written (`views.brokenAllTypes` when `types` is empty; `{types}` = the types' Names joined by `Intl.ListFormat(locale, { type: 'conjunction' })`).
 - **Board in a note** (D-1773): `QueryBlock` draws `QueryBoard` inside the note column (`max-width: 100%`), sideways
   scroll inside `div.board-scroll`; drags, `+`, folds and lane drags as on the page; `Switch lanes` from the palette
-  with the block selected. CP-8 for inline fences.
+  with the block selected. Inline fences: D-1810.
 - **Wide pages** (D-1772): `type/<key>` (every tab), `queries`, `query/<name>`: the page container drops
   `.page-column`'s `max-width` (computed `max-width: none`) and has 40 px side padding. Notes unchanged.
 
@@ -496,7 +500,8 @@ Views section's keys. Kept: `query.editor.sort`, `query.editor.asc`, `query.edit
 catalog list stays intact). Reused existing keys (not new): `typePage.views`, `typePage.filter`, `typePage.columns`,
 `typePage.resize`, `typePage.resetWidths`, `tasks.tagFilter`, `task.more`, `pinned.open`, `query.block.*` state texts,
 `query.block.readOnly`, `queries.renameDialog`, `query.newQuery.taken`, `query.rename.notReady`, `query.saveFailed`,
-`attr.tags`. Keys this contract adds beyond R192 are §10 problem 4. Sort order labels: `sort.order.optionFirst` with
+`attr.tags`. R192 as fixed by D-1812 also has `board.card`, `views.moved`, `sort.orderLabel`, `board.changedOutside`,
+`views.brokenAllTypes`, and no `views.notReady`. Sort order labels: `sort.order.optionFirst` with
 the first option for ascending and the last for descending (`Excellent first`, `Bad first`); text, title, relation,
 multi-select and tags `textAsc` / `textDesc`; dates and date-times `dateAsc` / `dateDesc`; numbers; checkbox.
 
@@ -615,7 +620,7 @@ Written with the red tests by the test author from the ACs. Clock `2026-11-19T10
 
 ## 7. Owner decision
 
-The CP points of §9; the AC fixes of §10 (owner approval of AC text) before the red tests.
+Done (2026-11-19): §9 (D-1803…D-1811) and §10 (D-1812). None open.
 
 ## 8. Contract choices (no owner decision needed; follow the ACs and precedents)
 
@@ -624,35 +629,37 @@ The CP points of §9; the AC fixes of §10 (owner approval of AC text) before th
 3. Lane ids `option:` / `unknown:` / `tag:` / `relation:` / `unresolved:` / `none` key the DOM, folds and drags; `value` is what `lane_order` and a drop write.
 4. Excluded lanes are computed from top-level `match: all` filters by the §1.6 operator table, option lanes only.
 5. The card move is `@tegg/doc` `applyBoardMove` plus `note_write` with the row's index version (D-82, as the Tasks Kanban); `QueryRow` gains `version`, `excerpt`, `readOnly`.
-6. `views:` is a `tegg-schema` `TypeOp::SetViews` sent through `type_patch` (CP-1), placed right after `columns`.
+6. `views:` is a `tegg-schema` `TypeOp::SetViews` sent through `type_patch` (D-1803), placed right after `columns`.
 7. The query rename job patches type files as direct rows after the usages and before the pins; the UI moves machine-local keys after the job.
 8. `Board.tsx` is generic and new; the Tasks Kanban keeps its own component until Q2-T.
 9. The width helper keys widths by `{ type }` or `{ query name }`; `types/columns.ts` re-exports `WIDTH` / `clampWidth`.
 10. Perf marks `board-request`, `board-ready`, `board-card-moved`; hook `__TEGG_TEST__.board()` and `perfMarks()`.
 
-## 9. Contract points for the owner (CP-1…CP-9)
+## 9. Contract decisions (CP-1…CP-9 → D-1803…D-1811, accepted by the owner 2026-11-19)
 
-| # | Question | Proposal | Alternatives |
+Each point was decided as proposed; the alternatives are kept for the record.
+
+| # | Question | Decision | Alternatives (not chosen) |
 | --- | --- | --- | --- |
-| CP-1 | **The `views:` write command.** The ACs name `type_views_set(type, names)`. `type_patch` already gives the base check, the D-90 create of a missing system file, Newer / invalid refusals and `Conflict` with `disk`. | No new command: `type_patch(key, base, [{ op: 'views', names }])` → `TypeOp::SetViews`; the AC text's `type_views_set` reads as this op. | (b) A thin `type_views_set(key, base, names)` command that calls the same op (two ways to write one line). |
-| CP-2 | **How `query_usages` returns the type page** (FR-QRY-06 AC-24: "separately"). `query_usages` returns `QueryUsage[]` today; adding a kind changes its Rust struct and slice Q's tests. | A new read-only `Core::query_view_usages(name)` / IPC `query_view_usages` → `[{ type, path }]`; `query_usages` unchanged. The rename job uses the same function. | (b) `query_usages` returns `{ pages, notes }` (changes slice Q tests). (c) The UI derives it from `TypeDto.views` (no L4 part). |
-| CP-3 | **Unresolved relation lanes.** R187 says unknown-value lanes aren't drop targets; a relation value that resolves to nothing isn't named. | Not a drop target and no `+` (like an unknown value): Tegg never writes a link it can't resolve. | (b) A drop target that writes the link text as written. |
-| CP-4 | **`sort: []`.** R185 defines a list of levels and broken items, not an empty list. | Valid, zero levels: order by title, then path; the popover shows no level (Clear still writes R138's default). | (b) Broken (`BadValue`, default Modified ↓). |
-| CP-5 | **`group_by` with `view: board` when the key is missing, or the query has several types.** R185 says "an attribute key of the query's single type". | Missing → broken (List with `The setting group_by can't be read, so its default is used.`). Several types → valid when every chosen type has the key with the same groupable kind (the R139 filter rule); `tags` valid for any types, also all types. | (b) Missing → group by `defaultGroupBy` of the single type without a notice. (c) Several types → always broken (R185 literally). |
-| CP-6 | **How a value matches its lane.** Filters compare folded (D-1445); the Tasks Kanban matches status labels exactly. | NFC-exact, case-sensitive against option labels (`reading` is an unknown-value lane `reading`), so a lane always writes back an exact label; filters (and so exclusion) still fold. | (b) Folded match (case and diacritics), the lane showing the option label. |
-| CP-7 | **"One Undo" for New view** (D-1781). R192 has no Undo string, and FR-QRY-07 AC-4 doesn't test it. | ⌘Z while the new tab still has the focus and nothing else changed: `type_patch` back to the old `views:` (base = the returned version), then `query_trash(name)`, as one step; no message. | (b) No Undo for New view in Q2 (D-1781 amended). (c) Undo deletes the query file for good. |
-| CP-8 | **Inline (unsaved) query fences.** Sort, column drag and widths are keyed by a saved query; an inline fence has no name and is written as the note. | Inline blocks keep slice Q's behaviour: no sort popover, no ⇧-click, no resize handle, no column drag; a board inline block draws lanes and folds in memory, and card drags still write the object (the object is not the note). | (b) Resize kept in memory per block; sort writes the fence through the editor. |
-| CP-9 | **The excluded row's text** `Not in this view: its filter shows only {values}.` | `{values}` = the labels of the non-excluded option lanes in lane order, joined by `Intl.ListFormat(locale, { type: 'conjunction' })` (`Reading and To read`). | (b) The filter's values as written in the query file. |
+| CP-1 → D-1803 | **The `views:` write command.** The ACs name `type_views_set(type, names)`. `type_patch` already gives the base check, the D-90 create of a missing system file, Newer / invalid refusals and `Conflict` with `disk`. | No new command: `type_patch(key, base, [{ op: 'views', names }])` → `TypeOp::SetViews`; the AC text's `type_views_set` reads as this op. | (b) A thin `type_views_set(key, base, names)` command that calls the same op (two ways to write one line). |
+| CP-2 → D-1804 | **How `query_usages` returns the type page** (FR-QRY-06 AC-24: "separately"). `query_usages` returns `QueryUsage[]` today; adding a kind changes its Rust struct and slice Q's tests. | A new read-only `Core::query_view_usages(name)` / IPC `query_view_usages` → `[{ type, path }]`; `query_usages` unchanged. The rename job uses the same function. | (b) `query_usages` returns `{ pages, notes }` (changes slice Q tests). (c) The UI derives it from `TypeDto.views` (no L4 part). |
+| CP-3 → D-1805 | **Unresolved relation lanes.** R187 says unknown-value lanes aren't drop targets; a relation value that resolves to nothing isn't named. | Not a drop target and no `+` (like an unknown value): Tegg never writes a link it can't resolve. | (b) A drop target that writes the link text as written. |
+| CP-4 → D-1806 | **`sort: []`.** R185 defines a list of levels and broken items, not an empty list. | Valid, zero levels: order by title, then path; the popover shows no level (Clear still writes R138's default). | (b) Broken (`BadValue`, default Modified ↓). |
+| CP-5 → D-1807 | **`group_by` with `view: board` when the key is missing, or the query has several types.** R185 says "an attribute key of the query's single type". | Missing → broken (List with `The setting group_by can't be read, so its default is used.`). Several types → valid when every chosen type has the key with the same groupable kind (the R139 filter rule); `tags` valid for any types, also all types. | (b) Missing → group by `defaultGroupBy` of the single type without a notice. (c) Several types → always broken (R185 literally). |
+| CP-6 → D-1808 | **How a value matches its lane.** Filters compare folded (D-1445); the Tasks Kanban matches status labels exactly. | NFC-exact, case-sensitive against option labels (`reading` is an unknown-value lane `reading`), so a lane always writes back an exact label; filters (and so exclusion) still fold. | (b) Folded match (case and diacritics), the lane showing the option label. |
+| CP-7 → D-1809 | **"One Undo" for New view** (D-1781). R192 has no Undo string, and FR-QRY-07 AC-4 doesn't test it. | ⌘Z while the new tab still has the focus and nothing else changed: `type_patch` back to the old `views:` (base = the returned version), then `query_trash(name)`, as one step; no message. | (b) No Undo for New view in Q2 (D-1781 amended). (c) Undo deletes the query file for good. |
+| CP-8 → D-1810 | **Inline (unsaved) query fences.** Sort, column drag and widths are keyed by a saved query; an inline fence has no name and is written as the note. | Inline blocks keep slice Q's behaviour: no sort popover, no ⇧-click, no resize handle, no column drag; a board inline block draws lanes and folds in memory, and card drags still write the object (the object is not the note). | (b) Resize kept in memory per block; sort writes the fence through the editor. |
+| CP-9 → D-1811 | **The excluded row's text** `Not in this view: its filter shows only {values}.` | `{values}` = the labels of the non-excluded option lanes in lane order, joined by `Intl.ListFormat(locale, { type: 'conjunction' })` (`Reading and To read`). | (b) The filter's values as written in the query file. |
 
-## 10. AC problems (proposed fixes; views.md is not edited here)
+## 10. AC problems (fixed in the ACs as D-1812, owner 2026-11-19)
 
 1. **R184 TOP order omits `embed`.** The real `TOP_ORDER` is `… preview, hidden, columns, embed, template, attributes`.
-   Proposal: R184 reads `… columns, views, embed, template, attributes` (views right after columns; the fixture's line 13
+   Fixed: R184 reads `… columns, views, embed, template, attributes` (views right after columns; the fixture's line 13
    and FR-QRY-07 AC-4 (b)'s "after line 10" both hold).
 2. **FR-QRY-05 AC-23 sets Title to 150 px.** Title's minimum is 160 px (R130, D-1248; type-columns AC-30: "`Resize
-   Title` dragged to 100 px stops at 160 px"), so 150 can't be reached. Proposal: 200 px in the AC (and `title = 200`).
+   Title` dragged to 100 px stops at 160 px"), so 150 can't be reached. Fixed: 200 px in the AC (and `title = 200`).
 3. **Which alert a refused tab add shows.** FR-QRY-07 AC-4 (d) says `views.addFailed` for a refused type-file write
-   after New view; FR-SYN-03 AC-30 lists "a tab drag, add or remove" with `views.changedOutside`. Proposal: after a query
+   after New view; FR-SYN-03 AC-30 lists "a tab drag, add or remove" with `views.changedOutside`. Fixed: after a query
    create (New view, Duplicate) the alert is `views.addFailed`; Show a saved query, drags, Move view and Remove show
    `views.changedOutside` (§2.1); AC-30 names "add (Show a saved query)".
 4. **R192 lacks texts the ACs need; duplicates existing keys.** Missing: the card name `<Type>: <title>` (FR-QRY-05
@@ -661,13 +668,13 @@ The CP points of §9; the AC fixes of §10 (owner approval of AC text) before th
    alert (FR-SYN-03 AC-30 "FR-TSK-02 AC-11's alert names the book") → `board.changedOutside` `"{title}" changed outside
    Tegg. Your change wasn't saved.`; the changed-types notice when the query has no types → `views.brokenAllTypes` `This
    view shows all types, not only {thisType}. Edit view to fix it.`. Duplicates: `views.all` is today's
-   `typePage.allView` (proposal: rename it to `views.all`); the tablist name is the existing `typePage.views`; `Filter by
+   `typePage.allView` (renamed to `views.all`); the tablist name is the existing `typePage.views`; `Filter by
    tag`, `More actions for "<title>"`, `Open` reuse `tasks.tagFilter`, `task.more`, `pinned.open`. `views.notReady` has no
-   criterion: no Q2 write waits for the index except rename (`query.rename.notReady`, D-1510); proposal: drop it. NFR-OTH-02
+   criterion: no Q2 write waits for the index except rename (`query.rename.notReady`, D-1510); dropped. NFR-OTH-02
    AC-21's "exactly R192's keys" then reads "R192's keys plus these, minus `views.notReady`".
 5. **"L4 for the bytes" of card moves** (FR-QRY-05 AC-13, AC-14, AC-16, FR-FMT-12 AC-12) **and FR-SYN-02 AC-11's card
    drags.** D-82 / ADR 0003: Rust never edits note text; the move's bytes come from `@tegg/doc` (as the Tasks Kanban,
-   whose bytes are L1 `packages/doc/test/task_edit.ac.test.ts`). Proposal: the bytes are L1 (`board_move.ac.test.ts`
+   whose bytes are L1 `packages/doc/test/task_edit.ac.test.ts`). Fixed: the bytes are L1 (`board_move.ac.test.ts`
    against `expected/views/books/`) plus L5 / L6; L4 checks the one write function, the base check and atomicity with
    the expected texts through `Core::note_write`, and the kill harness alternates those two texts.
 6. **AC tests changed by the model change but missing from "Existing criteria this slice changes".** `QueryDef` gains
@@ -675,16 +682,16 @@ The CP points of §9; the AC fixes of §10 (owner approval of AC text) before th
    `crates/tegg-core/tests/ac_queries.rs`, `ac_queries_props.rs`, `crates/tegg-jobs/tests/ac_queries_jobs.rs`,
    `app/test/queries_model.ac.test.ts`, `app/test/queries_props.ac.test.ts`, `app/webkit/queries_block.ac.test.ts`,
    `app/webkit/queries_live.ac.test.ts` (and `app/test/fake_queries.contract.test.ts`) change mechanically (no behaviour
-   change). Proposal: add one row "type-only changes: `sort` is a list, the def gains `group_by`, `lanes`, `lane_order`"
+   change). Fixed: add one row "type-only changes: `sort` is a list, the def gains `group_by`, `lanes`, `lane_order`"
    under D-1802's trailer.
 7. **FR-QRY-07 AC-3 omits `Filter Books…` on the board tab.** R186 puts `Filter <plural>…` and `Filter by tag` on every
    view tab's toolbar; AC-3 lists for `Rozečtené` only `Filter by tag`, the lanes radiogroup, the sort button and `View
-   actions`. Proposal: add `Filter Books…` to AC-3's board toolbar (as R186).
+   actions`. Fixed: add `Filter Books…` to AC-3's board toolbar (as R186).
 8. **FR-UX-05 AC-24 names option colour tokens `--c-*`.** The app's option colours are `--type-<colour>` (the Tasks
-   Kanban, the type chips); there is no `--c-*` token. Proposal: read `--type-*`.
+   Kanban, the type chips); there is no `--c-*` token. Fixed: read `--type-*`.
 9. **FR-QRY-07 AC-1 "reads `book.yml` and the three query files".** The page also lists the vault's queries
-   (`queries_list`, for the tab icons and the offers) and runs only the selected tab. Proposal: "calls the types store,
+   (`queries_list`, for the tab icons and the offers) and runs only the selected tab. Fixed: "calls the types store,
    `queries_list` and one `query_run` for the selected tab, and writes nothing" (reads aren't observable otherwise).
 10. **FR-QRY-05 AC-12's `Move to` list.** It follows the sentence about Dům u řeky (`To read`): `Move to` › `Reading`,
-    `Read` is right for that card, but for Účetní ze Žižkova (`Reading`) it would be `To read`, `Read`. Proposal: name the
+    `Read` is right for that card, but for Účetní ze Žižkova (`Reading`) it would be `To read`, `Read`. Fixed: name the
     card: "Dům u řeky's `More actions` lists …".
