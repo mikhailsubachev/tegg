@@ -232,3 +232,7 @@ export { importScan, importNote, importNew, type ImportScanDto, type ScannedLink
 // ---------------------------------------------------------------- slice OL (v1-outline §1)
 
 export { outlineHeadings, outlineHeadingsOf, outlineTree, foldKey, railDepth, railRows, headingForFragment, RAIL_MAX_ROWS, type HeadingLevel, type OutlineHeading, type OutlineNode } from './outline.js'
+
+// ---------------------------------------------------------------- slice Q2 (v1-views §1.9)
+
+export { applyBoardMove, type BoardMove } from './board.js'

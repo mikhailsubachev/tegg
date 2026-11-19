@@ -254,7 +254,7 @@ export async function noteWrites(core: FakeCoreHandle): Promise<string[]> {
   return (await core.writesTo()).filter((p) => p.endsWith('.md'));
 }
 /** Slice Q's read-only commands (contract §2) on top of the shell's. */
-export const QUERY_READS = new Set(['queries_list', 'query_get', 'query_run', 'query_usages']);
+export const QUERY_READS = new Set(['queries_list', 'query_get', 'query_run', 'query_usages', 'query_view_usages']); // Q2 (D-1804): query_view_usages reads
 /** IPC calls that may write: everything but reads, events and the query reads. */
 export async function writeCalls(core: FakeCoreHandle): Promise<string[]> {
   return (await core.calls()).map((c) => c.cmd).filter((c) => !READ_COMMANDS.has(c) && !QUERY_READS.has(c) && !c.startsWith('plugin:event|'));

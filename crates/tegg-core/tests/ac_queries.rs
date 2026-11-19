@@ -93,9 +93,6 @@ fn changed(a: &BTreeMap<String, Entry>, b: &BTreeMap<String, Entry>) -> BTreeSet
 fn files_changed(a: &BTreeMap<String, Entry>, b: &BTreeMap<String, Entry>) -> BTreeSet<String> {
     changed(a, b).into_iter().filter(|k| !k.ends_with('/')).collect()
 }
-fn reason(b: &queries_q::Broken) -> BrokenReason {
-    b.reason
-}
 fn note_write(core: &Core, path: &str, text: &str) {
     let (_, v) = ok!(core.read_note(path, SystemTime::now()), format!("read {path}"));
     ok!(core.write_note(path, text.as_bytes(), Some(&v)), format!("write {path}"));
@@ -606,13 +603,13 @@ fn fr_qry_05_ac6_header_click_sorts() {
     let fence = format!("```query\nsaved: {UKOLY}\n```\n");
     note_write(&core, P14, &(fixture_s(P14) + "\n" + &fence));
     let before = snapshot(&root);
-    ok!(commit(&core, UKOLY, NOW, |d| d.sort.order = Order::Desc), "header click: due ↓");
+    ok!(commit(&core, UKOLY, NOW, |d| d.sort[0].order = Order::Desc), "header click: due ↓");
     let want = swapped(&qfixture(UKOLY), &[("sort: { by: due, order: asc }", "sort: { by: due, order: desc }"), ("modified: 2026-10-07T12:00:00+02:00", &format!("modified: {NOW}"))]);
     assert_eq!(disk_s(&root, &qpath(UKOLY)), Some(want), "`sort:` written once");
     assert_eq!(files_changed(&before, &snapshot(&root)), set(&[&qpath(UKOLY)]), "no note written");
     assert_eq!(paths(&run(&core, UKOLY, Some(P7))), strs(&[T3, T2, T1, T5, T4]), "Porada 7's table follows");
     let second = run_fence(&core, &format!("saved: {UKOLY}\n"), Some(P14));
-    assert_eq!(second.def.map(|d| d.sort.order), Some(Order::Desc), "the second fence in Porada 14 follows");
+    assert_eq!(second.def.map(|d| d.sort[0].order), Some(Order::Desc), "the second fence in Porada 14 follows");
 }
 
 #[test]
@@ -623,11 +620,13 @@ fn fr_qry_05_ac8_read_only_cells_two_views() {
     write(&root, &qpath(ZRUSENE), start.as_bytes());
     let core = open(&root, &sb.dirs);
     let r = core.query(ZRUSENE);
-    assert_eq!(r.def.as_ref().map(|d| d.view), Some(View::List), "shown as List");
-    let b: Vec<(BrokenReason, Option<Vec<usize>>, String)> = r.broken.iter().map(|b| (reason(b), b.at.clone(), b.key.clone())).collect();
-    assert_eq!(b, vec![(BrokenReason::BadValue, None, "view".to_string())], "a broken part: view");
+    // Slice Q2 (views.md change table, D-1802, D-1807): `view: board` is valid now; without `group_by` the board is a
+    // broken `group_by` and shows as a List.
+    assert_eq!(r.def.as_ref().map(|d| d.view), Some(View::Board), "board is read (R185)");
+    assert!(!r.broken.iter().any(|b| b.key == "view"), "view is not broken");
     let run_r = run(&core, ZRUSENE, Some(PREHLED));
-    assert!(run_r.broken.iter().any(|b| b.reason == BrokenReason::BadValue && b.key == "view"), "the block names it");
+    assert!(run_r.broken.iter().any(|b| b.reason == BrokenReason::BadValue && b.key == "group_by"), "the block names group_by (D-1807)");
+    assert!(run_r.group.is_none(), "no lanes: shown as a List");
     ok!(commit(&core, ZRUSENE, NOW, |d| d.limit = 20), "commit limit 20");
     let want = swapped(&start, &[("limit: 50", "limit: 20"), ("modified: 2026-10-09T09:00:00+02:00", &format!("modified: {NOW}"))]);
     assert_eq!(disk_s(&root, &qpath(ZRUSENE)), Some(want), "`view: board` kept in the file");

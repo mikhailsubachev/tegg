@@ -505,29 +505,97 @@
       "page": "page-related",
       "title": "Related notes (dark)"
     },
-    "ObjectPreview.dc.html": {
-      "h": 3480,
-      "page": "page-previews",
-      "title": "Object preview · states (slice P, D-921)",
-      "w": 1760,
-      "x": 0,
-      "y": 0
-    },
-    "ObjectPreviewDark.dc.html": {
-      "h": 3480,
-      "page": "page-previews",
-      "title": "Object preview · states (dark)",
-      "w": 1760,
-      "x": 1840,
-      "y": 0
-    },
-    "NewObjectPicker.dc.html": {
-      "h": 1240,
+    "Views.dc.html": {
+      "h": 3680,
       "w": 1680,
       "x": 0,
       "y": 0,
-      "page": "page-new-object",
-      "title": "New object · type picker (proposal)"
+      "page": "page-views",
+      "title": "Views on a type page (FR-QRY-07, slice Q2)"
+    },
+    "ViewsDark.dc.html": {
+      "h": 3680,
+      "w": 1680,
+      "x": 1760,
+      "y": 0,
+      "page": "page-views",
+      "title": "Views on a type page (dark)"
+    },
+    "ViewsApp.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "w": 1440,
+      "x": 0,
+      "y": 3760,
+      "is_interactive": true,
+      "page": "page-views",
+      "title": "Books type page with views · full app (main navigation)"
+    },
+    "ViewsAppDark.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "w": 1440,
+      "x": 1520,
+      "y": 3760,
+      "is_interactive": true,
+      "page": "page-views",
+      "title": "Books type page with views · full app (dark)"
+    },
+    "TasksQSchedule.dc.html": {
+      "expand": "fill",
+      "h": 1560,
+      "w": 1440,
+      "x": 0,
+      "y": 0,
+      "is_interactive": true,
+      "page": "page-tasks-schedule",
+      "title": "Tasks · Schedule as a query view · full app"
+    },
+    "TasksQScheduleDark.dc.html": {
+      "expand": "fill",
+      "h": 1560,
+      "w": 1440,
+      "x": 1520,
+      "y": 0,
+      "is_interactive": true,
+      "page": "page-tasks-schedule",
+      "title": "Tasks · Schedule as a query view (dark)"
+    },
+    "TasksQSpec.dc.html": {
+      "h": 1320,
+      "w": 1680,
+      "x": 0,
+      "y": 1660,
+      "page": "page-tasks-schedule",
+      "title": "Tasks · Schedule and Kanban as saved queries (spec)"
+    },
+    "TasksQSpecDark.dc.html": {
+      "h": 1320,
+      "w": 1680,
+      "x": 1760,
+      "y": 1660,
+      "page": "page-tasks-schedule",
+      "title": "Tasks · Schedule and Kanban as saved queries (dark)"
+    },
+    "TasksQKanban.dc.html": {
+      "expand": "fill",
+      "h": 1210,
+      "w": 1440,
+      "x": 0,
+      "y": 0,
+      "is_interactive": true,
+      "page": "page-tasks-kanban",
+      "title": "Tasks · Kanban as a query view · full app"
+    },
+    "TasksQKanbanDark.dc.html": {
+      "expand": "fill",
+      "h": 1210,
+      "w": 1440,
+      "x": 1520,
+      "y": 0,
+      "is_interactive": true,
+      "page": "page-tasks-kanban",
+      "title": "Tasks · Kanban as a query view (dark)"
     }
   },
   "createdOnFiles": {
@@ -598,9 +666,16 @@
     "OutlineArchiveDark.dc.html",
     "Related.dc.html",
     "RelatedDark.dc.html",
-    "ObjectPreview.dc.html",
-    "ObjectPreviewDark.dc.html",
-    "NewObjectPicker.dc.html"
+    "Views.dc.html",
+    "ViewsDark.dc.html",
+    "ViewsApp.dc.html",
+    "ViewsAppDark.dc.html",
+    "TasksQSchedule.dc.html",
+    "TasksQScheduleDark.dc.html",
+    "TasksQSpec.dc.html",
+    "TasksQSpecDark.dc.html",
+    "TasksQKanban.dc.html",
+    "TasksQKanbanDark.dc.html"
   ],
   "pages": [
     {
@@ -652,16 +727,20 @@
       "name": "Related"
     },
     {
+      "id": "page-views",
+      "name": "Views"
+    },
+    {
+      "id": "page-tasks-schedule",
+      "name": "Tasks · Schedule (views)"
+    },
+    {
+      "id": "page-tasks-kanban",
+      "name": "Tasks · Kanban (views)"
+    },
+    {
       "id": "page-outline-archive",
       "name": "_Archive"
-    },
-    {
-      "id": "page-previews",
-      "name": "Object preview (P)"
-    },
-    {
-      "id": "page-new-object",
-      "name": "New object (type picker)"
     }
   ],
   "title": "Tegg – Edit note page"

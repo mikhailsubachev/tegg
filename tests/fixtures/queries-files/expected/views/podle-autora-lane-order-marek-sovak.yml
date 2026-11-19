@@ -1,0 +1,14 @@
+# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Podle autora.
+version: 1
+title: Podle autora
+types: [book]
+match: all
+filters: []
+sort: { by: title, order: asc }
+limit: 50
+view: board
+group_by: author
+lane_order: ["[[Marek Sovák]]", "[[Eva Lindová]]"]
+columns: [rating, genres]
+created: 2026-10-12T20:00:00+02:00
+modified: 2026-10-12T20:00:00+02:00

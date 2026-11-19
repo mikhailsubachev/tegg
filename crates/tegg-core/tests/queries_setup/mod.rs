@@ -13,7 +13,7 @@ use chrono::{NaiveDate, Weekday};
 use serde_json::{json, Value};
 
 use crate::common::{repo_root, Sandbox};
-use tegg_core::queries_q::{FilterItem, Match, Op, Order, QueryDef, QueryEnv, QueryResult, Sort, View};
+use tegg_core::queries_q::{FilterItem, Lanes, Match, Op, Order, QueryDef, QueryEnv, QueryResult, Sort, View};
 use tegg_core::{Core, CoreOptions};
 
 pub const NOW: &str = "2026-11-10T10:00:00+01:00";
@@ -238,14 +238,17 @@ pub fn def(types: &[&str], filters: Vec<FilterItem>) -> QueryDef {
         types: types.iter().map(|s| s.to_string()).collect(),
         r#match: Match::All,
         filters,
-        sort: Sort { by: "modified".into(), order: Order::Desc },
+        sort: vec![Sort { by: "modified".into(), order: Order::Desc }],
         limit: 50,
         view: View::List,
+        group_by: None,
+        lanes: Lanes::Vertical,
+        lane_order: None,
         columns: vec!["type".into(), "modified".into()],
     }
 }
 pub fn sorted(mut d: QueryDef, by: &str, order: Order) -> QueryDef {
-    d.sort = Sort { by: by.into(), order };
+    d.sort = vec![Sort { by: by.into(), order }];
     d
 }
 /// The definition with every `src` dropped (what the file says, not where it came from).
@@ -322,7 +325,7 @@ pub fn def_dto(d: &QueryDef) -> Value {
         "types": d.types,
         "match": if d.r#match == Match::Any { "any" } else { "all" },
         "filters": d.filters.iter().map(item_dto).collect::<Vec<_>>(),
-        "sort": { "by": d.sort.by, "order": if d.sort.order == Order::Desc { "desc" } else { "asc" } },
+        "sort": { "by": d.sort[0].by, "order": if d.sort[0].order == Order::Desc { "desc" } else { "asc" } },
         "limit": d.limit,
         "view": if d.view == View::Table { "table" } else { "list" },
         "columns": d.columns,

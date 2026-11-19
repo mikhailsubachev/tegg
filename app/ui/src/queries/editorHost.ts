@@ -30,6 +30,10 @@ export type EditorRequest = {
   onDraftDrop?: () => void;
   /** The editor closed (after any commit). */
   onClosed?: () => void;
+  /** Slice Q2 (R189): opened from a view tab: the type is fixed (no `Remove`, no `Type`), with the `fixed:` hint. */
+  fixedType?: { key: string; plural: string };
+  /** Slice Q2 (D-1781): a `New view` draft: Esc with no change drops it; `Done` (changed or not) or a change commits. */
+  viewDraft?: boolean;
 };
 
 let current: EditorRequest | null = null;

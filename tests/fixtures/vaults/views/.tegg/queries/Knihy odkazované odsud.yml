@@ -1,0 +1,13 @@
+# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Knihy odkazované odsud.
+version: 1
+title: Knihy odkazované odsud
+types: [book]
+match: all
+filters:
+  - linked_from: this
+sort: { by: title, order: asc }
+limit: 50
+view: list
+columns: [author, status]
+created: 2026-09-25T20:00:00+02:00
+modified: 2026-09-25T20:00:00+02:00

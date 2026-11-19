@@ -481,12 +481,9 @@ test('fr_ux_02_ac17_type_page_lists_sorted_rows_and_opens_them', async ({ page }
   await rows(page).filter({ hasText: 'Nápad na čtvrtek' }).first().focus();
   await page.keyboard.press('Enter');
   await mustBeOn(page, 'Nápad na čtvrtek', 'row ⏎');
-  // R3 controls on the type page (types.md R3 changes) and Type settings (built in 3D).
+  // R3 controls on the type page (types.md R3 changes) and Type settings (built in 3D). Slice Q2 (AP-1517) removed the
+  // type page's `Filter`, `Group` and `Add view` rows from R3: views are built (FR-QRY-07 AC-17).
   await gotoType(page, 'Quick Notes');
-  for (const label of ['Filter', 'Group', 'Add view']) {
-    const c = page.getByRole('main').locator(`[aria-disabled="true"]`).filter({ hasText: label }).or(page.getByRole('main').locator(`[aria-disabled="true"][aria-label="${label}"]`));
-    assert.ok(await seen(c, 1000), `${label} is a disabled control`);
-  }
   await page.getByRole('main').getByRole('button', { name: 'Type settings' }).or(page.getByRole('main').getByRole('link', { name: 'Type settings' })).first().click();
   assert.ok(await seen(page.getByRole('heading', { level: 1, name: 'Quick Note type settings' })), 'type-settings/quick-note (built)');
   assert.equal(await core.writes(), 0);

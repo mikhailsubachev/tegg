@@ -120,6 +120,17 @@ export type ShellActions = {
   toggleOutlineRail?: () => void;
   /** Slice I2 (v1-import-window §4.2): shows the Import window (brings it forward, or a new one at step 0). */
   openImport?: () => void;
+  /** Slice Q2 (v1-views §4.7, D-1771, D-1789): set by `TypeViews`, `QueryPage` and a selected `QueryBlock`. */
+  views?: { status(): ViewsStatus | null; run(id: string): void };
+};
+
+/** Slice Q2 (v1-views §4.7): what the view, sort and board commands depend on. */
+export type ViewsStatus = {
+  /** `writable`: the type file can be written (tab changes); `viewWritable`: the shown query can be (sort, lanes);
+   *  missing = `writable`. */
+  typeKey: string | null; tab: string | null; writable: boolean; viewWritable?: boolean;
+  board: { lanes: 'vertical' | 'horizontal'; laneOrder: boolean; cardFocused: boolean; laneFocused: boolean } | null;
+  sortable: boolean;
 };
 
 /** Slice G1 and G3 (v1-graph §4, §16.3): the graph route's commands, run by the shown graph page. */
@@ -170,13 +181,8 @@ const shortcutOf = (id: string) => SHORTCUTS.find((s) => s.command === id)?.keys
 export const CONTROL_COMMANDS: Record<string, string> = {
   'ctl.newTab': 'nav.newTab',
   'ctl.copyBlockLink': 'edit.copyBlockLink',
-  'ctl.filter': 'typePage.filter',
-  'ctl.group': 'typePage.group',
-  'ctl.addView': 'typePage.addView',
   'ctl.newTemplate': 'typeSettings.newTemplate',
   'ctl.editTemplate': 'typeSettings.editTemplate',
-  'ctl.addViewSettings': 'typeSettings.addView',
-  'ctl.editView': 'typeSettings.editView',
   'ctl.rowRecurrence': 'panel.editRecurrence',
   'ctl.font': 'settings.font',
   'ctl.fontSize': 'settings.fontSize',
@@ -312,6 +318,28 @@ export function commands(ctx: ShellContext): Command[] {
         { id: 'query.rename', title: 'cmd.renameQuery', section: 'edit', needsVault: true, disabled: readOnly, run: (c) => a(c)?.renameQuery?.() },
         { id: 'query.trash', title: 'cmd.trashQuery', section: 'edit', needsVault: true, disabled: () => null, run: (c) => a(c)?.trashQuery?.() },
       );
+    }
+  }
+  // Slice Q2 (R191, v1-views §4.7; D-1771 no shortcut): listed by the shown view, query page or selected block.
+  const va = a(ctx)?.views;
+  const vs = typeof va?.status === 'function' ? va.status() : null;
+  if (vs) {
+    const vr = (id: string) => (c: ShellContext) => a(c)?.views?.run(id);
+    const cmd = (id: string, title: string, section: Command['section'] = 'view'): Command => ({ id, title, section, needsVault: true, run: vr(id) });
+    const onType = ctx.route?.id === 'type/<type>' && vs.typeKey !== null;
+    if (onType && vs.writable) list.push(cmd('views.new', 'cmd.newView', 'create'));
+    if (onType && vs.tab !== null) list.push(cmd('views.edit', 'cmd.editView'));
+    if (onType) list.push(cmd('views.next', 'cmd.nextView'), cmd('views.previous', 'cmd.previousView'));
+    if (onType && vs.tab !== null && vs.writable) list.push(cmd('views.moveLeft', 'cmd.moveViewLeft'), cmd('views.moveRight', 'cmd.moveViewRight'));
+    const b = vs.board;
+    const vw = vs.viewWritable ?? vs.writable;
+    if (b && vw) list.push(cmd('board.switchLanes', 'cmd.switchLanes'));
+    if (vs.sortable && vw) list.push(cmd('sort.addLevel', 'cmd.addSortLevel'));
+    if (b && b.laneOrder && vw) list.push(cmd('board.resetLaneOrder', 'cmd.resetLaneOrder'));
+    if (b && b.cardFocused) list.push(cmd('board.cardNext', 'cmd.cardNext'), cmd('board.cardPrevious', 'cmd.cardPrevious'));
+    if (b && (b.cardFocused || b.laneFocused)) {
+      if (b.lanes === 'vertical') list.push(cmd('board.laneLeft', 'cmd.laneLeft'), cmd('board.laneRight', 'cmd.laneRight'));
+      else list.push(cmd('board.laneUp', 'cmd.laneUp'), cmd('board.laneDown', 'cmd.laneDown'));
     }
   }
   if (ctx.route?.id === 'duplicate-titles') {

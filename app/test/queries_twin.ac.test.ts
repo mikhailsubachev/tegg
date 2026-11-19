@@ -28,7 +28,8 @@ test('fr_fmt_06_ac4_fence_is_yaml_and_code', async () => {
   // Every query file of the fixture and of expected/ parses with the yaml package (YAML 1.2), except Nečitelný.
   const yml = [
     ...Object.keys(files).filter((p) => p.endsWith('.yml') && p.includes('.tegg/queries/') && !p.endsWith('Nečitelný.yml')).map((p) => [p, files[p]] as const),
-    ...readdirSync(join(QFX, 'expected')).map((n) => [`expected/${n}`, expectedFile(n)] as const),
+    // Files only: expected/views/ holds slice Q2's expected bytes (views.md, D-1814).
+    ...readdirSync(join(QFX, 'expected'), { withFileTypes: true }).filter((d) => d.isFile()).map((d) => [`expected/${d.name}`, expectedFile(d.name)] as const),
   ];
   for (const [p, t] of yml) {
     const y = parseYaml(t) as Record<string, unknown>;

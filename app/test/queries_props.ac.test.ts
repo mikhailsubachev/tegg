@@ -85,7 +85,7 @@ function apply(d: QueryDefDto, x: Edit): { def: QueryDefDto; keys: string[] } {
     case 'match': return { def: { ...d, match: d.match === 'all' ? 'any' : 'all' }, keys: ['match'] };
     case 'types': return { def: { ...d, types: [...d.types, 'osoba'] }, keys: ['types'] };
     case 'columns': return { def: { ...d, columns: [...d.columns, 'modified'] }, keys: ['columns'] };
-    case 'order': return { def: { ...d, sort: { ...d.sort, order: d.sort.order === 'asc' ? 'desc' : 'asc' } }, keys: ['sort'] };
+    case 'order': return { def: { ...d, sort: d.sort.map((l, i) => (i === 0 ? { ...l, order: l.order === 'asc' ? 'desc' : 'asc' } : l)) }, keys: ['sort'] };
     case 'add': return { def: { ...d, filters: [...d.filters, { kind: 'filter', key: 'rozpočet', op: 'gt', value: x.v, src: null }] }, keys: ['filters'] };
     case 'removeLast': return d.filters.length ? { def: { ...d, filters: d.filters.slice(0, -1) }, keys: ['filters'] } : { def: d, keys: [] };
   }

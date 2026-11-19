@@ -48,6 +48,12 @@ export type UiStateDto = {
   noteWidth?: Record<string, 'normal' | 'wide'>;
   /** Slice P (v1-previews §1, D-922, D-923): the Object preview setting and the last popover size. */
   preview?: { mode?: 'click' | 'hover' | 'off'; hoverDelay?: number; width?: number; height?: number };
+  /** Slice Q2 (v1-views §4.7): the remembered view tab per type key (null = `All <plural>`). */
+  typeViews?: { lastTab?: Record<string, string | null> };
+  /** Slice Q2 (v1-views §4.7, D-1767): column widths per saved query name, then column key. */
+  queryColumnWidths?: Record<string, Record<string, number>>;
+  /** Slice Q2 (v1-views §4.7): the folded lane ids of a horizontal board per saved query name. */
+  boardFolded?: Record<string, string[]>;
 };
 /** ms5-capture §1.6, §5.2 (5B). */
 export type HotkeyStateDto = { id: 'quick-capture' | 'new-task'; keys: string; state: 'active' | 'taken' };
@@ -191,6 +197,9 @@ export type FakeCoreHandle = FakeImportHandle & {
   /** While on, `query_run` answers `indexReady: false` with no rows (the first index build runs); turning it off emits
    *  `index:progress` with `state: 'done'`. */
   queriesNotReady(on: boolean): Promise<void>;
+  // ---------------------------------------------------------------- slice Q2 (v1-views §5)
+  /** The `perf_mark` calls in order (`board-request`, `board-ready`, `board-card-moved`, …), each with its page time. */
+  perfMarks(): Promise<{ name: string; at: number; ms?: number }[]>;
   // ---------------------------------------------------------------- slice REL (v1-related §6)
   /** The `index_related` calls in order, each with its arguments and when it was asked (`calls()` has them too). */
   relatedCalls(): Promise<{ path: string; showLinked: boolean; at: number }[]>;
@@ -507,6 +516,9 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
     queryRuns: () => ev(() => (window as any).__teggFake.calls.filter((c: any) => c.cmd === 'query_run')
       .map((c: any) => ({ source: c.args?.source ?? null, host: c.args?.host ?? null, env: c.args?.env ?? null, at: c.at }))),
     queriesFail: (cmd, kind) => page.evaluate(([c, k]) => { const f = (window as any).__teggFake; (f.queriesFail ??= {})[c] = k; }, [cmd, kind] as const).then(() => undefined),
+    // Slice Q2 (v1-views §5).
+    perfMarks: () => ev(() => (window as any).__teggFake.calls.filter((c: any) => c.cmd === 'perf_mark')
+      .map((c: any) => ({ name: String(c.args?.name ?? ''), at: c.at, ...(typeof c.args?.ms === 'number' ? { ms: c.args.ms } : {}) }))),
     // Slice I2 (v1-import-window §7.2).
     importCalls: () => ev(() => (window as any).__teggFake.calls.filter((c: any) => String(c.cmd).startsWith('import_')).map((c: any) => ({ cmd: c.cmd, args: c.args }))),
     importPace: (ms) => page.evaluate((m) => { (window as any).__teggFake.importState.pace = m; }, ms),
@@ -583,6 +595,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     'pins_get', // slice PIN (v1-pinned §2): read-only
     'index_related', // slice REL (v1-related §2, §6): read-only, no recency
     'queries_list', 'query_get', 'query_run', 'query_usages', // slice Q (v1-queries §2): read-only
+    'query_view_usages', // slice Q2 (v1-views §2): read-only
     'index_path_by_id', // slice P (v1-previews §2): read-only
     'nav_swipe_scroll', // D-1511 (ms3-shell §12.2): reads the macOS setting
   ]);
@@ -2031,10 +2044,13 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       await x.querySeed?.();
       const r = await viaQueries('query_run', { source: a.source, host: a.host ?? null, env: a.env });
       const { _path, ...res } = r.result as any;
-      if (x.queriesNotReady) return { ...res, indexReady: false, rows: [], total: 0 };
-      return { ...res, version: _path ? state.ver(_path) : null };
+      if (x.queriesNotReady) return { ...res, indexReady: false, rows: [], total: 0, group: null };
+      // Slice Q2 (v1-views §1.1): each row's version (the card move's base) and whether its bytes were valid UTF-8.
+      const rows = (res.rows ?? []).map((r: any) => ({ ...r, version: state.ver(r.path), readOnly: r.path in state.invalid }));
+      return { ...res, rows, version: _path ? state.ver(_path) : null };
     },
     query_usages: async (a) => (await viaQueries('query_usages', { name: a.name })).result,
+    query_view_usages: async (a) => (await viaQueries('query_view_usages', { name: a.name })).result,
     query_apply: async (a) => {
       qFail('query_apply');
       await qBase(String(a.name), a.base);
@@ -2095,6 +2111,10 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         await progress('writing', 0, total);
         await jobs.hold('writing');
         if (files[plan.from] !== plan.pre) { report.skipped.push({ path: plan.from, reason: files[plan.from] === undefined ? 'missing' : 'changed' }); await finish('failed', total, zip, 'QueryChanged'); return; }
+        // Slice Q2 (v1-views §1.10, FR-LNK-03 AC-24): a type file changed since the scan stops the job before any write.
+        const viewRows = (plan.views ?? []) as { path: string; pre: string; post: string }[];
+        const movedType = viewRows.find((v) => files[v.path] !== v.pre);
+        if (movedType) { report.skipped.push({ path: movedType.path, reason: files[movedType.path] === undefined ? 'missing' : 'changed' }); await finish('failed', total, zip, 'TypeChanged'); return; }
         if (plan.to !== plan.from) { moveRaw(plan.from, plan.to, plan.post, null); report.renamed = { from: plan.from, to: plan.to }; } else jobs.write(plan.from, plan.post);
         report.written.push(plan.to);
         undo.push({ before: plan.from, after: plan.to, pre: plan.pre, post: plan.post, direct: true });
@@ -2115,6 +2135,13 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
             else { jobs.write(p, out); report.written.push(p); undo.push({ before: p, after: p, pre: cur, post: out, direct: true }); }
           }
           await progress('writing', ++n, total);
+        }
+        // Slice Q2 (v1-views §1.10, D-1762): the type files' `views:` lines, after the usages and before the pins.
+        for (const v of viewRows) {
+          if (files[v.path] !== v.pre) { report.skipped.push({ path: v.path, reason: 'changed' }); continue; }
+          jobs.write(v.path, v.post);
+          report.written.push(v.path);
+          undo.push({ before: v.path, after: v.path, pre: v.pre, post: v.post, direct: true });
         }
         // v1-pinned §1.9 `QueryRenamed`: the pins file's `query:` items of the old name, last.
         const PIN = '.tegg/pinned.yml';

@@ -1452,6 +1452,11 @@ impl Inner {
             run.skip(&f.path, SkipReason::Changed);
             return Err(format!("Changed: {}", f.path));
         }
+        // v1-views §1.10: a type file whose version changed since the scan stops the job before any write, too.
+        if let Some(v) = q.views.iter().find(|v| !unchanged(&v.path, &v.pre_v)) {
+            run.skip(&v.path, SkipReason::Changed);
+            return Err(format!("Changed: {}", v.path));
+        }
         self.point(run.id, JobPoint::AfterRead { path: q.from.clone() });
         let post_v = host.rename(&q.from, &q.to, &q.post, &q.pre_v).map_err(|e| format!("{e:?}"))?;
         run.renamed = Some((q.from.clone(), q.to.clone()));
@@ -1462,6 +1467,23 @@ impl Inner {
         for (i, f) in plan.files.iter().enumerate() {
             self.write_one(run, f);
             self.step(run.id, i + 2);
+        }
+        // v1-views §1.10 (D-1762): the type files' `views:` entries, as direct rows (byte rows of the undo record), then
+        // the pins last.
+        let mut types_written = false;
+        for v in &q.views {
+            match host.write(&v.path, &v.post, &v.pre_v) {
+                Ok(Wrote::Written(post_v)) => {
+                    run.written.push(v.path.clone());
+                    run.undo.files.push(Written { before: v.path.clone(), after: v.path.clone(), pre: v.pre.clone(), pre_v: v.pre_v.clone(), post: v.post.clone(), post_v, via_op: false, direct: true, trashed: None });
+                    types_written = true;
+                }
+                Ok(Wrote::Unchanged) => {}
+                Err(e) => run.skip(&v.path, write_reason(&e)),
+            }
+        }
+        if types_written {
+            host.types_changed();
         }
         self.write_pins(run, &[PinPatch::QueryRenamed { from: q.from_name, to: q.to_name }], false);
         Ok(())

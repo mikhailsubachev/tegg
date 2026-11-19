@@ -1,0 +1,15 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Autor
+plural: Autoři
+system: false
+folder: Autoři
+icon: user
+color: blue
+review: false
+preview: [poznámka]
+views: [New view]
+attributes:
+  - key: poznámka
+    name: Poznámka
+    type: text

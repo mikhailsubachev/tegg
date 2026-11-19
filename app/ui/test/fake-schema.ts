@@ -12,7 +12,7 @@ const REPO = resolve(import.meta.dirname, '../../..');
 const SYSTEM = ['page', 'task', 'quick-note', 'daily-note', 'tag', 'image', 'pdf'];
 const R10 = ['text', 'long-text', 'number', 'checkbox', 'date', 'date-time', 'date-range', 'select', 'multi-select', 'url', 'email', 'relation'];
 const UNIVERSAL_PREVIEW = ['tags', 'source', 'aliases', 'created', 'modified'];
-const TOP = ['version', 'name', 'plural', 'system', 'folder', 'icon', 'color', 'description', 'review', 'preview', 'hidden', 'columns', 'embed', 'template', 'attributes'];
+const TOP = ['version', 'name', 'plural', 'system', 'folder', 'icon', 'color', 'description', 'review', 'preview', 'hidden', 'columns', 'views', 'embed', 'template', 'attributes'];
 /** R31 (D-417): the built-in default embed mode of a type key. */
 const defaultEmbed = (key: string) => (['page', 'quick-note', 'daily-note'].includes(key) ? 'full' : 'card');
 const embedMode = (raw: unknown): string | null => { const m = typeof raw === 'string' ? raw.trim().toLowerCase() : ''; return ['full', 'card', 'link'].includes(m) ? m : null; };
@@ -60,6 +60,7 @@ export function readType(key: string, text: string, exists: boolean, version: Ve
   const base: TypeDto = {
     key, name: key, plural: key, folder: key, icon: 'file-text', color: 'gray', system, invalid: false, exists, version,
     state: 'ok', error: null, declaredVersion: null, description: null, review: 'off', preview: [], previewIgnored: [], hidden: [], columns: null, columnsIgnored: [], columnsUnreadable: false, embed: defaultEmbed(key), embedRaw: null, template: null, attributes: [],
+    views: null, viewsUnreadable: false,
   };
   const invalid = (message: string, line: number) => ({ ...base, invalid: true, state: 'invalid', error: { message, line } });
   const d = parseDocument(text, { prettyErrors: false });
@@ -109,7 +110,16 @@ export function readType(key: string, text: string, exists: boolean, version: Ve
     // 4F (D-417, ms4-embeds §3): the raw value and the effective mode.
     embed: embedMode(y.embed) ?? defaultEmbed(key), embedRaw: y.embed === undefined || y.embed === null || String(y.embed).trim() === '' ? null : String(y.embed).trim(),
     template: y.template ?? null, attributes,
+    // Slice Q2 (v1-views §1.3, R184): `views` as written (NFC); a value that isn't a list of strings reads as absent.
+    ...viewsOf(y),
   };
+}
+
+function viewsOf(y: any): { views: string[] | null; viewsUnreadable: boolean } {
+  const v = y.views;
+  if (v === undefined || v === null) return { views: null, viewsUnreadable: false };
+  const ok = Array.isArray(v) && v.every((x: unknown) => typeof x === 'string');
+  return ok ? { views: (v as string[]).map(nfc), viewsUnreadable: false } : { views: null, viewsUnreadable: true };
 }
 
 const UNIVERSAL_COLUMNS = ['tags', 'source', 'aliases', 'review', 'created', 'modified'];
@@ -163,6 +173,8 @@ function scalar(v: unknown): string {
   return JSON.stringify(s);
 }
 const flow = (xs: string[]) => `[${xs.map(scalar).join(', ')}]`;
+/** D-230 inside a flow list: plain only when it can't end or split the list (`Čtu, až bude čas` is quoted). */
+const flowItem = (v: string) => { const q = scalar(v); return q.startsWith('"') || !/[,[\]{}]/.test(q) ? q : JSON.stringify(nfc(v)); };
 const optionLine = (o: { label: string; color: string | null; state?: string | null }) => `      - { label: ${scalar(o.label)}${o.state ? `, state: ${o.state}` : ''}${o.color ? `, color: ${o.color}` : ''} }\n`;
 
 type Entry = { key: string | null; lines: string[] };
@@ -273,6 +285,14 @@ async function patchText(key: string, text: string, ops: any[], t: TypeDto, all:
       if (t.columnsUnreadable) return rule({ reason: 'columnsUnreadable' });
       if (t.columns && JSON.stringify(op.keys) === JSON.stringify(t.columns)) continue;
       setTop(es, 'columns', `columns: ${flow(op.keys.map((k: string) => k.normalize('NFC')))}\n`);
+    } else if (op.op === 'views') {
+      // Slice Q2 (v1-views §1.3, D-1803): one flow line in NFC at its TOP place (a block list becomes that line, `[]`
+      // after the last removal); an unreadable value is refused; the same list on an existing key is no write.
+      if (t.viewsUnreadable) return rule({ reason: 'viewsUnreadable' });
+      const names: string[] = (op.names ?? []).map((n: string) => nfc(String(n)));
+      if (t.views && JSON.stringify(names) === JSON.stringify(t.views)) continue;
+      const eol = /\r\n/.test(text) ? '\r\n' : '\n';
+      setTop(es, 'views', `views: [${names.map(flowItem).join(', ')}]${eol}`);
     } else if (op.op === 'embed') {
       // D-417: the same value (any case) is no write; otherwise the line is replaced or inserted after hidden/preview.
       if (String(t.embedRaw ?? '').toLowerCase() === op.mode) continue;
@@ -383,6 +403,49 @@ async function patchText(key: string, text: string, ops: any[], t: TypeDto, all:
     out = lines.join('');
   }
   return { text: out };
+}
+
+/** v1-views §1.3 `rename_view` (the query rename job's patch): every `views:` entry whose name key (trimmed, NFC, lower
+ *  case) is `from`'s gets `to` in place (D-230 quoting), flow or block style kept, every other byte kept; null when
+ *  nothing matches, `views` is absent or unreadable, or the file is newer or invalid. */
+export function renameView(key: string, text: string, from: string, to: string): string | null {
+  const t = readType(key, text, true, null);
+  if (t.state !== 'ok' || t.viewsUnreadable || !t.views) return null;
+  const nk = (v: string) => nfc(v.trim()).toLowerCase();
+  const hit = (src: string) => { try { const v = parseYaml(`x: [${src}]`)?.x; return Array.isArray(v) && v.length === 1 && typeof v[0] === 'string' && nk(v[0]) === nk(from); } catch { return false; } };
+  const es = entries(text);
+  const e = es.find((x) => x.key === 'views');
+  if (!e) return null;
+  let changed = false;
+  const flowM = /^(views:[ \t]*\[)(.*)(\].*)$/s.exec(e.lines[0]);
+  if (e.lines.length === 1 && flowM) {
+    const parts: string[] = [];
+    let cur = '', q: string | null = null;
+    for (let i = 0; i < flowM[2].length; i++) {
+      const c = flowM[2][i];
+      if (q) { cur += c; if (c === q && !(q === '"' && flowM[2][i - 1] === '\\')) q = null; continue; }
+      if (c === '"' || c === "'") { q = c; cur += c; continue; }
+      if (c === ',') { parts.push(cur); cur = ''; continue; }
+      cur += c;
+    }
+    parts.push(cur);
+    const out = parts.map((part) => {
+      const m = /^(\s*)(.*?)(\s*)$/s.exec(part)!;
+      if (!m[2] || !hit(m[2])) return part;
+      changed = true;
+      return m[1] + flowItem(to) + m[3];
+    });
+    e.lines[0] = flowM[1] + out.join(',') + flowM[3];
+  } else {
+    e.lines = e.lines.map((l, i) => {
+      if (i === 0) return l;
+      const m = /^(\s*-[ \t]+)(.*?)([ \t]+#.*)?(\r?\n)?$/s.exec(l);
+      if (!m || !hit(m[2])) return l;
+      changed = true;
+      return m[1] + scalar(to) + (m[3] ?? '') + (m[4] ?? '');
+    });
+  }
+  return changed ? join_(es) : null;
 }
 
 function newTypeFile(name: string, plural: string, folder?: string): string {

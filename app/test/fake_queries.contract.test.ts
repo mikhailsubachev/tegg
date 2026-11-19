@@ -20,6 +20,8 @@ function expectedJson(): any {
   assert.ok(existsSync(EXPECTED), 'tests/fixtures/queries-files/expected.json exists (L3, contract §6.2)');
   return JSON.parse(readFileSync(EXPECTED, 'utf8'));
 }
+/** expected.json keeps slice Q's DTO shape (D-1814): the first sort level, no Q2 keys; as the Rust reader's `def_dto`. */
+const sliceQDef = ({ groupBy: _g, lanes: _l, laneOrder: _o, ...d }: QueryDefDto) => ({ ...d, sort: d.sort[0] });
 const files = queriesVault();
 const types = listTypes(files, {});
 const cols = columnsDefault(types);
@@ -35,7 +37,7 @@ test('the twin reads every query file as expected.json', () => {
   for (const [path, want] of Object.entries(ex.reads as Record<string, any>)) {
     assert.ok(files[path] !== undefined, `${path} is a fixture file`);
     const r = queryRead(files[path], true, stem(path), cols);
-    const got = { state: r.state, line: r.line, def: r.state === 'unreadable' ? null : r.def, broken: r.broken, usesThis: r.usesThis };
+    const got = { state: r.state, line: r.line, def: r.state === 'unreadable' ? null : sliceQDef(r.def), broken: r.broken, usesThis: r.usesThis };
     if (JSON.stringify(got) !== JSON.stringify(want)) bad.push(`${path}\n  want ${JSON.stringify(want)}\n  got  ${JSON.stringify(got)}`);
   }
   assert.deepEqual(bad, [], 'the twin reads every query file as expected.json');
@@ -92,7 +94,7 @@ test('the twin gives R146', async () => {
   assert.deepEqual([broken.form, broken.line], ['unreadable', 1], 'the inline fence with invalid YAML: unreadable (line 1)');
   const empty = await fence('');
   assert.equal(empty.form, 'empty', 'an empty fence is the empty draft');
-  const all = await queryRun({ kind: 'def', def: { title: 'Vše', types: [], match: 'all', filters: [], sort: { by: 'title', order: 'asc' }, limit: 50, view: 'list', columns: ['type', 'modified'] }, name: null }, null, CS, files, types);
+  const all = await queryRun({ kind: 'def', def: { title: 'Vše', types: [], match: 'all', filters: [], sort: [{ by: 'title', order: 'asc' }], limit: 50, view: 'list', groupBy: null, lanes: 'vertical', laneOrder: null, columns: ['type', 'modified'] }, name: null }, null, CS, files, types);
   assert.deepEqual(all.rows.map((x) => x.path).sort(), [...ALL_OBJECTS].sort(), 'no types and no filters: the 21 objects (FR-QRY-01 AC-1)');
 });
 
@@ -119,7 +121,7 @@ test('commits give komentare-after-*.yml', () => {
 });
 
 test('New query gives created*.yml', async () => {
-  const def = (title: string): QueryDefDto => ({ title, types: [], match: 'all', filters: [], sort: { by: 'modified', order: 'desc' }, limit: 50, view: 'list', columns: ['type', 'modified'] });
+  const def = (title: string): QueryDefDto => ({ title, types: [], match: 'all', filters: [], sort: [{ by: 'modified', order: 'desc' }], limit: 50, view: 'list', groupBy: null, lanes: 'vertical', laneOrder: null, columns: ['type', 'modified'] });
   assert.equal(queryCreateText(def('Úkoly na víkend'), NOW), expectedFile('created.yml'), 'created.yml');
   assert.equal(queryCreateText(def('A/B: plán?'), NOW), expectedFile('created-a-b-plan.yml'), 'created-a-b-plan.yml');
   const r = await handle('query_create', { title: 'A/B: plán?', def: null, fence: null, free: false, now: NOW }, files);

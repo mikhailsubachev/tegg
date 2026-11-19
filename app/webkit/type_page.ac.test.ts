@@ -18,7 +18,8 @@ test('fr_typ_09_ac1_header_icon_plural_description_count_and_buttons', async ({ 
   await gotoTypePage(page, S);
   await must(main(page).getByRole('heading', { level: 1, name: S, exact: true }), 'h1 Schůzky');
   assert.ok(await seen(main(page).getByText('Porady a schůzky.', { exact: true })), 'description');
-  assert.ok(await seen(main(page).getByText('3 objects', { exact: true })), 'count');
+  // D-1816 (slice Q2, views.md "Existing criteria this slice changes"): the count reads `<n> <plural>`, the plural as written.
+  assert.ok(await seen(main(page).getByText('3 Schůzky', { exact: true })), 'count');
   const icon = main(page).locator('[data-icon="users"]');
   assert.ok(await seen(icon), 'type icon users (R14)');
   const create = await must(main(page).getByRole('button', { name: 'New Schůzka', exact: true }), 'New Schůzka');
@@ -133,11 +134,10 @@ test('fr_typ_09_ac5_rows_open_with_keyboard_and_click', async ({ page }) => {
 test('fr_typ_09_ac8_later_controls_are_disabled_and_cells_not_editable', async ({ page }) => {
   await openTypes(page);
   await gotoTypePage(page, S);
-  for (const l of ['Filter', 'Group', 'Add view']) {
-    const b = await must(main(page).getByRole('button', { name: l, exact: true }), l);
-    assert.equal(await b.getAttribute('aria-disabled'), 'true', `${l} aria-disabled`);
-    assert.equal(await description(b), 'Coming in v1.0');
-  }
+  // Slice Q2 (FR-QRY-07 AC-1, AC-2, AC-17; AP-1517): tabs come from `views:`, `Add view` is built, `Filter` and `Group` left.
+  for (const l of ['Filter', 'Group']) assert.equal(await main(page).getByRole('button', { name: l, exact: true }).count(), 0, `no ${l}`);
+  const add = await must(main(page).getByRole('button', { name: 'Add view', exact: true }), 'Add view');
+  assert.notEqual(await add.getAttribute('aria-disabled'), 'true', 'Add view is built');
   const tabs = await must(main(page).getByRole('tablist', { name: 'Views' }), 'tablist Views');
   assert.deepEqual((await tabs.getByRole('tab').allInnerTexts()).map((t) => t.trim()), ['All Schůzky']);
   assert.equal(await tabs.getByRole('tab').getAttribute('aria-selected'), 'true');

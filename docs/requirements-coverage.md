@@ -343,7 +343,7 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-QRY-02 | M | Operators per attribute type: is/is not, contains, is empty/not empty, before/after/between, relative dates (t… | Query builder and views (§11) |
 | FR-QRY-03 | M | Context-aware filters: "links to *this note*", "source is *this note*", "created on *this daily note's date*".… | Query builder and views (§11) |
 | FR-QRY-04 | M | Cross-type queries through relations, one level deep: e.g. *Tasks whose source is a Meeting where attendees co… | Query builder and views (§11) |
-| FR-QRY-05 | M | Views: Table (editable cells write to frontmatter), List, Board (group by select), Calendar (by any date attri… | Query builder and views (§11) |
+| FR-QRY-05 | M | Views: Table (editable cells write to frontmatter), List, Board (group by a select, status, multi-select, tags… | Query builder and views (§11) |
 | FR-QRY-06 | M | Queries can be embedded in any note as a block (FR-FMT-06), or saved as a named query shown in the sidebar/Hom… | Query builder and views (§11) |
 | FR-QRY-07 | M | Each type has default views (FR-TYP-09); users can add more views per type (e.g. Books: "Currently reading" bo… | Query builder and views (§11) |
 | FR-QRY-08 | S | Creating an object from within a query view pre-fills the attributes that match the filters (e.g. a new card i… | Query builder and views (§11) |
@@ -393,7 +393,7 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-SET-07 | M | Object preview mode: click / hover / off (FR-LNK-12). | Object previews (§11), slice P: ACs `docs/acceptance/previews.md` (D-921…D-944) |
 | FR-UX-08 | S | Accessibility: VoiceOver labels on controls, sufficient contrast (WCAG AA), respects "Reduce motion". | D-87 (AP-34) |
 | FR-TAG-05 | M | The tag color is used wherever the tag appears: tag chips in the attribute panel, inline `#tags`, query views,… | D-370 moved it to v1.0; **D-707 (2026-10-22) brings it back to MS4 (4D-lite)**, graph nodes v1.0 (D-275); graph nodes: ACs `docs/acceptance/graph.md` FR-GRP-08, FR-TAG-05 AC-9 (G1) |
-| FR-TSK-06 | M | Calendar view (month/week) by due date. Dragging a task to another day changes its due date. Tasks without a d… | D-371: calendar after the daily-use point (5C or v1.0) |
+| FR-TSK-06 | C | Calendar view (month/week) by due date. Dragging a task to another day changes its due date. Tasks without a d… | D-371: calendar after the daily-use point; v1.x (D-1778) |
 | FR-HOM-02 | M | Pinned objects and saved queries can be added to Home and the sidebar. | D-376: with saved queries; sidebar only, Home dropped (D-800) |
 | FR-EDT-11 | S | Outline (table of contents) of the current note's headings in the side panel. | D-376 ; slice OL, ACs `docs/acceptance/outline.md` (D-1600…D-1627) |
 | FR-EDT-16 | S | Outline rail on the note's right edge; hover or ⌘J opens the outline card. | D-1600 (new, 2026-11-13); slice OL with FR-EDT-11 |

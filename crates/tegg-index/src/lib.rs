@@ -88,6 +88,11 @@ pub struct QueryObject<'a> {
     /// Each link that resolves to a note (D-291, from the note's own path): the frontmatter key it is in (None: the
     /// body) and the target's path. Self-links included.
     pub links: Vec<(Option<&'a str>, &'a str)>,
+    /// Slice Q2 (v1-views §1.6): the tags as written, aligned with `tags` (D-185).
+    pub tag_spellings: &'a [String],
+    /// Slice Q2 (v1-views §1.6): each frontmatter link (attribute key, target as written, the note it resolves to), in
+    /// file order, unresolved ones included.
+    pub attr_links: Vec<(&'a str, &'a str, Option<&'a str>)>,
 }
 
 /// Slice PIN (v1-pinned §1.3): `Index::pin_lookup`'s answer.
@@ -1699,6 +1704,20 @@ impl Index {
                             _ => None,
                         })
                         .collect();
+                    let attr_links = m
+                        .s
+                        .links
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(i, t)| {
+                            let attr = m.s.link_attrs.get(i).and_then(|a| a.as_deref())?;
+                            let to = match res.and_then(|r| r.get(i)) {
+                                Some(Resolved::Note(p) | Resolved::Daily(p)) => Some(p.as_str()),
+                                _ => None,
+                            };
+                            Some((attr, t.as_str(), to))
+                        })
+                        .collect();
                     QueryObject {
                         path: &m.path,
                         id: m.s.id.as_deref(),
@@ -1708,6 +1727,8 @@ impl Index {
                         attributes: &m.s.attributes,
                         daily: m.daily,
                         links,
+                        tag_spellings: &m.s.tag_spellings,
+                        attr_links,
                     }
                 })
                 .collect();
