@@ -302,6 +302,28 @@ pub enum QuerySource {
     Saved(String),
     Fence(String),
     Def { def: QueryDef, name: Option<String> },
+    /// v1-views §17.1 (D-1853): a view tab, the first `views:` item named `name` of type `type_key`.
+    View { type_key: String, name: String },
+}
+
+/// v1-views §17.1 (R194). Red-test stubs (Q2.1): no run fills a usage yet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UsageKind {
+    Tab,
+    Block,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UsageSettings {
+    pub sort: Option<Vec<Sort>>,
+    pub columns: Option<Vec<String>>,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UsageRun {
+    pub kind: UsageKind,
+    pub own: UsageSettings,
+    pub broken: Vec<Broken>,
+    pub sort: Vec<Sort>,
+    pub columns: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -416,6 +438,8 @@ pub struct QueryResult {
     pub index_ready: bool,
     /// v1-views §1.1: Some only with `view: board` and a valid `group_by` (§1.6).
     pub group: Option<Grouping>,
+    /// v1-views §17.1 (D-1854). Red-test stub (Q2.1): always None yet.
+    pub usage: Option<UsageRun>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -2888,6 +2912,7 @@ impl QCore<'_> {
             rows: Vec::new(),
             index_ready,
             group: None,
+            usage: None,
         };
         let run = |mut r: QueryResult, def: QueryDef, syntactic: Vec<Broken>| -> QueryResult {
             // One index lock for the evaluation, the grouping and the rows' versions and excerpts (§1.6).
@@ -2951,6 +2976,8 @@ impl QCore<'_> {
         };
         match src {
             QuerySource::Saved(name) => saved(&name, Form::Reference),
+            // Red-test stub (Q2.1): a tab runs as its saved query, without its own settings yet.
+            QuerySource::View { name, .. } => saved(&name, Form::Reference),
             QuerySource::Def { def, name } => {
                 let mut r = base(Form::Def);
                 if let Some(n) = &name {

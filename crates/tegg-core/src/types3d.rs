@@ -37,6 +37,10 @@ pub struct TypeInfo {
     pub columns_unreadable: bool,
     /// v1-views §1.3: `views` is present but not a list of strings (the tabs can't be written, R184).
     pub views_unreadable: bool,
+    /// v1-views §14.1 (D-1852, D-1855): the `views:` items and the exact text of the `views` key's lines.
+    /// Red-test stubs (Q2.1): not filled yet.
+    pub view_items: Option<Vec<tegg_schema::ViewItem>>,
+    pub views_source: Option<String>,
     /// D-417 (ms4-embeds §3): the effective default embed mode and the raw `embed` value.
     pub embed: tegg_schema::EmbedMode,
     pub embed_raw: Option<String>,
@@ -117,6 +121,8 @@ pub(crate) fn info(key: &str, text: Option<&[u8]>, version: Option<FileVersion>)
         columns_ignored: parsed.columns_ignored.clone(),
         columns_unreadable: parsed.columns_unreadable,
         views_unreadable: parsed.views_unreadable,
+        view_items: None,
+        views_source: None,
         embed: tegg_schema::effective_embed(&d.key, parsed.embed_raw.as_deref()),
         embed_raw: parsed.embed_raw.clone(),
     }

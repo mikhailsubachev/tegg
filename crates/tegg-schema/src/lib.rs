@@ -9,6 +9,7 @@
 use chrono::{DateTime, NaiveDate};
 use serde_json::{Map, Value};
 use tegg_format::nfc;
+pub use tegg_format::usage::{UsageOrder, UsageSort, UsageValue};
 
 /// D-96 / D-239: NFC, trim, lower case, each whitespace run as `-` (`Quick Note` → `quick-note`).
 pub use tegg_format::type_key;
@@ -195,6 +196,18 @@ pub struct Parsed {
     pub columns_ignored: Vec<String>,
     /// v1-views §1.3: `views` is present but not a list of strings.
     pub views_unreadable: bool,
+    /// v1-views §14.1 (D-1840, D-1855): the `views:` items, same order and length as `def.views`.
+    /// Red-test stub (Q2.1): not read yet.
+    pub view_items: Option<Vec<ViewItem>>,
+}
+
+/// One item of `views:` (v1-views §14.1, R196): a plain name, or a mapping with a non-blank string `name`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ViewItem {
+    pub name: String,
+    pub sort: UsageValue<Vec<UsageSort>>,
+    pub columns: UsageValue<Vec<String>>,
+    pub plain: bool,
 }
 
 /// Display mode of an embed (FR-EMB-02, D-416, D-417; ms4-embeds §3).
@@ -361,9 +374,9 @@ pub fn parse(key: &str, text: &str) -> Parsed {
             let columns_unreadable = list_unreadable(&top, "columns");
             let views_unreadable = list_unreadable(&top, "views");
             let embed_raw = embed_raw_of(&top);
-            Parsed { def, readability, preview_ignored, embed_raw, columns_unreadable, columns_ignored, views_unreadable }
+            Parsed { def, readability, preview_ignored, embed_raw, columns_unreadable, columns_ignored, views_unreadable, view_items: None }
         }
-        Err((message, line)) => Parsed { def: fallback_def(&key), readability: Readability::Invalid { message, line: line.max(1) }, preview_ignored: Vec::new(), embed_raw: None, columns_unreadable: false, columns_ignored: Vec::new(), views_unreadable: false },
+        Err((message, line)) => Parsed { def: fallback_def(&key), readability: Readability::Invalid { message, line: line.max(1) }, preview_ignored: Vec::new(), embed_raw: None, columns_unreadable: false, columns_ignored: Vec::new(), views_unreadable: false, view_items: None },
     }
 }
 
@@ -590,6 +603,8 @@ pub enum RuleError {
     ColumnsUnreadable,
     /// v1-views §1.3 (D-1803): a `SetViews` on a file whose `views` value can't be read.
     ViewsUnreadable,
+    /// v1-views §14.2 (D-1857): a `SetViewSort` / `SetViewColumns` on a name not in `views`.
+    ViewNotListed,
     /// Slice 5A-1 (D-473): no `status` option of the Task type with state Open / Done would remain.
     NeedOpen,
     NeedDone,
@@ -1037,6 +1052,12 @@ pub enum TypeOp {
     SetColumns(Vec<String>),
     /// v1-views §1.3 (D-1803): the `views` line, one flow list in NFC.
     SetViews(Vec<String>),
+    /// v1-views §14.2 (D-1857): the first item named `name` gets `sort` as its own value; None removes it.
+    SetViewSort { name: String, sort: Option<Vec<UsageSort>> },
+    /// v1-views §14.2 (D-1857): the same for `columns`.
+    SetViewColumns { name: String, columns: Option<Vec<String>> },
+    /// v1-views §14.2 (D-1852): the `views` key's lines replaced by `source` byte for byte.
+    SetViewsSource(String),
     /// D-417 (ms4-embeds §3): the type's default embed mode.
     SetEmbed(EmbedMode),
     AddAttribute(AttrDef),
@@ -1216,6 +1237,14 @@ fn apply(def: &mut TypeFile, lines: &mut Vec<String>, op: &TypeOp, system: bool,
                 def.preview = keys;
                 set_top(lines, "preview", render_top("preview", def));
             }
+        }
+        TypeOp::SetViewSort { .. } | TypeOp::SetViewColumns { .. } => {
+            // Red-test stub (Q2.1): not built yet; refused without a write.
+            return Err(RuleError::ViewNotListed.into());
+        }
+        TypeOp::SetViewsSource(_) => {
+            // Red-test stub (Q2.1): not built yet; refused without a write.
+            return Err(RuleError::ViewsUnreadable.into());
         }
         TypeOp::SetViews(names) => {
             // v1-views §1.3 (D-1782): an unchanged list on an existing key writes nothing; a block list becomes one

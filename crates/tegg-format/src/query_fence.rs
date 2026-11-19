@@ -76,3 +76,9 @@ pub fn query_fences(text: &str) -> Vec<QueryFence> {
     }
     out
 }
+
+/// A reference body's own values (v1-views §13.2, R195): `Absent`/`Absent` for inline, empty and unreadable bodies.
+/// Red-test stub (Q2.1): always absent.
+pub fn fence_usage(_body: &str) -> crate::usage::UsageRaw {
+    crate::usage::UsageRaw { sort: crate::usage::UsageValue::Absent, columns: crate::usage::UsageValue::Absent }
+}
