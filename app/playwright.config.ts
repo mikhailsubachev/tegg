@@ -25,6 +25,10 @@ export default defineConfig({
   // other lanes, D-1347; 8 saturated it, D-609); otherwise Playwright's default.
   fullyParallel: true,
   workers: gate ? 4 : undefined,
+  // D-1833: under a gate a failed test runs once more. One that then passes doesn't fail the gate; the step's
+  // reporter `webkit/flaky-reporter.ts` hands it to the gate, which counts it in the flaky list (CONTRACT §3.6).
+  // Not outside a gate, where a failure should show at once, and not for the quarantined run.
+  retries: gate && !process.env.VERIFY_FLAKY ? 1 : 0,
   // test-strategy §8.4: quarantined tests (`@flaky`, each with an issue) stay out of the gates' main run; the nightly
   // step `app-webkit-flaky` sets VERIFY_FLAKY=1 and runs only them.
   grepInvert: gate && !process.env.VERIFY_FLAKY ? /@flaky/ : undefined,

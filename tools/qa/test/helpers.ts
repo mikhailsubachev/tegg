@@ -154,6 +154,10 @@ export type Step = {
   lane?: string;
   /** CONTRACT §3.2.3 (D-611): repository-relative paths the step depends on (step memo). */
   inputs?: string[];
+  /** CONTRACT §3.2.4 (D-1832): seconds after which a tree gate stops the step. */
+  timeout?: number;
+  /** CONTRACT §3.2.5 (D-1834): regex on repository-relative paths selecting the step's independent test files. */
+  testFiles?: string;
 };
 
 export type Config = {
@@ -220,6 +224,21 @@ export function treeOf(dir: string, rev = 'HEAD'): string {
 
 export function toplevel(dir: string): string {
   return git(dir, ['rev-parse', '--show-toplevel']).trim();
+}
+
+/**
+ * Adds a linked worktree of `repo` on a new branch at `rev` (CONTRACT §1.2: worktrees share `<git common dir>`).
+ * Returns the worktree's real path. `.verify/` there is its own (git-ignored through the committed `.gitignore`).
+ */
+export function addWorktree(t: Cleanup, repo: string, branch: string, rev = 'HEAD'): string {
+  const dir = path.join(tmpDir(t, 'tegg-qa-wt-'), 'wt');
+  git(repo, ['worktree', 'add', '-q', '-b', branch, dir, rev]);
+  return fs.realpathSync(dir);
+}
+
+/** The shared state folder `<git common dir>/tegg-verify/` of a temp repo made by `makeRepo` (CONTRACT §1.2). */
+export function sharedDir(repo: string): string {
+  return path.join(repo, '.git', 'tegg-verify');
 }
 
 export function sq(s: string): string {

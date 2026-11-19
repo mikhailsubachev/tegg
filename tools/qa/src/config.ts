@@ -9,8 +9,10 @@ export type Gate = (typeof GATES)[number];
 
 /** `cargoCache` (default true): tree gates give the step the shared Cargo build cache (CONTRACT §3.2.1, D-343).
  *  `lane` (default `default`): tree gates run lanes concurrently, a lane's steps in order (§3.2.2, D-609).
- *  `inputs`: repository paths the step depends on, for the push gate's step memo (§3.2.3, D-611); undefined = always runs. */
-export type Step = { id: string; dir: string; run: string; level: Gate; changedOnly: boolean; cargoCache: boolean; lane: string; inputs?: string[] };
+ *  `inputs`: repository paths the step depends on, for the push gate's step memo (§3.2.3, D-611); undefined = always runs.
+ *  `timeout`: seconds after which a tree gate stops the step (§3.2.4, D-1832).
+ *  `testFiles`: the step's independent test files, for partial runs (§3.2.5, D-1834). */
+export type Step = { id: string; dir: string; run: string; level: Gate; changedOnly: boolean; cargoCache: boolean; lane: string; inputs?: string[]; timeout?: number; testFiles?: RegExp };
 export type AcRunner = { dir: string; match: RegExp; run: string };
 export type Config = {
   steps: Step[];
@@ -63,7 +65,10 @@ export function loadConfig(root: string): Config {
       const bad = inputs!.find((p) => p.startsWith('/') || p.split('/').includes('..'));
       if (bad !== undefined) throw new UsageError(`qa.config.json: steps[${i}].inputs: "${bad}" must be repository-relative without ".."`);
     }
-    return { id: s.id, dir: s.dir ?? '.', run: s.run, level: s.level, changedOnly: s.changedOnly === true, cargoCache: s.cargoCache !== false, lane: s.lane ?? 'default', inputs };
+    if (s.timeout !== undefined && (typeof s.timeout !== 'number' || !Number.isFinite(s.timeout) || s.timeout <= 0)) throw new UsageError(`qa.config.json: steps[${i}].timeout must be a positive number of seconds`);
+    const testFiles = s.testFiles === undefined ? undefined : regex(s.testFiles, `steps[${i}].testFiles`);
+    if (testFiles === undefined && s.run.includes('{files}')) throw new UsageError(`qa.config.json: steps[${i}].run contains {files} but the step has no testFiles`);
+    return { id: s.id, dir: s.dir ?? '.', run: s.run, level: s.level, changedOnly: s.changedOnly === true, cargoCache: s.cargoCache !== false, lane: s.lane ?? 'default', inputs, timeout: s.timeout, testFiles };
   });
   const acTestPatterns = (raw.acTestPatterns ?? DEFAULT_AC_TEST_PATTERNS).map((p: unknown, i: number) => regex(p, `acTestPatterns[${i}]`));
   const acRunners: AcRunner[] = (raw.acRunners ?? []).map((r: any, i: number) => {
