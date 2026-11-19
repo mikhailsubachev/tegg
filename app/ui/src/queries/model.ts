@@ -251,6 +251,6 @@ function plain(items: FilterItemDto[]): unknown[] {
 }
 /** Two definitions with the same effective values (title included). */
 export function defEquals(a: QueryDefDto, b: QueryDefDto): boolean {
-  const norm = (d: QueryDefDto) => JSON.stringify([nfc(d.title), d.types.map(nfc), d.match, plain(d.filters), nfc(d.sort.by), d.sort.order, d.limit, d.view, d.columns.map(nfc)]);
+  const norm = (d: QueryDefDto) => JSON.stringify([nfc(d.title), d.types.map(nfc), d.match, plain(d.filters), d.sort.map((l) => [nfc(l.by), l.order]), d.limit, d.view, d.groupBy === null ? null : nfc(d.groupBy), d.lanes, d.laneOrder === null ? null : d.laneOrder.map(nfc), d.columns.map(nfc)]);
   return norm(a) === norm(b);
 }

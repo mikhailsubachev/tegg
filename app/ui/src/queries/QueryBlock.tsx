@@ -9,6 +9,7 @@ import { newQueryFence, referenceFence, savedName, withSavedName } from '@tegg/d
 import { t } from '../i18n/catalog';
 import { events, ipc } from '../ipc/client';
 import type { BrokenDto, FilterItemDto, QueryDefDto, QueryDto, QueryResultDto, QueryRowDto, QuerySourceDto } from '../ipc/queries';
+import { headerClick, levels } from './sort';
 import type { TypeDto, TypeRowDto, VersionDto } from '../ipc/types';
 import { chipIcon, chipTypes, onChipTypes, typeNameOf } from '../links/icons';
 import { chipParts } from '../links/ChipParts';
@@ -67,7 +68,7 @@ const NewPropertyDialog = lazy(() => import('../pages/TypeSettingsPage').then((m
 /** At most this many table rows in the DOM (§4.3, D-1482). */
 const MAX_ROWS = 60;
 const DRAFT_DEF = (): QueryDefDto => ({
-  title: t('query.editor.untitled'), types: [], match: 'all', filters: [], sort: { by: 'modified', order: 'desc' }, limit: 50, view: 'list', columns: ['type', 'modified'],
+  title: t('query.editor.untitled'), types: [], match: 'all', filters: [], sort: [{ by: 'modified', order: 'desc' }], limit: 50, view: 'list', groupBy: null, lanes: 'vertical', laneOrder: null, columns: ['type', 'modified'],
 });
 
 type BlockState = 'loading' | 'ok' | 'noResults' | 'draft' | 'notFound' | 'trashed' | 'unreadable' | 'needsContext' | 'needsHost' | 'noType';
@@ -417,9 +418,8 @@ export function QueryBlock(p: QueryBlockProps) {
     if (view === 'table' && def) {
       return <ResultsTable def={def} rows={rows} types={types} typeOf={typeOf} typeName={typeName} title={title} onOpen={openRow}
         onSort={(by) => {
-          const cur = def.sort;
-          const order: 'asc' | 'desc' = nfc(cur.by) === nfc(by) && cur.order === 'asc' ? 'desc' : 'asc';
-          void apply({ sort: { by, order } });
+          // D-1784: a click makes the column the only level (a click on the only level flips it).
+          void apply({ sort: headerClick(def.sort, by, false) });
         }} />;
     }
     return (
@@ -533,7 +533,8 @@ function ResultsTable({ def, rows, types, typeOf, typeName, title, onOpen, onSor
   const body = useRef<HTMLTableSectionElement | null>(null);
   const win = useRowWindow(body, rows.length);
   const [cursor, setCursor] = useState(0);
-  const sortBy = nfc(def.sort.by);
+  const first = levels(def.sort)[0] ?? null;
+  const sortBy = first ? nfc(first.by) : null;
   const shown = rows.slice(win.from, win.to);
   const focusRow = (i: number) => {
     const j = Math.max(0, Math.min(rows.length - 1, i));
@@ -547,7 +548,7 @@ function ResultsTable({ def, rows, types, typeOf, typeName, title, onOpen, onSor
         <thead>
           <tr>
             {cols.map((c) => {
-              const sorted = c.sortable && sortBy === c.key ? def.sort.order : null;
+              const sorted = c.sortable && sortBy === c.key ? first!.order : null;
               return (
                 <th key={c.key} tabIndex={0} scope="col" aria-sort={sorted ? (sorted === 'asc' ? 'ascending' : 'descending') : c.sortable ? 'none' : undefined}
                   className={c.sortable ? 'sortable' : undefined}

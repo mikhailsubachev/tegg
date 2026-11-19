@@ -345,7 +345,7 @@ pub struct QueryRenamePlan {
     pub pre_v: FileVersion,
     pub post: Vec<u8>,
     pub usages: Vec<(String, FileVersion)>,
-    /// Type files whose `views:` lists the query (v1-views §1.10, D-1762). Red-test stub (D-1813): always empty yet.
+    /// Type files whose `views:` lists the query, before and after their `views:` patch (v1-views §1.10, D-1762).
     pub views: Vec<ViewsRow>,
 }
 

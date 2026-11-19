@@ -1331,6 +1331,8 @@ fn type_dto(t: TypeInfo) -> TypeDto {
         columns: d.columns,
         columns_ignored: t.columns_ignored,
         columns_unreadable: t.columns_unreadable,
+        views: d.views,
+        views_unreadable: t.views_unreadable,
         embed: t.embed.as_str().into(),
         embed_raw: t.embed_raw,
         template: d.template,
@@ -1433,6 +1435,7 @@ fn type_op(op: TypeOpDto) -> Result<TypeOp, IpcError> {
         TypeOpDto::Review { on } => TypeOp::SetReview(on),
         TypeOpDto::Preview { keys } => TypeOp::SetPreview(keys),
         TypeOpDto::Columns { keys } => TypeOp::SetColumns(keys),
+        TypeOpDto::Views { names } => TypeOp::SetViews(names),
         TypeOpDto::Hidden { keys } => TypeOp::SetHidden(keys),
         TypeOpDto::Embed { mode } => TypeOp::SetEmbed(match tegg_schema::EmbedMode::parse(&mode) {
             Some(m) => m,
@@ -1860,7 +1863,7 @@ pub fn run() {
             shellpin::pins_get, shellpin::pins_apply,
             shellrel::index_related,
             shellq::queries_list, shellq::query_get, shellq::query_run, shellq::query_apply, shellq::query_revert, shellq::query_create,
-            shellq::query_duplicate, shellq::query_rename, shellq::query_trash, shellq::query_restore, shellq::query_usages,
+            shellq::query_duplicate, shellq::query_rename, shellq::query_trash, shellq::query_restore, shellq::query_usages, shellq::query_view_usages,
             shellimport::import_pick_source, shellimport::import_scan, shellimport::import_cancel, shellimport::import_where,
             shellimport::import_check_target, shellimport::import_plan, shellimport::import_start, shellimport::import_status,
             shellimport::import_discard, shellimport::import_transform_result

@@ -23,9 +23,9 @@ import { attrTypeLabel, colorName, nfc, typeErrorMessage } from '../types/util';
 type Save = 'saved' | 'saving' | 'failed';
 const BUILT_IN_ROWS = ['title', 'description', 'aliases', 'tags', 'source', 'review', 'created', 'modified'];
 const UNIVERSAL_PREVIEW: [string, string][] = [['tags', 'attr.tags'], ['source', 'attr.source'], ['aliases', 'attr.aliases'], ['created', 'attr.created'], ['modified', 'attr.modified']];
-const SECTIONS = ['general', 'properties', 'builtIn', 'preview', 'hidden', 'embeds', 'review', 'templates', 'views', 'delete'] as const;
+const SECTIONS = ['general', 'properties', 'builtIn', 'preview', 'hidden', 'embeds', 'review', 'templates', 'delete'] as const;
 const SECTION_LABEL: Record<(typeof SECTIONS)[number], string> = {
-  general: 'ts.general', properties: 'ts.properties', builtIn: 'ts.builtIn', preview: 'preview.properties', hidden: 'ts.hidden', embeds: 'typeSettings.embeds', review: 'ts.review', templates: 'ts.templates', views: 'ts.views', delete: 'ts.delete',
+  general: 'ts.general', properties: 'ts.properties', builtIn: 'ts.builtIn', preview: 'preview.properties', hidden: 'ts.hidden', embeds: 'typeSettings.embeds', review: 'ts.review', templates: 'ts.templates', delete: 'ts.delete',
 };
 const NO_OPTIONS = new Set(['text', 'long-text', 'number', 'checkbox', 'date', 'date-time', 'date-range', 'url', 'email', 'relation']);
 
@@ -369,16 +369,6 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted }: {
               <Disabled control="ctl.editTemplate" />
             </div>
           </section>
-
-          {type.key !== 'tag' && <section id="ts-views" aria-label={t('ts.views')} className="ts-section">
-            <h2>{t('ts.views')}</h2>
-            <div className="ts-row">
-              <span data-user-content>{t('typePage.allView', { plural: type.plural })}</span><span className="badge">{t('ts.defaultMark')}</span>
-              <span className="spacer" />
-              <Disabled control="ctl.addViewSettings" />
-              <Disabled control="ctl.editView" />
-            </div>
-          </section>}
 
           <section id="ts-delete" aria-label={t('ts.delete')} className="ts-section">
             <h2>{t('ts.delete')}</h2>

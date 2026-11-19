@@ -91,14 +91,11 @@ export const DISABLED_CONTROLS: DisabledControl[] = [
   { label: 'ctl.newTab', where: 'title bar', due: d('v1.0'), req: 'FR-NAV-06' },
   { label: 'ctl.copyBlockLink', where: 'block menu', due: d('v1.0'), req: 'FR-LNK-06' },
   // 3D (types.md R3 changes): the type page's Filter, Sort, Views and New <Type>, New type and Starter vault are built.
-  { label: 'ctl.filter', where: 'type page', due: d('v1.0'), req: 'FR-QRY-01' },
-  { label: 'ctl.group', where: 'type page', due: d('v1.0'), req: 'FR-QRY-05' },
-  { label: 'ctl.addView', where: 'type page', due: d('v1.0'), req: 'FR-QRY-07' },
+  // Slice Q2 (D-1801): `Filter`, `Group` and `Add view` of the type page are built or gone.
   // D-372, D-748: slice 4E (file moves, key renames, type delete with objects) is v1.0.
   { label: 'ctl.newTemplate', where: 'type settings, Templates', due: d('v1.0'), req: 'FR-TPL-01' },
   { label: 'ctl.editTemplate', where: 'type settings, Templates', due: d('v1.0'), req: 'FR-TPL-01' },
-  { label: 'ctl.addViewSettings', where: 'type settings, Views', due: d('v1.0'), req: 'FR-QRY-07' },
-  { label: 'ctl.editView', where: 'type settings, Views', due: d('v1.0'), req: 'FR-QRY-07' },
+  // Slice Q2 (D-1801): the Type settings Views section is gone (views live on the type page).
   { label: 'ctl.rowRecurrence', where: 'attribute panel row', due: d('v1.0'), req: 'FR-TSK-01' }, // D-381
   // 5A-1 (tasks.md R45 R3).
   { label: 'tasks.sort', where: 'Tasks page toolbar', due: d('v1.0'), req: 'FR-QRY-05' },

@@ -8,8 +8,9 @@
 // so a commit replaces only the changed top-level keys' lines (D-1436, D-1454…D-1457). Objects, links and tags come from
 // the real `@tegg/doc` through fake-links.ts (`objectsWith`, `resolver`); types from fake-schema.ts (`listTypes`).
 import { parseAllDocuments, parse as parseYaml, isMap, isScalar, isSeq, type Document } from 'yaml';
-import { listTypes, type TypeDto } from './fake-schema';
+import { listTypes, renameView, type TypeDto } from './fake-schema';
 import { objectsWith, resolver, type Obj } from './fake-links';
+import { excerpt } from './fake-tasks';
 
 // ------------------------------------------------------------------------------------------------ DTOs (contract §2)
 
@@ -23,16 +24,30 @@ export type FilterItemDto =
   | { kind: 'filter'; key: string; op: QueryOp; value: unknown; src: number[] | null }
   | { kind: 'group'; match: 'all' | 'any'; filters: FilterItemDto[]; src: number[] | null }
   | { kind: 'raw'; src: number[] };
+export type SortDto = { by: string; order: 'asc' | 'desc' };
+export type QueryViewKind = 'list' | 'table' | 'board';
 export type QueryDefDto = {
   title: string; types: string[]; match: 'all' | 'any'; filters: FilterItemDto[];
-  sort: { by: string; order: 'asc' | 'desc' }; limit: number; view: 'list' | 'table'; columns: string[];
+  sort: SortDto[]; limit: number; view: QueryViewKind;
+  groupBy: string | null; lanes: 'vertical' | 'horizontal'; laneOrder: string[] | null;
+  columns: string[];
 };
+/** Slice Q2 (v1-views §2): the board's lanes. */
+export type LaneCardDto = { row: number; raw: string[] };
+export type LaneDto = {
+  id: string; kind: 'option' | 'unknown' | 'tag' | 'relation' | 'unresolved' | 'none';
+  value: string | null; label: string; color: string | null; target: string | null;
+  excluded: boolean; dropTarget: boolean; cards: LaneCardDto[];
+};
+export type GroupingDto = { key: string; kind: 'select' | 'multiSelect' | 'tags' | 'relation'; multiple: boolean; name: string; lanes: LaneDto[] };
+export type ViewUsageDto = { type: string; path: string };
 export type BrokenReason = 'badValue' | 'shape' | 'operator' | 'nestedGroup' | 'notAttribute' | 'operatorKind' | 'value' | 'noType';
 export type BrokenDto = { reason: BrokenReason; at: number[] | null; key: string; type: string | null };
 export type LookupDto = 'ok' | 'newer' | 'unreadable' | 'missing' | 'trashed';
 export type QuerySummaryDto = {
   name: string; title: string; path: string; state: 'ok' | 'newer' | 'unreadable'; line: number | null;
   created: string | null; modified: string | null; usesThis: boolean; version: VersionDto | null;
+  view: QueryViewKind | null; types: string[] | null;
 };
 export type QueryDto = {
   name: string; path: string; state: LookupDto; line: number | null; reason: string | null;
@@ -48,12 +63,15 @@ export type QueryRowDto = {
   path: string; id: string | null; title: string; type: string; created: string | null; modified: string | null;
   values: Record<string, unknown>; links: unknown[];
   task: { status: string | null; state: 'open' | 'in-progress' | 'done' | 'cancelled'; due: string | null } | null;
+  /** Slice Q2 (v1-views §1.1): the file's version (the page fills mtimes), the excerpt, not UTF-8. */
+  version: VersionDto | null; excerpt: string; readOnly: boolean;
 };
 export type QueryResultDto = {
   form: 'reference' | 'inline' | 'unreadable' | 'empty' | 'def'; name: string | null; lookup: LookupDto | null;
   line: number | null; version: VersionDto | null; def: QueryDefDto | null;
   state: 'ok' | 'noType' | 'needsHost' | 'needsContext'; broken: BrokenDto[]; targets: string[];
   usesRelative: boolean; total: number; rows: QueryRowDto[]; indexReady: boolean;
+  group: GroupingDto | null;
 };
 export type QueryUsageDto = { path: string; title: string; type: string | null; template: boolean };
 /** §1.8 `QueryPatch` (only `objectMoved` has an emitter in this slice, D-1469). */
@@ -69,8 +87,10 @@ export const QUERIES_DIR = '.tegg/queries';
 export const TRASHED_QUERIES_DIR = '.trash/.tegg/queries';
 export const HEADER = '# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › ';
 /** R138 create order; also the order "the nearest earlier / later known key" is looked up in (§1.4). */
-const ORDER = ['version', 'title', 'types', 'match', 'filters', 'sort', 'limit', 'view', 'columns', 'created', 'modified'] as const;
+const ORDER = ['version', 'title', 'types', 'match', 'filters', 'sort', 'limit', 'view', 'group_by', 'lanes', 'lane_order', 'columns', 'created', 'modified'] as const;
 const DEFAULT_SORT = { by: 'modified', order: 'desc' as const };
+/** The keys a commit compares and replaces (v1-queries §1.4 `COMMIT_KEYS` plus Q2's, v1-views §1.4). */
+const COMMIT_KEYS = ['types', 'match', 'filters', 'sort', 'limit', 'view', 'group_by', 'lanes', 'lane_order', 'columns'] as const;
 
 const nfc = (s: string) => s.normalize('NFC');
 const trimWs = (s: string) => s.replace(/^\p{White_Space}+|\p{White_Space}+$/gu, '');
@@ -277,7 +297,7 @@ function itemsIn(T: string[], from: number, to: number, raw: unknown[]): ItemRan
  *  `colsFor`: the default `columns` for the effective `types` (the single type's effective type-page columns, else
  *  `[type, modified]`; contract §1.4 Create). */
 export function queryRead(text: string | null, utf8 = true, name = '', colsFor: (types: string[]) => string[] = defaultColumnsNoSchema): QueryReadTwin {
-  const defaults = (): QueryDefDto => ({ title: nfc(name), types: [], match: 'all', filters: [], sort: { ...DEFAULT_SORT }, limit: 50, view: 'list', columns: colsFor([]) });
+  const defaults = (): QueryDefDto => ({ title: nfc(name), types: [], match: 'all', filters: [], sort: [{ ...DEFAULT_SORT }], limit: 50, view: 'list', groupBy: null, lanes: 'vertical', laneOrder: null, columns: colsFor([]) });
   const unreadable = (line: number | null, reason: string): QueryReadTwin => ({ state: 'unreadable', line, reason, def: defaults(), broken: [], usesThis: false, created: null, modified: null, present: [], layout: null });
   if (text === null) return unreadable(null, 'no file');
   if (!utf8) return unreadable(null, 'The file isn\'t valid UTF-8.');
@@ -315,13 +335,21 @@ export function queryRead(text: string | null, utf8 = true, name = '', colsFor: 
     else { badKey('filters'); rawItems = null; }
   }
   if (has('sort')) {
-    const s = y.sort as Record<string, unknown> | null;
-    const ok = !!s && typeof s === 'object' && !Array.isArray(s) && typeof s.by === 'string' && trimWs(s.by) !== '' && (s.order === undefined || s.order === null || s.order === 'asc' || s.order === 'desc');
-    if (ok) def.sort = { by: nfc(trimWs(s!.by as string)), order: (s!.order === 'desc' ? 'desc' : 'asc') };
+    // D-1768 (v1-views §1.2): one mapping, or a sequence of mappings; anything else is broken.
+    const level = (x: unknown): SortDto | null => {
+      const m = x as Record<string, unknown> | null;
+      const ok = !!m && typeof m === 'object' && !Array.isArray(m) && typeof m.by === 'string' && trimWs(m.by) !== '' && (m.order === undefined || m.order === null || m.order === 'asc' || m.order === 'desc');
+      return ok ? { by: nfc(trimWs(m!.by as string)), order: (m!.order === 'desc' ? 'desc' : 'asc') } : null;
+    };
+    const ls = Array.isArray(y.sort) ? y.sort.map(level) : [level(y.sort)];
+    if (ls.every((l) => l !== null)) def.sort = ls as SortDto[];
     else badKey('sort');
   }
   if (has('limit')) { if (typeof y.limit === 'number' && Number.isInteger(y.limit) && y.limit >= 1 && y.limit <= 1000) def.limit = y.limit; else badKey('limit'); }
-  if (has('view')) { if (y.view === 'list' || y.view === 'table') def.view = y.view; else badKey('view'); }
+  if (has('view')) { if (y.view === 'list' || y.view === 'table' || y.view === 'board') def.view = y.view; else badKey('view'); }
+  if (has('group_by')) { if (typeof y.group_by === 'string' && trimWs(y.group_by) !== '') def.groupBy = nfc(trimWs(y.group_by)); else badKey('group_by'); }
+  if (has('lanes')) { if (y.lanes === 'vertical' || y.lanes === 'horizontal') def.lanes = y.lanes; else badKey('lanes'); }
+  if (has('lane_order')) { if (isStrList(y.lane_order)) def.laneOrder = y.lane_order.map(nfc); else badKey('lane_order'); }
   if (has('columns')) { if (isStrList(y.columns)) def.columns = y.columns.map(nfc); else { badKey('columns'); def.columns = colsFor(def.types); } }
   else def.columns = colsFor(def.types);
   const filterBroken: BrokenDto[] = [];
@@ -396,9 +424,18 @@ const topLine = (k: string, def: QueryDefDto): string[] | null => {
   switch (k) {
     case 'types': return [`types: ${flowList(def.types)}`];
     case 'match': return [`match: ${def.match}`];
-    case 'sort': return [`sort: { by: ${scalar(def.sort.by, true)}, order: ${def.sort.order} }`];
+    case 'sort': {
+      // D-1768, AP-1499: one level on one line; two or more as `sort:` and one flow mapping per level.
+      const lv = (l: SortDto) => `{ by: ${scalar(l.by, true)}, order: ${l.order} }`;
+      if (def.sort.length === 1) return [`sort: ${lv(def.sort[0])}`];
+      if (def.sort.length === 0) return ['sort: []'];
+      return ['sort:', ...def.sort.map((l) => `  - ${lv(l)}`)];
+    }
     case 'limit': return [`limit: ${def.limit}`];
     case 'view': return [`view: ${def.view}`];
+    case 'group_by': return def.groupBy === null ? null : [`group_by: ${scalar(def.groupBy)}`];
+    case 'lanes': return [`lanes: ${def.lanes}`];
+    case 'lane_order': return def.laneOrder === null ? null : [`lane_order: ${flowList(def.laneOrder)}`];
     case 'columns': return [`columns: ${flowList(def.columns)}`];
     default: return null;
   }
@@ -414,9 +451,12 @@ function effective(def: QueryDefDto, k: string, keepRawSrc = true): string {
     case 'types': return json(def.types.map(nfc));
     case 'match': return def.match;
     case 'filters': return json(normItems(def.filters, keepRawSrc));
-    case 'sort': return json([nfc(def.sort.by), def.sort.order]);
+    case 'sort': return json(def.sort.map((l) => [nfc(l.by), l.order]));
     case 'limit': return String(def.limit);
     case 'view': return def.view;
+    case 'group_by': return def.groupBy === null ? '' : nfc(def.groupBy);
+    case 'lanes': return def.lanes;
+    case 'lane_order': return def.laneOrder === null ? 'null' : json(def.laneOrder.map(nfc));
     case 'columns': return json(def.columns.map(nfc));
     default: return '';
   }
@@ -460,10 +500,12 @@ export function queryPatch(text: string, read: QueryReadTwin, def: QueryDefDto, 
   if (read.state === 'unreadable' || !read.layout) return { error: { kind: 'Unreadable', message: 'fake: the query file can\'t be read' } };
   if (!(Number.isInteger(def.limit) && def.limit >= 1 && def.limit <= 1000)) return { error: { kind: 'Limit', message: 'fake: limit outside 1…1000' } };
   const L = read.layout;
-  const changed = (['types', 'match', 'filters', 'sort', 'limit', 'view', 'columns'] as const).filter((k) => effective(read.def, k) !== effective(def, k));
+  // v1-views §1.4: effective values decide; `group_by: null` means unchanged (never removed by a commit).
+  const changed = COMMIT_KEYS.filter((k) => !(k === 'group_by' && def.groupBy === null) && effective(read.def, k) !== effective(def, k));
   if (!changed.length) return { text: null };
   const edits: { start: number; end: number; lines: string[]; order: number }[] = [];
-  const emit = (k: string): string[] => (k === 'filters' ? filtersBlock(def, read) : k === 'modified' ? [`modified: ${now}`] : topLine(k, def)!);
+  // `lane_order: null` while the file has the key: its line or block goes (Reset lane order, D-1792).
+  const emit = (k: string): string[] => (k === 'filters' ? filtersBlock(def, read) : k === 'modified' ? [`modified: ${now}`] : topLine(k, def) ?? []);
   const placeOf = (k: string): number => {
     const idx = ORDER.indexOf(k as never);
     for (let j = idx - 1; j >= 0; j--) { const r = L.keys.find((x) => x.key === ORDER[j]); if (r) return r.end; }
@@ -474,14 +516,15 @@ export function queryPatch(text: string, read: QueryReadTwin, def: QueryDefDto, 
     const r = L.keys.find((x) => x.key === k);
     const lines = emit(k);
     if (r) {
-      // A one-line key keeps its trailing comment (D-1457).
-      if (r.end - r.start === 1 && lines.length === 1) {
+      // A one-line key keeps its trailing comment (D-1457); `sort` keeps its first line's comment on its first line
+      // whatever the shape (one level ↔ a list, D-1768).
+      if (lines.length && ((r.end - r.start === 1 && lines.length === 1) || k === 'sort')) {
         const old = L.lines[r.start].text;
         const c = trailingCommentAt(old, keyAt(old.replace(/^﻿/, ''), 0)!.colon + 1);
         if (c >= 0) lines[0] += old.slice(c);
       }
       edits.push({ start: r.start, end: r.end, lines, order: ORDER.indexOf(k as never) });
-    } else edits.push({ start: placeOf(k), end: placeOf(k), lines, order: ORDER.indexOf(k as never) });
+    } else if (lines.length) edits.push({ start: placeOf(k), end: placeOf(k), lines, order: ORDER.indexOf(k as never) });
   }
   edits.sort((a, b) => b.start - a.start || b.order - a.order);
   const out = L.lines.map((l) => ({ ...l }));
@@ -496,8 +539,8 @@ export function queryPatch(text: string, read: QueryReadTwin, def: QueryDefDto, 
   const next = joinLines(out);
   // Read-back check (D-1458): the new text must read as exactly `def` (the title aside).
   const back = queryRead(next, true, read.def.title);
-  const want = { ...def, title: read.def.title };
-  const keys = (['types', 'match', 'filters', 'sort', 'limit', 'view', 'columns'] as const).filter((k) => k !== 'columns' || back.present.includes('columns'));
+  const want = { ...def, title: read.def.title, groupBy: def.groupBy ?? read.def.groupBy };
+  const keys = COMMIT_KEYS.filter((k) => (k !== 'columns' || back.present.includes('columns')) && (k !== 'group_by' || want.groupBy !== null));
   const ok = back.state === 'ok' && keys.every((k) => effective(back.def, k, false) === effective(want, k, false));
   if (!ok) return { error: { kind: 'Unreadable', message: 'fake: the written file would not read back as the query' } };
   return { text: next === text ? null : next };
@@ -508,7 +551,10 @@ export function queryCreateText(def: QueryDefDto, now: string, tail?: string | n
   const L = [
     `${HEADER}${nfc(def.title)}.`, 'version: 1', `title: ${scalar(def.title)}`, ...topLine('types', def)!, ...topLine('match', def)!,
     ...(def.filters.length ? ['filters:', ...def.filters.flatMap((f) => itemLines(f, 2))] : ['filters: []']),
-    ...topLine('sort', def)!, ...topLine('limit', def)!, ...topLine('view', def)!, ...topLine('columns', def)!, `created: ${now}`, `modified: ${now}`,
+    ...topLine('sort', def)!, ...topLine('limit', def)!, ...topLine('view', def)!,
+    // v1-views §1.4 Create (D-1783): `group_by` and `lanes` only on a board, `lane_order` only when set.
+    ...(def.view === 'board' ? [...(topLine('group_by', def) ?? []), ...topLine('lanes', def)!] : []), ...(topLine('lane_order', def) ?? []),
+    ...topLine('columns', def)!, `created: ${now}`, `modified: ${now}`,
   ];
   if (tail) L.push(...tail.replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n'));
   return `${L.join('\n')}\n`;
@@ -587,8 +633,9 @@ export function queryRetitleText(text: string, read: QueryReadTwin, title: strin
 export function queriesJobPatch(text: string, patches: QueryPatchDto[]): string | null {
   const read = queryRead(text);
   if (read.state !== 'ok' || !read.layout) return null;
-  const f = read.layout.keys.find((k) => k.key === 'filters');
-  if (!f) return null;
+  // v1-views §1.10: `lane_order` entries that are links are patched as the filters' values.
+  const ranges = read.layout.keys.filter((k) => k.key === 'filters' || k.key === 'lane_order');
+  if (!ranges.length) return null;
   const L = read.layout.lines.map((l) => ({ ...l }));
   let changed = false;
   for (const p of patches) {
@@ -596,7 +643,7 @@ export function queriesJobPatch(text: string, patches: QueryPatchDto[]): string 
     const before = p.paths.map(nfc);
     const after = before.map((x) => (x === nfc(p.from) ? nfc(p.to) : x));
     const toText = linkText(nfc(p.to), after);
-    for (let i = f.start; i < f.end; i++) {
+    for (const f of ranges) for (let i = f.start; i < f.end; i++) {
       L[i].text = L[i].text.replace(/(["'])\[\[([^\]]*)\]\]\1/g, (m, _q: string, inner: string) => {
         const cut = inner.search(/[|#]/);
         const target = cut < 0 ? inner : inner.slice(0, cut);
@@ -969,40 +1016,52 @@ const walkActive = (items: Active[], f: (a: Extract<Active, { kind: 'filter' }>)
 
 function sortRows(objs: Obj[], def: QueryDefDto, chosen: string[], ctx: Ctx, broken: BrokenDto[]): Obj[] {
   const coll = new Intl.Collator(ctx.env.locale, { sensitivity: 'base', numeric: true });
-  let by = nfc(def.sort.by);
-  let order = def.sort.order;
-  let kind: Kind | null = by === 'title' ? 'text' : by === 'created' || by === 'modified' ? 'datetime' : null;
-  let options: string[] = [];
-  if (!kind) {
+  // v1-views §1.6 (D-1768, D-1806): the levels as written with repeats dropped; any invalid level breaks the whole sort.
+  const seen = new Set<string>();
+  const raw = def.sort.filter((l) => { const k = nfc(l.by); if (seen.has(k)) return false; seen.add(k); return true; });
+  type Level = { by: string; order: 'asc' | 'desc'; kind: Kind; options: string[] };
+  const levelOf = (l: SortDto): Level | null => {
+    const by = nfc(l.by);
+    const fixed: Kind | null = by === 'title' ? 'text' : by === 'created' || by === 'modified' ? 'datetime' : null;
+    if (fixed) return { by, order: l.order, kind: fixed, options: [] };
     const infos = chosen.length ? chosen.map((t) => attrOf(ctx.types.find((x) => x.key === t), by)) : [attrOf(undefined, by)];
-    if (infos.every((a) => a && a.kind === infos[0]!.kind && a.kind !== 'unsupported')) { kind = infos[0]!.kind; options = infos[0]!.options.map((o) => fold(o.label)); }
-    else { broken.push({ reason: 'badValue', at: null, key: 'sort', type: null }); by = DEFAULT_SORT.by; order = DEFAULT_SORT.order; kind = 'datetime'; }
+    if (infos.every((a) => a && a.kind === infos[0]!.kind && a.kind !== 'unsupported')) return { by, order: l.order, kind: infos[0]!.kind, options: infos[0]!.options.map((o) => fold(o.label)) };
+    return null;
+  };
+  let levels = raw.map(levelOf);
+  if (levels.some((l) => l === null)) {
+    broken.push({ reason: 'badValue', at: null, key: 'sort', type: null });
+    levels = [{ by: DEFAULT_SORT.by, order: DEFAULT_SORT.order, kind: 'datetime', options: [] }];
   }
   type K = { empty: boolean; n: number; s: string };
-  const keyOf = (o: Obj): K => {
-    const raw = valueOf(o, by);
-    if (by === 'title') return { empty: false, n: 0, s: o.title };
-    switch (kind) {
+  const keyOf = (o: Obj, lv: Level): K => {
+    const raw = valueOf(o, lv.by);
+    if (lv.by === 'title') return { empty: false, n: 0, s: o.title };
+    switch (lv.kind) {
       case 'number': return typeof raw === 'number' ? { empty: false, n: raw, s: '' } : { empty: true, n: 0, s: '' };
       case 'date': case 'datetime': { const ms = instantMs(raw, ctx.env.zone); return ms === null ? { empty: true, n: 0, s: '' } : { empty: false, n: ms, s: '' }; }
       case 'checkbox': return typeof raw === 'boolean' ? { empty: false, n: raw ? 1 : 0, s: '' } : { empty: true, n: 0, s: '' };
       case 'select': case 'review': {
         const s = strs(raw)[0];
         if (s === undefined) return { empty: true, n: 0, s: '' };
-        const i = options.indexOf(fold(s));
-        return { empty: false, n: i < 0 ? options.length : i, s };
+        const i = lv.options.indexOf(fold(s));
+        // Option order, then unknown values by collation after the last option.
+        return { empty: false, n: i < 0 ? lv.options.length : i, s: i < 0 ? s : '' };
       }
       default: { const s = strs(raw)[0]; return s === undefined ? { empty: true, n: 0, s: '' } : { empty: false, n: 0, s }; }
     }
   };
-  const keys = new Map(objs.map((o) => [o.path, keyOf(o)]));
-  const sign = order === 'desc' ? -1 : 1;
+  const ls = levels as Level[];
+  const keys = new Map(objs.map((o) => [o.path, ls.map((lv) => keyOf(o, lv))]));
   return [...objs].sort((a, b) => {
-    const x = keys.get(a.path)!, y = keys.get(b.path)!;
-    if (x.empty !== y.empty) return x.empty ? 1 : -1;
-    if (!x.empty) {
+    const xa = keys.get(a.path)!, xb = keys.get(b.path)!;
+    for (let i = 0; i < ls.length; i++) {
+      const x = xa[i], y = xb[i];
+      // Empty values last at every level, in both orders.
+      if (x.empty !== y.empty) return x.empty ? 1 : -1;
+      if (x.empty) continue;
       const c = x.n - y.n || coll.compare(x.s, y.s);
-      if (c) return sign * c;
+      if (c) return ls[i].order === 'desc' ? -c : c;
     }
     return coll.compare(a.title, b.title) || byBytes(a.path, b.path);
   });
@@ -1028,14 +1087,14 @@ async function context(files: Record<string, string>, host: string | null, env: 
 
 /** The evaluator over the fake's files (§1.6): every result, sorted (the page size is the UI's, D-1451). */
 export async function evaluate(def: QueryDefDto, host: string | null, env: QueryEnvDto, files: Record<string, string>, types?: TypeDto[]):
-  Promise<Pick<QueryResultDto, 'state' | 'broken' | 'targets' | 'usesRelative' | 'total' | 'rows'>> {
+  Promise<Pick<QueryResultDto, 'state' | 'broken' | 'targets' | 'usesRelative' | 'total' | 'rows' | 'group'>> {
   const ctx = await context(files, host, env, types);
   const broken: BrokenDto[] = [];
   const chosen = def.types.map(nfc);
   const missing = chosen.filter((t) => !ctx.types.some((x) => x.key === t) && !ctx.objs.some((o) => o.type === t));
   if (missing.length) {
     for (const t of missing) broken.push({ reason: 'noType', at: null, key: t, type: null });
-    return { state: 'noType', broken, targets: [], usesRelative: false, total: 0, rows: [] };
+    return { state: 'noType', broken, targets: [], usesRelative: false, total: 0, rows: [], group: null };
   }
   const active = activeItems(def.filters, chosen, ctx, broken);
   let usesThis = false, dateThis = false, relative = false;
@@ -1043,13 +1102,16 @@ export async function evaluate(def: QueryDefDto, host: string | null, env: Query
     if (a.f.value === 'this') { usesThis = true; if (a.c.needsDate) dateThis = true; }
     if (['today', 'this_week', 'within_next_days', 'overdue'].includes(a.f.op) || a.c.needsDate) relative = true;
   });
-  if (usesThis && !ctx.host) return { state: 'needsHost', broken, targets: [], usesRelative: relative, total: 0, rows: [] };
-  if (dateThis && !ctx.hostDaily) return { state: 'needsContext', broken, targets: ctx.host ? [ctx.host] : [], usesRelative: relative, total: 0, rows: [] };
+  if (usesThis && !ctx.host) return { state: 'needsHost', broken, targets: [], usesRelative: relative, total: 0, rows: [], group: null };
+  if (dateThis && !ctx.hostDaily) return { state: 'needsContext', broken, targets: ctx.host ? [ctx.host] : [], usesRelative: relative, total: 0, rows: [], group: null };
   if (usesThis && ctx.host) ctx.targets.add(ctx.host);
   const candidates = ctx.objs.filter((o) => o.path !== ctx.host && (!chosen.length || chosen.includes(o.type)));
   const hits = candidates.filter((o) => evalItems(active, def.match, o, ctx));
   const sorted = sortRows(hits, def, chosen, ctx, broken);
-  const cols = [...new Set([...def.columns.map(nfc), 'type', 'tags'])];
+  // v1-views §1.6: a board groups its rows; the grouping key is in `values` too (D-1769).
+  const group = def.view === 'board' ? grouping(def, sorted, chosen, active, ctx, broken) : null;
+  const cols = [...new Set([...def.columns.map(nfc), ...(group ? [group.key] : []), 'type', 'tags'])];
+  const d = await doc();
   const rows: QueryRowDto[] = sorted.map((o) => {
     const values: Record<string, unknown> = {};
     for (const k of cols) values[k] = k === 'type' ? o.type : k === 'tags' ? (o.tags ?? []) : (o.attributes ?? {})[k] ?? null;
@@ -1057,9 +1119,135 @@ export async function evaluate(def: QueryDefDto, host: string | null, env: Query
     return {
       path: o.path, id: o.id, title: o.title, type: o.type, created: str(o.attributes?.created), modified: str(o.attributes?.modified), values, links: [],
       task: o.type === 'task' ? { status: str(o.attributes?.status), state: statusState(o, ctx) as any, due: localDate(o.attributes?.due, env.zone) } : null,
+      version: null, excerpt: bodyExcerpt(d, files[o.path]), readOnly: false,
     };
   });
-  return { state: 'ok', broken, targets: [...ctx.targets].sort(byBytes), usesRelative: relative, total: rows.length, rows };
+  return { state: 'ok', broken, targets: [...ctx.targets].sort(byBytes), usesRelative: relative, total: rows.length, rows, group };
+}
+
+function bodyExcerpt(d: any, text: string | undefined): string {
+  if (typeof text !== 'string') return '';
+  try { return excerpt(text.slice(d.parse(text).bodyStart as number)); } catch { return ''; }
+}
+
+/** v1-views §1.6 (R187; D-1769, D-1770, D-1791, D-1805, D-1807, D-1808): the board's lanes over the sorted rows, or
+ *  null with `group_by` broken. */
+function grouping(def: QueryDefDto, rows: Obj[], chosen: string[], active: Active[], ctx: Ctx, broken: BrokenDto[]): GroupingDto | null {
+  const bad = () => { broken.push({ reason: 'badValue', at: null, key: 'group_by', type: null }); return null; };
+  if (def.groupBy === null) return bad();
+  const key = nfc(def.groupBy);
+  type G = { kind: GroupingDto['kind']; multiple: boolean; name: string; options: { label: string; color: string | null }[] };
+  let g: G | null = null;
+  if (key === 'tags') g = { kind: 'tags', multiple: true, name: 'Tags', options: [] };
+  else {
+    if (!chosen.length) return bad();
+    for (const t of chosen) {
+      const a = (ctx.types.find((x) => x.key === t)?.attributes ?? []).find((x: any) => nfc(String(x.key)) === key) as any;
+      if (!a) return bad();
+      const kind: G['kind'] | null = a.type === 'select' ? 'select' : a.type === 'multi-select' ? 'multiSelect' : a.type === 'relation' ? 'relation' : null;
+      if (!kind) return bad();
+      const multiple = kind === 'multiSelect' ? true : kind === 'relation' ? !!a.multiple : false;
+      if (g && (g.kind !== kind || g.multiple !== multiple)) return bad();
+      g ??= { kind, multiple, name: nfc(String(a.name ?? key)), options: (a.options ?? []).map((o: any) => ({ label: nfc(String(o.label)), color: o.color ?? null })) };
+    }
+  }
+  const G = g!;
+  const coll = new Intl.Collator(ctx.env.locale, { sensitivity: 'base', numeric: true });
+  const paths = ctx.objs.map((o) => o.path);
+  type L = LaneDto & { sortKey: string; rank: number };
+  const lanes = new Map<string, L>();
+  const lane = (id: string, kind: LaneDto['kind'], value: string | null, label: string, o: { color?: string | null; target?: string | null; rank: number; sortKey: string }): L => {
+    let l = lanes.get(id);
+    if (!l) {
+      l = { id, kind, value, label, color: o.color ?? null, target: o.target ?? null, excluded: false, dropTarget: kind === 'option' || kind === 'tag' || kind === 'relation', cards: [], sortKey: o.sortKey, rank: o.rank };
+      lanes.set(id, l);
+    }
+    return l;
+  };
+  if (G.kind === 'select' || G.kind === 'multiSelect') G.options.forEach((o, i) => lane(`option:${o.label}`, 'option', o.label, o.label, { color: o.color, rank: i, sortKey: '' }));
+  const none = (): L => lane('none', 'none', null, '', { rank: 1e9, sortKey: '' });
+  rows.forEach((o, row) => {
+    const add = (l: L, raw: string[]) => { const c = l.cards.find((x) => x.row === row); if (c) c.raw.push(...raw); else l.cards.push({ row, raw }); };
+    if (G.kind === 'tags') {
+      const keys = [...new Set((o.tags ?? []).map(tagKeyOf))];
+      if (!keys.length) { add(none(), []); return; }
+      const fm = strs(o.attributes?.tags).map(nfc);
+      for (const k of keys) add(lane(`tag:${k}`, 'tag', k, k, { rank: 0, sortKey: k }), fm.filter((x) => tagKeyOf(x) === k));
+      return;
+    }
+    const vals = strs(valueOf(o, key)).map(nfc);
+    if (!vals.length) { add(none(), []); return; }
+    const seen = new Set<string>();
+    for (const v of vals) {
+      if (G.kind === 'relation') {
+        const t = linkTargetOf(v);
+        const p = t === null ? null : ctx.res(o.path, t);
+        if (p) {
+          const id = `relation:${p}`;
+          if (seen.has(id)) continue; seen.add(id);
+          const title = ctx.byPath.get(p)?.title ?? p;
+          add(lane(id, 'relation', `[[${linkText(p, paths)}]]`, nfc(title), { target: p, rank: 0, sortKey: nfc(title) }), [v]);
+        } else {
+          const id = `unresolved:${v}`;
+          if (seen.has(id)) continue; seen.add(id);
+          add(lane(id, 'unresolved', v, v, { rank: 1, sortKey: v }), [v]);
+        }
+        continue;
+      }
+      const opt = G.options.find((x) => x.label === v);
+      const id = opt ? `option:${opt.label}` : `unknown:${v}`;
+      if (seen.has(id)) continue; seen.add(id);
+      add(opt ? lanes.get(id)! : lane(id, 'unknown', v, v, { rank: G.options.length, sortKey: v }), [v]);
+    }
+  });
+  // R187 order: options in the type file's order then unknown values; tags by key; relations by the target's title,
+  // then unresolved links by their text (collation, then NFC bytes).
+  const byKey = (x: L[]) => x.sort((p, q) => coll.compare(p.sortKey, q.sortKey) || byBytes(p.sortKey, q.sortKey));
+  const all = [...lanes.values()];
+  let order: L[] = G.kind === 'tags' ? byKey(all.filter((l) => l.kind === 'tag'))
+    : G.kind === 'relation' ? [...byKey(all.filter((l) => l.kind === 'relation')), ...byKey(all.filter((l) => l.kind === 'unresolved'))]
+      : [...all.filter((l) => l.kind === 'option'), ...byKey(all.filter((l) => l.kind === 'unknown'))];
+  // `lane_order` moves its listed lanes to the front, in its order (an entry matching no lane is ignored).
+  if (def.laneOrder) {
+    const front: L[] = [];
+    for (const e of def.laneOrder.map(nfc)) {
+      const hit = order.find((l) => !front.includes(l) && (
+        G.kind === 'tags' ? l.value !== null && tagKeyOf(e) === l.value
+          : G.kind === 'relation' ? (l.kind === 'relation' ? (() => { const t = linkTargetOf(e); return t !== null && resolveRoot(t, paths) === l.target; })() : l.value === e)
+            : l.value === e));
+      if (hit) front.push(hit);
+    }
+    order = [...front, ...order.filter((l) => !front.includes(l))];
+  }
+  // Excluded option lanes (D-1791): top-level valid filters on the grouping key under `match: all`.
+  if (def.match === 'all' && (G.kind === 'select' || G.kind === 'multiSelect')) {
+    for (const a of active) {
+      if (a.kind !== 'filter' || nfc(a.f.key) !== key) continue;
+      const v = a.f.value;
+      const list = Array.isArray(v) ? (v as unknown[]).map((x) => fold(String(x))) : [];
+      for (const l of order) {
+        if (l.kind !== 'option') continue;
+        const f = fold(l.label);
+        let ex = false;
+        if (G.kind === 'select') {
+          if (a.f.op === 'is') ex = f !== fold(String(v));
+          else if (a.f.op === 'is_not') ex = f === fold(String(v));
+          else if (a.f.op === 'is_any_of') ex = !list.includes(f);
+          else if (a.f.op === 'is_empty') ex = true;
+        } else {
+          if (a.f.op === 'has_none_of') ex = list.includes(f);
+          else if (a.f.op === 'is_empty') ex = true;
+        }
+        if (ex) { l.excluded = true; l.cards = []; }
+      }
+    }
+  }
+  const n = lanes.get('none');
+  if (n && n.cards.length) order.push(n);
+  return {
+    key, kind: G.kind, multiple: G.multiple, name: G.name,
+    lanes: order.map(({ sortKey: _s, rank: _r, ...l }) => ({ ...l, cards: [...l.cards].sort((a, b) => a.row - b.row) })),
+  };
 }
 
 /** §2 `query_run` over the fake's files. `_path` (stripped by the page) names the query file whose version is answered. */
@@ -1067,11 +1255,13 @@ export async function queryRun(source: QuerySourceDto, host: string | null, env:
   Promise<QueryResultDto & { _path?: string | null }> {
   const tys = types ?? listTypes(files, {});
   const cols = columnsDefault(tys);
-  const base: QueryResultDto & { _path?: string | null } = { form: 'def', name: null, lookup: null, line: null, version: null, def: null, state: 'ok', broken: [], targets: [], usesRelative: false, total: 0, rows: [], indexReady: o.indexReady ?? true, _path: null };
+  const base: QueryResultDto & { _path?: string | null } = { form: 'def', name: null, lookup: null, line: null, version: null, def: null, state: 'ok', broken: [], targets: [], usesRelative: false, total: 0, rows: [], indexReady: o.indexReady ?? true, group: null, _path: null };
   const run = async (r: QueryResultDto & { _path?: string | null }, def: QueryDefDto, syntactic: BrokenDto[]) => {
     const e = await evaluate(def, host, env, files, tys);
     const rank = (b: BrokenDto) => (b.reason === 'noType' ? ORDER.indexOf('types') : b.at === null ? ORDER.indexOf(b.key as never) : ORDER.indexOf('filters')) * 10000 + (b.at?.[0] ?? 0) * 100 + (b.at?.[1] ?? 0);
-    const broken = [...syntactic, ...e.broken].sort((a, b) => rank(a) - rank(b));
+    // A `group_by` broken in the file is not broken twice by the grouping.
+    const dup = (b: BrokenDto) => b.at === null && b.key === 'group_by' && syntactic.some((x) => x.at === null && x.key === 'group_by');
+    const broken = [...syntactic, ...e.broken.filter((b) => !dup(b))].sort((a, b) => rank(a) - rank(b));
     return { ...r, def, ...e, broken };
   };
   const saved = async (name: string, form: 'reference' | 'def') => {
@@ -1119,8 +1309,15 @@ export function queryDto(files: Record<string, string>, invalid: string[], name:
 export function querySummaries(files: Record<string, string>, invalid: string[]): QuerySummaryDto[] {
   return liveQueryPaths(files).map((p) => {
     const r = queryRead(files[p], !invalid.includes(p), stemOf(p));
-    return { name: stemOf(p), title: r.state === 'unreadable' ? stemOf(p) : r.def.title, path: p, state: r.state, line: r.line, created: r.created, modified: r.modified, usesThis: r.usesThis, version: null };
+    const ok = r.state !== 'unreadable';
+    return { name: stemOf(p), title: ok ? r.def.title : stemOf(p), path: p, state: r.state, line: r.line, created: r.created, modified: r.modified, usesThis: r.usesThis, version: null, view: ok ? r.def.view : null, types: ok ? r.def.types : null };
   });
+}
+/** v1-views §1.5 `query_view_usages` (D-1804): the readable, not newer type files whose `views:` lists `name`, by type key. */
+export function queryViewUsages(files: Record<string, string>, name: string): ViewUsageDto[] {
+  const k = nameKey(name);
+  return listTypes(files, {}).filter((t) => t.exists && t.state === 'ok' && Array.isArray(t.views) && (t.views as string[]).some((v) => nameKey(v) === k))
+    .map((t) => ({ type: nfc(String(t.key)), path: `.tegg/types/${nfc(String(t.key))}.yml` })).sort((a, b) => byBytes(a.type, b.type));
 }
 export async function queryUsages(files: Record<string, string>, name: string): Promise<QueryUsageDto[]> {
   const d = await doc();
@@ -1141,7 +1338,7 @@ export async function queryUsages(files: Record<string, string>, name: string): 
   return out;
 }
 
-const defaults = (title: string, columns: string[]): QueryDefDto => ({ title, types: [], match: 'all', filters: [], sort: { ...DEFAULT_SORT }, limit: 50, view: 'list', columns });
+const defaults = (title: string, columns: string[]): QueryDefDto => ({ title, types: [], match: 'all', filters: [], sort: [{ ...DEFAULT_SORT }], limit: 50, view: 'list', groupBy: null, lanes: 'vertical', laneOrder: null, columns });
 
 export type HandleAnswer = { result?: unknown; error?: QueriesErr; writes?: Record<string, string | null>; moves?: { from: string; to: string }[] };
 /** The Node side of the in-page fake (`__teggQueries`). Versions and base checks are the page's (it knows mtimes). */
@@ -1155,6 +1352,7 @@ export async function handle(cmd: string, a: any, files: Record<string, string>,
     case 'query_get': return { result: queryDto(files, invalid, String(a.name ?? ''), types) };
     case 'query_run': return { result: await queryRun(a.source, a.host ?? null, a.env, files, types, { indexReady, invalid }) };
     case 'query_usages': return { result: await queryUsages(files, String(a.name ?? '')) };
+    case 'query_view_usages': return { result: queryViewUsages(files, String(a.name ?? '')) };
     case 'query_apply': {
       const live = findLive(files, String(a.name ?? ''));
       if (!live) return fail('Gone', 'no such query');
@@ -1226,7 +1424,12 @@ export async function handle(cmd: string, a: any, files: Record<string, string>,
       if (liveQueryPaths(files).some((p) => p !== live && nameKey(stemOf(p)) === nameKey(stem))) return fail('NameTaken', 'a query with this name exists');
       const to = `${QUERIES_DIR}/${stem}.yml`;
       const usages = (await queryUsages(files, stemOf(live))).map((u) => u.path);
-      return { result: { from: live, to, fromName: stemOf(live), toName: stem, pre: files[live], post: queryRetitleText(files[live], read, title), usages } };
+      // v1-views §1.10 (D-1762): the type files whose `views:` name the query, patched by `rename_view`.
+      const views = queryViewUsages(files, stemOf(live)).flatMap((u) => {
+        const post = renameView(u.type, files[u.path], stemOf(live), stem);
+        return post === null ? [] : [{ path: u.path, pre: files[u.path], post }];
+      });
+      return { result: { from: live, to, fromName: stemOf(live), toName: stem, pre: files[live], post: queryRetitleText(files[live], read, title), usages, views } };
     }
     case 'query_usage_patch': {
       // The usages' `saved:` lines through the one text engine (D-82, D-1468): `@tegg/doc` `rename-saved-query`.

@@ -206,7 +206,16 @@ embed: string,
 /**
  * The raw `embed` value of the type file, or null when absent.
  */
-embedRaw: string | null, template: string | null, attributes: Array<AttributeDto>, };
+embedRaw: string | null, template: string | null, attributes: Array<AttributeDto>, 
+/**
+ * Slice Q2 (v1-views §2, R184): the type file's `views:` names as written (NFC); null when the key is absent or
+ * unreadable.
+ */
+views: Array<string> | null, 
+/**
+ * `views` is present but not a list of strings: no tab change is written (R184).
+ */
+viewsUnreadable: boolean, };
 export type TypeFileErrorDto = { message: string, line: number, };
 export type OptionDto = { label: string, color: string | null, 
 /**
@@ -228,7 +237,7 @@ supported: boolean,
 readOnlyReason: string | null, default: unknown | null, required: boolean, options: Array<OptionDto>, to: Array<string> | null, multiple: boolean, description: string | null, builtIn: boolean, };
 export type AttributeInputDto = { key: string, name: string, type: string, default: unknown | null, required: boolean, options: Array<OptionDto>, to: Array<string> | null, multiple: boolean, description: string | null, };
 export type AttributeChangeDto = { name?: string, type?: string, default?: unknown | null, required?: boolean, options?: Array<OptionDto>, to?: string[] | null, multiple?: boolean, description?: string | null, };
-export type TypeOpDto = { "op": "set", field: string, value: string | null, } | { "op": "review", on: boolean, } | { "op": "preview", keys: Array<string>, } | { "op": "columns", keys: Array<string>, } | { "op": "hidden", keys: Array<string>, } | { "op": "embed", mode: string, } | { "op": "addAttribute", attribute: AttributeInputDto, } | { "op": "updateAttribute", key: string, change: AttributeChangeDto, } | { "op": "removeAttribute", key: string, } | { "op": "moveAttribute", key: string, to: number, } | { "op": "setOptionState", attr: string, label: string, state: string, } | { "op": "addOption", attr: string, option: OptionDto, } | { "op": "setOptionColor", attr: string, label: string, color: string, } | { "op": "moveOption", attr: string, label: string, to: number, } | { "op": "removeOption", attr: string, label: string, } | { "op": "renameOption", attr: string, from: string, to: string, };
+export type TypeOpDto = { "op": "set", field: string, value: string | null, } | { "op": "review", on: boolean, } | { "op": "preview", keys: Array<string>, } | { "op": "columns", keys: Array<string>, } | { "op": "hidden", keys: Array<string>, } | { "op": "embed", mode: string, } | { "op": "addAttribute", attribute: AttributeInputDto, } | { "op": "updateAttribute", key: string, change: AttributeChangeDto, } | { "op": "removeAttribute", key: string, } | { "op": "moveAttribute", key: string, to: number, } | { "op": "setOptionState", attr: string, label: string, state: string, } | { "op": "addOption", attr: string, option: OptionDto, } | { "op": "setOptionColor", attr: string, label: string, color: string, } | { "op": "moveOption", attr: string, label: string, to: number, } | { "op": "removeOption", attr: string, label: string, } | { "op": "renameOption", attr: string, from: string, to: string, } | { "op": "views", names: Array<string>, };
 export type TypeUsageDto = { objects: number, values: { [key in string]?: number }, options: { [key in string]?: { [key in string]?: number } }, };
 export type TypeRowDto = { path: string, id: string | null, title: string, created: string | null, modified: string | null, values: Record<string, unknown>, links: Array<LinkTargetDto>, typeSingle: boolean, };
 export type TypeTemplateDto = { path: string, text: string, };
@@ -329,7 +338,19 @@ outlineRail?: boolean,
 /**
  * Slice REL (v1-related §4, D-1695): `{ showLinked }`, kept as stored (the UI reads only `showLinked === true`).
  */
-related?: { showLinked?: unknown }, };
+related?: { showLinked?: unknown }, 
+/**
+ * Slice Q2 (v1-views §4.7, D-1765): the remembered view tab per type key (null = `All <plural>`).
+ */
+typeViews?: { lastTab?: { [key in string]?: string | null } }, 
+/**
+ * Slice Q2 (v1-views §4.7, D-1767): column widths in px per saved query name (NFC stem), then column key.
+ */
+queryColumnWidths?: { [key in string]?: { [key in string]?: number } }, 
+/**
+ * Slice Q2 (v1-views §4.7): the folded lane ids of a horizontal board per saved query name.
+ */
+boardFolded?: { [key in string]?: Array<string> }, };
 export type LinkTargetDto = { target: string, 
 /**
  * `note`, `daily`, `date-missing` or `unresolved`.

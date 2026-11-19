@@ -314,6 +314,11 @@ pub struct TypeDto {
     pub embed_raw: Option<String>,
     pub template: Option<String>,
     pub attributes: Vec<AttributeDto>,
+    /// Slice Q2 (v1-views §2, R184): the type file's `views:` names as written (NFC); null when the key is absent or
+    /// unreadable.
+    pub views: Option<Vec<String>>,
+    /// `views` is present but not a list of strings: no tab change is written (R184).
+    pub views_unreadable: bool,
 }
 
 /// Why a type file is invalid (AR-07 AC-4): message and 1-based line.
@@ -441,6 +446,8 @@ pub enum TypeOpDto {
     MoveOption { attr: String, label: String, to: u32 },
     RemoveOption { attr: String, label: String },
     RenameOption { attr: String, from: String, to: String },
+    /// v1-views §2 (D-1803): the type page's view tabs (`TypeOp::SetViews`).
+    Views { names: Vec<String> },
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -603,6 +610,26 @@ pub struct UiStateDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional, type = "{ showLinked?: unknown }")]
     pub related: Option<serde_json::Value>,
+    /// Slice Q2 (v1-views §4.7, D-1765): the remembered view tab per type key (null = `All <plural>`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "{ lastTab?: { [key in string]?: string | null } }")]
+    pub type_views: Option<TypeViewsUiDto>,
+    /// Slice Q2 (v1-views §4.7, D-1767): column widths in px per saved query name (NFC stem), then column key.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub query_column_widths: Option<std::collections::BTreeMap<String, std::collections::BTreeMap<String, f64>>>,
+    /// Slice Q2 (v1-views §4.7): the folded lane ids of a horizontal board per saved query name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub board_folded: Option<std::collections::BTreeMap<String, Vec<String>>>,
+}
+
+/// Slice Q2 (v1-views §4.7): `typeViews` of `ui-state.json`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TypeViewsUiDto {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_tab: Option<std::collections::BTreeMap<String, Option<String>>>,
 }
 
 // Slice REL (v1-related §2): `index_related`'s answer. `review`, `status`, `due`, `completed` are the chip fields of
@@ -1159,7 +1186,7 @@ fn yes() -> bool {
 
 impl Default for UiStateDto {
     fn default() -> Self {
-        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None, type_column_widths: None, vaults: None, queries: None, outline_rail: None, related: None }
+        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None, type_column_widths: None, vaults: None, queries: None, outline_rail: None, related: None, type_views: None, query_column_widths: None, board_folded: None }
     }
 }
 

@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.193, for review                                            |
+| **Document status** | Draft v1.194, for review                                            |
 | **Date**            | 2026-11-14                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -207,6 +207,7 @@
 | v1.191  | 2026-11-19 | Slice Q2 acceptance criteria (`docs/acceptance/views.md`, fixture `tests/fixtures/vaults/views/`): D-1781…D-1802 (AP-1497…AP-1518; owner, each as proposed except AP-1512, each tab keeps its filter text while the page is open, and AP-1514, column reorder by header drag only): New view drafts, `views:` writing, header clicks, the sort popover, lanes and cards, `Reset lane order` removes the key (exception to D-1457), the editor without a Sort row, the placeholders removed, the changed AC tests |
 | v1.192  | 2026-11-19 | Slice Q2 contract (`docs/contracts/v1-views.md`): D-1803…D-1811 (CP-1…CP-9; owner, each as proposed): `views:` through `type_patch`, `query_view_usages`, unresolved relation lanes, `sort: []`, valid boards, exact lane matching, New view's Undo, inline fences unchanged, the excluded lane's text; D-1812: ten AC fixes in `docs/acceptance/views.md` |
 | v1.193  | 2026-11-19 | Slice Q2 red tests (258519e1): D-1813…D-1823 (RT-1…RT-11; owner, each as proposed): stubs plus type-only edits of slice Q's tests before the second red commit, a separate L3 file, the fake core built with the slice, the type page's count as `<n> <plural>`, contract precision (direction, choice lists, view-tab rows, the card-move mark), FR-QRY-01 AC-8 without L1, the expected-bytes step order, `Čtu` for the NFD clause |
+| v1.194  | 2026-11-19 | Slice Q2 build: D-1824, D-1825, four AC-test fixes (the board-move property's generator, the `query.*` key set with R192's keys, the twin test reading only files in `expected/`, FR-QRY-09 AC-7 restoring the type file) |
 
 ---
 
@@ -1844,6 +1845,8 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1821 | No TS comparator (RT-9) (owner, 2026-11-19; slice Q2 red tests 258519e1) | FR-QRY-01 AC-8 drops its L1 part; the Rust L4 test and the L2 property test cover the comparison |
 | D-1822 | Order of the expected-bytes steps (RT-10) (owner, 2026-11-19; slice Q2 red tests 258519e1) | The sequence recorded in `tests/fixtures/queries-files/expected/views/README.md` is approved (FR-QRY-01 AC-9, AC-11, AC-12 in sequence; FR-QRY-07 AC-12 (c), FR-LNK-03 AC-24 (b) as written there) |
 | D-1823 | An NFD option with diacritics (RT-11) (owner, 2026-11-19; slice Q2 red tests 258519e1) | FR-FMT-12 AC-12's NFD status clause uses a runtime option `Čtu` instead of `Reading` |
+| D-1824 | Test fixes found while building Q2 (owner, 2026-11-19; slice Q2 build) | Three AC tests change, with `AC-Test-Change`: `packages/doc/test/board_move_props.ac.test.ts` (FR-QRY-05 AC-14's generator no longer adds a second line with the moved key, which made the frontmatter invalid and so never rewritten, NFR-REL-03); queries.md NFR-OTH-02 AC-17 (`app/test/queries_catalog.ac.test.ts`: the exact `query.*` key set is R145's plus R192's); queries.md FR-FMT-06 AC-4 (`app/test/queries_twin.ac.test.ts`: reads only the files of `expected/`, not the `expected/views/` folder, D-1814) |
+| D-1825 | FR-QRY-09 AC-7's last step restores the type file (owner, 2026-11-19; slice Q2 build) | `crates/tegg-core/tests/ac_views_writes.rs` `fr_qry_09_ac7_lanes_follow_the_type_file` renamed the `Read` option and never restored it, so its last step waited for a `Read` lane that can't exist; the test now writes `book.yml` back before the external `lane_order` change (`AC-Test-Change`) |
 
 ---
 

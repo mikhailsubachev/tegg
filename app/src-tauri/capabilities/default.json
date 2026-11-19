@@ -126,6 +126,7 @@
     "allow-query-trash",
     "allow-query-restore",
     "allow-query-usages",
+    "allow-query-view-usages",
     "allow-media-add",
     "allow-media-add-paths",
     "allow-media-pick",

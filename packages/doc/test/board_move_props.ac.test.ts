@@ -37,7 +37,8 @@ function gen(seed: number): Case {
   const pool = key === 'tags' ? TAGS : VALUES
   const lines: string[] = ['---', 'id: 01JB5V00000000000000000099', 'type: book', 'title: Kniha z generátoru']
   let entries: string[] | null = null
-  const others = OTHER.filter(() => r.bool())
+  // A second line with the moved key would make the frontmatter invalid (a duplicate key), which is never rewritten.
+  const others = OTHER.filter((l) => !l.startsWith(`${key}:`)).filter(() => r.bool())
   const at = r.int(others.length + 1)
   for (let i = 0; i <= others.length; i++) {
     if (i === at) {

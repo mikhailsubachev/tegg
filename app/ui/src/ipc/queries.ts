@@ -8,16 +8,36 @@ export type FilterItemDto =
   | { kind: 'filter'; key: string; op: QueryOp; value: unknown; src: number[] | null }
   | { kind: 'group'; match: 'all' | 'any'; filters: FilterItemDto[]; src: number[] | null }
   | { kind: 'raw'; src: number[] };
+/** One sort level (v1-views §2, D-1768). */
+export type SortDto = { by: string; order: 'asc' | 'desc' };
+export type QueryViewKind = 'list' | 'table' | 'board';
 export type QueryDefDto = {
   title: string; types: string[]; match: 'all' | 'any'; filters: FilterItemDto[];
-  sort: { by: string; order: 'asc' | 'desc' }; limit: number; view: 'list' | 'table'; columns: string[];
+  /** The levels as written (repeats kept); a missing or broken `sort` reads as `[modified desc]` (v1-views §1.2). */
+  sort: SortDto[]; limit: number; view: QueryViewKind;
+  /** Slice Q2 (v1-views §1.1): `group_by` as written (null: absent or broken), `lanes`, `lane_order` (null: absent). */
+  groupBy: string | null; lanes: 'vertical' | 'horizontal'; laneOrder: string[] | null;
+  columns: string[];
 };
+/** Slice Q2 (v1-views §2): one card of a lane; `row` indexes `QueryResultDto.rows`, `raw` the values that placed it. */
+export type LaneCardDto = { row: number; raw: string[] };
+export type LaneKindDto = 'option' | 'unknown' | 'tag' | 'relation' | 'unresolved' | 'none';
+export type LaneDto = {
+  id: string; kind: LaneKindDto;
+  value: string | null; label: string; color: string | null; target: string | null;
+  excluded: boolean; dropTarget: boolean; cards: LaneCardDto[];
+};
+export type GroupingDto = { key: string; kind: 'select' | 'multiSelect' | 'tags' | 'relation'; multiple: boolean; name: string; lanes: LaneDto[] };
+/** A type file whose `views:` lists a query (v1-views §1.5, D-1804). */
+export type ViewUsageDto = { type: string; path: string };
 export type BrokenReason = 'badValue' | 'shape' | 'operator' | 'nestedGroup' | 'notAttribute' | 'operatorKind' | 'value' | 'noType';
 export type BrokenDto = { reason: BrokenReason; at: number[] | null; key: string; type: string | null };
 export type LookupDto = 'ok' | 'newer' | 'unreadable' | 'missing' | 'trashed';
 export type QuerySummaryDto = {
   name: string; title: string; path: string; state: 'ok' | 'newer' | 'unreadable'; line: number | null;
   created: string | null; modified: string | null; usesThis: boolean; version: VersionDto;
+  /** Slice Q2 (v1-views §2): null when unreadable. */
+  view: QueryViewKind | null; types: string[] | null;
 };
 export type QueryDto = {
   name: string; path: string; state: LookupDto; line: number | null; reason: string | null;
@@ -33,12 +53,16 @@ export type QueryTaskDto = { status: string | null; state: 'open' | 'in-progress
 export type QueryRowDto = {
   path: string; id: string | null; title: string; type: string; created: string | null; modified: string | null;
   values: Record<string, unknown>; links: LinkTargetDto[]; task: QueryTaskDto | null;
+  /** Slice Q2 (v1-views §1.1): the index's version (the card move's base), the excerpt, not UTF-8. */
+  version: VersionDto; excerpt: string; readOnly: boolean;
 };
 export type QueryResultDto = {
   form: 'reference' | 'inline' | 'unreadable' | 'empty' | 'def'; name: string | null; lookup: LookupDto | null;
   line: number | null; version: VersionDto | null; def: QueryDefDto | null;
   state: 'ok' | 'noType' | 'needsHost' | 'needsContext'; broken: BrokenDto[]; targets: string[];
   usesRelative: boolean; total: number; rows: QueryRowDto[]; indexReady: boolean;
+  /** Slice Q2 (v1-views §1.6): the board's lanes; null unless `view: board` with a valid `group_by`. */
+  group: GroupingDto | null;
 };
 export type QueryUsageDto = { path: string; title: string; type: string | null; template: boolean };
 /** `query:stale` (§1.7): the changed objects' types before and after, and their paths. */

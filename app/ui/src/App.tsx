@@ -4,6 +4,8 @@
 import { ShortcutsPage } from './pages/ShortcutsPage';
 import { resetMindmapViews } from './mindmap/mount';
 import { registerConvertPrefs } from './convert/prefs';
+import { registerViewsUiState } from './views/uiState';
+import { registerWidthsStore, widthsChanged } from './tables/widths';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { t } from './i18n/catalog';
 import { events, ipc } from './ipc/client';
@@ -301,6 +303,10 @@ export function App() {
   // Slice P (v1-previews §1, D-922, D-923): the Object preview setting and the popover size live in the same state.
   useEffect(() => { setStoredPrefs(ui.preview); }, [ui.preview]);
   useEffect(() => registerConvertPrefs({ get: () => uiRef.current?.convert ?? undefined, set: (c) => updateUi((u) => ({ ...u, convert: c })) }), [updateUi]);
+  // Slice Q2 (v1-views §4.7): the remembered tabs, query column widths and folded lanes live in the same state.
+  useEffect(() => registerViewsUiState({ get: () => uiRef.current ?? undefined, update: (f) => updateUi((u) => f(u)) }), [updateUi]);
+  useEffect(() => registerWidthsStore({ get: () => uiRef.current ?? undefined, update: (f) => updateUi((u) => f(u)) }), [updateUi]);
+  useEffect(() => { widthsChanged(); }, [ui.typeColumnWidths, ui.queryColumnWidths]);
 
   useEffect(() => {
     const onResize = () => setWidth(window.innerWidth);

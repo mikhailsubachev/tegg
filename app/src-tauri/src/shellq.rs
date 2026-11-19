@@ -9,8 +9,8 @@ use serde_json::Value;
 use tauri::State;
 
 use tegg_core::queries_q::{
-    Broken, BrokenReason, FilterItem, Form, Lanes, Lookup, Match, Op, Order, QueryCreate, QueryDef, QueryEnv, QueryError, QueryRead, QueryResult,
-    QueryRow, QuerySource, QuerySummary, QueryUsage, RunState, Sort, View,
+    Broken, BrokenReason, FilterItem, Form, GroupKind, Grouping, Lane, LaneKind, Lanes, Lookup, Match, Op, Order, QueryCreate, QueryDef, QueryEnv,
+    QueryError, QueryRead, QueryResult, QueryRow, QuerySource, QuerySummary, QueryUsage, RunState, Sort, View, ViewUsage,
 };
 use tegg_core::tegg_jobs::{JobError, JobOp};
 use tegg_core::{Core, CoreError, VaultError};
@@ -34,16 +34,63 @@ pub struct SortDto {
     pub order: String,
 }
 
+/// v1-views §2: `sort` is the list of levels; `groupBy`, `lanes`, `laneOrder` are the board keys (R185).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct QueryDefDto {
     pub title: String,
     pub types: Vec<String>,
     pub r#match: String,
     pub filters: Vec<FilterItemDto>,
-    pub sort: SortDto,
+    pub sort: Vec<SortDto>,
     pub limit: u32,
+    /// `list`, `table` or `board`.
     pub view: String,
+    pub group_by: Option<String>,
+    /// `vertical` or `horizontal`.
+    pub lanes: String,
+    pub lane_order: Option<Vec<String>>,
     pub columns: Vec<String>,
+}
+
+/// v1-views §2 (R187): one card of a lane: `row` indexes `QueryResultDto.rows`.
+#[derive(Debug, Clone, Serialize)]
+pub struct LaneCardDto {
+    pub row: usize,
+    pub raw: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LaneDto {
+    pub id: String,
+    /// `option`, `unknown`, `tag`, `relation`, `unresolved` or `none`.
+    pub kind: String,
+    pub value: Option<String>,
+    pub label: String,
+    pub color: Option<String>,
+    pub target: Option<String>,
+    pub excluded: bool,
+    pub drop_target: bool,
+    pub cards: Vec<LaneCardDto>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct GroupingDto {
+    pub key: String,
+    /// `select`, `multiSelect`, `tags` or `relation`.
+    pub kind: String,
+    /// A relation's `multiple`; false for the other kinds.
+    pub multiple: bool,
+    pub name: String,
+    pub lanes: Vec<LaneDto>,
+}
+
+/// v1-views §2 (D-1804): a type file whose `views:` lists a query.
+#[derive(Debug, Clone, Serialize)]
+pub struct ViewUsageDto {
+    pub r#type: String,
+    pub path: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -66,6 +113,10 @@ pub struct QuerySummaryDto {
     pub modified: Option<String>,
     pub uses_this: bool,
     pub version: VersionDto,
+    /// v1-views §2: `list`, `table` or `board`; null when unreadable.
+    pub view: Option<String>,
+    /// v1-views §2: the query's types; null when unreadable.
+    pub types: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -112,6 +163,7 @@ pub struct QueryTaskDto {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct QueryRowDto {
     pub path: String,
     pub id: Option<String>,
@@ -122,6 +174,10 @@ pub struct QueryRowDto {
     pub values: serde_json::Map<String, Value>,
     pub links: Vec<LinkTargetDto>,
     pub task: Option<QueryTaskDto>,
+    /// v1-views §2: the index's version of the file (a card move's base), its excerpt, and not UTF-8.
+    pub version: VersionDto,
+    pub excerpt: String,
+    pub read_only: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -140,6 +196,8 @@ pub struct QueryResultDto {
     pub total: usize,
     pub rows: Vec<QueryRowDto>,
     pub index_ready: bool,
+    /// v1-views §2: a board's lanes; null unless `view: board` with a valid `group_by`.
+    pub group: Option<GroupingDto>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -205,10 +263,12 @@ pub(crate) fn def_dto(d: QueryDef) -> QueryDefDto {
         types: d.types,
         r#match: match_str(d.r#match).into(),
         filters: d.filters.into_iter().map(item_dto).collect(),
-        // Red-test stub (D-1813): the DTO keeps slice Q's one level until Q2's IPC is built (v1-views §2).
-        sort: d.sort.into_iter().next().map(|s| SortDto { by: s.by, order: if s.order == Order::Desc { "desc" } else { "asc" }.into() }).unwrap_or(SortDto { by: "modified".into(), order: "desc".into() }),
+        sort: d.sort.into_iter().map(|s| SortDto { by: s.by, order: if s.order == Order::Desc { "desc" } else { "asc" }.into() }).collect(),
         limit: d.limit,
-        view: if d.view == View::Table { "table" } else { "list" }.into(),
+        view: view_str(d.view).into(),
+        group_by: d.group_by,
+        lanes: if d.lanes == Lanes::Horizontal { "horizontal" } else { "vertical" }.into(),
+        lane_order: d.lane_order,
         columns: d.columns,
     }
 }
@@ -231,14 +291,58 @@ pub(crate) fn def_from(d: QueryDefDto) -> Result<QueryDef, IpcError> {
         types: d.types,
         r#match: if d.r#match == "any" { Match::Any } else { Match::All },
         filters: d.filters.into_iter().map(item_from).collect::<Result<_, _>>()?,
-        sort: vec![Sort { by: d.sort.by, order: if d.sort.order == "desc" { Order::Desc } else { Order::Asc } }],
+        sort: d.sort.into_iter().map(|s| Sort { by: s.by, order: if s.order == "desc" { Order::Desc } else { Order::Asc } }).collect(),
         limit: d.limit,
-        view: if d.view == "table" { View::Table } else { View::List },
-        group_by: None,
-        lanes: Lanes::Vertical,
-        lane_order: None,
+        view: match d.view.as_str() {
+            "table" => View::Table,
+            "board" => View::Board,
+            _ => View::List,
+        },
+        group_by: d.group_by,
+        lanes: if d.lanes == "horizontal" { Lanes::Horizontal } else { Lanes::Vertical },
+        lane_order: d.lane_order,
         columns: d.columns,
     })
+}
+
+fn view_str(v: View) -> &'static str {
+    match v {
+        View::List => "list",
+        View::Table => "table",
+        View::Board => "board",
+    }
+}
+
+fn lane_dto(l: Lane) -> LaneDto {
+    let kind = match l.kind {
+        LaneKind::Option => "option",
+        LaneKind::Unknown => "unknown",
+        LaneKind::Tag => "tag",
+        LaneKind::Relation => "relation",
+        LaneKind::Unresolved => "unresolved",
+        LaneKind::None => "none",
+    };
+    LaneDto {
+        id: l.id,
+        kind: kind.into(),
+        value: l.value,
+        label: l.label,
+        color: l.color,
+        target: l.target,
+        excluded: l.excluded,
+        drop_target: l.drop_target,
+        cards: l.cards.into_iter().map(|c| LaneCardDto { row: c.row, raw: c.raw }).collect(),
+    }
+}
+
+fn grouping_dto(g: Grouping) -> GroupingDto {
+    let (kind, multiple) = match g.kind {
+        GroupKind::Select => ("select", false),
+        GroupKind::MultiSelect => ("multiSelect", false),
+        GroupKind::Tags => ("tags", false),
+        GroupKind::Relation { multiple } => ("relation", multiple),
+    };
+    GroupingDto { key: g.key, kind: kind.into(), multiple, name: g.name, lanes: g.lanes.into_iter().map(lane_dto).collect() }
 }
 
 fn broken_dto(b: Broken) -> BrokenDto {
@@ -276,6 +380,8 @@ fn summary_dto(s: QuerySummary) -> QuerySummaryDto {
         modified: s.modified,
         uses_this: s.uses_this,
         version: version_dto(&s.version),
+        view: s.view.map(|v| view_str(v).into()),
+        types: s.types,
     }
 }
 
@@ -308,6 +414,9 @@ fn row_dto(r: QueryRow) -> QueryRowDto {
         values: r.values,
         links: Vec::new(),
         task: r.task.map(|t| QueryTaskDto { status: t.status, state: t.state.as_str().into(), due: t.due.map(|d| d.format("%Y-%m-%d").to_string()) }),
+        version: version_dto(&r.version),
+        excerpt: r.excerpt,
+        read_only: r.read_only,
     }
 }
 
@@ -339,6 +448,7 @@ fn result_dto(r: QueryResult) -> QueryResultDto {
         total: r.rows.len(),
         rows: r.rows.into_iter().map(row_dto).collect(),
         index_ready: r.index_ready,
+        group: r.group.map(grouping_dto),
     }
 }
 
@@ -479,6 +589,12 @@ pub async fn query_usages(state: State<'_, AppState>, name: String) -> Result<Ve
     Ok(core(&state)?.query_usages(&name).into_iter().map(usage_dto).collect())
 }
 
+/// v1-views §2 (D-1804): the type files whose `views:` lists `name` (read-only).
+#[tauri::command]
+pub async fn query_view_usages(state: State<'_, AppState>, name: String) -> Result<Vec<ViewUsageDto>, IpcError> {
+    Ok(core(&state)?.query_view_usages(&name).into_iter().map(|u: ViewUsage| ViewUsageDto { r#type: u.type_key, path: u.path }).collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -489,12 +605,14 @@ mod tests {
             "title": "Dotaz", "types": ["task"], "match": "any",
             "filters": [{ "kind": "filter", "key": "status", "op": "is_not", "value": "Done", "src": [0] },
                         { "kind": "group", "match": "all", "filters": [], "src": null }, { "kind": "raw", "src": [2] }],
-            "sort": { "by": "due", "order": "asc" }, "limit": 50, "view": "table", "columns": ["status"]
+            "sort": [{ "by": "due", "order": "asc" }, { "by": "title", "order": "desc" }], "limit": 50, "view": "board",
+            "groupBy": "status", "lanes": "horizontal", "laneOrder": ["Done"], "columns": ["status"]
         }))
         .expect("def parses");
         let d = def_from(def).expect("def converts");
-        assert_eq!((d.r#match, d.view, d.filters.len()), (Match::Any, View::Table, 3));
+        assert_eq!((d.r#match, d.view, d.filters.len(), d.sort.len(), d.lanes), (Match::Any, View::Board, 3, 2, Lanes::Horizontal));
         let v = serde_json::to_value(def_dto(d)).expect("serializes");
+        assert_eq!((v["sort"][1]["order"].as_str(), v["groupBy"].as_str(), v["laneOrder"][0].as_str(), v["view"].as_str()), (Some("desc"), Some("status"), Some("Done"), Some("board")), "{v}");
         assert_eq!((v["filters"][0]["kind"].as_str(), v["filters"][0]["op"].as_str(), v["filters"][1]["match"].as_str()), (Some("filter"), Some("is_not"), Some("all")), "{v}");
         let src: QuerySourceDto = serde_json::from_value(serde_json::json!({ "kind": "fence", "body": "saved: A\n" })).expect("source");
         assert!(matches!(src, QuerySourceDto::Fence { .. }));

@@ -13,7 +13,6 @@ import { t } from '../i18n/catalog';
 import { collator } from '../i18n/collate';
 import { ipc } from '../ipc/client';
 import type { AttributeDto, LinkTargetDto, TypeDto, TypeRowDto } from '../ipc/types';
-import { Disabled } from '../shell/Disabled';
 import { Icon, typeIconName } from '../shell/Icon';
 import { TypeSettingsButton } from '../shell/TypeSettingsButton';
 import { NewPropertyDialog } from './TypeSettingsPage';
@@ -327,15 +326,12 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
       })()}
       <div className="page-toolbar type-toolbar">
         {!header && <aside className="view-tabs-wrap"><div role="tablist" aria-label={t('typePage.views')} className="view-tabs">
-          <span role="tab" data-command="typePage.view" aria-selected="true" tabIndex={0} className="view-tab on" data-user-content>{t('typePage.allView', { plural: pluralName })}</span>
+          <span role="tab" data-command="typePage.view" aria-selected="true" tabIndex={0} className="view-tab on" data-user-content>{t('views.all', { plural: pluralName })}</span>
         </div></aside>}
         <span className="spacer" />
         <input type="search" role="searchbox" className="type-filter" aria-label={t('typePage.filter', { plural: pluralName })} placeholder={t('typePage.filter', { plural: pluralName })}
           value={filter} spellCheck={false} autoComplete="off" onChange={(e) => setFilter(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setFilter(''); } else if (e.key === 'ArrowDown') { e.preventDefault(); focusRow(0); } }} />
-        <Disabled control="ctl.filter" />
-        <Disabled control="ctl.group" />
-        <Disabled control="ctl.addView" />
         {type && (
           <button ref={addBtn} type="button" className="text-button" data-command="typePage.columns" aria-haspopup="menu" aria-expanded={columnsOpen}
             aria-disabled={menuOk ? undefined : 'true'} aria-description={menuOk ? undefined : columnsReason}

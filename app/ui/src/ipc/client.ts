@@ -5,7 +5,7 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { GraphPresetsDto, GraphRequestDto, GraphResultDto, PresetOpDto } from '../graph/types';
 import type { PinOpDto, PinsDto } from './pins';
 import type { ImportProgressDto, ImportResultDto, ImportStatusDto, ImportTransformEvent, Mapping, NewVaultDto, PlanResultDto, ScanInfo, TargetArg, WhereDto } from './import';
-import type { QueryDefDto, QueryDto, QueryEnvDto, QueryResultDto, QuerySourceDto, QueryStaleDto, QuerySummaryDto, QueryUsageDto } from './queries';
+import type { QueryDefDto, QueryDto, QueryEnvDto, QueryResultDto, QuerySourceDto, QueryStaleDto, QuerySummaryDto, QueryUsageDto, ViewUsageDto } from './queries';
 import type {
   ChangedDto, ConflictDto, ConflictRowDto, LastOpenedDto, LinkTargetDto, NoteDto, ObjectRowDto, ProgressDto, RecentVaultDto, SearchPageDto,
   SearchQueryDto, StarterPlanDto, SwitcherItemDto, TagRowDto, TagObjectRowDto, TagUsageDto, TagNewPathDto, JobStartDto, JobPlanDto, BackupDto, TypeDefDto, TypeDto, TypeOpDto, TypeRowDto, TypeTemplateDto, TypeUsageDto,
@@ -177,6 +177,8 @@ export const ipc = {
   queryTrash: (name: string) => invoke<{ trashed: string }>('query_trash', { name }),
   queryRestore: (name: string) => invoke<QueryDto>('query_restore', { name }),
   queryUsages: (name: string) => invoke<QueryUsageDto[]>('query_usages', { name }),
+  // Slice Q2 (v1-views §2, D-1804): the type files whose `views:` list the query (read-only).
+  queryViewUsages: (name: string) => invoke<ViewUsageDto[]>('query_view_usages', { name }),
   // Slice I2 (v1-import-window §2.1): the Import window's session. Only `import_start` writes.
   importPickSource: (kind: 'zip' | 'folder') => invoke<string | null>('import_pick_source', { kind }),
   importScan: (path: string) => invoke<ScanInfo>('import_scan', { path }),

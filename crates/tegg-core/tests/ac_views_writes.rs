@@ -256,6 +256,10 @@ fn fr_qry_09_ac7_lanes_follow_the_type_file() {
     let l = lanes(&run(&core, "Podle stavu", &env()), "renamed option");
     assert_eq!(l.iter().map(|(i, c)| (i.clone(), c.len())).collect::<Vec<_>>()[2..4], [("option:Done reading".to_string(), 0), ("unknown:Read".to_string(), 9)], "an empty Done reading and a Read unknown lane with 9");
     assert_eq!(snapshot(&root.join("Books")), before_books, "no book is rewritten");
+    // D-1825: put the `Read` option back first, so the external `lane_order` below has a `Read` lane to move.
+    write(&root, BOOK, fixture(BOOK).as_bytes());
+    let restored = wait_until(Duration::from_secs(2), || run(&core, ROZ, &env()).group.map(|g| g.lanes.iter().any(|l| l.id == "option:Read")).unwrap_or(false));
+    assert!(restored.is_some(), "Read is an option again");
     write(&root, &qpath(ROZ), swapped(&fixture(&qpath(ROZ)), "lane_order: [Reading, To read, Read]\n", "lane_order: [Read, Reading, To read]\n").as_bytes());
     let reordered = wait_until(Duration::from_secs(2), || run(&core, ROZ, &env()).group.map(|g| g.lanes.first().map(|l| l.id.clone())) == Some(Some("option:Read".into())));
     assert!(reordered.is_some(), "an external lane_order reorders within 2 s");

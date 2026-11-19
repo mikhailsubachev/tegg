@@ -7,7 +7,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { t } from '../i18n/catalog';
 import { ipc, errorKind } from '../ipc/client';
 import type { TypeDefDto, SwitcherItemDto } from '../ipc/types';
-import type { FilterItemDto, QueryDefDto, QueryDto, QueryOp, QueryResultDto } from '../ipc/queries';
+import type { FilterItemDto, QueryDefDto, QueryDto, QueryOp, QueryResultDto, SortDto } from '../ipc/queries';
 import { Icon } from '../shell/Icon';
 import { announceQuery, editorClosed, queryAlert, useEditorRequest, type EditorRequest } from './editorHost';
 import { queryEnv, nowIso } from './env';
@@ -18,7 +18,7 @@ import './editor.css';
 type Filter = Extract<FilterItemDto, { kind: 'filter' }>;
 const nfc = (s: string) => s.normalize('NFC');
 const stem = (p: string) => nfc((p.split('/').pop() ?? p).replace(/\.md$/i, ''));
-const DEFAULT_DEF = (): QueryDefDto => ({ title: t('query.editor.untitled'), types: [], match: 'all', filters: [], sort: { by: 'modified', order: 'desc' }, limit: 50, view: 'list', columns: ['type', 'modified'] });
+const DEFAULT_DEF = (): QueryDefDto => ({ title: t('query.editor.untitled'), types: [], match: 'all', filters: [], sort: [{ by: 'modified', order: 'desc' }], limit: 50, view: 'list', groupBy: null, lanes: 'vertical', laneOrder: null, columns: ['type', 'modified'] });
 
 /** Rows without an attribute and groups without rows are left out of runs and commits. */
 function clean(d: QueryDefDto): QueryDefDto {
@@ -220,7 +220,10 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
     { id: 'title', label: t('typePage.title') }, { id: 'created', label: t('attr.created') }, { id: 'modified', label: t('attr.modified') },
     ...own.map((a) => ({ id: a.key, label: a.label, userNamed: true })),
   ];
-  const sortLabel = sortOpts.find((o) => o.id === nfc(def.sort.by))?.label ?? def.sort.by;
+  // Slice Q2: the editor's Sort row shows and edits the first level (the sort popover owns the others, D-1795).
+  const sort0 = def.sort[0] ?? { by: 'modified', order: 'desc' as const };
+  const setSort0 = (d: QueryDefDto, l: Partial<SortDto>): QueryDefDto => ({ ...d, sort: [{ ...(d.sort[0] ?? sort0), ...l }, ...d.sort.slice(1)] });
+  const sortLabel = sortOpts.find((o) => o.id === nfc(sort0.by))?.label ?? sort0.by;
   const limitBad = parseLimit(limitText) === null;
 
   const connector = (match: 'all' | 'any', onPick: (m: 'all' | 'any') => void) => {
@@ -354,12 +357,12 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
       </div>
       <div className="qe-section qe-sort">
         <div className="qe-label">{t('query.editor.sort')}</div>
-        <Chooser label={t('query.editor.sort')} display={sortLabel} options={sortOpts} current={nfc(def.sort.by)}
-          onPick={(by) => update((d) => ({ ...d, sort: { ...d.sort, by } }))} className="qe-sortby" />
+        <Chooser label={t('query.editor.sort')} display={sortLabel} options={sortOpts} current={nfc(sort0.by)}
+          onPick={(by) => update((d) => setSort0(d, { by }))} className="qe-sortby" />
         <div className="qe-segment" role="radiogroup">
           {(['asc', 'desc'] as const).map((o) => (
-            <button key={o} tabIndex={0} type="button" role="radio" aria-checked={def.sort.order === o} className={def.sort.order === o ? 'on' : ''}
-              onClick={() => update((d) => ({ ...d, sort: { ...d.sort, order: o } }))}>{t(o === 'asc' ? 'query.editor.asc' : 'query.editor.desc')}</button>
+            <button key={o} tabIndex={0} type="button" role="radio" aria-checked={sort0.order === o} className={sort0.order === o ? 'on' : ''}
+              onClick={() => update((d) => setSort0(d, { order: o }))}>{t(o === 'asc' ? 'query.editor.asc' : 'query.editor.desc')}</button>
           ))}
         </div>
         <label className="qe-limit">

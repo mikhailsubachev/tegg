@@ -30,10 +30,10 @@ pub const QUERY_VERSION: u32 = 1;
 /// The first line of a file Tegg creates: HEADER + title + ".".
 pub const HEADER: &str = "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › ";
 
-/// R138 create order; also the order "the nearest earlier / later known key" is looked up in (§1.4).
-const ORDER: [&str; 11] = ["version", "title", "types", "match", "filters", "sort", "limit", "view", "columns", "created", "modified"];
+/// R138 create order (v1-views §1.4, D-1783); also the order "the nearest earlier / later known key" is looked up in.
+const ORDER: [&str; 14] = ["version", "title", "types", "match", "filters", "sort", "limit", "view", "group_by", "lanes", "lane_order", "columns", "created", "modified"];
 /// The keys a commit compares (the title is the rename job's, D-1454).
-const COMMIT_KEYS: [&str; 7] = ["types", "match", "filters", "sort", "limit", "view", "columns"];
+const COMMIT_KEYS: [&str; 10] = ["types", "match", "filters", "sort", "limit", "view", "group_by", "lanes", "lane_order", "columns"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Match {
@@ -44,7 +44,7 @@ pub enum Match {
 pub enum View {
     List,
     Table,
-    /// Slice Q2 (v1-views §1.1). Red-test stub (D-1813): not read from files yet.
+    /// Slice Q2 (v1-views §1.1, R185).
     Board,
 }
 /// Board lanes (v1-views §1.1, R185); a missing `lanes` reads as Vertical.
@@ -78,6 +78,14 @@ impl View {
             View::List => "list",
             View::Table => "table",
             View::Board => "board",
+        }
+    }
+}
+impl Lanes {
+    fn as_str(self) -> &'static str {
+        match self {
+            Lanes::Vertical => "vertical",
+            Lanes::Horizontal => "horizontal",
         }
     }
 }
@@ -186,12 +194,15 @@ pub struct QueryDef {
     pub types: Vec<String>,
     pub r#match: Match,
     pub filters: Vec<FilterItem>,
-    /// The levels as written (v1-views §1.1). Red-test stub (D-1813): only the single-mapping form is read yet.
+    /// The levels as written, in file order (repeats kept, v1-views §1.2); a missing or broken `sort` reads as
+    /// `[modified desc]`, `sort: []` as `[]` (D-1806).
     pub sort: Vec<Sort>,
     pub limit: u32,
     pub view: View,
+    /// `group_by` as written (NFC, trimmed); None = absent or broken. In a commit None means "unchanged" (§1.4).
     pub group_by: Option<String>,
     pub lanes: Lanes,
+    /// None = key absent (the default order); a commit with None removes the key (Reset lane order, D-1792).
     pub lane_order: Option<Vec<String>>,
     pub columns: Vec<String>,
 }
@@ -335,13 +346,13 @@ pub struct QueryRow {
     pub values: serde_json::Map<String, Value>,
     pub links: Vec<LinkTarget>,
     pub task: Option<TaskBits>,
-    /// v1-views §1.1. Red-test stubs (D-1813): not filled yet.
+    /// v1-views §1.1: the index's version of the file (a card move's base), its excerpt, and whether it isn't UTF-8.
     pub version: FileVersion,
     pub excerpt: String,
     pub read_only: bool,
 }
 
-/// v1-views §1.1 (R187). Red-test stubs (D-1813): no run produces a grouping yet.
+/// v1-views §1.1 (R187): a board's lanes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LaneKind {
     Option,
@@ -403,7 +414,7 @@ pub struct QueryResult {
     pub uses_relative: bool,
     pub rows: Vec<QueryRow>,
     pub index_ready: bool,
-    /// v1-views §1.1. Red-test stub (D-1813): always None yet.
+    /// v1-views §1.1: Some only with `view: board` and a valid `group_by` (§1.6).
     pub group: Option<Grouping>,
 }
 
@@ -418,7 +429,7 @@ pub struct QuerySummary {
     pub modified: Option<String>,
     pub uses_this: bool,
     pub version: FileVersion,
-    /// v1-views §1.1. Red-test stubs (D-1813): always None yet.
+    /// v1-views §1.1: None when Unreadable.
     pub view: Option<View>,
     pub types: Option<Vec<String>>,
 }
@@ -478,11 +489,6 @@ fn trim_ws(s: &str) -> &str {
 /// D-1434: names compare trimmed, NFC, case-insensitively (no locale), as graph presets (D-907).
 pub fn name_key(s: &str) -> String {
     nfc(trim_ws(s)).to_lowercase()
-}
-
-/// The first sort level, or R138's default when there is none (red-test stub, D-1813: slice Q's one-level behaviour).
-fn first_sort(def: &QueryDef) -> Sort {
-    def.sort.first().cloned().unwrap_or(Sort { by: "modified".into(), order: Order::Desc })
 }
 
 fn default_def(title: &str, columns: Vec<String>) -> QueryDef {
@@ -609,6 +615,22 @@ fn str_list(y: &Yaml) -> Option<Vec<String>> {
         Yaml::Array(a) => a.iter().map(|v| v.as_str().map(str::to_string)).collect(),
         _ => None,
     }
+}
+
+/// One `sort` level (v1-views §1.2): a mapping with a non-blank string `by` and an `order` of asc / desc / missing.
+fn sort_level(v: &Yaml) -> Option<Sort> {
+    let Yaml::Hash(_) = v else { return None };
+    let Yaml::String(by) = &v["by"] else { return None };
+    if trim_ws(by).is_empty() {
+        return None;
+    }
+    let order = match &v["order"] {
+        Yaml::BadValue | Yaml::Null => Order::Asc,
+        Yaml::String(s) if s == "asc" => Order::Asc,
+        Yaml::String(s) if s == "desc" => Order::Desc,
+        _ => return None,
+    };
+    Some(Sort { by: nfc(trim_ws(by)), order })
 }
 
 /// Parses one filter item (R139) at `src`; `in_group`: nested groups are `NestedGroup`.
@@ -864,20 +886,14 @@ fn read_text(text: &str) -> QueryFile {
         }
     };
     if let Some(v) = get("sort") {
+        // v1-views §1.2 (D-1768, D-1806): R138's single mapping, or a list of such mappings (`[]`: zero levels).
         let ok = match v {
-            Yaml::Hash(_) => match (&v["by"], &v["order"]) {
-                (Yaml::String(by), o) if !trim_ws(by).is_empty() => match o {
-                    Yaml::BadValue | Yaml::Null => Some((by.clone(), Order::Asc)),
-                    Yaml::String(s) if s == "asc" => Some((by.clone(), Order::Asc)),
-                    Yaml::String(s) if s == "desc" => Some((by.clone(), Order::Desc)),
-                    _ => None,
-                },
-                _ => None,
-            },
+            Yaml::Hash(_) => sort_level(v).map(|s| vec![s]),
+            Yaml::Array(a) => a.iter().map(sort_level).collect::<Option<Vec<Sort>>>(),
             _ => None,
         };
         match ok {
-            Some((by, order)) => def.sort = vec![Sort { by: nfc(trim_ws(&by)), order }],
+            Some(levels) => def.sort = levels,
             None => bad_key("sort"),
         }
     }
@@ -891,7 +907,28 @@ fn read_text(text: &str) -> QueryFile {
         match v.as_str() {
             Some("list") => def.view = View::List,
             Some("table") => def.view = View::Table,
+            Some("board") => def.view = View::Board,
             _ => bad_key("view"),
+        }
+    }
+    // v1-views §1.2 (R185): read with every `view`, used only by a board.
+    if let Some(v) = get("group_by") {
+        match v {
+            Yaml::String(s) if !trim_ws(s).is_empty() => def.group_by = Some(nfc(trim_ws(s))),
+            _ => bad_key("group_by"),
+        }
+    }
+    if let Some(v) = get("lanes") {
+        match v.as_str() {
+            Some("vertical") => def.lanes = Lanes::Vertical,
+            Some("horizontal") => def.lanes = Lanes::Horizontal,
+            _ => bad_key("lanes"),
+        }
+    }
+    if let Some(v) = get("lane_order") {
+        match str_list(v) {
+            Some(l) => def.lane_order = Some(l.iter().map(|x| nfc(x)).collect()),
+            None => bad_key("lane_order"),
         }
     }
     let mut columns_set = false;
@@ -1007,15 +1044,32 @@ fn item_lines(it: &FilterItem, dash: usize) -> Vec<String> {
     }
 }
 
+/// v1-views §1.4 (D-1768): one level → `sort: { by, order }`; two or more → `sort:` and one `  - { … }` line per level;
+/// none → `sort: []` (D-1806).
+fn sort_lines(levels: &[Sort]) -> Vec<String> {
+    let one = |x: &Sort| format!("{{ by: {}, order: {} }}", scalar_in(&x.by, true), x.order.as_str());
+    match levels {
+        [] => vec!["sort: []".into()],
+        [x] => vec![format!("sort: {}", one(x))],
+        _ => std::iter::once("sort:".to_string()).chain(levels.iter().map(|x| format!("  - {}", one(x)))).collect(),
+    }
+}
+
+/// The lines of one top-level key (none: the key isn't written, e.g. `lane_order: None`).
+fn key_lines(k: &str, def: &QueryDef) -> Vec<String> {
+    match k {
+        "sort" => sort_lines(&def.sort),
+        "group_by" => def.group_by.iter().map(|g| format!("group_by: {}", scalar_in(g, false))).collect(),
+        "lanes" => vec![format!("lanes: {}", def.lanes.as_str())],
+        "lane_order" => def.lane_order.iter().map(|o| format!("lane_order: {}", flow_list(o))).collect(),
+        other => top_line(other, def).into_iter().collect(),
+    }
+}
+
 fn top_line(k: &str, def: &QueryDef) -> Option<String> {
     Some(match k {
         "types" => format!("types: {}", flow_list(&def.types)),
         "match" => format!("match: {}", def.r#match.as_str()),
-        "sort" => {
-            // Red-test stub (D-1813): writes the first level as R138's single mapping, as slice Q.
-            let first = first_sort(def);
-            format!("sort: {{ by: {}, order: {} }}", scalar_in(&first.by, true), first.order.as_str())
-        }
         "limit" => format!("limit: {}", def.limit),
         "view" => format!("view: {}", def.view.as_str()),
         "columns" => format!("columns: {}", flow_list(&def.columns)),
@@ -1046,12 +1100,12 @@ fn effective(def: &QueryDef, k: &str, keep_raw: bool) -> Value {
         "types" => json!(def.types.iter().map(|t| nfc(t)).collect::<Vec<_>>()),
         "match" => json!(def.r#match.as_str()),
         "filters" => norm_items(&def.filters, keep_raw),
-        "sort" => {
-            let first = first_sort(def);
-            json!([nfc(&first.by), first.order.as_str()])
-        }
+        "sort" => json!(def.sort.iter().map(|s| json!([nfc(&s.by), s.order.as_str()])).collect::<Vec<_>>()),
         "limit" => json!(def.limit),
         "view" => json!(def.view.as_str()),
+        "group_by" => json!(def.group_by.as_ref().map(|g| nfc(trim_ws(g)))),
+        "lanes" => json!(def.lanes.as_str()),
+        "lane_order" => json!(def.lane_order.as_ref().map(|o| o.iter().map(|x| nfc(x)).collect::<Vec<_>>())),
         "columns" => json!(def.columns.iter().map(|c| nfc(c)).collect::<Vec<_>>()),
         _ => Value::Null,
     }
@@ -1193,7 +1247,9 @@ pub fn patch(text: &str, file: &QueryFile, def: &QueryDef, now: &str) -> Result<
         return Err(QueryError::Limit);
     }
     let l = &file.layout;
-    let changed: Vec<&str> = COMMIT_KEYS.iter().copied().filter(|k| effective(&file.def, k, true) != effective(def, k, true)).collect();
+    // v1-views §1.4: `group_by: None` in `def` means "unchanged" (a commit never removes it).
+    let compared = |k: &&str| *k != "group_by" || def.group_by.is_some();
+    let changed: Vec<&str> = COMMIT_KEYS.iter().copied().filter(compared).filter(|k| effective(&file.def, k, true) != effective(def, k, true)).collect();
     if changed.is_empty() {
         return Ok(None);
     }
@@ -1202,13 +1258,14 @@ pub fn patch(text: &str, file: &QueryFile, def: &QueryDef, now: &str) -> Result<
         let mut lines = match k {
             "filters" => filters_block(def, file),
             "modified" => vec![format!("modified: {now}")],
-            other => vec![top_line(other, def).unwrap_or_default()],
+            other => key_lines(other, def),
         };
         let order = ORDER.iter().position(|x| *x == k).unwrap_or(ORDER.len());
         match l.keys.iter().find(|x| x.key == k) {
             Some(r) => {
-                // A one-line key keeps its trailing comment (D-1457).
-                if r.end - r.start == 1 && lines.len() == 1 {
+                // A one-line key keeps its trailing comment (D-1457); `sort` and `lane_order` keep the first line's
+                // comment when their shape changes (v1-views §1.4). A removed `lane_order` takes its lines with it.
+                if !lines.is_empty() && ((r.end - r.start == 1 && lines.len() == 1) || matches!(k, "sort" | "lane_order")) {
                     let old = &l.lines[r.start].body;
                     if let Some((_, colon)) = key_at(old, 0) {
                         if let Some(c) = trailing_comment_at(old, colon + 1) {
@@ -1218,6 +1275,7 @@ pub fn patch(text: &str, file: &QueryFile, def: &QueryDef, now: &str) -> Result<
                 }
                 edits.push((r.start, r.end, lines, order));
             }
+            None if lines.is_empty() => {}
             None => {
                 let at = place_of(l, k);
                 edits.push((at, at, lines, order));
@@ -1237,6 +1295,7 @@ pub fn patch(text: &str, file: &QueryFile, def: &QueryDef, now: &str) -> Result<
         && COMMIT_KEYS
             .iter()
             .filter(|k| **k != "columns" || back.layout.present.iter().any(|p| p == "columns"))
+            .filter(|k| compared(k))
             .all(|k| effective(&back.def, k, false) == effective(def, k, false));
     if !ok {
         return Err(QueryError::Unreadable);
@@ -1255,8 +1314,12 @@ pub fn create_text(def: &QueryDef, now: &str, tail: Option<&str>) -> String {
         l.push("filters:".into());
         l.extend(def.filters.iter().flat_map(|f| item_lines(f, 2)));
     }
-    for k in ["sort", "limit", "view", "columns"] {
-        l.push(top_line(k, def).unwrap_or_default());
+    // v1-views §1.4 (D-1783): `group_by` and `lanes` only on a board, `lane_order` only when set.
+    for k in ["sort", "limit", "view", "group_by", "lanes", "lane_order", "columns"] {
+        if matches!(k, "group_by" | "lanes") && def.view != View::Board {
+            continue;
+        }
+        l.extend(key_lines(k, def));
     }
     l.push(format!("created: {now}"));
     l.push(format!("modified: {now}"));
@@ -1436,7 +1499,11 @@ pub fn patch_job_text(text: &str, file: &QueryFile, patches: &[QueryPatch]) -> O
         return None;
     }
     let l = &read.layout;
-    let f = l.keys.iter().find(|k| k.key == "filters")?;
+    // The `filters` items and (v1-views §1.10) the `lane_order` entries.
+    let ranges: Vec<(usize, usize)> = l.keys.iter().filter(|k| k.key == "filters" || k.key == "lane_order").map(|k| (k.start, k.end)).collect();
+    if ranges.is_empty() {
+        return None;
+    }
     let mut lines = l.lines.clone();
     let mut want = read.def.clone();
     let mut changed = false;
@@ -1455,7 +1522,7 @@ pub fn patch_job_text(text: &str, file: &QueryFile, patches: &[QueryPatch]) -> O
             };
             (resolve_root(target, &before).as_deref() == Some(from.as_str())).then(|| format!("{to_text}{rest}"))
         };
-        for line in lines.iter_mut().take(f.end).skip(f.start) {
+        for line in lines.iter_mut().enumerate().filter(|(i, _)| ranges.iter().any(|(a, b)| a <= i && i < b)).map(|(_, x)| x) {
             // A full-line comment is never rewritten; on a value line only the part before a trailing comment is.
             if comment(&line.body) {
                 continue;
@@ -1480,6 +1547,13 @@ pub fn patch_job_text(text: &str, file: &QueryFile, patches: &[QueryPatch]) -> O
         for item in want.filters.iter_mut() {
             move_links_in(item, &moved);
         }
+        for x in want.lane_order.iter_mut().flatten() {
+            let mut v = Value::String(x.clone());
+            move_link_value(&mut v, &moved);
+            if let Value::String(n) = v {
+                *x = n;
+            }
+        }
     }
     if !changed {
         return None;
@@ -1503,24 +1577,25 @@ pub fn patch_job_text(text: &str, file: &QueryFile, patches: &[QueryPatch]) -> O
 }
 
 /// The values a job patch must change in `item`: each string `[[inner]]` for which `moved(inner)` answers.
-fn move_links_in(item: &mut FilterItem, moved: &impl Fn(&str) -> Option<String>) {
-    fn value(v: &mut Value, moved: &impl Fn(&str) -> Option<String>) {
-        match v {
-            Value::String(s) => {
-                if let Some(inner) = s.strip_prefix("[[").and_then(|x| x.strip_suffix("]]")) {
-                    if !inner.contains(']') {
-                        if let Some(n) = moved(inner) {
-                            *s = format!("[[{n}]]");
-                        }
+fn move_link_value(v: &mut Value, moved: &impl Fn(&str) -> Option<String>) {
+    match v {
+        Value::String(s) => {
+            if let Some(inner) = s.strip_prefix("[[").and_then(|x| x.strip_suffix("]]")) {
+                if !inner.contains(']') {
+                    if let Some(n) = moved(inner) {
+                        *s = format!("[[{n}]]");
                     }
                 }
             }
-            Value::Array(a) => a.iter_mut().for_each(|x| value(x, moved)),
-            _ => {}
         }
+        Value::Array(a) => a.iter_mut().for_each(|x| move_link_value(x, moved)),
+        _ => {}
     }
+}
+
+fn move_links_in(item: &mut FilterItem, moved: &impl Fn(&str) -> Option<String>) {
     match item {
-        FilterItem::Filter { value: v, .. } => value(v, moved),
+        FilterItem::Filter { value: v, .. } => move_link_value(v, moved),
         FilterItem::Group { filters, .. } => filters.iter_mut().for_each(|x| move_links_in(x, moved)),
         FilterItem::Raw { .. } => {}
     }
@@ -2062,42 +2137,57 @@ struct SortKey {
     s: String,
 }
 
-fn sort_rows(hits: &mut [usize], def: &QueryDef, chosen: &[String], ctx: &Ctx, broken: &mut Vec<Broken>) {
-    let coll = collator(&ctx.env.locale);
-    let first = first_sort(def);
-    let mut by = nfc(&first.by);
-    let mut order = first.order;
-    let mut options: Vec<String> = Vec::new();
-    let mut kind = match by.as_str() {
+/// One checked sort level (§1.6).
+struct Level {
+    by: String,
+    order: Order,
+    kind: Kind,
+    /// Select / review options, folded, in schema order.
+    options: Vec<String>,
+}
+
+/// The kind of one sort key, checked as slice Q's single `sort` (title / created / modified / an attribute of every
+/// chosen type with one kind); None when invalid.
+fn level_of(by: &str, order: Order, chosen: &[String], ctx: &Ctx) -> Option<Level> {
+    let fixed = match by {
         "title" => Some(Kind::Text),
         "created" | "modified" => Some(Kind::DateTime),
         _ => None,
     };
-    if kind.is_none() {
-        let infos: Vec<Option<AttrInfo>> = if chosen.is_empty() { vec![attr_of(None, &by)] } else { chosen.iter().map(|t| attr_of(ctx.defs.get(t), &by)).collect() };
-        let first = infos.first().cloned().flatten();
-        match first {
-            Some(f) if f.kind != Kind::Unsupported && infos.iter().all(|a| a.as_ref().is_some_and(|a| a.kind == f.kind)) => {
-                options = f.options.iter().map(|(l, _)| fold(l)).collect();
-                kind = Some(f.kind);
-            }
-            _ => {
-                broken.push(Broken { reason: BrokenReason::BadValue, at: None, key: "sort".into(), r#type: None });
-                by = "modified".into();
-                order = Order::Desc;
-                kind = Some(Kind::DateTime);
-            }
-        }
+    if let Some(kind) = fixed {
+        return Some(Level { by: by.to_string(), order, kind, options: Vec::new() });
     }
-    let kind = kind.expect("set above");
+    let infos: Vec<Option<AttrInfo>> = if chosen.is_empty() { vec![attr_of(None, by)] } else { chosen.iter().map(|t| attr_of(ctx.defs.get(t), by)).collect() };
+    match infos.first().cloned().flatten() {
+        Some(f) if f.kind != Kind::Unsupported && infos.iter().all(|a| a.as_ref().is_some_and(|a| a.kind == f.kind)) => {
+            Some(Level { by: by.to_string(), order, kind: f.kind, options: f.options.iter().map(|(l, _)| fold(l)).collect() })
+        }
+        _ => None,
+    }
+}
+
+/// v1-views §1.6 (D-1768, D-1806): the levels of `def.sort` (repeats of a `by` dropped after its first level), compared
+/// level by level with slice Q's rules per kind, empty values last at every level in both orders; ties after the last
+/// level by title (collation), then path (NFC bytes). Any invalid level makes the whole `sort` broken: `[modified desc]`.
+fn sort_rows(hits: &mut [usize], def: &QueryDef, chosen: &[String], ctx: &Ctx, broken: &mut Vec<Broken>) {
+    let coll = collator(&ctx.env.locale);
+    let mut seen: HashSet<String> = HashSet::new();
+    let wanted: Vec<(String, Order)> = def.sort.iter().map(|x| (nfc(trim_ws(&x.by)), x.order)).filter(|(b, _)| seen.insert(b.clone())).collect();
+    let levels: Vec<Level> = match wanted.iter().map(|(b, o)| level_of(b, *o, chosen, ctx)).collect::<Option<Vec<Level>>>() {
+        Some(l) => l,
+        None => {
+            broken.push(Broken { reason: BrokenReason::BadValue, at: None, key: "sort".into(), r#type: None });
+            vec![Level { by: "modified".into(), order: Order::Desc, kind: Kind::DateTime, options: Vec::new() }]
+        }
+    };
     let none = SortKey { empty: true, n: 0.0, s: String::new() };
-    let key_of = |o: &QueryObject| -> SortKey {
-        if by == "title" {
+    let key_of = |lv: &Level, o: &QueryObject| -> SortKey {
+        if lv.by == "title" {
             return SortKey { empty: false, n: 0.0, s: o.title.to_string() };
         }
-        let raw: Option<Value> = if by == "tags" { Some(json!(o.tags)) } else { o.attributes.get(by.as_str()).cloned() };
+        let raw: Option<Value> = if lv.by == "tags" { Some(json!(o.tags)) } else { o.attributes.get(lv.by.as_str()).cloned() };
         let raw = raw.as_ref();
-        match kind {
+        match lv.kind {
             Kind::Number => match raw.filter(|x| x.is_number()).and_then(Value::as_f64) {
                 Some(n) => SortKey { empty: false, n, s: String::new() },
                 None => none.clone(),
@@ -2112,7 +2202,7 @@ fn sort_rows(hits: &mut [usize], def: &QueryDef, chosen: &[String], ctx: &Ctx, b
             },
             Kind::Select | Kind::Review => match strs(raw).into_iter().next() {
                 Some(s) => {
-                    let i = options.iter().position(|x| *x == fold(&s)).unwrap_or(options.len());
+                    let i = lv.options.iter().position(|x| *x == fold(&s)).unwrap_or(lv.options.len());
                     SortKey { empty: false, n: i as f64, s }
                 }
                 None => none.clone(),
@@ -2123,21 +2213,308 @@ fn sort_rows(hits: &mut [usize], def: &QueryDef, chosen: &[String], ctx: &Ctx, b
             },
         }
     };
-    let keys: HashMap<usize, SortKey> = hits.iter().map(|i| (*i, key_of(&ctx.objs[*i]))).collect();
+    let keys: HashMap<usize, Vec<SortKey>> = hits.iter().map(|i| (*i, levels.iter().map(|lv| key_of(lv, &ctx.objs[*i])).collect())).collect();
     hits.sort_by(|a, b| {
-        let (x, y) = (&keys[a], &keys[b]);
-        if x.empty != y.empty {
-            return if x.empty { std::cmp::Ordering::Greater } else { std::cmp::Ordering::Less };
-        }
-        if !x.empty {
-            let c = x.n.partial_cmp(&y.n).unwrap_or(std::cmp::Ordering::Equal).then_with(|| coll.compare(&x.s, &y.s));
-            if c != std::cmp::Ordering::Equal {
-                return if order == Order::Desc { c.reverse() } else { c };
+        for (n, lv) in levels.iter().enumerate() {
+            let (x, y) = (&keys[a][n], &keys[b][n]);
+            if x.empty != y.empty {
+                return if x.empty { std::cmp::Ordering::Greater } else { std::cmp::Ordering::Less };
+            }
+            if !x.empty {
+                let c = x.n.partial_cmp(&y.n).unwrap_or(std::cmp::Ordering::Equal).then_with(|| coll.compare(&x.s, &y.s));
+                if c != std::cmp::Ordering::Equal {
+                    return if lv.order == Order::Desc { c.reverse() } else { c };
+                }
             }
         }
         let (oa, ob) = (&ctx.objs[*a], &ctx.objs[*b]);
         coll.compare(oa.title, ob.title).then_with(|| nfc(oa.path).as_bytes().cmp(nfc(ob.path).as_bytes()))
     });
+}
+
+// ------------------------------------------------------------------------------------------------ grouping (§1.6)
+
+/// The grouping key resolved (D-1769, D-1770, D-1807): `tags`, or an attribute of every chosen type with the same
+/// groupable kind. Options: (label NFC, colour) of the first chosen type.
+struct GroupAttr {
+    key: String,
+    kind: GroupKind,
+    name: String,
+    options: Vec<(String, Option<String>)>,
+}
+
+fn group_attr(group_by: &str, chosen: &[String], defs: &Defs) -> Option<GroupAttr> {
+    let key = nfc(trim_ws(group_by));
+    if key == "tags" {
+        return Some(GroupAttr { key, kind: GroupKind::Tags, name: "Tags".into(), options: Vec::new() });
+    }
+    let mut found: Option<GroupAttr> = None;
+    for t in chosen {
+        let a = defs.get(t)?.attributes.iter().find(|a| nfc(&a.key) == key)?;
+        let kind = match a.r#type {
+            tegg_schema::AttrType::Select => GroupKind::Select,
+            tegg_schema::AttrType::MultiSelect => GroupKind::MultiSelect,
+            tegg_schema::AttrType::Relation => GroupKind::Relation { multiple: a.multiple },
+            _ => return None,
+        };
+        match &found {
+            Some(f) if f.kind != kind => return None,
+            Some(_) => {}
+            None => {
+                found = Some(GroupAttr {
+                    key: key.clone(),
+                    kind,
+                    name: nfc(&a.name),
+                    options: a.options.iter().map(|o| (nfc(&o.label), o.color.as_ref().map(|c| nfc(c)))).collect(),
+                })
+            }
+        }
+    }
+    found
+}
+
+/// One lane a row belongs to while grouping: its sort key, then the lane.
+struct Pending {
+    lane: Lane,
+    /// Lane order inside its kind group: 0 option, 1 unknown / tag / relation, 2 unresolved.
+    rank: (u8, usize, String),
+}
+
+/// R187 excluded option lanes (D-1791): from the top-level valid filters on the grouping key under `match: all`.
+fn excluded_labels(def: &QueryDef, active: &[Active], g: &GroupAttr) -> HashSet<String> {
+    let mut out: HashSet<String> = HashSet::new();
+    if def.r#match != Match::All || !matches!(g.kind, GroupKind::Select | GroupKind::MultiSelect) {
+        return out;
+    }
+    let text_of = |v: &Value| match v {
+        Value::String(s) => s.clone(),
+        other => other.to_string(),
+    };
+    let list = |v: &Value| -> Vec<String> { v.as_array().map(|a| a.iter().map(|x| fold(&text_of(x))).collect()).unwrap_or_default() };
+    for a in active {
+        let Active::Filter { key, op, value, .. } = a else { continue };
+        if *key != g.key {
+            continue;
+        }
+        for (label, _) in &g.options {
+            let f = fold(label);
+            let hit = match (g.kind, op) {
+                (GroupKind::Select, Op::Is) => f != fold(&text_of(value)),
+                (GroupKind::Select, Op::IsNot) => f == fold(&text_of(value)),
+                (GroupKind::Select, Op::IsAnyOf) => !list(value).contains(&f),
+                (_, Op::IsEmpty) => true,
+                (GroupKind::MultiSelect, Op::HasNoneOf) => list(value).contains(&f),
+                _ => false,
+            };
+            if hit {
+                out.insert(label.clone());
+            }
+        }
+    }
+    out
+}
+
+/// v1-views §1.6: the board's lanes and cards for `hits` (rows' order); None when `group_by` doesn't resolve.
+fn group_rows(hits: &[usize], def: &QueryDef, chosen: &[String], ctx: &Ctx, active: &[Active], resolve: &dyn Fn(&str) -> Option<String>) -> Option<Grouping> {
+    let g = group_attr(def.group_by.as_deref()?, chosen, ctx.defs)?;
+    let coll = collator(&ctx.env.locale);
+    let excluded = excluded_labels(def, active, &g);
+    let mut lanes: Vec<Pending> = Vec::new();
+    let mut index: HashMap<String, usize> = HashMap::new();
+    let option_lane = |label: &str, color: &Option<String>| Lane {
+        id: format!("option:{label}"),
+        kind: LaneKind::Option,
+        value: Some(label.to_string()),
+        label: label.to_string(),
+        color: color.clone(),
+        target: None,
+        excluded: excluded.contains(label),
+        drop_target: true,
+        cards: Vec::new(),
+    };
+    for (i, (label, color)) in g.options.iter().enumerate() {
+        if index.contains_key(&format!("option:{label}")) {
+            continue;
+        }
+        index.insert(format!("option:{label}"), lanes.len());
+        lanes.push(Pending { lane: option_lane(label, color), rank: (0, i, String::new()) });
+    }
+    let mut none: Vec<LaneCard> = Vec::new();
+    // Tag spellings seen per key (D-185: the most frequent, the first on a tie).
+    let mut spellings: HashMap<String, Vec<(String, usize)>> = HashMap::new();
+    let all_paths: Vec<String> = ctx.objs.iter().map(|o| o.path.to_string()).collect();
+    for (row, &oi) in hits.iter().enumerate() {
+        let o = &ctx.objs[oi];
+        // (lane id, a new lane when unseen, the raw values that put the row there)
+        let mut placed: Vec<(String, Option<Pending>, Vec<String>)> = Vec::new();
+        let put = |id: String, make: &dyn Fn() -> Pending, raw: String, placed: &mut Vec<(String, Option<Pending>, Vec<String>)>| {
+            match placed.iter_mut().find(|p| p.0 == id) {
+                Some(p) => {
+                    if !raw.is_empty() {
+                        p.2.push(raw);
+                    }
+                }
+                None => placed.push((id, Some(make()), if raw.is_empty() { Vec::new() } else { vec![raw] })),
+            }
+        };
+        let raw_value = o.attributes.get(g.key.as_str());
+        match g.kind {
+            GroupKind::Select | GroupKind::MultiSelect => {
+                for v in strs(raw_value) {
+                    let n = nfc(&v);
+                    let t = nfc(trim_ws(&v));
+                    if t.is_empty() {
+                        continue;
+                    }
+                    if let Some((oi, (label, color))) = g.options.iter().enumerate().find(|(_, (l, _))| *l == t) {
+                        let (label, color) = (label.clone(), color.clone());
+                        put(format!("option:{label}"), &|| Pending { lane: option_lane(&label, &color), rank: (0, oi, String::new()) }, n, &mut placed);
+                    } else {
+                        let tt = t.clone();
+                        put(
+                            format!("unknown:{t}"),
+                            &|| Pending {
+                                lane: Lane { id: format!("unknown:{tt}"), kind: LaneKind::Unknown, value: Some(tt.clone()), label: tt.clone(), color: None, target: None, excluded: false, drop_target: false, cards: Vec::new() },
+                                rank: (1, 0, tt.clone()),
+                            },
+                            n,
+                            &mut placed,
+                        );
+                    }
+                }
+            }
+            GroupKind::Tags => {
+                let fm: Vec<String> = strs(o.attributes.get("tags")).into_iter().map(|x| nfc(&x)).collect();
+                for (i, k) in o.tags.iter().enumerate() {
+                    let k = nfc(k);
+                    if k.is_empty() {
+                        continue;
+                    }
+                    let spelled = o.tag_spellings.get(i).map(|s| nfc(s)).unwrap_or_else(|| k.clone());
+                    let e = spellings.entry(k.clone()).or_default();
+                    match e.iter_mut().find(|(s, _)| *s == spelled) {
+                        Some(x) => x.1 += 1,
+                        None => e.push((spelled, 1)),
+                    }
+                    if placed.iter().any(|p| p.0 == format!("tag:{k}")) {
+                        continue;
+                    }
+                    let raws: Vec<String> = fm.iter().filter(|x| tag_key(x) == k).cloned().collect();
+                    let kk = k.clone();
+                    placed.push((
+                        format!("tag:{k}"),
+                        Some(Pending {
+                            lane: Lane { id: format!("tag:{kk}"), kind: LaneKind::Tag, value: Some(kk.clone()), label: kk.clone(), color: None, target: None, excluded: false, drop_target: true, cards: Vec::new() },
+                            rank: (1, 0, kk.clone()),
+                        }),
+                        raws,
+                    ));
+                }
+            }
+            GroupKind::Relation { .. } => {
+                let mut used: Vec<bool> = vec![false; o.attr_links.len()];
+                for v in strs(raw_value) {
+                    let n = nfc(&v);
+                    let text = link_target_of(&Value::String(v.clone())).unwrap_or_else(|| nfc(trim_ws(&v)));
+                    if text.is_empty() {
+                        continue;
+                    }
+                    let hit = o.attr_links.iter().enumerate().find(|(i, (a, t, _))| !used[*i] && nfc(a) == g.key && nfc(trim_ws(t)) == text);
+                    let target: Option<String> = match hit {
+                        Some((i, (_, _, p))) => {
+                            used[i] = true;
+                            p.map(|p| p.to_string())
+                        }
+                        None => resolve(&text),
+                    };
+                    match target {
+                        Some(p) => {
+                            let p = nfc(&p);
+                            let title = ctx.by_path.get(p.as_str()).map(|i| ctx.objs[*i].title.to_string()).unwrap_or_else(|| {
+                                let n = p.rsplit('/').next().unwrap_or(&p);
+                                n.strip_suffix(".md").unwrap_or(n).to_string()
+                            });
+                            let value = format!("[[{}]]", link_text(&p, &all_paths));
+                            let pp = p.clone();
+                            put(
+                                format!("relation:{p}"),
+                                &|| Pending {
+                                    lane: Lane { id: format!("relation:{pp}"), kind: LaneKind::Relation, value: Some(value.clone()), label: nfc(&title), color: None, target: Some(pp.clone()), excluded: false, drop_target: true, cards: Vec::new() },
+                                    rank: (1, 0, nfc(&title)),
+                                },
+                                n,
+                                &mut placed,
+                            );
+                        }
+                        None => {
+                            let tt = text.clone();
+                            put(
+                                format!("unresolved:{text}"),
+                                &|| Pending {
+                                    lane: Lane { id: format!("unresolved:{tt}"), kind: LaneKind::Unresolved, value: Some(format!("[[{tt}]]")), label: tt.clone(), color: None, target: None, excluded: false, drop_target: false, cards: Vec::new() },
+                                    rank: (2, 0, tt.clone()),
+                                },
+                                n,
+                                &mut placed,
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        if placed.is_empty() {
+            none.push(LaneCard { row, raw: Vec::new() });
+            continue;
+        }
+        for (id, make, raw) in placed {
+            let at = match index.get(&id) {
+                Some(&at) => at,
+                None => {
+                    let Some(p) = make else { continue };
+                    index.insert(id.clone(), lanes.len());
+                    lanes.push(p);
+                    lanes.len() - 1
+                }
+            };
+            lanes[at].lane.cards.push(LaneCard { row, raw });
+        }
+    }
+    for p in lanes.iter_mut().filter(|p| p.lane.kind == LaneKind::Tag) {
+        if let Some(best) = spellings.get(p.lane.value.as_deref().unwrap_or("")).and_then(|v| {
+            let max = v.iter().map(|x| x.1).max()?;
+            v.iter().find(|x| x.1 == max).map(|x| x.0.clone())
+        }) {
+            p.lane.label = best;
+        }
+    }
+    lanes.sort_by(|a, b| a.rank.0.cmp(&b.rank.0).then(a.rank.1.cmp(&b.rank.1)).then_with(|| coll.compare(&a.rank.2, &b.rank.2)).then_with(|| a.lane.id.as_bytes().cmp(b.lane.id.as_bytes())));
+    let mut out: Vec<Lane> = lanes.into_iter().map(|p| p.lane).collect();
+    // `lane_order` moves its listed lanes to the front, in its order; an entry matching no lane is ignored.
+    if let Some(order) = &def.lane_order {
+        let mut front: Vec<Lane> = Vec::new();
+        for e in order {
+            let e = nfc(e);
+            let pos = out.iter().position(|l| match l.kind {
+                LaneKind::Option | LaneKind::Unknown => l.value.as_deref() == Some(e.as_str()),
+                LaneKind::Tag => l.value.as_deref() == Some(tag_key(&e).as_str()),
+                LaneKind::Relation => {
+                    let t = link_target_of(&Value::String(e.clone())).unwrap_or_else(|| nfc(trim_ws(&e)));
+                    resolve(&t).map(|p| nfc(&p)) == l.target || l.value.as_deref() == Some(e.as_str())
+                }
+                LaneKind::Unresolved => l.value.as_deref() == Some(e.as_str()),
+                LaneKind::None => false,
+            });
+            if let Some(i) = pos {
+                front.push(out.remove(i));
+            }
+        }
+        front.extend(out);
+        out = front;
+    }
+    if !none.is_empty() {
+        out.push(Lane { id: "none".into(), kind: LaneKind::None, value: None, label: String::new(), color: None, target: None, excluded: false, drop_target: false, cards: none });
+    }
+    Some(Grouping { key: g.key, kind: g.kind, name: g.name, lanes: out })
 }
 
 /// What `evaluate` answers.
@@ -2147,10 +2524,17 @@ struct Evaluated {
     targets: Vec<String>,
     uses_relative: bool,
     rows: Vec<QueryRow>,
+    group: Option<Grouping>,
 }
 
-fn row_of(o: &QueryObject, def: &QueryDef, ctx: &Ctx) -> QueryRow {
+fn row_of(o: &QueryObject, def: &QueryDef, ctx: &Ctx, group_key: Option<&str>) -> QueryRow {
     let mut cols: Vec<String> = def.columns.iter().map(|c| nfc(c)).collect();
+    // D-1769: a board's rows also carry the grouping key.
+    if let Some(k) = group_key {
+        if !cols.iter().any(|c| c == k) {
+            cols.push(k.to_string());
+        }
+    }
     for k in ["type", "tags"] {
         if !cols.iter().any(|c| c == k) {
             cols.push(k.into());
@@ -2193,7 +2577,7 @@ fn evaluate(objs: &[QueryObject], resolve: &dyn Fn(&str) -> Option<String>, defs
     let missing: Vec<&String> = chosen.iter().filter(|t| !defs.contains_key(*t) && !objs.iter().any(|o| o.r#type == t.as_str())).collect();
     if !missing.is_empty() {
         broken.extend(missing.into_iter().map(|t| Broken { reason: BrokenReason::NoType, at: None, key: t.clone(), r#type: None }));
-        return Evaluated { state: RunState::NoType, broken, targets: Vec::new(), uses_relative: false, rows: Vec::new() };
+        return Evaluated { state: RunState::NoType, broken, targets: Vec::new(), uses_relative: false, rows: Vec::new(), group: None };
     }
     let by_path: HashMap<&str, usize> = objs.iter().enumerate().map(|(i, o)| (o.path, i)).collect();
     let host = host.map(nfc);
@@ -2226,10 +2610,10 @@ fn evaluate(objs: &[QueryObject], resolve: &dyn Fn(&str) -> Option<String>, defs
         }
     });
     if uses_this && ctx.host.is_none() {
-        return Evaluated { state: RunState::NeedsHost, broken, targets: Vec::new(), uses_relative: relative, rows: Vec::new() };
+        return Evaluated { state: RunState::NeedsHost, broken, targets: Vec::new(), uses_relative: relative, rows: Vec::new(), group: None };
     }
     if date_this && ctx.host_daily.is_none() {
-        return Evaluated { state: RunState::NeedsContext, broken, targets: ctx.host.iter().cloned().collect(), uses_relative: relative, rows: Vec::new() };
+        return Evaluated { state: RunState::NeedsContext, broken, targets: ctx.host.iter().cloned().collect(), uses_relative: relative, rows: Vec::new(), group: None };
     }
     if uses_this {
         if let Some(h) = &ctx.host {
@@ -2244,10 +2628,22 @@ fn evaluate(objs: &[QueryObject], resolve: &dyn Fn(&str) -> Option<String>, defs
         .map(|(i, _)| i)
         .collect();
     sort_rows(&mut hits, def, &chosen, &ctx, &mut broken);
-    let rows = hits.iter().map(|i| row_of(&objs[*i], def, &ctx)).collect();
+    // v1-views §1.6 (R185, D-1770): a board groups its rows; a `group_by` that doesn't resolve is a broken part and the
+    // results are drawn as a list.
+    let group = if def.view == View::Board {
+        let g = group_rows(&hits, def, &chosen, &ctx, &active, resolve);
+        if g.is_none() && !broken.iter().any(|b| b.key == "group_by" && b.at.is_none()) {
+            broken.push(Broken { reason: BrokenReason::BadValue, at: None, key: "group_by".into(), r#type: None });
+        }
+        g
+    } else {
+        None
+    };
+    let gk = group.as_ref().map(|g| g.key.clone());
+    let rows = hits.iter().map(|i| row_of(&objs[*i], def, &ctx, gk.as_deref())).collect();
     let mut targets: Vec<String> = targets.into_iter().collect();
     targets.sort_by(|a, b| nfc(a).as_bytes().cmp(nfc(b).as_bytes()));
-    Evaluated { state: RunState::Ok, broken, targets, uses_relative: relative, rows }
+    Evaluated { state: RunState::Ok, broken, targets, uses_relative: relative, rows, group }
 }
 
 // ------------------------------------------------------------------------------------------------ the core (§1.5)
@@ -2324,11 +2720,12 @@ impl Core {
     pub fn query_restore(&self, name: &str) -> Result<QueryRead, CoreError> {
         self.q().query_restore(name)
     }
-    /// Indexed notes then templates that use `name`, each with its title and type, path order.
-    /// v1-views §1.5 (D-1804). Red-test stub (D-1813): lists nothing yet.
-    pub fn query_view_usages(&self, _name: &str) -> Vec<ViewUsage> {
-        Vec::new()
+    /// v1-views §1.5 (D-1804): type files (`.tegg/types/*.yml`, readable, not Newer) whose `views` lists `name`
+    /// (`name_key`), type-key order.
+    pub fn query_view_usages(&self, name: &str) -> Vec<ViewUsage> {
+        self.q().query_view_usages(name)
     }
+    /// Indexed notes then templates that use `name`, each with its title and type, path order.
     pub fn query_usages(&self, name: &str) -> Vec<QueryUsage> {
         self.q().query_usages(name)
     }
@@ -2435,7 +2832,9 @@ impl QCore<'_> {
                 };
                 let name = stem_of(&p);
                 let title = if lookup == Lookup::Unreadable { name.clone() } else { f.def.title.clone() };
-                Some(QuerySummary { name, title, path: p, lookup, line, created: f.created, modified: f.modified, uses_this: f.uses_this, version: v, view: None, types: None })
+                let readable = lookup != Lookup::Unreadable;
+                let (view, types) = if readable { (Some(f.def.view), Some(f.def.types.clone())) } else { (None, None) };
+                Some(QuerySummary { name, title, path: p, lookup, line, created: f.created, modified: f.modified, uses_this: f.uses_this, version: v, view, types })
             })
             .collect()
     }
@@ -2491,9 +2890,23 @@ impl QCore<'_> {
             group: None,
         };
         let run = |mut r: QueryResult, def: QueryDef, syntactic: Vec<Broken>| -> QueryResult {
-            let e = lock(&self.shared.index).with_query_objects(|objs, resolve| evaluate(objs, resolve, &defs, &def, host, env));
+            // One index lock for the evaluation, the grouping and the rows' versions and excerpts (§1.6).
+            let e = {
+                let idx = lock(&self.shared.index);
+                let mut e = idx.with_query_objects(|objs, resolve| evaluate(objs, resolve, &defs, &def, host, env));
+                for row in e.rows.iter_mut() {
+                    if let Some(st) = idx.note_state(&row.path) {
+                        row.version = st.version;
+                        row.excerpt = st.excerpt;
+                        row.read_only = !st.utf8;
+                    }
+                }
+                e
+            };
             let mut broken = syntactic;
-            broken.extend(e.broken);
+            // A `group_by` read as a bad value is also unresolved at run time: listed once.
+            let had_group_by = broken.iter().any(|b| b.key == "group_by" && b.at.is_none());
+            broken.extend(e.broken.into_iter().filter(|b| !(had_group_by && b.key == "group_by" && b.at.is_none())));
             broken.sort_by_key(rank);
             r.def = Some(def);
             r.state = e.state;
@@ -2501,6 +2914,7 @@ impl QCore<'_> {
             r.targets = e.targets;
             r.uses_relative = e.uses_relative;
             r.rows = e.rows;
+            r.group = e.group;
             r
         };
         let saved = |name: &str, form: Form| -> QueryResult {
@@ -2753,6 +3167,31 @@ impl QCore<'_> {
         out
     }
 
+    /// v1-views §1.5: the type files whose `views` names the query (`name_key`), type-key order.
+    pub(crate) fn query_view_usages(&self, name: &str) -> Vec<ViewUsage> {
+        let k = name_key(name);
+        let mut out: Vec<ViewUsage> = Vec::new();
+        for p in self.shared.vault.list_dir(".tegg/types").unwrap_or_default() {
+            let p = nfc(&p);
+            let Some(file) = p.strip_prefix(".tegg/types/") else { continue };
+            let Some(key) = file.strip_suffix(".yml") else { continue };
+            if key.is_empty() || key.starts_with('.') || key.contains('/') || key.contains(".tegg-tmp") {
+                continue;
+            }
+            let Ok((bytes, _)) = self.shared.vault.read(&p) else { continue };
+            let Ok(text) = std::str::from_utf8(&bytes) else { continue };
+            let parsed = tegg_schema::parse(key, text);
+            if parsed.readability != tegg_schema::Readability::Ok {
+                continue;
+            }
+            if parsed.def.views.iter().flatten().any(|v| name_key(v) == k) {
+                out.push(ViewUsage { type_key: key.to_string(), path: p.clone() });
+            }
+        }
+        out.sort_by(|a, b| a.type_key.as_bytes().cmp(b.type_key.as_bytes()));
+        out
+    }
+
     /// Notes and templates that use `name` (the rename job's usages), path order.
     pub(crate) fn query_usage_paths(&self, name: &str) -> Vec<String> {
         self.query_usages(name).into_iter().map(|u| u.path).collect()
@@ -2829,7 +3268,17 @@ impl QCore<'_> {
         let to = format!("{QUERIES_DIR}/{stem}.yml");
         let post = retitle_text(text, &f, &title).into_bytes();
         let usages = self.query_usage_paths(&from_name).into_iter().filter_map(|u| self.shared.vault.version(&u).ok().flatten().map(|v| (u, v))).collect();
-        Ok(tegg_jobs::host::QueryRenamePlan { from: p, to, from_name, to_name: stem, pre: bytes, pre_v: v, post, usages, views: Vec::new() })
+        // v1-views §1.10 (D-1762): every type file whose `views:` names the query gets its entry patched.
+        let views = self
+            .query_view_usages(&from_name)
+            .into_iter()
+            .filter_map(|u| {
+                let (pre, pre_v) = self.shared.vault.read(&u.path).ok()?;
+                let post = tegg_schema::rename_view(std::str::from_utf8(&pre).ok()?, &from_name, &stem)?.into_bytes();
+                Some(tegg_jobs::host::ViewsRow { path: u.path, pre, pre_v, post })
+            })
+            .collect();
+        Ok(tegg_jobs::host::QueryRenamePlan { from: p, to, from_name, to_name: stem, pre: bytes, pre_v: v, post, usages, views })
     }
 
     /// The name another query already has (`NameTaken`'s `existing`), for the job's refusal.
