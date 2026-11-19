@@ -2,8 +2,8 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.189, for review                                            |
-| **Date**            | 2026-11-14                                                          |
+| **Document status** | Draft v1.197, for review                                            |
+| **Date**            | 2026-11-19                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
 
@@ -203,6 +203,7 @@
 | v1.187  | 2026-11-14 | Related notes build: D-1747…D-1757 (B-1…B-11; owner, "Accept all proposals"): six AC-test changes (D-1747…D-1752), re-asks only when idle, the panel tablist as one Tab stop with arrow keys, chips with the link role, `Loading…` timing, document frequencies kept in memory |
 | v1.188  | 2026-11-14 | D-1758: Related AC-23's test ignores `perf_mark` (owner, "Yes, approve") |
 | v1.189  | 2026-11-14 | QA review of slice REL: D-1759…D-1761 (QA-1…QA-3; owner, "Accept all proposals"): the typing benchmark counts asks, AC-8 compares the incremental df map on push, stems are exactly unicode61 tokens |
+| v1.197  | 2026-11-19 | Push-gate speed and reliability (owner, 2026-11-19: "Build 1–4"; run history of 13–19 November: `app-webkit` was 27 of 28 minutes and 12 of 13 failed runs): D-1831 (passes shared by all worktrees), D-1832 (step timeout), D-1833 (one WebKit retry in the gates, flaky list and `flaky` check), D-1834 (partial runs of failed or changed WebKit test files). ACs TS-VERIFY AC-9…AC-12, `tools/qa/CONTRACT.md` §1.2, §3.2.4, §3.2.5, §3.6. (v1.190…v1.196 and D-1762…D-1830 are slice Q2's, PR pending) |
 
 ---
 
@@ -1778,6 +1779,10 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1759 | The typing benchmark counts asks, not redraws (QA-1) (owner, 2026-11-14: "Accept all proposals"; QA review of slice REL) | NFR-PERF-06 AC-7's test counts `related-request` marks (sent on every ask) to show the list was re-asked after Saved, not `related-ready` (sent only when the drawn list changes, which typing `a`×200 doesn't). AC-test change. |
 | D-1760 | AC-8 compares the incremental df map on push (QA-2) (owner, 2026-11-14: "Accept all proposals"; QA review of slice REL) | FR-LNK-15 AC-8's property asks the watched core for one list right after opening, so later comparisons use the document-frequency map kept by each write (D-1757), on push as well as nightly. AC-test change. |
 | D-1761 | Stems are exactly unicode61 tokens (QA-3) (owner, 2026-11-14: "Accept all proposals"; QA review of slice REL) | Every stem written to `rel` is exactly one token of SQLite's `unicode61` tokenizer: stems holding characters it wouldn't treat as token characters are dropped (conservatively, where Rust can't know SQLite's table), so the in-memory df map always equals a rebuild (AR-01, D-1757). Czech and English text is unaffected; a property test on arbitrary Unicode checks it. |
+| D-1831 | Gate passes are shared by all worktrees (owner, 2026-11-19: "Build 1–4") | The step memo (D-611) and the passed trees were kept per checkout, so a pass in a worktree didn't count on `main` after the merge and a design-only commit reran every step there. They are now also kept in `<git common dir>/tegg-verify/`, shared by the main checkout and every worktree; the checkout's `.verify/step-memo.json` and `.verify/last-pass` are still written and still count. The hooks let a tree through that passed in any worktree. TS-VERIFY AC-9, CONTRACT §1.2 |
+| D-1832 | Step timeout (owner, 2026-11-19: "Build 1–4") | A step may set `timeout` (seconds) in `qa.config.json`; a tree gate stops it and everything it started after that time and reports it failed. One run had waited 13 hours on a dead dev server. Opt-in per step, because nightly and milestone steps differ widely in length; `app-webkit` gets 3,600 s. TS-VERIFY AC-10, CONTRACT §3.2.4 |
+| D-1833 | One retry for WebKit tests in the gates, with a flaky list (owner, 2026-11-19: "Build 1–4"; refines test-strategy §8.4 and D-688) | Under `./verify` Playwright retries a failed test once. A test that passes on the retry doesn't fail the gate; it is printed, put in the summary and recorded in a shared flaky list. A test recorded twice with an unchanged test file fails the `flaky` check of every later gate until its file changes (a fix or the `@flaky` quarantine tag) or the owner's `./verify flaky --clear <file>`. Outside the gates nothing is retried. The vitest steps aren't retried. TS-VERIFY AC-11, CONTRACT §3.6 |
+| D-1834 | Partial runs of the WebKit step (owner, 2026-11-19: "Build 1–4") | A push step may declare its independent test files (`testFiles`). When the only input changes since the step's last recorded run are test files, the push gate runs those files plus the ones that failed in that run; any other change, a missing report, `--all` and the nightly, milestone and release gates run everything. `app-webkit` declares `app/webkit/*.test.ts`; helpers and app code always cause a full run. TS-VERIFY AC-12, CONTRACT §3.2.5 |
 
 ---
 

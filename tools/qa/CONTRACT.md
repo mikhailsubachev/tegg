@@ -20,6 +20,19 @@ Every command except `hook claude-pre-tool` and `install-nightly --dry-run` prin
 - If `git config core.hooksPath` is not `.githooks`: a line containing `hooks not installed` and `./verify install` (TS-HOOKS AC-4).
 - If the last nightly run failed (§8): a line containing `nightly` and the path of the nightly report, e.g. `Last nightly run (2026-10-08) failed: qa/nightly/2026-10-08.md` (TS-G2 AC-2). The warning stops once a later nightly run passes.
 
+### 1.2 Shared state (D-1831, TS-VERIFY AC-9)
+
+The folder `<git common dir>/tegg-verify/` (`git rev-parse --git-common-dir`; for a normal clone `<main checkout>/.git/tegg-verify/`) is shared by the main checkout and every worktree of the repository. It is never part of a commit. It holds:
+
+| File | Content |
+| --- | --- |
+| `step-memo.json` | the step memo (§3.2.3) |
+| `passed-trees` | the tree hashes that passed the push gate (§3.2), one per line, newest last, at most 200 lines |
+| `step-runs.json` | the last recorded run of every step with `testFiles` (§3.2.5) |
+| `flaky.json` | the flaky list (§3.6) |
+
+Only gates that hold the gate lock (§3.5) and `verify flaky --clear` write these files. A missing, unreadable or malformed file is treated as empty and rewritten; it never fails a gate. If the folder can't be created, the gate prints a warning on stderr containing `shared state` and works with the checkout's `.verify/` files only.
+
 ## 2. `qa.config.json`
 
 ```json
@@ -39,7 +52,7 @@ Every command except `hook claude-pre-tool` and `install-nightly --dry-run` prin
 
 | Field | Meaning |
 | --- | --- |
-| `steps[]` | Commands run by the gates. `id`: unique name. `dir`: working directory relative to the checkout root (default `.`). `run`: shell command, run with `sh -c`. `level`: the lowest gate that runs the step, one of `commit`, `push`, `nightly`, `milestone`, `release`. `changedOnly` (default `false`): in the **commit** gate only, the step runs only if a staged file is under `dir`; otherwise it is reported as `skipped`. `cargoCache` (default `true`): in tree gates (push and above), the step gets the shared Cargo build cache (§3.2.1); `false` for steps that expect artifacts under their own `target/` (e.g. a built `.app` at a fixed path). `lane` (default `default`): in tree gates, steps of the same lane run one after another in config order and different lanes run concurrently (§3.2.2); the commit gate ignores it. `inputs` (optional): repository-relative paths (files or directories, `/` separators, no leading `/` and no `..`) the step depends on, for the step memo (§3.2.3); a step without `inputs` always runs. |
+| `steps[]` | Commands run by the gates. `id`: unique name. `dir`: working directory relative to the checkout root (default `.`). `run`: shell command, run with `sh -c`. `level`: the lowest gate that runs the step, one of `commit`, `push`, `nightly`, `milestone`, `release`. `changedOnly` (default `false`): in the **commit** gate only, the step runs only if a staged file is under `dir`; otherwise it is reported as `skipped`. `cargoCache` (default `true`): in tree gates (push and above), the step gets the shared Cargo build cache (§3.2.1); `false` for steps that expect artifacts under their own `target/` (e.g. a built `.app` at a fixed path). `lane` (default `default`): in tree gates, steps of the same lane run one after another in config order and different lanes run concurrently (§3.2.2); the commit gate ignores it. `inputs` (optional): repository-relative paths (files or directories, `/` separators, no leading `/` and no `..`) the step depends on, for the step memo (§3.2.3); a step without `inputs` always runs. `timeout` (optional): seconds after which a tree gate stops the step (§3.2.4); it must be a positive number, otherwise exit 2. `testFiles` (optional): a regular expression (JavaScript syntax) on repository-relative paths that selects the step's **independent test files**, for partial runs (§3.2.5); it must be a valid regex, otherwise exit 2. A step with `testFiles` may contain `{files}` in its `run`. |
 | `acTestPatterns` | Regular expressions (JavaScript syntax) matched against **repository-relative paths** with `/` separators. A file matching any of them is an **AC test file**. Default when omitted: the two patterns above. |
 | `acRunners[]` | How to run AC test files for `check-red` (§5). `dir`: runner working directory, relative to the checkout root. `match`: regex on the repository-relative path selecting files this runner handles. `run`: command template; `{files}` is replaced by the file path(s) relative to `dir`, each single-quoted; `{junit}` by an absolute path where the runner must write a JUnit XML report. |
 | `realAppTests` | Repository-relative directory prefixes (ending in `/`) whose test sources are **real-app tests** for the `l6-coverage` check (§9.5), e.g. `["app/e2e/"]`. When omitted or empty, the check isn't run. |
@@ -85,7 +98,9 @@ Order:
 5. **L6 coverage check** on the tree of `<rev>` (§9.5).
 6. Steps with level `commit` and `push` (`changedOnly` is ignored), scheduled by lane (§3.2.2) and subject to the step memo (§3.2.3).
 
-On success, writes the **tree hash** of `<rev>` (`git rev-parse <rev>^{tree}`), followed by a newline, to `.verify/last-pass`, but **only if the range was the default range or was set by the pre-push hook** (§4.2). With an explicit `--range`, a passing run is recorded in the summary but `.verify/last-pass` is left unchanged, so a narrowed range can't unlock `git push` (owner decision 2026-10-08). On failure, `.verify/last-pass` is left unchanged.
+On success, writes the **tree hash** of `<rev>` (`git rev-parse <rev>^{tree}`), followed by a newline, to `.verify/last-pass` and appends it to the shared `passed-trees` (§1.2; a hash already there moves to the end), but **only if the range was the default range or was set by the pre-push hook** (§4.2). With an explicit `--range`, a passing run is recorded in the summary but `.verify/last-pass` is left unchanged, so a narrowed range can't unlock `git push` (owner decision 2026-10-08); `passed-trees` is left unchanged too. On failure, both are left unchanged.
+
+A tree **has passed** if it equals the content of `.verify/last-pass` (trimmed) or is a line of the shared `passed-trees`.
 
 ### 3.2.1 Build cache and worktree path (D-343)
 
@@ -111,12 +126,33 @@ Tree gates (push, nightly, milestone, release) run the steps of each lane one af
 
 For a step with `inputs` (§2), the push gate computes a **memo key**: a hash of the step's `id`, `dir`, `run`, `cargoCache`, a tooling version constant, and the git object id of every input path in the checked commit's tree (`git rev-parse <sha>:<path>`, one call per path, never one `ls-tree` for all paths, which descends into a directory when a deeper path is also given; a path missing from the tree counts as empty). `<dir>/package-lock.json` is always part of the inputs (it decides `node_modules`, §3.2). The gate (and so `QA_PROPERTY_SCALE`) is not part of the key: a pass recorded by nightly, milestone or release counts for push.
 
-- If `.verify/step-memo.json` records a pass for the key, the step does not run: the gate prints `- <id>: skipped (inputs unchanged; reuses <gate> run <startedAt> at <short sha>)`, the summary entry has `result: "skipped"` and `reuses: "<startedAt of the reused run>"`, and the JUnit reports that run wrote for the step (the `$VERIFY_RESULTS/<name>.xml` files named in its `run`) are copied from `.verify/results/<that run>/` into this run's `VERIFY_RESULTS` when they still exist, so `.verify/last-results/` and `verify coverage` stay complete.
+- **Where (D-1831):** the memo is the shared `step-memo.json` (§1.2) together with the checkout's `.verify/step-memo.json`: a gate reads both (a record in either counts; the shared one wins for the same key) and writes the result to both. So a pass recorded in one worktree is reused in every other. Each record also holds `results`, the absolute path of the results folder of its run.
+- If the memo records a pass for the key, the step does not run: the gate prints `- <id>: skipped (inputs unchanged; reuses <gate> run <startedAt> at <short sha>)`, the summary entry has `result: "skipped"` and `reuses: "<startedAt of the reused run>"`, and the JUnit reports that run wrote for the step (the `$VERIFY_RESULTS/<name>.xml` files named in its `run`) are copied from that run's results folder (the record's `results`; for a record without it, `.verify/results/<that run>/` of this checkout) into this run's `VERIFY_RESULTS` when they still exist, so `.verify/last-results/` and `verify coverage` stay complete.
 - Otherwise the step runs. After the gate, every step with a key that **passed** is recorded under its key (step id, gate, commit, `startedAt`, run id, report names); a step that **failed** has any record for its key removed.
 - `nightly`, `milestone` and `release` never skip a step but record passes the same way. `verify push --all` never skips but records. `verify check-red` never reads or writes the memo.
 - A step without `inputs` always runs and is never recorded.
 - A missing, unreadable or malformed memo file is treated as empty and rewritten; it never fails the gate. The file is machine-local (git-ignored with the rest of `.verify/`).
 - Memo skips are only as good as the declared inputs: a dependency not listed can leave a stale pass in place until a nightly or `--all` run (§12).
+
+### 3.2.4 Step timeout (D-1832, TS-VERIFY AC-10)
+
+A step with `timeout` (§2) that is still running `timeout` seconds after it started in a tree gate is stopped: its process group gets SIGTERM and, if it isn't empty 10 s later, SIGKILL. The step's result is `fail`, its summary entry has `timedOut: true`, and its output block ends with a line containing `timed out`, the step's id and the limit. The lane goes on with its next step. A step without `timeout` has no limit. The commit gate ignores `timeout`.
+
+### 3.2.5 Partial runs (push only, D-1834, TS-VERIFY AC-12)
+
+For a step with both `testFiles` and `inputs`. Its **test files** at a commit are the files of the commit's tree whose repository-relative path matches `testFiles`. They must be independent: no test file may depend on another test file, and a change to one must not change the result of another. The configuration, not the tool, guarantees this.
+
+- **`{files}`:** in a full run `{files}` in `run` is replaced by the empty string. In a partial run it is replaced by the chosen test files, as paths relative to the step's `dir`, each single-quoted, separated by spaces.
+- **The record:** after every run of the step in a tree gate, the shared `step-runs.json` (§1.2) records, under a fingerprint of the step (`id`, `dir`, `run`, `cargoCache`, `testFiles`, `inputs`, a tooling version), the checked commit, the gate, `startedAt` and `pending`: the test files not known to pass at that commit.
+  - A passing run: `pending` is empty. A step skipped by the step memo is recorded the same way.
+  - A failing run with a readable JUnit report among the step's reports (the `$VERIFY_RESULTS/<name>.xml` files named in its `run`): `pending` is every test file the run should have run (all test files in a full run, the chosen ones in a partial run) except those with at least one `<testcase>` in the reports and none of them with a `<failure>`, `<error>` or `<skipped>`. A `<testcase>` belongs to the test file whose path equals its `classname` or ends with `/` + its `classname`. Test files a partial run didn't run keep passing and aren't pending.
+  - A failing run without a readable report (also a timed-out one): in a full run `pending` is unknown (`null`); in a partial run it is every chosen test file.
+- **Choosing (push without `--all`, when the step memo doesn't skip the step):** the run is partial if a record exists for the step's fingerprint, its `pending` is known, its commit exists in the repository, and every path that differs between that commit and the checked commit under the step's inputs (`git diff --name-status --no-renames <recorded> <checked> -- <inputs and <dir>/package-lock.json>`) matches `testFiles`. The chosen test files are the record's `pending` plus the added and modified ones, without those missing from the checked commit's tree.
+  - Otherwise the run is full.
+  - If no test file is chosen, the step doesn't run and its result is `pass`.
+- **Output and summary:** a partial run prints `- <id>: partial run of <n> test file(s) (other inputs unchanged since <gate> run <startedAt> at <short sha>)` before the step starts; the summary entry has `partial: { "files": [<repository-relative paths>], "since": "<recorded commit>" }`.
+- A passing partial run is a pass of the step: it is recorded in the step memo (§3.2.3) like any pass.
+- `nightly`, `milestone`, `release` and `push --all` always run the step in full and record the run.
 
 ### 3.3 `verify nightly`, `verify milestone --milestone <MSn>`, `verify release`
 
@@ -145,7 +181,8 @@ Every gate run writes a JSON summary to `.verify/runs/<timestamp>-<gate>.json` a
 
 - `result` is `pass` or `fail`; step `result` is `pass`, `fail` or `skipped`. For the commit gate, `commit` is the `HEAD` sha and `tree` is the tree of the staged index (`git write-tree`).
 - `steps[]` is in config order regardless of lanes (§3.2.2). In tree gates each entry also has `lane`; a step skipped by the step memo (§3.2.3) has `result: "skipped"`, `durationMs: 0` and `reuses` (the `startedAt` of the run whose pass it reuses).
-- Check `id`s: `privacy`, `fixtures`, `ac-test-protection`, `red-first`, `l6-coverage`, `milestone-acs`, `milestone-deferred`.
+- Check `id`s: `privacy`, `fixtures`, `ac-test-protection`, `red-first`, `flaky`, `l6-coverage`, `milestone-acs`, `milestone-deferred`.
+- Tree gates: a step stopped by its timeout has `timedOut: true` (§3.2.4); a partial run has `partial` (§3.2.5); the summary has `flaky`, the flaky tests of this run (§3.6), an empty array when there are none.
 - `seeds`: every integer found in the step's output after `seed` followed by `=`, `:` or spaces (case-insensitive), in order.
 - JUnit files written to `VERIFY_RESULTS` by the run are copied to `.verify/last-results/` (replacing its previous content).
 - **Budget:** if `durationMs` exceeds the gate's budget, stdout gets a line containing `exceeded` and the budget, followed by the up-to-3 slowest steps, one per line, each containing the step `id` and its duration. The exit code doesn't change.
@@ -167,6 +204,17 @@ Parallel gates load the machine so much that timing-sensitive WebKit tests fail 
 - **No lock:** if the lock folder can't be created, the command prints a warning on stderr containing `without the one-gate-at-a-time lock` and runs without the lock.
 - The QA tool tests give each test process its own `VERIFY_GATE_LOCK_DIR`, so they never wait for a real gate, and remove it when the test process exits.
 
+### 3.6 Flaky tests (D-1833, TS-VERIFY AC-11)
+
+A test that fails and then passes on a retry inside one step is **flaky**. The step's own exit code decides whether it passed; the gate counts the flaky tests.
+
+- **Report:** a step may write files `$VERIFY_RESULTS/<name>.flaky.json`: a JSON array of `{ "file": "<repository-relative path of the test file>", "test": "<test name>" }`. A file that isn't such an array is ignored with a warning on stderr containing `flaky`.
+- **After the steps**, a tree gate reads every such file this run wrote, prints one line per entry containing `flaky`, the file and the test, and puts the entries in the summary's `flaky` (`[{ "file", "test" }]`).
+- **The flaky list:** each entry is appended to the shared `flaky.json` (§1.2) as `{ file, test, blob, commit, gate, startedAt }`, where `blob` is the git object id of `file` in the checked commit's tree (empty if it isn't there). Records older than 90 days are dropped on every write.
+- **The `flaky` check** (every tree gate, after `red-first`, before the steps, so it judges earlier runs only): for every `file` + `test` of the list, it counts the records whose `blob` equals the object id of `file` in the checked commit's tree. Two or more fail the check with one message `<file> :: <test>: flaky <n> times (<dates>); fix or quarantine it`, sorted. A changed test file (a fix, or a quarantine tag such as `@flaky`) has another object id, so its earlier records no longer count for that commit.
+- **`verify flaky`** prints the list, one line per record (`<date> <file> :: <test> (<gate> at <short sha>)`), exit 0. **`verify flaky --clear <file>`** removes every record of that file (for a flaky test fixed outside its test file) and prints how many it removed, exit 0; without a file it exits 2. Neither takes the gate lock.
+- **Configuration:** the app's Playwright config retries a failed test once under a gate (`VERIFY_GATE` set) and writes `app-webkit.flaky.json` through `app/webkit/flaky-reporter.ts`; outside a gate it doesn't retry.
+
 ## 4. Hooks
 
 ### 4.1 Git hooks (TS-HOOKS AC-1, AC-4)
@@ -184,7 +232,7 @@ Committed in `.githooks/`, executable, POSIX `sh`. Each finds the repository roo
 ### 4.2 `verify hook pre-push <remote> <url>`
 
 Reads git's pre-push lines from stdin: `<local ref> <local sha> <remote ref> <remote sha>`. For each line whose local sha isn't all zeros (a delete):
-- if the tree hash of `<local sha>` equals the content of `.verify/last-pass` (trimmed), it is **skipped** and nothing runs;
+- if the tree of `<local sha>` has passed (§3.2: `.verify/last-pass` or the shared `passed-trees`), it is **skipped** and nothing runs;
 - otherwise it runs the push gate with `--commit <local sha>` and, if `<remote sha>` isn't all zeros, `--range <remote sha>..<local sha>` (else the default range).
 
 Exit 0 if every line was skipped or passed, else 1; a bad `VERIFY_LANES` exits 2 before anything runs (§3.5).
@@ -197,7 +245,7 @@ Looks at the **staged** changes (`git diff --cached --name-status -M`); during a
 
 Configured in `.claude/settings.json` as a `PreToolUse` hook with matcher `Bash` and command `"$CLAUDE_PROJECT_DIR"/verify hook claude-pre-tool`.
 
-Reads the Claude Code hook JSON from stdin (`{"tool_name": "Bash", "tool_input": {"command": "..."}, ...}`). If `tool_name` is `Bash` and the command contains `git push` or `gh pr merge`, and the content of `.verify/last-pass` (trimmed) isn't the tree hash of `HEAD`, it exits **2** with a message on stderr containing `./verify push`. In every other case (other tools, other commands, matching last-pass, unparsable input) it exits 0 and prints nothing.
+Reads the Claude Code hook JSON from stdin (`{"tool_name": "Bash", "tool_input": {"command": "..."}, ...}`). If `tool_name` is `Bash` and the command contains `git push` or `gh pr merge`, and the tree of `HEAD` hasn't passed (§3.2: `.verify/last-pass` or the shared `passed-trees`), it exits **2** with a message on stderr containing `./verify push`. In every other case (other tools, other commands, matching last-pass, unparsable input) it exits 0 and prints nothing.
 
 ### 4.5 Claude Code permissions (TS-HOOKS AC-3, TS-P AC-2)
 
@@ -343,7 +391,9 @@ Found by the QA review of the first version and deliberately not addressed now. 
 - **Claude hook matching:** `git -C <dir> push`, `git -c … push` and other global options aren't detected; `--no-verify` or a `core.hooksPath` override placed after other arguments isn't caught by the deny rules; `git push` inside quoted text (a commit message, a `grep`) is blocked when last-pass is stale.
 - **Faked pre-push input:** running `./verify hook pre-push` by hand with a made-up stdin line (`<ref> <head> <ref> <head~1>`) checks a narrowed range and still records last-pass, a smaller version of the `--range` route closed in §3.2.
 - **Test helpers aren't protected:** shared helpers such as `tools/qa/test/helpers.ts` can be changed without an `AC-Test-Change:` trailer. The QA reviewer checks such changes (TS-I3).
-- **No step timeouts:** a hanging step hangs its gate, including the nightly run.
+- **Step timeouts are opt-in (§3.2.4):** a hanging step without `timeout` hangs its gate, including the nightly run.
+- **Partial runs (§3.2.5):** nothing checks that a step's test files are independent; a helper or fixture that matches `testFiles` by mistake would be treated as a test file. After a partial run the step's JUnit report holds only the files that ran, so `verify coverage` shows the other ACs of that step as not run until the next full run (nightly or `push --all`).
+- **Flaky list (§3.6):** `verify flaky --clear` isn't protected; the QA reviewer checks that a cleared test was fixed. A flaky test in a step that writes no `.flaky.json` (vitest, cargo) isn't counted.
 - **Duplicate AC IDs** (e.g. `FR-TYP-15/AC-1` in two files) and alias collisions are merged silently in the coverage report.
 - **counts-only** accepts ASCII-only labels and JSON keys, so an ASCII title used as a label passes.
 - **Merge side effects (§5.0):** a merge that itself adds a new AC test (new against every parent) skips red-first; a clean merge where both sides changed the same AC test or fixture (each with its own trailer) differs from every parent, so the merge commit needs the trailer too.
