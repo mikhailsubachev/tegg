@@ -24,7 +24,9 @@ export default class FlakyReporter implements Reporter {
       .map((t) => ({ file: path.relative(REPO_ROOT, t.location.file).split(path.sep).join('/'), test: t.titlePath().slice(3).join(' › ') }))
       .sort((a, b) => (a.file + a.test < b.file + b.test ? -1 : 1));
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, 'app-webkit.flaky.json'), JSON.stringify(flaky, null, 2) + '\n');
+    // The nightly dev-server run (D-1882) reports under its own name, next to the bundle run's file.
+    const name = process.env.VERIFY_WEBKIT_DEV ? 'app-webkit-dev.flaky.json' : 'app-webkit.flaky.json';
+    fs.writeFileSync(path.join(dir, name), JSON.stringify(flaky, null, 2) + '\n');
   }
 
   printsToStdio(): boolean {

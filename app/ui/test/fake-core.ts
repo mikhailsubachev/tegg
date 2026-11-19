@@ -425,9 +425,12 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
   await page.addInitScript(fakeImportMain, { opts: opts.import ?? {}, empty: newEmptyVault('').files });
   if (opts.prelude) {
     const prelude = opts.prelude;
+    // The prelude is a module of its own, imported first by the page entry: pasted into the entry it would share a
+    // scope with the bundler's minified top-level names (D-1880).
+    await page.route(/\/__tegg_prelude\.js$/, (route) => route.fulfill({ contentType: 'text/javascript', body: prelude }));
     await page.route(/\/src\/(capture\/)?main\.tsx(\?.*)?$/, async (route) => {
       const res = await route.fetch();
-      await route.fulfill({ response: res, body: `${prelude}\n${await res.text()}` });
+      await route.fulfill({ response: res, body: `import '/__tegg_prelude.js';\n${await res.text()}` });
     });
   }
   const ev = <T>(fn: () => T) => page.evaluate(fn);
