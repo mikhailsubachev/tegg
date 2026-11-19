@@ -107,17 +107,14 @@ test('fr_qry_07_ac10_remove_keeps_the_query', async () => {
 test('fr_qry_06_ac23_views_are_marked_on_the_queries_page', async () => {
   const m = await model();
   const marks: Map<string, string[]> = m.pageMarks(TYPES, SUMMARIES);
-  const plain = Object.fromEntries([...marks.entries()].map(([k, v]) => [k.normalize('NFC').toLowerCase(), v]));
-  assert.deepEqual(Object.keys(plain).sort(), ['přečtené 2026', 'rozečtené', 'výborné knihy'].sort(), 'the three Books views carry a mark (keyed by name key)');
-  assert.deepEqual(plain['rozečtené'], ['Books'], 'Rozečtené: `Books page`');
+  assert.deepEqual([...marks.keys()].sort(), ['přečtené 2026', 'rozečtené', 'výborné knihy'].sort(), 'the three Books views carry a mark, keyed by the lower-cased NFC name key (D-1818)');
+  assert.deepEqual(marks.get('rozečtené'), ['Books'], 'Rozečtené: `Books page`');
   const two = m.pageMarks([BOOK, { ...AUTOR, views: ['Rozečtené'] }], SUMMARIES);
-  const twoPlain = Object.fromEntries([...(two as Map<string, string[]>).entries()].map(([k, v]) => [k.normalize('NFC').toLowerCase(), v]));
-  assert.deepEqual(twoPlain['rozečtené'], ['Books', 'Autoři'], 'a query that is a tab on two type files shows both marks');
+  assert.deepEqual((two as Map<string, string[]>).get('rozečtené'), ['Books', 'Autoři'], 'a query that is a tab on two type files shows both marks');
 });
 
 test('fr_qry_01_ac13_group_by_choices', async () => {
   const m = await model();
-  const keys = (l: any[]) => l.map((x) => (typeof x === 'string' ? x : x?.key));
-  assert.deepEqual(keys(m.groupByChoices(BOOK)), ['author', 'status', 'rating', 'genres', 'tags'], 'Book: Author, Status, Rating, Genres, then Tags; Finished (a date) isn\'t offered');
-  assert.deepEqual(keys(m.groupByChoices(AUTOR)), ['tags'], 'Autor (only Text): only Tags');
+  assert.deepEqual(m.groupByChoices(BOOK), ['author', 'status', 'rating', 'genres', 'tags'], 'Book: Author, Status, Rating, Genres, then Tags; Finished (a date) isn\'t offered');
+  assert.deepEqual(m.groupByChoices(AUTOR), ['tags'], 'Autor (only Text): only Tags');
 });

@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.192, for review                                            |
+| **Document status** | Draft v1.193, for review                                            |
 | **Date**            | 2026-11-14                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -206,6 +206,7 @@
 | v1.190  | 2026-11-19 | Slice Q2 plan (views on type pages, `docs/plans/q2-views-plan.md`): D-1762…D-1780 (AP-1478…AP-1496; owner, each as proposed except AP-1487, palette only): views are saved queries listed in the type file, Board with grouping and vertical or horizontal lanes, multi-level sort, widths per query on this Mac, wide type and query pages, no Calendar view (FR-QRY-05; FR-TSK-06 → v1.x, C), and the Q2-T decisions for the Tasks page |
 | v1.191  | 2026-11-19 | Slice Q2 acceptance criteria (`docs/acceptance/views.md`, fixture `tests/fixtures/vaults/views/`): D-1781…D-1802 (AP-1497…AP-1518; owner, each as proposed except AP-1512, each tab keeps its filter text while the page is open, and AP-1514, column reorder by header drag only): New view drafts, `views:` writing, header clicks, the sort popover, lanes and cards, `Reset lane order` removes the key (exception to D-1457), the editor without a Sort row, the placeholders removed, the changed AC tests |
 | v1.192  | 2026-11-19 | Slice Q2 contract (`docs/contracts/v1-views.md`): D-1803…D-1811 (CP-1…CP-9; owner, each as proposed): `views:` through `type_patch`, `query_view_usages`, unresolved relation lanes, `sort: []`, valid boards, exact lane matching, New view's Undo, inline fences unchanged, the excluded lane's text; D-1812: ten AC fixes in `docs/acceptance/views.md` |
+| v1.193  | 2026-11-19 | Slice Q2 red tests (258519e1): D-1813…D-1823 (RT-1…RT-11; owner, each as proposed): stubs plus type-only edits of slice Q's tests before the second red commit, a separate L3 file, the fake core built with the slice, the type page's count as `<n> <plural>`, contract precision (direction, choice lists, view-tab rows, the card-move mark), FR-QRY-01 AC-8 without L1, the expected-bytes step order, `Čtu` for the NFD clause |
 
 ---
 
@@ -1832,6 +1833,17 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1810 | Inline query fences (CP-8) (owner, 2026-11-19; slice Q2 contract, `docs/contracts/v1-views.md` §9) | Inline fences keep slice Q's behaviour: no sort popover, resize or column drag; a board in one can still drag cards, which writes the object |
 | D-1811 | The excluded lane's text (CP-9) (owner, 2026-11-19; slice Q2 contract, `docs/contracts/v1-views.md` §9) | The `{values}` of the hatched lane's text are the labels of the option lanes not excluded, in lane order, joined with `Intl.ListFormat` for the locale |
 | D-1812 | AC problems found by the contract (owner, 2026-11-19: "Fix all 10"; `docs/contracts/v1-views.md` §10) | `docs/acceptance/views.md` is fixed as proposed: R184's order includes `embed`; FR-QRY-05 AC-23 drags Title to 200 px (its minimum is 160, D-1248); `views.addFailed` after a query create and `views.changedOutside` otherwise; R192's missing keys; a change-table row for the slice Q tests that need only type updates (under D-1802); `Filter Books…` on the board tab; `--type-*` tokens; the wording of FR-QRY-07 AC-1 and FR-QRY-05 AC-12 |
+| D-1813 | Red tests that need Q2's core types (RT-1) (owner, 2026-11-19; slice Q2 red tests 258519e1) | A commit of compile-only stubs of the contract's new types, together with the type-only edits slice Q's existing tests need (e.g. `sort` as a list), under D-1802's `AC-Test-Change` trailer with behaviour unchanged; then a second red commit with the remaining L4/L2 tests (AR-07 AC-9, FR-SYN-02 AC-11, FR-FMT-07 AC-32, NFR-POR-01 AC-6 and the L4 parts of the others) |
+| D-1814 | Q2's L3 corpus (RT-2) (owner, 2026-11-19; slice Q2 red tests 258519e1) | `tests/fixtures/queries-files/expected-views.json` is a separate file beside `expected.json`; the Q2 tests and the fake core's contract test read it |
+| D-1815 | The fake core's Q2 behaviour (RT-3) (owner, 2026-11-19; slice Q2 red tests 258519e1) | Built during the Q2 build (the `views` op, groups, the new keys, `query_view_usages`, the rename patches), checked against `expected-views.json` |
+| D-1816 | The type page's count (RT-4) (owner, 2026-11-19; slice Q2 red tests 258519e1) | The header count reads `<n> <plural>` with the type's plural as written (`17 Books`), a new string key; existing tests asserting `<n> objects` change under D-1802 |
+| D-1817 | `neighbourDropLane` direction (RT-5) (owner, 2026-11-19; slice Q2 red tests 258519e1) | Typed `dir: 1 | -1` |
+| D-1818 | Choice lists' shapes (RT-6) (owner, 2026-11-19; slice Q2 red tests 258519e1) | `groupByChoices`, `sortChoices` and `pageMarks` return `string[]`; `name_key` is lowercase NFC |
+| D-1819 | Rows in a view tab (RT-7) (owner, 2026-11-19; slice Q2 red tests 258519e1) | Rows of a view tab's Table or List carry `[data-query-result="<path>"]`, as in the block |
+| D-1820 | The card-move timing (RT-8) (owner, 2026-11-19; slice Q2 red tests 258519e1) | The `board-card-moved` mark's `ms` is the time from the drop event to the card in the target lane's DOM (NFR-PERF-07 AC-4) |
+| D-1821 | No TS comparator (RT-9) (owner, 2026-11-19; slice Q2 red tests 258519e1) | FR-QRY-01 AC-8 drops its L1 part; the Rust L4 test and the L2 property test cover the comparison |
+| D-1822 | Order of the expected-bytes steps (RT-10) (owner, 2026-11-19; slice Q2 red tests 258519e1) | The sequence recorded in `tests/fixtures/queries-files/expected/views/README.md` is approved (FR-QRY-01 AC-9, AC-11, AC-12 in sequence; FR-QRY-07 AC-12 (c), FR-LNK-03 AC-24 (b) as written there) |
+| D-1823 | An NFD option with diacritics (RT-11) (owner, 2026-11-19; slice Q2 red tests 258519e1) | FR-FMT-12 AC-12's NFD status clause uses a runtime option `Čtu` instead of `Reading` |
 
 ---
 

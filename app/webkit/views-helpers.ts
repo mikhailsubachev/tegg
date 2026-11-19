@@ -177,9 +177,9 @@ export async function selectTab(page: Page, name: string) {
 /** The titles a view panel lists (table or list rows), in DOM order. */
 export async function panelRows(page: Page): Promise<string[]> {
   return panelOf(page).evaluate((p) => {
+    // D-1819: every row of a view tab's Table or List (and of All <plural>) carries data-query-result="<path>".
     const marked = [...p.querySelectorAll('[data-query-result]')] as HTMLElement[];
-    if (marked.length) return marked.map((e) => (e.getAttribute('data-query-result') ?? '').normalize('NFC').split('/').pop()!.replace(/\.md$/, ''));
-    return ([...p.querySelectorAll('table tbody tr')] as HTMLElement[]).map((r) => ((r.querySelector('td, th') as HTMLElement | null)?.innerText ?? '').split('\n')[0].trim().normalize('NFC'));
+    return marked.map((e) => (e.getAttribute('data-query-result') ?? '').normalize('NFC').split('/').pop()!.replace(/\.md$/, ''));
   }).catch(() => []);
 }
 export async function panelRowsAre(page: Page, want: string[], ms = 3000): Promise<string[]> {

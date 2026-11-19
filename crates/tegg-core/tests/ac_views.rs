@@ -186,16 +186,21 @@ fn fr_qry_09_ac6_cards_follow_edits() {
 fn fr_fmt_12_ac12_view_names_and_lanes_are_nfc() {
     let sb = sandbox();
     let root = vault(&sb);
-    // An NFD file name `Rozečtené.yml` and a book with an NFD `status: Reading`.
+    // An NFD file name `Rozečtené.yml`.
     let text = fixture(&qpath(ROZ));
     std::fs::remove_file(root.join(qpath(ROZ))).expect("setup: remove");
     write(&root, &nfd(&qpath(ROZ)), text.as_bytes());
-    write(&root, "Books/Nová NFD.md", format!("---\ntype: book\ntitle: Nová NFD\nstatus: {}\ncreated: 2026-11-19T09:00:00+01:00\nmodified: 2026-11-19T09:00:00+01:00\n---\nText.\n", nfd("Reading")).as_bytes());
+    // D-1823: a runtime option `Čtu` (after Read) and a book with an NFD `status: Čtu`; a board by status, no filters.
+    write(&root, BOOK, swapped(&fixture(BOOK), "      - { label: Read, color: green }\n", "      - { label: Read, color: green }\n      - { label: Čtu, color: teal }\n").as_bytes());
+    write(&root, "Books/Nová NFD.md", format!("---\ntype: book\ntitle: Nová NFD\nstatus: {}\ncreated: 2026-11-19T09:00:00+01:00\nmodified: 2026-11-19T09:00:00+01:00\n---\nText.\n", nfd("Čtu")).as_bytes());
+    let stav = "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Podle stavu.\nversion: 1\ntitle: Podle stavu\ntypes: [book]\nmatch: all\nfilters: []\nsort:\n  - { by: status, order: asc }\n  - { by: title, order: asc }\nlimit: 50\nview: board\ngroup_by: status\nlanes: vertical\ncolumns: [author]\ncreated: 2026-11-01T09:00:00+01:00\nmodified: 2026-11-01T09:00:00+01:00\n";
+    write(&root, &qpath("Podle stavu"), stav.as_bytes());
     let core = open(&root, &sb.dirs, false);
-    let r = run(&core, ROZ, &env());
-    assert_eq!(
-        paths(&r),
-        vec![b("Dům u řeky"), b("Kniha o horách"), "Books/Nová NFD.md".to_string(), b("Noční vlak"), b("Účetní ze Žižkova"), b("Světla přístavu")],
-        "the NFD file resolves as Rozečtené; the NFD status sorts as Reading (option order), newest first"
-    );
+    assert_eq!(paths(&run(&core, ROZ, &env())), bs(&ROZ_ROWS), "the NFD file name resolves as Rozečtené (and its two-level order)");
+    let r = run(&core, "Podle stavu", &env());
+    let mut want = bs(&["Dům u řeky", "Kniha o horách", "Ostrov bez jména", "Noční vlak", "Světla přístavu", "Účetní ze Žižkova"]);
+    want.extend(bs(&["Cizí přístavy", "Čarovná mapa", "Čtvrtá zima", "Kniha o čaji", "Mapa bez severu", "Sto zimních dní", "Šest cest k moři", "Tiché město", "Zahrada v dešti"]));
+    want.push("Books/Nová NFD.md".to_string());
+    want.extend(bs(&["Zápisník z Tater", "Písně z dálky"]));
+    assert_eq!(paths(&r), want, "status ↑: To read, Reading, Read, then the NFD `Čtu` as the option Čtu (not an unknown value), then Rozečteno, then empty");
 }

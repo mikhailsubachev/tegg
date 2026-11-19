@@ -105,8 +105,7 @@ test('nfr_perf_07_ac4_dragged_card_shows_within_100_ms', { timeout: 60 * 60_000 
         const before = marksOf(log).filter((m) => m.mark === 'board-card-moved').length;
         await d.execute('macos: clickAndDrag', { startX: Math.round(from.x + from.width / 2), startY: Math.round(from.y + 12), endX: Math.round(to.x + to.width / 2), endY: Math.round(to.y + 40), duration: 0.6 });
         assert.ok(await waitFor(() => marksOf(log).filter((m) => m.mark === 'board-card-moved').length > before, 5000), `drop ${i}: board-card-moved`);
-        // The `board-card-moved` mark's `ms` is the time from the drop event to the card in the target lane's DOM
-        // (contract §4.8 names only the mark; RT point).
+        // The `board-card-moved` mark's `ms` is the time from the drop event to the card in the target lane's DOM (D-1820).
         const ms = marksOf(log).filter((m) => m.mark === 'board-card-moved').at(-1)?.ms ?? null;
         assert.ok(ms !== null, `drop ${i}: a time`);
         times.push(ms!);

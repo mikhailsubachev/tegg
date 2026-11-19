@@ -6,7 +6,7 @@
 // FR-QRY-08 AC-2 (`prefillFor`: the lane's value plus the view's Select `is` filters, D-1439). Data: app/test/views-data.ts
 // (GroupingDto shapes of §2). Written from the ACs and the contract only (D-61). The module loads inside the tests (TS-I1).
 //
-// `neighbourDropLane(group, laneId, dir)`: `dir` is +1 (next) or −1 (previous) here (the contract names no type; RT point).
+// `neighbourDropLane(group, laneId, dir: 1 | -1)`: +1 next, −1 previous (D-1817).
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { AUTHOR_GROUP, BOOK, GENRE_GROUP, ROZ_GROUP, STAV_GROUP, TAG_GROUP, def } from './views-data';

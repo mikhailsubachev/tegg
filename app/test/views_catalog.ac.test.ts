@@ -37,6 +37,7 @@ const R192: Row[] = [
   ['views.changedOutside', { plural: 'Books' }, '"Books" changed outside Tegg. The views weren\'t changed.'],
   ['views.moved', { name: 'Rozečtené' }, 'Moved view Rozečtené'],
   ['views.brokenAllTypes', { thisType: 'Book' }, 'This view shows all types, not only Book. Edit view to fix it.'],
+  ['typePage.countPlural', { count: 17, plural: 'Books' }, '17 Books'], // D-1816
   ['query.editor.usedOnPage', { plural: 'Books', count: 1 }, 'Used on the Books page and 1 note. Changes apply everywhere.'],
   ['query.editor.usedOnPage', { plural: 'Books', count: 3 }, 'Used on the Books page and 3 notes. Changes apply everywhere.'],
   ['query.editor.showFixed', { plural: 'Books' }, 'fixed: a view of the Books page'], ['query.editor.board', {}, 'Board'], ['query.editor.groupBy', {}, 'Group by'],

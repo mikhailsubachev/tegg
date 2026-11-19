@@ -42,6 +42,5 @@ is the runtime block-list variant of `book.yml` (line 13 as `views:` plus the th
 
 `../../expected-views.json` (L3 for slice Q2): `reads` of every query file of `tests/fixtures/vaults/views/` as the
 contract §2 `QueryDefDto` (`sort` a list of levels), `groups` (R193's boards: lane `id`, `label`, `excluded`,
-`dropTarget`, card `paths` in order) and `results` (R193's orders, `cs` and `en-US`). It is a separate file until the
-build merges it into `expected.json` with a `Fixture-Change` trailer (slice Q's readers assert `expected.json`'s
-twelve `reads`).
+`dropTarget`, card `paths` in order) and `results` (R193's orders, `cs` and `en-US`). It stays a separate file (D-1814), so
+slice Q's readers of `expected.json` and its twelve `reads` are unchanged. The step order above is approved (D-1822).

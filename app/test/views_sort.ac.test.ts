@@ -24,7 +24,6 @@ const S = (...xs: [string, 'asc' | 'desc'][]): L[] => xs.map(([by, order]) => ({
 /** Přečtené 2026's three levels (the fixture). */
 const P26 = S(['finished', 'desc'], ['rating', 'asc'], ['title', 'asc']);
 const NAMES: Record<string, string> = { title: 'Title', created: 'Created', modified: 'Modified', author: 'Author', status: 'Status', rating: 'Rating', genres: 'Genres', finished: 'Finished' };
-const keys = (l: any[]) => l.map((x) => (typeof x === 'string' ? x : x?.key));
 
 test('fr_qry_01_ac11_header_click_and_shift_click', async () => {
   const m = await sort();
@@ -58,8 +57,8 @@ test('fr_qry_01_ac11_header_click_and_shift_click', async () => {
 test('fr_qry_01_ac9_sort_popover_writes_each_change_once', async () => {
   const m = await sort();
   const choices = m.sortChoices(BOOK);
-  assert.deepEqual(keys(choices), ['title', 'created', 'modified', 'author', 'status', 'rating', 'genres', 'finished'], 'Title, Created, Modified, then the attributes in schema order');
-  assert.deepEqual(keys(m.sortChoices(AUTOR)), ['title', 'created', 'modified', 'poznámka'], 'Autor');
+  assert.deepEqual(choices, ['title', 'created', 'modified', 'author', 'status', 'rating', 'genres', 'finished'], 'Title, Created, Modified, then the attributes in schema order');
+  assert.deepEqual(m.sortChoices(AUTOR), ['title', 'created', 'modified', 'poznámka'], 'Autor (string[] keys, D-1818)');
   // (a) Rating to `Bad first` is the level's order desc; (b) dragging the Title row first.
   const a = S(['finished', 'desc'], ['rating', 'desc'], ['title', 'asc']);
   assert.deepEqual(m.moveLevel(a, 2, 0), S(['title', 'asc'], ['finished', 'desc'], ['rating', 'desc']), '(b) Title row first');

@@ -30,9 +30,7 @@ test('fr_qry_07_ac1_tabs_come_from_views', async ({ page }) => {
   assert.equal(await selectedTab(page), '', '`All Books` selected on the first open');
   assert.equal(await addView(page).getAttribute('aria-haspopup'), 'menu', '`Add view` after the tabs, a menu button');
   assert.equal(await addView(page).getAttribute('aria-label'), 'Add view', '`Add view` name');
-  const count = (t: string) => /\b17 \w+/.exec(t)?.[0] ?? null;
-  const header = count(await textOf(main(page)));
-  assert.ok(header, 'the header count of the 17 books (R193; its wording: RT point)');
+  assert.ok(await seen(main(page).getByText('17 Books', { exact: true }), 2000), 'the header count `17 Books` (typePage.countPlural, the plural as written, D-1816)');
   const runs = (await callsOf(core, 'query_run')).length;
   assert.equal(runs, 0, 'All Books runs no query (it keeps index_type_rows)');
   assert.ok((await callsOf(core, 'queries_list')).length >= 1, 'the page asks queries_list (tab icons, offers)');
@@ -93,6 +91,7 @@ test('fr_qry_07_ac3_a_view_tab_shows_its_query', async ({ page }) => {
   }
   assert.equal(await laneRadio(toolbar(page), 'Vertical').getAttribute('aria-checked'), 'true', '`Vertical` checked');
   assert.equal(await columnsButton(page).count(), 0, 'no `Columns` on a board');
+  assert.ok(await seen(main(page).getByText('17 Books', { exact: true }), 500), '`17 Books` on every tab (R193, D-1816)');
   assert.equal(await filterField(page).inputValue(), '', 'Rozečtené keeps its own (empty) filter text');
   await selectTab(page, Q.p26);
   assert.equal(await filterField(page).inputValue(), 'mapa', 'back on Přečtené 2026: `mapa` again (D-1796)');

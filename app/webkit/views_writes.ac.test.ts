@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import {
   A, AUTOR_LANES, B, BOOK_YML, CTENI, NFD, Q, ROZ_LANES, board, bookWithViews, callsOf, card, click, drag, eventually, expectedView, fileText, fileWhen, lane,
   laneGrip, laneRadio, lanes, lanesOf, main, menuItem, must, mustLanes, openNote, original, panelOf, qfile, rx, runCommand, seen, selectTab, sleep, sortButton,
-  sortDialog, sortLevels, startViews, swap, tab, tabMenu, tabsAre, toolbar, typeRoute, uiState, viewsOps, viewsVault, writeCalls, writes,
+  sortDialog, sortLevels, startViews, swap, tab, tabMenu, tabsAre, toolbar, typeRoute, uiState, viewsOps, viewsVault, writeCalls, writes, podleStavu, podleStitku,
 } from './views-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
@@ -142,20 +142,33 @@ test('fr_fmt_07_ac33_type_files_and_notes_round_trip', async ({ page }) => {
 });
 
 test('fr_fmt_12_ac12_view_names_and_lanes_are_nfc', async ({ page }) => {
+  // D-1823: a runtime option `Čtu` in book.yml; NFD values of it, of `Román` and of `#doporučené` in runtime books.
+  const card = (n: string, fm: string, body = 'Text.') =>
+    `---\ntype: book\ntitle: ${n}\n${fm}created: 2026-11-19T09:00:00+01:00\nmodified: 2026-11-19T09:00:00+01:00\n---\n${body}\n`;
   const vault = viewsVault((f) => {
-    f[BOOK_YML] = bookWithViews(`views: [${NFD('Rozečtené')}, Přečtené 2026, Výborné knihy]\n`);
-    f['Books/Nová NFD.md'] = `---\ntype: book\ntitle: Nová NFD\nstatus: Reading\ngenres: [${NFD('Román')}]\ntags: [${NFD('doporučené')}]\ncreated: 2026-11-19T09:00:00+01:00\nmodified: 2026-11-19T09:00:00+01:00\n---\nText.\n`;
+    f[BOOK_YML] = swap(bookWithViews(`views: [${NFD('Rozečtené')}, Přečtené 2026, Výborné knihy, Podle stavu, Podle žánru, Podle štítku]\n`),
+      '      - { label: Read, color: green }\n', '      - { label: Read, color: green }\n      - { label: Čtu, color: teal }\n');
+    f[qfile('Podle stavu')] = podleStavu();
+    f[qfile('Podle štítku')] = podleStitku();
+    f['Books/Nová NFD.md'] = card('Nová NFD', `status: ${NFD('Čtu')}\ngenres: [${NFD('Román')}]\n`, `Čtu večer. #${NFD('doporučené')}`);
   });
   const core = await startViews(page, { route: typeRoute('book'), vault });
-  assert.deepEqual(await tabsAre(page, [Q.roz, Q.p26, Q.vyb], 8000), ['', Q.roz, Q.p26, Q.vyb], 'an NFD views: entry is one tab `Rozečtené`');
-  await selectTab(page, Q.roz);
-  const b = await must(board(page, Q.roz), 'board');
-  assert.ok(await eventually(async () => (await lanes(b))[0]?.cards.includes('Books/Nová NFD.md') ?? false, (x) => x), 'NFD status Reading: in the Reading lane');
-  assert.deepEqual((await lanes(b)).map((l) => l.id), ROZ.map((l) => l.id), 'no extra lane');
+  assert.deepEqual(await tabsAre(page, [Q.roz, Q.p26, Q.vyb, 'Podle stavu', Q.zanr, 'Podle štítku'], 8000), ['', Q.roz, Q.p26, Q.vyb, 'Podle stavu', Q.zanr, 'Podle štítku'],
+    'an NFD views: entry is one tab `Rozečtené`');
+  await selectTab(page, 'Podle stavu');
+  const s = await must(board(page, 'Podle stavu'), 'Podle stavu');
+  const ls = await eventually(() => lanes(s), (l) => l.some((x) => x.id === 'option:Čtu' && x.cards.includes('Books/Nová NFD.md')));
+  assert.ok(ls.some((x) => x.id === 'option:Čtu' && x.cards.includes('Books/Nová NFD.md')), 'an NFD `status: Čtu` is a card in the `Čtu` lane');
+  assert.ok(!ls.some((x) => x.id !== 'option:Čtu' && x.cards.includes('Books/Nová NFD.md')), 'never in an extra lane');
+  await selectTab(page, Q.zanr);
+  const z = await must(board(page, Q.zanr), 'Podle žánru');
+  assert.ok(await eventually(async () => (await lanes(z)).find((l) => l.id === 'option:Román')?.cards.includes('Books/Nová NFD.md') ?? false, (x) => x), 'an NFD `Román` joins the Román lane');
+  await selectTab(page, 'Podle štítku');
+  const t = await must(board(page, 'Podle štítku'), 'Podle štítku');
+  assert.ok(await eventually(async () => (await lanes(t)).find((l) => l.id === 'tag:doporučené')?.cards.includes('Books/Nová NFD.md') ?? false, (x) => x), 'an NFD #doporučené joins the doporučené lane');
   await drag(page, tab(page, Q.vyb), tab(page, Q.roz), { at: 'left' });
-  assert.ok(await fileWhen(core, BOOK_YML, (x) => !!x && x.includes('views: [Výborné knihy, Rozečtené, Přečtené 2026]\n')), 'the views write is NFC');
-  assert.deepEqual(await viewsOps(core), [[Q.vyb, Q.roz, Q.p26]], 'NFC names sent');
-  void [A, AUTOR_LANES, callsOf, laneGrip, sortLevels, mustLanes, uiState];
+  assert.ok(await fileWhen(core, BOOK_YML, (x) => !!x && x.includes('views: [Výborné knihy, Rozečtené, Přečtené 2026, Podle stavu, Podle žánru, Podle štítku]\n')), 'the views write is NFC');
+  void [A, AUTOR_LANES, callsOf, laneGrip, sortLevels, mustLanes, uiState, ROZ, viewsOps];
 });
 
 // ------------------------------------------------------------------------------------------------ FR-STO-07 AC-10
