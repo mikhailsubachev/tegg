@@ -2,9 +2,11 @@
 
 import { spawn, spawnSync } from 'node:child_process';
 
-export type Result = { status: number; stdout: string; stderr: string };
+/** `timedOut`: `execAsync` stopped the process after its `timeoutMs`. */
+export type Result = { status: number; stdout: string; stderr: string; timedOut?: boolean };
 
-export type RunOpts = { cwd: string; env?: NodeJS.ProcessEnv; input?: string };
+/** `timeoutMs` (`execAsync` only): stop the process group after that time (CONTRACT §3.2.4). */
+export type RunOpts = { cwd: string; env?: NodeJS.ProcessEnv; input?: string; timeoutMs?: number };
 
 /** Thrown for usage and configuration errors (exit code 2). */
 export class UsageError extends Error {}
@@ -44,8 +46,26 @@ export function execAsync(cmd: string, args: string[], opts: RunOpts): Promise<R
     child.stdout!.setEncoding('utf8').on('data', (d: string) => (stdout += d));
     child.stderr!.setEncoding('utf8').on('data', (d: string) => (stderr += d));
     child.on('error', (e) => resolve({ status: 127, stdout, stderr: stderr + String(e.message) }));
-    if (child.pid) groups.add(child.pid);
-    child.on('close', (code) => resolve({ status: code ?? 1, stdout, stderr }));
+    const pid = child.pid;
+    if (pid) groups.add(pid);
+    // Step timeout (CONTRACT §3.2.4, D-1832): SIGTERM to the whole group, SIGKILL if it is still there 10 s later.
+    let timedOut = false;
+    let kill: ReturnType<typeof setTimeout> | undefined;
+    const timer =
+      opts.timeoutMs !== undefined && pid
+        ? setTimeout(() => {
+            timedOut = true;
+            signalGroup(pid, 'SIGTERM');
+            kill = setTimeout(() => signalGroup(pid, 'SIGKILL'), 10_000);
+          }, opts.timeoutMs)
+        : undefined;
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      clearTimeout(kill);
+      // The leader is gone and its pipes are closed; whatever it left behind in its group goes with it.
+      if (timedOut && pid) signalGroup(pid, 'SIGKILL');
+      resolve(timedOut ? { status: 124, stdout, stderr, timedOut } : { status: code ?? 1, stdout, stderr });
+    });
     if (child.stdin) {
       child.stdin.on('error', () => {}); // the child may exit before reading its input
       child.stdin.end(opts.input);

@@ -136,7 +136,7 @@ For a step with `inputs` (§2), the push gate computes a **memo key**: a hash of
 
 ### 3.2.4 Step timeout (D-1832, TS-VERIFY AC-10)
 
-A step with `timeout` (§2) that is still running `timeout` seconds after it started in a tree gate is stopped: its process group gets SIGTERM and, if it isn't empty 10 s later, SIGKILL. The step's result is `fail`, its summary entry has `timedOut: true`, and its output block ends with a line containing `timed out`, the step's id and the limit. The lane goes on with its next step. A step without `timeout` has no limit. The commit gate ignores `timeout`.
+A step with `timeout` (§2) that is still running `timeout` seconds after it started in a tree gate is stopped: its process group gets SIGTERM and, if it isn't empty 10 s later, SIGKILL. The step's result is `fail`, its summary entry has `timedOut: true`, and its output block ends, after the result line, with a line containing `timed out`, the step's id and the limit in seconds. The lane goes on with its next step. A step without `timeout` has no limit. The commit gate ignores `timeout`.
 
 ### 3.2.5 Partial runs (push only, D-1834, TS-VERIFY AC-12)
 
@@ -210,7 +210,7 @@ A test that fails and then passes on a retry inside one step is **flaky**. The s
 
 - **Report:** a step may write files `$VERIFY_RESULTS/<name>.flaky.json`: a JSON array of `{ "file": "<repository-relative path of the test file>", "test": "<test name>" }`. A file that isn't such an array is ignored with a warning on stderr containing `flaky`.
 - **After the steps**, a tree gate reads every such file this run wrote, prints one line per entry containing `flaky`, the file and the test, and puts the entries in the summary's `flaky` (`[{ "file", "test" }]`).
-- **The flaky list:** each entry is appended to the shared `flaky.json` (§1.2) as `{ file, test, blob, commit, gate, startedAt }`, where `blob` is the git object id of `file` in the checked commit's tree (empty if it isn't there). Records older than 90 days are dropped on every write.
+- **The flaky list:** `flaky.json` (§1.2) is a JSON array; each entry is appended to it as a record `{ file, test, blob, commit, gate, startedAt }`, where `blob` is the git object id of `file` in the checked commit's tree (empty if it isn't there). Records older than 90 days are dropped on every write.
 - **The `flaky` check** (every tree gate, after `red-first`, before the steps, so it judges earlier runs only): for every `file` + `test` of the list, it counts the records whose `blob` equals the object id of `file` in the checked commit's tree. Two or more fail the check with one message `<file> :: <test>: flaky <n> times (<dates>); fix or quarantine it`, sorted. A changed test file (a fix, or a quarantine tag such as `@flaky`) has another object id, so its earlier records no longer count for that commit.
 - **`verify flaky`** prints the list, one line per record (`<date> <file> :: <test> (<gate> at <short sha>)`), exit 0. **`verify flaky --clear <file>`** removes every record of that file (for a flaky test fixed outside its test file) and prints how many it removed, exit 0; without a file it exits 2. Neither takes the gate lock.
 - **Configuration:** the app's Playwright config retries a failed test once under a gate (`VERIFY_GATE` set) and writes `app-webkit.flaky.json` through `app/webkit/flaky-reporter.ts`; outside a gate it doesn't retry.
