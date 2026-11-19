@@ -1,6 +1,6 @@
 # Overlay `views-usage/` (v1.0 slice Q2.1, per-usage sort, columns and widths)
 
-Synthetic overlay for `docs/acceptance/views.md` **part two** (R194…R200; D-1835, D-1836). Hand-written (D-50); every name, title and text is invented (D-62). **Draft**: the shapes of the per-usage keys in the fence (`Knihy na cesty.md`) and in `views:` (`book.yml`) follow the proposals of AP-1519 and AP-1521 in `views.md`; the overlay changes if the owner decides otherwise.
+Synthetic overlay for `docs/acceptance/views.md` **part two** (R194…R200; D-1835, D-1836). Hand-written (D-50); every name, title and text is invented (D-62). The shapes of the per-usage keys in the fence (`Knihy na cesty.md`) and in `views:` (`book.yml`) are the decided ones: D-1838 (AP-1519) and D-1840 (AP-1521).
 
 **Why an overlay.** The base fixture `tests/fixtures/vaults/views/` can't take these files: slice Q2's tests assert `Used on` of `Přečtené 2026` (FR-QRY-06 AC-24), the usage notice `… and 1 note` (FR-QRY-01 AC-12) and a `views:` flow line on line 13 of `book.yml` (FR-QRY-07 AC-4…AC-12). Base files are never edited for Q2.1.
 
@@ -34,4 +34,4 @@ Expected boards, tables and sorts at the test clock: `docs/acceptance/views.md` 
 - A template `_templates/Page/Seznam knih.md` with a per-usage fence (FR-TPL-04 AC-3).
 - A second type file listing `Výborné knihy` in `views:` (FR-QRY-07 AC-22).
 - `ui-state.json` with Q2's (0.4.0) keys `queryColumnWidths["Přečtené 2026"]` and `boardFolded["Podle žánru"]` (FR-STO-07 AC-11).
-- Expected bytes after writes (`tests/fixtures/queries-files/expected/views-usage/`) are written by the test author once AP-1519…AP-1532 are decided (as Q2 did after AP-1497…AP-1518).
+- Expected bytes after writes (`tests/fixtures/queries-files/expected/views-usage/`) are written by the test author with the red tests (list: `docs/contracts/v1-views.md` §21.3).

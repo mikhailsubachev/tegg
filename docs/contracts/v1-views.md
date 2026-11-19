@@ -764,7 +764,8 @@ FR-UX-03 AC-52, NFR-OTH-02 AC-22) and the "Existing criteria this slice changes 
 (feedback) and AP-1519…AP-1532 = D-1838…D-1851 (BRD v1.199). Fixture: the overlay `tests/fixtures/vaults/views-usage/`
 (README there) on the base `tests/fixtures/vaults/views/`.
 
-**Status: draft, 2026-11-19.** Contract points CP-10…CP-21 (§22.1) and the AC problems of §22.2 wait for the owner.
+**Status: approved, 2026-11-19.** Contract points CP-10…CP-21 accepted by the owner as D-1852…D-1863 (§22.1); the AC
+problems of §22.2 fixed in `docs/acceptance/views.md` part two as D-1864.
 Part one's rules hold unless a section below changes them; part one marks each superseded place **(changed by Q2.1,
 D-…)**.
 
@@ -864,7 +865,7 @@ pub fn fence_usage(body: &str) -> UsageRaw;
   writes nothing. Top-level (`rawBlock`) and nested (`codeBlock` `query`) fences alike.
 - **⌘Z / ⇧⌘Z** (FR-QRY-01 AC-14 (b)): the query node views (`rawBlock` `query`, `codeBlock` `query`) let ⌘Z and ⇧⌘Z
   reach the editor's history (`stopEvent` false for them), so ⌘Z with the focus in the block's header undoes the last
-  block write (CP-20). `packages/editor` changes only there.
+  block write (CP-20, D-1862). `packages/editor` changes only there.
 - **No editor** (D-1839): a `QueryBlock` without `ctl` (the read view `ReadView.tsx`, a note in the Trash view, a block
   inside an embedded note) is a usage that **can't be written**: its sort button, header click / ⇧-click / keys, header
   drag, `Columns` and `On cards` › `Change…` are `aria-disabled` with `query.block.usageNotEditable`; resizing and
@@ -888,10 +889,10 @@ pub struct ViewItem {
 pub struct Parsed { /* … */ pub view_items: Option<Vec<ViewItem>> }   // same order and length as `def.views`, repeats kept
 ```
 
-- `TypeFile.views: Option<Vec<String>>` stays (the **names**, so slice Q2's tests and `TypeDto.views` stand, CP-13).
+- `TypeFile.views: Option<Vec<String>>` stays (the **names**, so slice Q2's tests and `TypeDto.views` stand, CP-13, D-1855).
   `Parsed.view_items` holds the items; `TypeInfo` (`tegg-core` `types3d.rs`) gains `view_items: Option<Vec<ViewItem>>`
   and `views_source: Option<String>` (the exact text of the `views` key's lines, key line through its last line with
-  EOLs; None when absent; CP-10).
+  EOLs; None when absent; CP-10, D-1852).
 - An item is a string, or a mapping (block or flow style) with a non-blank string `name`; its `sort` / `columns` read by
   `usage_of`; other keys are kept in the file and ignored. Any other item (a mapping without a string `name`, a number,
   a list) makes the whole `views` unreadable: `views: None`, `view_items: None`, `views_unreadable: true` (AC-25 (a)).
@@ -909,7 +910,7 @@ pub enum TypeOp {
     SetViewSort { name: String, sort: Option<Vec<UsageSort>> },
     /// Q2.1: the same for `columns`.
     SetViewColumns { name: String, columns: Option<Vec<String>> },
-    /// Q2.1 (CP-10): the `views` key's lines replaced by `source` byte for byte (the Undo of a trash, the revert of a
+    /// Q2.1 (CP-10, D-1852): the `views` key's lines replaced by `source` byte for byte (the Undo of a trash, the revert of a
     /// failed one). Refused with `RuleError::ViewsUnreadable` when the result's `views` can't be read.
     SetViewsSource(String),
 }
@@ -949,7 +950,7 @@ a fence's `sort:` / `columns:` lines keep their bytes. The UI moves R198's keys 
 
 - **Duplicate** on a tab: `query_duplicate(name)` → the copy's name; then one `type_patch(key, version, [views(names
   with the copy right after the original), viewSort(copy, own) if the original has an own sort, viewColumns(copy, own)
-  if it has own columns])`: one write; widths aren't copied; unknown item keys aren't copied (CP-21). On the overlay the
+  if it has own columns])`: one write; widths aren't copied; unknown item keys aren't copied (CP-21, D-1863). On the overlay the
   copy's lines equal lines 15…19 with the new name (AC-26 (b)).
 - **Remove**: `views` without every copy (the items and their settings go). **Show a saved query**: a plain name.
 
@@ -1015,20 +1016,20 @@ export function useUsageWrite(usage: Usage | null, result: QueryResultDto | null
   **effective** value (`usage.sort` / `usage.columns` of the run, §17.2), and the **whole** result is written as the
   usage's own value; no write when it equals the effective value and the usage already has that own value.
 - **`Clear`** writes `[modified desc]` as an own value (D-1841). **`Use the query's sort` / `columns`** call
-  `sort(null)` / `columns(null)`; offered when the usage has the key (valid or broken, CP-14), never on the page.
+  `sort(null)` / `columns(null)`; offered when the usage has the key (valid or broken, CP-14, D-1856), never on the page.
 - **`New property…`** (R197): `type_patch` adding the attribute (FR-TYP-03), then the usage write with the new key
   appended to the effective columns; on a tab the second `type_patch` uses the version the first returned.
 - **Disabled** (`disabled` non-null, every sort and column control `aria-disabled` with it, R194): a block without an
   editor → `query.block.usageNotEditable`; a query `version` > 1 → `query.block.readOnly` (own values still apply); a
-  tab whose type file can't be written (Newer, invalid) → the reason `Remove` has (§22.2 AC problem 3). An unreadable
+  tab whose type file can't be written (Newer, invalid) → the reason `Remove` has (R194 as fixed by D-1864). An unreadable
   query has no controls (R141).
 - **`On cards` › `Change…`** (D-1844): the editor's `On cards` row shows the opener's **effective** `columns`;
   `Change…` (the R130 Columns menu) calls the opener's `UsageWriter.columns` at once, on a tab, in a block and on the
-  page (CP-18).
+  page (CP-18, D-1860).
 - **The editor** opened from any usage (`Edit view`, `Edit query`) commits the shared keys to the query file; its
   commit's `sort` and `columns` are always the **query file's** (`result.def`), never the usage's, so `patch` writes
   neither (D-1842). Its preview run (`query_run({ kind: 'def' })`) substitutes the opener's effective `sort` and
-  `columns` (CP-17). Under the usage notice, `p` `query.editor.perUsage` when the query has ≥ 2 usages (type pages
+  `columns` (CP-17, D-1859). Under the usage notice, `p` `query.editor.perUsage` when the query has ≥ 2 usages (type pages
   from `query_view_usages` plus notes from `query_usages`, templates included; FR-QRY-01 AC-15).
 - Card drags, lanes switch, lane drags, `Reset lane order`, `New <Type> in <lane>`: unchanged (part one).
 
@@ -1048,7 +1049,7 @@ pub enum QuerySource {
     /// (changed by Q2.1) A reference body's own `sort:` / `columns:` apply: a block usage.
     Fence(String),
     Def { def: QueryDef, name: Option<String> },     // unchanged (the editor's preview; no usage)
-    /// Q2.1 (CP-11): a view tab: the first `views:` item named `name` (name key) of type `type_key`.
+    /// Q2.1 (CP-11, D-1853): a view tab: the first `views:` item named `name` (name key) of type `type_key`.
     View { type_key: String, name: String },
 }
 pub enum UsageKind { Tab, Block }
@@ -1077,7 +1078,7 @@ pub struct QueryResult { /* … */ pub usage: Option<UsageRun> }
   gives a `broken` entry and the query's effective value. An own `columns` keeps unknown keys (the UI shows only real
   columns, as R138); `sort: []` is valid (D-1806).
 - `rows` are ordered by `usage.sort` (when Some) and `group` cards inside lanes follow that order; `limit` and grouping
-  stay the query's. `result.def` stays the **query file's** def, unchanged (CP-12): the editor, the page and every
+  stay the query's. `result.def` stays the **query file's** def, unchanged (CP-12, D-1854): the editor, the page and every
   query-file writer read it; rendering reads `usage` first (`effectiveSort` / `effectiveColumns`, §18).
 - Nothing in the run writes; one index lock as part one.
 
@@ -1120,7 +1121,7 @@ an external note change while open follows the editor's reload rule, then the bl
 
 | Module | Owns |
 | --- | --- |
-| `app/ui/src/views/usage.ts` (new, pure, L1) | `Usage` (§16.1); `usageKey(u)` (R198, §19.3); `parseUsageKey(key)` → `{ kind; name key; … } \| null`; `blockOrdinal(names: (string \| null)[], index)` (1-based among fences with the same name key, document order, nested included; `null` = inline / draft); `effectiveSort(result)`, `effectiveColumns(result)` (`usage` first, else `def`); `ownOf(result)`; `scopeOf(u)` → `'tab' \| 'block' \| 'default'`; `canUseQuery(result, key)` (CP-14); `movedUsageState(ui, from, to)` (R198 rename, pure) |
+| `app/ui/src/views/usage.ts` (new, pure, L1) | `Usage` (§16.1); `usageKey(u)` (R198, §19.3); `parseUsageKey(key)` → `{ kind; name key; … } \| null`; `blockOrdinal(names: (string \| null)[], index)` (1-based among fences with the same name key, document order, nested included; `null` = inline / draft); `effectiveSort(result)`, `effectiveColumns(result)` (`usage` first, else `def`); `ownOf(result)`; `scopeOf(u)` → `'tab' \| 'block' \| 'default'`; `canUseQuery(result, key)` (CP-14, D-1856); `movedUsageState(ui, from, to)` (R198 rename, pure) |
 | `app/ui/src/views/useUsageWrite.ts` (new) | §16.1 |
 | `app/ui/src/views/trashView.ts` (new) | §15 |
 | `app/ui/src/views/model.ts` | `viewTabs` gains `item: ViewItemDto \| null` per tab (the first item) |
@@ -1129,13 +1130,13 @@ an external note change while open follows the editor's reload rule, then the bl
 | `app/ui/src/views/ViewPanel.tsx` | `useQueryRun({ kind: 'view', type, name })`; `Usage` tab; `useUsageWrite`; the usage's broken notices; widths and folds by its usage key; `trashView` from the toolbar `⋯` |
 | `app/ui/src/views/TypeViews.tsx` | the view menu's `views.trash` → `trashView`; Duplicate per §14.4; the menus through §20's placement |
 | `app/ui/src/queries/QueryBlock.tsx` | `usage?: Usage \| null` prop (block from the mount and `ReadView`, page from `QueryPage`); rendering from `effectiveSort` / `effectiveColumns`; writes through `useUsageWrite`; the usage's broken notices |
-| `app/ui/src/queries/mount.tsx` | `QueryMountHost` gains `note(): { id: string \| null; path: string }` and `ordinal(pos: number): number` (from `EditorHandle.queryBlocks()` and `savedName`, CP-16); `refreshQueryBlocks()` also runs after a doc change that adds, removes or moves a query block |
+| `app/ui/src/queries/mount.tsx` | `QueryMountHost` gains `note(): { id: string \| null; path: string }` and `ordinal(pos: number): number` (from `EditorHandle.queryBlocks()` and `savedName`, CP-16, D-1858); `refreshQueryBlocks()` also runs after a doc change that adds, removes or moves a query block |
 | `app/ui/src/read/ReadView.tsx` | passes `usage: { kind: 'block', …, editable: false }` with the ordinal from its render walk (embeds: the embedded note's key) |
 | `app/ui/src/queries/QueryPage.tsx` | `usage: { kind: 'page', name }` |
 | `app/ui/src/queries/SortPopover.tsx` | `scope: 'tab' \| 'block' \| 'default'`, `onUseQuery?: () => void` (the button, when offered) |
 | `app/ui/src/queries/ResultsTable.tsx` | `columns` from the effective value; `onColumns` / `onSort` go to the writer; the Columns menu's scope line and `Use the query's columns` |
 | `app/ui/src/queries/board/QueryBoard.tsx`, `BoardCard.tsx` | pills from the effective `columns` (On cards per usage, D-1844); folds by usage key; the card menu and `Move to` submenu through §20 |
-| `app/ui/src/queries/QueryEditor.tsx` | `usage?: { usage: Usage; writer: UsageWriter; result: QueryResultDto }`; `On cards` from the effective columns, `Change…` through `writer.columns`; commit keeps the file's `sort` / `columns`; preview substitution (CP-17); `query.editor.perUsage` |
+| `app/ui/src/queries/QueryEditor.tsx` | `usage?: { usage: Usage; writer: UsageWriter; result: QueryResultDto }`; `On cards` from the effective columns, `Change…` through `writer.columns`; commit keeps the file's `sort` / `columns`; preview substitution (CP-17, D-1859); `query.editor.perUsage` |
 | `app/ui/src/shell/placement.ts`, `usePopupPlacement.ts` (new) | §20 |
 | `app/ui/src/shell/Menu.tsx` | `PopupMenu` gains `fit?: boolean` (§20); also a `submenu` opener kind |
 | `packages/editor` | §13.3 only (⌘Z / ⇧⌘Z through the query node views) |
@@ -1187,7 +1188,7 @@ usageFolded?: Record<string /* usage key */, string[] /* lane ids */>;
 
 | Id | Title key | Listed when |
 | --- | --- | --- |
-| `sort.useQuery` | `cmd.useQuerySort` | a view tab, or a selected saved-query block, whose usage has the `sort` key (CP-14) and can be written |
+| `sort.useQuery` | `cmd.useQuerySort` | a view tab, or a selected saved-query block, whose usage has the `sort` key (CP-14, D-1856) and can be written |
 | `columns.useQuery` | `cmd.useQueryColumns` | likewise for `columns` |
 
 Section `view`, `needsVault: true`, no shortcut. `ViewsStatus` (part one §4.7) gains `usage: { kind: 'tab' | 'block';
@@ -1219,7 +1220,7 @@ export function usePopupPlacement(ref: RefObject<HTMLElement>, opener: Box | { x
 - Placed popups render in a portal on `document.body` with `position: fixed` (no ancestor clips them, `div.board-scroll`
   included). They are placed in a layout effect before paint, again when their size changes (`ResizeObserver`) and
   after a window `resize` (next animation frame), so none stays outside once a resize ends.
-- **Users** (D-1848, CP-19): `PopupMenu` with `fit` (the tab menu, the toolbar `⋯` `views.menu`, `Add view`, the
+- **Users** (D-1848, CP-19, D-1861): `PopupMenu` with `fit` (the tab menu, the toolbar `⋯` `views.menu`, `Add view`, the
   Columns menu of tabs, blocks and the page, the block's `⋯` `QueryMenu`, the card menu and its `Move to` / `Also add
   to` submenus), `SortPopover`, and `QueryEditor` when anchored (from a tab, a block, the page). Other menus of the app
   keep their placement.
@@ -1277,7 +1278,8 @@ D-55); `fences/` hold `applyFenceUsage` results (no `modified:` change) next to 
 | `types/book-vyborne-sort-title-only.yml` | then popover `Remove` on `Finished` | AC-23 (b) |
 | (the base `book.yml`) | then `Use the query's sort` | AC-23 (c) |
 | `types/book-overlay-prectene-click-finished.yml` (+ `-crlf`) | overlay; click `Finished` on `Přečtené 2026` | AC-23, FR-FMT-07 AC-34 |
-| `types/book-rozectene-sort-<step>.yml` | base; the `Rozečtené` board tab's popover change (§22.2 problem 4) | AC-23 |
+| `types/book-rozectene-sort-add.yml` | base; `+ Add sort` in the `Rozečtené` board tab's popover (D-1864) | AC-23 |
+| `types/book-new-property-stran-1.yml`, `types/book-new-property-stran-2.yml` | base; `New property…` Number `Stran` on the `Přečtené 2026` tab: the attribute, then the item's `columns` | AC-24 (D-1864) |
 | `types/book-prectene-columns-genres.yml` | base; `Columns` › `Genres` on `Přečtené 2026` | AC-24 |
 | `types/book-prectene-columns-reordered.yml` | then `Finished` before `Author` | AC-24 |
 | `types/book-overlay-prectene-no-genres.yml` | overlay; uncheck `Genres` | AC-24 |
@@ -1300,50 +1302,49 @@ D-55); `fences/` hold `applyFenceUsage` results (no `modified:` change) next to 
 
 The query-page steps reuse `expected/views/` (`prectene-2026-sort-*.yml`, `-click-*.yml`, `-columns-*.yml`; AC-15).
 
-## 22. Points for the owner
+## 22. Owner decisions
 
-### 22.1 Contract points (CP-10…CP-21)
+### 22.1 Contract decisions (CP-10…CP-21 → D-1852…D-1863, accepted by the owner 2026-11-19)
 
-| # | Question | Proposal | Alternatives |
+Each point was decided as proposed; the alternatives are kept for the record.
+
+| # | Question | Decision | Alternatives (not chosen) |
 | --- | --- | --- | --- |
-| CP-10 | **How the Undo of a trash (and the revert of a failed move) gets `book.yml`'s exact bytes back** (AC-21 (a), (d)). `type_patch` ops rebuild `views:` canonically, which loses comments and unknown keys; the UI has no file text. | `TypeDto.viewsSource` (the `views` key's lines as written) and `TypeOp::SetViewsSource(source)` replacing exactly that range, base-checked, read back. Only the `views` lines can be restored. | (b) `type_revert(key, base, text)` with the whole text in `TypeDto` (heavier, can restore any line). (c) One core command `view_trash(type, base, name)` + `view_trash_undo`, ordering and revert in Rust (AC-21 (d)'s fake-core failure of `query_trash` then needs a core hook). |
-| CP-11 | **How a tab's run gets its own values.** | `QuerySourceDto` `{ kind: 'view'; type; name }`: the core reads the item from the type file (shape-broken values and run-time checks in one place). | (b) `{ kind: 'saved', name, usage: { sort, columns } }` from `TypeDto.viewItems` (the UI can't pass a broken shape; R194's notice then needs UI logic). |
-| CP-12 | **What `QueryResult.def` holds for a usage.** | The query file's def unchanged; `usage` carries the own and effective values; rendering reads `usage` first. The editor's commit can't leak an own value into the query file. | (b) `def` with the effective `sort` / `columns` and `usage.defaults` for the query's (every query-file writer must then swap them back). |
-| CP-13 | **The `views:` items in Rust and TS without breaking Q2's tests.** `TypeFile.views: Option<Vec<String>>` and `TypeDto.views: string[]` are asserted by Q2's tests (`ac_views_writes.rs`, `ac_schema.rs` literals, L5). | Keep `views` as the names; add `Parsed.view_items` / `TypeInfo.view_items` and `TypeDto.viewItems`. `SetViews(names)` keeps its signature. | (b) `views: Option<Vec<ViewItem>>` (type-only AC-test changes under D-1851). |
-| CP-14 | **`Use the query's …` with a broken own value.** R197 offers it "only when there is an own sort". | Offered whenever the usage has the key, valid or broken, so a broken value can be dropped in the UI. | (b) Only for a valid own value (a broken one is fixed by any change, R194). |
-| CP-15 | **The item ops.** | Two ops `SetViewSort { name, sort: Option<…> }`, `SetViewColumns { name, columns: Option<…> }` (None removes); a name not listed → `Rule(ViewNotListed)`, shown as `views.changedOutside`. | (b) One `SetViewSettings { name, sort: Option<Option<…>>, columns: Option<Option<…>> }` (needs double-option serde). |
-| CP-16 | **A block's `n` (R198) in the editor.** | `QueryMountHost.ordinal(pos)` from `EditorHandle.queryBlocks()` (document order, nested included, by `savedName` key), recomputed when a doc change adds, removes or moves a query block; the read view counts in its render walk. | (b) Fixed at mount (a moved block keeps a stale key until the note reopens). |
-| CP-17 | **The editor's preview from a usage.** | The preview `query_run({ kind: 'def' })` uses the def with the opener's effective `sort` and `columns`, so it looks like the usage; the commit keeps the file's. | (b) The preview shows the query's defaults. |
-| CP-18 | **When `On cards` › `Change…` writes.** AP-1525 says "at once as the Columns menu does"; on the query page Q2 committed it with `Done`. | At once from every opener (tab, block, page), one write per change; `Done` never writes `columns`. | (b) At once on usages, on `Done` on the page. |
-| CP-19 | **Which popups get the placement rule.** D-1848 lists the views and query-block popups; AP-1529 (c), app-wide, wasn't chosen. | `PopupMenu` gains `fit` (opt-in) and every views / query-block popup of §20 uses it, rendered in a body portal. Other menus unchanged. | (b) Make it `PopupMenu`'s default now (every menu of the app changes, more tests touched). |
-| CP-20 | **⌘Z after a block write** (FR-QRY-01 AC-14 (b)): the focus is in the block's header, inside a node view whose events the editor may stop. | The query node views pass ⌘Z / ⇧⌘Z to the editor's history (§13.3). | (b) `QueryBlock` keeps its own undo (a second `setSource` with the previous source; a second undo stack). |
-| CP-21 | **What Duplicate copies.** D-1843: "copies the tab's own settings". | Own `sort` and `columns` only (one `type_patch` with three ops); unknown item keys and comments aren't copied; widths aren't. | (b) The item's lines verbatim with the name replaced (a `DuplicateView` op). |
+| CP-10 → D-1852 | **How the Undo of a trash (and the revert of a failed move) gets `book.yml`'s exact bytes back** (AC-21 (a), (d)). `type_patch` ops rebuild `views:` canonically, which loses comments and unknown keys; the UI has no file text. | `TypeDto.viewsSource` (the `views` key's lines as written) and `TypeOp::SetViewsSource(source)` replacing exactly that range, base-checked, read back. Only the `views` lines can be restored. | (b) `type_revert(key, base, text)` with the whole text in `TypeDto` (heavier, can restore any line). (c) One core command `view_trash(type, base, name)` + `view_trash_undo`, ordering and revert in Rust (AC-21 (d)'s fake-core failure of `query_trash` then needs a core hook). |
+| CP-11 → D-1853 | **How a tab's run gets its own values.** | `QuerySourceDto` `{ kind: 'view'; type; name }`: the core reads the item from the type file (shape-broken values and run-time checks in one place). | (b) `{ kind: 'saved', name, usage: { sort, columns } }` from `TypeDto.viewItems` (the UI can't pass a broken shape; R194's notice then needs UI logic). |
+| CP-12 → D-1854 | **What `QueryResult.def` holds for a usage.** | The query file's def unchanged; `usage` carries the own and effective values; rendering reads `usage` first. The editor's commit can't leak an own value into the query file. | (b) `def` with the effective `sort` / `columns` and `usage.defaults` for the query's (every query-file writer must then swap them back). |
+| CP-13 → D-1855 | **The `views:` items in Rust and TS without breaking Q2's tests.** `TypeFile.views: Option<Vec<String>>` and `TypeDto.views: string[]` are asserted by Q2's tests (`ac_views_writes.rs`, `ac_schema.rs` literals, L5). | Keep `views` as the names; add `Parsed.view_items` / `TypeInfo.view_items` and `TypeDto.viewItems`. `SetViews(names)` keeps its signature. | (b) `views: Option<Vec<ViewItem>>` (type-only AC-test changes under D-1851). |
+| CP-14 → D-1856 | **`Use the query's …` with a broken own value.** R197 offers it "only when there is an own sort". | Offered whenever the usage has the key, valid or broken, so a broken value can be dropped in the UI. | (b) Only for a valid own value (a broken one is fixed by any change, R194). |
+| CP-15 → D-1857 | **The item ops.** | Two ops `SetViewSort { name, sort: Option<…> }`, `SetViewColumns { name, columns: Option<…> }` (None removes); a name not listed → `Rule(ViewNotListed)`, shown as `views.changedOutside`. | (b) One `SetViewSettings { name, sort: Option<Option<…>>, columns: Option<Option<…>> }` (needs double-option serde). |
+| CP-16 → D-1858 | **A block's `n` (R198) in the editor.** | `QueryMountHost.ordinal(pos)` from `EditorHandle.queryBlocks()` (document order, nested included, by `savedName` key), recomputed when a doc change adds, removes or moves a query block; the read view counts in its render walk. | (b) Fixed at mount (a moved block keeps a stale key until the note reopens). |
+| CP-17 → D-1859 | **The editor's preview from a usage.** | The preview `query_run({ kind: 'def' })` uses the def with the opener's effective `sort` and `columns`, so it looks like the usage; the commit keeps the file's. | (b) The preview shows the query's defaults. |
+| CP-18 → D-1860 | **When `On cards` › `Change…` writes.** AP-1525 says "at once as the Columns menu does"; on the query page Q2 committed it with `Done`. | At once from every opener (tab, block, page), one write per change; `Done` never writes `columns`. | (b) At once on usages, on `Done` on the page. |
+| CP-19 → D-1861 | **Which popups get the placement rule.** D-1848 lists the views and query-block popups; AP-1529 (c), app-wide, wasn't chosen. | `PopupMenu` gains `fit` (opt-in) and every views / query-block popup of §20 uses it, rendered in a body portal. Other menus unchanged. | (b) Make it `PopupMenu`'s default now (every menu of the app changes, more tests touched). |
+| CP-20 → D-1862 | **⌘Z after a block write** (FR-QRY-01 AC-14 (b)): the focus is in the block's header, inside a node view whose events the editor may stop. | The query node views pass ⌘Z / ⇧⌘Z to the editor's history (§13.3). | (b) `QueryBlock` keeps its own undo (a second `setSource` with the previous source; a second undo stack). |
+| CP-21 → D-1863 | **What Duplicate copies.** D-1843: "copies the tab's own settings". | Own `sort` and `columns` only (one `type_patch` with three ops); unknown item keys and comments aren't copied; widths aren't. | (b) The item's lines verbatim with the name replaced (a `DuplicateView` op). |
 
-### 22.2 AC problems (with a proposed fix; `docs/acceptance/views.md` not edited)
+### 22.2 AC problems (fixed in `docs/acceptance/views.md` part two as D-1864, owner 2026-11-19)
 
-1. **Two trailer texts.** Part two's change table says `AC-Test-Change: slice Q2.1 makes sort, columns and widths per
-   usage and trash remove a view's tab (D-1835, D-1836); approved-by: owner`; D-1851 in the BRD says `… slice Q2.1
-   builds per-usage settings and trash (D-1835, D-1836) …`. Fix: use the AC's text and align D-1851's wording (or the
-   reverse); the build uses one.
-2. **The overlay README still reads "Draft … the overlay changes if the owner decides otherwise"** (`tests/fixtures/vaults/views-usage/README.md`),
-   and `expected/views-usage/README.md` doesn't exist yet. Fix: drop "Draft" (decided as D-1838, D-1840) with a
-   `Fixture-Change:` trailer; the test author adds the expected README with §21.3's table.
-3. **A tab of a type file that can't be written.** R194 / R197 say nothing about a tab's sort and column controls when
-   `book.yml` is Newer or invalid (`views:` is still read, so the tabs show). Fix: add to R194's "Read-only" row: on such
-   a tab, sort, Columns, header drag, `Use the query's …` and `On cards` › `Change…` are `aria-disabled` with the reason
-   `Remove` has (FR-QRY-07 AC-12 (e)); own values still apply; resize and folds work. A line in FR-QRY-07 AC-25.
-4. **FR-QRY-07 AC-23's board-tab step names no change.** "A sort change on the `Rozečtené` board tab (popover) writes its
-   item in the same way" has no step and no bytes. Fix: name it (proposal: `+ Add sort` on the `Rozečtené` tab, the
-   first unused key ascending appended to the query's levels) with the expected file `types/book-rozectene-sort-add.yml`.
-5. **FR-QRY-07 AC-24's `New property…` names no property.** Its bytes can't be expected. Fix: name it (proposal: a
-   Number `Stran`, key `stran`) and add `types/book-new-property-stran-1.yml` / `-2.yml`, or say the test checks the two
-   writes structurally.
-6. **FR-QRY-01 AC-14 (b) "with the focus still in the note"**: after a header click the focus is on the header inside
-   the block. Fix: "with the focus still on the block's header (or in the note's text)", per CP-20.
-7. **FR-QRY-07 AC-19 lists "the editor `Edit query` from a tab"**: from a tab the item is `Edit view` (`views.edit`).
-   Fix: "the editor (`Edit view` from a tab, `Edit query` from a block)".
-8. **R199's command table says "with an own sort"** and FR-UX-03 AC-52 "whose usage has that own value": with CP-14
-   this also covers a broken own value. Fix (if CP-14 is accepted): "has the key in its item or fence (valid or broken)".
+1. **Two trailer texts.** Part two's change table said `AC-Test-Change: slice Q2.1 makes sort, columns and widths per
+   usage and trash remove a view's tab (D-1835, D-1836); approved-by: owner`; D-1851 says `… slice Q2.1 builds
+   per-usage settings and trash (D-1835, D-1836) …`. Fixed: the ACs use D-1851's wording.
+2. **The overlay README read "Draft"** (`tests/fixtures/vaults/views-usage/README.md`). Fixed: "Draft" dropped (the
+   shapes are D-1838, D-1840), with a `Fixture-Change:` trailer; the test author adds `expected/views-usage/README.md`
+   with §21.3's table.
+3. **A tab of a type file that can't be written.** R194 / R197 said nothing about a tab's sort and column controls when
+   `book.yml` is Newer or invalid. Fixed: R194's row "Type file that can't be written": sort, Columns, header drag,
+   `Use the query's …` and `On cards` › `Change…` are `aria-disabled` with the reason `Remove` has (FR-QRY-07 AC-12
+   (e)); own values still apply; resize and folds work.
+4. **FR-QRY-07 AC-23's board-tab step named no change.** Fixed: `+ Add sort` on the `Rozečtené` tab (the first unused
+   column ascending appended to the query's levels), expected `types/book-rozectene-sort-add.yml`.
+5. **FR-QRY-07 AC-24's `New property…` named no property.** Fixed: the Number property `Stran` (key `stran`), expected
+   `types/book-new-property-stran-1.yml`, `-2.yml`.
+6. **FR-QRY-01 AC-14 (b) "with the focus still in the note".** Fixed: "with the focus still on the block's header (or in
+   the note's text)", per D-1862.
+7. **FR-QRY-07 AC-19 named "the editor `Edit query` from a tab".** Fixed: "the editor (`Edit view` from a tab, `Edit
+   query` from a block)".
+8. **R199 and FR-UX-03 AC-52 said "own value".** Fixed per D-1856: the commands (and R197's `Use the query's …` rows) are
+   offered when the usage has the key in its item or fence, valid or broken.
 
 ### 22.3 Contract choices (no owner decision needed)
 

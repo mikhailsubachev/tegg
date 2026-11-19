@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.199, for review                                            |
+| **Document status** | Draft v1.200, for review                                            |
 | **Date**            | 2026-11-19                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -213,6 +213,7 @@
 | v1.197  | 2026-11-19 | Push-gate speed and reliability (owner, 2026-11-19: "Build 1–4"; run history of 13–19 November: `app-webkit` was 27 of 28 minutes and 12 of 13 failed runs): D-1831 (passes shared by all worktrees), D-1832 (step timeout), D-1833 (one WebKit retry in the gates, flaky list and `flaky` check), D-1834 (partial runs of failed or changed WebKit test files). ACs TS-VERIFY AC-9…AC-12, `tools/qa/CONTRACT.md` §1.2, §3.2.4, §3.2.5, §3.6. |
 | v1.198  | 2026-11-19 | 0.4.0 feedback (`docs/feedback/q2-v040.md`): D-1835 (trashing a view removes its tab), D-1836 (sort, columns and widths per usage), D-1837 (slice Q2.1, released as 0.5.0); the view menu outside the window is a bug fix (F1). (v1.197 is the verify-gate decisions D-1831…D-1834, PR #146.) |
 | v1.199  | 2026-11-19 | Slice Q2.1 ACs (`docs/acceptance/views.md` part two, overlay `tests/fixtures/vaults/views-usage/`): D-1838…D-1851 (AP-1519…AP-1532; owner, each as proposed): fence lines and `views:` mapping items for own settings, writes through the editor, reset actions, defaults on the query page, rename/Duplicate/trash with settings, On cards per usage, usage keys, templates, trash order, popups inside the window, view and limit shared, strings, the changed tests |
+| v1.200  | 2026-11-19 | Slice Q2.1 contract (`docs/contracts/v1-views.md` part two): D-1852…D-1863 (CP-10…CP-21; owner, each as proposed) and D-1864 (eight AC fixes) |
 
 ---
 
@@ -1878,6 +1879,19 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1849 | View type and limit stay shared (AP-1530) (owner, 2026-11-19; slice Q2.1 ACs, `docs/acceptance/views.md` part two) | `view` and `limit` are shared by every usage, with filters, `group_by`, `lanes`, `lane_order` |
 | D-1850 | Strings and commands (AP-1531) (owner, 2026-11-19; slice Q2.1 ACs, `docs/acceptance/views.md` part two) | R199's texts and the palette commands `Use the query's sort`, `Use the query's columns` |
 | D-1851 | Changed AC tests of Q2.1 (AP-1532) (owner, 2026-11-19; slice Q2.1 ACs, `docs/acceptance/views.md` part two) | The tests in part two's "Existing criteria this slice changes" change in the commits that build Q2.1, with `AC-Test-Change: slice Q2.1 builds per-usage settings and trash (D-1835, D-1836); approved-by: owner` (and `Fixture-Change:` for fixture text), as D-1802 |
+| D-1852 | Restoring `views:` bytes (CP-10) (owner, 2026-11-19; slice Q2.1 contract, `docs/contracts/v1-views.md` §22) | `TypeDto.viewsSource` (the raw `views` lines) and `TypeOp::SetViewsSource`, base-checked, put the exact old `views:` back on Undo or a failed trash move |
+| D-1853 | A tab's run (CP-11) (owner, 2026-11-19; slice Q2.1 contract, `docs/contracts/v1-views.md` §22) | A tab runs `QuerySource::View { type_key, name }`; the core reads the tab's own settings from the type file |
+| D-1854 | The run's result (CP-12) (owner, 2026-11-19; slice Q2.1 contract, `docs/contracts/v1-views.md` §22) | `QueryResult.def` stays the query file's definition; a separate `usage` part carries the own values, broken parts and the effective sort and columns, so the editor never writes a usage's settings into the query file |
+| D-1855 | `views:` items exposed (CP-13) (owner, 2026-11-19; slice Q2.1 contract, `docs/contracts/v1-views.md` §22) | `TypeFile.views` stays the list of names; `view_items` / `viewItems` add the items with their own settings |
+| D-1856 | Reset for broken own values (CP-14) (owner, 2026-11-19; slice Q2.1 contract, `docs/contracts/v1-views.md` §22) | `Use the query's sort` / `Use the query's columns` are offered whenever the usage has the key, valid or broken, and remove it |
+| D-1857 | Item ops (CP-15) (owner, 2026-11-19; slice Q2.1 contract, `docs/contracts/v1-views.md` §22) | `SetViewSort` and `SetViewColumns`; a name no longer listed is refused with `RuleError::ViewNotListed`, shown as `views.changedOutside` |
+| D-1858 | A block's number (CP-16) (owner, 2026-11-19; slice Q2.1 contract, `docs/contracts/v1-views.md` §22) | The `n` of a block usage key is counted from the editor's query blocks and recounted when blocks are added, removed or moved |
+| D-1859 | The editor's preview (CP-17) (owner, 2026-11-19; slice Q2.1 contract, `docs/contracts/v1-views.md` §22) | Opened from a tab or block, the Edit view preview uses that usage's effective sort and columns; the commit keeps the query file's |
+| D-1860 | On cards › Change… (CP-18) (owner, 2026-11-19; slice Q2.1 contract, `docs/contracts/v1-views.md` §22) | Writes at once from every opener, the query page included |
+| D-1861 | Placement scope (CP-19) (owner, 2026-11-19; slice Q2.1 contract, `docs/contracts/v1-views.md` §22) | The inside-the-window placement is opt-in (`fit`), used by the view and query-block popups, rendered in a body portal |
+| D-1862 | ⌘Z after a block write (CP-20) (owner, 2026-11-19; slice Q2.1 contract, `docs/contracts/v1-views.md` §22) | ⌘Z / ⇧⌘Z inside a query block go to the note's editor history |
+| D-1863 | Duplicate (CP-21) (owner, 2026-11-19; slice Q2.1 contract, `docs/contracts/v1-views.md` §22) | Duplicate copies only the tab's own `sort` and `columns`, not unknown keys of its item |
+| D-1864 | AC problems found by the Q2.1 contract (owner, 2026-11-19: "Accept all"; `docs/contracts/v1-views.md` §22) | `docs/acceptance/views.md` part two is fixed as proposed: D-1851's trailer wording; tab sort and column controls disabled on a Newer or invalid type file; FR-QRY-07 AC-23 names `+ Add sort`, AC-24 the Number property `Stran`; FR-QRY-01 AC-14 (b)'s focus reworded; AC-19 `Edit view`; "own value" includes broken ones (R199, FR-UX-03 AC-52); the overlay README is no longer a draft |
 
 ---
 
