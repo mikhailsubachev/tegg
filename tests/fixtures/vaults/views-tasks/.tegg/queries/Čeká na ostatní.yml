@@ -1,0 +1,13 @@
+# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Čeká na ostatní.
+version: 1
+title: Čeká na ostatní
+types: [task]
+match: all
+filters:
+  - status: Waiting
+sort: { by: due, order: asc }
+limit: 50
+view: table
+columns: [due, priority]
+created: 2026-10-13T08:30:00+02:00
+modified: 2026-10-13T08:30:00+02:00
