@@ -1552,6 +1552,7 @@ pub struct QueryResult {
   lane; other entries are kept in the file and ignored (`[Later, zítra]` orders nothing, FR-QRY-01 AC-18).
 - **State operators** in `filters`: `{ <key>: { state_is: <s> } }` / `state_is_not`, `<s>` a scalar string. Shape as
   every operator item (v1-queries §1.2).
+- **`columns` absent** (D-1927, RT-5): reads as `[]` with `view: board` (a board never uses it, D-1891) and as part one's create default for `list` / `table` (the single type's effective columns, else `[type, modified]`); no notice, the file isn't rewritten. The L3 corpus lists `columns` only for files that have the key.
 - `version` stays 1. The `Layout` learns `done_lane` (one line, or a block mapping replaced by one line on write).
 
 ### 24.3 Write rules (additions to part one §1.4)
@@ -1597,7 +1598,8 @@ pub struct QueryResult {
     with the same kind (D-1807's rule). Otherwise `Broken { BadValue, key: "group_by" }` and `group: None` (drawn as a
     List with `query.block.brokenKey`, FR-QRY-01 AC-18).
   - A value's **date**: Date: `parse_date` of the scalar (else none); Date-time, `created`, `modified`: the instant
-    (`instant_ms`) as a local date in `QueryEnv.tz` (D-104). No valid date → `none`.
+    (`instant_ms`) as a local date in `QueryEnv.tz` (D-104). No valid date → `none`. A missing or unreadable
+    `created` / `modified` value has no date (never the file's birth or change time; D-1927, RT-11).
   - Lanes: `today` (date ≤ today), `week` (today < date ≤ the week's last day; absent when today **is** the week's last
     day), `later` (date > the week's last day), `none`. Order: `lane_order` (ids above) moves its listed period lanes
     to the front in its order, the others follow in `today, week, later` order; then `none`, then `done`. All shown,
@@ -1816,8 +1818,8 @@ optimistically moved card in its target lane or day group until the next answer.
 
 | Module | Owns |
 | --- | --- |
-| `app/ui/src/queries/board/period.ts` (pure, L1; CP-22, D-1914) | `bounds(env: { today: string; weekStart: number })` → `{ today; weekFirst; weekLast; afterWeek; days: string[] /* tomorrow…weekLast */ }`; `periodOf(value: unknown, kind: 'date' \| 'dateTime', b, zone?)` → `{ lane: 'today' \| 'week' \| 'later' \| 'none'; day: string \| null }` (R203's table; the fake core and L1 use it); `completedWithin(row: { completed; modified }, today, n, zone?)`; `dropFor(laneId, day: string \| null, b)` → the date a drop writes (`period:today` → today, a day group → its date, `period:later` → `afterWeek`, `none` → null); `prefillFor(laneId, b)` → today, `weekLast`, `afterWeek`, null (`none`), and no tile for `done`; `laneLabelKey(laneId, isTaskDue: boolean)` → the §30.2 key; `dayHeading(date, region)` (`Intl.DateTimeFormat(region, { weekday: 'long', day: 'numeric' })`: `středa 15.`, `Thursday 15`); `targets(group)` → the drop targets in keyboard order (`period:today`, each day group, `period:later`, `none`, `done`); `neighbourTarget(group, at: { lane: string; day: string \| null }, dir: 1 \| -1)` |
-| `app/ui/src/views/tagFilter.ts` (pure, L1) | `tagFilterKey(scope: { kind: 'tab'; typeKey; name } \| { kind: 'all'; typeKey })` (`tab:<type>/<name key>`, `all:<type>`, NFC); `tagOptions(rows: { tags: string[] }[], selected: string[], spelling: (key) => string, collator)` → `{ key; label; count }[]` (AP-1545: tags of the rows the tab shows before the tag and text filters, done lane included; count = rows that would remain with it added to the selection; most first, then collation, then key bytes; every selected key listed, `0` when absent); `keepRow(row, selected)` (all-of, D-518) |
+| `app/ui/src/queries/board/period.ts` (pure, L1; CP-22, D-1914) | `bounds(env: { today: string; weekStart: number })` → `{ today; weekFirst; weekLast; afterWeek; days: string[] /* tomorrow…weekLast */ }`; `periodOf(value: unknown, kind: 'date' \| 'dateTime', b, zone?)` → `{ lane: 'today' \| 'week' \| 'later' \| 'none'; day: string \| null }` (R203's table; the fake core and L1 use it); `completedWithin(row: { completed; modified }, today, n, zone?)`; `weekStart` uses `Date.getDay` numbering (0 = Sunday, 1 = Monday, D-1927); `dropFor(laneId, day: string \| null, b)` → the date a drop writes (`period:today` → today, a day group → its date, `period:later` → `afterWeek`, `none` → null); `prefillFor(laneId, b)` → today, `weekLast`, `afterWeek`, null (`none`), and no tile for `done`; `laneLabelKey(laneId, isTaskDue: boolean)` → the §30.2 key; `dayHeading(date, region)` (`Intl.DateTimeFormat(region, { weekday: 'long', day: 'numeric' })`: `středa 15.`, `Thursday 15`); `targets(group)` → the drop targets as `{ lane: string; day: string \| null }` (D-1927) in keyboard order (`period:today`, each day group, `period:later`, `none`, `done`); `neighbourTarget(group, at: { lane: string; day: string \| null }, dir: 1 \| -1)` |
+| `app/ui/src/views/tagFilter.ts` (pure, L1) | `tagFilterKey(scope: { kind: 'tab'; typeKey; name } \| { kind: 'all'; typeKey })` (`tab:<type>/<name key>`, `all:<type>`, NFC); `tagOptions(rows: { tags: string[] }[], selected: string[], spelling: (key) => string, collator)` → `{ key; label; count }[]` (AP-1545: tags of the rows the tab shows before the tag and text filters, done lane included; count = rows that would remain with it added to the selection; most first, then collation, then key bytes; every selected key listed, `0` when absent, D-1927); `selected` keys are NFC-normalised and case-folded inside `tagOptions` and `keepRow` (so `práce` typed in NFD is one chip, FR-FMT-12 AC-14); `keepRow(row, selected)` (all-of, D-518) |
 | `app/ui/src/views/allSort.ts` (pure, L1) | `sortTypeRows(rows: TypeRowDto[], levels: SortDto[], type: TypeDto, collator)`: part one §1.6's per-kind comparison (option order then unknown values, empty last at every level, strict Date per §24.4), ties by title, then path; `levelsOf(stored: SortDto[] \| TypeSortDto \| undefined)` (0.4.x single value → one level; absent → the page's default) |
 | `app/ui/src/views/defaultViews.ts` | `restoreState(type: TypeDto \| null, summaries)` → `{ enabled: boolean; reason: string \| null }` (R202: disabled with `typeSettings.restoreViewsNone` when both names are listed and live; with FR-QRY-07 AC-12 (e)'s reason for a Newer / invalid `task.yml` or an unreadable `views`); `restoreDefaultViews(type)`: `task_views_restore`, the toast `typeSettings.restoredViews` (`{names}` joined by `Intl.ListFormat` conjunction) with `Undo` 8 s, the live region, §25.3's Undo |
 | `app/ui/src/views/TasksSummary.tsx` | the header line of `type/task` (§29.1) from `useTasks` and `summaryWeek` |
@@ -2084,7 +2086,9 @@ written.
 - `window.__TEGG_TEST__.board()`: lanes gain `days: { date: string; cards: string[] }[]` and `folded: boolean`.
 - **Rust hooks**: `TEGG_TEST_TASK_VIEWS=1` (with `TEGG_TEST=1`) turns the migration on in the app (D-1913). The L4 kill
   harnesses re-run the test binary as a child (as `ac_views_writes.rs`): `TEGG_TASKS_KILL_CHILD`, `TEGG_TASKS_KILL_READY`,
-  `TEGG_TASKS_KILL_KIND` = `migrate` (FR-QRY-07 AC-29: `Core::task_views_migrate` on the base fixture, 200 runs),
+  `TEGG_TASKS_KILL_KIND` = `migrate` (FR-QRY-07 AC-29: `Core::task_views_migrate` on the base fixture, 200 runs; the "`task.yml` changed
+  between the creates and the `views:` write" part is 40 trials with a concurrent writer: never a lost update, the next run
+  writes the line on top, D-1927),
   `period` (FR-SYN-02 AC-13: alternating `Core::note_write` of Zalít květiny's fixture bytes and
   `expected/views-tasks/tasks/zalit-kvetiny-no-due.md`), `restore` (alternating `Core::task_views_restore` and its Undo
   through `Core::type_patch` + `Core::query_trash` on the overlay after trashing `Kanban`).
@@ -2110,14 +2114,14 @@ written.
 | FR-QRY-07 AC-27, AC-28 | | | `ac_views_tasks.rs` | `views_tasks_page` (fake `taskViews`) | AC-28: `views_tasks.ac.test.ts` |
 | AC-29 | | | `ac_views_tasks.rs` (harness `migrate`) | | |
 | AC-30 | `views_tasks_model` | | | `app/webkit/views_tag_filter.ac.test.ts` | `views_tasks.ac.test.ts` |
-| FR-TYP-01 AC-11 | | | `ac_views_tasks.rs`; `crates/tegg-schema/tests/ac_views_tasks_type_file.rs` (`SetViews`, `SetViewsSource('')` bytes) | `views_tasks_queries` | |
+| FR-TYP-01 AC-11 | | | `ac_views_tasks.rs` (`SetViews`, `SetViewsSource('')` bytes through `Core::type_patch`; no `tegg-schema` file, D-1925) | `views_tasks_queries` | |
 | FR-QRY-01 AC-17 | `views_tasks_model` (`periodChoices`) | | `ac_views_tasks.rs` | `views_tasks_queries` | |
 | AC-18 | | `crates/tegg-core/tests/ac_views_tasks_props.rs` (oracle); L3 | `ac_views_tasks.rs` | | |
-| AC-19 | | | `ac_views_tasks_type_file.rs` | `views_tasks_queries` | |
+| AC-19 | | | (none: the `views:` item bytes are Q2.1's, already green; D-1925) | `views_tasks_queries` | |
 | AC-20 | `views_tasks_model` (`allSort`) | | | `views_tag_filter` | |
 | FR-QRY-02 AC-9 | `views_tasks_model` (`stateOps`) | | `ac_views_tasks.rs` | | |
 | FR-QRY-05 AC-28 | | | `ac_views_tasks.rs` (bytes kept, create) | `app/webkit/views_cards.ac.test.ts` | |
-| AC-29 | `views_tasks_model` (card parts) | | | `views_cards` | |
+| AC-29 | (none, D-1927) | | | `views_cards` | |
 | FR-QRY-08 AC-3 | `views_tasks_model` (`prefillFor`) | | `ac_views_tasks.rs` (first write) | `views_tasks_schedule` | |
 | FR-TYP-09 AC-36 | | | | `app/webkit/views_width.ac.test.ts` | |
 | FR-FMT-07 AC-35 | | `ac_views_tasks_props.rs` | `ac_views_tasks.rs` | | |
@@ -2126,7 +2130,7 @@ written.
 | FR-SYN-03 AC-32 | | | `ac_views_tasks.rs` | `views_tasks_writes` | |
 | FR-SYN-06 AC-50 | | | | `views_tasks_writes` (counts) | `views_tasks.ac.test.ts` |
 | FR-STO-07 AC-12 | `views_tasks_model` (`adoptTasksUi`) | | | `views_tag_filter` | `views_tasks.ac.test.ts` |
-| NFR-PERF-07 AC-5 | | | `crates/tegg-core/tests/ac_views_perf.rs` (`nfr_perf_07_ac5_*`, skipped at push) | | `app/e2e/nfr_perf_07_tasks_board.ac.test.ts` (nightly) |
+| NFR-PERF-07 AC-5 | | | `crates/tegg-core/tests/ac_views_tasks_perf.rs` (`nfr_perf_07_ac5_tasks_boards`, skipped at push; nightly `core-perf-ac`, D-1927) | | `app/e2e/nfr_perf_07_tasks_board.ac.test.ts` (nightly) |
 | FR-UX-03 AC-53 | `app/test/views_tasks_registry.ac.test.ts` | | | `app/webkit/views_tasks_a11y.ac.test.ts` | |
 | FR-UX-05 AC-25, FR-UX-08 AC-25 | | | | `views_tasks_a11y` | AC-25 (UX-08): `views_tasks.ac.test.ts` |
 | NFR-OTH-02 AC-23 | `views_tasks_registry` (catalog) | | | `views_tasks_a11y` (pseudo-locale) | |
@@ -2134,8 +2138,10 @@ written.
 | FR-QRY-07 AC-31 | manual (`qa/manual/`) | | | | |
 
 Test names are the ACs' (`fr_tsk_04_ac22_header_tabs_and_toolbar`, …), the same name in each layer's file. Helpers:
-`app/webkit/views-tasks-helpers.ts` (base / overlay copies, the clock, regions, zones). No new `qa.config.json` step.
-The tests of the change table change in the build commit (D-1912), not in the red ones.
+`app/webkit/views-tasks-helpers.ts` (base / overlay copies, the clock, regions, zones). No new `qa.config.json` step; the
+nightly `core-perf-ac` step gains `ac_views_perf.rs` and `ac_views_tasks_perf.rs` (D-1927). The Rust tests compile against
+a compile-only stubs commit made before the red commit (D-1926). The tests of the change table change in a commit right
+after the red commit, not in the build commit (D-1928, amends D-1912).
 
 ### 31.3 L3 corpus (`tests/fixtures/queries-files/expected-views-tasks.json`)
 
@@ -2164,7 +2170,7 @@ variants). `tasks/` hold whole files after the write, `modified:` per the clock.
 | `queries/schedule-lanes-vertical.yml` (+ `-crlf`, `-no-newline`) | `Switch lanes` | FR-FMT-07 AC-35 |
 | `queries/kanban-lane-order-waiting.yml`, `queries/kanban-lane-order-reset.yml` | `Waiting` before `To do`; then `Reset lane order` | FR-TSK-05 AC-20 |
 | `queries/projekty-group-created.yml` | `Created · by period`, `Done` (comment kept) | FR-QRY-01 AC-17 |
-| `../views/new-view-board-book.yml` (part one's file) | its `columns:` line goes (D-1910); changed with a `Fixture-Change:` trailer | FR-QRY-05 AC-28 |
+| `../views/new-view-board-book.yml` (part one's file) | its `columns:` line goes (D-1910); changed in the build commit with a `Fixture-Change:` trailer (D-1927; not by the red tests) | FR-QRY-05 AC-28 |
 | `tasks/precist-knihu-due-16.md` | T08 onto `pátek 16.` | FR-TSK-04 AC-25 (a) |
 | `tasks/obnovit-pas-due-14.md`, `tasks/obnovit-pas-due-14-la.md` | T07 onto `Today & overdue` (Prague; Los Angeles `modified …T03:00:00-07:00`) | (b) |
 | `tasks/zalit-kvetiny-due-19.md`, `tasks/zalit-kvetiny-due-18-en-us.md` | T03 onto `Later` | (c) |
@@ -2174,7 +2180,7 @@ variants). `tasks/` hold whole files after the write, `modified:` per the clock.
 | `tasks/spatne-datum-due-15.md` | T16 onto `čtvrtek 15.` | (g) |
 | `tasks/zalit-kvetiny-no-due.md` | T03 onto `Not scheduled` (the kill harness's second text) | FR-SYN-02 AC-13 |
 | `tasks/nakup-later.md` | T19 (NFD title) onto `Later` | FR-FMT-12 AC-14 |
-| `tasks/zavolat-do-servisu-new.md` | `New Task`, title, ⏎ (body after the frontmatter checked as part two's RT-12) | FR-TSK-10 AC-13 (a) |
+| `tasks/zavolat-do-servisu-new.md` | `New Task`, title, ⏎: the whole file without its generated `id:` line (tests remove that line and compare; D-1927, RT-6) | FR-TSK-10 AC-13 (a) |
 | `projekty/zahrada-later.md`, `projekty/web-no-due.md` | Zahrada onto `Later`; Web onto `No Due date` | FR-QRY-01 AC-17 |
 
 Status-drag bytes on Kanban are tasks.md FR-TSK-05 AC-2's (existing L1 texts); tag-drag bytes part one's `board_move`.
@@ -2217,3 +2223,13 @@ Each point was decided as recommended (option (a)); the alternatives are kept fo
 | CP-29 → D-1921 | **The summary string.** R207 gives `tasks.summaryWeek` as one text with three plural counts; one catalog message can't carry three plural forms, and D-505 solved the same for `tasks.summary`. | (a) `tasks.summaryWeek` `{open} · {overdue} · {done}` built from `tasks.summary.open`, `tasks.summary.overdue` (kept) and new `tasks.summary.doneWeek`; NFR-OTH-02 AC-23 checks the composed English. (b) One key with R207's literal text and ICU-style plurals (a new message format in the catalog). | **(a)**, as recommended |
 | CP-30 → D-1922 | **R207 / R208 names that don't match the code** (AC fixes). (1) Operator keys: the editor renders `query.op.<yaml op>` (`query.op.is_not`), R207 says `query.op.stateIs`. (2) Command ids "kept" in R207 are `tasks.showSchedule`, `tasks.showKanban`, `tasks.filter`; the existing ids are `tasks.schedule`, `tasks.kanban`, `tasks.search` (D-1284). (3) R207's removed list misses keys that lose their last user (`tasks.title`, `tasks.summary`, `tasks.summary.today`, `tasks.add.dueToday`, `tasks.column.cantMove`, `tasks.sort*`, `tasks.doneMore`, `tasks.newIn`, the removed commands' `cmd.*`). (4) R208 / FR-TSK-04 AC-22 show the sort button as `Due ↑`; the button uses the attribute Name (`Due date ↑`, as AC-19's popover). | (a) Fix the ACs to the code: `query.op.state_is` / `query.op.state_is_not`; keep the three ids; §30.2's explicit removed list; `Due date ↑`. (b) Rename the code to R207's names (catalog op keys stop following the YAML names; three command ids and their tests change). | **(a)**, as recommended |
 | CP-31 → D-1923 | **Invalid dates in sorts.** R203 says "an invalid date sorts with the empty values" inside a lane, but R208 also needs it on the Kanban (T17's date-time `due` sorts after T08 in `To do`), which isn't a period board. Today a Date attribute sorts any instant. | (a) A Date attribute's sort key is its valid `YYYY-MM-DD` only, in every query view; filters unchanged. (b) Only on boards. (c) Also make Date filters strict (a wider slice Q change). | **(a)**, as recommended |
+
+### 32.3 Red-test decisions (RT points → D-1924…D-1928, decided by the owner 2026-11-20)
+
+| Decision | |
+| --- | --- |
+| D-1924 | The change table (views.md part three) also covers the tests that open the Tasks page on a vault without views (route only, the default views added to the vault, `withTaskViews()`), `tasks_type_settings` AC-2…AC-4, `focus_indicator`'s old-blue test, and the L1 tests of removed 5A functions (deleted; their ACs keep their L5 tests) |
+| D-1925 (RT-2) | No `crates/tegg-schema/tests/ac_views_tasks_type_file.rs`: its bytes were already right (Q2.1), so it couldn't be red; `ac_views_tasks.rs` `fr_typ_01_ac11_restore_default_views` checks them through `Core::type_patch`. FR-QRY-01 AC-19's item bytes stay checked at L5 |
+| D-1926 (RT-1) | The Rust red tests compile against a compile-only stubs commit of §24.1 and §25 (`Op::StateIs` / `StateIsNot`, `DoneLane`, `QueryDef.group_period` / `done_lane`, `LaneKind::Period` / `Done`, `DayGroup`, `Lane.days` / `done_within`, `GroupKind::Period`, `QueryRow.tags` / `task_row`, `QueryResult.task_defs`, `taskviews`, `Core::task_views_migrate` / `task_views_restore`), made before the red commit as D-1813; stubs return wrong values or `NotImplemented`, never panic The stubs' type-only edits of slice Q tests (`crates/tegg-core/tests/queries_setup/mod.rs`, `ac_queries_props.rs`) go with the stubs commit |
+| D-1927 (RT-3…RT-11) | NFR-PERF-07 AC-5's L4 benchmark is the new `ac_views_tasks_perf.rs`; it and `ac_views_perf.rs` run in the nightly `core-perf-ac` step. FR-QRY-05 AC-29 has no L1. A missing `columns` reads as §24.2 says. The new task's expected file is the whole file without `id:`. `new-view-board-book.yml` changes in the build commit. `weekStart` is `getDay` numbering; `targets()` / `neighbourTarget()` use `{ lane, day }`. `tagOptions` / `keepRow` NFC-normalise the selection; selected tags with 0 rows stay listed. The migration race is 40 trials with a concurrent writer. A missing `created` / `modified` has no date. Part B's assumptions hold: T15 shows no status chip in its unknown-value lane; "no history entry" is checked by `history.length`; day headings come from `Intl`; tag lanes are named by the tag; the done lane's heading uses `--type-green`; Preview and option changes are made by external `setFile` edits; the fake `vault_create` gives `task-migrated.yml`; alias rows keep the boards `Tasks`, `TasksBoard` |
+| D-1928 | The existing tests of the change table (views.md part three) change in a commit right after the red commit, not in the build commit (amends D-1912 and §31.2) |

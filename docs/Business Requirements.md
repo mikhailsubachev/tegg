@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.213, for review                                            |
+| **Document status** | Draft v1.214, for review                                            |
 | **Date**            | 2026-11-19                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -223,6 +223,7 @@
 | v1.211  | 2026-11-20 | Slice Q2-T starts (`docs/feedback/q2-v041.md`): D-1890 (wide pages up to 1600 px, centred), D-1891 (board cards follow the type's Preview properties; `On cards` goes away); D-1892 (multi-level sort and the tag filter on every view), D-1893…D-1895 (tag filter kept per tab on this Mac, none on blocks, sort within each lane); F3 is a bug fix |
 | v1.212  | 2026-11-20 | Slice Q2-T ACs (`docs/acceptance/views.md` part three, overlay `tests/fixtures/vaults/views-tasks/`): D-1896…D-1913 (AP-1533…AP-1550; owner, each as proposed): state filters, default view files, `done_lane`, period lanes and drops, migration, `Restore default views`, the Tasks page header, the Task card, palette-only Kanban, new tasks without quick add (FR-TSK-10 reworded), multi-level sort on `All <plural>`, tag filter details, 1600 px content, old board `columns`, Tasks board performance, the changed tests, the migration in tests |
 | v1.213  | 2026-11-20 | Slice Q2-T contract (`docs/contracts/v1-views.md` part three, §23–§32): D-1914…D-1923 (CP-22…CP-31; owner, each as proposed): period lanes in the core with a TS twin, `group_period`, Task card data in query rows, read-only date-time period lanes, the `task_views_restore` command, the migration in `open_vault`, lane counts by type name, the summary in three parts, AC names fixed to the code, invalid dates sort as empty |
+| v1.214  | 2026-11-20 | Slice Q2-T red tests: D-1924…D-1928 (owner, each as proposed): more changed tests under D-1912, an already-green schema test dropped, type-only test edits for the stubs, red-test clarifications, the order of the test commits |
 
 ---
 
@@ -1960,6 +1961,11 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1921 | The Tasks summary string (CP-29, owner, 2026-11-20; slice Q2-T contract, `docs/contracts/v1-views.md` §32) | Built as D-505: `{open} · {overdue} · {done}` from `tasks.summary.open`, `tasks.summary.overdue` and the new `tasks.summary.doneWeek` |
 | D-1922 | Names in R207 and R208 (CP-30, owner, 2026-11-20; slice Q2-T contract, `docs/contracts/v1-views.md` §32) | The ACs are fixed to the code's names: operator keys `query.op.state_is` / `state_is_not`, commands `tasks.schedule`, `tasks.kanban`, `tasks.search`, the complete removed-key list, the sort button `Due date ↑` |
 | D-1923 | Invalid dates in sorts (CP-31, owner, 2026-11-20; slice Q2-T contract, `docs/contracts/v1-views.md` §32) | A Date attribute sorts by its valid `YYYY-MM-DD` value only, in every query view; invalid values sort with the empty ones; filters unchanged |
+| D-1924 | More changed tests under D-1912 (owner, 2026-11-20; slice Q2-T red tests) | The change table of `docs/acceptance/views.md` part three also covers the tests that open the Tasks page on a vault without views (route only, the default views added to the vault), `tasks_type_settings` AC-2…AC-4, `focus_indicator`'s old-blue test, and the L1 tests of removed 5A functions (deleted; their ACs keep their app tests) (`AC-Test-Change`) |
+| D-1925 | A red test that already passes (owner, 2026-11-20; slice Q2-T red tests) | `crates/tegg-schema/tests/ac_views_tasks_type_file.rs` is dropped: its bytes already come out right, and `fr_typ_01_ac11` checks them through the core |
+| D-1926 | Type-only edits for the stubs (owner, 2026-11-20; slice Q2-T red tests) | The compile-only stubs (as D-1813) add fields and variants; `crates/tegg-core/tests/queries_setup/mod.rs` and `ac_queries_props.rs` gain `group_period: false, done_lane: None` and two operator names (`AC-Test-Change`) |
+| D-1927 | Red-test clarifications (owner, 2026-11-20; slice Q2-T red tests) | As the test authors proposed: a new `ac_views_tasks_perf.rs` (both views perf files in the nightly `core-perf-ac` step), no L1 for FR-QRY-05 AC-29, the default of a missing `columns`, `weekStart` in `getDay` numbering, `{lane, day}` targets, NFC of the tag selection in the tag-filter module with selected 0-count tags listed, the migration race by 40 trials, no date without a valid `created`, and the L5 assumptions listed in `docs/contracts/v1-views.md` §32.3 |
+| D-1928 | Order of the Q2-T test commits (owner, 2026-11-20; slice Q2-T red tests) | The changed existing tests are committed right after the red tests, not with the build (amends contract §31.2) |
 
 ---
 
