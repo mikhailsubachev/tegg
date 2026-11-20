@@ -26,7 +26,7 @@ export function sortKeyName(key: string, type: TypeDto | null | undefined): { la
   return { label: k, user: true };
 }
 
-export function SortPopover({ sort, type, anchor, addOnOpen, disabled, onChange, onClose, scope, onUseQuery }: {
+export function SortPopover({ sort, type, anchor, addOnOpen, disabled, onChange, onClose, scope, onUseQuery, onClear }: {
   /** The levels as written (the file's `sort`). */
   sort: SortDto[];
   /** The query's one type (column choices and order labels). */
@@ -38,7 +38,9 @@ export function SortPopover({ sort, type, anchor, addOnOpen, disabled, onChange,
   onChange: (sort: SortDto[]) => void;
   onClose: () => void;
   /** Slice Q2.1 (R197, §16.2): what a change writes, the popover's first line. */
-  scope?: 'tab' | 'block' | 'default';
+  scope?: 'tab' | 'block' | 'default' | 'thisMac';
+  /** Slice Q2-T (§29.7): `Clear` on `All <plural>` deletes the stored levels (the page's default). */
+  onClear?: (() => void) | null;
   /** Slice Q2.1 (R197, D-1856): `Use the query's sort`, when offered. */
   onUseQuery?: (() => void) | null;
 }) {
@@ -151,8 +153,8 @@ export function SortPopover({ sort, type, anchor, addOnOpen, disabled, onChange,
       <div className="sort-actions">
         <button type="button" tabIndex={0} className="qe-add" aria-disabled={disabled ? 'true' : undefined}
           onClick={() => { const next = addLevel(ls, choices); change(next); focusLevel(next.length - 1); }}>{t('sort.add')}</button>
-        <button type="button" tabIndex={0} className="qe-add" aria-disabled={disabled ? 'true' : undefined} onClick={() => change(clearSort())}>{t('sort.clear')}</button>
-        {onUseQuery && (
+        <button type="button" tabIndex={0} className="qe-add" aria-disabled={disabled ? 'true' : undefined} onClick={() => { if (onClear) { if (!disabled) onClear(); } else change(clearSort()); }}>{t('sort.clear')}</button>
+        {onUseQuery && scope !== 'thisMac' && (
           <button type="button" tabIndex={0} className="qe-add" data-command="sort.useQuery" aria-disabled={disabled ? 'true' : undefined}
             onClick={() => { if (!disabled) onUseQuery(); }}>{t('sort.useQuery')}</button>
         )}

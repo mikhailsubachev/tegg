@@ -19,6 +19,8 @@ import { FieldError, useErrorId, type Value } from '../types/controls/common';
 import { DateControl } from '../types/controls/DateControls';
 import { TextControl, type TextKind } from '../types/controls/TextControl';
 import { attrTypeLabel, colorName, nfc, typeErrorMessage } from '../types/util';
+import { refreshQueries, useQueries } from '../queries/store';
+import { restoreDefaultViews, restoreState } from '../views/defaultViews';
 
 type Save = 'saved' | 'saving' | 'failed';
 const BUILT_IN_ROWS = ['title', 'description', 'aliases', 'tags', 'source', 'review', 'created', 'modified'];
@@ -208,10 +210,32 @@ export function TypeSettingsPage({ typeKey, types, refresh, heading, onDeleted, 
       </div>
     );
   }
-  return <Settings type={type} types={types} usage={usage} heading={heading} w={w} setType={setType} onDeleted={onDeleted} />;
+  return <Settings type={type} types={types} usage={usage} heading={heading} w={w} setType={setType} onDeleted={onDeleted} reload={reload} />;
 }
 
-function Settings({ type, types, usage, heading, w, setType, onDeleted }: {
+/** Q2-T (§29.10, FR-TYP-01 AC-11): `type-settings/task` only: `Restore default views` (R202). */
+function DefaultViewsSection({ type, reload }: { type: TypeDto; reload: () => void }) {
+  const summaries = useQueries();
+  useEffect(() => { void refreshQueries(); }, []);
+  const st = restoreState(type, summaries ?? []);
+  const disabled = !summaries || !st.enabled;
+  return (
+    <section id="ts-defaultViews" aria-labelledby="ts-defaultViews-h" className="ts-section">
+      <h2 id="ts-defaultViews-h">{t('typeSettings.defaultViews')}</h2>
+      <div className="ts-row">
+        <button type="button" tabIndex={0} className="text-button" data-command="types.restoreDefaultViews"
+          aria-disabled={disabled ? 'true' : undefined} aria-description={st.reason ?? t('typeSettings.restoreViewsHint')}
+          onClick={() => { if (!disabled) void restoreDefaultViews(type, reload); }}>
+          {t('typeSettings.restoreViews')}
+        </button>
+      </div>
+      <p className="hint" aria-hidden="true">{st.reason ?? t('typeSettings.restoreViewsHint')}</p>
+    </section>
+  );
+}
+
+function Settings({ type, types, usage, heading, w, setType, onDeleted, reload }: {
+  reload?: () => void;
   type: TypeDto;
   types: TypeDto[];
   usage: TypeUsageDto | null;
@@ -379,6 +403,7 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted }: {
               </>
             )}
           </section>
+          {nfc(type.key) === 'task' && <DefaultViewsSection type={type} reload={() => reload?.()} />}
         </div>
       </div>
       {deleting && <DeleteTypeDialog type={type} objects={objects} onClose={() => setDeleting(false)} onDeleted={onDeleted} />}

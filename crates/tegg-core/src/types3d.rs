@@ -59,6 +59,9 @@ pub struct TypeRow {
     /// Resolved relation values of previewed keys (§11.1 rules, from = path).
     pub links: Vec<LinkTarget>,
     pub type_single: bool,
+    /// Slice Q2-T (v1-views §27.1): the tag keys (frontmatter and inline, tags.md R79: NFC, case-folded), sorted,
+    /// unique; the tag filter of `All <plural>` (FR-QRY-07 AC-30).
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -503,6 +506,14 @@ impl Core {
                     values,
                     links: resolver.resolve(&o.path, &targets),
                     type_single: o.type_single,
+                    tags: o
+                        .tags
+                        .iter()
+                        .map(|t| nfc(t.trim()).trim_start_matches('#').to_lowercase())
+                        .filter(|t| !t.is_empty())
+                        .collect::<BTreeSet<String>>()
+                        .into_iter()
+                        .collect(),
                 }
             })
             .collect()

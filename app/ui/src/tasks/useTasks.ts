@@ -12,6 +12,8 @@ import { TASKS_WRITTEN } from './write';
 
 export type TaskData = { tasks: TaskRowDto[]; defs: TaskDefsDto };
 const EMPTY: TaskData = { tasks: [], defs: { statuses: [], priorities: [], unknownStates: [] } };
+/** The last `task_list` answer (the sidebar count's, a page's): a page shows it at once and reads again (Q2-T §29.1). */
+let lastData: TaskData | null = null;
 
 export function currentRegion(): string {
   return regionOf() ?? (typeof navigator !== 'undefined' ? navigator.language : 'en');
@@ -29,14 +31,15 @@ export function useToday(): { today: string; zone: string | undefined } {
 }
 
 export function useTasks(refresh: number): TaskData & { loaded: boolean; reload: () => Promise<void>; today: string; zone: string | undefined; region: string; firstWeekday: number } {
-  const [data, setData] = useState<TaskData>(EMPTY);
-  const [loaded, setLoaded] = useState(false);
+  const [data, setData] = useState<TaskData>(() => lastData ?? EMPTY);
+  const [loaded, setLoaded] = useState(() => lastData !== null);
   const seq = useRef(0);
   const reload = useCallback(async () => {
     const n = ++seq.current;
     try {
       const d = await ipc.taskList();
-      if (n === seq.current) { setData({ tasks: d.tasks, defs: d.defs }); setLoaded(true); }
+      lastData = { tasks: d.tasks, defs: d.defs };
+      if (n === seq.current) { setData(lastData); setLoaded(true); }
     } catch {
       if (n === seq.current) setLoaded(true);
     }
@@ -60,6 +63,7 @@ export function useTaskBadge(refresh: number, on: boolean): number {
     if (!on) { setN(0); return; }
     let live = true;
     ipc.taskList().then((d) => {
+      lastData = { tasks: d.tasks, defs: d.defs };
       if (live) setN(d.tasks.filter((r) => r.state === 'open' || r.state === 'in-progress').length); // D-588: the open tasks
     }, () => {});
     return () => { live = false; };

@@ -78,7 +78,19 @@ fn options<'a>(def: &'a TypeFile, key: &str) -> &'a [OptionDef] {
 
 /// The Task type as the vault defines it, else the built-in file (D-90).
 fn task_type(core: &Core) -> TypeFile {
-    core.shared.type_defs().remove("task").unwrap_or_else(|| tegg_schema::parse("task", tegg_schema::builtin("task").unwrap_or("")).def)
+    task_type_in(core.shared.type_defs())
+}
+
+fn task_type_in(mut defs: std::collections::BTreeMap<String, TypeFile>) -> TypeFile {
+    defs.remove("task").unwrap_or_else(|| tegg_schema::parse("task", tegg_schema::builtin("task").unwrap_or("")).def)
+}
+
+/// v1-views §24.4 (CP-24, D-1916): `Core::task_defs()` from type definitions already read (a query run's).
+pub(crate) fn task_defs_in(defs: &std::collections::BTreeMap<String, TypeFile>) -> TaskDefs {
+    match defs.get("task") {
+        Some(t) => defs_of(t),
+        None => defs_of(&task_type_in(Default::default())),
+    }
 }
 
 fn defs_of(def: &TypeFile) -> TaskDefs {
@@ -149,6 +161,29 @@ impl Core {
 
 fn row(o: &ObjectInfo, defs: &TaskDefs, resolver: &Resolver, st: tegg_index::NoteState) -> Option<TaskRow> {
     let fm = o.attributes.as_object()?;
+    let source = fm.get("source").and_then(link_inner).and_then(|t| resolver.resolve(&o.path, &[t]).into_iter().next());
+    Some(build(Fields { path: &o.path, id: o.id.as_deref(), title: &o.title, tags: &o.tags }, fm, defs, source, st))
+}
+
+/// v1-views §24.4 (CP-24, D-1916): a query row's `TaskRow`, from the query evaluator's index read (no file read, no
+/// second lock). `source` resolves through the index's own resolution of the object's `source` link.
+pub(crate) fn query_task_row(o: &tegg_index::QueryObject, objs: &[tegg_index::QueryObject], defs: &TaskDefs, st: tegg_index::NoteState) -> Option<TaskRow> {
+    let fm = o.attributes.as_object()?;
+    let source = fm.get("source").and_then(link_inner).map(|t| {
+        let to = o.attr_links.iter().find(|(a, _, _)| nfc(a) == "source").and_then(|(_, _, p)| *p);
+        query_link(objs, t, to)
+    });
+    Some(build(Fields { path: o.path, id: o.id, title: o.title, tags: o.tags }, fm, defs, source, st))
+}
+
+struct Fields<'a> {
+    path: &'a str,
+    id: Option<&'a str>,
+    title: &'a str,
+    tags: &'a [String],
+}
+
+fn build(o: Fields, fm: &serde_json::Map<String, Value>, defs: &TaskDefs, source: Option<LinkTarget>, st: tegg_index::NoteState) -> TaskRow {
     let status = scalar(fm.get("status"));
     let opt = status.as_ref().and_then(|s| defs.statuses.iter().find(|o| o.label == *s));
     let priority = scalar(fm.get("priority"));
@@ -162,11 +197,10 @@ fn row(o: &ObjectInfo, defs: &TaskDefs, resolver: &Resolver, st: tegg_index::Not
         Some(v) => scalar(Some(v)).into_iter().collect(),
         None => Vec::new(),
     };
-    let source = fm.get("source").and_then(link_inner).and_then(|t| resolver.resolve(&o.path, &[t]).into_iter().next());
-    Some(TaskRow {
-        path: o.path.clone(),
-        id: o.id.clone(),
-        title: o.title.clone(),
+    TaskRow {
+        path: o.path.to_string(),
+        id: o.id.map(str::to_string),
+        title: o.title.to_string(),
         status_known: status.is_none() || opt.is_some(),
         state: opt.map(|o| o.state).unwrap_or(TaskState::Open),
         status,
@@ -183,5 +217,23 @@ fn row(o: &ObjectInfo, defs: &TaskDefs, resolver: &Resolver, st: tegg_index::Not
         modified: scalar(fm.get("modified")),
         version: st.version,
         read_only: !st.utf8,
-    })
+    }
+}
+
+/// A link target from the query evaluator's index read (v1-views §24.4): `to` is the index's resolution of `target`.
+pub(crate) fn query_link(objs: &[tegg_index::QueryObject], target: String, to: Option<&str>) -> LinkTarget {
+    let date = {
+        let bare = target.split(['|', '#']).next().unwrap_or("").trim();
+        bare.len() == 10 && chrono::NaiveDate::parse_from_str(bare, "%Y-%m-%d").is_ok()
+    };
+    match to.and_then(|p| objs.iter().find(|x| x.path == p)) {
+        Some(x) => LinkTarget {
+            target,
+            kind: if date && x.daily.is_some() { crate::LinkKind::Daily } else { crate::LinkKind::Note },
+            path: Some(x.path.to_string()),
+            title: Some(x.title.to_string()),
+            r#type: Some(x.r#type.to_string()),
+        },
+        None => LinkTarget { target, kind: if date { crate::LinkKind::DateMissing } else { crate::LinkKind::Unresolved }, path: None, title: None, r#type: None },
+    }
 }

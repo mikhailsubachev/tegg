@@ -36,7 +36,7 @@ export function StripList({ cols, data, links, path, title, typeKey, label, clas
   if (cols.length === 0) return null;
   const types = chipTypes() as TypeDto[];
   const type = types.find((x) => nfc(x.key) === nfc(typeKey));
-  const row = { path, id: null, title, created: null, modified: null, values: data, links, typeSingle: true };
+  const row = { path, id: null, title, created: null, modified: null, values: data, links, typeSingle: true, tags: [] };
   return (
     <ul className={className} aria-label={label}>
       {cols.map((c) => (

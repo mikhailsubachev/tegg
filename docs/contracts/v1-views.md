@@ -1505,7 +1505,7 @@ pub struct DayGroup { pub date: NaiveDate, pub cards: Vec<LaneCard> }
 pub struct Lane {
     // …part one…
     /// Q2-T: the `week` lane's day groups, every day from tomorrow to the week's last day (empty ones included);
-    /// empty for every other lane. The `week` lane's `cards` are its days' cards in day order.
+    /// empty for every other lane. The `week` lane's `cards` are its rows in `rows` (sort) order (D-1931).
     pub days: Vec<DayGroup>,
     /// Q2-T: Some(n) on the done lane and on each Done-state option lane that `done_lane` limits (R201); else None.
     pub done_within: Option<u32>,

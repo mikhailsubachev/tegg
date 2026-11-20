@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.214, for review                                            |
+| **Document status** | Draft v1.215, for review                                            |
 | **Date**            | 2026-11-19                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -224,6 +224,7 @@
 | v1.212  | 2026-11-20 | Slice Q2-T ACs (`docs/acceptance/views.md` part three, overlay `tests/fixtures/vaults/views-tasks/`): D-1896…D-1913 (AP-1533…AP-1550; owner, each as proposed): state filters, default view files, `done_lane`, period lanes and drops, migration, `Restore default views`, the Tasks page header, the Task card, palette-only Kanban, new tasks without quick add (FR-TSK-10 reworded), multi-level sort on `All <plural>`, tag filter details, 1600 px content, old board `columns`, Tasks board performance, the changed tests, the migration in tests |
 | v1.213  | 2026-11-20 | Slice Q2-T contract (`docs/contracts/v1-views.md` part three, §23–§32): D-1914…D-1923 (CP-22…CP-31; owner, each as proposed): period lanes in the core with a TS twin, `group_period`, Task card data in query rows, read-only date-time period lanes, the `task_views_restore` command, the migration in `open_vault`, lane counts by type name, the summary in three parts, AC names fixed to the code, invalid dates sort as empty |
 | v1.214  | 2026-11-20 | Slice Q2-T red tests: D-1924…D-1928 (owner, each as proposed): more changed tests under D-1912, an already-green schema test dropped, type-only test edits for the stubs, red-test clarifications, the order of the test commits |
+| v1.215  | 2026-11-20 | Slice Q2-T build: D-1929 (test fixes to the decided behaviour), D-1930 (lane counts on every single-type board), D-1931 (the week lane's order) |
 
 ---
 
@@ -1966,6 +1967,9 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1926 | Type-only edits for the stubs (owner, 2026-11-20; slice Q2-T red tests) | The compile-only stubs (as D-1813) add fields and variants; `crates/tegg-core/tests/queries_setup/mod.rs` and `ac_queries_props.rs` gain `group_period: false, done_lane: None` and two operator names (`AC-Test-Change`) |
 | D-1927 | Red-test clarifications (owner, 2026-11-20; slice Q2-T red tests) | As the test authors proposed: a new `ac_views_tasks_perf.rs` (both views perf files in the nightly `core-perf-ac` step), no L1 for FR-QRY-05 AC-29, the default of a missing `columns`, `weekStart` in `getDay` numbering, `{lane, day}` targets, NFC of the tag selection in the tag-filter module with selected 0-count tags listed, the migration race by 40 trials, no date without a valid `created`, and the L5 assumptions listed in `docs/contracts/v1-views.md` §32.3 |
 | D-1928 | Order of the Q2-T test commits (owner, 2026-11-20; slice Q2-T red tests) | The changed existing tests are committed right after the red tests, not with the build (amends contract §31.2) |
+| D-1929 | Q2-T build test fixes (owner, 2026-11-20; slice Q2-T build) | About 20 AC tests whose expectations conflicted with decided behaviour or with each other are changed to the decided behaviour or fixed in their harness, without dropping what they check: the state-operator rename step (T13 is Cancelled), the Pages-only migration step (`Bez hlavičky` is a Page, D-103), the migration and restore kill windows widened as D-1889, `fr_qry_07_ac4` (c) builds its Board with no `columns` (D-1910), history checks by a navigation spy, the `id:` line removed before comparing (RT-6), `Thursday 15` day headings, drag sources scrolled into view, period `Group by` choices on date attributes (D-1776), the default views added where tests open the Tasks page, the remembered tab, the done window, the `none` lane id, the folded done lane, §26's board alerts, nested pseudo-locale marks, one `ui_state_set` from adopting 0.4.x state (`AC-Test-Change`) |
+| D-1930 | Lane counts on every single-type board (owner, 2026-11-20; slice Q2-T build) | As D-1920: `3 Books`, `4 Tasks` on every board of one type, `cards` only on boards of several types; Q2's `Reading, 3 cards` tests change (`AC-Test-Change`) |
+| D-1931 | The week lane's order (owner, 2026-11-20; slice Q2-T build) | The This week lane lists its cards in the view's sort order inside each day group; contract §24.1's comment is corrected to §24.4 |
 
 ---
 

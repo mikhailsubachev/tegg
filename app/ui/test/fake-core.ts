@@ -21,6 +21,7 @@ import type { PresetOpDto } from '../src/graph/types';
 import { handle as handleSearch } from './fake-search';
 import { handle as handlePins, type PinOpDto } from './fake-pins';
 import { handle as handleQueries } from './fake-queries';
+import { handle as handleTaskViews } from './fake-taskviews';
 import { handle as handleRelated, type RelatedDto } from './fake-related';
 import { fakeImportMain, handleImport, type FakeImportHandle, type FakeImportOptions } from './fake-import';
 
@@ -291,6 +292,10 @@ export type FakeOptions = {
   // ---------------------------------------------------------------- slice I2 (v1-import-window §7.2)
   /** The Import window's canned sources, plans and answers (fake-import.ts). */
   import?: FakeImportOptions;
+  // ---------------------------------------------------------------- slice Q2-T (v1-views §31.1)
+  /** D-1913: the core runs the default task views' migration (R202, §25.2) on the launch vault before the first command
+   *  answers, and in `vault_open` / `vault_create`. Off by default, as in the app under `TEGG_TEST=1`. */
+  taskViews?: boolean;
 };
 
 const REPO = resolve(import.meta.dirname, '../../..');
@@ -347,8 +352,9 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
   const mocks = readFileSync(MOCKS, 'utf8').replace(/export\s*\{[^}]*\};?\s*$/, '');
   await page.addInitScript({ content: `(() => {${mocks}\nwindow.__teggMocks = { mockIPC, mockWindows };})();` });
   // 3D (ms3-shell §14.8): type-file commands run in Node (fake-schema.ts) over a snapshot of the in-page files.
+  // Slice Q2-T (v1-views §25, §31.1): the default task views' migration and `task_views_restore` (fake-taskviews.ts).
   await page.exposeFunction('__teggTypes', (cmd: string, args: unknown, files: Record<string, string>, vers: Record<string, unknown>) =>
-    handleTypes(cmd, args, files, vers as any)).catch(() => {});
+    (cmd.startsWith('task_views_') ? handleTaskViews(cmd, args, files, vers as any) : handleTypes(cmd, args, files, vers as any))).catch(() => {});
   // 4A (ms4-links §6): link commands in Node with the real @tegg/doc extraction and excerpt window.
   await page.exposeFunction('__teggLinks', (cmd: string, args: unknown, files: Record<string, string>, vers: Record<string, unknown>) =>
     handleLinks(cmd, args, files, vers as any)).catch(() => {});
@@ -1751,10 +1757,17 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     for (const m of moves ?? []) if (state.vault!.files[m.from] !== undefined) moveRaw(m.from, m.to, state.vault!.files[m.from], kind);
   };
   const QTRASH = '.trash/.tegg/queries/';
+  // Slice Q2-T (v1-views §25.2, §31.1): the migration on a newly opened vault, with the page clock as `now`.
+  const migrateTaskViews = async () => {
+    if (!opts.taskViews || !state.vault) return;
+    // The Node binding is installed with the page; at launch it may not be callable yet.
+    for (let i = 0; i < 200 && typeof w.__teggTypes !== 'function'; i++) await new Promise((r) => setTimeout(r, 5));
+    try { await viaNode('task_views_migrate')({ now: isoLocal(Date.now()) }); } catch { /* never alerts (§25.2) */ }
+  };
 
   const handlers: Record<string, (a: any) => unknown> = {
     vault_current: () => info(),
-    vault_open: (a) => {
+    vault_open: async (a) => {
       const path = String(a.path);
       const dirs = opts.dirs ?? {};
       if (!(path in dirs)) throw err('NotFound', `fake: no folder ${path}`);
@@ -1766,9 +1779,10 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       state.vaultId++;
       state.watch();
       record(state.vault!.name, path);
+      await migrateTaskViews();
       return info();
     },
-    vault_create: (a) => {
+    vault_create: async (a) => {
       state.writes++;
       if (opts.createError) throw err(opts.createError.kind, opts.createError.message);
 
@@ -1781,6 +1795,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       state.path = target;
       state.last = null;
       record(name, target);
+      await migrateTaskViews();
       return info();
     },
     vault_recent: () => state.recent.map((r) => ({ ...r })),
@@ -2056,8 +2071,17 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       const { _path, ...res } = r.result as any;
       if (x.queriesNotReady) return { ...res, indexReady: false, rows: [], total: 0, group: null };
       // Slice Q2 (v1-views §1.1): each row's version (the card move's base) and whether its bytes were valid UTF-8.
-      const rows = (res.rows ?? []).map((r: any) => ({ ...r, version: state.ver(r.path), readOnly: r.path in state.invalid }));
+      const rows = (res.rows ?? []).map((r: any) => ({
+        ...r, version: state.ver(r.path), readOnly: r.path in state.invalid,
+        // Slice Q2-T (CP-24): the Task row carries the same version and read-only flag.
+        taskRow: r.taskRow ? { ...r.taskRow, version: state.ver(r.path), readOnly: r.path in state.invalid } : null,
+      }));
       return { ...res, rows, version: _path ? state.ver(_path) : null };
+    },
+    // Slice Q2-T (v1-views §25.3): `Restore default views`; the creates stay when the `views:` write is refused.
+    task_views_restore: async (a) => {
+      const r = await viaNode('task_views_restore')({ base: a.base ?? null, now: a.now ?? isoLocal(Date.now()) });
+      return { ...r, type: withVersions(r.type) };
     },
     query_usages: async (a) => (await viaQueries('query_usages', { name: a.name })).result,
     query_view_usages: async (a) => (await viaQueries('query_view_usages', { name: a.name })).result,
@@ -2667,6 +2691,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
   w.__teggMocks.mockWindows(opts.window === 'capture' ? 'capture' : 'main');
   // 6A (ms6-trash-media §3.6): media URLs go to the fake's `/__media/` route (WebKit can't route custom schemes).
   w.__TEGG_MEDIA_BASE__ = `${location.origin}/__media/`;
+  // Slice Q2-T (§31.1): with `taskViews`, the launch vault is migrated before the first command answers.
+  const taskViewsGate: Promise<void> | null = opts.taskViews && state.vault ? migrateTaskViews() : null;
   w.__teggMocks.mockIPC((cmd: string, args: any) => {
     const rec: { cmd: string; args: unknown; at?: number; seq?: number; endSeq?: number; ok?: boolean; endAt?: number; result?: unknown } =
       { cmd, args: args === undefined ? undefined : JSON.parse(JSON.stringify(args ?? null)), at: Date.now(), seq: ++state.seq };
@@ -2685,7 +2711,10 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     const settle = (ok: boolean) => { rec.endSeq = ++state.seq; rec.ok = ok; rec.endAt = Date.now(); };
     let out: Promise<unknown>;
     const delay = (x.delays ?? {})[cmd] as number | undefined; // slice P (v1-previews §9): delayCommand
-    try { out = delay ? new Promise((r) => setTimeout(r, delay)).then(() => h(args ?? {})) : Promise.resolve(h(args ?? {})); } catch (e) { out = Promise.reject(e); }
+    try {
+      const run = () => (delay ? new Promise((r) => setTimeout(r, delay)).then(() => h(args ?? {})) : Promise.resolve(h(args ?? {})));
+      out = taskViewsGate ? taskViewsGate.then(run) : run();
+    } catch (e) { out = Promise.reject(e); }
     return out.then((v) => { settle(true); rec.result = v === undefined ? undefined : JSON.parse(JSON.stringify(v)); return v; }, (e) => { settle(false); rec.result = JSON.parse(JSON.stringify(e ?? null)); throw e; });
   }, { shouldMockEvents: true });
   // 6A (ms6-trash-media §4): the mock drops invoke options; raw-body commands read their headers from here.

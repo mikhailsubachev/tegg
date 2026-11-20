@@ -357,6 +357,14 @@ fn open_vault(app: &AppHandle, path: PathBuf) -> Result<VaultInfo, IpcError> {
         None => {
             let core = Arc::new(Core::open(&path, &state.dirs, CoreOptions { watch: true, sync: None }).map_err(core_err)?);
             forward_events(app.clone(), &core);
+            // v1-views §25.2 (R202, CP-27, D-1919): the default task views, once per newly opened core, before
+            // `VaultInfo` is returned (`vault_create` comes through here too). Never alerts; the outcome is only logged.
+            if task_views_enabled() {
+                let outcome = core.task_views_migrate(&now_iso());
+                if !matches!(outcome, tegg_core::taskviews::TaskViewsMigration::NotNeeded) {
+                    eprintln!("[tegg] task views migration: {outcome:?}");
+                }
+            }
             // D-207: `index-idle` each time the index queue drains (L6 waits on it).
             let weak = Arc::downgrade(&core);
             if test_var("TEGG_PERF_LOG").is_some() {
@@ -383,6 +391,22 @@ fn open_vault(app: &AppHandle, path: PathBuf) -> Result<VaultInfo, IpcError> {
     let _ = app.emit_to(shell5b::CAPTURE, "capture:context-changed", ());
     shell5b::inbox_count_changed(app);
     Ok(info)
+}
+
+/// v1-views §25.2 (D-1913, D-1919): the task-views migration runs unless `TEGG_TEST=1`, where it needs
+/// `TEGG_TEST_TASK_VIEWS=1`.
+fn task_views_enabled() -> bool {
+    std::env::var("TEGG_TEST").as_deref() != Ok("1") || std::env::var("TEGG_TEST_TASK_VIEWS").as_deref() == Ok("1")
+}
+
+/// v1-views §25.1: the instant of a write as `YYYY-MM-DDTHH:MM:SS±HH:MM` in the local zone (the format of `created` /
+/// `modified`); with `TEGG_TEST=1` and a valid `TEGG_NOW` that instant in the process zone (`TZ`, D-504).
+pub(crate) fn now_iso() -> String {
+    let fmt = "%Y-%m-%dT%H:%M:%S%:z";
+    match test_var("TEGG_NOW").and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok()) {
+        Some(t) => t.with_timezone(&chrono::Local).format(fmt).to_string(),
+        None => chrono::Local::now().format(fmt).to_string(),
+    }
 }
 
 fn vault_info(path: &std::path::Path, core: &Core) -> VaultInfo {
@@ -1089,13 +1113,17 @@ async fn daily_context(state: State<'_, AppState>, date: String, start: String, 
 #[tauri::command]
 async fn task_list(state: State<'_, AppState>) -> Result<TaskListDto, IpcError> {
     let core = core(&state)?;
-    let d = core.task_defs();
-    let defs = TaskDefsDto {
+    let defs = task_defs_dto(core.task_defs());
+    Ok(TaskListDto { tasks: core.tasks().into_iter().map(task_dto).collect(), defs })
+}
+
+/// ms5-tasks §3's `TaskDefsDto` (also `QueryResultDto.taskDefs`, v1-views §27.2).
+pub(crate) fn task_defs_dto(d: tegg_core::TaskDefs) -> TaskDefsDto {
+    TaskDefsDto {
         statuses: d.statuses.into_iter().map(|s| StatusOptionDto { label: s.label, color: s.color, state: task_state(s.state), state_raw: s.state_raw }).collect(),
         priorities: d.priorities.into_iter().map(option_dto).collect(),
         unknown_states: d.unknown_states.into_iter().map(|(label, state)| UnknownStateDto { label, state }).collect(),
-    };
-    Ok(TaskListDto { tasks: core.tasks().into_iter().map(task_dto).collect(), defs })
+    }
 }
 
 /// `daily_tasks` (FR-DLY-04 AC-9, D-485): read-only.
@@ -1297,7 +1325,7 @@ async fn link_create(state: State<'_, AppState>, from: String, target: String, e
 
 // ---------------------------------------------------------------- MS3 slice 3D (ms3-shell §14.3)
 
-fn type_dto(t: TypeInfo) -> TypeDto {
+pub(crate) fn type_dto(t: TypeInfo) -> TypeDto {
     use tegg_schema::{Readability, Review};
     let (state, error) = match &t.readability {
         Readability::Ok => ("ok", None),
@@ -1408,7 +1436,7 @@ fn task_state(s: tegg_core::TaskState) -> String {
     s.as_str().to_string()
 }
 
-fn task_dto(r: tegg_core::TaskRow) -> TaskRowDto {
+pub(crate) fn task_dto(r: tegg_core::TaskRow) -> TaskRowDto {
     TaskRowDto {
         path: r.path,
         id: r.id,
@@ -1499,7 +1527,7 @@ fn type_op(op: TypeOpDto) -> Result<TypeOp, IpcError> {
     })
 }
 
-fn link_dto(t: LinkTarget) -> LinkTargetDto {
+pub(crate) fn link_dto(t: LinkTarget) -> LinkTargetDto {
     LinkTargetDto {
         target: t.target,
         kind: match t.kind {
@@ -1539,7 +1567,7 @@ fn starter_dto(p: StarterPlan) -> StarterPlanDto {
 }
 
 /// A `Conflict` of a type write carries the type as on disk now (ms3-shell §14.3).
-fn type_err(core: &Core, key: &str, e: CoreError) -> IpcError {
+pub(crate) fn type_err(core: &Core, key: &str, e: CoreError) -> IpcError {
     let conflict = matches!(e, CoreError::Vault(VaultError::Conflict { .. }));
     let mut out = core_err(e);
     if conflict {
@@ -1627,6 +1655,7 @@ async fn index_type_rows(state: State<'_, AppState>, r#type: String) -> Result<V
             values: r.values,
             links: r.links.into_iter().map(link_dto).collect(),
             type_single: r.type_single,
+            tags: r.tags,
         })
         .collect())
 }
@@ -1895,7 +1924,7 @@ pub fn run() {
             shellpin::pins_get, shellpin::pins_apply,
             shellrel::index_related,
             shellq::queries_list, shellq::query_get, shellq::query_run, shellq::query_apply, shellq::query_revert, shellq::query_create,
-            shellq::query_duplicate, shellq::query_rename, shellq::query_trash, shellq::query_restore, shellq::query_usages, shellq::query_view_usages,
+            shellq::query_duplicate, shellq::query_rename, shellq::query_trash, shellq::query_restore, shellq::query_usages, shellq::query_view_usages, shellq::task_views_restore,
             shellimport::import_pick_source, shellimport::import_scan, shellimport::import_cancel, shellimport::import_where,
             shellimport::import_check_target, shellimport::import_plan, shellimport::import_start, shellimport::import_status,
             shellimport::import_discard, shellimport::import_transform_result

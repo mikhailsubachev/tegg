@@ -14,6 +14,9 @@ export type Route = {
   /** Slice Q (v1-queries §4.4, D-1490): a draft `new/<type>` from a query block's footer starts with these values
    *  (`[key, value]`), written with its first write; not part of the route string. */
   prefill?: [string, unknown][];
+  /** Slice Q2-T (v1-views §29.1): a type page opens on this view tab when it is listed (name key); not part of the
+   *  route string. */
+  tab?: string;
 };
 
 const PARAM_ROUTES = ['type', 'type-settings', 'note', 'new', 'graph'];

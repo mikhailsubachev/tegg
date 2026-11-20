@@ -31,9 +31,10 @@ pub const QUERY_VERSION: u32 = 1;
 pub const HEADER: &str = "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › ";
 
 /// R138 create order (v1-views §1.4, D-1783); also the order "the nearest earlier / later known key" is looked up in.
-const ORDER: [&str; 14] = ["version", "title", "types", "match", "filters", "sort", "limit", "view", "group_by", "lanes", "lane_order", "columns", "created", "modified"];
+/// Q2-T (v1-views §24.3, R201): `done_lane` right after `lane_order`.
+const ORDER: [&str; 15] = ["version", "title", "types", "match", "filters", "sort", "limit", "view", "group_by", "lanes", "lane_order", "done_lane", "columns", "created", "modified"];
 /// The keys a commit compares (the title is the rename job's, D-1454).
-const COMMIT_KEYS: [&str; 10] = ["types", "match", "filters", "sort", "limit", "view", "group_by", "lanes", "lane_order", "columns"];
+const COMMIT_KEYS: [&str; 11] = ["types", "match", "filters", "sort", "limit", "view", "group_by", "lanes", "lane_order", "done_lane", "columns"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Match {
@@ -122,12 +123,12 @@ pub enum Op {
     Lt,
     Gt,
     LinksTo,
-    /// v1-views §24.1 (Q2-T): compile-only stub (D-1912); not read, written or evaluated yet.
+    /// v1-views §24.1, §24.4 (Q2-T, AP-1533): `state_is` / `state_is_not` on a Select that carries states.
     StateIs,
     StateIsNot,
 }
 
-const OPS: [Op; 21] = [
+const OPS: [Op; 23] = [
     Op::Is,
     Op::IsNot,
     Op::Contains,
@@ -149,6 +150,8 @@ const OPS: [Op; 21] = [
     Op::Lt,
     Op::Gt,
     Op::LinksTo,
+    Op::StateIs,
+    Op::StateIsNot,
 ];
 
 impl Op {
@@ -210,13 +213,15 @@ pub struct QueryDef {
     /// None = key absent (the default order); a commit with None removes the key (Reset lane order, D-1792).
     pub lane_order: Option<Vec<String>>,
     pub columns: Vec<String>,
-    /// v1-views §24.1 (Q2-T, CP-23): compile-only stub, always false; not read or written yet.
+    /// Q2-T (v1-views §24.1, CP-23, D-1915): `group_by` was the mapping `{ <key>: period }`. Always false when
+    /// `group_by` is None.
     pub group_period: bool,
-    /// v1-views §24.1 (Q2-T): compile-only stub, always None; not read or written yet.
+    /// Q2-T (R201, D-1898): None = key absent, or present and broken (then in `broken`). A commit with None removes the
+    /// key (§24.3).
     pub done_lane: Option<DoneLane>,
 }
 
-/// v1-views §24.1 (Q2-T, R201): compile-only stub; not read or written yet.
+/// v1-views §24.1 (Q2-T, R201): `within_days` 1…366; a missing `folded` reads as false.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DoneLane {
     pub within_days: u32,
@@ -388,9 +393,10 @@ pub struct QueryRow {
     pub version: FileVersion,
     pub excerpt: String,
     pub read_only: bool,
-    /// v1-views §24.1 (Q2-T): compile-only stub, always empty.
+    /// Q2-T (v1-views §24.1): the object's tag keys (frontmatter and inline, tags.md R79: NFC, case-folded), sorted,
+    /// unique.
     pub tags: Vec<String>,
-    /// v1-views §24.1 (Q2-T, CP-24): compile-only stub, always None.
+    /// Q2-T (CP-24, D-1916): for an object of type `task`, ms5-tasks §2.1's `TaskRow`, from the same index read.
     pub task_row: Option<TaskRow>,
 }
 
@@ -403,7 +409,7 @@ pub enum LaneKind {
     Relation,
     Unresolved,
     None,
-    /// v1-views §24.1 (Q2-T): compile-only stubs; no lane of these kinds is built yet.
+    /// Q2-T (v1-views §24.1): the period lanes `period:today|week|later` and the done lane `done`.
     Period,
     Done,
 }
@@ -423,12 +429,13 @@ pub struct Lane {
     pub excluded: bool,
     pub drop_target: bool,
     pub cards: Vec<LaneCard>,
-    /// v1-views §24.1 (Q2-T): compile-only stub, always empty.
+    /// Q2-T: the `week` lane's day groups, every day from tomorrow to the week's last day (empty ones included);
+    /// empty for every other lane.
     pub days: Vec<DayGroup>,
-    /// v1-views §24.1 (Q2-T): compile-only stub, always None.
+    /// Q2-T: Some(n) on the done lane and on each Done-state option lane that `done_lane` limits (R201); else None.
     pub done_within: Option<u32>,
 }
-/// v1-views §24.1 (Q2-T): the `week` lane's day group; compile-only stub, never built yet.
+/// v1-views §24.1 (Q2-T, R203): one day of the `week` lane.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DayGroup {
     pub date: NaiveDate,
@@ -440,7 +447,7 @@ pub enum GroupKind {
     MultiSelect,
     Tags,
     Relation { multiple: bool },
-    /// v1-views §24.1 (Q2-T): compile-only stub; no grouping of this kind is built yet.
+    /// Q2-T (v1-views §24.4): a period grouping; `date_time` for a Date-time attribute, `created` or `modified`.
     Period { date_time: bool },
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -476,7 +483,7 @@ pub struct QueryResult {
     /// v1-views §17.1 (D-1854): a tab's or a reference block's own and effective `sort` / `columns`; None for
     /// `query/<name>`, inline fences, the editor's def and queries without a def.
     pub usage: Option<UsageRun>,
-    /// v1-views §24.1 (Q2-T, CP-24): compile-only stub, always None.
+    /// Q2-T (CP-24, D-1916): `Core::task_defs()` when any row has `task_row`; else None.
     pub task_defs: Option<TaskDefs>,
 }
 
@@ -977,9 +984,12 @@ fn read_text(text: &str) -> QueryFile {
     }
     // v1-views §1.2 (R185): read with every `view`, used only by a board.
     if let Some(v) = get("group_by") {
-        match v {
-            Yaml::String(s) if !trim_ws(s).is_empty() => def.group_by = Some(nfc(trim_ws(s))),
-            _ => bad_key("group_by"),
+        match group_by_of(v) {
+            Some((key, period)) => {
+                def.group_by = Some(key);
+                def.group_period = period;
+            }
+            None => bad_key("group_by"),
         }
     }
     if let Some(v) = get("lanes") {
@@ -995,6 +1005,13 @@ fn read_text(text: &str) -> QueryFile {
             None => bad_key("lane_order"),
         }
     }
+    // Q2-T (v1-views §24.2, R201): read with every `view`, used only by a board.
+    if let Some(v) = get("done_lane") {
+        match done_lane_of(v) {
+            Some(d) => def.done_lane = Some(d),
+            None => bad_key("done_lane"),
+        }
+    }
     let mut columns_set = false;
     match get("columns").map(str_list) {
         Some(Some(l)) => {
@@ -1005,6 +1022,8 @@ fn read_text(text: &str) -> QueryFile {
             bad_key("columns");
             def.columns = columns_no_schema(&def.types);
         }
+        // Q2-T (v1-views §24.2, D-1927 RT-5): a board without `columns` reads as `[]` (a board never uses it, D-1891).
+        None if def.view == View::Board => def.columns = Vec::new(),
         None => def.columns = columns_no_schema(&def.types),
     }
     let mut filter_broken = Vec::new();
@@ -1018,6 +1037,41 @@ fn read_text(text: &str) -> QueryFile {
     layout.columns_set = columns_set;
     let state = if version > u64::from(QUERY_VERSION) { FileState::Newer { version } } else { FileState::Ok };
     QueryFile { state, uses_this: uses_this_in(&def.filters), def, broken, created: iso("created"), modified: iso("modified"), layout }
+}
+
+/// v1-views §24.2 (R201): a non-blank string → (key, false); a mapping with exactly one entry `<non-blank key>: period`
+/// → (key, true); None for every other value.
+fn group_by_of(v: &Yaml) -> Option<(String, bool)> {
+    match v {
+        Yaml::String(s) if !trim_ws(s).is_empty() => Some((nfc(trim_ws(s)), false)),
+        Yaml::Hash(h) if h.len() == 1 => match h.iter().next() {
+            Some((Yaml::String(k), Yaml::String(p))) if !trim_ws(k).is_empty() && p == "period" => Some((nfc(trim_ws(k)), true)),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+/// v1-views §24.2 (R201): a mapping with `within_days` an integer 1…366 and an optional boolean `folded`, no other entry.
+fn done_lane_of(v: &Yaml) -> Option<DoneLane> {
+    let Yaml::Hash(h) = v else { return None };
+    let mut within: Option<u32> = None;
+    let mut folded = false;
+    for (k, x) in h {
+        match (k.as_str()?, x) {
+            ("within_days", Yaml::Integer(n)) if (1..=366).contains(n) => within = Some(*n as u32),
+            ("folded", Yaml::Boolean(b)) => folded = *b,
+            _ => return None,
+        }
+    }
+    within.map(|within_days| DoneLane { within_days, folded })
+}
+
+/// The `columns` default of a file without the key: none on a board (v1-views §24.2), else the type's columns.
+fn fill_columns(f: &mut QueryFile, defs: &Defs) {
+    if !f.layout.columns_set {
+        f.def.columns = if f.def.view == View::Board { Vec::new() } else { columns_default(defs, &f.def.types) };
+    }
 }
 
 /// R140: a fence body as written.
@@ -1123,9 +1177,12 @@ fn sort_lines(levels: &[Sort]) -> Vec<String> {
 fn key_lines(k: &str, def: &QueryDef) -> Vec<String> {
     match k {
         "sort" => sort_lines(&def.sort),
-        "group_by" => def.group_by.iter().map(|g| format!("group_by: {}", scalar_in(g, false))).collect(),
+        // v1-views §24.3 (R201): a period grouping is one flow mapping `group_by: { <key>: period }`.
+        "group_by" => def.group_by.iter().map(|g| if def.group_period { format!("group_by: {{ {}: period }}", scalar_in(g, true)) } else { format!("group_by: {}", scalar_in(g, false)) }).collect(),
         "lanes" => vec![format!("lanes: {}", def.lanes.as_str())],
         "lane_order" => def.lane_order.iter().map(|o| format!("lane_order: {}", flow_list(o))).collect(),
+        // v1-views §24.3: one flow line, both keys always written; None writes no line (the key is removed).
+        "done_lane" => def.done_lane.iter().map(|d| format!("done_lane: {{ within_days: {}, folded: {} }}", d.within_days, d.folded)).collect(),
         other => top_line(other, def).into_iter().collect(),
     }
 }
@@ -1167,7 +1224,9 @@ fn effective(def: &QueryDef, k: &str, keep_raw: bool) -> Value {
         "sort" => json!(def.sort.iter().map(|s| json!([nfc(&s.by), s.order.as_str()])).collect::<Vec<_>>()),
         "limit" => json!(def.limit),
         "view" => json!(def.view.as_str()),
-        "group_by" => json!(def.group_by.as_ref().map(|g| nfc(trim_ws(g)))),
+        // v1-views §24.3: the effective value is `(group_by, group_period)`.
+        "group_by" => json!(def.group_by.as_ref().map(|g| (nfc(trim_ws(g)), def.group_period))),
+        "done_lane" => json!(def.done_lane.map(|d| (d.within_days, d.folded))),
         "lanes" => json!(def.lanes.as_str()),
         "lane_order" => json!(def.lane_order.as_ref().map(|o| o.iter().map(|x| nfc(x)).collect::<Vec<_>>())),
         "columns" => json!(def.columns.iter().map(|c| nfc(c)).collect::<Vec<_>>()),
@@ -1378,9 +1437,13 @@ pub fn create_text(def: &QueryDef, now: &str, tail: Option<&str>) -> String {
         l.push("filters:".into());
         l.extend(def.filters.iter().flat_map(|f| item_lines(f, 2)));
     }
-    // v1-views §1.4 (D-1783): `group_by` and `lanes` only on a board, `lane_order` only when set.
-    for k in ["sort", "limit", "view", "group_by", "lanes", "lane_order", "columns"] {
+    // v1-views §1.4 (D-1783): `group_by` and `lanes` only on a board, `lane_order` only when set; Q2-T (§24.3):
+    // `done_lane` when set (any view), and a board with empty `columns` writes none (D-1910).
+    for k in ["sort", "limit", "view", "group_by", "lanes", "lane_order", "done_lane", "columns"] {
         if matches!(k, "group_by" | "lanes") && def.view != View::Board {
+            continue;
+        }
+        if k == "columns" && def.view == View::Board && def.columns.is_empty() {
             continue;
         }
         l.extend(key_lines(k, def));
@@ -1828,9 +1891,7 @@ fn read_named(bytes: &[u8], name: &str, defs: &Defs) -> QueryFile {
         if !f.layout.title_set {
             f.def.title = nfc(name);
         }
-        if !f.layout.columns_set {
-            f.def.columns = columns_default(defs, &f.def.types);
-        }
+        fill_columns(&mut f, defs);
     } else {
         f.def = default_def(name, columns_default(defs, &[]));
     }
@@ -1925,6 +1986,18 @@ fn local_date(v: Option<&Value>, tz: &chrono_tz::Tz) -> Option<NaiveDate> {
     parse_dt(s).map(|t| t.with_timezone(tz).date_naive())
 }
 
+/// v1-views §24.4 (tasks.md AP-414): a Date value's valid `YYYY-MM-DD` (quoted or not); None for an impossible date, a
+/// date-time or text.
+fn strict_date(v: Option<&Value>) -> Option<NaiveDate> {
+    tegg_format::date::parse_date(v?.as_str()?.trim())
+}
+
+/// A Date-time / `created` / `modified` value's local date in `tz` (the instant, D-104); None without a valid instant.
+fn instant_date(v: Option<&Value>, tz: &chrono_tz::Tz) -> Option<NaiveDate> {
+    let ms = instant_ms(v, tz)?;
+    DateTime::from_timestamp_millis(ms).map(|t| t.with_timezone(tz).date_naive())
+}
+
 /// An instant in ms: a date-time as written, a date at its local midnight in `tz`.
 fn instant_ms(v: Option<&Value>, tz: &chrono_tz::Tz) -> Option<i64> {
     let s = v?.as_str()?.trim();
@@ -1959,7 +2032,27 @@ struct Ctx<'a> {
     host_daily: Option<NaiveDate>,
 }
 
+/// v1-views §23.1 (R44): the four known states.
+const STATES: [&str; 4] = ["open", "in-progress", "done", "cancelled"];
+
+fn known_state(s: &str) -> bool {
+    STATES.contains(&s)
+}
+
+/// v1-views §23.1: an attribute carries states when it is a Select with at least one option of a known state.
+fn carries_states(a: &AttrInfo) -> bool {
+    a.kind == Kind::Select && a.options.iter().any(|(_, st)| st.as_deref().is_some_and(known_state))
+}
+
 impl Ctx<'_> {
+    /// v1-views §23.1 (tasks.md R44): the object's state for the Select `key`: the matching option's known state (labels
+    /// NFC-exact, D-1808); a missing value, an unknown value or an option without a known state → `open`.
+    fn state_of(&self, o: &QueryObject, key: &str) -> &'static str {
+        let Some(v) = o.attributes.get(key).and_then(Value::as_str).map(|s| nfc(trim_ws(s))) else { return "open" };
+        let st = attr_of(self.defs.get(o.r#type), key).and_then(|a| a.options.into_iter().find(|(l, _)| *l == v)).and_then(|(_, st)| st);
+        STATES.iter().copied().find(|x| Some(*x) == st.as_deref()).unwrap_or("open")
+    }
+
     fn status_state(&self, o: &QueryObject) -> String {
         let s = o.attributes.get("status").and_then(Value::as_str);
         attr_of(self.defs.get(o.r#type), "status")
@@ -2000,6 +2093,18 @@ fn check(key: &str, op: Op, v: &Value, chosen: &[String], defs: &Defs) -> Result
     }
     let info = info.expect("set above");
     let kind = info.kind;
+    // v1-views §24.4 (AP-1533, FR-QRY-02 AC-9): `key` a Select that carries states in every chosen type, the value a
+    // known state.
+    if matches!(op, Op::StateIs | Op::StateIsNot) {
+        let every = !chosen.is_empty() && chosen.iter().all(|t| attr_of(defs.get(t), key).is_some_and(|a| carries_states(&a)));
+        if !every {
+            return Err((BrokenReason::OperatorKind, None));
+        }
+        if !v.as_str().is_some_and(known_state) {
+            return Err((BrokenReason::Value, None));
+        }
+        return Ok(Check { kind, needs_date: false, target: None });
+    }
     if !ops_of(kind).contains(&op) {
         return Err((BrokenReason::OperatorKind, None));
     }
@@ -2032,7 +2137,7 @@ fn check(key: &str, op: Op, v: &Value, chosen: &[String], defs: &Defs) -> Result
         Op::WithinNextDays => v.as_i64().is_some_and(|n| (0..=3650).contains(&n)),
         Op::Eq | Op::Ne | Op::Lt | Op::Gt => v.is_number(),
         Op::LinksTo => this || link_target_of(v).is_some(),
-        // v1-views §24.1 (Q2-T): compile-only stub; `ops_of` never offers these yet.
+        // Checked above.
         Op::StateIs | Op::StateIsNot => false,
     };
     if !ok {
@@ -2081,6 +2186,10 @@ fn matches(key: &str, op: Op, v: &Value, c: &Check, o: &QueryObject, ctx: &Ctx) 
         }
         let from = if Some(x) == ctx.host.as_deref() { ctx.host_obj } else { ctx.by_path.get(x).copied() };
         return from.is_some_and(|i| ctx.objs[i].links.iter().any(|(_, p)| *p == o.path));
+    }
+    if matches!(op, Op::StateIs | Op::StateIsNot) {
+        let hit = v.as_str() == Some(ctx.state_of(o, key));
+        return hit == (op == Op::StateIs);
     }
     let raw: Option<Value> = match key {
         "title" => Some(Value::String(o.title.to_string())),
@@ -2305,7 +2414,12 @@ fn sort_rows(hits: &mut [usize], def: &QueryDef, chosen: &[String], ctx: &Ctx, b
                 Some(n) => SortKey { empty: false, n, s: String::new() },
                 None => none.clone(),
             },
-            Kind::Date | Kind::DateTime => match instant_ms(raw, &ctx.env.tz) {
+            // v1-views §24.4 (CP-31, D-1923): a Date attribute sorts by its valid `YYYY-MM-DD` only; anything else is empty.
+            Kind::Date => match strict_date(raw) {
+                Some(d) => SortKey { empty: false, n: f64::from(d.num_days_from_ce()), s: String::new() },
+                None => none.clone(),
+            },
+            Kind::DateTime => match instant_ms(raw, &ctx.env.tz) {
                 Some(n) => SortKey { empty: false, n: n as f64, s: String::new() },
                 None => none.clone(),
             },
@@ -2354,12 +2468,14 @@ struct GroupAttr {
     kind: GroupKind,
     name: String,
     options: Vec<(String, Option<String>)>,
+    /// Q2-T: each option's effective state (`open` without a known one), aligned with `options`.
+    states: Vec<&'static str>,
 }
 
 fn group_attr(group_by: &str, chosen: &[String], defs: &Defs) -> Option<GroupAttr> {
     let key = nfc(trim_ws(group_by));
     if key == "tags" {
-        return Some(GroupAttr { key, kind: GroupKind::Tags, name: "Tags".into(), options: Vec::new() });
+        return Some(GroupAttr { key, kind: GroupKind::Tags, name: "Tags".into(), options: Vec::new(), states: Vec::new() });
     }
     let mut found: Option<GroupAttr> = None;
     for t in chosen {
@@ -2379,6 +2495,7 @@ fn group_attr(group_by: &str, chosen: &[String], defs: &Defs) -> Option<GroupAtt
                     kind,
                     name: nfc(&a.name),
                     options: a.options.iter().map(|o| (nfc(&o.label), o.color.as_ref().map(|c| nfc(c)))).collect(),
+                    states: a.options.iter().map(|o| STATES.iter().copied().find(|x| Some(*x) == tegg_schema::option_state(o)).unwrap_or("open")).collect(),
                 })
             }
         }
@@ -2427,8 +2544,22 @@ fn excluded_labels(def: &QueryDef, active: &[Active], g: &GroupAttr) -> HashSet<
     out
 }
 
-/// v1-views §1.6: the board's lanes and cards for `hits` (rows' order); None when `group_by` doesn't resolve.
-fn group_rows(hits: &[usize], def: &QueryDef, chosen: &[String], ctx: &Ctx, active: &[Active], resolve: &dyn Fn(&str) -> Option<String>) -> Option<Grouping> {
+/// v1-views §24.4 (AP-1533): under `match: all`, a top-level valid `state_is` / `state_is_not` filter on the grouping
+/// key hides the lanes of the states it excludes. Whether a lane of `state` is hidden.
+fn hidden_state(def: &QueryDef, active: &[Active], g: &GroupAttr, state: &str) -> bool {
+    if def.r#match != Match::All || g.kind != GroupKind::Select {
+        return false;
+    }
+    active.iter().any(|a| match a {
+        Active::Filter { key, op: Op::StateIs, value, .. } if *key == g.key => value.as_str() != Some(state),
+        Active::Filter { key, op: Op::StateIsNot, value, .. } if *key == g.key => value.as_str() == Some(state),
+        _ => false,
+    })
+}
+
+/// v1-views §1.6: the board's lanes and cards for `hits` (rows' order); None when `group_by` doesn't resolve. Q2-T:
+/// `done` is a valid `done_lane` (§24.4): on a board grouped by `status`, each Done-state option lane gets `done_within`.
+fn group_rows(hits: &[usize], def: &QueryDef, chosen: &[String], ctx: &Ctx, active: &[Active], resolve: &dyn Fn(&str) -> Option<String>, done: Option<DoneLane>) -> Option<Grouping> {
     let g = group_attr(def.group_by.as_deref()?, chosen, ctx.defs)?;
     let coll = collator(&ctx.env.locale);
     let excluded = excluded_labels(def, active, &g);
@@ -2576,7 +2707,7 @@ fn group_rows(hits: &[usize], def: &QueryDef, chosen: &[String], ctx: &Ctx, acti
                     }
                 }
             }
-            // v1-views §24.1 (Q2-T): compile-only stub; `group_attr` never gives this kind yet.
+            // Period groupings are `group_period`'s.
             GroupKind::Period { .. } => {}
         }
         if placed.is_empty() {
@@ -2619,9 +2750,7 @@ fn group_rows(hits: &[usize], def: &QueryDef, chosen: &[String], ctx: &Ctx, acti
                     resolve(&t).map(|p| nfc(&p)) == l.target || l.value.as_deref() == Some(e.as_str())
                 }
                 LaneKind::Unresolved => l.value.as_deref() == Some(e.as_str()),
-                LaneKind::None => false,
-                // v1-views §24.1 (Q2-T): compile-only stub; no such lanes are built yet.
-                LaneKind::Period | LaneKind::Done => false,
+                LaneKind::None | LaneKind::Period | LaneKind::Done => false,
             });
             if let Some(i) = pos {
                 front.push(out.remove(i));
@@ -2633,7 +2762,132 @@ fn group_rows(hits: &[usize], def: &QueryDef, chosen: &[String], ctx: &Ctx, acti
     if !none.is_empty() {
         out.push(Lane { id: "none".into(), kind: LaneKind::None, value: None, label: String::new(), color: None, target: None, excluded: false, drop_target: false, cards: none, days: Vec::new(), done_within: None });
     }
+    // Q2-T (§24.4): hidden state lanes leave the board (an unknown value counts as `open`); a valid done lane limits
+    // the Done-state option lanes of a board grouped by `status`.
+    let state_of_lane = |l: &Lane| -> Option<&'static str> {
+        match l.kind {
+            LaneKind::Option => g.options.iter().position(|(x, _)| Some(x.as_str()) == l.value.as_deref()).map(|i| g.states[i]),
+            LaneKind::Unknown => Some("open"),
+            _ => None,
+        }
+    };
+    out.retain(|l| !state_of_lane(l).is_some_and(|st| hidden_state(def, active, &g, st)));
+    if let Some(d) = done.filter(|_| g.key == "status" && g.kind == GroupKind::Select) {
+        for l in out.iter_mut().filter(|l| l.kind == LaneKind::Option) {
+            if state_of_lane(l) == Some("done") {
+                l.done_within = Some(d.within_days);
+            }
+        }
+    }
     Some(Grouping { key: g.key, kind: g.kind, name: g.name, lanes: out })
+}
+
+/// v1-views §24.4 (D-1776, AP-1536): a period grouping's key: `created` / `modified`, or an attribute of kind Date or
+/// Date-time of every chosen type with the same kind. (key, date_time, Name); None when invalid.
+fn period_attr(group_by: &str, chosen: &[String], defs: &Defs) -> Option<(String, bool, String)> {
+    let key = nfc(trim_ws(group_by));
+    match key.as_str() {
+        "created" => return Some((key, true, "Created".into())),
+        "modified" => return Some((key, true, "Modified".into())),
+        _ => {}
+    }
+    let mut found: Option<(bool, String)> = None;
+    for t in chosen {
+        let a = defs.get(t)?.attributes.iter().find(|a| nfc(&a.key) == key)?;
+        let dt = match a.r#type {
+            tegg_schema::AttrType::Date => false,
+            tegg_schema::AttrType::DateTime => true,
+            _ => return None,
+        };
+        match &found {
+            Some((f, _)) if *f != dt => return None,
+            Some(_) => {}
+            None => found = Some((dt, nfc(&a.name))),
+        }
+    }
+    found.map(|(dt, name)| (key, dt, name))
+}
+
+/// The done lane's colour: the first chosen type's first Done-state `status` option's (FR-UX-05 AC-25).
+fn done_color(chosen: &[String], defs: &Defs) -> Option<String> {
+    let t = defs.get(chosen.first()?)?;
+    let a = t.attributes.iter().find(|a| nfc(&a.key) == "status")?;
+    a.options.iter().find(|o| tegg_schema::option_state(o) == Some("done")).and_then(|o| o.color.as_ref().map(|c| nfc(c)))
+}
+
+/// v1-views §24.4 (R203): a period board's lanes `period:today`, `period:week` (with its day groups; absent when today
+/// is the week's last day), `period:later`, `none` and, with a valid done lane, `done`. `done_rows`: the object indices
+/// that go to the done lane. Cards in `rows` order.
+fn group_period(hits: &[usize], def: &QueryDef, chosen: &[String], ctx: &Ctx, done: Option<DoneLane>, done_rows: &HashSet<usize>) -> Option<Grouping> {
+    let (key, date_time, name) = period_attr(def.group_by.as_deref()?, chosen, ctx.defs)?;
+    let env = ctx.env;
+    let today = env.today;
+    let back = (today.weekday().num_days_from_monday() as i64 - env.week_start.num_days_from_monday() as i64).rem_euclid(7);
+    let last = today - Duration::days(back) + Duration::days(6);
+    let drop = !date_time;
+    let lane = |id: &str, kind: LaneKind, value: Option<&str>, drop_target: bool| Lane {
+        id: id.into(),
+        kind,
+        value: value.map(str::to_string),
+        label: String::new(),
+        color: None,
+        target: None,
+        excluded: false,
+        drop_target,
+        cards: Vec::new(),
+        days: Vec::new(),
+        done_within: None,
+    };
+    let mut today_l = lane("period:today", LaneKind::Period, Some("today"), drop);
+    let mut week = (today != last).then(|| {
+        let mut w = lane("period:week", LaneKind::Period, Some("week"), drop);
+        let mut d = today + Duration::days(1);
+        while d <= last {
+            w.days.push(DayGroup { date: d, cards: Vec::new() });
+            d += Duration::days(1);
+        }
+        w
+    });
+    let mut later = lane("period:later", LaneKind::Period, Some("later"), drop);
+    let mut none = lane("none", LaneKind::None, None, drop);
+    let mut done_l = done.map(|d| Lane { color: done_color(chosen, ctx.defs), done_within: Some(d.within_days), ..lane("done", LaneKind::Done, None, true) });
+    for (row, &oi) in hits.iter().enumerate() {
+        let card = LaneCard { row, raw: Vec::new() };
+        if let Some(l) = done_l.as_mut().filter(|_| done_rows.contains(&oi)) {
+            l.cards.push(card);
+            continue;
+        }
+        let v = ctx.objs[oi].attributes.get(key.as_str());
+        let date = if date_time { instant_date(v, &env.tz) } else { strict_date(v) };
+        match date {
+            None => none.cards.push(card),
+            Some(d) if d <= today => today_l.cards.push(card),
+            Some(d) if d <= last => {
+                let w = week.as_mut().expect("a day after today up to the week's last day exists");
+                if let Some(g) = w.days.iter_mut().find(|g| g.date == d) {
+                    g.cards.push(card.clone());
+                }
+                w.cards.push(card);
+            }
+            Some(_) => later.cards.push(card),
+        }
+    }
+    let mut periods: Vec<Lane> = std::iter::once(today_l).chain(week).chain(std::iter::once(later)).collect();
+    // `lane_order`: only the exact ids `today`, `week`, `later` match; listed lanes move to the front in its order.
+    if let Some(order) = &def.lane_order {
+        let mut front: Vec<Lane> = Vec::new();
+        for e in order {
+            let e = nfc(e);
+            if let Some(i) = periods.iter().position(|l| l.value.as_deref() == Some(e.as_str())) {
+                front.push(periods.remove(i));
+            }
+        }
+        front.extend(periods);
+        periods = front;
+    }
+    periods.push(none);
+    periods.extend(done_l);
+    Some(Grouping { key, kind: GroupKind::Period { date_time }, name, lanes: periods })
 }
 
 /// What `evaluate` answers.
@@ -2644,6 +2898,15 @@ struct Evaluated {
     uses_relative: bool,
     rows: Vec<QueryRow>,
     group: Option<Grouping>,
+    /// Q2-T: the object index of each row (`rows` order), for the task rows built under the same lock (§24.4).
+    hits: Vec<usize>,
+}
+
+/// v1-views §24.4 (D-1898): a done lane is valid when every chosen type's `status` carries states and has an option of
+/// state `done`.
+fn done_lane_ok(chosen: &[String], defs: &Defs) -> bool {
+    !chosen.is_empty()
+        && chosen.iter().all(|t| attr_of(defs.get(t), "status").is_some_and(|a| carries_states(&a) && a.options.iter().any(|(_, st)| st.as_deref() == Some("done"))))
 }
 
 fn row_of(o: &QueryObject, def: &QueryDef, ctx: &Ctx, group_key: Option<&str>) -> QueryRow {
@@ -2654,11 +2917,36 @@ fn row_of(o: &QueryObject, def: &QueryDef, ctx: &Ctx, group_key: Option<&str>) -
             cols.push(k.to_string());
         }
     }
+    // Q2-T (D-1891, D-1904): a board's cards show each row type's Preview properties (a date range as its halves).
+    if group_key.is_some() {
+        if let Some(t) = ctx.defs.get(o.r#type) {
+            for p in t.preview.iter().map(|p| nfc(p)) {
+                let range = t.attributes.iter().any(|a| nfc(&a.key) == p && matches!(a.r#type, tegg_schema::AttrType::DateRange));
+                let keys = if range { vec![format!("{p}-start"), format!("{p}-end")] } else { vec![p] };
+                for k in keys {
+                    if !cols.contains(&k) {
+                        cols.push(k);
+                    }
+                }
+            }
+        }
+    }
     for k in ["type", "tags"] {
         if !cols.iter().any(|c| c == k) {
             cols.push(k.into());
         }
     }
+    // Q2-T (F3, D-1904): the links of the row's frontmatter values it carries (relations, `source`, links in text
+    // values), as the type page's rows (`index_type_rows`), resolved by the index.
+    let links: Vec<LinkTarget> = o
+        .attr_links
+        .iter()
+        .filter(|(a, _, _)| {
+            let a = nfc(a);
+            a != "type" && a != "tags" && cols.contains(&a)
+        })
+        .map(|(_, t, to)| crate::tasks5a::query_link(ctx.objs, nfc(trim_ws(t)), *to))
+        .collect();
     let mut values = serde_json::Map::new();
     for k in cols {
         let v = match k.as_str() {
@@ -2682,12 +2970,13 @@ fn row_of(o: &QueryObject, def: &QueryDef, ctx: &Ctx, group_key: Option<&str>) -
         created: s("created"),
         modified: s("modified"),
         values,
-        links: Vec::new(),
+        links,
         task,
         version: FileVersion { mtime_ns: 0, size: 0, hash: [0; 32] },
         excerpt: String::new(),
         read_only: false,
-        tags: Vec::new(),
+        // v1-views §24.1: tag keys (NFC, case-folded), sorted, unique.
+        tags: o.tags.iter().map(|t| tag_key(t)).filter(|t| !t.is_empty()).collect::<BTreeSet<String>>().into_iter().collect(),
         task_row: None,
     }
 }
@@ -2698,7 +2987,7 @@ fn evaluate(objs: &[QueryObject], resolve: &dyn Fn(&str) -> Option<String>, defs
     let missing: Vec<&String> = chosen.iter().filter(|t| !defs.contains_key(*t) && !objs.iter().any(|o| o.r#type == t.as_str())).collect();
     if !missing.is_empty() {
         broken.extend(missing.into_iter().map(|t| Broken { reason: BrokenReason::NoType, at: None, key: t.clone(), r#type: None }));
-        return Evaluated { state: RunState::NoType, broken, targets: Vec::new(), uses_relative: false, rows: Vec::new(), group: None };
+        return Evaluated { state: RunState::NoType, broken, targets: Vec::new(), uses_relative: false, rows: Vec::new(), group: None, hits: Vec::new() };
     }
     let by_path: HashMap<&str, usize> = objs.iter().enumerate().map(|(i, o)| (o.path, i)).collect();
     let host = host.map(nfc);
@@ -2731,10 +3020,10 @@ fn evaluate(objs: &[QueryObject], resolve: &dyn Fn(&str) -> Option<String>, defs
         }
     });
     if uses_this && ctx.host.is_none() {
-        return Evaluated { state: RunState::NeedsHost, broken, targets: Vec::new(), uses_relative: relative, rows: Vec::new(), group: None };
+        return Evaluated { state: RunState::NeedsHost, broken, targets: Vec::new(), uses_relative: relative, rows: Vec::new(), group: None, hits: Vec::new() };
     }
     if date_this && ctx.host_daily.is_none() {
-        return Evaluated { state: RunState::NeedsContext, broken, targets: ctx.host.iter().cloned().collect(), uses_relative: relative, rows: Vec::new(), group: None };
+        return Evaluated { state: RunState::NeedsContext, broken, targets: ctx.host.iter().cloned().collect(), uses_relative: relative, rows: Vec::new(), group: None, hits: Vec::new() };
     }
     if uses_this {
         if let Some(h) = &ctx.host {
@@ -2748,11 +3037,39 @@ fn evaluate(objs: &[QueryObject], resolve: &dyn Fn(&str) -> Option<String>, defs
         .filter(|(_, o)| eval_items(&active, def.r#match, o, &ctx))
         .map(|(i, _)| i)
         .collect();
+    // Q2-T (v1-views §24.4, D-1898): a board's done lane. Invalid → broken, no done-lane behaviour; valid → Done rows
+    // outside `within_days` leave `rows` (not shown, not counted, not offered by the tag filter).
+    let mut done: Option<DoneLane> = None;
+    let mut done_rows: HashSet<usize> = HashSet::new();
+    if let Some(d) = def.done_lane.filter(|_| def.view == View::Board) {
+        if done_lane_ok(&chosen, defs) {
+            done = Some(d);
+            relative = true;
+            let first = env.today - Duration::days(i64::from(d.within_days) - 1);
+            hits.retain(|&i| {
+                let o = &objs[i];
+                if ctx.state_of(o, "status") != "done" {
+                    return true;
+                }
+                let day = instant_date(o.attributes.get("completed"), &env.tz).or_else(|| instant_date(o.attributes.get("modified"), &env.tz));
+                let within = day.is_some_and(|d| first <= d && d <= env.today);
+                if within {
+                    done_rows.insert(i);
+                }
+                within
+            });
+        } else {
+            broken.push(Broken { reason: BrokenReason::BadValue, at: None, key: "done_lane".into(), r#type: None });
+        }
+    }
     sort_rows(&mut hits, def, &chosen, &ctx, &mut broken);
     // v1-views §1.6 (R185, D-1770): a board groups its rows; a `group_by` that doesn't resolve is a broken part and the
-    // results are drawn as a list.
+    // results are drawn as a list. Q2-T: a period grouping (§24.4).
     let group = if def.view == View::Board {
-        let g = group_rows(&hits, def, &chosen, &ctx, &active, resolve);
+        let g = if def.group_period { group_period(&hits, def, &chosen, &ctx, done, &done_rows) } else { group_rows(&hits, def, &chosen, &ctx, &active, resolve, done) };
+        if g.is_some() && def.group_period {
+            relative = true;
+        }
         if g.is_none() && !broken.iter().any(|b| b.key == "group_by" && b.at.is_none()) {
             broken.push(Broken { reason: BrokenReason::BadValue, at: None, key: "group_by".into(), r#type: None });
         }
@@ -2764,7 +3081,7 @@ fn evaluate(objs: &[QueryObject], resolve: &dyn Fn(&str) -> Option<String>, defs
     let rows = hits.iter().map(|i| row_of(&objs[*i], def, &ctx, gk.as_deref())).collect();
     let mut targets: Vec<String> = targets.into_iter().collect();
     targets.sort_by(|a, b| nfc(a).as_bytes().cmp(nfc(b).as_bytes()));
-    Evaluated { state: RunState::Ok, broken, targets, uses_relative: relative, rows, group }
+    Evaluated { state: RunState::Ok, broken, targets, uses_relative: relative, rows, group, hits }
 }
 
 // ------------------------------------------------------------------------------------------------ the core (§1.5)
@@ -2802,7 +3119,7 @@ fn query_err(e: QueryError) -> CoreError {
 
 
 impl Core {
-    fn q(&self) -> QCore<'_> {
+    pub(crate) fn q(&self) -> QCore<'_> {
         QCore { shared: &self.shared }
     }
     /// Every readable or unreadable `.tegg/queries/*.yml` (direct children, not dot files), in name order.
@@ -3020,20 +3337,36 @@ impl QCore<'_> {
                 None => def.clone(),
             };
             // One index lock for the evaluation, the grouping and the rows' versions and excerpts (§1.6).
-            let e = {
+            let (e, task_defs) = {
                 let idx = lock(&self.shared.index);
-                let mut e = idx.with_query_objects(|objs, resolve| evaluate(objs, resolve, &defs, &eval_def, host, env));
-                // Versions, excerpts and read-only flags serve the board's cards and moves only: a List or Table run reads
-                // no note text (QA review of Q2; NFR-PERF-07, NFR-PERF-08).
-                let rows: &mut [QueryRow] = if e.group.is_some() { &mut e.rows } else { &mut [] };
-                for row in rows.iter_mut() {
-                    if let Some(st) = idx.note_state(&row.path) {
-                        row.version = st.version;
-                        row.excerpt = st.excerpt;
-                        row.read_only = !st.utf8;
+                idx.with_query_objects(|objs, resolve| {
+                    let mut e = evaluate(objs, resolve, &defs, &eval_def, host, env);
+                    // Versions, excerpts and read-only flags serve the board's cards and moves (a List or Table run reads
+                    // no note text for them; QA review of Q2; NFR-PERF-07, NFR-PERF-08), and Q2-T's task rows (CP-24,
+                    // D-1916), all under this one lock.
+                    let board = e.group.is_some();
+                    let mut tdefs: Option<TaskDefs> = None;
+                    for (row, &oi) in e.rows.iter_mut().zip(e.hits.iter()) {
+                        let task = objs[oi].r#type == "task";
+                        if !board && !task {
+                            continue;
+                        }
+                        // The excerpt (a note text read) only where a card draws it: board runs.
+                        let st = if board { idx.note_state(&row.path) } else { idx.note_version(&row.path) };
+                        let Some(st) = st else { continue };
+                        if task {
+                            let td = tdefs.get_or_insert_with(|| crate::tasks5a::task_defs_in(&defs));
+                            row.task_row = crate::tasks5a::query_task_row(&objs[oi], objs, td, st.clone());
+                        }
+                        if board {
+                            row.version = st.version;
+                            row.excerpt = st.excerpt;
+                            row.read_only = !st.utf8;
+                        }
                     }
-                }
-                e
+                    let any = e.rows.iter().any(|r| r.task_row.is_some());
+                    (e, tdefs.filter(|_| any))
+                })
             };
             let mut broken = syntactic;
             // A `group_by` read as a bad value is also unresolved at run time: listed once.
@@ -3048,6 +3381,7 @@ impl QCore<'_> {
             r.rows = e.rows;
             r.group = e.group;
             r.usage = usage;
+            r.task_defs = task_defs;
             r
         };
         let saved = |name: &str, form: Form, usage: Option<(UsageKind, tegg_format::usage::UsageRaw)>| -> QueryResult {
@@ -3107,9 +3441,7 @@ impl QCore<'_> {
                     if let FileState::Unreadable { line, .. } = f.state {
                         return QueryResult { line: Some(line.unwrap_or(1)), ..base(Form::Unreadable) };
                     }
-                    if !f.layout.columns_set {
-                        f.def.columns = columns_default(&defs, &f.def.types);
-                    }
+                    fill_columns(&mut f, &defs);
                     run(base(Form::Inline), f.def, f.broken, None)
                 }
             },
@@ -3166,12 +3498,12 @@ impl QCore<'_> {
         Ok(self.query(&stem_of(&p)))
     }
 
-    fn taken(&self, stem: &str) -> bool {
+    pub(crate) fn taken(&self, stem: &str) -> bool {
         let k = name_key(stem);
         self.live_query_paths().iter().any(|p| name_key(&stem_of(p)) == k)
     }
 
-    fn create_query_file(&self, stem: &str, text: &str) -> Result<QueryRead, CoreError> {
+    pub(crate) fn create_query_file(&self, stem: &str, text: &str) -> Result<QueryRead, CoreError> {
         let path = format!("{QUERIES_DIR}/{stem}.yml");
         match self.shared.vault.create_exact(&path, text.as_bytes()) {
             Ok(_) => {}
@@ -3206,9 +3538,7 @@ impl QCore<'_> {
         let (def, tail) = match &req.fence {
             Some(body) => match read_fence(body) {
                 FenceRead::Inline(mut f) if !matches!(f.state, FileState::Unreadable { .. }) => {
-                    if !f.layout.columns_set {
-                        f.def.columns = columns_default(&defs, &f.def.types);
-                    }
+                    fill_columns(&mut f, &defs);
                     let (mut d, tail) = from_inline(&f, body);
                     d.title = title.clone();
                     (d, tail)
