@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.212, for review                                            |
+| **Document status** | Draft v1.213, for review                                            |
 | **Date**            | 2026-11-19                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -222,6 +222,7 @@
 | v1.210  | 2026-11-19 | A shorter WebKit run (owner, 2026-11-19: "Build it"; measurement of the same day): D-1880 (the WebKit tests load a built bundle served from memory), D-1881 (6 WebKit workers in the gates, replaces D-1347's 4), D-1882 (the nightly gate also runs the WebKit suite on the dev server; QA review, owner: "Add nightly run"). `tools/qa/CONTRACT.md` §3.2.1, §3.2.2. (v1.198…v1.209 are reserved for slice Q2.1; Q2.1 used D-1835…D-1879 and D-1883 onward) |
 | v1.211  | 2026-11-20 | Slice Q2-T starts (`docs/feedback/q2-v041.md`): D-1890 (wide pages up to 1600 px, centred), D-1891 (board cards follow the type's Preview properties; `On cards` goes away); D-1892 (multi-level sort and the tag filter on every view), D-1893…D-1895 (tag filter kept per tab on this Mac, none on blocks, sort within each lane); F3 is a bug fix |
 | v1.212  | 2026-11-20 | Slice Q2-T ACs (`docs/acceptance/views.md` part three, overlay `tests/fixtures/vaults/views-tasks/`): D-1896…D-1913 (AP-1533…AP-1550; owner, each as proposed): state filters, default view files, `done_lane`, period lanes and drops, migration, `Restore default views`, the Tasks page header, the Task card, palette-only Kanban, new tasks without quick add (FR-TSK-10 reworded), multi-level sort on `All <plural>`, tag filter details, 1600 px content, old board `columns`, Tasks board performance, the changed tests, the migration in tests |
+| v1.213  | 2026-11-20 | Slice Q2-T contract (`docs/contracts/v1-views.md` part three, §23–§32): D-1914…D-1923 (CP-22…CP-31; owner, each as proposed): period lanes in the core with a TS twin, `group_period`, Task card data in query rows, read-only date-time period lanes, the `task_views_restore` command, the migration in `open_vault`, lane counts by type name, the summary in three parts, AC names fixed to the code, invalid dates sort as empty |
 
 ---
 
@@ -1949,6 +1950,16 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1911 | Performance of the Tasks boards (AP-1548, owner, 2026-11-20; slice Q2-T ACs, `docs/acceptance/views.md` part three) | NFR-PERF-07 AC-5: Schedule and Kanban on the reference vault (about 750 tasks) with D-1800's marks in ≤ 225 ms p95, at most 150 card elements, a period drag shown in 100 ms; report-only until the v1.0 gate; replaces FR-TSK-04 AC-14's test |
 | D-1912 | Changed AC tests of Q2-T (AP-1549, owner, 2026-11-20; slice Q2-T ACs, `docs/acceptance/views.md` part three) | The change table of `docs/acceptance/views.md` part three is approved as one decision, applied with `AC-Test-Change: slice Q2-T moves the Tasks page onto views (D-1776, D-1777, D-1779, D-1780, D-1890…D-1913); approved-by: owner` and `Fixture-Change:` for fixture text (`AC-Test-Change`) |
 | D-1913 | The migration in tests (AP-1550, owner, 2026-11-20; slice Q2-T ACs, `docs/acceptance/views.md` part three) | With `TEGG_TEST=1` the migration runs only when the test sets `TEGG_TEST_TASK_VIEWS=1` (the fake core likewise); `new-empty` stays unchanged; the shipped app always migrates |
+| D-1914 | Where period lanes are computed (CP-22, owner, 2026-11-20; slice Q2-T contract, `docs/contracts/v1-views.md` §32) | The core groups; a pure TS twin `queries/board/period.ts` gives date bounds, drop dates, pre-fills, day headings and keyboard targets; the fake core uses it, and the L3 corpus ties both to one source |
+| D-1915 | A period grouping in the query definition (CP-23, owner, 2026-11-20; slice Q2-T contract, `docs/contracts/v1-views.md` §32) | `group_by` stays the attribute key, plus `group_period: bool` (`groupPeriod` in TS) |
+| D-1916 | Task card data on boards (CP-24, owner, 2026-11-20; slice Q2-T contract, `docs/contracts/v1-views.md` §32) | `QueryRowDto.taskRow: TaskRowDto | null` and `QueryResultDto.taskDefs`, built by the core from the same index read |
+| D-1917 | Period boards on date-times (CP-25, owner, 2026-11-20; slice Q2-T contract, `docs/contracts/v1-views.md` §32) | Only Date attributes accept drops and pre-fill new-object tiles; groupings by a Date-time, `created` or `modified` draw read-only lanes (the done lane still accepts drops) |
+| D-1918 | Who runs `Restore default views` (CP-26, owner, 2026-11-20; slice Q2-T contract, `docs/contracts/v1-views.md` §32) | Core command `task_views_restore(base, now)` creates the files, then writes `views:`; the UI's Undo puts `views:` back, then trashes the created files |
+| D-1919 | Where the migration runs (CP-27, owner, 2026-11-20; slice Q2-T contract, `docs/contracts/v1-views.md` §32) | `Core::task_views_migrate(now)` is called by the app's `open_vault` for a newly opened core before it returns, and by `vault_create`; in tests only with `TEGG_TEST_TASK_VIEWS=1`; `Core::open` stays zero-write |
+| D-1920 | Lane counts (CP-28, owner, 2026-11-20; slice Q2-T contract, `docs/contracts/v1-views.md` §32) | New key `board.laneCountOf`: single-type boards count with the type's name and plural as written (`1 Task`, `4 Tasks`); boards of several types say `cards` |
+| D-1921 | The Tasks summary string (CP-29, owner, 2026-11-20; slice Q2-T contract, `docs/contracts/v1-views.md` §32) | Built as D-505: `{open} · {overdue} · {done}` from `tasks.summary.open`, `tasks.summary.overdue` and the new `tasks.summary.doneWeek` |
+| D-1922 | Names in R207 and R208 (CP-30, owner, 2026-11-20; slice Q2-T contract, `docs/contracts/v1-views.md` §32) | The ACs are fixed to the code's names: operator keys `query.op.state_is` / `state_is_not`, commands `tasks.schedule`, `tasks.kanban`, `tasks.search`, the complete removed-key list, the sort button `Due date ↑` |
+| D-1923 | Invalid dates in sorts (CP-31, owner, 2026-11-20; slice Q2-T contract, `docs/contracts/v1-views.md` §32) | A Date attribute sorts by its valid `YYYY-MM-DD` value only, in every query view; invalid values sort with the empty ones; filters unchanged |
 
 ---
 
