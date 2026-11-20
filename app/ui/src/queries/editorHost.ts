@@ -3,7 +3,7 @@
 // the definition, runs `query_run` `def` per change (no write) and hands the live result to its opener, then commits
 // once (`query_apply`, then the rename job when the title changed).
 import { useEffect, useState } from 'react';
-import type { QueryDefDto, QueryDto, QueryResultDto } from '../ipc/queries';
+import type { QueryDefDto, QueryDto, QueryResultDto, SortDto } from '../ipc/queries';
 
 export type EditorRequest = {
   /** The saved query's name; null for an unsaved draft (R144 `New query`, D-1471). */
@@ -34,6 +34,10 @@ export type EditorRequest = {
   fixedType?: { key: string; plural: string };
   /** Slice Q2 (D-1781): a `New view` draft: Esc with no change drops it; `Done` (changed or not) or a change commits. */
   viewDraft?: boolean;
+  /** Slice Q2.1 (v1-views §16.1; D-1842, D-1844, D-1859, D-1860): opened from a usage (a tab, a block). The preview runs
+   *  with its effective sort and columns; `On cards` shows its columns and `Change…` writes them at once through its
+   *  writer; the commit keeps the query file's sort and columns. */
+  usage?: { sort: SortDto[]; columns: string[]; setColumns: (next: string[]) => Promise<boolean>; disabled: string | null } | null;
 };
 
 let current: EditorRequest | null = null;

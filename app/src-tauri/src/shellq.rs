@@ -10,7 +10,7 @@ use tauri::State;
 
 use tegg_core::queries_q::{
     Broken, BrokenReason, FilterItem, Form, GroupKind, Grouping, Lane, LaneKind, Lanes, Lookup, Match, Op, Order, QueryCreate, QueryDef, QueryEnv,
-    QueryError, QueryRead, QueryResult, QueryRow, QuerySource, QuerySummary, QueryUsage, RunState, Sort, View, ViewUsage,
+    QueryError, QueryRead, QueryResult, QueryRow, QuerySource, QuerySummary, QueryUsage, RunState, Sort, UsageKind, UsageRun, View, ViewUsage,
 };
 use tegg_core::tegg_jobs::{JobError, JobOp};
 use tegg_core::{Core, CoreError, VaultError};
@@ -143,6 +143,24 @@ pub enum QuerySourceDto {
     Saved { name: String },
     Fence { body: String },
     Def { def: QueryDefDto, name: Option<String> },
+    /// v1-views §17.3 (D-1853): a view tab, the first `views:` item named `name` of type `type`.
+    View { r#type: String, name: String },
+}
+
+/// v1-views §17.3 (R194): a usage's own values, broken entries and effective values.
+#[derive(Debug, Clone, Serialize)]
+pub struct UsageOwnDto {
+    pub sort: Option<Vec<SortDto>>,
+    pub columns: Option<Vec<String>>,
+}
+#[derive(Debug, Clone, Serialize)]
+pub struct UsageRunDto {
+    /// `tab` or `block`.
+    pub kind: String,
+    pub own: UsageOwnDto,
+    pub broken: Vec<BrokenDto>,
+    pub sort: Vec<SortDto>,
+    pub columns: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -198,6 +216,8 @@ pub struct QueryResultDto {
     pub index_ready: bool,
     /// v1-views §2: a board's lanes; null unless `view: board` with a valid `group_by`.
     pub group: Option<GroupingDto>,
+    /// v1-views §17.3 (D-1854): a tab's or a reference block's usage; null otherwise.
+    pub usage: Option<UsageRunDto>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -449,6 +469,25 @@ fn result_dto(r: QueryResult) -> QueryResultDto {
         rows: r.rows.into_iter().map(row_dto).collect(),
         index_ready: r.index_ready,
         group: r.group.map(grouping_dto),
+        usage: r.usage.map(usage_run_dto),
+    }
+}
+
+fn sort_dtos(l: Vec<Sort>) -> Vec<SortDto> {
+    l.into_iter().map(|s| SortDto { by: s.by, order: if s.order == Order::Desc { "desc" } else { "asc" }.into() }).collect()
+}
+
+fn usage_run_dto(u: UsageRun) -> UsageRunDto {
+    UsageRunDto {
+        kind: match u.kind {
+            UsageKind::Tab => "tab",
+            UsageKind::Block => "block",
+        }
+        .into(),
+        own: UsageOwnDto { sort: u.own.sort.map(sort_dtos), columns: u.own.columns },
+        broken: u.broken.into_iter().map(broken_dto).collect(),
+        sort: sort_dtos(u.sort),
+        columns: u.columns,
     }
 }
 
@@ -531,6 +570,7 @@ pub async fn query_run(state: State<'_, AppState>, source: QuerySourceDto, host:
         QuerySourceDto::Saved { name } => QuerySource::Saved(name),
         QuerySourceDto::Fence { body } => QuerySource::Fence(body),
         QuerySourceDto::Def { def, name } => QuerySource::Def { def: def_from(def)?, name },
+        QuerySourceDto::View { r#type, name } => QuerySource::View { type_key: r#type, name },
     };
     Ok(result_dto(core.query_run(src, host.as_deref(), &env)))
 }

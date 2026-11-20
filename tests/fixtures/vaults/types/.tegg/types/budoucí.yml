@@ -13,4 +13,4 @@ attributes:
     name: Hodnota
     type: text
 views:
-  - { name: Vše, layout: table }
+  - { layout: table }

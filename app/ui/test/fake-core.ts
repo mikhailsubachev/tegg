@@ -200,6 +200,10 @@ export type FakeCoreHandle = FakeImportHandle & {
   // ---------------------------------------------------------------- slice Q2 (v1-views §5)
   /** The `perf_mark` calls in order (`board-request`, `board-ready`, `board-card-moved`, …), each with its page time. */
   perfMarks(): Promise<{ name: string; at: number; ms?: number }[]>;
+  // ---------------------------------------------------------------- slice Q2.1 (v1-views §21.1)
+  /** The `type_patch` calls in order, each with its key, base (`null`: none), ops (`TypeOpDto`, Q2.1's `viewSort`,
+   *  `viewColumns`, `viewsSource` included) and whether it succeeded. */
+  typeCalls(): Promise<{ key: string; base: VersionDto | null; ops: any[]; ok: boolean }[]>;
   // ---------------------------------------------------------------- slice REL (v1-related §6)
   /** The `index_related` calls in order, each with its arguments and when it was asked (`calls()` has them too). */
   relatedCalls(): Promise<{ path: string; showLinked: boolean; at: number }[]>;
@@ -522,6 +526,9 @@ export async function installFakeCore(page: Page, vault: FakeVault | null, opts:
     // Slice Q2 (v1-views §5).
     perfMarks: () => ev(() => (window as any).__teggFake.calls.filter((c: any) => c.cmd === 'perf_mark')
       .map((c: any) => ({ name: String(c.args?.name ?? ''), at: c.at, ...(typeof c.args?.ms === 'number' ? { ms: c.args.ms } : {}) }))),
+    // Slice Q2.1 (v1-views §21.1).
+    typeCalls: () => ev(() => (window as any).__teggFake.calls.filter((c: any) => c.cmd === 'type_patch')
+      .map((c: any) => ({ key: String(c.args?.key ?? ''), base: c.args?.base ?? null, ops: c.args?.ops ?? [], ok: c.ok !== false }))),
     // Slice I2 (v1-import-window §7.2).
     importCalls: () => ev(() => (window as any).__teggFake.calls.filter((c: any) => String(c.cmd).startsWith('import_')).map((c: any) => ({ cmd: c.cmd, args: c.args }))),
     importPace: (ms) => page.evaluate((m) => { (window as any).__teggFake.importState.pace = m; }, ms),

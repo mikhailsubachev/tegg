@@ -57,7 +57,9 @@ export type QueryDto = {
 export type QuerySourceDto =
   | { kind: 'saved'; name: string }
   | { kind: 'fence'; body: string }
-  | { kind: 'def'; def: QueryDefDto; name: string | null };
+  | { kind: 'def'; def: QueryDefDto; name: string | null }
+  /** Slice Q2.1 (v1-views §17.3, D-1853): a view tab, the first `views:` item named `name` of type `type`. */
+  | { kind: 'view'; type: string; name: string };
 export type QueryEnvDto = { today: string; zone: string; weekStart: number; locale: string };
 export type QueryRowDto = {
   path: string; id: string | null; title: string; type: string; created: string | null; modified: string | null;
@@ -72,6 +74,14 @@ export type QueryResultDto = {
   state: 'ok' | 'noType' | 'needsHost' | 'needsContext'; broken: BrokenDto[]; targets: string[];
   usesRelative: boolean; total: number; rows: QueryRowDto[]; indexReady: boolean;
   group: GroupingDto | null;
+  /** Slice Q2.1 (v1-views §17.1, D-1854): the usage's own and effective values; null for `query/<name>`, the editor's
+   *  preview, inline fences and missing, trashed or unreadable queries. */
+  usage: UsageRunDto | null;
+};
+/** Slice Q2.1 (v1-views §17.3). */
+export type UsageRunDto = {
+  kind: 'tab' | 'block'; own: { sort: SortDto[] | null; columns: string[] | null };
+  broken: BrokenDto[]; sort: SortDto[]; columns: string[];
 };
 export type QueryUsageDto = { path: string; title: string; type: string | null; template: boolean };
 /** §1.8 `QueryPatch` (only `objectMoved` has an emitter in this slice, D-1469). */
@@ -1271,16 +1281,22 @@ export async function queryRun(source: QuerySourceDto, host: string | null, env:
   Promise<QueryResultDto & { _path?: string | null }> {
   const tys = types ?? listTypes(files, {});
   const cols = columnsDefault(tys);
-  const base: QueryResultDto & { _path?: string | null } = { form: 'def', name: null, lookup: null, line: null, version: null, def: null, state: 'ok', broken: [], targets: [], usesRelative: false, total: 0, rows: [], indexReady: o.indexReady ?? true, group: null, _path: null };
-  const run = async (r: QueryResultDto & { _path?: string | null }, def: QueryDefDto, syntactic: BrokenDto[]) => {
-    const e = await evaluate(def, host, env, files, tys);
+  const base: QueryResultDto & { _path?: string | null } = { form: 'def', name: null, lookup: null, line: null, version: null, def: null, state: 'ok', broken: [], targets: [], usesRelative: false, total: 0, rows: [], indexReady: o.indexReady ?? true, group: null, usage: null, _path: null };
+  /** v1-views §17.2: a usage's own values as read (`'broken'`: a broken shape). */
+  type Own = { kind: 'tab' | 'block'; sort: SortDto[] | 'broken' | null; columns: string[] | 'broken' | null };
+  const run = async (r: QueryResultDto & { _path?: string | null }, def: QueryDefDto, syntactic: BrokenDto[], own: Own | null = null) => {
+    // Q2.1 (§17.2): the rows follow the usage's effective sort and carry its effective columns; `def` stays the file's.
+    const usage = own ? usageRun(own, def, tys) : null;
+    const e = await evaluate(usage ? { ...def, sort: usage.sort, columns: usage.columns } : def, host, env, files, tys);
+    // The query's own run-time `sort` check (the evaluator saw the usage's effective sort instead).
+    if (usage && !sortValid(def.sort, def.types, tys)) e.broken.push({ reason: 'badValue', at: null, key: 'sort', type: null });
     const rank = (b: BrokenDto) => (b.reason === 'noType' ? ORDER.indexOf('types') : b.at === null ? ORDER.indexOf(b.key as never) : ORDER.indexOf('filters')) * 10000 + (b.at?.[0] ?? 0) * 100 + (b.at?.[1] ?? 0);
     // A `group_by` broken in the file is not broken twice by the grouping.
     const dup = (b: BrokenDto) => b.at === null && b.key === 'group_by' && syntactic.some((x) => x.at === null && x.key === 'group_by');
     const broken = [...syntactic, ...e.broken.filter((b) => !dup(b))].sort((a, b) => rank(a) - rank(b));
-    return { ...r, def, ...e, broken };
+    return { ...r, def, ...e, broken, usage };
   };
-  const saved = async (name: string, form: 'reference' | 'def') => {
+  const saved = async (name: string, form: 'reference' | 'def', own: Own | null = null) => {
     const live = findLive(files, name);
     if (!live) {
       const t = findTrashed(files, name);
@@ -1289,9 +1305,17 @@ export async function queryRun(source: QuerySourceDto, host: string | null, env:
     const read = queryRead(files[live], !(o.invalid ?? []).includes(live), stemOf(live), cols);
     const r = { ...base, form, name: stemOf(live), lookup: read.state as LookupDto, line: read.line, _path: live };
     if (read.state === 'unreadable') return r;
-    return run(r, read.def, read.broken);
+    return run(r, read.def, read.broken, own);
   };
   if (source.kind === 'saved') return saved(source.name, 'reference');
+  if (source.kind === 'view') {
+    // Q2.1 (§17.2, D-1853): the first `views:` item named `name` (name key) of the type gives the tab's own values.
+    const t = tys.find((x) => x.key === nfc(source.type));
+    const item = ((t?.viewItems ?? []) as { name: string; sort: SortDto[] | null; sortBroken: boolean; columns: string[] | null; columnsBroken: boolean }[])
+      .find((it) => nameKey(it.name) === nameKey(source.name));
+    const own: Own = { kind: 'tab', sort: item ? (item.sortBroken ? 'broken' : item.sort) : null, columns: item ? (item.columnsBroken ? 'broken' : item.columns) : null };
+    return saved(source.name, 'reference', own);
+  }
   if (source.kind === 'def') {
     const live = source.name ? findLive(files, source.name) : null;
     return run({ ...base, form: 'def', name: source.name ? nfc(source.name) : null, _path: live }, source.def, []);
@@ -1299,10 +1323,46 @@ export async function queryRun(source: QuerySourceDto, host: string | null, env:
   const f = fenceRead(source.body, cols);
   if (f.form === 'empty') return { ...base, form: 'empty' };
   if (f.form === 'unreadable') return { ...base, form: 'unreadable', line: f.line ?? 1 };
-  if (f.form === 'reference') return saved(f.name!, 'reference');
+  if (f.form === 'reference') {
+    // Q2.1 (§13.1, §17.2): a reference body's own `sort:` / `columns:`, read by `@tegg/doc` (D-82).
+    const u = (await doc()).fenceUsage(source.body) as { sort: SortDto[] | 'broken' | null; columns: string[] | 'broken' | null };
+    return saved(f.name!, 'reference', { kind: 'block', sort: u.sort, columns: u.columns });
+  }
   const read = f.read!;
   if (read.state === 'unreadable') return { ...base, form: 'unreadable', line: read.line ?? 1 };
   return run({ ...base, form: 'inline' }, read.def, read.broken);
+}
+
+/** Part one §1.6's check of a `sort`: every level's `by` is title, created, modified or an attribute of one kind on
+ *  every chosen type (repeats count at their first level). */
+function sortValid(sort: SortDto[], types: string[], tys: TypeDto[]): boolean {
+  const chosen = types.map(nfc);
+  const seen = new Set<string>();
+  return sort.every((l) => {
+    const by = nfc(l.by);
+    if (seen.has(by)) return true;
+    seen.add(by);
+    if (by === 'title' || by === 'created' || by === 'modified') return true;
+    const infos = chosen.length ? chosen.map((t) => attrOf(tys.find((x) => x.key === t), by)) : [attrOf(undefined, by)];
+    return infos.every((a) => a && a.kind === infos[0]!.kind && a.kind !== 'unsupported');
+  });
+}
+
+/** v1-views §17.2 (R194): a usage's run. A broken shape or a `sort` level the query's types don't have is a `broken`
+ *  entry and the query's effective value; an own `columns` keeps unknown keys; `sort: []` is valid. */
+function usageRun(own: { kind: 'tab' | 'block'; sort: SortDto[] | 'broken' | null; columns: string[] | 'broken' | null }, def: QueryDefDto, tys: TypeDto[]): UsageRunDto {
+  const broken: BrokenDto[] = [];
+  let sort: SortDto[] | null = null;
+  if (own.sort === 'broken') broken.push({ reason: 'badValue', at: null, key: 'sort', type: null });
+  else if (own.sort !== null) {
+    if (sortValid(own.sort, def.types, tys)) sort = own.sort.map((l) => ({ by: nfc(l.by), order: l.order }));
+    else broken.push({ reason: 'badValue', at: null, key: 'sort', type: null });
+  }
+  let columns: string[] | null = null;
+  if (own.columns === 'broken') broken.push({ reason: 'badValue', at: null, key: 'columns', type: null });
+  else if (own.columns !== null) columns = own.columns.map(nfc);
+  const querySort = sortValid(def.sort, def.types, tys) ? def.sort : [{ ...DEFAULT_SORT }];
+  return { kind: own.kind, own: { sort, columns }, broken, sort: sort ?? querySort, columns: columns ?? def.columns };
 }
 
 // ------------------------------------------------------------------------------------------------ §2 commands

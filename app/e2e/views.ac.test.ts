@@ -176,7 +176,8 @@ test('fr_sto_07_ac10_view_state_is_machine_local', { timeout: 300_000 }, async (
     await dragFromTo(d, mid(handle), { x: mid(handle).x + 40, y: mid(handle).y });
     assert.ok(await waitFor(() => {
       const u = uiState(c);
-      return u?.typeViews?.lastTab?.book === 'Přečtené 2026' && Array.isArray(u?.boardFolded?.['Podle žánru']) && typeof u?.queryColumnWidths?.['Přečtené 2026']?.title === 'number';
+      // Q2.1 (R198, FR-STO-07 AC-11): folds and widths under the tabs' usage keys; `typeViews.lastTab` stands.
+      return u?.typeViews?.lastTab?.book === 'Přečtené 2026' && Array.isArray(u?.usageFolded?.['tab:book/podle žánru']) && typeof u?.usageColumnWidths?.['tab:book/přečtené 2026']?.title === 'number';
     }, 3000), `ui-state.json holds the three keys (${JSON.stringify(uiState(c))})`);
     await sleep(800);
     assert.deepEqual(changedPaths(before, tree(c.vault)), [], 'nothing under the vault (its .tegg/ included) is created or changed');
@@ -255,7 +256,8 @@ test('fr_qry_05_ac18_folding_rows_is_machine_local', { timeout: 300_000 }, async
     await selectTab(d, 'Podle žánru');
     await (await need(d, 'Collapse Román', 8000)).click();
     assert.ok(await shown(d, 'Expand Román', 2000), 'Román folded');
-    assert.ok(await waitFor(() => JSON.stringify(uiState(c)?.boardFolded?.['Podle žánru']) === JSON.stringify(['option:Román']), 3000), 'ui-state.json: boardFolded["Podle žánru"]');
+    // Q2.1 (AP-1526, R198): folds per usage, the tab's key.
+    assert.ok(await waitFor(() => JSON.stringify(uiState(c)?.usageFolded?.['tab:book/podle žánru']) === JSON.stringify(['option:Román']), 3000), 'ui-state.json: usageFolded["tab:book/podle žánru"]');
     d = await relaunch(c, 'type/book');
     assert.ok(await shown(d, 'Expand Román', 8000), 'the fold survives a relaunch');
     assert.deepEqual(changedPaths(before, tree(c.vault)), [], 'folding writes nothing to the vault');
@@ -287,11 +289,16 @@ test('fr_qry_05_ac23_widths_per_query_shared_by_tab_and_blocks', { timeout: 300_
     const h = await rectOf(d, 'Resize Title', 8000);
     const title = await rectOf(d, 'Title');
     await dragFromTo(d, mid(h), { x: mid(h).x + (200 - title.width), y: mid(h).y });
-    assert.ok(await waitFor(() => uiState(c)?.queryColumnWidths?.['Přečtené 2026']?.title === 200, 3000), `queryColumnWidths["Přečtené 2026"].title = 200 (${JSON.stringify(uiState(c)?.queryColumnWidths)})`);
+    // Q2.1 (D-1836 amends D-1767; R198): widths are per usage, the block's key; the tab keeps its own.
+    const key = 'block:id:01JB5V00000000000000000029/přečtené 2026#1';
+    assert.ok(await waitFor(() => uiState(c)?.usageColumnWidths?.[key]?.title === 200, 3000), `usageColumnWidths["${key}"].title = 200 (${JSON.stringify(uiState(c)?.usageColumnWidths)})`);
+    d = await relaunch(c, `note/${CTENI}`);
+    const w = (await rectOf(d, 'Title', 8000)).width;
+    assert.ok(Math.abs(w - 200) <= 2, `after a relaunch the block's Title is 200 px (${w})`);
     d = await relaunch(c, 'type/book');
     await selectTab(d, 'Přečtené 2026');
-    const w = (await rectOf(d, 'Title', 5000)).width;
-    assert.ok(Math.abs(w - 200) <= 2, `after a relaunch the tab's Title is 200 px (${w})`);
+    const wt = (await rectOf(d, 'Title', 5000)).width;
+    assert.ok(Math.abs(wt - 200) > 2, `the tab keeps its own Title width (${wt})`);
     assert.deepEqual(changedPaths(before, tree(c.vault)), [], 'no vault file changes');
   } finally { await cleanup(c); }
 });

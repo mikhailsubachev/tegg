@@ -10,6 +10,10 @@ use chrono::{DateTime, NaiveDate};
 use serde_json::{Map, Value};
 use tegg_format::nfc;
 
+mod views;
+pub use views::{rename_view, views_source};
+pub use tegg_format::usage::{UsageOrder, UsageSort, UsageValue};
+
 /// D-96 / D-239: NFC, trim, lower case, each whitespace run as `-` (`Quick Note` → `quick-note`).
 pub use tegg_format::type_key;
 
@@ -193,8 +197,19 @@ pub struct Parsed {
     pub columns_unreadable: bool,
     /// D-1245: `columns` entries that are neither attributes nor universal keys (`title` excluded), each once.
     pub columns_ignored: Vec<String>,
-    /// v1-views §1.3: `views` is present but not a list of strings.
+    /// v1-views §1.3, §14.1 (D-1840): `views` is present but not a list of names and `name` mappings.
     pub views_unreadable: bool,
+    /// v1-views §14.1 (D-1840, D-1855): the `views:` items, same order and length as `def.views`.
+    pub view_items: Option<Vec<ViewItem>>,
+}
+
+/// One item of `views:` (v1-views §14.1, R196): a plain name, or a mapping with a non-blank string `name`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ViewItem {
+    pub name: String,
+    pub sort: UsageValue<Vec<UsageSort>>,
+    pub columns: UsageValue<Vec<String>>,
+    pub plain: bool,
 }
 
 /// Display mode of an embed (FR-EMB-02, D-416, D-417; ms4-embeds §3).
@@ -320,6 +335,37 @@ fn list_unreadable(top: &Map<String, Value>, key: &str) -> bool {
     }
 }
 
+/// One `views:` item as read (v1-views §14.1, R196): a string, or a mapping with a non-blank string `name`; None for any
+/// other value.
+fn view_item(v: &Value) -> Option<ViewItem> {
+    match v {
+        Value::String(s) => Some(ViewItem { name: nfc(s), sort: UsageValue::Absent, columns: UsageValue::Absent, plain: true }),
+        Value::Object(m) => {
+            let Some(Value::String(name)) = m.get("name") else { return None };
+            let name = name.trim_matches(char::is_whitespace);
+            if name.is_empty() {
+                return None;
+            }
+            let u = tegg_format::usage::usage_of_json(m);
+            Some(ViewItem { name: nfc(name), sort: u.sort, columns: u.columns, plain: m.len() == 1 })
+        }
+        _ => None,
+    }
+}
+
+/// `views` (v1-views §1.3, §14.1): (names, items, unreadable). Absent or null: (None, None, false); a list whose every
+/// item reads: the names and items in order, repeats kept; anything else: (None, None, true).
+fn read_views(top: &Map<String, Value>) -> (Option<Vec<String>>, Option<Vec<ViewItem>>, bool) {
+    match top.get("views") {
+        None | Some(Value::Null) => (None, None, false),
+        Some(Value::Array(a)) => match a.iter().map(view_item).collect::<Option<Vec<ViewItem>>>() {
+            Some(items) => (Some(items.iter().map(|i| i.name.clone()).collect()), Some(items), false),
+            None => (None, None, true),
+        },
+        Some(_) => (None, None, true),
+    }
+}
+
 /// A scalar as text (NFC); None for lists, maps and null.
 fn scalar_text(v: &Value) -> Option<String> {
     match v {
@@ -341,7 +387,32 @@ fn nfc_value(v: &Value) -> Value {
 }
 
 /// Never fails and never writes (NFR-REL-03). Validity rules of ms3-shell §14.1.1 (AR-07 AC-4).
+///
+/// A pure function of `key` and `text`, so the last results are kept in a small memo: a write path reads a type file
+/// (`type_get`), patches it (which parses the same text again) and verifies the new text, which the next read of the
+/// file parses once more. With the memo each text is parsed once (QA of Q2.1: a view tab's write in a debug build).
 pub fn parse(key: &str, text: &str) -> Parsed {
+    use std::sync::{Mutex, OnceLock};
+    const SIZE: usize = 32;
+    static MEMO: OnceLock<Mutex<Vec<(String, String, Parsed)>>> = OnceLock::new();
+    let key = nfc(key);
+    let memo = MEMO.get_or_init(|| Mutex::new(Vec::new()));
+    if let Ok(m) = memo.lock() {
+        if let Some((_, _, p)) = m.iter().find(|(k, t, _)| *k == key && t == text) {
+            return p.clone();
+        }
+    }
+    let p = parse_uncached(&key, text);
+    if let Ok(mut m) = memo.lock() {
+        if m.len() >= SIZE {
+            m.remove(0);
+        }
+        m.push((key, text.to_string(), p.clone()));
+    }
+    p
+}
+
+fn parse_uncached(key: &str, text: &str) -> Parsed {
     let key = nfc(key);
     match read_def(&key, text) {
         Ok((def, readability, top)) => {
@@ -359,11 +430,11 @@ pub fn parse(key: &str, text: &str) -> Parsed {
             }
             // One YAML parse per call: the unreadable flags and the raw `embed` come from the same mapping.
             let columns_unreadable = list_unreadable(&top, "columns");
-            let views_unreadable = list_unreadable(&top, "views");
+            let (_, view_items, views_unreadable) = read_views(&top);
             let embed_raw = embed_raw_of(&top);
-            Parsed { def, readability, preview_ignored, embed_raw, columns_unreadable, columns_ignored, views_unreadable }
+            Parsed { def, readability, preview_ignored, embed_raw, columns_unreadable, columns_ignored, views_unreadable, view_items }
         }
-        Err((message, line)) => Parsed { def: fallback_def(&key), readability: Readability::Invalid { message, line: line.max(1) }, preview_ignored: Vec::new(), embed_raw: None, columns_unreadable: false, columns_ignored: Vec::new(), views_unreadable: false },
+        Err((message, line)) => Parsed { def: fallback_def(&key), readability: Readability::Invalid { message, line: line.max(1) }, preview_ignored: Vec::new(), embed_raw: None, columns_unreadable: false, columns_ignored: Vec::new(), views_unreadable: false, view_items: None },
     }
 }
 
@@ -495,11 +566,8 @@ fn read_def(key: &str, text: &str) -> Result<ReadDef, (String, usize)> {
             Some(Value::Array(a)) if a.iter().all(Value::is_string) => Some(a.iter().filter_map(|v| v.as_str().map(str::to_string)).collect()),
             _ => None,
         },
-        // v1-views §1.3 (D-1782): NFC names as written; a value that isn't a list of strings reads as None.
-        views: match top.get("views") {
-            Some(Value::Array(a)) if a.iter().all(Value::is_string) => Some(a.iter().filter_map(|v| v.as_str().map(nfc)).collect()),
-            _ => None,
-        },
+        // v1-views §1.3 (D-1782), §14.1 (D-1840): the names of the items; a value that can't be read is None.
+        views: read_views(&top).0,
         template: text_of("template"),
         attributes,
         name,
@@ -590,6 +658,8 @@ pub enum RuleError {
     ColumnsUnreadable,
     /// v1-views §1.3 (D-1803): a `SetViews` on a file whose `views` value can't be read.
     ViewsUnreadable,
+    /// v1-views §14.2 (D-1857): a `SetViewSort` / `SetViewColumns` on a name not in `views`.
+    ViewNotListed,
     /// Slice 5A-1 (D-473): no `status` option of the Task type with state Open / Done would remain.
     NeedOpen,
     NeedDone,
@@ -1037,6 +1107,12 @@ pub enum TypeOp {
     SetColumns(Vec<String>),
     /// v1-views §1.3 (D-1803): the `views` line, one flow list in NFC.
     SetViews(Vec<String>),
+    /// v1-views §14.2 (D-1857): the first item named `name` gets `sort` as its own value; None removes it.
+    SetViewSort { name: String, sort: Option<Vec<UsageSort>> },
+    /// v1-views §14.2 (D-1857): the same for `columns`.
+    SetViewColumns { name: String, columns: Option<Vec<String>> },
+    /// v1-views §14.2 (D-1852): the `views` key's lines replaced by `source` byte for byte.
+    SetViewsSource(String),
     /// D-417 (ms4-embeds §3): the type's default embed mode.
     SetEmbed(EmbedMode),
     AddAttribute(AttrDef),
@@ -1105,7 +1181,7 @@ fn patch_inner(key: &str, text: &str, ops: &[TypeOp], ctx: &PatchContext, used: 
     if parsed.columns_unreadable && ops.iter().any(|o| matches!(o, TypeOp::SetColumns(_))) {
         return Err(SchemaError::Rule(RuleError::ColumnsUnreadable)); // D-1245: fixed in the file first
     }
-    if parsed.views_unreadable && ops.iter().any(|o| matches!(o, TypeOp::SetViews(_))) {
+    if parsed.views_unreadable && ops.iter().any(|o| matches!(o, TypeOp::SetViews(_) | TypeOp::SetViewSort { .. } | TypeOp::SetViewColumns { .. })) {
         return Err(SchemaError::Rule(RuleError::ViewsUnreadable)); // v1-views §1.3: fixed in the file first
     }
     let mut def = parsed.def;
@@ -1217,19 +1293,9 @@ fn apply(def: &mut TypeFile, lines: &mut Vec<String>, op: &TypeOp, system: bool,
                 set_top(lines, "preview", render_top("preview", def));
             }
         }
-        TypeOp::SetViews(names) => {
-            // v1-views §1.3 (D-1782): an unchanged list on an existing key writes nothing; a block list becomes one
-            // flow line in its place; `views: []` keeps the key. The line keeps the file's CRLF ending.
-            let names: Vec<String> = names.iter().map(|n| nfc(n)).collect();
-            if def.views.as_ref() != Some(&names) {
-                def.views = Some(names);
-                let cr = match top_span(lines, "views") {
-                    Some((s, _)) => lines[s].ends_with('\r'),
-                    None => lines.first().is_some_and(|l| l.ends_with('\r')),
-                };
-                let new = render_top("views", def).map(|v| v.into_iter().map(|l| if cr { format!("{l}\r") } else { l }).collect());
-                set_top(lines, "views", new);
-            }
+        TypeOp::SetViews(_) | TypeOp::SetViewSort { .. } | TypeOp::SetViewColumns { .. } | TypeOp::SetViewsSource(_) => {
+            // v1-views §1.3 (D-1782), §14.2 (R196; D-1840, D-1852, D-1857).
+            views::apply_views(def, lines, op)?;
         }
         TypeOp::SetColumns(keys) => {
             // D-1243, D-1245: an unchanged list on an existing key writes nothing; a block list becomes one flow line.
@@ -1931,139 +1997,6 @@ fn token_text(tok: &str) -> Option<String> {
         },
         _ => None,
     }
-}
-
-/// Byte spans `[start, end)` of the items of a one-line flow sequence starting at `open` (the `[`); None when the
-/// sequence doesn't close on the line.
-fn flow_item_spans(l: &str, open: usize) -> Option<Vec<(usize, usize)>> {
-    let b = l.as_bytes();
-    let mut out = Vec::new();
-    let mut i = open + 1;
-    loop {
-        while i < b.len() && (b[i] == b' ' || b[i] == b'\t') {
-            i += 1;
-        }
-        if i >= b.len() {
-            return None;
-        }
-        if b[i] == b']' {
-            return Some(out);
-        }
-        let start = i;
-        match b[i] {
-            b'"' => {
-                i += 1;
-                while i < b.len() && b[i] != b'"' {
-                    if b[i] == b'\\' {
-                        i += 1;
-                    }
-                    i += 1;
-                }
-                i += 1;
-            }
-            b'\'' => {
-                i += 1;
-                loop {
-                    if i >= b.len() {
-                        return None;
-                    }
-                    if b[i] == b'\'' {
-                        if b.get(i + 1) == Some(&b'\'') {
-                            i += 2;
-                            continue;
-                        }
-                        i += 1;
-                        break;
-                    }
-                    i += 1;
-                }
-            }
-            b'[' | b'{' => return None,
-            _ => {
-                while i < b.len() && b[i] != b',' && b[i] != b']' {
-                    i += 1;
-                }
-            }
-        }
-        if i > b.len() {
-            return None;
-        }
-        let mut end = i.min(b.len());
-        while end > start && (b[end - 1] == b' ' || b[end - 1] == b'\t') {
-            end -= 1;
-        }
-        out.push((start, end));
-        while i < b.len() && (b[i] == b' ' || b[i] == b'\t') {
-            i += 1;
-        }
-        match b.get(i) {
-            Some(b',') => i += 1,
-            Some(b']') => return Some(out),
-            _ => return None,
-        }
-    }
-}
-
-/// v1-views §1.3, §1.10: the query rename job's patch of `views:` (D-1762): every entry whose name key equals
-/// `from`'s gets `to` (D-230 quoting) in place, flow or block style kept, every other byte kept. None when nothing
-/// matches, `views` is absent or unreadable, or the file is Newer or invalid.
-pub fn rename_view(text: &str, from: &str, to: &str) -> Option<String> {
-    let parsed = parse("", text);
-    if parsed.readability != Readability::Ok || parsed.views_unreadable {
-        return None;
-    }
-    let want = view_name_key(from);
-    if !parsed.def.views.as_ref()?.iter().any(|v| view_name_key(v) == want) {
-        return None;
-    }
-    let new = scalar(to, true);
-    let (mut lines, final_nl) = split_lines(text);
-    let (s, e) = top_span(&lines, "views")?;
-    let mut changed = false;
-    let head = lines[s].clone();
-    let colon = head.find(':')?;
-    let rest = &head[colon + 1..];
-    let lead = rest.len() - rest.trim_start().len();
-    if rest.trim_start().starts_with('[') {
-        let open = colon + 1 + lead;
-        let spans = flow_item_spans(&head, open)?;
-        let mut out = head.clone();
-        for &(a, b) in spans.iter().rev() {
-            if token_text(&head[a..b]).is_some_and(|t| view_name_key(&t) == want) {
-                out.replace_range(a..b, &new);
-                changed = true;
-            }
-        }
-        lines[s] = out;
-    } else {
-        for line in lines.iter_mut().take(e).skip(s + 1) {
-            let t = line.trim_start_matches(' ');
-            let Some(after) = t.strip_prefix("- ") else { continue };
-            let at = line.len() - after.len();
-            let body = after.trim_end_matches('\r');
-            // A trailing comment stays: the token ends before a ` #` outside quotes (`- "Čtu # 2"` is one name).
-            let tok_end = comment_start(body).unwrap_or(body.len());
-            let tok = body[..tok_end].trim_end();
-            let tok_start = after.len() - after.trim_start().len();
-            let tok = &tok[tok_start.min(tok.len())..];
-            if tok.is_empty() {
-                continue;
-            }
-            if token_text(tok).is_some_and(|t| view_name_key(&t) == want) {
-                let a = at + tok_start;
-                line.replace_range(a..a + tok.len(), &new);
-                changed = true;
-            }
-        }
-    }
-    if !changed {
-        return None;
-    }
-    let out = join_lines(&lines, final_nl);
-    // Read back: the file stays readable and its views are the old list with exactly the renamed entries changed.
-    let after = parse("", &out);
-    let expect: Vec<String> = parsed.def.views.as_ref()?.iter().map(|v| if view_name_key(v) == want { nfc(to) } else { v.clone() }).collect();
-    (after.readability == Readability::Ok && after.def.views.as_ref() == Some(&expect)).then_some(out)
 }
 
 /// The byte index of a YAML comment's ` #` in a block-list item's body, outside single and double quotes.

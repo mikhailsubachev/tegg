@@ -1,7 +1,8 @@
 // Slice Q2: the shared column-width helper (docs/contracts/v1-views.md §4.2, D-1767; type-columns §4, R130, D-1248).
 // Widths are machine-local (FR-STO-07): `typeColumnWidths[<type key>]` for a type page's `All <plural>` table,
-// `queryColumnWidths[<query name>]` for a saved query's tables (its view tab, its blocks, its page). Every mounted table
-// of one scope shows the same widths at once; a drag writes one `ui_state_set` on release.
+// `usageColumnWidths[<usage key>]` for a saved query's table in one usage (a view tab, a block, the query page; Q2.1,
+// R198, D-1845; 0.4.0's `queryColumnWidths` is no longer read or written). Every mounted table of one scope shows the
+// same widths at once; a drag writes one `ui_state_set` on release.
 import { useCallback, useSyncExternalStore } from 'react';
 import type { UiStateDto } from '../ipc/types';
 
@@ -12,12 +13,12 @@ export function clampWidth(key: string, px: number): number {
   return Math.round(Math.min(WIDTH.max, Math.max(key === 'title' ? WIDTH.titleMin : WIDTH.min, px)));
 }
 
-export type WidthScope = { kind: 'type'; key: string } | { kind: 'query'; name: string };
+export type WidthScope = { kind: 'type'; key: string } | { kind: 'usage'; key: string };
 type Widths = Record<string, number>;
-type WidthsUi = Pick<UiStateDto, 'typeColumnWidths' | 'queryColumnWidths'>;
+type WidthsUi = Pick<UiStateDto, 'typeColumnWidths' | 'usageColumnWidths'>;
 
 const nfc = (s: string) => s.normalize('NFC');
-const scopeId = (s: WidthScope) => (s.kind === 'type' ? `type\n${nfc(s.key)}` : `query\n${nfc(s.name)}`);
+const scopeId = (s: WidthScope) => (s.kind === 'type' ? `type\n${nfc(s.key)}` : `usage\n${nfc(s.key)}`);
 
 let impl: { get: () => WidthsUi | undefined; update: (f: <U extends WidthsUi>(u: U) => U) => void } | null = null;
 /** Widths shown while a drag runs (not written yet), per scope. */
@@ -39,7 +40,7 @@ export function widthsChanged(): void {
 
 function stored(scope: WidthScope): Widths {
   const u = impl?.get();
-  const m = scope.kind === 'type' ? u?.typeColumnWidths?.[nfc(scope.key)] : u?.queryColumnWidths?.[nfc(scope.name)];
+  const m = scope.kind === 'type' ? u?.typeColumnWidths?.[nfc(scope.key)] : u?.usageColumnWidths?.[nfc(scope.key)];
   return { ...((m ?? {}) as Widths) };
 }
 
@@ -58,9 +59,9 @@ function write(scope: WidthScope, w: Widths): void {
       if (empty) delete all[nfc(scope.key)]; else all[nfc(scope.key)] = w;
       return { ...u, typeColumnWidths: all };
     }
-    const all = { ...(u.queryColumnWidths ?? {}) };
-    if (empty) delete all[nfc(scope.name)]; else all[nfc(scope.name)] = w;
-    return { ...u, queryColumnWidths: all };
+    const all = { ...(u.usageColumnWidths ?? {}) };
+    if (empty) delete all[nfc(scope.key)]; else all[nfc(scope.key)] = w;
+    return { ...u, usageColumnWidths: all };
   });
   notify();
 }

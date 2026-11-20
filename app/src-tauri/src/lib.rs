@@ -307,6 +307,7 @@ fn rule_err(r: RuleError) -> IpcError {
         RuleError::PreviewFull => ("previewFull", None, None, None),
         RuleError::ColumnsUnreadable => ("columnsUnreadable", None, None, None),
         RuleError::ViewsUnreadable => ("viewsUnreadable", None, None, None),
+        RuleError::ViewNotListed => ("viewNotListed", None, None, None),
         RuleError::NeedOpen => ("needOpen", Some("optionLabel".into()), None, None),
         RuleError::NeedDone => ("needDone", Some("optionLabel".into()), None, None),
     };
@@ -1333,11 +1334,39 @@ fn type_dto(t: TypeInfo) -> TypeDto {
         columns_unreadable: t.columns_unreadable,
         views: d.views,
         views_unreadable: t.views_unreadable,
+        view_items: t.view_items.map(|items| items.into_iter().map(view_item_dto).collect()),
+        views_source: t.views_source,
         embed: t.embed.as_str().into(),
         embed_raw: t.embed_raw,
         template: d.template,
         attributes: d.attributes.into_iter().map(attribute_dto).collect(),
     }
+}
+
+/// v1-views §17.3 (R196): one `views:` item.
+fn view_item_dto(i: tegg_schema::ViewItem) -> dto::ViewItemDto {
+    use tegg_schema::UsageValue;
+    let (sort, sort_broken) = match i.sort {
+        UsageValue::Set(l) => (Some(l.into_iter().map(|x| dto::UsageSortDto { by: x.by, order: if x.order == tegg_schema::UsageOrder::Desc { "desc" } else { "asc" }.into() }).collect()), false),
+        UsageValue::Broken => (None, true),
+        UsageValue::Absent => (None, false),
+    };
+    let (columns, columns_broken) = match i.columns {
+        UsageValue::Set(c) => (Some(c), false),
+        UsageValue::Broken => (None, true),
+        UsageValue::Absent => (None, false),
+    };
+    dto::ViewItemDto { name: i.name, sort, sort_broken, columns, columns_broken, plain: i.plain }
+}
+
+/// v1-views §17.3: a usage sort level from the UI (`asc` | `desc`).
+fn usage_sort(l: dto::UsageSortDto) -> Result<tegg_schema::UsageSort, IpcError> {
+    let order = match l.order.as_str() {
+        "asc" => tegg_schema::UsageOrder::Asc,
+        "desc" => tegg_schema::UsageOrder::Desc,
+        other => return Err(err("Io", format!("unknown sort order {other}"))),
+    };
+    Ok(tegg_schema::UsageSort { by: l.by, order })
 }
 
 pub(crate) fn attribute_dto(a: AttrDef) -> AttributeDto {
@@ -1436,6 +1465,9 @@ fn type_op(op: TypeOpDto) -> Result<TypeOp, IpcError> {
         TypeOpDto::Preview { keys } => TypeOp::SetPreview(keys),
         TypeOpDto::Columns { keys } => TypeOp::SetColumns(keys),
         TypeOpDto::Views { names } => TypeOp::SetViews(names),
+        TypeOpDto::ViewSort { name, sort } => TypeOp::SetViewSort { name, sort: sort.map(|l| l.into_iter().map(usage_sort).collect::<Result<Vec<_>, _>>()).transpose()? },
+        TypeOpDto::ViewColumns { name, columns } => TypeOp::SetViewColumns { name, columns },
+        TypeOpDto::ViewsSource { source } => TypeOp::SetViewsSource(source),
         TypeOpDto::Hidden { keys } => TypeOp::SetHidden(keys),
         TypeOpDto::Embed { mode } => TypeOp::SetEmbed(match tegg_schema::EmbedMode::parse(&mode) {
             Some(m) => m,

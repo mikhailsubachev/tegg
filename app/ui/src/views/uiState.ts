@@ -1,10 +1,11 @@
 // Slice Q2: the views' machine-local state in `ui-state.json` (docs/contracts/v1-views.md §4.7, §1.10; D-1765,
 // D-1767, D-1797; FR-STO-07, never in the vault): the remembered tab per type, the column widths per saved query and
-// the folded lanes per board. The app owns the UI state and registers how to read and change it, so one writer keeps
+// the folded lanes per board; Q2.1 keys widths and folds by usage (R198). The app owns the UI state and registers how to read and change it, so one writer keeps
 // the whole state and each change is one `ui_state_set`.
 import type { UiStateDto } from '../ipc/types';
+import { movedUsageState } from './usage';
 
-type ViewsUi = Pick<UiStateDto, 'typeViews' | 'queryColumnWidths' | 'boardFolded'>;
+type ViewsUi = Pick<UiStateDto, 'typeViews' | 'usageColumnWidths' | 'usageFolded'>;
 let impl: { get: () => ViewsUi | undefined; update: (f: <U extends ViewsUi>(u: U) => U) => void } | null = null;
 
 export function registerViewsUiState(i: typeof impl): void {
@@ -26,54 +27,27 @@ export function setLastTab(typeKey: string, name: string | null): void {
   impl.update((u) => ({ ...u, typeViews: { ...(u.typeViews ?? {}), lastTab: { ...(u.typeViews?.lastTab ?? {}), [k]: v } } }));
 }
 
-/** The folded rows of a saved query's horizontal board (lane ids, R190). */
-export function foldedOf(name: string): string[] {
-  return [...(impl?.get()?.boardFolded?.[nfc(name)] ?? [])];
+/** The folded rows of a usage's horizontal board (lane ids; R198 `usageFolded[<usage key>]`, D-1845). */
+export function foldedOf(usageKey: string): string[] {
+  return [...(impl?.get()?.usageFolded?.[usageKey.normalize('NFC')] ?? [])];
 }
 
-/** One `ui_state_set` per fold toggle (R190); an empty list drops the query's entry. */
-export function setFolded(name: string, ids: string[]): void {
+/** One `ui_state_set` per fold toggle (R198); an empty list drops the usage's entry. `boardFolded` (0.4.0) stays. */
+export function setFolded(usageKey: string, ids: string[]): void {
   if (!impl) return;
-  const k = nfc(name);
+  const k = usageKey.normalize('NFC');
   impl.update((u) => {
-    const all = { ...(u.boardFolded ?? {}) };
+    const all = { ...(u.usageFolded ?? {}) };
     if (ids.length) all[k] = ids; else delete all[k];
-    return { ...u, boardFolded: all };
+    return { ...u, usageFolded: all };
   });
 }
 
-/** The state after a query rename (§1.10): `queryColumnWidths[from]`, `boardFolded[from]` and every remembered tab
- *  `from` renamed to `to` (by name key); the same object when nothing names `from`. */
-export function movedQueryState<U extends ViewsUi>(u: U, from: string, to: string): U {
-  const key = (s: string) => nfc(s.trim()).toLowerCase();
-  const f = key(from);
-  const t = nfc(to);
-  let changed = false;
-  const rekey = <V,>(m: Record<string, V | undefined> | undefined): Record<string, V | undefined> | undefined => {
-    if (!m) return m;
-    const hit = Object.keys(m).find((k) => key(k) === f);
-    if (hit === undefined) return m;
-    changed = true;
-    const out: Record<string, V | undefined> = {};
-    for (const [k, v] of Object.entries(m)) out[k === hit ? t : k] = v;
-    return out;
-  };
-  const widths = rekey(u.queryColumnWidths);
-  const folded = rekey(u.boardFolded);
-  let typeViews = u.typeViews;
-  const tabs = u.typeViews?.lastTab;
-  if (tabs && Object.values(tabs).some((v) => typeof v === 'string' && key(v) === f)) {
-    changed = true;
-    typeViews = { ...u.typeViews, lastTab: Object.fromEntries(Object.entries(tabs).map(([k, v]) => [k, typeof v === 'string' && key(v) === f ? t : v])) };
-  }
-  if (!changed) return u;
-  return { ...u, queryColumnWidths: widths, boardFolded: folded, typeViews } as U;
-}
-
-/** On the `query-rename` job's `done` and on its Undo (D-1797): one `ui_state_set` moving the machine-local keys. */
+/** On the `query-rename` job's `done` and on its Undo (D-1797, §19.3): one `ui_state_set` moving R198's usage keys and
+ *  the remembered tabs of `from` to `to`; `queryColumnWidths` and `boardFolded` (0.4.0) stay untouched. */
 export function moveQueryState(from: string, to: string): void {
   if (!impl) return;
   const cur = impl.get();
-  if (!cur || movedQueryState(cur, from, to) === cur) return;
-  impl.update((u) => movedQueryState(u, from, to));
+  if (!cur || movedUsageState(cur, from, to) === cur) return;
+  impl.update((u) => movedUsageState(u, from, to));
 }

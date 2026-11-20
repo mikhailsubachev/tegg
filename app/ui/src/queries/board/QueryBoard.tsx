@@ -69,7 +69,7 @@ export function LanesSwitch({ lanes, disabled, onSwitch }: { lanes: 'vertical' |
   );
 }
 
-export function QueryBoard({ result, name, title, readOnly, types, filter, apply, rerun, controlRef }: {
+export function QueryBoard({ result, name, title, readOnly, types, filter, apply, rerun, controlRef, foldKey = null, columns }: {
   result: QueryResultDto & { group: GroupingDto; def: QueryDefDto };
   /** The saved query's name (folds, the hook); null for an inline fence. */
   name: string | null;
@@ -82,6 +82,10 @@ export function QueryBoard({ result, name, title, readOnly, types, filter, apply
   apply: (patch: Partial<QueryDefDto>) => void;
   rerun: () => void;
   controlRef?: MutableRefObject<BoardControl | null>;
+  /** Slice Q2.1 (R198): the usage key its folds are kept under (null: in memory). */
+  foldKey?: string | null;
+  /** Slice Q2.1 (D-1844): `On cards`, the usage's effective columns (else the query file's). */
+  columns?: string[];
 }) {
   const { group, def } = result;
   const root = useRef<HTMLDivElement | null>(null);
@@ -102,13 +106,13 @@ export function QueryBoard({ result, name, title, readOnly, types, filter, apply
     }));
   }, [result]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ---- folds (R190): saved queries keep them in the UI state, inline fences in memory.
-  const [folded, setFoldedState] = useState<string[]>(() => (name ? foldedOf(name) : []));
+  // ---- folds (R190, R198): a usage keeps them in the UI state under its key, inline fences in memory.
+  const [folded, setFoldedState] = useState<string[]>(() => (foldKey ? foldedOf(foldKey) : []));
   const onFold = (id: string, every: boolean) => {
     const all = group.lanes.map((l) => l.id);
     const next = every ? (folded.includes(id) ? [] : all) : folded.includes(id) ? folded.filter((x) => x !== id) : [...folded, id];
     setFoldedState(next);
-    if (name) setFolded(name, next);
+    if (foldKey) setFolded(foldKey, next);
   };
 
   // ---- the lanes as shown: narrowed by the toolbar's filters, with the optimistic moves applied.
@@ -230,26 +234,35 @@ export function QueryBoard({ result, name, title, readOnly, types, filter, apply
     return alt && list ? t('board.dropAdd', { lane: labelOf(lane) }) : t('board.dropSet', { attribute: attrName, lane: labelOf(lane) });
   };
 
-  // ---- the card menu: Open, Move to ›, Also add to › (list kinds).
-  const [menu, setMenu] = useState<{ row: QueryRowDto; anchor: HTMLElement; lane: string; level: 'root' | 'move' | 'also' } | null>(null);
+  // ---- the card menu: Open, Move to ›, Also add to › (list kinds); the two submenus open beside their item (§20).
+  const [menu, setMenu] = useState<{ row: QueryRowDto; anchor: HTMLElement; lane: string } | null>(null);
+  const [sub, setSub] = useState<{ level: 'move' | 'also'; anchor: HTMLElement } | null>(null);
   const listKind = group.kind !== 'select' && !(group.kind === 'relation' && !group.multiple);
-  const menuEntries = (): MenuEntry[] => {
-    if (!menu) return [];
+  const closeMenu = () => { setSub(null); setMenu(null); };
+  const why = menu ? readOnly ?? (menu.row.readOnly ? t('task.readOnly') : undefined) : undefined;
+  const subEntries = (): MenuEntry[] => {
+    if (!menu || !sub) return [];
     const { row, lane } = menu;
     const path = nfc(row.path);
-    const why = readOnly ?? (row.readOnly ? t('task.readOnly') : undefined);
-    const close = () => { setMenu(null); };
-    if (menu.level !== 'root') {
-      return group.lanes.filter((l) => l.dropTarget && l.id !== lane && !(menu.level === 'also' && l.cards.some((c) => nfc(result.rows[c.row]?.path ?? '') === path)))
-        .map((l) => ({ kind: 'item', key: l.id, label: labelOf(l), content: <span data-user-content={l.kind !== 'none' ? '' : undefined}>{labelOf(l)}</span>,
-          disabled: !!why, description: why, onChoose: () => { close(); doMove(path, lane, l.id, menu.level === 'also'); } }));
-    }
+    return group.lanes.filter((l) => l.dropTarget && l.id !== lane && !(sub.level === 'also' && l.cards.some((c) => nfc(result.rows[c.row]?.path ?? '') === path)))
+      .map((l) => ({ kind: 'item', key: l.id, label: labelOf(l), content: <span data-user-content={l.kind !== 'none' ? '' : undefined}>{labelOf(l)}</span>,
+        disabled: !!why, description: why, onChoose: () => { closeMenu(); doMove(path, lane, l.id, sub.level === 'also'); } }));
+  };
+  const openSub = (level: 'move' | 'also', el: HTMLElement | null) => {
+    if (!el || why) return;
+    setSub((s) => (s && s.level === level && s.anchor === el ? s : { level, anchor: el }));
+  };
+  const menuEntries = (): MenuEntry[] => {
+    if (!menu) return [];
+    const { lane } = menu;
+    const path = nfc(menu.row.path);
+    const itemEl = (key: string) => document.querySelector<HTMLElement>(`[data-popup="card.menu"] [data-menu-key="${key}"]`);
     return [
-      { kind: 'item', key: 'open', label: t('pinned.open'), content: <span className="menu-title">{t('pinned.open')}</span>, onChoose: () => { close(); open(path, lane); } },
-      { kind: 'item', key: 'move', label: t('board.cardMenu.moveTo'), content: <span className="menu-title">{t('board.cardMenu.moveTo')}</span>, disabled: !!why, description: why,
-        onChoose: () => setMenu((m) => (m ? { ...m, level: 'move' } : m)) },
-      ...(listKind ? [{ kind: 'item', key: 'also', label: t('board.cardMenu.alsoAdd'), content: <span className="menu-title">{t('board.cardMenu.alsoAdd')}</span>, disabled: !!why, description: why,
-        onChoose: () => setMenu((m) => (m ? { ...m, level: 'also' } : m)) } as MenuEntry] : []),
+      { kind: 'item', key: 'open', label: t('pinned.open'), content: <span className="menu-title">{t('pinned.open')}</span>, onChoose: () => { closeMenu(); open(path, lane); } },
+      { kind: 'item', key: 'move', label: t('board.cardMenu.moveTo'), content: <span className="menu-title" data-menu-key="move">{t('board.cardMenu.moveTo')}</span>, disabled: !!why, description: why,
+        onChoose: () => openSub('move', itemEl('move')?.closest<HTMLElement>('[role="menuitem"]') ?? null) },
+      ...(listKind ? [{ kind: 'item', key: 'also', label: t('board.cardMenu.alsoAdd'), content: <span className="menu-title" data-menu-key="also">{t('board.cardMenu.alsoAdd')}</span>, disabled: !!why, description: why,
+        onChoose: () => openSub('also', itemEl('also')?.closest<HTMLElement>('[role="menuitem"]') ?? null) } as MenuEntry] : []),
     ];
   };
 
@@ -338,14 +351,26 @@ export function QueryBoard({ result, name, title, readOnly, types, filter, apply
           const r = row(key);
           if (!r) return null;
           return (
-            <BoardCard key={`${laneId}\n${key}`} row={r} laneId={laneId} columns={def.columns} type={typeOf(r.type)} typeName={typeName(r.type)} group={group}
-              slot={{ ...slot, onKeyDown: (e) => { if (e.key === 'F10' && e.shiftKey && e.target === e.currentTarget) { e.preventDefault(); setMenu({ row: r, anchor: e.currentTarget, lane: laneId, level: 'root' }); return; } slot.onKeyDown(e); } }}
+            <BoardCard key={`${laneId}\n${key}`} row={r} laneId={laneId} columns={columns ?? def.columns} type={typeOf(r.type)} typeName={typeName(r.type)} group={group}
+              slot={{ ...slot, onKeyDown: (e) => { if (e.key === 'F10' && e.shiftKey && e.target === e.currentTarget) { e.preventDefault(); setSub(null); setMenu({ row: r, anchor: e.currentTarget, lane: laneId }); return; } slot.onKeyDown(e); } }}
               onOpen={(p) => open(p, laneId)}
-              onMenu={(rr, anchor, lane) => setMenu({ row: rr, anchor, lane, level: 'root' })} />
+              onMenu={(rr, anchor, lane) => { setSub(null); setMenu({ row: rr, anchor, lane }); }} />
           );
         }} />
       {menu && (
-        <PopupMenu key={menu.level} label={t('task.more', { title: menu.row.title })} anchor={menu.anchor} entries={menuEntries()} onClose={() => setMenu(null)} />
+        <PopupMenu label={t('task.more', { title: menu.row.title })} anchor={menu.anchor} entries={menuEntries()} onClose={closeMenu} fit popupId="card.menu"
+          keepOpenOn={() => [document.querySelector<HTMLElement>('[data-popup="card.moveTo"], [data-popup="card.alsoAdd"]')]}
+          onItemHover={(key, el) => { if (key === 'move' || key === 'also') openSub(key, el); else setSub(null); }}
+          onKeyDownExtra={(e, focused) => {
+            const key = focused?.querySelector('[data-menu-key]')?.getAttribute('data-menu-key');
+            if (e.key === 'ArrowRight' && (key === 'move' || key === 'also')) { e.preventDefault(); openSub(key, focused); return true; }
+            return false;
+          }} />
+      )}
+      {menu && sub && (
+        <PopupMenu key={sub.level} label={t(sub.level === 'move' ? 'board.cardMenu.moveTo' : 'board.cardMenu.alsoAdd')} anchor={sub.anchor} entries={subEntries()}
+          onClose={() => setSub(null)} fit openerKind="submenu" popupId={sub.level === 'move' ? 'card.moveTo' : 'card.alsoAdd'}
+          onKeyDownExtra={(e) => { if (e.key === 'ArrowLeft') { e.preventDefault(); const a = sub.anchor; setSub(null); a.focus(); return true; } return false; }} />
       )}
     </div>
   );

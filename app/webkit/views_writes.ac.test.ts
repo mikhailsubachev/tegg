@@ -53,10 +53,14 @@ test('fr_syn_03_ac30_view_writes_check_the_base', async ({ page }) => {
   await click(laneRadio(toolbar(page), 'Horizontal'), 'Horizontal');
   assert.ok(await seen(alertWith(page, QUERY_OUT), 3000), 'Switch lanes on a changed Rozečtené.yml: refused');
   assert.equal(await fileText(core, qfile(Q.roz)), q, 'nothing written');
-  await selectTab(page, Q.p26);
+  // Q2.1 (FR-SYN-03 AC-31): on a tab a header click now writes book.yml's item; the query-file refusal stands on the
+  // query page.
   const p = await silently(core, qfile(Q.p26));
-  await click(panelOf(page).getByRole('columnheader', { name: /^⟦?Rating/ }), 'header Rating');
+  await runCommand(page, 'Go to Queries');
+  await click(main(page).locator(`tr[data-query-row="${Q.p26}"] a`).first(), 'query/Přečtené 2026');
+  await click(main(page).getByRole('columnheader', { name: /^⟦?Rating/ }), 'header Rating');
   assert.equal(await eventually(() => fileText(core, qfile(Q.p26)), (x) => x === p, 1000), p, 'a header click is refused');
+  await runCommand(page, 'Go to type: Books');
   // A card drag: refused, the card returns to its disk state's lane, the alert names the book.
   await selectTab(page, Q.roz);
   const b = await must(board(page, Q.roz), 'Rozečtené');
@@ -181,9 +185,10 @@ test('fr_sto_07_ac10_view_state_is_machine_local', async ({ page }) => {
   await selectTab(page, Q.zanr);
   await click(lane(board(page, Q.zanr), 'option:Román').getByRole('button', { name: rx('Collapse Román') }), 'fold Román');
   await selectTab(page, Q.p26);
-  const ui = await eventually(() => uiState(core), (u) => u?.typeViews?.lastTab?.book === Q.p26 && Array.isArray(u?.boardFolded?.[Q.zanr]));
+  // Q2.1 (R198, FR-STO-07 AC-11): folds under the tab's usage key; `typeViews.lastTab` stands.
+  const ui = await eventually(() => uiState(core), (u) => u?.typeViews?.lastTab?.book === Q.p26 && Array.isArray(u?.usageFolded?.['tab:book/podle žánru']));
   assert.equal(ui?.typeViews?.lastTab?.book, Q.p26, 'typeViews.lastTab.book');
-  assert.deepEqual(ui?.boardFolded?.[Q.zanr], ['option:Román'], 'boardFolded["Podle žánru"]');
+  assert.deepEqual(ui?.usageFolded?.['tab:book/podle žánru'], ['option:Román'], 'usageFolded["tab:book/podle žánru"]');
   assert.deepEqual(Object.keys(await core.files()).filter((k) => k.startsWith('.tegg/')).sort(), before, 'nothing under .tegg/ created');
   assert.deepEqual(await writes(core), [], 'nothing written');
   // A Tegg rename moves the keys; an external rename leaves them.
@@ -195,7 +200,7 @@ test('fr_sto_07_ac10_view_state_is_machine_local', async ({ page }) => {
   assert.equal(moved?.typeViews?.lastTab?.book, 'Přečtené letos', 'the rename moves the last-tab key');
   await core.renameFile(qfile(Q.zanr), qfile('Žánry'));
   await sleep(500);
-  assert.deepEqual((await uiState(core))?.boardFolded?.[Q.zanr], ['option:Román'], 'an external rename leaves the folds unused (not moved)');
+  assert.deepEqual((await uiState(core))?.usageFolded?.['tab:book/podle žánru'], ['option:Román'], 'an external rename leaves the folds unused (not moved)');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-LNK-03 AC-24

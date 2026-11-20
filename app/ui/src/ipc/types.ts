@@ -215,7 +215,19 @@ views: Array<string> | null,
 /**
  * `views` is present but not a list of strings: no tab change is written (R184).
  */
-viewsUnreadable: boolean, };
+viewsUnreadable: boolean, 
+/**
+ * Slice Q2.1 (v1-views §17.3, D-1855): the `views:` items, same order and length as `views` (repeats kept); null as
+ * `views`.
+ */
+viewItems: Array<ViewItemDto> | null, 
+/**
+ * Slice Q2.1 (v1-views §17.3, D-1852): the exact text of the `views` key's lines (key line through its last line, EOLs
+ * included); null when the key is absent.
+ */
+viewsSource: string | null, };
+export type ViewItemDto = { name: string, sort: Array<UsageSortDto> | null, sortBroken: boolean, columns: Array<string> | null, columnsBroken: boolean, plain: boolean, };
+export type UsageSortDto = { by: string, order: "asc" | "desc", };
 export type TypeFileErrorDto = { message: string, line: number, };
 export type OptionDto = { label: string, color: string | null, 
 /**
@@ -237,7 +249,7 @@ supported: boolean,
 readOnlyReason: string | null, default: unknown | null, required: boolean, options: Array<OptionDto>, to: Array<string> | null, multiple: boolean, description: string | null, builtIn: boolean, };
 export type AttributeInputDto = { key: string, name: string, type: string, default: unknown | null, required: boolean, options: Array<OptionDto>, to: Array<string> | null, multiple: boolean, description: string | null, };
 export type AttributeChangeDto = { name?: string, type?: string, default?: unknown | null, required?: boolean, options?: Array<OptionDto>, to?: string[] | null, multiple?: boolean, description?: string | null, };
-export type TypeOpDto = { "op": "set", field: string, value: string | null, } | { "op": "review", on: boolean, } | { "op": "preview", keys: Array<string>, } | { "op": "columns", keys: Array<string>, } | { "op": "hidden", keys: Array<string>, } | { "op": "embed", mode: string, } | { "op": "addAttribute", attribute: AttributeInputDto, } | { "op": "updateAttribute", key: string, change: AttributeChangeDto, } | { "op": "removeAttribute", key: string, } | { "op": "moveAttribute", key: string, to: number, } | { "op": "setOptionState", attr: string, label: string, state: string, } | { "op": "addOption", attr: string, option: OptionDto, } | { "op": "setOptionColor", attr: string, label: string, color: string, } | { "op": "moveOption", attr: string, label: string, to: number, } | { "op": "removeOption", attr: string, label: string, } | { "op": "renameOption", attr: string, from: string, to: string, } | { "op": "views", names: Array<string>, };
+export type TypeOpDto = { "op": "set", field: string, value: string | null, } | { "op": "review", on: boolean, } | { "op": "preview", keys: Array<string>, } | { "op": "columns", keys: Array<string>, } | { "op": "hidden", keys: Array<string>, } | { "op": "embed", mode: string, } | { "op": "addAttribute", attribute: AttributeInputDto, } | { "op": "updateAttribute", key: string, change: AttributeChangeDto, } | { "op": "removeAttribute", key: string, } | { "op": "moveAttribute", key: string, to: number, } | { "op": "setOptionState", attr: string, label: string, state: string, } | { "op": "addOption", attr: string, option: OptionDto, } | { "op": "setOptionColor", attr: string, label: string, color: string, } | { "op": "moveOption", attr: string, label: string, to: number, } | { "op": "removeOption", attr: string, label: string, } | { "op": "renameOption", attr: string, from: string, to: string, } | { "op": "views", names: Array<string>, } | { "op": "viewSort", name: string, sort: Array<UsageSortDto> | null, } | { "op": "viewColumns", name: string, columns: Array<string> | null, } | { "op": "viewsSource", source: string, };
 export type TypeUsageDto = { objects: number, values: { [key in string]?: number }, options: { [key in string]?: { [key in string]?: number } }, };
 export type TypeRowDto = { path: string, id: string | null, title: string, created: string | null, modified: string | null, values: Record<string, unknown>, links: Array<LinkTargetDto>, typeSingle: boolean, };
 export type TypeTemplateDto = { path: string, text: string, };
@@ -350,7 +362,15 @@ queryColumnWidths?: { [key in string]?: { [key in string]?: number } },
 /**
  * Slice Q2 (v1-views §4.7): the folded lane ids of a horizontal board per saved query name.
  */
-boardFolded?: { [key in string]?: Array<string> }, };
+boardFolded?: { [key in string]?: Array<string> }, 
+/**
+ * Slice Q2.1 (v1-views §19.3, R198): column widths in px per usage key, then column key.
+ */
+usageColumnWidths?: { [key in string]?: { [key in string]?: number } }, 
+/**
+ * Slice Q2.1 (v1-views §19.3, R198): the folded lane ids of a horizontal board per usage key.
+ */
+usageFolded?: { [key in string]?: Array<string> }, };
 export type LinkTargetDto = { target: string, 
 /**
  * `note`, `daily`, `date-missing` or `unresolved`.

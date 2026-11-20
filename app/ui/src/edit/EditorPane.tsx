@@ -48,7 +48,7 @@ import { conversionHooks, convert as runConvert, type ConvertHost } from '../con
 import { convertPrefs, setConvertPrefs } from '../convert/prefs';
 import { tagChipStyle } from '../theme/tagChip';
 import { mindmapUi } from '../mindmap/mount';
-import { mountQueryBlock, openQueryBlockAt, refreshQueryBlocks } from '../queries/mount';
+import { frontmatterId, mountQueryBlock, openQueryBlockAt, ordinalAt, refreshQueryBlocks } from '../queries/mount';
 import { openQueryPicker } from '../queries/QueryPicker';
 import { noteTitle } from '../read/ReadView';
 import { editLinkAtCaret, editorChips, type EditorChipsHost } from '../preview/editorChips';
@@ -255,7 +255,12 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       ...chips,
       onExternal: (url) => cb.current.onExternal(url),
       // Slice Q (v1-queries §3.2): query blocks are drawn by the app; ⌘↩ on a selected one opens its editor (R144).
-      query: (source, dom, ctl) => mountQueryBlock(source, dom, ctl, { path: () => pathRef.current, dropDraft: (pos) => { edRef.current?.commands.dropQueryDraft(pos); } }),
+      // Slice Q2.1 (v1-views §18, CP-16): each block is a usage keyed by the note's `id` (else its path) and its place.
+      query: (source, dom, ctl) => mountQueryBlock(source, dom, ctl, {
+        path: () => pathRef.current, dropDraft: (pos) => { edRef.current?.commands.dropQueryDraft(pos); },
+        note: () => ({ id: frontmatterId(String(edRef.current?.view.state.doc.attrs.frontmatter ?? '')), path: pathRef.current }),
+        ordinal: (pos) => { const e = edRef.current; return e ? ordinalAt(e.queryBlocks(), pos) : null; },
+      }),
       onQueryKey: (pos) => openQueryBlockAt(pos),
       // 4F: block embeds render through the page's embed store; inline embeds are link-mode chips (D-419).
       embed: embeds ? (source, dom, getPos) => mountEmbed(embeds, source, dom, getPos) : undefined,

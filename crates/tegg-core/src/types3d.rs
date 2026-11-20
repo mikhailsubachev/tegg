@@ -37,6 +37,9 @@ pub struct TypeInfo {
     pub columns_unreadable: bool,
     /// v1-views §1.3: `views` is present but not a list of strings (the tabs can't be written, R184).
     pub views_unreadable: bool,
+    /// v1-views §14.1 (D-1852, D-1855): the `views:` items and the exact text of the `views` key's lines.
+    pub view_items: Option<Vec<tegg_schema::ViewItem>>,
+    pub views_source: Option<String>,
     /// D-417 (ms4-embeds §3): the effective default embed mode and the raw `embed` value.
     pub embed: tegg_schema::EmbedMode,
     pub embed_raw: Option<String>,
@@ -88,6 +91,11 @@ fn type_path(key: &str) -> String {
 
 pub(crate) fn info(key: &str, text: Option<&[u8]>, version: Option<FileVersion>) -> TypeInfo {
     let exists = text.is_some();
+    // v1-views §14.1 (D-1852): the `views` key's lines as written.
+    let views_source = match text {
+        Some(bytes) => std::str::from_utf8(bytes).ok().and_then(tegg_schema::views_source),
+        None => tegg_schema::builtin(key).and_then(tegg_schema::views_source),
+    };
     let parsed = match text {
         Some(bytes) => match std::str::from_utf8(bytes) {
             Ok(t) => tegg_schema::parse(key, t),
@@ -117,6 +125,8 @@ pub(crate) fn info(key: &str, text: Option<&[u8]>, version: Option<FileVersion>)
         columns_ignored: parsed.columns_ignored.clone(),
         columns_unreadable: parsed.columns_unreadable,
         views_unreadable: parsed.views_unreadable,
+        view_items: parsed.view_items.clone(),
+        views_source,
         embed: tegg_schema::effective_embed(&d.key, parsed.embed_raw.as_deref()),
         embed_raw: parsed.embed_raw.clone(),
     }

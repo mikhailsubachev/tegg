@@ -18,10 +18,10 @@ import type { List, ListItem } from 'mdast'
 import { pmToBlock } from './convert'
 import { htmlToMarkdown } from './html'
 import { linkText, type LinkChoice } from './links'
-import { calloutFolds, chipAtCaret as chipAt, focusedMindmap, hintElement, isQueryCode, isQueryNode, linkTarget as linkParts, mindmapViews, PENDING_EMBED, presentation, querySource, uiRefresh, type EditorUi } from './present'
+import { calloutFolds, chipAtCaret as chipAt, focusedMindmap, hintElement, isQueryCode, isQueryNode, linkTarget as linkParts, mindmapViews, PENDING_EMBED, presentation, QUERY_SOURCE_META, querySource, uiRefresh, type EditorUi } from './present'
 import { TeggRules } from './rules'
 import { teggExtensions, wikiLabel } from './schema'
-import { attach, END_LIST, loadDoc, reconcile, VerifyError, type Loaded } from './sourceDoc'
+import { attach, END_LIST, loadDoc, queryWritesFit, reconcile, VerifyError, type Loaded } from './sourceDoc'
 
 export type Now = () => string
 
@@ -698,6 +698,9 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
   editor.registerPlugin(new Plugin({
     filterTransaction: (tr, state) => {
       if (loading || tr.getMeta('teggLoad')) return true
+      // D-1885 (v1-views §13.3): a query block's write inside a container applies only when the save can patch the
+      // fence's lines; otherwise nothing changes and `setSource` returns false (the app shows `query.saveFailed`).
+      if (tr.getMeta(QUERY_SOURCE_META) && tr.docChanged && !queryWritesFit(loaded, tr.doc)) return false
       const h = tr.getMeta(HISTORY) as { redo: boolean } | undefined
       if (h?.redo && opts.conversion) {
         const c = conversions.find((x) => x.state === 'undone' && x.before.content.eq(state.doc.content) && x.after.content.eq(tr.doc.content))

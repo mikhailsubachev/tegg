@@ -400,6 +400,8 @@ class RawBlockView implements NodeView {
     this.table = null
   }
   stopEvent(e: Event) {
+    // v1-views §13.3 (D-1839, D-1862): ⌘Z / ⇧⌘Z on a query block reach the editor's history (FR-QRY-01 AC-14 (b)).
+    if (String(this.node.attrs.kind) === 'query' && isHistoryKey(e)) return false
     if (this.handle) {
       // The embed's own controls and its nested editor handle their events (AP-349: a click elsewhere selects it).
       const el = e.target as HTMLElement | null
@@ -414,6 +416,16 @@ class RawBlockView implements NodeView {
 }
 
 // ------------------------------------------------------------------------------------------------ slice Q
+
+/** v1-views §13.3 (D-1839, D-1862): ⌘Z or ⇧⌘Z pressed on a query block's own controls (not in a text field, which keeps
+ *  its own undo). The query node views let it reach the editor, so it undoes the block's last write (`setSource`). */
+function isHistoryKey(e: Event): boolean {
+  if (e.type !== 'keydown') return false
+  const k = e as KeyboardEvent
+  if (!(k.metaKey || k.ctrlKey) || k.altKey || k.key.toLowerCase() !== 'z') return false
+  const el = e.target as HTMLElement | null
+  return !el?.closest?.('input, textarea, select') && !el?.isContentEditable
+}
 
 /** A nested query fence: a `codeBlock` whose language is exactly `query` (R140, D-1470). */
 export function isQueryCode(node: PMNode | null | undefined): boolean {
@@ -444,12 +456,16 @@ function bodyFrom(source: string): string {
   return source.replace(/\r\n?/g, '\n')
 }
 
-/** Replaces the query block at `pos` with `source` as one transaction and one undo step; clears `draft`. */
+/** The meta of a `setSource` transaction: the editor refuses it when the save couldn't write it (D-1885). */
+export const QUERY_SOURCE_META = 'teggQuerySource'
+
+/** Replaces the query block at `pos` with `source` as one transaction and one undo step; clears `draft`. False when
+ *  the editor refused the transaction (a nested fence whose container can't be patched, D-1885): nothing changed. */
 export function setQuerySource(view: EditorView, pos: number, source: string): boolean {
   if (!view.editable) return false
   const node = view.state.doc.nodeAt(pos)
   if (!node || !isQueryNode(node)) return false
-  const tr = closeHistory(view.state.tr)
+  const tr = closeHistory(view.state.tr).setMeta(QUERY_SOURCE_META, true)
   if (node.type.name === 'rawBlock') {
     if (node.attrs.source === source && !node.attrs.draft) return true
     tr.setNodeMarkup(pos, undefined, { ...node.attrs, source, draft: false })
@@ -459,7 +475,7 @@ export function setQuerySource(view: EditorView, pos: number, source: string): b
     tr.replaceWith(pos + 1, pos + node.nodeSize - 1, body ? view.state.schema.text(body) : [])
   }
   view.dispatch(tr)
-  return true
+  return view.state.doc === tr.doc
 }
 
 function queryCtl(view: EditorView, getPos: () => number | undefined, node: () => PMNode, nested: boolean): QueryCtl {
@@ -534,6 +550,8 @@ class QueryCodeView implements NodeView {
   stopEvent(e: Event) {
     const el = e.target as HTMLElement | null
     if (el === this.dom) return false
+    // v1-views §13.3 (D-1862): ⌘Z / ⇧⌘Z reach the editor's history.
+    if (isHistoryKey(e)) return false
     return e.type.startsWith('key') || e.type === 'beforeinput' || e.type === 'paste' || !!el?.closest?.('button, a, input, select, textarea, [role="menu"], [role="link"]')
   }
   ignoreMutation() {

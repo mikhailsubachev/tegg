@@ -46,7 +46,8 @@ test('fr_qry_05_ac10_board_by_select', async ({ page }) => {
   await click(toolbarMenuButton(page), '⋯');
   await click(menuItem(await must(viewMenu(page), 'menu'), 'Edit view'), 'Edit view');
   const view = editor(page).getByRole('radiogroup', { name: rx('View') });
-  assert.deepEqual(await view.getByRole('radio').allInnerTexts(), ['Table', 'List', 'Board'], 'the View control offers Table, List, Board');
+  // D-1886: wait until the dialog shows its options before reading them (allInnerTexts doesn't wait).
+  assert.deepEqual(await eventually(() => view.getByRole('radio').allInnerTexts(), (t) => t.length === 3, 5000), ['Table', 'List', 'Board'], 'the View control offers Table, List, Board');
   await page.keyboard.press('Escape');
   // A runtime lane_order: [To read] lists the others after it in option order.
   await core.setFile(qfile(Q.roz), swap(original(qfile(Q.roz)), 'lane_order: [Reading, To read, Read]\n', 'lane_order: [To read]\n'));
@@ -271,8 +272,9 @@ test('fr_qry_05_ac18_folding_rows_is_machine_local', async ({ page }) => {
   assert.ok(roman?.folded, 'Román folded');
   assert.equal(flat(await textOf(lane(b, 'option:Román').locator('span.count'))), '6', 'its header keeps the count 6');
   assert.equal(await card(b, B('Dům u řeky'), 'option:Román').count(), 0, 'its cards are hidden');
-  const ui = await eventually(() => uiState(core), (u) => Array.isArray(u?.boardFolded?.[Q.zanr]));
-  assert.deepEqual(ui?.boardFolded?.[Q.zanr], ['option:Román'], 'boardFolded["Podle žánru"] in ui-state.json');
+  // Q2.1 (AP-1526, R198): folds are per usage, the tab's key.
+  const ui = await eventually(() => uiState(core), (u) => Array.isArray(u?.usageFolded?.['tab:book/podle žánru']));
+  assert.deepEqual(ui?.usageFolded?.['tab:book/podle žánru'], ['option:Román'], 'usageFolded["tab:book/podle žánru"] in ui-state.json');
   await chevron('Detektivka', 'Collapse').click({ modifiers: ['Alt'] });
   assert.ok(await eventually(async () => (await lanes(b)).filter((l) => l.id !== 'none').every((l) => l.folded), (x) => x), '⌥-click folds every row');
   await chevron('Detektivka', 'Expand').click({ modifiers: ['Alt'] });

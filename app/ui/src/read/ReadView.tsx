@@ -5,7 +5,7 @@ import { cloneElement, Fragment, isValidElement, useMemo, useState, type ReactNo
 import { chipIcon } from '../links/icons';
 import { chipParts, joinDescriptions } from '../links/ChipParts';
 import { requestOffer } from '../links/offer';
-import { calloutBody, displayTables, displayTablesAt, isMindmapBlock, isMindmapHint, markdownTree, mindmapTree, parse, wikilinks } from '@tegg/doc';
+import { calloutBody, displayTables, displayTablesAt, isMindmapBlock, isMindmapHint, markdownTree, mindmapTree, parse, savedName, wikilinks } from '@tegg/doc';
 import { MindmapMap } from '../mindmap/MindmapMap';
 import type { MindmapEdit } from '@tegg/editor';
 import { t } from '../i18n/catalog';
@@ -14,6 +14,7 @@ import type { EmbedTree } from '../embeds/tree';
 import { Icon, typeIconName } from '../shell/Icon';
 import { calloutType } from './callout';
 import { QueryBlock } from '../queries/QueryBlock';
+import { nameKey, type Usage } from '../views/usage';
 import { MediaView } from '../media/MediaView';
 import { openDate } from '../daily/open';
 import { useReference, type ReferenceOpts } from '../preview/useReference';
@@ -131,7 +132,11 @@ function plainText(n: Any): string {
 
 type Ctx = ReadViewProps & { src: string; slug: (s: string) => string; inLink: boolean; lineOffset: number; tops: WeakSet<object>; readOnlyTables?: Set<number>; title: string;
   /** Inside a mindmap node: embeds show their chip only and files are never read (D-774). */
-  inMap?: boolean };
+  inMap?: boolean;
+  /** Slice Q2.1 (R198, CP-16): the note's key parts and the query blocks counted so far per query (render walk). */
+  noteKey?: { id: string | null; path: string };
+  /** Slice Q2.1: each `query` fence's ordinal among the note's blocks of the same query (file order, whole note). */
+  queryOrd?: Map<object, number> };
 
 /** Slice P (R104 rows 2, 11): a chip that is a reference: click, double-click, keys and hover map through R103. */
 function RefChip(p: Parameters<typeof Chip>[0] & { reference: ReferenceOpts }) {
@@ -561,7 +566,16 @@ function block(c: Ctx, n: Any, key: number): ReactNode {
       const lang = n.lang ? String(n.lang) : null;
       // Slice Q (R140, R141, D-1464, D-1499): a fence whose info string's first word is exactly `query` is a query
       // block at any depth; the host is the note shown (an embed's own note, FR-QRY-03 AC-6).
-      if (lang === 'query') return <QueryBlock key={key} source={{ kind: 'fence', body: String(n.value ?? '') }} host={c.path} />;
+      if (lang === 'query') {
+        // Slice Q2.1 (D-1839): a usage that can't be written here (no editor), keyed by its place in the note.
+        const body = String(n.value ?? '');
+        const saved = savedName(body);
+        let usage: Usage | null = null;
+        // The ordinal is counted over the whole note once (ReadView's memo), so a windowed preview's block gets its `n`.
+        const ord = c.queryOrd?.get(n);
+        if (saved && ord !== undefined) usage = { kind: 'block', note: c.noteKey ?? { id: null, path: c.path }, name: saved, n: ord, editable: false };
+        return <QueryBlock key={key} source={{ kind: 'fence', body }} host={c.path} usage={usage} />;
+      }
       return <CodeBlock key={key} lang={lang}>{n.value}</CodeBlock>;
     }
     case 'math':
@@ -639,18 +653,43 @@ export function noteTitle(doc: ReturnType<typeof parse>, path: string): string {
   return (typeof t === 'string' && t.trim() !== '' ? t : path.split('/').pop()!.replace(/\.md$/, '')).normalize('NFC');
 }
 
+/** Slice Q2.1 (D-1839): every `query` fence's ordinal among the fences referring to the same saved query, in file order
+ *  over the whole tree (a windowed preview renders only some blocks, R198's `#n`). */
+function queryOrdinals(tree: Any): Map<object, number> {
+  const out = new Map<object, number>();
+  const count = new Map<string, number>();
+  const walk = (n: Any) => {
+    if (n.type === 'code' && n.lang && String(n.lang) === 'query') {
+      const saved = savedName(String(n.value ?? ''));
+      if (saved) {
+        const k = nameKey(saved);
+        const ord = (count.get(k) ?? 0) + 1;
+        count.set(k, ord);
+        out.set(n, ord);
+      }
+      return;
+    }
+    for (const ch of (n.children as Any[] | undefined) ?? []) walk(ch);
+  };
+  walk(tree);
+  return out;
+}
+
 export function ReadView(props: ReadViewProps) {
   const text = props.text.replace(/^﻿/, '');
   // Parsed once per text: a windowed preview (D-934) renders again for every scroll step of a long note.
-  const { doc, shown, tree } = useMemo(() => {
+  const { doc, shown, tree, queryOrd } = useMemo(() => {
     const doc = parse(text);
     // D-606: a table GFM would split inside a `[[…|…]]` or with uneven rows is shown as Tegg reads it (lines kept).
     const shown = displayTablesAt(text.slice(doc.bodyStart));
-    return { doc, shown, tree: markdownTree(shown.text) as unknown as Any };
+    const tree = markdownTree(shown.text) as unknown as Any;
+    return { doc, shown, tree, queryOrd: queryOrdinals(tree) };
   }, [text]);
   const body = shown.text;
   const lineOffset = (props.lineBase ?? 0) + text.slice(0, doc.bodyStart).split('\n').length - 1;
-  const c: Ctx = { ...props, src: body, slug: slugger(), inLink: false, lineOffset, tops: new WeakSet(), readOnlyTables: new Set(shown.lines), title: props.noteTitle ?? noteTitle(doc, props.path) };
+  const fid = doc.frontmatter?.data?.id;
+  const c: Ctx = { ...props, src: body, slug: slugger(), inLink: false, lineOffset, tops: new WeakSet(), readOnlyTables: new Set(shown.lines), title: props.noteTitle ?? noteTitle(doc, props.path),
+    noteKey: { id: typeof fid === 'string' && fid.trim() ? fid.trim().normalize('NFC') : null, path: props.path }, queryOrd };
   if (props.mindmapOnly) {
     const first = (tree.children as Any[])[0];
     if (!first) return null;

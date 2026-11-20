@@ -4,18 +4,23 @@
 // read-only), the List body (Backlinks chips, D-368) and the Table body (virtualized, at most 60 rows in the DOM, header
 // sorts and the Columns menu writing the query file once, D-1444, AP-1294), `Show more` paging in memory (D-1443) and
 // the new-object footer (D-1439). Used by the read view, the editor (`EditorUi.query`), embeds and the query page.
-import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type MutableRefObject } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type MutableRefObject } from 'react';
+import { createPortal } from 'react-dom';
 import { newQueryFence, referenceFence, savedName, withSavedName } from '@tegg/doc';
 import { t } from '../i18n/catalog';
 import { events, ipc } from '../ipc/client';
-import type { BrokenDto, FilterItemDto, QueryDefDto, QueryDto, QueryResultDto, QueryRowDto, QuerySourceDto } from '../ipc/queries';
+import type { BrokenDto, FilterItemDto, QueryDefDto, QueryDto, QueryResultDto, QueryRowDto, QuerySourceDto, SortDto } from '../ipc/queries';
 import { buttonText, headerClick, levels, sameSort } from './sort';
 import type { TypeDto, VersionDto } from '../ipc/types';
 import { chipIcon, chipTypes, onChipTypes, typeNameOf } from '../links/icons';
 import { chipParts } from '../links/ChipParts';
 import { RefElement } from '../preview/useReference';
 import { Icon, typeIconName } from '../shell/Icon';
+import { usePopupPlacement } from '../shell/usePopupPlacement';
 import { useViewsHandler } from '../views/actions';
+import { canUseQuery, usageKey, type Usage } from '../views/usage';
+import { registerUsage } from '../views/usageHook';
+import { useUsageWrite } from '../views/useUsageWrite';
 import { LanesSwitch, QueryBoard, type BoardControl } from './board/QueryBoard';
 import { ResultsTable } from './ResultsTable';
 import { SortPopover, sortKeyName } from './SortPopover';
@@ -64,6 +69,8 @@ export type QueryBlockProps = {
   apiRef?: MutableRefObject<QueryBlockApi | null>;
   /** The page's query as read (its title, state), when known. */
   query?: QueryDto | null;
+  /** Slice Q2.1 (v1-views §16.1, §18): the usage this block is (a block in a note, the query page's defaults). */
+  usage?: Usage | null;
 };
 
 const nfc = (s: string) => s.normalize('NFC');
@@ -180,6 +187,8 @@ export function QueryBlock(p: QueryBlockProps) {
       selectTitle: draft,
       focusFilter: o.focusFilter ?? null,
       def: draft ? DRAFT_DEF() : null,
+      // Slice Q2.1 (§16.1): from a block, `On cards` and the preview are the block's own (D-1844, D-1859).
+      usage: isBlockUsage && !draft ? { sort: uw.current().sort, columns: uw.current().columns, setColumns: (c) => uw.columns(c), disabled: uw.disabled } : null,
       onResult: (r) => setLive(r),
       onCommitted: ({ query, undo: before }) => {
         // The version `query_apply` wrote is the undo's base: a change outside Tegg since then is a Conflict, never
@@ -270,6 +279,33 @@ export function QueryBlock(p: QueryBlockProps) {
     undo.current = null;
     writer.apply(patch);
   };
+  // ---- Slice Q2.1 (R194, R197): a reference block is a usage with its own sort and columns, written to its fence; the
+  // query page shows and sets the defaults (the query file, as above).
+  const usage = p.usage ?? null;
+  const isBlockUsage = !!usage && usage.kind === 'block' && form === 'reference' && !draft;
+  const uw = useUsageWrite(isBlockUsage ? usage : null, run.result, { type: null, ctl: p.ctl ?? null, fenceSource: p.fenceSource ?? null, rerun: () => run.rerun() });
+  const usageRun = !live ? run.result?.usage ?? null : null;
+  const effSort = def ? (isBlockUsage && !live ? uw.current().sort : (usage?.kind === 'page' ? writer.current()?.sort ?? def.sort : def.sort)) : [];
+  const effColumns = def ? (isBlockUsage && !live ? uw.current().columns : def.columns) : [];
+  /** Why the sort and column controls are refused (R194), else null. */
+  const usageDisabled = isBlockUsage ? uw.disabled : readOnly ? t('query.block.readOnly') : null;
+  const ownSort: boolean | 'broken' = usageRun ? (usageRun.broken.some((b) => b.key === 'sort') ? 'broken' : usageRun.own.sort !== null) : false;
+  const ownColumns: boolean | 'broken' = usageRun ? (usageRun.broken.some((b) => b.key === 'columns') ? 'broken' : usageRun.own.columns !== null) : false;
+  const uKey = isBlockUsage || usage?.kind === 'page' ? usageKey(usage!) : null;
+  const sortTo = (next: SortDto[] | null) => {
+    if (isBlockUsage) { undo.current = null; void uw.sort(next); return; }
+    if (next) apply({ sort: next });
+  };
+  const columnsTo = (next: string[] | null) => {
+    if (isBlockUsage) { undo.current = null; void uw.columns(next); return; }
+    if (next) apply({ columns: next });
+  };
+  const usageInfo = useRef({ uKey, usage, ownSort, ownColumns, editable: !usageDisabled });
+  usageInfo.current = { uKey, usage, ownSort, ownColumns, editable: !usageDisabled };
+  useEffect(() => registerUsage(() => (usageInfo.current.uKey ? figure.current : null), () => {
+    const i = usageInfo.current;
+    return { key: i.uKey ?? '', kind: i.usage?.kind ?? 'block', name: (i.usage?.name ?? '').normalize('NFC'), ownSort: i.ownSort, ownColumns: i.ownColumns, editable: i.editable };
+  }), []);
   const [sortOpen, setSortOpen] = useState<{ add: boolean } | null>(null);
   const sortBtn = useRef<HTMLButtonElement | null>(null);
   const board = useRef<BoardControl | null>(null);
@@ -287,15 +323,18 @@ export function QueryBlock(p: QueryBlockProps) {
   const view = def?.view ?? 'list';
   // D-1773: a board query draws its board (a broken `group_by` draws a List with its notice, R185).
   const isBoard = view === 'board' && !!result?.group;
-  const sortTitle = def ? (() => { const b = buttonText(def.sort, (k) => sortKeyName(k, def.types.length === 1 ? types.find((x) => nfc(x.key) === nfc(def.types[0])) : undefined).label); return b.text + (b.more ? ` ${t('sort.more', { count: b.more })}` : ''); })() : undefined;
+  const sortTitle = def ? (() => { const b = buttonText(effSort, (k) => sortKeyName(k, def.types.length === 1 ? types.find((x) => nfc(x.key) === nfc(def.types[0])) : undefined).label); return b.text + (b.more ? ` ${t('sort.more', { count: b.more })}` : ''); })() : undefined;
   // The palette (v1-views §4.7): a selected block, or the query page's block.
   useViewsHandler(!!(p.selected || p.onPage) && !!name && !inline, {
     status: () => ({
       typeKey: null, tab: null, writable: !readOnly && !!def, viewWritable: !readOnly && !!def,
-      board: isBoard ? board.current?.status() ?? null : null, sortable: !!def && !readOnly,
+      board: isBoard ? board.current?.status() ?? null : null, sortable: !!def && !usageDisabled,
+      usage: isBlockUsage && !usageDisabled && run.result ? { kind: 'block' as const, ownSort: canUseQuery(run.result, 'sort'), ownColumns: canUseQuery(run.result, 'columns') } : null,
     }),
     run: (id) => {
-      if (id === 'sort.addLevel') { if (!readOnly && def) setSortOpen({ add: true }); return; }
+      if (id === 'sort.addLevel') { if (!usageDisabled && def) setSortOpen({ add: true }); return; }
+      if (id === 'sort.useQuery') { sortTo(null); return; }
+      if (id === 'columns.useQuery') { columnsTo(null); return; }
       board.current?.run(id);
     },
   });
@@ -405,9 +444,9 @@ export function QueryBlock(p: QueryBlockProps) {
             // R188 (board G): the sort button, an icon with the number of levels.
             <button ref={sortBtn} type="button" tabIndex={0} className="query-head-button query-sort" data-command="sort.open" aria-label={t('sort.button')}
               aria-haspopup="dialog" aria-expanded={!!sortOpen} title={sortTitle}
-              aria-disabled={readOnly || undefined} aria-description={readOnly ? t('query.block.readOnly') : undefined}
-              onClick={() => { if (!readOnly) setSortOpen((o) => (o ? null : { add: false })); }}>
-              <Icon name="sort" size={13} /><span className="sort-count" aria-hidden="true">{levels(def.sort).length}</span>
+              aria-disabled={usageDisabled ? 'true' : undefined} aria-description={usageDisabled ?? undefined}
+              onClick={() => { if (!usageDisabled) setSortOpen((o) => (o ? null : { add: false })); }}>
+              <Icon name="sort" size={13} /><span className="sort-count" aria-hidden="true">{levels(effSort).length}</span>
             </button>
           )}
           {showResults && isBoard && def && (
@@ -415,7 +454,8 @@ export function QueryBlock(p: QueryBlockProps) {
           )}
           {showResults && view === 'table' && (
             <button ref={columnsBtn} type="button" tabIndex={0} className="query-head-button" data-command="query.columns" aria-haspopup="menu" aria-expanded={columnsOpen}
-              aria-disabled={readOnly || undefined} onClick={() => { if (!readOnly) setColumnsOpen((o) => !o); }}>
+              aria-disabled={usageDisabled ? 'true' : undefined} aria-description={usageDisabled ?? undefined}
+              onClick={() => { if (!usageDisabled) setColumnsOpen((o) => !o); }}>
               <Icon name="panel" size={13} />{t('query.block.columns')}
             </button>
           )}
@@ -442,16 +482,17 @@ export function QueryBlock(p: QueryBlockProps) {
     if (state !== 'ok') return null;
     if (isBoard && result?.group && def) {
       return <QueryBoard result={{ ...result, group: result.group, def }} name={name} title={title} readOnly={readOnly ? t('query.block.readOnly') : null} types={types}
-        apply={(patch) => apply(patch)} rerun={() => run.rerun()} controlRef={board} />;
+        apply={(patch) => apply(patch)} rerun={() => run.rerun()} controlRef={board} foldKey={uKey} columns={effColumns} />;
     }
     if (view === 'table' && def) {
       return <ResultsTable def={def} rows={rows} types={types} typeOf={typeOf} typeName={typeName} title={title} onOpen={openRow}
-        name={inline ? null : name} readOnly={readOnly ? t('query.block.readOnly') : null} plain
+        name={inline ? null : name} readOnly={usageDisabled} plain sort={effSort} columns={effColumns} widthKey={uKey}
         onSort={(by, shift) => {
           // D-1784: a click makes the column the only level (a click on the only level flips it); ⇧-click adds or flips.
+          if (isBlockUsage) { const cur = uw.current().sort; sortTo(headerClick(cur, by, shift)); return; }
           apply((d) => { const next = headerClick(d.sort, by, shift); return sameSort(next, d.sort) ? null : { sort: next }; });
         }}
-        onColumns={(columns) => apply({ columns })} />;
+        onColumns={(columns) => columnsTo(columns)} />;
     }
     return (
       <ul className="query-list" aria-label={title}>
@@ -466,6 +507,9 @@ export function QueryBlock(p: QueryBlockProps) {
       aria-description={showResults ? t('query.editor.results', { count: total }) : undefined}
       data-query-block="" data-query-form={form ?? undefined} data-query-name={name ?? undefined} data-query-state={state}
       data-query-broken={showResults && broken.length ? String(broken.length) : undefined} data-query-readonly={readOnly ? '' : undefined}
+      data-usage-key={uKey ?? undefined} data-usage-kind={uKey ? usage!.kind : undefined}
+      data-own-sort={uKey && ownSort ? (ownSort === 'broken' ? 'broken' : '') : undefined}
+      data-own-columns={uKey && ownColumns ? (ownColumns === 'broken' ? 'broken' : '') : undefined}
       onKeyDown={(e) => {
         // ⌘↩ with the focus in the block (its `Edit query`, a result) opens the editor (R144).
         if (e.key === 'Enter' && e.metaKey && !e.shiftKey && !e.altKey) { e.preventDefault(); e.stopPropagation(); edit(); }
@@ -479,6 +523,9 @@ export function QueryBlock(p: QueryBlockProps) {
           )}
         </p>
       )}
+      {showResults && usageRun && usageRun.broken.filter((b, i, a) => a.findIndex((x) => x.key === b.key) === i).map((b) => (
+        <p key={`usage-${b.key}`} className="query-notice" data-usage-broken={b.key}><Icon name="warning" size={13} />{t('query.block.brokenKey', { key: b.key })}</p>
+      ))}
       {state === 'noType' && firstBroken && <p className="query-notice"><Icon name="warning" size={13} />{noticeOf(firstBroken, types)}</p>}
       {message}
       {state === 'unreadable' && form === 'unreadable' && p.source.kind === 'fence' && <pre className="query-source" data-user-content>{p.source.body}</pre>}
@@ -498,29 +545,34 @@ export function QueryBlock(p: QueryBlockProps) {
         </div>
       )}
       {sortOpen && def && (
-        <SortPopover sort={writer.current()?.sort ?? def.sort} type={def.types.length === 1 ? typeOf(def.types[0]) : undefined} anchor={sortBtn.current}
-          addOnOpen={sortOpen.add} disabled={readOnly ? t('query.block.readOnly') : null}
-          onChange={(sort) => apply({ sort })}
+        <SortPopover sort={effSort} type={def.types.length === 1 ? typeOf(def.types[0]) : undefined} anchor={sortBtn.current}
+          addOnOpen={sortOpen.add} disabled={usageDisabled}
+          scope={isBlockUsage ? 'block' : usage?.kind === 'page' ? 'default' : undefined}
+          onUseQuery={isBlockUsage && run.result && canUseQuery(run.result, 'sort') ? () => sortTo(null) : null}
+          onChange={(sort) => sortTo(sort)}
           onClose={() => { setSortOpen(null); sortBtn.current?.focus(); }} />
       )}
       {columnsOpen && def && (
-        <ColumnsMenu def={def} types={types} anchor={columnsBtn.current}
-          onToggle={(key, on) => { void apply({ columns: toggleColumn(def, key, on) }); }}
+        <ColumnsMenu def={def} types={types} anchor={columnsBtn.current} columns={effColumns} disabled={usageDisabled}
+          scope={isBlockUsage ? 'block' : usage?.kind === 'page' ? 'default' : undefined}
+          onUseQuery={isBlockUsage && run.result && canUseQuery(run.result, 'columns') ? () => columnsTo(null) : null}
+          onToggle={(key, on) => {
+            if (isBlockUsage) { columnsTo(toggleColumn({ ...def, columns: uw.current().columns }, key, on)); return; }
+            void apply((d) => ({ columns: toggleColumn(d, key, on) }));
+          }}
           onNewProperty={() => { setColumnsOpen(false); setNewProp(true); }}
           onClose={() => { setColumnsOpen(false); columnsBtn.current?.focus(); }} />
       )}
       {newProp && def && def.types.length === 1 && typeOf(def.types[0]) && (
-        <Suspense fallback={null}><NewPropertyDialog type={typeOf(def.types[0])!} types={types}
+        <Suspense fallback={null}><NewPropertyDialog type={typeOf(def.types[0])!} types={types} attributeOnly
           onClose={() => { setNewProp(false); columnsBtn.current?.focus(); }}
-          onDone={() => {
+          onDone={(added) => {
             setNewProp(false);
-            const before = new Set(typeOf(def.types[0])!.attributes.map((a) => nfc(a.key)));
-            // The new property joins the columns once the type is read again (`New property…`, §4.4).
-            void ipc.vaultTypes().then((all) => {
-              const tNew = all.find((x) => nfc(x.key) === nfc(def.types[0]));
-              const added = tNew?.attributes.find((a) => !before.has(nfc(a.key)));
-              if (added) void apply({ columns: [...def.columns, nfc(added.key)] });
-            }, () => {});
+            // R197: the type file (the attribute), then the usage's columns (a second write).
+            if (!added) return;
+            const k = nfc(added.key);
+            if (isBlockUsage) { const cur = uw.current().columns; if (!cur.some((c) => nfc(c) === k)) columnsTo([...cur, k]); return; }
+            void apply((d) => (d.columns.some((c) => nfc(c) === k) ? null : { columns: [...d.columns, k] }));
           }} /></Suspense>
       )}
     </figure>
@@ -545,15 +597,18 @@ export function ResultChip({ row, onOpen }: { row: QueryRowDto; onOpen: (path: s
 
 /** The block's Columns menu (board F, G; R130's rows for one type, the universal rows plus Type when mixed, AP-1294):
  *  Title checked and disabled, the choices checked when shown, then `New property…` (one type, not Tag). Each change
- *  writes `columns:` once. Arrow keys move (disabled items too), Space / ⏎ toggle, Esc closes. */
-export function ColumnsMenu({ def, types, anchor, onToggle, onNewProperty, onClose }: {
+ *  writes `columns:` once. Arrow keys move (disabled items too), Space / ⏎ toggle, Esc closes. Slice Q2.1: the scope
+ *  line first (R197, §19.1), `Use the query's columns` last when offered (D-1856), placed inside the window in a body
+ *  portal (§20). `columns` are the shown (effective) columns; `disabled` refuses every change with its reason (R194). */
+export function ColumnsMenu({ def, types, anchor, onToggle, onNewProperty, onClose, columns, scope, onUseQuery, disabled }: {
   def: QueryDefDto; types: TypeDto[]; anchor: HTMLElement | null; onToggle: (key: string, on: boolean) => void; onNewProperty: () => void; onClose: () => void;
+  columns?: string[]; scope?: 'tab' | 'block' | 'default'; onUseQuery?: (() => void) | null; disabled?: string | null;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ left: number; top: number }>({ left: 0, top: 0 });
+  const style = usePopupPlacement(ref, anchor, 'menu');
   const one = def.types.length === 1 ? types.find((x) => nfc(x.key) === nfc(def.types[0])) : undefined;
   const mixed = def.types.length !== 1;
-  const shownCols = new Set(def.columns.map(nfc));
+  const shownCols = new Set((columns ?? def.columns).map(nfc));
   const choices = columnChoices(def, types).filter((k) => k !== 'title');
   const labelOf = (k: string): { label: string; user: boolean } => {
     if (k === 'type') return { label: t('ts.type'), user: false };
@@ -562,15 +617,14 @@ export function ColumnsMenu({ def, types, anchor, onToggle, onNewProperty, onClo
     if (k === 'modified') return { label: t('typePage.modified'), user: false };
     return { label: t(UNIVERSAL.find((u) => u.key === k)?.label ?? k), user: false };
   };
-  useLayoutEffect(() => {
-    if (!anchor) return;
-    const r = anchor.getBoundingClientRect();
-    setPos({ left: Math.min(r.left, window.innerWidth - 260), top: r.bottom + 4 });
-  }, [anchor]);
   const items = () => [...(ref.current?.querySelectorAll<HTMLElement>('[data-menu-item]') ?? [])];
   useEffect(() => {
-    items()[0]?.focus();
-    const outside = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node) && !anchor?.contains(e.target as Node)) onClose(); };
+    items()[0]?.focus({ preventScroll: true });
+    const outside = (e: MouseEvent) => {
+      const tg = e.target as HTMLElement;
+      if (ref.current?.contains(tg) || anchor?.contains(tg) || tg.closest?.('[role="dialog"].type-dialog, [role="listbox"]')) return;
+      onClose();
+    };
     document.addEventListener('mousedown', outside, true);
     return () => document.removeEventListener('mousedown', outside, true);
   }, []);
@@ -588,29 +642,43 @@ export function ColumnsMenu({ def, types, anchor, onToggle, onNewProperty, onClo
   const check = (on: boolean) => <span className="menu-check" aria-hidden="true">{on && <Icon name="check" size={14} />}</span>;
   // Each checkbox item also carries a `menuitem` part, so lists of a menu's items name every row (its role is
   // presentational inside the checkbox item for assistive technology).
-  const item = (key: string, label: string, user: boolean, on: boolean, disabled: boolean, choose: () => void) => (
-    <div key={key} role="menuitemcheckbox" aria-checked={on} aria-disabled={disabled || undefined} aria-label={label} tabIndex={-1} data-menu-item=""
+  const item = (key: string, label: string, user: boolean, on: boolean, off: boolean, choose: () => void, description?: string) => (
+    <div key={key} role="menuitemcheckbox" aria-checked={on} aria-disabled={off || undefined} aria-label={label} tabIndex={-1} data-menu-item=""
+      aria-description={description}
       className={`menu-item${on ? ' checked' : ''}`}
-      onClick={() => { if (!disabled) choose(); }}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!disabled) choose(); } }}>
+      onClick={() => { if (!off) choose(); }}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!off) choose(); } }}>
       {check(on)}<span role="menuitem" className="menu-title" data-user-content={user ? '' : undefined}>{label}</span>
     </div>
   );
-  return (
+  const plainItem = (key: string, label: string, choose: () => void, command?: string) => (
+    <div key={key} role="menuitem" tabIndex={-1} data-menu-item="" className="menu-item" aria-label={label} data-command={command}
+      aria-disabled={disabled ? 'true' : undefined} aria-description={disabled ?? undefined}
+      onClick={() => { if (!disabled) choose(); }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!disabled) choose(); } }}>
+      <span className="menu-check" aria-hidden="true" /><span className="menu-title">{label}</span>
+    </div>
+  );
+  return createPortal(
     <div ref={ref} className="popup-menu query-columns-menu" role="menu" aria-label={t('query.block.columns')} onKeyDown={onKeyDown}
-      style={{ left: pos.left, top: pos.top, maxHeight: `calc(100vh - ${pos.top + 8}px)`, overflowY: 'auto' }}>
+      data-popup="columns" style={style} aria-describedby={scope ? 'columns-scope-line' : undefined}
+      onMouseDown={(e) => e.stopPropagation()}>
+      {scope && <div id="columns-scope-line" className="menu-scope" role="presentation" data-scope={scope}>{t(`columns.scope.${scope}`)}</div>}
       {item('title', t('typePage.title'), false, true, true, () => {})}
-      {choices.map((k) => { const l = labelOf(k); const on = shownCols.has(k); return item(k, l.label, l.user, on, false, () => onToggle(k, !on)); })}
+      {choices.map((k) => { const l = labelOf(k); const on = shownCols.has(k); return item(k, l.label, l.user, on, !!disabled, () => onToggle(k, !on), disabled ?? undefined); })}
       {mixed && <div className="menu-note"><span className="muted-text">{t('query.columns.mixed')}</span></div>}
       {!mixed && one && one.key !== 'tag' && (
         <>
           <div role="separator" className="menu-sep" />
-          <div role="menuitem" tabIndex={-1} data-menu-item="" className="menu-item" aria-label={t('typePage.newProperty')}
-            onClick={onNewProperty} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNewProperty(); } }}>
-            <span className="menu-check" aria-hidden="true" /><span className="menu-title">{t('typePage.newProperty')}</span>
-          </div>
+          {plainItem('new', t('typePage.newProperty'), onNewProperty)}
         </>
       )}
-    </div>
+      {onUseQuery && (
+        <>
+          <div role="separator" className="menu-sep" />
+          {plainItem('useQuery', t('columns.useQuery'), () => { onUseQuery(); onClose(); }, 'columns.useQuery')}
+        </>
+      )}
+    </div>,
+    document.body,
   );
 }

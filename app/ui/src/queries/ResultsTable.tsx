@@ -34,7 +34,7 @@ export function columnsAfterDrop(columns: string[], key: string, before: string 
   return out.every((c, i) => nfc(c) === nfc(columns[i])) ? null : out;
 }
 
-export function ResultsTable({ def, rows, types, typeOf, typeName, title, name, readOnly, plain = false, onOpen, onSort, onColumns }: {
+export function ResultsTable({ def: fileDef, rows, types, typeOf, typeName, title, name, readOnly, plain = false, onOpen, onSort, onColumns, sort, columns, widthKey }: {
   def: QueryDefDto; rows: QueryRowDto[]; types: TypeDto[]; typeOf: (k: string) => TypeDto | undefined; typeName: (k: string) => string;
   title: string; onOpen: (path: string) => void;
   /** The saved query (widths, levels, drags); null for an inline fence (slice Q's behaviour, D-1810). */
@@ -45,7 +45,13 @@ export function ResultsTable({ def, rows, types, typeOf, typeName, title, name, 
   plain?: boolean;
   onSort: (by: string, shift: boolean) => void;
   onColumns: (columns: string[]) => void;
+  /** Slice Q2.1 (R194): the usage's effective sort and columns (else the query file's). */
+  sort?: QueryDefDto['sort'];
+  columns?: string[];
+  /** Slice Q2.1 (R198): the usage key its widths are kept under (machine-local). */
+  widthKey?: string | null;
 }) {
+  const def = useMemo(() => ({ ...fileDef, sort: sort ?? fileDef.sort, columns: columns ?? fileDef.columns }), [fileDef, sort, columns]);
   const one = def.types.length === 1 ? typeOf(def.types[0]) : undefined;
   const mixed = def.types.length !== 1;
   const cols: Col[] = useMemo(() => {
@@ -71,8 +77,8 @@ export function ResultsTable({ def, rows, types, typeOf, typeName, title, name, 
   const marks = markers(def.sort);
   const shown = rows.slice(win.from, win.to);
 
-  // ---- widths per query (D-1767): stored per column; Title without one fills what the others leave.
-  const { widths, set } = useColumnWidths(saved ? { kind: 'query', name: name! } : { kind: 'query', name: '\u0000inline' });
+  // ---- widths per usage (R198, D-1845): stored per column; Title without one fills what the others leave.
+  const { widths, set } = useColumnWidths({ kind: 'usage', key: saved && widthKey ? widthKey : '\u0000inline' });
   const [boxWidth, setBoxWidth] = useState(0);
   useLayoutEffect(() => {
     const el = box.current;
@@ -82,7 +88,7 @@ export function ResultsTable({ def, rows, types, typeOf, typeName, title, name, 
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const stored = saved ? widths : {};
+  const stored = saved && widthKey ? widths : {};
   const others = cols.slice(1).reduce((n, c) => n + (stored[c.key] ?? WIDTH.default), 0);
   const widthOf = (key: string) => stored[key] ?? (key === 'title' ? Math.max(WIDTH.titleFill, boxWidth - others) : WIDTH.default);
   const fixed = saved && boxWidth > 0;
@@ -112,7 +118,7 @@ export function ResultsTable({ def, rows, types, typeOf, typeName, title, name, 
                   onSort={(shift) => onSort(c.key, shift)}
                   onDrop={(before) => { const next = columnsAfterDrop(def.columns, c.key, before); if (next) onColumns(next); }}
                   onWidth={(px, save) => {
-                    if (!saved) return;
+                    if (!saved || !widthKey) return;
                     if (px === null) { set(c.key, c.key === 'title' ? WIDTH.titleFill : WIDTH.default, true); return; }
                     // Resizing one column never changes another's width: a filling Title keeps the width it has now.
                     if (c.key !== 'title' && stored.title === undefined) set('title', widthOf('title'), false);
