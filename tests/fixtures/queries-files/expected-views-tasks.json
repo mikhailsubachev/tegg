@@ -1,0 +1,2550 @@
+{
+ "_about": "L3 corpus of slice Q2-T (docs/contracts/v1-views.md §31.3; docs/acceptance/views.md R201…R203, R208, FR-QRY-01 AC-17, AC-18, FR-QRY-02 AC-9). Written by the test author from the ACs and the fixtures (D-61). Inputs: the overlay (tests/fixtures/vaults/tasks + new-empty/.tegg + views-tasks). Readers compare every key a `def` entry lists, and only those (`columns` is listed only where the file has a `columns` key). `reads[].broken` are the read-time broken keys (QueryFile.broken). `groups[]`: one run of `query` (a file of `reads` written to `.tegg/queries/<query>.yml`) with `env` (weekStart 0 = Sunday, 1 = Monday); `broken` are the keys broken in the run; `kind` null = no grouping (`group: null`); `lanes[]` in order with `id`, `dropTarget`, `doneWithin`, card `paths` in order and the `period:week` day groups `days[]` (every day from tomorrow to the week's last day); `paths` (only where `lanes` is null) = the result's rows in order. `filters[]`: runtime list queries over the base; `paths` compared as sets (given sorted by bytes); `paths: null` = not checked (a broken filter); `broken[].reason` as BrokenReason in camelCase.",
+ "clock": "2026-10-14T12:00:00+02:00",
+ "reads": [
+  {
+   "name": "Schedule",
+   "path": ".tegg/queries/Schedule.yml",
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Schedule.\nversion: 1\ntitle: Schedule\ntypes: [task]\nmatch: all\nfilters:\n  - status: { state_is_not: cancelled }\nsort:\n  - { by: due, order: asc }\n  - { by: priority, order: asc }\nlimit: 50\nview: board\ngroup_by: { due: period }\nlanes: horizontal\ndone_lane: { within_days: 7, folded: true }\ncreated: 2026-10-13T08:00:00+02:00\nmodified: 2026-10-13T08:00:00+02:00\n",
+   "def": {
+    "title": "Schedule",
+    "types": [
+     "task"
+    ],
+    "match": "all",
+    "filters": [
+     {
+      "kind": "filter",
+      "key": "status",
+      "op": "state_is_not",
+      "value": "cancelled",
+      "src": [
+       0
+      ]
+     }
+    ],
+    "sort": [
+     {
+      "by": "due",
+      "order": "asc"
+     },
+     {
+      "by": "priority",
+      "order": "asc"
+     }
+    ],
+    "limit": 50,
+    "view": "board",
+    "groupBy": "due",
+    "groupPeriod": true,
+    "lanes": "horizontal",
+    "laneOrder": null,
+    "doneLane": {
+     "withinDays": 7,
+     "folded": true
+    }
+   },
+   "broken": []
+  },
+  {
+   "name": "Kanban",
+   "path": ".tegg/queries/Kanban.yml",
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Kanban.\nversion: 1\ntitle: Kanban\ntypes: [task]\nmatch: all\nfilters:\n  - status: { state_is_not: cancelled }\nsort:\n  - { by: due, order: asc }\n  - { by: priority, order: asc }\nlimit: 50\nview: board\ngroup_by: status\nlanes: vertical\ndone_lane: { within_days: 7, folded: false }\ncreated: 2026-10-13T08:00:00+02:00\nmodified: 2026-10-13T08:00:00+02:00\n",
+   "def": {
+    "title": "Kanban",
+    "types": [
+     "task"
+    ],
+    "match": "all",
+    "filters": [
+     {
+      "kind": "filter",
+      "key": "status",
+      "op": "state_is_not",
+      "value": "cancelled",
+      "src": [
+       0
+      ]
+     }
+    ],
+    "sort": [
+     {
+      "by": "due",
+      "order": "asc"
+     },
+     {
+      "by": "priority",
+      "order": "asc"
+     }
+    ],
+    "limit": 50,
+    "view": "board",
+    "groupBy": "status",
+    "groupPeriod": false,
+    "lanes": "vertical",
+    "laneOrder": null,
+    "doneLane": {
+     "withinDays": 7,
+     "folded": false
+    }
+   },
+   "broken": []
+  },
+  {
+   "name": "Čeká na ostatní",
+   "path": ".tegg/queries/Čeká na ostatní.yml",
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Čeká na ostatní.\nversion: 1\ntitle: Čeká na ostatní\ntypes: [task]\nmatch: all\nfilters:\n  - status: Waiting\nsort: { by: due, order: asc }\nlimit: 50\nview: table\ncolumns: [due, priority]\ncreated: 2026-10-13T08:30:00+02:00\nmodified: 2026-10-13T08:30:00+02:00\n",
+   "def": {
+    "title": "Čeká na ostatní",
+    "types": [
+     "task"
+    ],
+    "match": "all",
+    "filters": [
+     {
+      "kind": "filter",
+      "key": "status",
+      "op": "is",
+      "value": "Waiting",
+      "src": [
+       0
+      ]
+     }
+    ],
+    "sort": [
+     {
+      "by": "due",
+      "order": "asc"
+     }
+    ],
+    "limit": 50,
+    "view": "table",
+    "groupBy": null,
+    "groupPeriod": false,
+    "lanes": "vertical",
+    "laneOrder": null,
+    "doneLane": null,
+    "columns": [
+     "due",
+     "priority"
+    ]
+   },
+   "broken": []
+  },
+  {
+   "name": "Projekty podle termínu",
+   "path": ".tegg/queries/Projekty podle termínu.yml",
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Projekty podle termínu.\nversion: 1\ntitle: Projekty podle termínu\ntypes: [projekt]\nmatch: all\nfilters: []\nsort: { by: title, order: asc }\nlimit: 50\nview: board\ngroup_by: { due: period }   # podle termínu\nlanes: vertical\ncreated: 2026-10-13T09:00:00+02:00\nmodified: 2026-10-13T09:00:00+02:00\n",
+   "def": {
+    "title": "Projekty podle termínu",
+    "types": [
+     "projekt"
+    ],
+    "match": "all",
+    "filters": [],
+    "sort": [
+     {
+      "by": "title",
+      "order": "asc"
+     }
+    ],
+    "limit": 50,
+    "view": "board",
+    "groupBy": "due",
+    "groupPeriod": true,
+    "lanes": "vertical",
+    "laneOrder": null,
+    "doneLane": null
+   },
+   "broken": []
+  },
+  {
+   "name": "Rozvrh po měsících",
+   "path": ".tegg/queries/Rozvrh po měsících.yml",
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Rozvrh po měsících.\nversion: 1\ntitle: Rozvrh po měsících\ntypes: [task]\nmatch: all\nfilters:\n  - status: { state_is_not: cancelled }\nsort:\n  - { by: due, order: asc }\n  - { by: priority, order: asc }\nlimit: 50\nview: board\ngroup_by: { due: month }\nlanes: horizontal\ndone_lane: { within_days: 7, folded: true }\ncreated: 2026-10-13T08:00:00+02:00\nmodified: 2026-10-13T08:00:00+02:00\n",
+   "def": {
+    "title": "Rozvrh po měsících",
+    "types": [
+     "task"
+    ],
+    "match": "all",
+    "filters": [
+     {
+      "kind": "filter",
+      "key": "status",
+      "op": "state_is_not",
+      "value": "cancelled",
+      "src": [
+       0
+      ]
+     }
+    ],
+    "sort": [
+     {
+      "by": "due",
+      "order": "asc"
+     },
+     {
+      "by": "priority",
+      "order": "asc"
+     }
+    ],
+    "limit": 50,
+    "view": "board",
+    "groupBy": null,
+    "groupPeriod": false,
+    "lanes": "horizontal",
+    "laneOrder": null,
+    "doneLane": {
+     "withinDays": 7,
+     "folded": true
+    }
+   },
+   "broken": [
+    {
+     "reason": "badValue",
+     "at": null,
+     "key": "group_by",
+     "type": null
+    }
+   ]
+  },
+  {
+   "name": "Rozvrh dvě období",
+   "path": ".tegg/queries/Rozvrh dvě období.yml",
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Rozvrh dvě období.\nversion: 1\ntitle: Rozvrh dvě období\ntypes: [task]\nmatch: all\nfilters:\n  - status: { state_is_not: cancelled }\nsort:\n  - { by: due, order: asc }\n  - { by: priority, order: asc }\nlimit: 50\nview: board\ngroup_by: { due: period, created: period }\nlanes: horizontal\ndone_lane: { within_days: 7, folded: true }\ncreated: 2026-10-13T08:00:00+02:00\nmodified: 2026-10-13T08:00:00+02:00\n",
+   "def": {
+    "title": "Rozvrh dvě období",
+    "types": [
+     "task"
+    ],
+    "match": "all",
+    "filters": [
+     {
+      "kind": "filter",
+      "key": "status",
+      "op": "state_is_not",
+      "value": "cancelled",
+      "src": [
+       0
+      ]
+     }
+    ],
+    "sort": [
+     {
+      "by": "due",
+      "order": "asc"
+     },
+     {
+      "by": "priority",
+      "order": "asc"
+     }
+    ],
+    "limit": 50,
+    "view": "board",
+    "groupBy": null,
+    "groupPeriod": false,
+    "lanes": "horizontal",
+    "laneOrder": null,
+    "doneLane": {
+     "withinDays": 7,
+     "folded": true
+    }
+   },
+   "broken": [
+    {
+     "reason": "badValue",
+     "at": null,
+     "key": "group_by",
+     "type": null
+    }
+   ]
+  },
+  {
+   "name": "Rozvrh podle priority",
+   "path": ".tegg/queries/Rozvrh podle priority.yml",
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Rozvrh podle priority.\nversion: 1\ntitle: Rozvrh podle priority\ntypes: [task]\nmatch: all\nfilters:\n  - status: { state_is_not: cancelled }\nsort:\n  - { by: due, order: asc }\n  - { by: priority, order: asc }\nlimit: 50\nview: board\ngroup_by: { priority: period }\nlanes: horizontal\ndone_lane: { within_days: 7, folded: true }\ncreated: 2026-10-13T08:00:00+02:00\nmodified: 2026-10-13T08:00:00+02:00\n",
+   "def": {
+    "title": "Rozvrh podle priority",
+    "types": [
+     "task"
+    ],
+    "match": "all",
+    "filters": [
+     {
+      "kind": "filter",
+      "key": "status",
+      "op": "state_is_not",
+      "value": "cancelled",
+      "src": [
+       0
+      ]
+     }
+    ],
+    "sort": [
+     {
+      "by": "due",
+      "order": "asc"
+     },
+     {
+      "by": "priority",
+      "order": "asc"
+     }
+    ],
+    "limit": 50,
+    "view": "board",
+    "groupBy": "priority",
+    "groupPeriod": true,
+    "lanes": "horizontal",
+    "laneOrder": null,
+    "doneLane": {
+     "withinDays": 7,
+     "folded": true
+    }
+   },
+   "broken": []
+  },
+  {
+   "name": "Rozvrh neznámý klíč",
+   "path": ".tegg/queries/Rozvrh neznámý klíč.yml",
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Rozvrh neznámý klíč.\nversion: 1\ntitle: Rozvrh neznámý klíč\ntypes: [task]\nmatch: all\nfilters:\n  - status: { state_is_not: cancelled }\nsort:\n  - { by: due, order: asc }\n  - { by: priority, order: asc }\nlimit: 50\nview: board\ngroup_by: { neznámý: period }\nlanes: horizontal\ndone_lane: { within_days: 7, folded: true }\ncreated: 2026-10-13T08:00:00+02:00\nmodified: 2026-10-13T08:00:00+02:00\n",
+   "def": {
+    "title": "Rozvrh neznámý klíč",
+    "types": [
+     "task"
+    ],
+    "match": "all",
+    "filters": [
+     {
+      "kind": "filter",
+      "key": "status",
+      "op": "state_is_not",
+      "value": "cancelled",
+      "src": [
+       0
+      ]
+     }
+    ],
+    "sort": [
+     {
+      "by": "due",
+      "order": "asc"
+     },
+     {
+      "by": "priority",
+      "order": "asc"
+     }
+    ],
+    "limit": 50,
+    "view": "board",
+    "groupBy": "neznámý",
+    "groupPeriod": true,
+    "lanes": "horizontal",
+    "laneOrder": null,
+    "doneLane": {
+     "withinDays": 7,
+     "folded": true
+    }
+   },
+   "broken": []
+  },
+  {
+   "name": "Rozvrh nula dní",
+   "path": ".tegg/queries/Rozvrh nula dní.yml",
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Rozvrh nula dní.\nversion: 1\ntitle: Rozvrh nula dní\ntypes: [task]\nmatch: all\nfilters:\n  - status: { state_is_not: cancelled }\nsort:\n  - { by: due, order: asc }\n  - { by: priority, order: asc }\nlimit: 50\nview: board\ngroup_by: { due: period }\nlanes: horizontal\ndone_lane: { within_days: 0 }\ncreated: 2026-10-13T08:00:00+02:00\nmodified: 2026-10-13T08:00:00+02:00\n",
+   "def": {
+    "title": "Rozvrh nula dní",
+    "types": [
+     "task"
+    ],
+    "match": "all",
+    "filters": [
+     {
+      "kind": "filter",
+      "key": "status",
+      "op": "state_is_not",
+      "value": "cancelled",
+      "src": [
+       0
+      ]
+     }
+    ],
+    "sort": [
+     {
+      "by": "due",
+      "order": "asc"
+     },
+     {
+      "by": "priority",
+      "order": "asc"
+     }
+    ],
+    "limit": 50,
+    "view": "board",
+    "groupBy": "due",
+    "groupPeriod": true,
+    "lanes": "horizontal",
+    "laneOrder": null,
+    "doneLane": null
+   },
+   "broken": [
+    {
+     "reason": "badValue",
+     "at": null,
+     "key": "done_lane",
+     "type": null
+    }
+   ]
+  },
+  {
+   "name": "Rozvrh tři dny",
+   "path": ".tegg/queries/Rozvrh tři dny.yml",
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Rozvrh tři dny.\nversion: 1\ntitle: Rozvrh tři dny\ntypes: [task]\nmatch: all\nfilters:\n  - status: { state_is_not: cancelled }\nsort:\n  - { by: due, order: asc }\n  - { by: priority, order: asc }\nlimit: 50\nview: board\ngroup_by: { due: period }\nlanes: horizontal\ndone_lane: { within_days: tři }\ncreated: 2026-10-13T08:00:00+02:00\nmodified: 2026-10-13T08:00:00+02:00\n",
+   "def": {
+    "title": "Rozvrh tři dny",
+    "types": [
+     "task"
+    ],
+    "match": "all",
+    "filters": [
+     {
+      "kind": "filter",
+      "key": "status",
+      "op": "state_is_not",
+      "value": "cancelled",
+      "src": [
+       0
+      ]
+     }
+    ],
+    "sort": [
+     {
+      "by": "due",
+      "order": "asc"
+     },
+     {
+      "by": "priority",
+      "order": "asc"
+     }
+    ],
+    "limit": 50,
+    "view": "board",
+    "groupBy": "due",
+    "groupPeriod": true,
+    "lanes": "horizontal",
+    "laneOrder": null,
+    "doneLane": null
+   },
+   "broken": [
+    {
+     "reason": "badValue",
+     "at": null,
+     "key": "done_lane",
+     "type": null
+    }
+   ]
+  },
+  {
+   "name": "Rozvrh ano",
+   "path": ".tegg/queries/Rozvrh ano.yml",
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Rozvrh ano.\nversion: 1\ntitle: Rozvrh ano\ntypes: [task]\nmatch: all\nfilters:\n  - status: { state_is_not: cancelled }\nsort:\n  - { by: due, order: asc }\n  - { by: priority, order: asc }\nlimit: 50\nview: board\ngroup_by: { due: period }\nlanes: horizontal\ndone_lane: yes\ncreated: 2026-10-13T08:00:00+02:00\nmodified: 2026-10-13T08:00:00+02:00\n",
+   "def": {
+    "title": "Rozvrh ano",
+    "types": [
+     "task"
+    ],
+    "match": "all",
+    "filters": [
+     {
+      "kind": "filter",
+      "key": "status",
+      "op": "state_is_not",
+      "value": "cancelled",
+      "src": [
+       0
+      ]
+     }
+    ],
+    "sort": [
+     {
+      "by": "due",
+      "order": "asc"
+     },
+     {
+      "by": "priority",
+      "order": "asc"
+     }
+    ],
+    "limit": 50,
+    "view": "board",
+    "groupBy": "due",
+    "groupPeriod": true,
+    "lanes": "horizontal",
+    "laneOrder": null,
+    "doneLane": null
+   },
+   "broken": [
+    {
+     "reason": "badValue",
+     "at": null,
+     "key": "done_lane",
+     "type": null
+    }
+   ]
+  },
+  {
+   "name": "Rozvrh bez folded",
+   "path": ".tegg/queries/Rozvrh bez folded.yml",
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Rozvrh bez folded.\nversion: 1\ntitle: Rozvrh bez folded\ntypes: [task]\nmatch: all\nfilters:\n  - status: { state_is_not: cancelled }\nsort:\n  - { by: due, order: asc }\n  - { by: priority, order: asc }\nlimit: 50\nview: board\ngroup_by: { due: period }\nlanes: horizontal\ndone_lane: { within_days: 7 }\ncreated: 2026-10-13T08:00:00+02:00\nmodified: 2026-10-13T08:00:00+02:00\n",
+   "def": {
+    "title": "Rozvrh bez folded",
+    "types": [
+     "task"
+    ],
+    "match": "all",
+    "filters": [
+     {
+      "kind": "filter",
+      "key": "status",
+      "op": "state_is_not",
+      "value": "cancelled",
+      "src": [
+       0
+      ]
+     }
+    ],
+    "sort": [
+     {
+      "by": "due",
+      "order": "asc"
+     },
+     {
+      "by": "priority",
+      "order": "asc"
+     }
+    ],
+    "limit": 50,
+    "view": "board",
+    "groupBy": "due",
+    "groupPeriod": true,
+    "lanes": "horizontal",
+    "laneOrder": null,
+    "doneLane": {
+     "withinDays": 7,
+     "folded": false
+    }
+   },
+   "broken": []
+  },
+  {
+   "name": "Rozvrh pořadí",
+   "path": ".tegg/queries/Rozvrh pořadí.yml",
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Rozvrh pořadí.\nversion: 1\ntitle: Rozvrh pořadí\ntypes: [task]\nmatch: all\nfilters:\n  - status: { state_is_not: cancelled }\nsort:\n  - { by: due, order: asc }\n  - { by: priority, order: asc }\nlimit: 50\nview: board\ngroup_by: { due: period }\nlanes: horizontal\nlane_order: [later, today, week]\ndone_lane: { within_days: 7, folded: true }\ncreated: 2026-10-13T08:00:00+02:00\nmodified: 2026-10-13T08:00:00+02:00\n",
+   "def": {
+    "title": "Rozvrh pořadí",
+    "types": [
+     "task"
+    ],
+    "match": "all",
+    "filters": [
+     {
+      "kind": "filter",
+      "key": "status",
+      "op": "state_is_not",
+      "value": "cancelled",
+      "src": [
+       0
+      ]
+     }
+    ],
+    "sort": [
+     {
+      "by": "due",
+      "order": "asc"
+     },
+     {
+      "by": "priority",
+      "order": "asc"
+     }
+    ],
+    "limit": 50,
+    "view": "board",
+    "groupBy": "due",
+    "groupPeriod": true,
+    "lanes": "horizontal",
+    "laneOrder": [
+     "later",
+     "today",
+     "week"
+    ],
+    "doneLane": {
+     "withinDays": 7,
+     "folded": true
+    }
+   },
+   "broken": []
+  },
+  {
+   "name": "Rozvrh špatné pořadí",
+   "path": ".tegg/queries/Rozvrh špatné pořadí.yml",
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Rozvrh špatné pořadí.\nversion: 1\ntitle: Rozvrh špatné pořadí\ntypes: [task]\nmatch: all\nfilters:\n  - status: { state_is_not: cancelled }\nsort:\n  - { by: due, order: asc }\n  - { by: priority, order: asc }\nlimit: 50\nview: board\ngroup_by: { due: period }\nlanes: horizontal\nlane_order: [Later, zítra]\ndone_lane: { within_days: 7, folded: true }\ncreated: 2026-10-13T08:00:00+02:00\nmodified: 2026-10-13T08:00:00+02:00\n",
+   "def": {
+    "title": "Rozvrh špatné pořadí",
+    "types": [
+     "task"
+    ],
+    "match": "all",
+    "filters": [
+     {
+      "kind": "filter",
+      "key": "status",
+      "op": "state_is_not",
+      "value": "cancelled",
+      "src": [
+       0
+      ]
+     }
+    ],
+    "sort": [
+     {
+      "by": "due",
+      "order": "asc"
+     },
+     {
+      "by": "priority",
+      "order": "asc"
+     }
+    ],
+    "limit": 50,
+    "view": "board",
+    "groupBy": "due",
+    "groupPeriod": true,
+    "lanes": "horizontal",
+    "laneOrder": [
+     "Later",
+     "zítra"
+    ],
+    "doneLane": {
+     "withinDays": 7,
+     "folded": true
+    }
+   },
+   "broken": []
+  },
+  {
+   "name": "Projekty s hotovými",
+   "path": ".tegg/queries/Projekty s hotovými.yml",
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Projekty s hotovými.\nversion: 1\ntitle: Projekty s hotovými\ntypes: [projekt]\nmatch: all\nfilters: []\nsort: { by: title, order: asc }\nlimit: 50\nview: board\ngroup_by: { due: period }   # podle termínu\nlanes: vertical\ndone_lane: { within_days: 7 }\ncreated: 2026-10-13T09:00:00+02:00\nmodified: 2026-10-13T09:00:00+02:00\n",
+   "def": {
+    "title": "Projekty s hotovými",
+    "types": [
+     "projekt"
+    ],
+    "match": "all",
+    "filters": [],
+    "sort": [
+     {
+      "by": "title",
+      "order": "asc"
+     }
+    ],
+    "limit": 50,
+    "view": "board",
+    "groupBy": "due",
+    "groupPeriod": true,
+    "lanes": "vertical",
+    "laneOrder": null,
+    "doneLane": {
+     "withinDays": 7,
+     "folded": false
+    }
+   },
+   "broken": []
+  },
+  {
+   "name": "Projekty podle vzniku",
+   "path": ".tegg/queries/Projekty podle vzniku.yml",
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Projekty podle vzniku.\nversion: 1\ntitle: Projekty podle vzniku\ntypes: [projekt]\nmatch: all\nfilters: []\nsort: { by: title, order: asc }\nlimit: 50\nview: board\ngroup_by: { created: period }   # podle termínu\nlanes: vertical\ncreated: 2026-10-13T09:00:00+02:00\nmodified: 2026-10-13T09:00:00+02:00\n",
+   "def": {
+    "title": "Projekty podle vzniku",
+    "types": [
+     "projekt"
+    ],
+    "match": "all",
+    "filters": [],
+    "sort": [
+     {
+      "by": "title",
+      "order": "asc"
+     }
+    ],
+    "limit": 50,
+    "view": "board",
+    "groupBy": "created",
+    "groupPeriod": true,
+    "lanes": "vertical",
+    "laneOrder": null,
+    "doneLane": null
+   },
+   "broken": []
+  }
+ ],
+ "groups": [
+  {
+   "query": "Schedule",
+   "note": "R208 Schedule, cs, Prague",
+   "env": {
+    "today": "2026-10-14",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "broken": [],
+   "kind": "period",
+   "dateTime": false,
+   "key": "due",
+   "lanes": [
+    {
+     "id": "period:today",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Zavolat Janě.md",
+      "Tasks/Poslat rozpočet.md",
+      "Tasks/Zalít květiny.md",
+      "Tasks/Bez stavu.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "period:week",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Koupit dárek.md",
+      "Tasks/Nákup.md",
+      "Tasks/Cizí stav.md",
+      "Tasks/Úklid garáže.md"
+     ],
+     "days": [
+      {
+       "date": "2026-10-15",
+       "paths": [
+        "Tasks/Koupit dárek.md",
+        "Tasks/Nákup.md"
+       ]
+      },
+      {
+       "date": "2026-10-16",
+       "paths": [
+        "Tasks/Cizí stav.md"
+       ]
+      },
+      {
+       "date": "2026-10-17",
+       "paths": []
+      },
+      {
+       "date": "2026-10-18",
+       "paths": [
+        "Tasks/Úklid garáže.md"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "period:later",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Příprava prezentace.md",
+      "Tasks/Obnovit pas.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "none",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Přečíst knihu.md",
+      "Tasks/Opravit kolo.md",
+      "Tasks/S časem.md",
+      "Tasks/Špatné datum.md",
+      "Tasks/Štítek v textu.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "done",
+     "dropTarget": true,
+     "doneWithin": 7,
+     "paths": [
+      "Tasks/Zaplatit fakturu.md",
+      "Tasks/Vrátit knihy.md"
+     ],
+     "days": []
+    }
+   ]
+  },
+  {
+   "query": "Schedule",
+   "note": "R208 Schedule, (W) en-US",
+   "env": {
+    "today": "2026-10-14",
+    "zone": "Europe/Prague",
+    "weekStart": 0,
+    "locale": "en-US"
+   },
+   "broken": [],
+   "kind": "period",
+   "dateTime": false,
+   "key": "due",
+   "lanes": [
+    {
+     "id": "period:today",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Zavolat Janě.md",
+      "Tasks/Poslat rozpočet.md",
+      "Tasks/Zalít květiny.md",
+      "Tasks/Bez stavu.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "period:week",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Koupit dárek.md",
+      "Tasks/Nákup.md",
+      "Tasks/Cizí stav.md"
+     ],
+     "days": [
+      {
+       "date": "2026-10-15",
+       "paths": [
+        "Tasks/Koupit dárek.md",
+        "Tasks/Nákup.md"
+       ]
+      },
+      {
+       "date": "2026-10-16",
+       "paths": [
+        "Tasks/Cizí stav.md"
+       ]
+      },
+      {
+       "date": "2026-10-17",
+       "paths": []
+      }
+     ]
+    },
+    {
+     "id": "period:later",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Úklid garáže.md",
+      "Tasks/Příprava prezentace.md",
+      "Tasks/Obnovit pas.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "none",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Přečíst knihu.md",
+      "Tasks/Opravit kolo.md",
+      "Tasks/S časem.md",
+      "Tasks/Špatné datum.md",
+      "Tasks/Štítek v textu.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "done",
+     "dropTarget": true,
+     "doneWithin": 7,
+     "paths": [
+      "Tasks/Zaplatit fakturu.md",
+      "Tasks/Vrátit knihy.md"
+     ],
+     "days": []
+    }
+   ]
+  },
+  {
+   "query": "Schedule",
+   "note": "(TZ) Los Angeles at 03:00 the same day",
+   "env": {
+    "today": "2026-10-14",
+    "zone": "America/Los_Angeles",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "broken": [],
+   "kind": "period",
+   "dateTime": false,
+   "key": "due",
+   "lanes": [
+    {
+     "id": "period:today",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Zavolat Janě.md",
+      "Tasks/Poslat rozpočet.md",
+      "Tasks/Zalít květiny.md",
+      "Tasks/Bez stavu.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "period:week",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Koupit dárek.md",
+      "Tasks/Nákup.md",
+      "Tasks/Cizí stav.md",
+      "Tasks/Úklid garáže.md"
+     ],
+     "days": [
+      {
+       "date": "2026-10-15",
+       "paths": [
+        "Tasks/Koupit dárek.md",
+        "Tasks/Nákup.md"
+       ]
+      },
+      {
+       "date": "2026-10-16",
+       "paths": [
+        "Tasks/Cizí stav.md"
+       ]
+      },
+      {
+       "date": "2026-10-17",
+       "paths": []
+      },
+      {
+       "date": "2026-10-18",
+       "paths": [
+        "Tasks/Úklid garáže.md"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "period:later",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Příprava prezentace.md",
+      "Tasks/Obnovit pas.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "none",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Přečíst knihu.md",
+      "Tasks/Opravit kolo.md",
+      "Tasks/S časem.md",
+      "Tasks/Špatné datum.md",
+      "Tasks/Štítek v textu.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "done",
+     "dropTarget": true,
+     "doneWithin": 7,
+     "paths": [
+      "Tasks/Zaplatit fakturu.md",
+      "Tasks/Vrátit knihy.md"
+     ],
+     "days": []
+    }
+   ]
+  },
+  {
+   "query": "Schedule",
+   "note": "FR-TSK-04 AC-23: the clock on Sunday 2026-10-18, cs: no This week",
+   "env": {
+    "today": "2026-10-18",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "broken": [],
+   "kind": "period",
+   "dateTime": false,
+   "key": "due",
+   "lanes": [
+    {
+     "id": "period:today",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Zavolat Janě.md",
+      "Tasks/Poslat rozpočet.md",
+      "Tasks/Zalít květiny.md",
+      "Tasks/Bez stavu.md",
+      "Tasks/Koupit dárek.md",
+      "Tasks/Nákup.md",
+      "Tasks/Cizí stav.md",
+      "Tasks/Úklid garáže.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "period:later",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Příprava prezentace.md",
+      "Tasks/Obnovit pas.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "none",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Přečíst knihu.md",
+      "Tasks/Opravit kolo.md",
+      "Tasks/S časem.md",
+      "Tasks/Špatné datum.md",
+      "Tasks/Štítek v textu.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "done",
+     "dropTarget": true,
+     "doneWithin": 7,
+     "paths": [
+      "Tasks/Zaplatit fakturu.md"
+     ],
+     "days": []
+    }
+   ]
+  },
+  {
+   "query": "Schedule",
+   "note": "FR-TSK-04 AC-23: 2026-10-14T22:30:00Z in Prague (today 15 Oct)",
+   "env": {
+    "today": "2026-10-15",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "broken": [],
+   "kind": "period",
+   "dateTime": false,
+   "key": "due",
+   "lanes": [
+    {
+     "id": "period:today",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Zavolat Janě.md",
+      "Tasks/Poslat rozpočet.md",
+      "Tasks/Zalít květiny.md",
+      "Tasks/Bez stavu.md",
+      "Tasks/Koupit dárek.md",
+      "Tasks/Nákup.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "period:week",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Cizí stav.md",
+      "Tasks/Úklid garáže.md"
+     ],
+     "days": [
+      {
+       "date": "2026-10-16",
+       "paths": [
+        "Tasks/Cizí stav.md"
+       ]
+      },
+      {
+       "date": "2026-10-17",
+       "paths": []
+      },
+      {
+       "date": "2026-10-18",
+       "paths": [
+        "Tasks/Úklid garáže.md"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "period:later",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Příprava prezentace.md",
+      "Tasks/Obnovit pas.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "none",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Přečíst knihu.md",
+      "Tasks/Opravit kolo.md",
+      "Tasks/S časem.md",
+      "Tasks/Špatné datum.md",
+      "Tasks/Štítek v textu.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "done",
+     "dropTarget": true,
+     "doneWithin": 7,
+     "paths": [
+      "Tasks/Zaplatit fakturu.md",
+      "Tasks/Vrátit knihy.md"
+     ],
+     "days": []
+    }
+   ]
+  },
+  {
+   "query": "Schedule",
+   "note": "FR-TSK-04 AC-23: 2026-10-14T22:30:00Z in Los Angeles (today 14 Oct)",
+   "env": {
+    "today": "2026-10-14",
+    "zone": "America/Los_Angeles",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "broken": [],
+   "kind": "period",
+   "dateTime": false,
+   "key": "due",
+   "lanes": [
+    {
+     "id": "period:today",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Zavolat Janě.md",
+      "Tasks/Poslat rozpočet.md",
+      "Tasks/Zalít květiny.md",
+      "Tasks/Bez stavu.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "period:week",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Koupit dárek.md",
+      "Tasks/Nákup.md",
+      "Tasks/Cizí stav.md",
+      "Tasks/Úklid garáže.md"
+     ],
+     "days": [
+      {
+       "date": "2026-10-15",
+       "paths": [
+        "Tasks/Koupit dárek.md",
+        "Tasks/Nákup.md"
+       ]
+      },
+      {
+       "date": "2026-10-16",
+       "paths": [
+        "Tasks/Cizí stav.md"
+       ]
+      },
+      {
+       "date": "2026-10-17",
+       "paths": []
+      },
+      {
+       "date": "2026-10-18",
+       "paths": [
+        "Tasks/Úklid garáže.md"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "period:later",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Příprava prezentace.md",
+      "Tasks/Obnovit pas.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "none",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Přečíst knihu.md",
+      "Tasks/Opravit kolo.md",
+      "Tasks/S časem.md",
+      "Tasks/Špatné datum.md",
+      "Tasks/Štítek v textu.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "done",
+     "dropTarget": true,
+     "doneWithin": 7,
+     "paths": [
+      "Tasks/Zaplatit fakturu.md",
+      "Tasks/Vrátit knihy.md"
+     ],
+     "days": []
+    }
+   ]
+  },
+  {
+   "query": "Schedule",
+   "note": "FR-TSK-04 AC-24: 2026-10-16T12:00:00+02:00, T12 still in Done",
+   "env": {
+    "today": "2026-10-16",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "broken": [],
+   "kind": "period",
+   "dateTime": false,
+   "key": "due",
+   "lanes": [
+    {
+     "id": "period:today",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Zavolat Janě.md",
+      "Tasks/Poslat rozpočet.md",
+      "Tasks/Zalít květiny.md",
+      "Tasks/Bez stavu.md",
+      "Tasks/Koupit dárek.md",
+      "Tasks/Nákup.md",
+      "Tasks/Cizí stav.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "period:week",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Úklid garáže.md"
+     ],
+     "days": [
+      {
+       "date": "2026-10-17",
+       "paths": []
+      },
+      {
+       "date": "2026-10-18",
+       "paths": [
+        "Tasks/Úklid garáže.md"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "period:later",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Příprava prezentace.md",
+      "Tasks/Obnovit pas.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "none",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Přečíst knihu.md",
+      "Tasks/Opravit kolo.md",
+      "Tasks/S časem.md",
+      "Tasks/Špatné datum.md",
+      "Tasks/Štítek v textu.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "done",
+     "dropTarget": true,
+     "doneWithin": 7,
+     "paths": [
+      "Tasks/Zaplatit fakturu.md",
+      "Tasks/Vrátit knihy.md"
+     ],
+     "days": []
+    }
+   ]
+  },
+  {
+   "query": "Schedule",
+   "note": "FR-TSK-04 AC-24: 2026-10-17T12:00:00+02:00, T12 leaves (11 Oct is the first day)",
+   "env": {
+    "today": "2026-10-17",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "broken": [],
+   "kind": "period",
+   "dateTime": false,
+   "key": "due",
+   "lanes": [
+    {
+     "id": "period:today",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Zavolat Janě.md",
+      "Tasks/Poslat rozpočet.md",
+      "Tasks/Zalít květiny.md",
+      "Tasks/Bez stavu.md",
+      "Tasks/Koupit dárek.md",
+      "Tasks/Nákup.md",
+      "Tasks/Cizí stav.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "period:week",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Úklid garáže.md"
+     ],
+     "days": [
+      {
+       "date": "2026-10-18",
+       "paths": [
+        "Tasks/Úklid garáže.md"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "period:later",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Příprava prezentace.md",
+      "Tasks/Obnovit pas.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "none",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Přečíst knihu.md",
+      "Tasks/Opravit kolo.md",
+      "Tasks/S časem.md",
+      "Tasks/Špatné datum.md",
+      "Tasks/Štítek v textu.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "done",
+     "dropTarget": true,
+     "doneWithin": 7,
+     "paths": [
+      "Tasks/Zaplatit fakturu.md"
+     ],
+     "days": []
+    }
+   ]
+  },
+  {
+   "query": "Kanban",
+   "note": "R208 Kanban, cs, Prague",
+   "env": {
+    "today": "2026-10-14",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "broken": [],
+   "kind": "select",
+   "dateTime": false,
+   "key": "status",
+   "lanes": [
+    {
+     "id": "option:To do",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Zavolat Janě.md",
+      "Tasks/Zalít květiny.md",
+      "Tasks/Nákup.md",
+      "Tasks/Úklid garáže.md",
+      "Tasks/Příprava prezentace.md",
+      "Tasks/Obnovit pas.md",
+      "Tasks/Přečíst knihu.md",
+      "Tasks/S časem.md",
+      "Tasks/Špatné datum.md",
+      "Tasks/Štítek v textu.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "option:In progress",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Poslat rozpočet.md",
+      "Tasks/Opravit kolo.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "option:Waiting",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Koupit dárek.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "option:Done",
+     "dropTarget": true,
+     "doneWithin": 7,
+     "paths": [
+      "Tasks/Zaplatit fakturu.md",
+      "Tasks/Vrátit knihy.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "unknown:Rozpracováno",
+     "dropTarget": false,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Cizí stav.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "none",
+     "dropTarget": false,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Bez stavu.md"
+     ],
+     "days": []
+    }
+   ]
+  },
+  {
+   "query": "Projekty podle termínu",
+   "note": "R208 Projekty podle termínu, cs",
+   "env": {
+    "today": "2026-10-14",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "broken": [],
+   "kind": "period",
+   "dateTime": false,
+   "key": "due",
+   "lanes": [
+    {
+     "id": "period:today",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Projekty/Web.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "period:week",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Projekty/Stěhování.md"
+     ],
+     "days": [
+      {
+       "date": "2026-10-15",
+       "paths": []
+      },
+      {
+       "date": "2026-10-16",
+       "paths": [
+        "Projekty/Stěhování.md"
+       ]
+      },
+      {
+       "date": "2026-10-17",
+       "paths": []
+      },
+      {
+       "date": "2026-10-18",
+       "paths": []
+      }
+     ]
+    },
+    {
+     "id": "period:later",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Projekty/Kuchařka.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "none",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Projekty/Zahrada.md"
+     ],
+     "days": []
+    }
+   ]
+  },
+  {
+   "query": "Projekty podle termínu",
+   "note": "R208 Projekty podle termínu, en-US",
+   "env": {
+    "today": "2026-10-14",
+    "zone": "Europe/Prague",
+    "weekStart": 0,
+    "locale": "en-US"
+   },
+   "broken": [],
+   "kind": "period",
+   "dateTime": false,
+   "key": "due",
+   "lanes": [
+    {
+     "id": "period:today",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Projekty/Web.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "period:week",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Projekty/Stěhování.md"
+     ],
+     "days": [
+      {
+       "date": "2026-10-15",
+       "paths": []
+      },
+      {
+       "date": "2026-10-16",
+       "paths": [
+        "Projekty/Stěhování.md"
+       ]
+      },
+      {
+       "date": "2026-10-17",
+       "paths": []
+      }
+     ]
+    },
+    {
+     "id": "period:later",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Projekty/Kuchařka.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "none",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Projekty/Zahrada.md"
+     ],
+     "days": []
+    }
+   ]
+  },
+  {
+   "query": "Projekty podle vzniku",
+   "note": "FR-QRY-01 AC-17: `group_by: { created: period }` (a date-time key: no lane is a drop target)",
+   "env": {
+    "today": "2026-10-14",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "broken": [],
+   "kind": "period",
+   "dateTime": true,
+   "key": "created",
+   "lanes": [
+    {
+     "id": "period:today",
+     "dropTarget": false,
+     "doneWithin": null,
+     "paths": [
+      "Projekty/Kuchařka.md",
+      "Projekty/Stěhování.md",
+      "Projekty/Web.md",
+      "Projekty/Zahrada.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "period:week",
+     "dropTarget": false,
+     "doneWithin": null,
+     "paths": [],
+     "days": [
+      {
+       "date": "2026-10-15",
+       "paths": []
+      },
+      {
+       "date": "2026-10-16",
+       "paths": []
+      },
+      {
+       "date": "2026-10-17",
+       "paths": []
+      },
+      {
+       "date": "2026-10-18",
+       "paths": []
+      }
+     ]
+    },
+    {
+     "id": "period:later",
+     "dropTarget": false,
+     "doneWithin": null,
+     "paths": [],
+     "days": []
+    },
+    {
+     "id": "none",
+     "dropTarget": false,
+     "doneWithin": null,
+     "paths": [],
+     "days": []
+    }
+   ]
+  },
+  {
+   "query": "Rozvrh po měsících",
+   "note": "FR-QRY-01 AC-18: drawn as a List of the 17 non-Cancelled tasks",
+   "env": {
+    "today": "2026-10-14",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "broken": [
+    "group_by"
+   ],
+   "kind": null,
+   "dateTime": false,
+   "key": null,
+   "lanes": null,
+   "paths": [
+    "Tasks/Zavolat Janě.md",
+    "Tasks/Poslat rozpočet.md",
+    "Tasks/Zaplatit fakturu.md",
+    "Tasks/Zalít květiny.md",
+    "Tasks/Bez stavu.md",
+    "Tasks/Koupit dárek.md",
+    "Tasks/Nákup.md",
+    "Tasks/Cizí stav.md",
+    "Tasks/Úklid garáže.md",
+    "Tasks/Příprava prezentace.md",
+    "Tasks/Obnovit pas.md",
+    "Tasks/Přečíst knihu.md",
+    "Tasks/Opravit kolo.md",
+    "Tasks/S časem.md",
+    "Tasks/Špatné datum.md",
+    "Tasks/Štítek v textu.md",
+    "Tasks/Vrátit knihy.md"
+   ]
+  },
+  {
+   "query": "Rozvrh dvě období",
+   "note": "FR-QRY-01 AC-18: drawn as a List of the 17 non-Cancelled tasks",
+   "env": {
+    "today": "2026-10-14",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "broken": [
+    "group_by"
+   ],
+   "kind": null,
+   "dateTime": false,
+   "key": null,
+   "lanes": null,
+   "paths": [
+    "Tasks/Zavolat Janě.md",
+    "Tasks/Poslat rozpočet.md",
+    "Tasks/Zaplatit fakturu.md",
+    "Tasks/Zalít květiny.md",
+    "Tasks/Bez stavu.md",
+    "Tasks/Koupit dárek.md",
+    "Tasks/Nákup.md",
+    "Tasks/Cizí stav.md",
+    "Tasks/Úklid garáže.md",
+    "Tasks/Příprava prezentace.md",
+    "Tasks/Obnovit pas.md",
+    "Tasks/Přečíst knihu.md",
+    "Tasks/Opravit kolo.md",
+    "Tasks/S časem.md",
+    "Tasks/Špatné datum.md",
+    "Tasks/Štítek v textu.md",
+    "Tasks/Vrátit knihy.md"
+   ]
+  },
+  {
+   "query": "Rozvrh podle priority",
+   "note": "FR-QRY-01 AC-18: drawn as a List of the 17 non-Cancelled tasks",
+   "env": {
+    "today": "2026-10-14",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "broken": [
+    "group_by"
+   ],
+   "kind": null,
+   "dateTime": false,
+   "key": null,
+   "lanes": null,
+   "paths": [
+    "Tasks/Zavolat Janě.md",
+    "Tasks/Poslat rozpočet.md",
+    "Tasks/Zaplatit fakturu.md",
+    "Tasks/Zalít květiny.md",
+    "Tasks/Bez stavu.md",
+    "Tasks/Koupit dárek.md",
+    "Tasks/Nákup.md",
+    "Tasks/Cizí stav.md",
+    "Tasks/Úklid garáže.md",
+    "Tasks/Příprava prezentace.md",
+    "Tasks/Obnovit pas.md",
+    "Tasks/Přečíst knihu.md",
+    "Tasks/Opravit kolo.md",
+    "Tasks/S časem.md",
+    "Tasks/Špatné datum.md",
+    "Tasks/Štítek v textu.md",
+    "Tasks/Vrátit knihy.md"
+   ]
+  },
+  {
+   "query": "Rozvrh neznámý klíč",
+   "note": "FR-QRY-01 AC-18: drawn as a List of the 17 non-Cancelled tasks",
+   "env": {
+    "today": "2026-10-14",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "broken": [
+    "group_by"
+   ],
+   "kind": null,
+   "dateTime": false,
+   "key": null,
+   "lanes": null,
+   "paths": [
+    "Tasks/Zavolat Janě.md",
+    "Tasks/Poslat rozpočet.md",
+    "Tasks/Zaplatit fakturu.md",
+    "Tasks/Zalít květiny.md",
+    "Tasks/Bez stavu.md",
+    "Tasks/Koupit dárek.md",
+    "Tasks/Nákup.md",
+    "Tasks/Cizí stav.md",
+    "Tasks/Úklid garáže.md",
+    "Tasks/Příprava prezentace.md",
+    "Tasks/Obnovit pas.md",
+    "Tasks/Přečíst knihu.md",
+    "Tasks/Opravit kolo.md",
+    "Tasks/S časem.md",
+    "Tasks/Špatné datum.md",
+    "Tasks/Štítek v textu.md",
+    "Tasks/Vrátit knihy.md"
+   ]
+  },
+  {
+   "query": "Rozvrh nula dní",
+   "note": "FR-QRY-01 AC-18: done_lane ignored, Done-state tasks back in their lanes by due",
+   "env": {
+    "today": "2026-10-14",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "broken": [
+    "done_lane"
+   ],
+   "kind": "period",
+   "dateTime": false,
+   "key": "due",
+   "lanes": [
+    {
+     "id": "period:today",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Objednat lístky.md",
+      "Tasks/Zavolat Janě.md",
+      "Tasks/Poslat rozpočet.md",
+      "Tasks/Zaplatit fakturu.md",
+      "Tasks/Zalít květiny.md",
+      "Tasks/Bez stavu.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "period:week",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Koupit dárek.md",
+      "Tasks/Nákup.md",
+      "Tasks/Cizí stav.md",
+      "Tasks/Úklid garáže.md"
+     ],
+     "days": [
+      {
+       "date": "2026-10-15",
+       "paths": [
+        "Tasks/Koupit dárek.md",
+        "Tasks/Nákup.md"
+       ]
+      },
+      {
+       "date": "2026-10-16",
+       "paths": [
+        "Tasks/Cizí stav.md"
+       ]
+      },
+      {
+       "date": "2026-10-17",
+       "paths": []
+      },
+      {
+       "date": "2026-10-18",
+       "paths": [
+        "Tasks/Úklid garáže.md"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "period:later",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Příprava prezentace.md",
+      "Tasks/Obnovit pas.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "none",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Přečíst knihu.md",
+      "Tasks/Opravit kolo.md",
+      "Tasks/S časem.md",
+      "Tasks/Špatné datum.md",
+      "Tasks/Štítek v textu.md",
+      "Tasks/Vrátit knihy.md"
+     ],
+     "days": []
+    }
+   ]
+  },
+  {
+   "query": "Rozvrh tři dny",
+   "note": "FR-QRY-01 AC-18: done_lane ignored, Done-state tasks back in their lanes by due",
+   "env": {
+    "today": "2026-10-14",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "broken": [
+    "done_lane"
+   ],
+   "kind": "period",
+   "dateTime": false,
+   "key": "due",
+   "lanes": [
+    {
+     "id": "period:today",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Objednat lístky.md",
+      "Tasks/Zavolat Janě.md",
+      "Tasks/Poslat rozpočet.md",
+      "Tasks/Zaplatit fakturu.md",
+      "Tasks/Zalít květiny.md",
+      "Tasks/Bez stavu.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "period:week",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Koupit dárek.md",
+      "Tasks/Nákup.md",
+      "Tasks/Cizí stav.md",
+      "Tasks/Úklid garáže.md"
+     ],
+     "days": [
+      {
+       "date": "2026-10-15",
+       "paths": [
+        "Tasks/Koupit dárek.md",
+        "Tasks/Nákup.md"
+       ]
+      },
+      {
+       "date": "2026-10-16",
+       "paths": [
+        "Tasks/Cizí stav.md"
+       ]
+      },
+      {
+       "date": "2026-10-17",
+       "paths": []
+      },
+      {
+       "date": "2026-10-18",
+       "paths": [
+        "Tasks/Úklid garáže.md"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "period:later",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Příprava prezentace.md",
+      "Tasks/Obnovit pas.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "none",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Přečíst knihu.md",
+      "Tasks/Opravit kolo.md",
+      "Tasks/S časem.md",
+      "Tasks/Špatné datum.md",
+      "Tasks/Štítek v textu.md",
+      "Tasks/Vrátit knihy.md"
+     ],
+     "days": []
+    }
+   ]
+  },
+  {
+   "query": "Rozvrh ano",
+   "note": "FR-QRY-01 AC-18: done_lane ignored, Done-state tasks back in their lanes by due",
+   "env": {
+    "today": "2026-10-14",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "broken": [
+    "done_lane"
+   ],
+   "kind": "period",
+   "dateTime": false,
+   "key": "due",
+   "lanes": [
+    {
+     "id": "period:today",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Objednat lístky.md",
+      "Tasks/Zavolat Janě.md",
+      "Tasks/Poslat rozpočet.md",
+      "Tasks/Zaplatit fakturu.md",
+      "Tasks/Zalít květiny.md",
+      "Tasks/Bez stavu.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "period:week",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Koupit dárek.md",
+      "Tasks/Nákup.md",
+      "Tasks/Cizí stav.md",
+      "Tasks/Úklid garáže.md"
+     ],
+     "days": [
+      {
+       "date": "2026-10-15",
+       "paths": [
+        "Tasks/Koupit dárek.md",
+        "Tasks/Nákup.md"
+       ]
+      },
+      {
+       "date": "2026-10-16",
+       "paths": [
+        "Tasks/Cizí stav.md"
+       ]
+      },
+      {
+       "date": "2026-10-17",
+       "paths": []
+      },
+      {
+       "date": "2026-10-18",
+       "paths": [
+        "Tasks/Úklid garáže.md"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "period:later",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Příprava prezentace.md",
+      "Tasks/Obnovit pas.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "none",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Přečíst knihu.md",
+      "Tasks/Opravit kolo.md",
+      "Tasks/S časem.md",
+      "Tasks/Špatné datum.md",
+      "Tasks/Štítek v textu.md",
+      "Tasks/Vrátit knihy.md"
+     ],
+     "days": []
+    }
+   ]
+  },
+  {
+   "query": "Rozvrh bez folded",
+   "note": "FR-QRY-01 AC-18: `done_lane: { within_days: 7 }` is valid",
+   "env": {
+    "today": "2026-10-14",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "broken": [],
+   "kind": "period",
+   "dateTime": false,
+   "key": "due",
+   "lanes": [
+    {
+     "id": "period:today",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Zavolat Janě.md",
+      "Tasks/Poslat rozpočet.md",
+      "Tasks/Zalít květiny.md",
+      "Tasks/Bez stavu.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "period:week",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Koupit dárek.md",
+      "Tasks/Nákup.md",
+      "Tasks/Cizí stav.md",
+      "Tasks/Úklid garáže.md"
+     ],
+     "days": [
+      {
+       "date": "2026-10-15",
+       "paths": [
+        "Tasks/Koupit dárek.md",
+        "Tasks/Nákup.md"
+       ]
+      },
+      {
+       "date": "2026-10-16",
+       "paths": [
+        "Tasks/Cizí stav.md"
+       ]
+      },
+      {
+       "date": "2026-10-17",
+       "paths": []
+      },
+      {
+       "date": "2026-10-18",
+       "paths": [
+        "Tasks/Úklid garáže.md"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "period:later",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Příprava prezentace.md",
+      "Tasks/Obnovit pas.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "none",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Přečíst knihu.md",
+      "Tasks/Opravit kolo.md",
+      "Tasks/S časem.md",
+      "Tasks/Špatné datum.md",
+      "Tasks/Štítek v textu.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "done",
+     "dropTarget": true,
+     "doneWithin": 7,
+     "paths": [
+      "Tasks/Zaplatit fakturu.md",
+      "Tasks/Vrátit knihy.md"
+     ],
+     "days": []
+    }
+   ]
+  },
+  {
+   "query": "Rozvrh pořadí",
+   "note": "FR-QRY-01 AC-18: lane_order [later, today, week]",
+   "env": {
+    "today": "2026-10-14",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "broken": [],
+   "kind": "period",
+   "dateTime": false,
+   "key": "due",
+   "lanes": [
+    {
+     "id": "period:later",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Příprava prezentace.md",
+      "Tasks/Obnovit pas.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "period:today",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Zavolat Janě.md",
+      "Tasks/Poslat rozpočet.md",
+      "Tasks/Zalít květiny.md",
+      "Tasks/Bez stavu.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "period:week",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Koupit dárek.md",
+      "Tasks/Nákup.md",
+      "Tasks/Cizí stav.md",
+      "Tasks/Úklid garáže.md"
+     ],
+     "days": [
+      {
+       "date": "2026-10-15",
+       "paths": [
+        "Tasks/Koupit dárek.md",
+        "Tasks/Nákup.md"
+       ]
+      },
+      {
+       "date": "2026-10-16",
+       "paths": [
+        "Tasks/Cizí stav.md"
+       ]
+      },
+      {
+       "date": "2026-10-17",
+       "paths": []
+      },
+      {
+       "date": "2026-10-18",
+       "paths": [
+        "Tasks/Úklid garáže.md"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "none",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Přečíst knihu.md",
+      "Tasks/Opravit kolo.md",
+      "Tasks/S časem.md",
+      "Tasks/Špatné datum.md",
+      "Tasks/Štítek v textu.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "done",
+     "dropTarget": true,
+     "doneWithin": 7,
+     "paths": [
+      "Tasks/Zaplatit fakturu.md",
+      "Tasks/Vrátit knihy.md"
+     ],
+     "days": []
+    }
+   ]
+  },
+  {
+   "query": "Rozvrh špatné pořadí",
+   "note": "FR-QRY-01 AC-18: lane_order [Later, zítra] orders nothing",
+   "env": {
+    "today": "2026-10-14",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "broken": [],
+   "kind": "period",
+   "dateTime": false,
+   "key": "due",
+   "lanes": [
+    {
+     "id": "period:today",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Zavolat Janě.md",
+      "Tasks/Poslat rozpočet.md",
+      "Tasks/Zalít květiny.md",
+      "Tasks/Bez stavu.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "period:week",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Koupit dárek.md",
+      "Tasks/Nákup.md",
+      "Tasks/Cizí stav.md",
+      "Tasks/Úklid garáže.md"
+     ],
+     "days": [
+      {
+       "date": "2026-10-15",
+       "paths": [
+        "Tasks/Koupit dárek.md",
+        "Tasks/Nákup.md"
+       ]
+      },
+      {
+       "date": "2026-10-16",
+       "paths": [
+        "Tasks/Cizí stav.md"
+       ]
+      },
+      {
+       "date": "2026-10-17",
+       "paths": []
+      },
+      {
+       "date": "2026-10-18",
+       "paths": [
+        "Tasks/Úklid garáže.md"
+       ]
+      }
+     ]
+    },
+    {
+     "id": "period:later",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Příprava prezentace.md",
+      "Tasks/Obnovit pas.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "none",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Tasks/Přečíst knihu.md",
+      "Tasks/Opravit kolo.md",
+      "Tasks/S časem.md",
+      "Tasks/Špatné datum.md",
+      "Tasks/Štítek v textu.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "done",
+     "dropTarget": true,
+     "doneWithin": 7,
+     "paths": [
+      "Tasks/Zaplatit fakturu.md",
+      "Tasks/Vrátit knihy.md"
+     ],
+     "days": []
+    }
+   ]
+  },
+  {
+   "query": "Projekty s hotovými",
+   "note": "FR-QRY-01 AC-18: done_lane on Projekt is broken at run time",
+   "env": {
+    "today": "2026-10-14",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "broken": [
+    "done_lane"
+   ],
+   "kind": "period",
+   "dateTime": false,
+   "key": "due",
+   "lanes": [
+    {
+     "id": "period:today",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Projekty/Web.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "period:week",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Projekty/Stěhování.md"
+     ],
+     "days": [
+      {
+       "date": "2026-10-15",
+       "paths": []
+      },
+      {
+       "date": "2026-10-16",
+       "paths": [
+        "Projekty/Stěhování.md"
+       ]
+      },
+      {
+       "date": "2026-10-17",
+       "paths": []
+      },
+      {
+       "date": "2026-10-18",
+       "paths": []
+      }
+     ]
+    },
+    {
+     "id": "period:later",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Projekty/Kuchařka.md"
+     ],
+     "days": []
+    },
+    {
+     "id": "none",
+     "dropTarget": true,
+     "doneWithin": null,
+     "paths": [
+      "Projekty/Zahrada.md"
+     ],
+     "days": []
+    }
+   ]
+  }
+ ],
+ "filters": [
+  {
+   "name": "Bez zrušených",
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Bez zrušených.\nversion: 1\ntitle: Bez zrušených\ntypes: [task]\nmatch: all\nfilters:\n  - status: { state_is_not: cancelled }\nsort: { by: title, order: asc }\nlimit: 50\nview: list\ncreated: 2026-10-13T08:00:00+02:00\nmodified: 2026-10-13T08:00:00+02:00\n",
+   "broken": [],
+   "paths": [
+    "Tasks/Bez stavu.md",
+    "Tasks/Cizí stav.md",
+    "Tasks/Koupit dárek.md",
+    "Tasks/Nákup.md",
+    "Tasks/Objednat lístky.md",
+    "Tasks/Obnovit pas.md",
+    "Tasks/Opravit kolo.md",
+    "Tasks/Poslat rozpočet.md",
+    "Tasks/Přečíst knihu.md",
+    "Tasks/Příprava prezentace.md",
+    "Tasks/S časem.md",
+    "Tasks/Vrátit knihy.md",
+    "Tasks/Zalít květiny.md",
+    "Tasks/Zaplatit fakturu.md",
+    "Tasks/Zavolat Janě.md",
+    "Tasks/Úklid garáže.md",
+    "Tasks/Špatné datum.md",
+    "Tasks/Štítek v textu.md"
+   ]
+  },
+  {
+   "name": "Hotové",
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Hotové.\nversion: 1\ntitle: Hotové\ntypes: [task]\nmatch: all\nfilters:\n  - status: { state_is: done }\nsort: { by: title, order: asc }\nlimit: 50\nview: list\ncreated: 2026-10-13T08:00:00+02:00\nmodified: 2026-10-13T08:00:00+02:00\n",
+   "broken": [],
+   "paths": [
+    "Tasks/Objednat lístky.md",
+    "Tasks/Vrátit knihy.md",
+    "Tasks/Zaplatit fakturu.md"
+   ]
+  },
+  {
+   "name": "Otevřené",
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Otevřené.\nversion: 1\ntitle: Otevřené\ntypes: [task]\nmatch: all\nfilters:\n  - status: { state_is: open }\nsort: { by: title, order: asc }\nlimit: 50\nview: list\ncreated: 2026-10-13T08:00:00+02:00\nmodified: 2026-10-13T08:00:00+02:00\n",
+   "broken": [],
+   "paths": [
+    "Tasks/Bez stavu.md",
+    "Tasks/Cizí stav.md",
+    "Tasks/Koupit dárek.md",
+    "Tasks/Nákup.md",
+    "Tasks/Obnovit pas.md",
+    "Tasks/Přečíst knihu.md",
+    "Tasks/Příprava prezentace.md",
+    "Tasks/S časem.md",
+    "Tasks/Zalít květiny.md",
+    "Tasks/Zavolat Janě.md",
+    "Tasks/Úklid garáže.md",
+    "Tasks/Špatné datum.md",
+    "Tasks/Štítek v textu.md"
+   ]
+  },
+  {
+   "name": "Rozpracované",
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Rozpracované.\nversion: 1\ntitle: Rozpracované\ntypes: [task]\nmatch: all\nfilters:\n  - status: { state_is: in-progress }\nsort: { by: title, order: asc }\nlimit: 50\nview: list\ncreated: 2026-10-13T08:00:00+02:00\nmodified: 2026-10-13T08:00:00+02:00\n",
+   "broken": [],
+   "paths": [
+    "Tasks/Opravit kolo.md",
+    "Tasks/Poslat rozpočet.md"
+   ]
+  },
+  {
+   "name": "Projekty bez zrušených",
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Projekty bez zrušených.\nversion: 1\ntitle: Projekty bez zrušených\ntypes: [projekt]\nmatch: all\nfilters:\n  - status: { state_is_not: cancelled }\nsort: { by: title, order: asc }\nlimit: 50\nview: list\ncreated: 2026-10-13T08:00:00+02:00\nmodified: 2026-10-13T08:00:00+02:00\n",
+   "broken": [
+    {
+     "reason": "operatorKind",
+     "key": "status"
+    }
+   ],
+   "paths": null
+  },
+  {
+   "name": "Hotovo česky",
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Hotovo česky.\nversion: 1\ntitle: Hotovo česky\ntypes: [task]\nmatch: all\nfilters:\n  - status: { state_is: hotovo }\nsort: { by: title, order: asc }\nlimit: 50\nview: list\ncreated: 2026-10-13T08:00:00+02:00\nmodified: 2026-10-13T08:00:00+02:00\n",
+   "broken": [
+    {
+     "reason": "value",
+     "key": "status"
+    }
+   ],
+   "paths": null
+  }
+ ]
+}
