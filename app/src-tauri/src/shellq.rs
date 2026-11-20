@@ -322,6 +322,9 @@ pub(crate) fn def_from(d: QueryDefDto) -> Result<QueryDef, IpcError> {
         lanes: if d.lanes == "horizontal" { Lanes::Horizontal } else { Lanes::Vertical },
         lane_order: d.lane_order,
         columns: d.columns,
+        // v1-views §24.1 (Q2-T): compile-only stub; the DTO doesn't carry these yet.
+        group_period: false,
+        done_lane: None,
     })
 }
 
@@ -341,6 +344,9 @@ fn lane_dto(l: Lane) -> LaneDto {
         LaneKind::Relation => "relation",
         LaneKind::Unresolved => "unresolved",
         LaneKind::None => "none",
+        // v1-views §27.2 (Q2-T): compile-only stub; the core builds no such lanes yet.
+        LaneKind::Period => "period",
+        LaneKind::Done => "done",
     };
     LaneDto {
         id: l.id,
@@ -361,6 +367,8 @@ fn grouping_dto(g: Grouping) -> GroupingDto {
         GroupKind::MultiSelect => ("multiSelect", false),
         GroupKind::Tags => ("tags", false),
         GroupKind::Relation { multiple } => ("relation", multiple),
+        // v1-views §27.2 (Q2-T): compile-only stub; the core builds no such grouping yet.
+        GroupKind::Period { .. } => ("period", false),
     };
     GroupingDto { key: g.key, kind: kind.into(), multiple, name: g.name, lanes: g.lanes.into_iter().map(lane_dto).collect() }
 }

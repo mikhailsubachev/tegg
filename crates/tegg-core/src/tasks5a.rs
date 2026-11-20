@@ -16,7 +16,7 @@ use crate::{Core, DayWindow, FileVersion, LinkTarget, ObjectInfo, Resolver};
 pub use tegg_schema::TaskState;
 
 /// One task (R44): every indexed object whose matched type is `task`, outside `_templates/` and `.trash/`.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TaskRow {
     pub path: String,
     pub id: Option<String>,
@@ -39,7 +39,7 @@ pub struct TaskRow {
     pub read_only: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct StatusOption {
     pub label: String,
     pub color: Option<String>,
@@ -47,7 +47,7 @@ pub struct StatusOption {
     pub state_raw: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TaskDefs {
     pub statuses: Vec<StatusOption>,
     pub priorities: Vec<OptionDef>,

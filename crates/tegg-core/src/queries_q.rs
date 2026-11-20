@@ -22,7 +22,7 @@ use yaml_rust2::{Yaml, YamlLoader};
 
 use crate::graph_presets::{blank, comment, content, indent, join, key_at, open_flow_line, split, Line};
 use crate::yaml_text::top;
-use crate::{lock, Core, CoreError, CoreEvent, FileVersion, LinkTarget, TaskState};
+use crate::{lock, Core, CoreError, CoreEvent, FileVersion, LinkTarget, TaskDefs, TaskRow, TaskState};
 
 pub const QUERIES_DIR: &str = ".tegg/queries";
 pub const TRASHED_QUERIES_DIR: &str = ".trash/.tegg/queries";
@@ -122,6 +122,9 @@ pub enum Op {
     Lt,
     Gt,
     LinksTo,
+    /// v1-views §24.1 (Q2-T): compile-only stub (D-1912); not read, written or evaluated yet.
+    StateIs,
+    StateIsNot,
 }
 
 const OPS: [Op; 21] = [
@@ -172,6 +175,8 @@ impl Op {
             Op::Lt => "lt",
             Op::Gt => "gt",
             Op::LinksTo => "links_to",
+            Op::StateIs => "state_is",
+            Op::StateIsNot => "state_is_not",
         }
     }
     pub fn parse(s: &str) -> Option<Op> {
@@ -205,6 +210,17 @@ pub struct QueryDef {
     /// None = key absent (the default order); a commit with None removes the key (Reset lane order, D-1792).
     pub lane_order: Option<Vec<String>>,
     pub columns: Vec<String>,
+    /// v1-views §24.1 (Q2-T, CP-23): compile-only stub, always false; not read or written yet.
+    pub group_period: bool,
+    /// v1-views §24.1 (Q2-T): compile-only stub, always None; not read or written yet.
+    pub done_lane: Option<DoneLane>,
+}
+
+/// v1-views §24.1 (Q2-T, R201): compile-only stub; not read or written yet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DoneLane {
+    pub within_days: u32,
+    pub folded: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -372,6 +388,10 @@ pub struct QueryRow {
     pub version: FileVersion,
     pub excerpt: String,
     pub read_only: bool,
+    /// v1-views §24.1 (Q2-T): compile-only stub, always empty.
+    pub tags: Vec<String>,
+    /// v1-views §24.1 (Q2-T, CP-24): compile-only stub, always None.
+    pub task_row: Option<TaskRow>,
 }
 
 /// v1-views §1.1 (R187): a board's lanes.
@@ -383,6 +403,9 @@ pub enum LaneKind {
     Relation,
     Unresolved,
     None,
+    /// v1-views §24.1 (Q2-T): compile-only stubs; no lane of these kinds is built yet.
+    Period,
+    Done,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LaneCard {
@@ -400,6 +423,16 @@ pub struct Lane {
     pub excluded: bool,
     pub drop_target: bool,
     pub cards: Vec<LaneCard>,
+    /// v1-views §24.1 (Q2-T): compile-only stub, always empty.
+    pub days: Vec<DayGroup>,
+    /// v1-views §24.1 (Q2-T): compile-only stub, always None.
+    pub done_within: Option<u32>,
+}
+/// v1-views §24.1 (Q2-T): the `week` lane's day group; compile-only stub, never built yet.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DayGroup {
+    pub date: NaiveDate,
+    pub cards: Vec<LaneCard>,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GroupKind {
@@ -407,6 +440,8 @@ pub enum GroupKind {
     MultiSelect,
     Tags,
     Relation { multiple: bool },
+    /// v1-views §24.1 (Q2-T): compile-only stub; no grouping of this kind is built yet.
+    Period { date_time: bool },
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Grouping {
@@ -441,6 +476,8 @@ pub struct QueryResult {
     /// v1-views §17.1 (D-1854): a tab's or a reference block's own and effective `sort` / `columns`; None for
     /// `query/<name>`, inline fences, the editor's def and queries without a def.
     pub usage: Option<UsageRun>,
+    /// v1-views §24.1 (Q2-T, CP-24): compile-only stub, always None.
+    pub task_defs: Option<TaskDefs>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -529,6 +566,8 @@ fn default_def(title: &str, columns: Vec<String>) -> QueryDef {
         lanes: Lanes::Vertical,
         lane_order: None,
         columns,
+        group_period: false,
+        done_lane: None,
     }
 }
 
@@ -1993,6 +2032,8 @@ fn check(key: &str, op: Op, v: &Value, chosen: &[String], defs: &Defs) -> Result
         Op::WithinNextDays => v.as_i64().is_some_and(|n| (0..=3650).contains(&n)),
         Op::Eq | Op::Ne | Op::Lt | Op::Gt => v.is_number(),
         Op::LinksTo => this || link_target_of(v).is_some(),
+        // v1-views §24.1 (Q2-T): compile-only stub; `ops_of` never offers these yet.
+        Op::StateIs | Op::StateIsNot => false,
     };
     if !ok {
         return Err((BrokenReason::Value, None));
@@ -2403,6 +2444,8 @@ fn group_rows(hits: &[usize], def: &QueryDef, chosen: &[String], ctx: &Ctx, acti
         excluded: excluded.contains(label),
         drop_target: true,
         cards: Vec::new(),
+        days: Vec::new(),
+        done_within: None,
     };
     for (i, (label, color)) in g.options.iter().enumerate() {
         if index.contains_key(&format!("option:{label}")) {
@@ -2446,7 +2489,7 @@ fn group_rows(hits: &[usize], def: &QueryDef, chosen: &[String], ctx: &Ctx, acti
                         put(
                             format!("unknown:{t}"),
                             &|| Pending {
-                                lane: Lane { id: format!("unknown:{tt}"), kind: LaneKind::Unknown, value: Some(tt.clone()), label: tt.clone(), color: None, target: None, excluded: false, drop_target: false, cards: Vec::new() },
+                                lane: Lane { id: format!("unknown:{tt}"), kind: LaneKind::Unknown, value: Some(tt.clone()), label: tt.clone(), color: None, target: None, excluded: false, drop_target: false, cards: Vec::new(), days: Vec::new(), done_within: None },
                                 rank: (1, 0, tt.clone()),
                             },
                             n,
@@ -2476,7 +2519,7 @@ fn group_rows(hits: &[usize], def: &QueryDef, chosen: &[String], ctx: &Ctx, acti
                     placed.push((
                         format!("tag:{k}"),
                         Some(Pending {
-                            lane: Lane { id: format!("tag:{kk}"), kind: LaneKind::Tag, value: Some(kk.clone()), label: kk.clone(), color: None, target: None, excluded: false, drop_target: true, cards: Vec::new() },
+                            lane: Lane { id: format!("tag:{kk}"), kind: LaneKind::Tag, value: Some(kk.clone()), label: kk.clone(), color: None, target: None, excluded: false, drop_target: true, cards: Vec::new(), days: Vec::new(), done_within: None },
                             rank: (1, 0, kk.clone()),
                         }),
                         raws,
@@ -2511,7 +2554,7 @@ fn group_rows(hits: &[usize], def: &QueryDef, chosen: &[String], ctx: &Ctx, acti
                             put(
                                 format!("relation:{p}"),
                                 &|| Pending {
-                                    lane: Lane { id: format!("relation:{pp}"), kind: LaneKind::Relation, value: Some(value.clone()), label: nfc(&title), color: None, target: Some(pp.clone()), excluded: false, drop_target: true, cards: Vec::new() },
+                                    lane: Lane { id: format!("relation:{pp}"), kind: LaneKind::Relation, value: Some(value.clone()), label: nfc(&title), color: None, target: Some(pp.clone()), excluded: false, drop_target: true, cards: Vec::new(), days: Vec::new(), done_within: None },
                                     rank: (1, 0, nfc(&title)),
                                 },
                                 n,
@@ -2523,7 +2566,7 @@ fn group_rows(hits: &[usize], def: &QueryDef, chosen: &[String], ctx: &Ctx, acti
                             put(
                                 format!("unresolved:{text}"),
                                 &|| Pending {
-                                    lane: Lane { id: format!("unresolved:{tt}"), kind: LaneKind::Unresolved, value: Some(format!("[[{tt}]]")), label: tt.clone(), color: None, target: None, excluded: false, drop_target: false, cards: Vec::new() },
+                                    lane: Lane { id: format!("unresolved:{tt}"), kind: LaneKind::Unresolved, value: Some(format!("[[{tt}]]")), label: tt.clone(), color: None, target: None, excluded: false, drop_target: false, cards: Vec::new(), days: Vec::new(), done_within: None },
                                     rank: (2, 0, tt.clone()),
                                 },
                                 n,
@@ -2533,6 +2576,8 @@ fn group_rows(hits: &[usize], def: &QueryDef, chosen: &[String], ctx: &Ctx, acti
                     }
                 }
             }
+            // v1-views §24.1 (Q2-T): compile-only stub; `group_attr` never gives this kind yet.
+            GroupKind::Period { .. } => {}
         }
         if placed.is_empty() {
             none.push(LaneCard { row, raw: Vec::new() });
@@ -2575,6 +2620,8 @@ fn group_rows(hits: &[usize], def: &QueryDef, chosen: &[String], ctx: &Ctx, acti
                 }
                 LaneKind::Unresolved => l.value.as_deref() == Some(e.as_str()),
                 LaneKind::None => false,
+                // v1-views §24.1 (Q2-T): compile-only stub; no such lanes are built yet.
+                LaneKind::Period | LaneKind::Done => false,
             });
             if let Some(i) = pos {
                 front.push(out.remove(i));
@@ -2584,7 +2631,7 @@ fn group_rows(hits: &[usize], def: &QueryDef, chosen: &[String], ctx: &Ctx, acti
         out = front;
     }
     if !none.is_empty() {
-        out.push(Lane { id: "none".into(), kind: LaneKind::None, value: None, label: String::new(), color: None, target: None, excluded: false, drop_target: false, cards: none });
+        out.push(Lane { id: "none".into(), kind: LaneKind::None, value: None, label: String::new(), color: None, target: None, excluded: false, drop_target: false, cards: none, days: Vec::new(), done_within: None });
     }
     Some(Grouping { key: g.key, kind: g.kind, name: g.name, lanes: out })
 }
@@ -2640,6 +2687,8 @@ fn row_of(o: &QueryObject, def: &QueryDef, ctx: &Ctx, group_key: Option<&str>) -
         version: FileVersion { mtime_ns: 0, size: 0, hash: [0; 32] },
         excerpt: String::new(),
         read_only: false,
+        tags: Vec::new(),
+        task_row: None,
     }
 }
 
@@ -2961,6 +3010,7 @@ impl QCore<'_> {
             index_ready,
             group: None,
             usage: None,
+            task_defs: None,
         };
         let run = |mut r: QueryResult, def: QueryDef, syntactic: Vec<Broken>, usage: Option<(UsageKind, tegg_format::usage::UsageRaw)>| -> QueryResult {
             // v1-views §17.2: a usage's effective `sort` / `columns` order the rows and fill them; `def` stays the file's.
