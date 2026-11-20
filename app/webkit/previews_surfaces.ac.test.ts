@@ -181,11 +181,12 @@ test('fr_lnk_08_ac6_tag_page_row_previews_and_its_other_tags_chip_previews_the_t
 // Slice Q2-T (AC-Test-Change, D-1912; views.md part three, row FR-TSK-02 AC-10…AC-12 … FR-TSK-09 AC-2…AC-5): route only;
 // `tasks` and `tasks/kanban` are aliases of `type/task` (AP-1540), whose Schedule and Kanban tabs need the two default
 // views in the vault (migrations are off in tests, D-1913): the views-tasks overlay's query files and `views:` line.
-function withTaskViews() {
+function withTaskViews(edit?: (f: Record<string, string>) => void) {
   const dir = resolvePath(import.meta.dirname, '../../tests/fixtures/vaults/views-tasks/.tegg/queries');
   return previewsVault((f) => {
     for (const n of ['Schedule', 'Kanban']) f[`.tegg/queries/${n}.yml`] = readFileSync(resolvePath(dir, `${n}.yml`), 'utf8');
     f['.tegg/types/task.yml'] = f['.tegg/types/task.yml'].replace(/^(preview: .*\n)/m, '$1views: [Schedule, Kanban]\n');
+    edit?.(f);
   });
 }
 
@@ -506,7 +507,8 @@ test('fr_lnk_09_ac7_keyboard_on_a_selected_card_embed', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ FR-TSK-08
 
 test('fr_tsk_08_ac4_source_chip_previews_porada_scrolled_to_the_task_embed', async ({ page }) => {
-  const core = await startPreviews(page, { route: 'tasks' });
+  // D-1929 (D-1924): `tasks` is `type/task`, whose Schedule needs the default views in the vault.
+  const core = await startPreviews(page, { route: 'tasks', vault: withTaskViews() });
   const c = await need(taskCard(page, 'Zavolat Janě'), 'card Zavolat Janě');
   const n0 = await mark(core);
   const d = await clickToPreview(page, await need(c.locator('[data-link-kind]').filter({ hasText: 'Porada 2026-10-27' }), 'source chip'), 'Porada 2026-10-27', 'a click on the source chip');
@@ -523,7 +525,7 @@ test('fr_tsk_08_ac4_source_chip_previews_porada_scrolled_to_the_task_embed', asy
 });
 
 test('fr_tsk_08_ac4_without_the_embed_the_source_preview_is_at_the_top', async ({ page }) => {
-  const vault = previewsVault((f) => { f[nfc(PV.porada)] = swap(f[nfc(PV.porada)], '![[Zavolat Janě]]\n\n', ''); });
+  const vault = withTaskViews((f) => { f[nfc(PV.porada)] = swap(f[nfc(PV.porada)], '![[Zavolat Janě]]\n\n', ''); });
   await startPreviews(page, { route: 'tasks', vault });
   const c = await need(taskCard(page, 'Zavolat Janě'), 'card');
   const d = await clickToPreview(page, await need(c.locator('[data-link-kind]').filter({ hasText: 'Porada 2026-10-27' }), 'source chip'), 'Porada 2026-10-27', 'source chip');
@@ -544,7 +546,7 @@ async function mustBeAtTheEmbed(page: import('@playwright/test').Page, how: stri
 }
 
 test('fr_tsk_08_ac5_double_click_open_and_cmd_enter_open_porada_at_the_embed', async ({ page }) => {
-  await startPreviews(page, { route: 'tasks' });
+  await startPreviews(page, { route: 'tasks', vault: withTaskViews() });
   await (await sourceChip(page)).dblclick();
   await mustBeAtTheEmbed(page, 'a double-click on the source chip');
   assert.equal(await previewCount(page), 0, 'no popover left');
@@ -566,7 +568,7 @@ test('fr_tsk_08_ac5_double_click_open_and_cmd_enter_open_porada_at_the_embed', a
 
 for (const mode of ['click', 'hover', 'off'] as const) test(`fr_tsk_08_ac5_unresolved_source_offers_create_and_date_source_previews_the_day_${mode}`, async ({ page }) => {
   const base = previewsVault().files[nfc(PV.ukol)];
-  const vault = previewsVault((f) => {
+  const vault = withTaskViews((f) => {
     f['Tasks/Chybějící zdroj.md'] = swap(swap(swap(base, 'P009', 'P091'), '"[[Porada 2026-10-27]]"', '"[[Chybí]]"'), 'title: Zavolat Janě', 'title: Chybějící zdroj');
     f['Tasks/Ze dne.md'] = swap(swap(swap(base, 'P009', 'P092'), '"[[Porada 2026-10-27]]"', '"[[2026-10-07]]"'), 'title: Zavolat Janě', 'title: Ze dne');
   });

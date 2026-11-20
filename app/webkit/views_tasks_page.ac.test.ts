@@ -25,6 +25,16 @@ async function inDomOrder(page: Page, locs: Locator[]): Promise<boolean> {
   return page.evaluate((els) => els.every((e, i) => i === 0 || !!(els[i - 1]!.compareDocumentPosition(e!) & Node.DOCUMENT_POSITION_FOLLOWING)), handles);
 }
 const propertiesRegion = (page: Page) => page.getByRole('region', { name: 'Properties', exact: true });
+/** D-1929 (harness): `history.length` starts at 2 in WebKit (`about:blank`, then the page), so "no history entry" is
+ *  measured by a spy: the number of `history.pushState` calls since the page loaded. */
+const spyPushState = (page: Page) => page.addInitScript(() => {
+  const w = window as unknown as { __pushes: number };
+  w.__pushes = 0;
+  const h = window.history;
+  const push = h.pushState.bind(h);
+  h.pushState = (...a: Parameters<History['pushState']>) => { w.__pushes++; return push(...a); };
+});
+const pushes = (page: Page) => page.evaluate(() => (window as unknown as { __pushes: number }).__pushes);
 /** The vault file whose path starts with `prefix`, once it exists. */
 const fileStarting = (core: Awaited<ReturnType<typeof startTasksViews>>, prefix: string, ms = 3000) =>
   eventually(async () => Object.keys(await core.files()).find((k) => k.startsWith(nfc(prefix))), (x) => !!x, ms);
@@ -47,8 +57,8 @@ test('fr_tsk_04_ac22_header_tabs_and_toolbar', async ({ page }) => {
   assert.equal(await tablist(page).getAttribute('aria-label').then((x) => (x ?? '').replace(/[⟦⟧]/g, '')), 'Views', 'the tablist is `Views`');
   const t = await eventually(() => tabs(page), (x) => x.length === 4, 5000);
   assert.deepEqual(t.map((x) => [x.name, x.text, x.kind, x.selected]),
-    [['', 'All Tasks', null, false], [SCHEDULE, SCHEDULE, 'board', true], [KANBAN, KANBAN, 'board', false], [CEKA, CEKA, 'table', false]],
-    'tabs `All Tasks`, `Schedule` (board, selected on the first open), `Kanban` (board), `Čeká na ostatní` (table)');
+    [['', 'All Tasks', 'table', false], [SCHEDULE, SCHEDULE, 'board', true], [KANBAN, KANBAN, 'board', false], [CEKA, CEKA, 'table', false]],
+    'tabs `All Tasks` (table, as every `All <plural>`, D-1929), `Schedule` (board, selected on the first open), `Kanban` (board), `Čeká na ostatní` (table)');
   await must(addView(page), '`Add view` after the tabs');
   // The Schedule toolbar, in order.
   await must(scheduleBoard(page), 'the Schedule board', 5000);
@@ -102,18 +112,20 @@ test('fr_tsk_04_ac22_header_tabs_and_toolbar_add_view_works_as_on_books', async 
 // ------------------------------------------------------------------------------------------------ FR-TSK-04 AC-29
 
 test('fr_tsk_04_ac29_routes_and_the_remembered_tab', async ({ page }) => {
+  await spyPushState(page);
   await startTasksViews(page, { route: 'tasks' });
   await mustBeOn(page, 'Tasks', 'the alias `tasks` shows type/task');
   assert.equal(await eventually(() => selectedTab(page), (s) => s === SCHEDULE, 5000), SCHEDULE, 'no remembered tab: the first view tab, Schedule');
-  assert.equal(await history(page), 1, 'no history entry for the alias (history.replace)');
+  assert.equal(await pushes(page), 0, 'no history entry for the alias (history.replace)');
   assert.equal(await tablist(page).count(), 1, 'the type page with its `Views` tablist, not a 5A page');
 });
 
 test('fr_tsk_04_ac29_routes_and_the_remembered_tab_kanban_alias', async ({ page }) => {
+  await spyPushState(page);
   await startTasksViews(page, { route: 'tasks/kanban', ui: { typeViews: { lastTab: { task: CEKA } } } });
   await mustBeOn(page, 'Tasks', '`tasks/kanban` shows type/task');
   assert.equal(await eventually(() => selectedTab(page), (s) => s === KANBAN, 5000), KANBAN, '`tasks/kanban` opens the Kanban tab (Kanban is listed)');
-  assert.equal(await history(page), 1, 'no history entry for the alias');
+  assert.equal(await pushes(page), 0, 'no history entry for the alias');
 });
 
 test('fr_tsk_04_ac29_routes_and_the_remembered_tab_alias_uses_the_remembered_tab', async ({ page }) => {
@@ -221,7 +233,8 @@ test('fr_tsk_10_ac13_new_tasks_without_quick_add', async ({ page }) => {
   assert.ok(text !== undefined, 'Tasks/Zavolat do servisu.md is created');
   assert.ok(text!.includes('type: task\n') && text!.includes('title: Zavolat do servisu\n') && text!.includes('status: To do\n'), 'status: To do');
   assert.ok(!/^due:/m.test(text!), 'no due');
-  assert.ok(text!.endsWith(expectedTasks('tasks/zavolat-do-servisu-new.md')), 'the body after the frontmatter (RT-12)');
+  // RT-6 (D-1927): the generated `id:` line after `---` is removed before comparing the whole file.
+  assert.equal(text!.replace(/^---\nid: [0-9A-Z]{26}\n/, '---\n'), expectedTasks('tasks/zavolat-do-servisu-new.md'), 'the whole file without its `id:` line (RT-6)');
   assert.deepEqual((await writesTo(core)).filter((x) => x === p), [p], 'created once');
   await runCommand(page, 'Go to Tasks');
   const b = await openTasks(page, SCHEDULE);

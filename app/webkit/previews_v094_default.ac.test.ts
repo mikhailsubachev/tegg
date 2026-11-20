@@ -301,7 +301,9 @@ test('fr_syn_06_ac42_hovering_clicking_inside_previews_embeds_and_scrolling_writ
   test.setTimeout(240_000);
   // D-1187: the tour starts on tasks/kanban with the panel open on Graph and the Kanban view stored before the start, so
   // reaching them writes no `ui_state` (the app stores `tasks` when the view is shown without it).
-  const uiState = { ...ui(), rightPanel: { open: true, tab: 'graph' as const }, tasks: { view: 'kanban', groupBy: 'status', dateFilter: 'all', tags: [], doneExpanded: false } } as ReturnType<typeof ui>;
+  const uiState = { ...ui(), rightPanel: { open: true, tab: 'graph' as const }, tasks: { view: 'kanban', groupBy: 'status', dateFilter: 'all', tags: [], doneExpanded: false },
+    // D-1929 (AC-Test-Change, slice Q2-T): the 0.4.x state already adopted (lastTab task: Kanban, §30.3), so loading it writes no ui_state either.
+    typeViews: { lastTab: { task: 'Kanban' } } } as unknown as ReturnType<typeof ui>;
   const core = await startPreviews(page, { route: 'tasks/kanban', uiState, vault: withTaskViews(previewsVault()) });
   const files0 = await snapshot(core);
   // Horizontal wheels on tasks/kanban (FR-NAV-03 AC-8, AC-9).

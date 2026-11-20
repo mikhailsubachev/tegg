@@ -613,7 +613,8 @@ fn fr_qry_07_ac28_an_existing_vault_is_migrated_once() {
         assert_eq!(list_files(&rb, ".tegg/queries").len(), 2, "(b) {file}.yml: no second Schedule file: {:?}", list_files(&rb, ".tegg/queries"));
         assert_eq!(disk_s(&rb, TASK_YML), Some(exp("types/task-migrated.yml")), "(b) views written");
         let tab = paths(&cb.query_run(QuerySource::View { type_key: "task".into(), name: "Schedule".into() }, None, &env()));
-        assert!(!tab.is_empty() && tab.iter().all(|p| p.starts_with("Pages/")), "(b) the Schedule tab shows the user's query: {tab:?}");
+        // `Tasks/Bez hlavičky.md` has no frontmatter: a Page (D-103, D-1929).
+        assert!(!tab.is_empty() && tab.iter().all(|p| p.starts_with("Pages/") || p == "Tasks/Bez hlavičky.md"), "(b) the Schedule tab shows the user's query: {tab:?}");
     }
 
     // (c) `views: []` or a hand-written list: nothing written.
@@ -705,7 +706,8 @@ fn kill_child() {
     }
     std::process::exit(0)
 }
-/// One killed child: spawn the test binary on `test`, wait for ready, kill after a random 0.2…3.2 ms.
+/// One killed child: spawn the test binary on `test`, wait for ready, kill after a random 0.2…3.2 ms (`period`), or
+/// 0.2…25.2 ms for `migrate` and `restore`, whose last write follows two or three durable writes (D-1889, D-1929).
 fn kill_once(test: &str, work: &Path, kind: &str, cycle: usize, seed: &mut u64) -> Option<String> {
     let exe = std::env::current_exe().expect("setup: test binary");
     let ready = work.join(format!("ready-{kind}-{cycle}"));
@@ -725,7 +727,8 @@ fn kill_once(test: &str, work: &Path, kind: &str, cycle: usize, seed: &mut u64) 
     *seed ^= *seed << 13;
     *seed ^= *seed >> 7;
     *seed ^= *seed << 17;
-    std::thread::sleep(Duration::from_micros(200 + *seed % 3000));
+    let window = if kind == "period" { 3000 } else { 25_000 };
+    std::thread::sleep(Duration::from_micros(200 + *seed % window));
     let _ = child.kill();
     let _ = child.wait();
     let failed = ready.with_extension("failed");
@@ -1033,9 +1036,11 @@ fn fr_qry_02_ac9_state_operators() {
         bad
     };
     assert_eq!(check(&core, "fixture"), Vec::<String>::new(), "FR-QRY-02 AC-9's results (corpus `filters`)");
-    // Renaming the Cancelled option leaves the results unchanged (states, not labels).
+    // Renaming the Cancelled option leaves the results unchanged (states, not labels). T13 Zrušená cesta uses it, so its
+    // value is renamed too, as the option rename does (D-1929).
     write(&root, TASK_YML, swapped(&base_fx(".tegg/types/task.yml"), "label: Cancelled,", "label: Zrušeno,").as_bytes());
-    reread(&core, &[TASK_YML]);
+    write(&root, &t(13), swapped(&base_fx(&t(13)), "status: Cancelled\n", "status: Zrušeno\n").as_bytes());
+    reread(&core, &[TASK_YML, &t(13)]);
     assert_eq!(check(&core, "Zrušeno"), Vec::<String>::new(), "a renamed Cancelled option changes no result");
 }
 

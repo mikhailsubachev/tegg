@@ -253,7 +253,9 @@ test('fr_qry_01_ac13_group_by_choices', async ({ page }) => {
   await click(menuItem(await must(viewMenu(page), 'menu'), 'Edit view'), 'Edit view');
   await click(editor(page).getByRole('combobox', { name: rx('Group by') }), 'Group by');
   const opts = (await page.getByRole('option').allInnerTexts()).map(flat);
-  assert.deepEqual(opts, ['Author', 'Status', 'Rating', 'Genres', 'Tags'], 'Book: Author, Status, Rating, Genres, then Tags; no Finished');
+  // Q2-T (D-1929; D-1776, R201, v1-views §28.2): the date keys by period follow R189's choices.
+  assert.deepEqual(opts, ['Author', 'Status', 'Rating', 'Genres', 'Tags', 'Finished · by period', 'Created · by period', 'Modified · by period'],
+    'Book: Author, Status, Rating, Genres, then Tags; Finished only by period, then Created and Modified by period');
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
   await runCommand(page, 'Go to type: Autoři');
@@ -261,7 +263,7 @@ test('fr_qry_01_ac13_group_by_choices', async ({ page }) => {
   await click(toolbarMenuButton(page), '⋯');
   await click(menuItem(await must(viewMenu(page), 'menu'), 'Edit view'), 'Edit view');
   await click(editor(page).getByRole('combobox', { name: rx('Group by') }), 'Group by');
-  assert.deepEqual((await page.getByRole('option').allInnerTexts()).map(flat), ['Tags'], 'Autor: only Tags');
+  assert.deepEqual((await page.getByRole('option').allInnerTexts()).map(flat), ['Tags', 'Created · by period', 'Modified · by period'], 'Autor: only Tags, then Created and Modified by period (D-1929)');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-QRY-05 AC-23

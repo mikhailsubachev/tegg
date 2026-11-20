@@ -93,7 +93,7 @@ export const withTaskViews = (vault: FakeVault): FakeVault => ({ ...vault, files
 /** Q2-T: the 5A lane ids on the period board (R203) and the Kanban (part one's ids). */
 export const LANE: Record<'today' | 'week' | 'later' | 'none' | 'done', string> = { today: 'period:today', week: 'period:week', later: 'period:later', none: 'none', done: 'done' };
 /** Q2-T: a 5A column id (`To do`, `#práce`, `no-tag`, `no-status`) as a lane id (`option:To do`, `tag:práce`, `none`). */
-export const laneId = (id: string) => (id === 'no-tag' || id === 'no-status' ? 'none' : id.startsWith('#') ? `tag:${nfc(id.slice(1))}` : id.includes(':') ? nfc(id) : `option:${nfc(id)}`);
+export const laneId = (id: string) => (id === 'no-tag' || id === 'no-status' || id === 'none' ? 'none' : id.startsWith('#') ? `tag:${nfc(id.slice(1))}` : id.includes(':') ? nfc(id) : `option:${nfc(id)}`);
 export function swap(text: string | undefined, from: string, to: string): string {
   assert.ok(text !== undefined && text.includes(from), `fixture text contains ${JSON.stringify(from)}`);
   return text!.replace(from, to);

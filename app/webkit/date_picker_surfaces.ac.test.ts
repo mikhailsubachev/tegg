@@ -186,7 +186,8 @@ for (const theme of ['light', 'dark'] as const) {
     assert.deepEqual(await colourLeaks(page, theme), [], `${theme}: every colour is a token (FR-UX-05 AC-5)`);
   });
   test(`fr_ux_05_ac9_pick_date_themes_task_card_${theme}`, async ({ page }) => {
-    await startTasks(page, { now: NOW10, theme });
+    // D-1929 (D-1924): the Task card is on `type/task`'s boards, which need the default views (views-tasks overlay).
+    await startTasksPage(page, { now: NOW10, theme });
     await gotoTasks(page);
     await dueFromMenu(page, card(page, titleOf(T.t03)), titleOf(T.t03));
     assert.deepEqual(await axeContrast(page), [], `${theme}: axe color-contrast`);

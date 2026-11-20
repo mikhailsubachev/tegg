@@ -45,7 +45,7 @@ async function schedule(page: Page) {
     none: await cardPaths(sectionOf(page, 'none')),
   };
 }
-const doneToggle = (page: Page) => sectionOf(page, 'done').getByRole('button', { name: /^⟦?(Expand|Collapse) Done⟧?$/ });
+const doneToggle = (page: Page) => sectionOf(page, 'done').getByRole('button', { name: /^⟦?(Expand|Collapse) ⟦?Done⟧?⟧?$/ } /* D-1929: `board.expand` nests the catalog's `Done` */);
 const sortButton = (page: Page) => main(page).locator('div.view-toolbar button[data-command="sort.open"]');
 const filterTasks = (page: Page) => main(page).getByRole('searchbox', { name: /^⟦?Filter Tasks…⟧?$/ });
 

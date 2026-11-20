@@ -36,7 +36,7 @@ test('fr_qry_05_ac10_board_by_select', async ({ page }) => {
   assert.equal(await b.getAttribute('data-lanes'), 'vertical', 'vertical');
   assert.equal(await b.getAttribute('data-group-by'), 'status', 'grouped by status');
   const ls = await lanes(b);
-  assert.deepEqual(ls.map((l) => l.label), ['Reading, 3 cards', 'To read, 2 cards', 'Read, 0 cards'], 'lane names with counts');
+  assert.deepEqual(ls.map((l) => l.label), ['Reading, 3 Books', 'To read, 2 Books', 'Read, 0 Books'], 'lane names with counts in the type plural (CP-28, D-1930)');
   assert.deepEqual(ls.map((l) => l.excluded), [false, false, true], '`Read` excluded');
   const read = lane(b, 'option:Read');
   assert.equal(flat(await textOf(read.locator('p.lane-excluded'))), 'Not in this view', 'hatched with `Not in this view`');

@@ -84,6 +84,9 @@ test('fr_tsk_02_ac10_checkbox_writes_through_one_note_write', async ({ page }) =
   assert.equal(String((w[0].args as any).text), want, 'status Done, completed appended, modified updated');
   assert.deepEqual((w[0].args as any).base, base, 'the base is the version the view was loaded with');
   assert.ok((await callsOf(core, 'note_read')).some((c) => nfc(String((c.args as any).path)) === T.t03), 'note_read before the write (§5)');
+  // D-1929 (AC-Test-Change, slice Q2-T): a checked task moves to the folded done lane (AC-24); expand it first.
+  const doneToggle = sectionOf(page, 'done').getByRole('button', { name: 'Expand Done', exact: true });
+  if (await seen(doneToggle, 1000)) await click(doneToggle, 'Expand Done');
   await click(checkbox(card(page, 'Zalít květiny'), 'Zalít květiny'), 'uncheck T03');
   const back = await fileWhen(core, T.t03, (t) => !!t && !t.includes('completed:'));
   assert.equal(back, touched(original(T.t03)), 'To do, completed removed');
@@ -133,16 +136,19 @@ test('fr_tsk_02_ac12_a_failed_write_and_try_again', async ({ page }) => {
   await gotoTasks(page);
   await core.writeControl({ fail: 'Io', path: T.t03 });
   await click(checkbox(card(page, 'Zalít květiny'), 'Zalít květiny'), 'checkbox of T03');
-  const alert = await must(alertWith(page, 'Couldn’t save "Zalít květiny". Try again.'), 'the save alert', 2000);
+  // D-1929 (AC-Test-Change, slice Q2-T): a board write fails with contract §26's alert (part one §1.9: `query.saveFailed`), no Try again button.
+  await must(alertWith(page, "The query couldn't be saved."), 'the save alert', 2000);
   assert.equal(await attr(checkbox(card(page, 'Zalít květiny'), 'Zalít květiny'), 'aria-checked'), 'false', 'the card returns to its previous state');
   assert.equal(await fileText(core, T.t03), original(T.t03), 'nothing partial');
   await click(checkbox(card(page, 'Poslat rozpočet'), 'Poslat rozpočet'), 'another task still writes');
   assert.ok((await fileWhen(core, T.t02, (t) => t !== original(T.t02)))?.includes('status: Done'), 'the failure hits T03 only (writeControl path)');
   await core.writeControl({ fail: null, path: null });
   await core.setFile(T.t03, swap(original(T.t03), 'priority: Low', 'priority: Medium'));
-  await click(alert.getByRole('button', { name: 'Try again', exact: true }), 'Try again');
+  // D-1929 (harness): wait until the board has re-run with the changed file, so the next attempt has its version.
+  await eventually(() => textOf(card(page, 'Zalít květiny')), (x) => x.includes('Medium'), 3000);
+  await click(checkbox(card(page, 'Zalít květiny'), 'Zalít květiny'), 'check T03 again');
   const t = await fileWhen(core, T.t03, (x) => !!x?.includes('status: Done'));
-  assert.ok(t?.includes('priority: Medium') && t.includes('status: Done'), 'Try again writes with the file\'s current base');
+  assert.ok(t?.includes('priority: Medium') && t.includes('status: Done'), 'the next attempt writes with the file\'s current base');
 });
 
 test('fr_tsk_02_ac12_a_read_only_task_is_never_written', async ({ page }) => {

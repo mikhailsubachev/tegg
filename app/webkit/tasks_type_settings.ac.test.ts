@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import {
   O, T, attr, card, cardPaths, click, column, columnIds, description, eventually, fileText, fileWhen, gotoKanban, gotoTasks, groupsOf, isDisabled, main,
   must, mustBeOn, original, runCommand, sectionOf, seen, sleep, startTasks, swap, taskText, tasksVault, textOf, touched, nfc, checkbox,
-  startTasksPage, tasksViewsVault, viewsOriginal,
+  startTasksPage, tasksViewsVault, viewsOriginal, viewTab,
 } from './tasks-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
@@ -87,7 +87,7 @@ test('fr_tsk_02_ac3_add_a_status_with_a_state', async ({ page }) => {
   await lbl.fill('Delegováno');
   await lbl.press('Enter');
   assert.equal(await fileWhen(core, YML, (t) => !!t?.includes('Delegováno')), swap(viewsOriginal(YML), '      - { label: Cancelled, state: cancelled, color: red }\n', '      - { label: Cancelled, state: cancelled, color: red }\n      - { label: Delegováno, state: done, color: teal }\n'), 'exactly the appended line');
-  await core.setFile('Tasks/Předáno.md', taskText(1, 'Předáno', 'status: Delegováno\n'));
+  await core.setFile('Tasks/Předáno.md', taskText(1, 'Předáno', 'status: Delegováno\ncompleted: 2026-10-14\n') /* D-1929: completed today, inside the done window (R201) */);
   await gotoTasks(page);
   await click(sectionOf(page, 'done').getByRole('button', { name: /^Expand Done$/ }), 'Expand Done');
   assert.ok((await eventually(() => cardPaths(sectionOf(page, 'done')), (v) => v.includes('Tasks/Předáno.md'))).includes('Tasks/Předáno.md'), 'in the Done section');
@@ -141,7 +141,8 @@ test('fr_tsk_02_ac6_removing_a_used_status', async ({ page }) => {
   await gotoKanban(page, 'Status');
   assert.ok(await seen(column(page, 'unknown:Waiting').getByRole('article', { name: 'Task: Koupit dárek' }), 3000), 'T04 in its own lane `Waiting` (an unknown value, D-1791)');
   await gotoTasks(page);
-  assert.ok((await groupsOf(sectionOf(page, 'week')))[0]?.paths.includes(T.t04), 'T04 stays in This week (Open)');
+  await click(viewTab(page, 'Schedule'), 'Schedule (D-1929: Tasks reopens on the remembered tab, Kanban)');
+  assert.ok((await eventually(() => cardPaths(sectionOf(page, 'week')), (v) => v.includes(T.t04), 3000)).includes(T.t04), 'T04 stays in This week (Open)');
   assert.equal(await description(await must(card(page, 'Koupit dárek').locator('[data-status]'), 'chip')), 'Not a status', 'its chip: Not a status');
 });
 
@@ -240,17 +241,18 @@ test('fr_tsk_02_ac13_type_file_changes_from_outside', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ FR-TSK-03 AC-2, FR-TSK-01 AC-6
 
 test('fr_tsk_03_ac2_priority_options', async ({ page }) => {
-  const vault = tasksVault((f) => {
+  // D-1924, D-1929 (AC-Test-Change, slice Q2-T): on the views-tasks overlay.
+  const vault = tasksViewsVault((f) => {
     f['Tasks/Nízká.md'] = taskText(3, 'Nízká', 'status: To do\npriority: Low\n');
     f['Tasks/Střední.md'] = taskText(4, 'Střední', 'status: To do\npriority: Medium\n');
   });
-  const core = await startTasks(page, { vault });
+  const core = await startTasksPage(page, { vault });
   await gotoTaskSettings(page);
   await expand(page, 'Priority');
   await (await must(option(page, 'Priority', 'Low').getByRole('button', { name: 'Drag to reorder Low', exact: true }), 'handle Low')).focus();
   await page.keyboard.press('Alt+ArrowUp');
   assert.equal(await fileWhen(core, YML, (t) => !!t && t.indexOf('label: Low') < t.indexOf('label: Medium')),
-    swap(original(YML), '      - { label: Medium, color: orange }\n      - { label: Low, color: blue }\n', '      - { label: Low, color: blue }\n      - { label: Medium, color: orange }\n'), 'only the moved line');
+    swap(viewsOriginal(YML), '      - { label: Medium, color: orange }\n      - { label: Low, color: blue }\n', '      - { label: Low, color: blue }\n      - { label: Medium, color: orange }\n'), 'only the moved line');
   await gotoTasks(page);
   const none = await eventually(() => cardPaths(sectionOf(page, 'none')), (v) => v.indexOf('Tasks/Nízká.md') >= 0 && v.indexOf('Tasks/Nízká.md') < v.indexOf('Tasks/Střední.md'), 2000);
   assert.ok(none.indexOf('Tasks/Nízká.md') < none.indexOf('Tasks/Střední.md'), 'Low now precedes Medium wherever sorted by priority');
@@ -271,8 +273,9 @@ test('fr_tsk_03_ac2_priority_options', async ({ page }) => {
 });
 
 test('fr_tsk_01_ac6_own_attributes_on_task', async ({ page }) => {
-  const vault = tasksVault((f) => { f[YML] = `${f[YML]}  - key: projekt\n    name: Projekt\n    type: relation\n    to: [projekt]\n`; });
-  const core = await startTasks(page, { vault, at: T.t01 });
+  // D-1924, D-1929 (AC-Test-Change, slice Q2-T): on the views-tasks overlay; Schedule has no subgroups in its Today lane.
+  const vault = tasksViewsVault((f) => { f[YML] = `${f[YML]}  - key: projekt\n    name: Projekt\n    type: relation\n    to: [projekt]\n`; });
+  const core = await startTasksPage(page, { vault, at: T.t01 });
   await mustBeOn(page, 'Zavolat Janě', 'T01', 5000);
   await click(page.getByRole('region', { name: 'Properties', exact: true }).getByRole('button', { name: 'Add Projekt', exact: true }), 'Projekt relation (Add Projekt, FR-TYP-02)');
   await page.keyboard.type('Web');
@@ -282,7 +285,7 @@ test('fr_tsk_01_ac6_own_attributes_on_task', async ({ page }) => {
   assert.ok(t?.includes('projekt: "[[Web]]"\n'), 'projekt: "[[Web]]" in T01');
   assert.equal(await fileText(core, O.web), original(O.web), 'Web untouched');
   await gotoTasks(page);
-  assert.ok((await groupsOf(sectionOf(page, 'today')))[0]?.paths.includes(T.t01), 'T01 still in every view as before');
+  assert.ok((await cardPaths(sectionOf(page, 'today'))).includes(T.t01), 'T01 still in every view as before');
   assert.ok(!(await cardPaths(main(page))).includes(O.web), 'Web stays out of every task view');
   void touched;
 });

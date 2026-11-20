@@ -36,7 +36,9 @@ const FIXTURE_TYPES = [
   ['daily-note', 'Daily Note', 'Daily Notes', true], ['tag', 'Tag', 'Tags', true], ['image', 'Image', 'Images', true],
   ['pdf', 'PDF', 'PDFs', true], ['cesta', 'Cesta', 'Cesty', false], ['čajovna', 'Čajovna', 'Čajovny', false],
   ['schůzka', 'Schůzka', 'Schůzky', false],
-].map(([key, name, plural, system]) => ({ key, name, plural, folder: plural, icon: 'file-text', color: 'gray', system, invalid: false }));
+].map(([key, name, plural, system]) => ({ key, name, plural, folder: plural, icon: 'file-text', color: 'gray', system, invalid: false,
+  // Q2-T (D-1929; R202, R207): Task has the default views, so `Show Schedule` / `Show Kanban` are listed.
+  views: key === 'task' ? ['Schedule', 'Kanban'] : null, viewsUnreadable: false }));
 const CTX = {
   vault: { name: 'Trezor', path: '/tmp/Trezor', placeholders: 0 },
   types: FIXTURE_TYPES,

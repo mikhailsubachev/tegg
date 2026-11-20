@@ -17,10 +17,15 @@ import {
 
 const FIRST4 = (s: { id: string }[]) => s.slice(0, 4);
 const LANE_IDS = ['period:today', 'period:week', 'period:later', 'none', 'done'];
-/** R203 day heading: `Intl.DateTimeFormat(region, { weekday: 'long', day: 'numeric' })`. */
+/** R203 day heading: `Intl.DateTimeFormat(region, { weekday: 'long', day: 'numeric' })`, weekday first (D-1929: ICU builds
+ *  differ, Node's gives `15 Thursday` for en-US where WebKit gives `Thursday 15`; a day-first pattern is read weekday
+ *  first, keeping the region's words and day literal, as `period.dayHeading`). */
 const dayHeading = (date: string, region: string) => {
   const [y, m, d] = date.split('-').map(Number);
-  return new Intl.DateTimeFormat(region, { weekday: 'long', day: 'numeric', timeZone: 'UTC' }).format(Date.UTC(y, m - 1, d));
+  const parts = new Intl.DateTimeFormat(region, { weekday: 'long', day: 'numeric', timeZone: 'UTC' }).formatToParts(Date.UTC(y, m - 1, d));
+  const wi = parts.findIndex((x) => x.type === 'weekday');
+  const di = parts.findIndex((x) => x.type === 'day');
+  return wi < 0 || di < 0 || wi < di ? parts.map((x) => x.value).join('') : `${parts[wi].value} ${parts[di].value}`;
 };
 async function schedule(page: Page): Promise<Locator> {
   return openTasks(page, SCHEDULE);
@@ -229,7 +234,9 @@ test.describe('period drags (Europe/Prague, cs)', () => {
     const n = (await writesTo(core)).length;
     await dropOn(page, taskCard(b, T.t01), lane(b, 'period:today'));
     await dropOn(page, taskCard(b, T.t19), dayGroup(b, '2026-10-15'));
-    await drag(page, taskCard(b, T.t06), { dx: 0, dy: -400 });
+    // D-1929 (harness): `drag()` now scrolls the source into view, so a fixed offset can land on another lane; drop on the
+    // page's heading, which is outside every lane.
+    await drag(page, taskCard(b, T.t06), page.locator('main h1').first());
     await dropOn(page, taskCard(b, T.t09), lane(b, 'period:later'), { esc: true });
     await sleep(300);
     assert.equal((await writesTo(core)).length, n, 'own lane, own day group, outside, Esc: nothing written');
