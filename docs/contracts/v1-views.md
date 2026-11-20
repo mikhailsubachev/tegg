@@ -756,7 +756,7 @@ Each point was decided as proposed; the alternatives are kept for the record.
 
 # Part two: slice Q2.1 (D-1835…D-1851)
 
-Public interfaces of slice **Q2.1** (feedback `docs/feedback/q2-v040.md`; released with Q2's fixes as 0.5.0, D-1837),
+Public interfaces of slice **Q2.1** (feedback `docs/feedback/q2-v040.md`; released with Q2's fixes as 0.4.1, D-1837, D-1878),
 for the test author (D-61) and the build. ACs: `docs/acceptance/views.md` **part two** (R194…R200; FR-QRY-07
 AC-19…AC-26, FR-QRY-01 AC-14…AC-16, FR-QRY-05 AC-24…AC-27, FR-QRY-09 AC-8, FR-FMT-06 AC-7, FR-FMT-07 AC-34, FR-FMT-12
 AC-13, AR-07 AC-10, FR-LNK-03 AC-25, FR-SYN-02 AC-12, FR-SYN-03 AC-31, FR-SYN-06 AC-49, FR-STO-07 AC-11, FR-TPL-04 AC-3,
