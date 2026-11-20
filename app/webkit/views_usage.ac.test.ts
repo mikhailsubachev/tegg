@@ -613,15 +613,22 @@ test('fr_qry_05_ac26_on_cards_per_usage', async ({ page }) => {
   const core = await startViews(page, { route: noteRoute(CESTY), vault: overlayVault() });
   const b3 = block(page, Q.roz);
   const bd = await must(board(page, Q.roz).first(), 'block 3\'s board', 8000);
-  const pills = await bd.locator('article[data-board-card]').first().innerText().catch(() => '');
-  assert.ok(!/Lucie Horká|Tomáš Rybář|Eva Lindová|Jana Brázdová|Marek Sova/.test(pills), 'no author chip on block 3\'s cards');
+  // Slice Q2-T (AC-Test-Change, D-1912; views.md part three, row part two FR-QRY-05 AC-26; D-1891): superseded for boards:
+  // block 3's `columns: [rating]` is kept and ignored; its cards are R193's author chip only; no `On cards` row; nothing
+  // is written.
+  const cesty = await fileText(core, CESTY);
+  const first = bd.locator('article[data-board-card]').first();
+  await must(first, 'a card of block 3');
+  assert.ok(await seen(first.locator('footer a.chip[data-attribute="author"]'), 2000), 'block 3\'s cards show the author chip (Book\'s preview)');
+  assert.equal(await bd.locator('[data-attribute="rating"]').count(), 0, 'no Rating pill from `columns: [rating]`');
   await click(blockEdit(b3), 'Edit query');
   const e = await must(editor(page), 'the editor');
-  assert.ok(flat(await textOf(e.getByRole('group', { name: rx('On cards') }))).includes('Rating'), '`On cards` Rating');
-  await click(e.getByRole('button', { name: rx('Change…') }), 'Change…');
-  await click(check(page, 'Author'), 'Author');
-  assert.equal(await fileWhen(core, CESTY, (x) => x === expectedUsage('notes/knihy-na-cesty-b3-on-cards-author.md')), expectedUsage('notes/knihy-na-cesty-b3-on-cards-author.md'), 'line 27, at once');
+  assert.equal(await e.getByRole('group', { name: rx('On cards') }).count(), 0, 'no `On cards` row');
+  await page.keyboard.press('Escape');
+  await sleep(300);
+  assert.equal(await fileText(core, CESTY), cesty, 'Cesty is never rewritten');
   assert.equal(await fileText(core, qfile(Q.roz)), original(qfile(Q.roz)), 'the query file untouched');
+  void check; void expectedUsage; void fileWhen;
   void lane;
 });
 
@@ -811,6 +818,13 @@ test('fr_ux_03_ac52_usage_commands', async ({ page }) => {
   assert.equal(await fileWhen(core, BOOK_YML, (x) => x === want), want, 'the palette command removes the item\'s sort');
   await runCommand(page, 'Use the query\'s columns');
   assert.equal(await fileWhen(core, BOOK_YML, (x) => x === original(BOOK_YML)), original(BOOK_YML), 'then the columns: a plain item, the flow line again (the base book.yml)');
+  // Slice Q2-T (AC-Test-Change, D-1912; D-1891): `Use the query's columns` isn't listed for a board usage.
+  await selectTab(page, Q.roz);
+  await page.keyboard.press('Meta+k');
+  await page.getByRole('combobox', { name: 'Command query' }).fill('Use the query');
+  await sleep(300);
+  assert.ok(!(await page.getByRole('listbox', { name: 'Commands' }).getByRole('option').allInnerTexts()).some((o) => o.includes('Use the query\'s columns')), 'not listed on the board Rozečtené');
+  await page.keyboard.press('Escape');
   void callsOf;
 });
 

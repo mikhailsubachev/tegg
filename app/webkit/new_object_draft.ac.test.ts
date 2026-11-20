@@ -16,7 +16,7 @@ import {
   callsOf, control, eventually, fileText, gotoTypePage, main, must, openTypes, props, runCommand, seen, sleep,
 } from './types-helpers';
 import {
-  gotoTasks, heading, quickAdd, startTasks, swap, tasksVault, viewTab, writeCalls,
+  gotoTasks, heading, quickAdd, startTasks, swap, tasksVault, viewTab, writeCalls, startTasksPage, tasksViewsVault,
 } from './tasks-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
@@ -238,59 +238,53 @@ test('fr_typ_09_ac17_f_an_io_failure_of_the_first_write_keeps_the_draft', async 
 
 // ------------------------------------------------------------------------------------------------ FR-TSK-04 AC-17
 
-async function quickAddFocused(page: Page): Promise<boolean> {
-  if (!(await seen(quickAdd(page), 3000))) return false;
-  return eventually(() => quickAdd(page).first().evaluate((e) => e === document.activeElement || e.contains(document.activeElement)), (x) => x, 2000);
-}
-async function selectedTab(page: Page, name: 'Schedule' | 'Kanban'): Promise<boolean> {
-  if (!(await seen(viewTab(page, name), 3000))) return false;
-  return (await eventually(() => viewTab(page, name).first().getAttribute('aria-selected'), (v) => v === 'true', 2000)) === 'true';
-}
-async function expectTasksWithQuickAdd(page: Page, view: 'Schedule' | 'Kanban', how: string) {
-  await must(heading(page), `${how}: heading "Tasks"`, 5000);
-  assert.ok(await selectedTab(page, view), `${how}: the ${view} view (tasks${view === 'Kanban' ? '/kanban' : ''})`);
-  assert.ok(await quickAddFocused(page), `${how}: the caret is in "Add a task…" (document.activeElement)`);
-  assert.equal(await page.getByRole('dialog').count(), 0, `${how}: no dialog opens`);
-  assert.equal(await seen(draftStatus(page), 300), false, `${how}: no draft route is shown`);
+// Slice Q2-T (AC-Test-Change, D-1912; views.md part three, row FR-TSK-04 AC-9, AC-15…AC-17; AP-1543, FR-TSK-10 AC-13):
+// `New Task` (header, palette, ⌘N › Task, a default type Task) opens the unsaved draft `new/task` like every type
+// (D-520, no exception any more): `Status` To do and nothing written before the first change. The names stay.
+async function expectTaskDraft(page: Page, how: string) {
+  await mustBeDraft(page, how);
+  assert.ok(await seen(props(page).getByText('To do', { exact: true }), 3000), `${how}: Status To do (D-470)`);
+  assert.equal(await quickAdd(page).count(), 0, `${how}: no "Add a task…" anywhere`);
 }
 
 test('fr_tsk_04_ac17_new_task_on_all_tasks_opens_the_schedule_with_the_caret_in_quick_add', async ({ page }) => {
-  const core = await startTasks(page);
+  const core = await startTasksPage(page);
   await gotoTasks(page);
   for (const how of ['button', 'palette'] as const) {
-    await (await must(viewTab(page, 'All tasks'), 'tab All tasks')).click();
+    await (await must(viewTab(page, 'All Tasks'), 'tab All Tasks')).click();
     await must(main(page).getByRole('button', { name: 'New Task', exact: true }), 'New Task on type/task', 5000);
     if (how === 'button') await main(page).getByRole('button', { name: 'New Task', exact: true }).click();
     else await runCommand(page, 'New Task');
-    await expectTasksWithQuickAdd(page, 'Schedule', `New Task (${how})`);
+    await expectTaskDraft(page, `New Task (${how})`);
+    await page.keyboard.press('Meta+[');
+    await must(heading(page), 'back on the Tasks page', 5000);
   }
   await sleep(500);
   assert.deepEqual(await writeCalls(core), [], 'nothing is written');
 });
 
 test('fr_tsk_04_ac17_new_task_opens_the_kanban_when_it_was_the_last_view_shown', async ({ page }) => {
-  const core = await startTasks(page);
+  const core = await startTasksPage(page);
   await gotoTasks(page);
   await (await must(viewTab(page, 'Kanban'), 'tab Kanban')).click();
-  assert.ok(await selectedTab(page, 'Kanban'), 'setup: the Kanban is shown');
-  await (await must(viewTab(page, 'All tasks'), 'tab All tasks')).click();
-  await (await must(main(page).getByRole('button', { name: 'New Task', exact: true }), 'New Task on type/task', 5000)).click();
-  await expectTasksWithQuickAdd(page, 'Kanban', 'New Task after the Kanban');
+  await (await must(main(page).getByRole('button', { name: 'New Task', exact: true }), 'New Task on the Kanban tab', 5000)).click();
+  await expectTaskDraft(page, 'New Task on the Kanban tab');
   await sleep(500);
   assert.deepEqual(await writeCalls(core), [], 'nothing is written');
 });
 
 test('fr_tsk_04_ac17_new_object_with_default_type_task_focuses_quick_add', async ({ page }) => {
-  const vault = tasksVault((f) => { f['.tegg/vault.yml'] = swap(f['.tegg/vault.yml'], 'default-type: Quick Note', 'default-type: Task'); });
-  const core = await startTasks(page, { vault });
+  const vault = tasksViewsVault((f) => { f['.tegg/vault.yml'] = swap(f['.tegg/vault.yml'], 'default-type: Quick Note', 'default-type: Task'); });
+  const core = await startTasksPage(page, { vault });
   await page.keyboard.press('Meta+n');
-  await pickNewObjectType(page, '⌘N with default type Task'); // D-1431, D-1432: Task preselected; ⏎ does AC-17
-  await expectTasksWithQuickAdd(page, 'Schedule', '⌘N with default type Task');
+  await pickNewObjectType(page, '⌘N with default type Task'); // D-1431, D-1432: Task preselected
+  await expectTaskDraft(page, '⌘N with default type Task');
   await sidebar(page).getByText('Inbox', { exact: true }).click();
   await mustBeOn(page, 'Inbox', 'leave');
   await (await must(sidebar(page).getByRole('button', { name: /^New object/ }), 'sidebar button "New object"')).click();
   await pickNewObjectType(page, 'sidebar New object with default type Task'); // D-1431
-  await expectTasksWithQuickAdd(page, 'Schedule', 'sidebar New object with default type Task');
+  await expectTaskDraft(page, 'sidebar New object with default type Task');
   await sleep(500);
   assert.deepEqual(await writeCalls(core), [], 'nothing is written');
 });
+

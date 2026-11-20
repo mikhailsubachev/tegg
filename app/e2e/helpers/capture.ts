@@ -409,3 +409,15 @@ export function maskId(t: string | null): string {
   return (t ?? '').replace(m![0], 'id: <ULID>');
 }
 export { ISO_OFFSET };
+
+/** D-1924 (slice Q2-T): adds the two default task views of tests/fixtures/vaults/views-tasks (`Schedule.yml`, `Kanban.yml`)
+ *  to a vault copy and `views: [Schedule, Kanban]` after `preview:` in its `task.yml` (new-empty's when it has none).
+ *  Migrations are off in tests (D-1913); call it before the test's first `tree()`. */
+export function addTaskViews(vault: string) {
+  mkdirSync(join(vault, '.tegg/queries'), { recursive: true });
+  mkdirSync(join(vault, '.tegg/types'), { recursive: true });
+  for (const n of ['Schedule', 'Kanban']) writeFileSync(join(vault, `.tegg/queries/${n}.yml`), readFileSync(join(FX, `views-tasks/.tegg/queries/${n}.yml`)));
+  const yml = join(vault, '.tegg/types/task.yml');
+  const text = existsSync(yml) ? readFileSync(yml, 'utf8') : readFileSync(join(FX, 'new-empty/.tegg/types/task.yml'), 'utf8');
+  writeFileSync(yml, /^views:/m.test(text) ? text : text.replace(/^(preview: .*\n)/m, '$1views: [Schedule, Kanban]\n'));
+}

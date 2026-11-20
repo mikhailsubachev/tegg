@@ -259,7 +259,8 @@ test('fr_vlt_05_ac10_enter_or_click_creates', async ({ page, browser }) => {
   await page.keyboard.press('Enter');
   const w = await eventually(() => core.writesTo(), (x) => x.length > 0, 3000);
   assert.deepEqual(w, ['Quick Notes/Nápad z výběru.md'], 'the first write creates the Quick Note');
-  // default-type: task → tasks.md FR-TSK-04 AC-17.
+  // default-type: task. Slice Q2-T (AC-Test-Change, D-1912; views.md part three, row capture.md FR-VLT-05 AC-10, AC-13,
+  // AC-6; AP-1543): Task opens the draft `new/task` like other types.
   const ctx = await browser.newContext({ timezoneId: 'Europe/Prague' });
   const p2 = await ctx.newPage();
   const c2 = await startMain(p2, { vault: vault('task') });
@@ -268,8 +269,8 @@ test('fr_vlt_05_ac10_enter_or_click_creates', async ({ page, browser }) => {
   await mustPicker(p2, 'default Task');
   await p2.keyboard.press('Enter');
   assert.ok(await absent(anyPicker(p2), 2000), 'default Task: the picker closes');
-  const q = await must(quickAdd(p2), 'default Task: textbox "Add a task…" on tasks', 5000);
-  assert.equal(await eventually(() => q.evaluate((e) => document.activeElement === e), (x) => x, 2000), true, 'default Task: the caret is in "Add a task…"');
+  await mustBeDraft(p2, 'default Task: the draft new/task');
+  assert.equal(await quickAdd(p2).count(), 0, 'default Task: no "Add a task…"');
   await nonVaultWrites(c2, 'default Task');
   await p2.keyboard.press('Meta+BracketLeft');
   await mustBeOn(p2, 'Inbox', 'default Task: Back returns to Inbox');
@@ -422,8 +423,9 @@ test('fr_vlt_05_ac13_known_type_paths_skip_the_picker', async ({ page }) => {
   await gotoInbox(page);
   await runCommand(page, 'New Task');
   await neverPicker(page, 'palette New Task');
-  const q = await must(quickAdd(page), 'palette New Task: textbox "Add a task…"', 5000);
-  assert.equal(await eventually(() => q.evaluate((e) => document.activeElement === e), (x) => x, 2000), true, 'palette New Task: the caret is in "Add a task…"');
+  // Slice Q2-T (AC-Test-Change, D-1912; AP-1543): the palette `New Task` opens the draft `new/task`.
+  await mustBeDraft(page, 'palette New Task');
+  assert.ok(await seen(draftTab(page, 'New Task'), 2000), 'palette New Task: new/task');
   await gotoType(page, 'Daily Notes');
   await runCommand(page, 'New Daily Note');
   await neverPicker(page, 'palette New Daily Note');

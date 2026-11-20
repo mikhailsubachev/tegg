@@ -18,6 +18,7 @@ import {
   holdHotkey, hotkey, inboxCopy, mainOpen, maskId, need, palette, paste, pasteboard, press, quitApp, read, ready, session,
   setPasteboard, shown, sleep, spawnApp, statusItem, support, testEnv, tmp, tree, typeAscii, waitExit, waitFile, waitFor, waitMark,
   type Driver,
+  addTaskViews,
 } from './helpers/capture.ts';
 
 const net = new NetMonitor();
@@ -588,6 +589,8 @@ test('fr_tsk_10_ac9_the_task_bytes_on_disk', { timeout: 300_000 }, async () => {
 test('fr_tsk_10_ac12_the_task_on_tasks_and_in_the_inbox', { timeout: 300_000 }, async () => {
   await ready();
   const c = fresh('tsk10ac12');
+  // D-1924 (AC-Test-Change, slice Q2-T): route only, plus the default task views in the vault (D-1913); `tasks` is an alias of type/task.
+  addTaskViews(c.vault);
   try {
     const d = await launch(c);
     await openByHotkey(d, 'task');
@@ -596,7 +599,7 @@ test('fr_tsk_10_ac12_the_task_on_tasks_and_in_the_inbox', { timeout: 300_000 }, 
     // D-604: Task's review workflow is off, so the capture is not an Inbox item; it is on the Tasks page.
     assert.ok(await waitFile(join(c.vault, 'Tasks/Zavolat kominíkovi.md'), (t) => t !== null, 3000), 'written');
     palette('Go to Tasks');
-    assert.ok(await waitMark(c.log, 'route-ready:tasks', 3000), 'Tasks');
+    assert.ok(await waitMark(c.log, 'route-ready:type/task', 3000), 'Tasks');
     assert.ok(await shown(d, 'Task: Zavolat kominíkovi', 2000), 'on the Tasks page');
   } finally { await cleanup(c); }
 });

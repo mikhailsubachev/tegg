@@ -5,6 +5,7 @@
 // `i18n/dates.ts`), §11.2. Written from the ACs and the contract only (D-61). Every lookup goes through `must` (TS-I1).
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
+import { withTaskViews } from './tasks-helpers';
 import {
   callsOf, cardAt, click, description, eventually, flat, focusName, gotoInbox, inboxVault, isDisabled, main, must, runCommand, seen, sleep,
   startMain, ui, vaultWrites,
@@ -129,9 +130,10 @@ test('fr_set_03_ac3_first_day_of_week', async ({ page }) => {
   const v = inboxVault((f) => {
     f['Tasks/V neděli.md'] = '---\nid: 01JB5B0000000000000000R401\ntype: task\ntitle: V neděli\nstatus: To do\ndue: 2026-10-18\ncreated: 2026-10-01T09:00:00+02:00\nmodified: 2026-10-01T09:00:00+02:00\n---\n';
   });
-  await startMain(page, { vault: v, dateTime: { date: 'region', time: 'region', week: 'sunday' } });
+  // D-1924 (AC-Test-Change, slice Q2-T): route only, plus the default task views in the vault (migrations are off in tests, D-1913).
+  await startMain(page, { vault: withTaskViews(v), dateTime: { date: 'region', time: 'region', week: 'sunday' } });
   await runCommand(page, 'Go to Tasks');
-  const later = main(page).locator('[data-section="later"] [data-path="Tasks/V neděli.md"]');
+  const later = main(page).locator('section[data-lane="period:later"] article[data-board-card="Tasks/V neděli.md"]');
   assert.ok(await seen(later, 3000), 'with Sunday, This week is Sun 11 – Sat 17: Sunday 18 is later (D-474)');
   await page.keyboard.press('Meta+d');
   await click(pickDate(page), 'Pick date');
@@ -139,9 +141,9 @@ test('fr_set_03_ac3_first_day_of_week', async ({ page }) => {
   const first = flat(await calendarGrid(page).getByRole('columnheader').first().innerText());
   assert.match(first, /^(ne|neděle|Ne)/i, `the calendar starts on Sunday: ${first}`);
   const p2 = await page.context().newPage();
-  await startMain(p2, { vault: inboxVault((f) => { f['Tasks/V neděli.md'] = v.files['Tasks/V neděli.md']; }), dateTime: { date: 'region', time: 'region', week: 'monday' }, region: 'en-US' });
+  await startMain(p2, { vault: withTaskViews(inboxVault((f) => { f['Tasks/V neděli.md'] = v.files['Tasks/V neděli.md']; })), dateTime: { date: 'region', time: 'region', week: 'monday' }, region: 'en-US' });
   await runCommand(p2, 'Go to Tasks');
-  assert.ok(await seen(main(p2).locator('[data-section="week"] [data-path="Tasks/V neděli.md"]'), 3000), 'with Monday (in en-US), Sunday 18 is in This week');
+  assert.ok(await seen(main(p2).locator('section[data-lane="period:week"] article[data-board-card="Tasks/V neděli.md"]'), 3000), 'with Monday (in en-US), Sunday 18 is in This week');
 });
 
 test('fr_set_03_ac4_per_machine_never_in_the_vault', async ({ page }) => {

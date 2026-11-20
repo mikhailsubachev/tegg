@@ -101,8 +101,9 @@ test('fr_qry_05_ac12_cards', async ({ page }) => {
   assert.ok(await seen(u.getByRole('button', { name: 'More actions for "Účetní ze Žižkova"' }), 500), '`More actions for "Účetní ze Žižkova"`');
   assert.equal(await u.locator('span.card-tag').count(), 0, 'no tags');
   assert.ok(flat(await textOf(u.locator('p.card-excerpt'))).startsWith('Kriminálka z kanceláře nad hospodou.'), 'the body\'s first lines');
-  const empty = u.locator('span.card-pill[data-attribute="rating"][data-empty]');
-  assert.equal(flat(await textOf(empty)), 'No Rating', 'the pill `No Rating`');
+  // Slice Q2-T (AC-Test-Change, D-1912; D-1891, R205): cards show Book's `preview: [author, status]`, not `columns`; Status is
+  // the grouping key, so only the author chip: no Rating pill, no `No Rating`.
+  assert.equal(await u.locator('span.card-pill[data-attribute="rating"]').count(), 0, 'no Rating pill (columns aren\'t read on a board)');
   assert.ok(await seen(u.locator('footer a.chip[data-attribute="author"]').filter({ hasText: 'Jana Brázdová' }), 500), 'the footer chip `Jana Brázdová`');
   const dum = card(b, B('Dům u řeky'));
   assert.deepEqual(await dum.locator('span.card-tag').allInnerTexts(), ['#doporučené'], 'Dům u řeky shows #doporučené');
@@ -474,3 +475,27 @@ test('fr_qry_09_ac7_lanes_follow_the_type_file', async ({ page }) => {
 
 const flat = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim().normalize('NFC');
 void [NFD, callsOf, description, lanesGroup, mainName];
+
+// ------------------------------------------------------------------------------------------------ slice Q2-T, F3
+
+// Slice Q2-T QA finding F3 (docs/contracts/v1-views.md §28.2 BoardCard, §31.2): on a board grouped by a multi-value
+// relation a card shows in every lane of its values; its relation chips resolve from `row.links` for every value, whatever
+// the lane, so no chip of the card is drawn unresolved (`kind-unresolved`). Red first (D-61).
+test('bug_q2t_fr_qry_07_multi_lane_card_links_resolve', async ({ page }) => {
+  const nocni = B('Noční vlak');
+  const vault = withTabs([Q.autor], (f) => { f[nocni] = swap(f[nocni], 'author: "[[Tomáš Rybář]]"\n', 'author: ["[[Tomáš Rybář]]", "[[Eva Lindová]]"]\n'); });
+  await startViews(page, { route: typeRoute('book'), vault });
+  const b = await openBoard(page, Q.autor);
+  const author = (n: string) => `Autoři/${n.normalize('NFC')}.md`;
+  const ids = [`relation:${author('Tomáš Rybář')}`, `relation:${author('Eva Lindová')}`];
+  const ls = await eventually(() => lanes(b), (l) => ids.every((id) => l.find((x) => x.id === id)?.cards.includes(nocni)), 3000);
+  for (const id of ids) assert.ok(ls.find((x) => x.id === id)?.cards.includes(nocni), `Noční vlak is in ${id}`);
+  for (const id of ids) {
+    const c = card(b, nocni, id);
+    const chips = c.locator('footer a.chip[data-attribute="author"]');
+    assert.equal(await eventually(() => chips.count(), (n) => n === 2, 2000), 2, `${id}: both author chips on the card (D-1769)`);
+    const classes = await chips.evaluateAll((xs) => xs.map((x) => x.className));
+    assert.deepEqual(classes.filter((k) => /\bkind-unresolved\b/.test(k)), [], `${id}: no author chip is unresolved (${classes.join(' | ')})`);
+    assert.deepEqual((await chips.allInnerTexts()).map(flat).sort(), ['Eva Lindová', 'Tomáš Rybář'], `${id}: the chips name both authors`);
+  }
+});

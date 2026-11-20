@@ -4,6 +4,7 @@
 // docs/contracts/v1-previews.md §1, §3.3, §8. Written from the ACs and the contract only (D-61).
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
+import { withTaskViews } from './tasks-helpers';
 import {
   PV, ZONE, anyBack, anyContent, back, backBtn, backlinksPanel, callsSince, chipNamed, clickToPreview, closeBtn, content, createOffer, description,
   editorBody, embedLoadsSince, eventually, fileText, flat, focusInfo, focusInside, frame, header, isDisabled, linkEmbed, main, mainName, mainScrollTop,
@@ -661,7 +662,8 @@ test('nfr_oth_02_ac11_popover_strings_are_catalog_strings_in_the_pseudo_locale',
 // ------------------------------------------------------------------------------------------------ FR-SYN-06 AC-37
 
 test('fr_syn_06_ac37_a_preview_tour_writes_nothing_then_remove_link_writes_one_note', async ({ page }) => {
-  const core = await startPreviews(page, { at: PV.odkazy, panel: true });
+  // D-1924 (AC-Test-Change, slice Q2-T): route only, plus the default task views in the vault (migrations are off in tests, D-1913).
+  const core = await startPreviews(page, { at: PV.odkazy, panel: true, vault: withTaskViews(previewsVault()) });
   const files0 = await snapshot(core);
   for (const [start, n] of [['Hlavní', 0], ['S popisem', 0], ['Sekce', 0], ['Blok', 0], ['Osoby', 0], ['Osoby', 1], ['Projekt', 0], ['Úkol', 0], ['Dny', 0], ['Dny', 1], ['Štítky', 0], ['Štítky', 1], ['Štítky', 2], ['Média', 0], ['Média', 1], ['Média', 2], ['Dvojníci', 0], ['Dvojníci', 1], ['Prázdná', 0], ['Prázdná', 1], ['Kruh', 0], ['Markdown', 0], ['Nápad', 0], ['Mapa', 0]] as const) {
     await (await needOdkazyLink(page, start, n)).click();

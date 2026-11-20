@@ -7,6 +7,7 @@
 // `note_create_exact`), §6.2 (`tagChipStyle`, `useTags`). Written from the ACs and the contract only (D-61).
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
+import { withTaskViews } from './tasks-helpers';
 import { axeContrast } from './read-helpers';
 import { setPreviewMode } from '../ui/test/fake-core';
 import { ui as tagsUi } from './tags-helpers';
@@ -116,7 +117,8 @@ const SURFACES = async (page: Page, colour: string, name: string): Promise<strin
 for (const theme of ['light', 'dark'] as const) {
   test(`fr_tag_05_ac6_every_surface_shows_the_colour (${theme})`, async ({ page }) => {
     // D-949: the All tags row is opened with a single click, so the steps run under preview.mode = off.
-    await openNote(page, P.rozpocet, 'Rozpočet', setPreviewMode('off', { uiState: tagsUi({ theme }) }));
+    // D-1924 (AC-Test-Change, slice Q2-T): route only, plus the default task views in the vault (migrations are off in tests, D-1913).
+    await openNote(page, P.rozpocet, 'Rozpočet', { ...setPreviewMode('off', { uiState: tagsUi({ theme }) }), vault: withTaskViews((await import('./tags-helpers')).tagsVault()) });
     const bad: string[] = [];
     const want = async (what: string, loc: ReturnType<Page['locator']>, colour: string | null) => {
       if (!(await seen(loc, 1500))) { bad.push(`${what}: not shown`); return; }

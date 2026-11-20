@@ -4,11 +4,15 @@
 // tasks.md R40, R43, types.md R10 (the `Choose date` month grid, ms3-shell §14 `dialog` `Choose date`), the fake core of
 // ms5-tasks §7. Clock 2026-10-14T12:00 Europe/Prague, region `cs`. Written from the ACs and the public interfaces only
 // (D-61). Every lookup goes through `must`, so a missing control fails an assertion (TS-I1).
+//
+// Slice Q2-T (AC-Test-Change, D-1912; views.md part three, rows FR-TSK-05 AC-14 and FR-TSK-09 AC-4): `type/task` on the
+// views-tasks overlay; the Kanban's lanes per D-1791 (T15 in its own lane `Rozpracováno`, no status chip on any card of
+// the board by status, R205, R208); the Kanban by tag is `Podle štítků`; board cards carry `data-board-card`.
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
   T, callsOf, card, cardPaths, checkbox, click, column, description, eventually, fileWhen, flat, gotoKanban, gotoTasks, main, moreBtn,
-  must, original, runCommand, sectionOf, sidebarTasks, sleep, startTasks, swap, tasksVault, textOf, titleOf, touched, writeCalls, writesOf,
+  must, viewsOriginal as original, runCommand, sectionOf, sidebarTasks, sleep, startTasksPage as startTasks, swap, tasksViewsVault as tasksVault, textOf, titleOf, touched, writeCalls, writesOf,
 } from './tasks-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
@@ -57,18 +61,16 @@ test('fr_tsk_05_ac14_no_status_chip_on_the_board_by_status', async ({ page }) =>
   const chips: Record<string, string[]> = {};
   for (const col of ['To do', 'In progress', 'Waiting', 'Done']) {
     chips[col] = await column(page, col).first().evaluate((c) =>
-      ([...c.querySelectorAll('article[data-path], [role="article"][data-path]')] as HTMLElement[])
+      ([...c.querySelectorAll('article[data-board-card]')] as HTMLElement[])
         .filter((a) => a.querySelector('[data-status]'))
-        .map((a) => (a.getAttribute('data-path') ?? '').normalize('NFC')));
+        .map((a) => (a.getAttribute('data-board-card') ?? '').normalize('NFC')));
   }
   assert.deepEqual(chips, { 'To do': [], 'In progress': [], Waiting: [], Done: [] }, 'no card in a status column shows the status chip (data-status absent, D-589)');
   assert.ok(!(await textOf(cardIn(page, 'In progress', titleOf(T.t02)))).includes('In progress'), 'T02 in In progress: no "In progress" chip');
   assert.ok(!(await textOf(cardIn(page, 'Waiting', titleOf(T.t04)))).includes('Waiting'), 'T04 in Waiting: no "Waiting" chip');
-  // T15 in `No status` still shows its raw value with `Not a status` (AC-9).
-  const t15 = await must(cardIn(page, 'no-status', titleOf(T.t15)), 'T15 in No status');
-  const raw = await must(t15.locator('[data-status]'), 'T15: the status chip');
-  assert.equal(await textOf(raw), 'Rozpracováno', 'the raw value');
-  assert.equal(await description(raw), 'Not a status', 'Not a status');
+  // Q2-T (D-1791, R208): T15's unknown value is its own lane `Rozpracováno`; no status pill on any card of the board.
+  const t15 = await must(cardIn(page, 'unknown:Rozpracováno', titleOf(T.t15)), 'T15 in the lane Rozpracováno');
+  assert.equal(await t15.locator('[data-status]').count(), 0, 'T15: no status chip on the board by status');
   // Grouped by tag, T02's card shows `In progress` as before (R43).
   await gotoKanban(page, 'Tag');
   const t02 = await must(cardIn(page, '#finance', titleOf(T.t02)), 'T02 in #finance');

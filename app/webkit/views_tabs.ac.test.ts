@@ -63,6 +63,11 @@ test('fr_qry_07_ac2_all_tab_is_the_type_page', async ({ page }) => {
   await click(panelOf(page).getByRole('columnheader', { name: /^Title/ }), 'header Title');
   assert.equal((await writes(core)).length, before, 'the header click writes no vault file');
   assert.ok((await uiState(core))?.typeSort, 'typeSort is machine-local');
+  // Slice Q2-T (AC-Test-Change, D-1912; views.md part three, row part one FR-QRY-07 AC-2; D-1892): `All Books` gets the
+  // tag filter and multi-level sort (a list of levels on this Mac, AP-1544).
+  assert.ok(Array.isArray((await uiState(core))?.typeSort?.book), 'typeSort.book is a list of levels');
+  assert.ok(await seen(tagFilterButton(page).or(toolbar(page).getByRole('combobox', { name: rx('Filter by tag') })).first(), 1000), '`Filter by tag` on All Books');
+  assert.ok(await seen(sortButton(toolbar(page)), 1000), 'the sort button on All Books');
   assert.ok(await seen(columnsButton(page).or(main(page).getByRole('button', { name: rx('Columns') })).first(), 1000), '`Columns` on All Books');
 });
 
@@ -152,7 +157,7 @@ test('fr_qry_07_ac4_new_view_creates_a_query_and_a_tab_board_and_refusal', async
   assert.equal(await description(boardItem), 'by Status', '`Board` hint `by Status`');
   await click(boardItem, 'Board');
   await click(editor(page).getByRole('button', { name: rx('Done') }), 'Done');
-  assert.equal(await fileWhen(core, qfile('New view'), (x) => x !== undefined), expectedView('new-view-board-book.yml'), '(c) New view.yml: board, group_by status, lanes vertical, columns [author]');
+  assert.equal(await fileWhen(core, qfile('New view'), (x) => x !== undefined), expectedView('new-view-board-book.yml'), '(c) New view.yml: board, group_by status, lanes vertical, no columns (D-1910; slice Q2-T AC-Test-Change, D-1912)');
   assert.equal(await fileWhen(core, BOOK_YML, (x) => x === expectedView('types/book-views-new-view.yml')), expectedView('types/book-views-new-view.yml'), '(c) views: [… , New view]');
   // A second New view is `New view (2)`; a refused type-file write leaves the query and alerts.
   // The type file changes on disk without `vault:changed`: the views write after the create is refused (Conflict).
@@ -451,8 +456,10 @@ test('fr_qry_07_ac14_which_type_pages_have_views', async ({ page }) => {
     await mustBeOn(page, plural, `type page ${plural}`);
     assert.ok(await seen(addView(page), 3000), `${plural}: Add view`);
   }
+  // Slice Q2-T (AC-Test-Change, D-1912; views.md part three, row part one FR-QRY-07 AC-14): Task has views (D-1787's
+  // exception ends): the Tasks page has `Add view`.
   await runCommand(page, 'Go to Tasks');
-  assert.equal(await addView(page).count(), 0, 'the Tasks page has no Add view');
+  assert.ok(await seen(addView(page), 3000), 'the Tasks page has Add view');
   assert.ok((await fileText(core, '.tegg/types/task.yml'))?.endsWith('views: [Rozečtené]\n'), 'its hand-written views: is kept');
   await runCommand(page, 'Go to type: Pages');
   await click(addView(page), 'Add view on Pages');
@@ -590,8 +597,11 @@ for (const [suffix, route] of [['', 'queries'], ['_query_page', queryRoute(Q.p26
       await page.setViewportSize({ width: w, height: h });
       await sleep(300);
       const m = await wide(page);
-      assert.ok(near(m.content, m.pane - 80), `${route} at ${w}: content spans the pane minus 40 px each side (${JSON.stringify(m)})`);
-      assert.equal(m.maxWidth, 'none', `${route} at ${w}: max-width none`);
+      // Slice Q2-T (AC-Test-Change, D-1912; D-1890, FR-TYP-09 AC-36): at most 1,600 px of content, centred; the 1,440 ×
+      // 900 numbers stand.
+      const want = Math.min(m.pane - 80, 1600);
+      assert.ok(near(m.content, want), `${route} at ${w}: content ${want} px (${JSON.stringify(m)})`);
+      assert.equal(m.maxWidth, '1680px', `${route} at ${w}: max-width 1680px (border-box, 40 px padding, v1-views §29.8)`);
     }
   });
 }
@@ -611,11 +621,11 @@ test('fr_typ_09_ac35_type_page_is_wide', async ({ page }) => {
     const m = await measure();
     assert.ok(near(m.pane, 1208), `the centre pane is 1,208 px (${m.pane})`);
     assert.ok(near(m.content, 1128), `${name || 'All Books'}: content 1,128 ± 1 px (${m.content})`);
-    assert.equal(m.maxWidth, 'none', 'computed max-width none');
+    assert.equal(m.maxWidth, '1680px', 'computed max-width 1680px (slice Q2-T, D-1890, v1-views §29.8)');
   }
   await page.setViewportSize({ width: 2560, height: 1440 });
   await sleep(300);
-  assert.ok(near((await measure()).content, 2248), 'at 2,560 × 1,440: 2,248 ± 1 px');
+  assert.ok(near((await measure()).content, 1600), 'at 2,560 × 1,440: 1,600 ± 1 px, centred (slice Q2-T AC-Test-Change, D-1912; D-1890)');
   await page.setViewportSize({ width: 1440, height: 900 });
   // D-1827: type pages have no right panel.
   await openNote(page, 'Čtení 2026');

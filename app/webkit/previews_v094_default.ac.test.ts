@@ -8,6 +8,8 @@
 // ACs and the contracts only (D-61); every lookup goes through `need`/`must` and node:assert (TS-I1).
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
+import { withTaskViews } from './tasks-helpers'; // D-1924 (AC-Test-Change, slice Q2-T): route only, plus the default task views in the vault (migrations are off in tests, D-1913).
+import { previewsVault } from './previews-helpers';
 import { canvas as fullCanvas } from './graph-helpers';
 import { pCanvas } from './graph-panel-helpers';
 import { goToQuery, paletteOptions } from './helpers';
@@ -111,8 +113,8 @@ const ROWS: Row[] = [
   { n: 2, name: 'read_view', start: { at: PV.odkazy, readView: true }, ref: (p) => needOdkazyLink(p, 'Hlavní'), title: 'Rozpočet 2027', path: PV.rozpocet, opened: onNote('Rozpočet 2027') },
   { n: 4, name: 'attribute_relation_chip', start: { at: PV.alfa }, ref: (p) => need(chipNamed(props(p), 'Jana Nováková'), 'relation chip Jana'), title: 'Jana Nováková', path: PV.jana, opened: onNote('Jana Nováková') },
   { n: 5, name: 'backlinks_chip', start: { at: PV.rozpocet, panel: true }, ref: (p) => need(chipNamed(backlinksPanel(p), 'Odkazy'), 'backlinks chip Odkazy'), title: 'Odkazy', path: PV.odkazy, opened: onNote('Odkazy') },
-  { n: 6, name: 'task_source_chip', start: { route: 'tasks' }, ref: (p) => need(taskCard(p, 'Zavolat Janě').locator('[data-link-kind]').filter({ hasText: 'Porada 2026-10-27' }), 'source chip'), title: 'Porada 2026-10-27', path: PV.porada, opened: onNote('Porada 2026-10-27') },
-  { n: 7, name: 'task_card_title', start: { route: 'tasks' }, ref: (p) => need(taskCard(p, 'Zavolat Janě').getByRole('link', { name: 'Zavolat Janě', exact: true }), 'card title'), title: 'Zavolat Janě', path: PV.ukol, opened: onNote('Zavolat Janě') },
+  { n: 6, name: 'task_source_chip', start: { route: 'tasks', vault: withTaskViews(previewsVault()) }, ref: (p) => need(taskCard(p, 'Zavolat Janě').locator('[data-link-kind]').filter({ hasText: 'Porada 2026-10-27' }), 'source chip'), title: 'Porada 2026-10-27', path: PV.porada, opened: onNote('Porada 2026-10-27') },
+  { n: 7, name: 'task_card_title', start: { route: 'tasks', vault: withTaskViews(previewsVault()) }, ref: (p) => need(taskCard(p, 'Zavolat Janě').getByRole('link', { name: 'Zavolat Janě', exact: true }), 'card title'), title: 'Zavolat Janě', path: PV.ukol, opened: onNote('Zavolat Janě') },
   { n: 8, name: 'search_result_row', start: { at: PV.odkazy }, go: async (p) => { await searchFor(p, 'rozpočet', 'Rozpočet 2027'); }, ref: (p) => need(p.getByRole('list', { name: 'Search results', exact: true }).getByRole('listitem').filter({ hasText: 'Rozpočet 2027' }), 'result row'), title: 'Rozpočet 2027', path: PV.rozpocet, opened: onNote('Rozpočet 2027') },
   { n: 9, name: 'type_page_row', start: { route: 'type/osoba' }, ref: (p) => need(typeTable(p, 'Osoby').getByRole('row').filter({ hasText: 'Petr Dvořák' }), 'row Petr'), title: 'Petr Dvořák', path: PV.petr, opened: onNote('Petr Dvořák') },
   { n: 10, name: 'inbox_card_title', start: { route: 'inbox' }, ref: (p) => need(main(p).getByRole('link', { name: 'Nápad na podcast', exact: true }), 'Inbox card title'), title: 'Nápad na podcast', path: PV.napad, opened: onNote('Nápad na podcast') },
@@ -300,10 +302,10 @@ test('fr_syn_06_ac42_hovering_clicking_inside_previews_embeds_and_scrolling_writ
   // D-1187: the tour starts on tasks/kanban with the panel open on Graph and the Kanban view stored before the start, so
   // reaching them writes no `ui_state` (the app stores `tasks` when the view is shown without it).
   const uiState = { ...ui(), rightPanel: { open: true, tab: 'graph' as const }, tasks: { view: 'kanban', groupBy: 'status', dateFilter: 'all', tags: [], doneExpanded: false } } as ReturnType<typeof ui>;
-  const core = await startPreviews(page, { route: 'tasks/kanban', uiState });
+  const core = await startPreviews(page, { route: 'tasks/kanban', uiState, vault: withTaskViews(previewsVault()) });
   const files0 = await snapshot(core);
   // Horizontal wheels on tasks/kanban (FR-NAV-03 AC-8, AC-9).
-  await hscroll(page, await need(main(page).locator('[data-column]').first().locator('xpath=..'), 'the Kanban board'));
+  await hscroll(page, await need(main(page).locator('section[data-lane]').first().locator('xpath=..'), 'the Kanban board'));
   // Odkazy: rest on every resolved link (hover is the default).
   await goToQuery(page, 'Odkazy');
   await page.keyboard.press('Enter');

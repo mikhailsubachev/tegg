@@ -11,6 +11,7 @@ import { pseudoLocale } from './helpers';
 import { axeContrast, colourLeaks } from './read-helpers';
 import {
   T, card, click, fileWhen, gotoKanban, gotoTasks, main, moreBtn, original, startTasks, swap, titleOf, touched, writesOf,
+  startTasksPage, viewsOriginal,
 } from './tasks-helpers';
 import { D, caretAtEnd, cmdD, editorBody, fileWhen as dailyFile, linkSuggestions, mustBeOn, mustDaily, pickDate, startDaily } from './daily-helpers';
 import { dueBtn, startCapture } from './capture-helpers';
@@ -37,29 +38,28 @@ async function dueFromMenu(page: Page, scope: Locator, title: string): Promise<L
   return must(pickDialog(page), `"Due date…" opens "Pick date" directly (${title})`, 1500);
 }
 
+// Slice Q2-T (AC-Test-Change, D-1912; views.md part three, row FR-TSK-02 AC-10…AC-12 … FR-TSK-09 AC-2…AC-5): route only, the
+// Task card on the boards of `type/task` (views-tasks overlay); the quick-add assertion goes (D-1780).
 test('fr_tsk_09_ac5_card_menu_opens_pick_date_and_writes_once', async ({ page }) => {
-  const core = await startTasks(page, { now: NOW10 });
+  const core = await startTasksPage(page, { now: NOW10 });
   await gotoTasks(page);
   const t03 = titleOf(T.t03);
   let dlg = await dueFromMenu(page, card(page, t03), t03);
   assert.equal(await page.getByRole('textbox', { name: 'Due date', exact: true }).count(), 0, 'no separate Due date textbox');
   assert.equal(await page.getByRole('button', { name: 'Choose date', exact: true }).count(), 0, 'no Choose date button');
   await (await must(dayIn(dlg, '2026-10-20', 'cs'), 'day 20')).click();
-  const want = touched(swap(original(T.t03), 'due: 2026-10-14', 'due: 2026-10-20'), NOW10);
-  assert.equal(await fileWhen(core, T.t03, (t) => t !== original(T.t03)), want, 'due: 2026-10-20 and modified, every other byte unchanged');
+  const want = touched(swap(viewsOriginal(T.t03), 'due: 2026-10-14', 'due: 2026-10-20'), NOW10);
+  assert.equal(await fileWhen(core, T.t03, (t) => t !== viewsOriginal(T.t03)), want, 'due: 2026-10-20 and modified, every other byte unchanged');
   await sleep(300);
   assert.equal((await writesOf(core, T.t03)).length, 1, 'written once');
   dlg = await dueFromMenu(page, card(page, t03), t03);
   await (await must(dlg.getByRole('button', { name: 'No date', exact: true }), 'No date')).click();
-  const none = touched(original(T.t03).replace(/^due: .*\n/m, ''), NOW10);
+  const none = touched(viewsOriginal(T.t03).replace(/^due: .*\n/m, ''), NOW10);
   assert.equal(await fileWhen(core, T.t03, (t) => !/^due:/m.test(t ?? '')), none, 'No date removes due:');
-  // The quick-add Due chip is unchanged (a token only): no picker there.
-  const qa = main(page).locator('[data-quick-add]');
-  assert.equal(await qa.getByRole('button', { name: /Pick date|Choose date/ }).count(), 0, 'no picker opener in the quick-add row');
 });
 
 test('fr_tsk_09_ac5_kanban_card_menu_opens_the_same_dialog', async ({ page }) => {
-  const core = await startTasks(page, { now: NOW10 });
+  const core = await startTasksPage(page, { now: NOW10 });
   await gotoKanban(page, 'Status');
   const t01 = titleOf(T.t01);
   const scope = main(page).getByRole('article', { name: `Task: ${t01}`, exact: true });

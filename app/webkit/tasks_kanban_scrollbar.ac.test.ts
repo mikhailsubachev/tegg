@@ -6,11 +6,13 @@
 // viewport). Written from the AC and the contracts only (D-61); every lookup goes through `must` (TS-I1).
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { column, gotoKanban, main, must, sidebar, sleep, startTasks } from './tasks-helpers';
+// Slice Q2-T (AC-Test-Change, D-1912; views.md part three, row FR-TSK-05 AC-2, AC-4…AC-6, AC-10, AC-13, AC-15): route only:
+// the Kanban tab of `type/task` (views-tasks overlay); its lanes are `section[data-lane]` inside the board's scroller.
+import { column, gotoKanban, main, must, sidebar, sleep, startTasksPage as startTasks } from './tasks-helpers';
 
 test.use({ timezoneId: 'Europe/Prague', viewport: { width: 1440, height: 900 } });
 
-const board = (page: Page) => main(page).locator('[data-column]').first().locator('xpath=..');
+const board = (page: Page) => main(page).locator('section[data-lane]').first().locator('xpath=..');
 
 type Metrics = { bar: number; scrollLeft: number; scrollTop: number; scrollWidth: number; clientWidth: number; scrollHeight: number; clientHeight: number; overflowY: string };
 async function metrics(b: Locator): Promise<Metrics> {
@@ -27,7 +29,7 @@ async function metrics(b: Locator): Promise<Metrics> {
 async function verticalScrollers(page: Page): Promise<string[]> {
   return main(page).evaluate((m) => {
     const out: string[] = [];
-    const name = (el: Element) => `${el.tagName.toLowerCase()}${el.getAttribute('data-column') ? `[data-column="${el.getAttribute('data-column')}"]` : ''}${el === m ? '(main)' : ''}${el.querySelector(':scope > [data-column]') ? '(board)' : ''}`;
+    const name = (el: Element) => `${el.tagName.toLowerCase()}${el.getAttribute('data-lane') ? `[data-lane="${el.getAttribute('data-lane')}"]` : ''}${el === m ? '(main)' : ''}${el.querySelector(':scope > section[data-lane]') ? '(board)' : ''}`;
     const check = (el: Element) => {
       const s = getComputedStyle(el);
       if (/(auto|scroll|overlay)/.test(s.overflowY) && el.scrollHeight > el.clientHeight + 1) out.push(name(el));
@@ -83,7 +85,7 @@ for (const theme of ['light', 'dark'] as const) {
     assert.equal(m1.scrollTop, 0, 'the board itself never scrolls vertically (scrollTop stays 0)');
     assert.ok(!(m1.scrollHeight > m1.clientHeight + 1 && /(auto|scroll)/.test(m1.overflowY)), `the board has no vertical scroll range (overflow-y ${m1.overflowY}, ${m1.scrollHeight} / ${m1.clientHeight})`);
     const scrollers = await verticalScrollers(page);
-    assert.ok(scrollers.length <= 1 && !scrollers.some((s) => s.includes('(board)') || s.includes('data-column') || s === 'document'), `the main pane is the only vertical scroller: ${JSON.stringify(scrollers)}`);
+    assert.ok(scrollers.length <= 1 && !scrollers.some((s) => s.includes('(board)') || s.includes('data-lane') || s === 'document'), `the main pane is the only vertical scroller: ${JSON.stringify(scrollers)}`);
 
     // While a card is dragged the scrollbar is shown.
     const src = await must(column(page, 'In progress').getByRole('article').first(), 'a card in In progress');

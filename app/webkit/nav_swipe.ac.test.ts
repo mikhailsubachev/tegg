@@ -10,7 +10,7 @@
 // (names). Written from the ACs and the contracts only (D-61); every lookup goes through `must` and node:assert (TS-I1).
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { gotoKanban, main as tMain, startTasks } from './tasks-helpers';
+import { gotoKanban, main as tMain, startTasksPage as startTasks } from './tasks-helpers'; // D-1924 (AC-Test-Change, slice Q2-T): route only, plus the default task views in the vault (migrations are off in tests, D-1913).
 import { gotoTypePage, openTypes, swap, typeFile, typeTable, typesVault } from './types-helpers';
 import { P as G, canvas, graphHeading, positions, startGraph, waitDrawn } from './graph-helpers';
 import { GP, VIEWPORT, openPanel, pCanvas } from './graph-panel-helpers';
@@ -231,7 +231,7 @@ test.describe(() => {
     const core = await startTasks(page, { install: true });
     await gotoKanban(page, 'Status');
     const name = await mainName(page);
-    const board = () => tMain(page).locator('[data-column]').first().locator('xpath=..');
+    const board = () => tMain(page).locator('section[data-lane]').first().locator('xpath=..');
     await must(board(), 'the board (parent of the Kanban columns)');
     // Another route and one Back: the Kanban (kept by Back, 5B feedback) has a Back and a Forward entry.
     await runCommand(page, 'Go to Inbox');

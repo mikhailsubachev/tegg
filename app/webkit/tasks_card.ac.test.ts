@@ -5,11 +5,18 @@
 // docs/contracts/ms5-tasks.md §5 (`note_read` + @tegg/doc + `note_write` with the row's version), §6.2 (`SourceChip`,
 // `selectEmbedOf`), §7 (fake core: silent `setFile`, `writeControl` per path). Written from the ACs and the contract
 // only (D-61).
+//
+// Slice Q2-T (AC-Test-Change, D-1912; views.md part three, rows FR-TSK-02 AC-6, AC-8, AC-9 and AC-10…AC-12, FR-TSK-03
+// AC-3, FR-TSK-08, FR-TSK-09, FR-TSK-01 AC-2…AC-4): route only, the Task card on the boards of `type/task` (views-tasks
+// overlay) keeps R43's parts (D-1904; board cards carry `data-board-card`); the Overdue sub-group heading is gone (its
+// danger tone is on the `Today & overdue` lane heading, R203); an unknown status is its own lane (D-1791) and its
+// `Not a status` chip shows where the status isn't the grouping key.
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
   NOW, NOW_IN, O, T, attr, callsOf, card, checkbox, click, column, description, eventually, fileText, fileWhen, gotoKanban, gotoTasks, isDisabled, main,
-  moreBtn, must, mustBeOn, navs, nfc, original, seen, shortDate, sleep, startTasks, swap, tasksVault, textOf, touched, writeCalls, writesOf, flat,
+  moreBtn, must, mustBeOn, navs, nfc, viewsOriginal as original, seen, shortDate, sleep, startTasksPage as startTasks, swap, tasksViewsVault as tasksVault, textOf, touched, writeCalls, writesOf, flat,
+  sectionOf,
 } from './tasks-helpers';
 import { heading as tasksHeading, ui as tasksUi } from './tasks-helpers';
 import { escPreview, mainName, mustNoPreview, mustPreview, switchPreviewMode } from './helpers';
@@ -50,7 +57,7 @@ test('fr_tsk_02_ac10_card_parts_follow_r43', async ({ page }) => {
   await startTasks(page);
   await gotoTasks(page);
   const c = await must(card(page, 'Zavolat Janě'), 'article "Task: Zavolat Janě"');
-  assert.equal(await attr(c, 'data-path'), T.t01, 'data-path');
+  assert.equal(await attr(c, 'data-board-card'), T.t01, 'data-board-card (v1-views §30.1)');
   assert.equal(await attr(c, 'data-state'), 'open', 'data-state');
   assert.equal(await attr(c, 'data-overdue'), 'true', 'data-overdue');
   assert.equal(await attr(checkbox(c, 'Zavolat Janě'), 'aria-checked'), 'false', 'checkbox Complete "Zavolat Janě"');
@@ -318,9 +325,9 @@ for (const theme of ['light', 'dark'] as const) {
     assert.deepEqual([s03.color, s03.bg, s03.weight], [s03.tok.link, s03.tok.linkBg, '600'], 'Today: link on link-bg, 600');
     const s05 = await chipStyle(await dueChip(page, 'Úklid garáže'));
     assert.deepEqual([s05.color, s05.bg, s05.weight], [s05.tok.muted, s05.tok.hover, '400'], 'others: muted on hover, 400');
-    const h = await must(main(page).locator('[data-section="today"]').getByRole('heading', { level: 3, name: 'Overdue' }), 'Overdue heading');
+    const h = await must(sectionOf(page, 'today').locator('h2').first(), '`Today & overdue` heading');
     const hs = await chipStyle(h);
-    assert.equal(hs.color, hs.tok.danger, 'the Overdue heading uses danger');
+    assert.equal(hs.color, hs.tok.danger, 'the `Today & overdue` heading uses danger (R203)');
   });
 
   test(`fr_tsk_09_ac3_not_by_colour_alone_${theme}`, async ({ page }) => {
@@ -404,10 +411,12 @@ for (const tz of ['Europe/Prague', 'America/Los_Angeles'] as const) {
 
 test('fr_tsk_02_ac9_an_unknown_status_shows_not_a_status', async ({ page }) => {
   await startTasks(page);
-  await gotoKanban(page, 'Status');
-  const c = await must(column(page, 'no-status').getByRole('article', { name: 'Task: Cizí stav' }), 'T15 in No status');
-  const chip = await must(c.locator('[data-status]'), 'status chip');
+  await gotoTasks(page);
+  const s = await must(card(page, 'Cizí stav'), 'T15 on Schedule');
+  const chip = await must(s.locator('[data-status]'), 'status chip');
   assert.equal(await textOf(chip), 'Rozpracováno', 'the raw value');
   assert.equal(await description(chip), 'Not a status', 'Not a status (AP-401)');
-  assert.ok(await seen(column(page, 'no-status').getByRole('article', { name: 'Task: Bez stavu' })), 'T14 in No status');
+  await gotoKanban(page, 'Status');
+  assert.ok(await seen(column(page, 'unknown:Rozpracováno').getByRole('article', { name: 'Task: Cizí stav' })), 'T15 in its own lane `Rozpracováno` (D-1791)');
+  assert.ok(await seen(column(page, 'no-status').getByRole('article', { name: 'Task: Bez stavu' })), 'T14 in No Status');
 });

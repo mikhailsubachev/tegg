@@ -17,7 +17,24 @@ import { openNote } from './helpers';
 import { setPreviewMode } from '../ui/test/fake-core';
 import { ui as captureUi } from './capture-helpers';
 import { tokenColour } from './read-helpers';
-import { card, dateFilter, groupBy, quickAdd, tagInput as taskTagInput, viewTab, heading as tasksHeading } from './tasks-helpers';
+import { card, tagInput as taskTagInput, viewTab, heading as tasksHeading } from './tasks-helpers';
+import { inboxVault } from './capture-helpers';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+// Slice Q2-T (AC-Test-Change, D-1912; views.md part three, row app-shell FR-UX-03 AC-13): the date filter, `Group by` and
+// the quick-add field are gone; the steps use the `Views` tabs, the `Lanes` radios and `Filter Tasks…`. The inbox fixture
+// gets the two default task views (migrations are off in tests, D-1913): the overlay's `Schedule.yml`, `Kanban.yml` and
+// `views: [Schedule, Kanban]` in `task.yml`.
+const OVERLAY_Q = resolve(import.meta.dirname, '../../tests/fixtures/vaults/views-tasks/.tegg/queries');
+function withTaskViews() {
+  return inboxVault((f) => {
+    for (const n of ['Schedule', 'Kanban']) f[`.tegg/queries/${n}.yml`] = readFileSync(resolve(OVERLAY_Q, `${n}.yml`), 'utf8');
+    f['.tegg/types/task.yml'] = f['.tegg/types/task.yml'].replace(/^(preview: .*\n)/m, '$1views: [Schedule, Kanban]\n');
+  });
+}
+const lanesRadio = (page: Page, name: 'Vertical' | 'Horizontal') => main(page).locator('div.view-toolbar [role="radiogroup"]').getByRole('radio', { name, exact: true });
+const filterTasksField = (page: Page) => main(page).getByRole('searchbox', { name: 'Filter Tasks…', exact: true });
 
 test.use({ timezoneId: 'Europe/Prague' });
 
@@ -113,7 +130,7 @@ async function oldBlueOutlines(page: Page): Promise<string[]> {
 
 test('fr_ux_03_ac13_no_focus_ring_after_a_pointer_click', async ({ page }) => {
   // D-949: the pointer tour clicks references (cards, rows) as before slice P, so it runs under preview.mode = off.
-  await startMain(page, setPreviewMode('off', { uiState: captureUi() }));
+  await startMain(page, { ...setPreviewMode('off', { uiState: captureUi() }), vault: withTaskViews() });
   const states: NonNullable<State>[] = [];
   // Trash (6A: Home is removed, D-613) → a sidebar entry (Inbox).
   await runCommand(page, 'Go to Trash');
@@ -123,14 +140,13 @@ test('fr_ux_03_ac13_no_focus_ring_after_a_pointer_click', async ({ page }) => {
   await gotoInbox(page);
   states.push(...await pointer(page, main(page).getByRole('group', { name: 'Filter by type', exact: true }).getByRole('button').first(), 'Inbox filter button'));
   states.push(...await pointer(page, cardNamed(page, CARD.Q2), `Inbox card ${CARD.Q2}`));
-  // Tasks: a button (Today), the tabs Kanban and Status, a task card.
+  // Tasks: the Lanes radios, the tabs Kanban and Schedule, a task card.
   await runCommand(page, 'Go to Tasks');
   await must(tasksHeading(page), 'heading "Tasks"', 5000);
-  states.push(...await pointer(page, dateFilter(page).getByRole('button', { name: 'Today', exact: true }), 'button Today'));
-  states.push(...await pointer(page, dateFilter(page).getByRole('button', { name: 'All', exact: true }), 'button All'));
+  states.push(...await pointer(page, lanesRadio(page, 'Horizontal'), 'radio Horizontal'));
   states.push(...await pointer(page, viewTab(page, 'Kanban'), 'tab Kanban'));
-  await must(groupBy(page), 'tablist "Group by"');
-  states.push(...await pointer(page, groupBy(page).getByRole('tab', { name: 'Status', exact: true }), 'tab Status'));
+  states.push(...await pointer(page, viewTab(page, 'Schedule'), 'tab Schedule'));
+  states.push(...await pointer(page, viewTab(page, 'Kanban'), 'tab Kanban again'));
   states.push(...await pointer(page, card(page, 'Zavolat instalatérovi'), 'task card Zavolat instalatérovi'));
   // A type page: a table row.
   await runCommand(page, 'Go to type: Quick Notes');
@@ -154,7 +170,7 @@ test('fr_ux_03_ac13_no_focus_ring_after_a_pointer_click', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ (b) keyboard
 
 test('fr_ux_03_ac13_keyboard_focus_shows_the_neutral_indicator', async ({ page }) => {
-  await startMain(page);
+  await startMain(page, { vault: withTaskViews() });
   const focus = await tokenColour(page, 'focus');
   const sel = await tokenColour(page, 'hover'); // D-594: the neutral hover background, not the blue sel
   assert.ok(focus, 'the focus token exists');
@@ -168,14 +184,14 @@ test('fr_ux_03_ac13_keyboard_focus_shows_the_neutral_indicator', async ({ page }
   states.push(await keyboard(page, cardNamed(page, CARD.Q2), `Inbox card ${CARD.Q2}`));
   await runCommand(page, 'Go to Tasks');
   await must(tasksHeading(page), 'heading "Tasks"', 5000);
-  states.push(await keyboard(page, dateFilter(page).getByRole('button', { name: 'Today', exact: true }), 'button Today'));
+  states.push(await keyboard(page, lanesRadio(page, 'Horizontal'), 'radio Horizontal'));
   states.push(await keyboard(page, viewTab(page, 'Schedule'), 'tab Schedule'));
   await page.keyboard.press('ArrowRight'); // arrows between tabs
   await sleep(80);
   const arrowTab = await activeState(page, 'tab after ArrowRight');
   if (arrowTab) states.push(arrowTab);
   await (await must(viewTab(page, 'Kanban'), 'tab Kanban')).evaluate((e) => (e as HTMLElement).click());
-  await must(groupBy(page), 'tablist "Group by"');
+  await must(main(page).locator('div[role="group"][data-board][data-board-name="Kanban"]'), 'the Kanban board');
   states.push(await keyboard(page, card(page, 'Zavolat instalatérovi'), 'task card Zavolat instalatérovi'));
   await runCommand(page, 'Go to type: Quick Notes');
   const table = await must(typeTable(page, 'Quick Notes'), 'table "Quick Notes"', 5000);
@@ -211,7 +227,7 @@ test('fr_ux_03_ac13_keyboard_focus_shows_the_neutral_indicator', async ({ page }
 // ------------------------------------------------------------------------------------------------ (c) text fields
 
 test('fr_ux_03_ac13_text_fields_show_no_outline_ring', async ({ page }) => {
-  await startMain(page);
+  await startMain(page, { vault: withTaskViews() });
   const states: NonNullable<State>[] = [];
   const both = async (loc: Locator, what: string) => {
     const el = await must(loc, what);
@@ -224,7 +240,7 @@ test('fr_ux_03_ac13_text_fields_show_no_outline_ring', async ({ page }) => {
   };
   await runCommand(page, 'Go to Tasks');
   await must(tasksHeading(page), 'heading "Tasks"', 5000);
-  await both(quickAdd(page), 'quick-add "Add a task…"');
+  await both(filterTasksField(page), 'search field "Filter Tasks…"');
   await both(taskTagInput(page), 'tag filter input');
   // Dialog inputs: the palette and the switcher.
   await page.keyboard.press('Meta+k');
@@ -256,7 +272,8 @@ test('fr_ux_03_ac13_text_fields_show_no_outline_ring', async ({ page }) => {
 
 for (const theme of ['light', 'dark'] as const) {
   test(`fr_ux_03_ac13_no_outline_in_the_old_blue_${theme}`, async ({ page }) => {
-    await startMain(page, { theme });
+    // D-1924 (AC-Test-Change, slice Q2-T): the inbox fixture gets the two default task views (Kanban tab).
+    await startMain(page, { theme, vault: withTaskViews() });
     const hits: string[] = [];
     const tabThrough = async (route: string) => {
       for (let i = 0; i < 25; i++) {

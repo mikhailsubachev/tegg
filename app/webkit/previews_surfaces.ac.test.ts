@@ -4,6 +4,8 @@
 import { test } from '@playwright/test';
 import { mustCaret } from './embeds-helpers';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve as resolvePath } from 'node:path';
 import {
   PV, ZONE, back, callsSince, chipNamed, clickToPreview, contentSequence, createOffer, editorBody, embedLoadsSince, fileText, fileWhen, flat, focusInfo,
   focusInside, frame, linkEmbed, main, mainName, mark, mindmapFigure, mapNode, mustBeOn, navsSince, need, needClosed, needNoPreview, needOdkazyLink,
@@ -176,6 +178,17 @@ test('fr_lnk_08_ac6_tag_page_row_previews_and_its_other_tags_chip_previews_the_t
   await clickToPreview(page, other, '#nápad', 'a click on an Other tags chip (R104 row 12, AP-819)');
 });
 
+// Slice Q2-T (AC-Test-Change, D-1912; views.md part three, row FR-TSK-02 AC-10…AC-12 … FR-TSK-09 AC-2…AC-5): route only;
+// `tasks` and `tasks/kanban` are aliases of `type/task` (AP-1540), whose Schedule and Kanban tabs need the two default
+// views in the vault (migrations are off in tests, D-1913): the views-tasks overlay's query files and `views:` line.
+function withTaskViews() {
+  const dir = resolvePath(import.meta.dirname, '../../tests/fixtures/vaults/views-tasks/.tegg/queries');
+  return previewsVault((f) => {
+    for (const n of ['Schedule', 'Kanban']) f[`.tegg/queries/${n}.yml`] = readFileSync(resolvePath(dir, `${n}.yml`), 'utf8');
+    f['.tegg/types/task.yml'] = f['.tegg/types/task.yml'].replace(/^(preview: .*\n)/m, '$1views: [Schedule, Kanban]\n');
+  });
+}
+
 async function taskTitlePreviews(page: import('@playwright/test').Page, how: string) {
   const c = await need(taskCard(page, 'Zavolat Janě'), `${how}: card "Task: Zavolat Janě"`);
   await clickToPreview(page, await need(c.getByRole('link', { name: 'Zavolat Janě', exact: true }), `${how}: the card title`), 'Zavolat Janě', `${how}: a click on the card title`);
@@ -185,7 +198,7 @@ async function taskTitlePreviews(page: import('@playwright/test').Page, how: str
 }
 
 test('fr_lnk_08_ac7_task_card_title_previews_on_schedule_checkbox_and_more_keep_their_job', async ({ page }) => {
-  const core = await startPreviews(page, { route: 'tasks' });
+  const core = await startPreviews(page, { route: 'tasks', vault: withTaskViews() });
   const c = await taskTitlePreviews(page, 'Schedule');
   await (await need(c.getByRole('button', { name: 'More actions for "Zavolat Janě"', exact: true }), 'button More')).click();
   await (await need(page.getByRole('menuitem', { name: 'Open', exact: true }), 'menu item Open')).click();
@@ -199,7 +212,7 @@ test('fr_lnk_08_ac7_task_card_title_previews_on_schedule_checkbox_and_more_keep_
 });
 
 test('fr_lnk_08_ac7_task_card_title_previews_on_kanban_and_a_drag_never_previews', async ({ page }) => {
-  await startPreviews(page, { route: 'tasks/kanban' });
+  await startPreviews(page, { route: 'tasks/kanban', vault: withTaskViews() });
   const c = await taskTitlePreviews(page, 'Kanban');
   const b = await c.boundingBox();
   assert.ok(b, 'card box');

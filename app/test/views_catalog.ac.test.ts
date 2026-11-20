@@ -41,7 +41,7 @@ const R192: Row[] = [
   ['query.editor.usedOnPage', { plural: 'Books', count: 1 }, 'Used on the Books page and 1 note. Changes apply everywhere.'],
   ['query.editor.usedOnPage', { plural: 'Books', count: 3 }, 'Used on the Books page and 3 notes. Changes apply everywhere.'],
   ['query.editor.showFixed', { plural: 'Books' }, 'fixed: a view of the Books page'], ['query.editor.board', {}, 'Board'], ['query.editor.groupBy', {}, 'Group by'],
-  ['query.editor.groupByHint', {}, 'one lane per option'], ['query.editor.lanes', {}, 'Lanes'], ['query.editor.onCards', {}, 'On cards'], ['query.editor.onCardsChange', {}, 'Change…'],
+  ['query.editor.groupByHint', {}, 'one lane per option'], ['query.editor.lanes', {}, 'Lanes'],
   ['board.lanes', {}, 'Lanes'], ['board.vertical', {}, 'Vertical'], ['board.horizontal', {}, 'Horizontal'], ['board.verticalTitle', {}, 'Vertical lanes'],
   ['board.horizontalTitle', {}, 'Horizontal lanes'], ['board.none', { attribute: 'Status' }, 'No Status'], ['board.excluded', {}, 'Not in this view'],
   ['board.excludedLong', { values: 'Reading and To read' }, 'Not in this view: its filter shows only Reading and To read.'],
@@ -70,7 +70,8 @@ const R192: Row[] = [
 const REUSED: Row[] = [
   ['typePage.views', {}, 'Views'], ['tasks.tagFilter', {}, 'Filter by tag'], ['task.more', { title: 'Dům u řeky' }, 'More actions for "Dům u řeky"'], ['pinned.open', {}, 'Open'],
 ];
-const REMOVED = ['typePage.allView', 'views.notReady', 'ctl.filter', 'ctl.group', 'ctl.addView', 'ctl.addViewSettings', 'ctl.editView'];
+// Slice Q2-T (AC-Test-Change, D-1912; views.md part three, row NFR-OTH-02 AC-21; D-1891): `On cards` and `Change…` go.
+const REMOVED = ['typePage.allView', 'views.notReady', 'ctl.filter', 'ctl.group', 'ctl.addView', 'ctl.addViewSettings', 'ctl.editView', 'query.editor.onCards', 'query.editor.onCardsChange'];
 const PREFIXES = ['views.', 'board.', 'sort.'];
 
 test('nfr_oth_02_ac21_view_strings', async () => {
@@ -84,9 +85,13 @@ test('nfr_oth_02_ac21_view_strings', async () => {
   assert.deepEqual(bad, [], 'R192\'s keys (D-1812) with their English texts, and the reused keys');
   // Slice Q2.1 adds R199's keys (views.md part two, D-1850, D-1875); views_usage_registry checks their texts.
   const R199 = ['sort.scope.tab', 'sort.scope.block', 'sort.scope.default', 'sort.useQuery', 'views.trashFailed'];
-  const keys = new Set([...R192.map(([k]) => k), ...R199]);
+  // Slice Q2-T adds R207's `board.*` and `sort.*` keys (views.md part three, v1-views §30.2); views_tasks_registry checks
+  // their texts.
+  const R207 = ['board.period.today', 'board.period.todayEarlier', 'board.period.week', 'board.period.later', 'board.period.none', 'board.period.dropDate',
+    'board.period.dropClear', 'board.done', 'board.doneHint', 'board.doneStatusHint', 'board.dropDone', 'board.laneCountOf', 'sort.scope.thisMac'];
+  const keys = new Set([...R192.map(([k]) => k), ...R199, ...R207]);
   const extra = Object.keys(en).filter((k) => PREFIXES.some((p) => k.startsWith(p)) && !keys.has(k));
-  assert.deepEqual(extra, [], 'no other `views.*`, `board.*`, `sort.*` key (exactly R192\'s and R199\'s)');
+  assert.deepEqual(extra, [], 'no other `views.*`, `board.*`, `sort.*` key (exactly R192\'s, R199\'s and R207\'s)');
   for (const k of REMOVED) assert.ok(!(k in en), `${k} removed`);
   for (const k of ['query.editor.sort', 'query.editor.asc', 'query.editor.desc']) assert.ok(k in en, `${k} stays (slice Q's list, §4.6)`);
 });
