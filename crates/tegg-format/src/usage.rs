@@ -1,6 +1,13 @@
 //! A usage's own `sort` / `columns` (docs/contracts/v1-views.md §13.2, R195, R196; D-1838, D-1840): the shape rules shared
-//! by the query fence reader and tegg-schema's `views:` items.
-//! Red-test stub (Q2.1): nothing is read yet.
+//! by the query fence reader and tegg-schema's `views:` items. R185's read rules (v1-views §1.2): `sort` is one mapping
+//! `{ by, order }` or a list of them (`[]`: zero levels), every `by` a non-blank string and every `order` `asc`, `desc` or
+//! missing (= `asc`); `columns` a list of strings. Any other shape is `Broken`. Whether a `by` or a column key exists is
+//! the core's run-time check (§17.2). Values are NFC (FR-FMT-12); `by` is trimmed.
+
+use serde_json::Value;
+use yaml_rust2::Yaml;
+
+use crate::extract::nfc;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UsageOrder {
@@ -27,8 +34,77 @@ pub struct UsageRaw {
     pub columns: UsageValue<Vec<String>>,
 }
 
+/// A YAML node as JSON (the shapes the rules look at; other scalars as strings or null).
+fn json_of(y: &Yaml) -> Value {
+    match y {
+        Yaml::String(s) => Value::String(s.clone()),
+        Yaml::Integer(n) => Value::from(*n),
+        Yaml::Real(r) => r.parse::<f64>().ok().map(Value::from).unwrap_or(Value::Null),
+        Yaml::Boolean(b) => Value::Bool(*b),
+        Yaml::Array(a) => Value::Array(a.iter().map(json_of).collect()),
+        Yaml::Hash(h) => Value::Object(h.iter().map(|(k, v)| (key_text(k), json_of(v))).collect()),
+        _ => Value::Null,
+    }
+}
+
+fn key_text(k: &Yaml) -> String {
+    match k {
+        Yaml::String(s) => s.clone(),
+        Yaml::Integer(n) => n.to_string(),
+        Yaml::Boolean(b) => b.to_string(),
+        Yaml::Real(r) => r.clone(),
+        _ => String::new(),
+    }
+}
+
+/// One level: a mapping with a non-blank string `by` and an `order` of asc / desc / missing (null = missing).
+fn level(v: &Value) -> Option<UsageSort> {
+    let Value::Object(m) = v else { return None };
+    let Some(Value::String(by)) = m.get("by") else { return None };
+    let by = by.trim_matches(char::is_whitespace);
+    if by.is_empty() {
+        return None;
+    }
+    let order = match m.get("order") {
+        None | Some(Value::Null) => UsageOrder::Asc,
+        Some(Value::String(s)) if s == "asc" => UsageOrder::Asc,
+        Some(Value::String(s)) if s == "desc" => UsageOrder::Desc,
+        _ => return None,
+    };
+    Some(UsageSort { by: nfc(by), order })
+}
+
+/// R185's `sort` shape of a present value.
+pub fn sort_value(v: &Value) -> UsageValue<Vec<UsageSort>> {
+    let levels = match v {
+        Value::Object(_) => level(v).map(|l| vec![l]),
+        Value::Array(a) => a.iter().map(level).collect::<Option<Vec<_>>>(),
+        _ => None,
+    };
+    levels.map(UsageValue::Set).unwrap_or(UsageValue::Broken)
+}
+
+/// R185's `columns` shape of a present value: a list of strings, NFC.
+pub fn columns_value(v: &Value) -> UsageValue<Vec<String>> {
+    match v {
+        Value::Array(a) => a.iter().map(|x| x.as_str().map(nfc)).collect::<Option<Vec<_>>>().map(UsageValue::Set).unwrap_or(UsageValue::Broken),
+        _ => UsageValue::Broken,
+    }
+}
+
+/// `sort` / `columns` of a mapping read as JSON (tegg-schema's `views:` items); other keys ignored.
+pub fn usage_of_json(map: &serde_json::Map<String, Value>) -> UsageRaw {
+    UsageRaw {
+        sort: map.get("sort").map(sort_value).unwrap_or(UsageValue::Absent),
+        columns: map.get("columns").map(columns_value).unwrap_or(UsageValue::Absent),
+    }
+}
+
 /// `sort` / `columns` of a YAML mapping (a fence body or a `views:` item); other keys ignored.
-/// Red-test stub (Q2.1): always absent.
-pub fn usage_of(_map: &yaml_rust2::yaml::Hash) -> UsageRaw {
-    UsageRaw { sort: UsageValue::Absent, columns: UsageValue::Absent }
+pub fn usage_of(map: &yaml_rust2::yaml::Hash) -> UsageRaw {
+    let get = |k: &str| map.get(&Yaml::String(k.into())).map(json_of);
+    UsageRaw {
+        sort: get("sort").map(|v| sort_value(&v)).unwrap_or(UsageValue::Absent),
+        columns: get("columns").map(|v| columns_value(&v)).unwrap_or(UsageValue::Absent),
+    }
 }

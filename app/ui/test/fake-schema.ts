@@ -60,7 +60,7 @@ export function readType(key: string, text: string, exists: boolean, version: Ve
   const base: TypeDto = {
     key, name: key, plural: key, folder: key, icon: 'file-text', color: 'gray', system, invalid: false, exists, version,
     state: 'ok', error: null, declaredVersion: null, description: null, review: 'off', preview: [], previewIgnored: [], hidden: [], columns: null, columnsIgnored: [], columnsUnreadable: false, embed: defaultEmbed(key), embedRaw: null, template: null, attributes: [],
-    views: null, viewsUnreadable: false,
+    views: null, viewsUnreadable: false, viewItems: null, viewsSource: null,
   };
   const invalid = (message: string, line: number) => ({ ...base, invalid: true, state: 'invalid', error: { message, line } });
   const d = parseDocument(text, { prettyErrors: false });
@@ -110,16 +110,192 @@ export function readType(key: string, text: string, exists: boolean, version: Ve
     // 4F (D-417, ms4-embeds §3): the raw value and the effective mode.
     embed: embedMode(y.embed) ?? defaultEmbed(key), embedRaw: y.embed === undefined || y.embed === null || String(y.embed).trim() === '' ? null : String(y.embed).trim(),
     template: y.template ?? null, attributes,
-    // Slice Q2 (v1-views §1.3, R184): `views` as written (NFC); a value that isn't a list of strings reads as absent.
-    ...viewsOf(y),
+    // Slice Q2 (v1-views §1.3, R184) and Q2.1 (§14.1, R196): `views` as written (NFC names), its items and its lines.
+    ...viewsOf(text),
   };
 }
 
-function viewsOf(y: any): { views: string[] | null; viewsUnreadable: boolean } {
-  const v = y.views;
-  if (v === undefined || v === null) return { views: null, viewsUnreadable: false };
-  const ok = Array.isArray(v) && v.every((x: unknown) => typeof x === 'string');
-  return ok ? { views: (v as string[]).map(nfc), viewsUnreadable: false } : { views: null, viewsUnreadable: true };
+function viewsOf(text: string): { views: string[] | null; viewsUnreadable: boolean; viewItems: ViewItemDto[] | null; viewsSource: string | null } {
+  const m = viewsModel(text);
+  if (!m) return { views: null, viewsUnreadable: false, viewItems: null, viewsSource: null };
+  if (m.items === null) return { views: null, viewsUnreadable: true, viewItems: null, viewsSource: m.source };
+  if (m.absent) return { views: null, viewsUnreadable: false, viewItems: null, viewsSource: m.source };
+  return {
+    views: m.items.map((it) => it.name), viewsUnreadable: false, viewsSource: m.source,
+    viewItems: m.items.map((it) => ({
+      name: it.name, sort: Array.isArray(it.sort) ? it.sort : null, sortBroken: it.sort === 'broken',
+      columns: Array.isArray(it.columns) ? it.columns : null, columnsBroken: it.columns === 'broken', plain: it.plain,
+    })),
+  };
+}
+
+// ------------------------------------------------------------------------------------------------ `views:` items (Q2.1)
+
+/** v1-views §17.3 `ViewItemDto`. */
+export type UsageSort = { by: string; order: 'asc' | 'desc' };
+export type ViewItemDto = { name: string; sort: UsageSort[] | null; sortBroken: boolean; columns: string[] | null; columnsBroken: boolean; plain: boolean };
+type Field = { key: string; lines: string[] };
+/** One item of `views:` (R196): its values, and its lines when the list is a block list (null: flow style). */
+type VItem = {
+  name: string; sort: UsageSort[] | 'broken' | null; columns: string[] | 'broken' | null; plain: boolean;
+  unknown: { key: string; value: unknown }[]; lines: string[] | null; fields: Field[] | null;
+};
+type VModel = { lines: string[]; start: number; end: number; source: string; items: VItem[] | null; absent: boolean; dash: number };
+
+const trimWs = (s: string) => s.replace(/^\p{White_Space}+|\p{White_Space}+$/gu, '');
+const viewKey = (s: string) => nfc(trimWs(s)).toLowerCase();
+/** R185's shape rules for a usage's own `sort` (one mapping or a list of mappings; a missing `order` is `asc`). */
+function usageSortOf(v: unknown): UsageSort[] | 'broken' {
+  const level = (x: unknown): UsageSort | null => {
+    if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
+    const m = x as Record<string, unknown>;
+    if (typeof m.by !== 'string' || trimWs(m.by) === '') return null;
+    if (!(m.order === undefined || m.order === null || m.order === 'asc' || m.order === 'desc')) return null;
+    return { by: nfc(trimWs(m.by)), order: m.order === 'desc' ? 'desc' : 'asc' };
+  };
+  const ls = Array.isArray(v) ? v.map(level) : [level(v)];
+  return ls.every((l) => l !== null) ? (ls as UsageSort[]) : 'broken';
+}
+const usageColumnsOf = (v: unknown): string[] | 'broken' => (Array.isArray(v) && v.every((x) => typeof x === 'string') ? (v as string[]).map(nfc) : 'broken');
+
+/** The `views` key's lines (the key line, then indented lines and `- ` lines) and its items; null when absent. */
+function viewsModel(text: string): VModel | null {
+  const lines = text.split(/(?<=\n)/);
+  const start = lines.findIndex((l) => /^views:(?=[ \t\r\n]|$)/.test(l));
+  if (start < 0) return null;
+  let end = start + 1;
+  while (end < lines.length && (/^[ \t]+\S/.test(lines[end]) || /^-(?:[ \t]|\r?\n|$)/.test(lines[end]))) end++;
+  const source = lines.slice(start, end).join('');
+  const base = { lines, start, end, source, dash: 2 };
+  let y: any;
+  try { y = parseYaml(text); } catch { return { ...base, items: null, absent: false }; }
+  const v = y?.views;
+  if (v === null || v === undefined) return { ...base, items: [], absent: true };
+  if (!Array.isArray(v)) return { ...base, items: null, absent: false };
+  const items: VItem[] = [];
+  for (const x of v) {
+    if (typeof x === 'string') { items.push({ name: nfc(x), sort: null, columns: null, plain: true, unknown: [], lines: null, fields: null }); continue; }
+    if (!x || typeof x !== 'object' || Array.isArray(x) || typeof x.name !== 'string' || trimWs(x.name) === '') return { ...base, items: null, absent: false };
+    const has = (k: string) => Object.prototype.hasOwnProperty.call(x, k);
+    const unknown = Object.keys(x).filter((k) => !['name', 'sort', 'columns'].includes(k)).map((k) => ({ key: k, value: x[k] }));
+    items.push({
+      name: nfc(trimWs(x.name)), sort: has('sort') ? usageSortOf(x.sort) : null, columns: has('columns') ? usageColumnsOf(x.columns) : null,
+      plain: !has('sort') && !has('columns') && unknown.length === 0, unknown, lines: null, fields: null,
+    });
+  }
+  // A block list: each item's own lines (deeper comments included; comments at the dash's indent are between items).
+  const body = lines.slice(start + 1, end);
+  const first = body.find((l) => /^[ \t]*-(?:[ \t]|\r?\n|$)/.test(l));
+  let dash = 2;
+  if (first) {
+    dash = /^[ \t]*/.exec(first)![0].length;
+    const chunks: string[][] = [];
+    for (const l of body) {
+      const ind = /^[ \t]*/.exec(l)![0].length;
+      const isComment = /^[ \t]*#/.test(l);
+      if (ind === dash && /^[ \t]*-(?:[ \t]|\r?\n|$)/.test(l)) chunks.push([l]);
+      else if (isComment && ind <= dash) continue;
+      else if (chunks.length) chunks[chunks.length - 1].push(l);
+    }
+    if (chunks.length === items.length) chunks.forEach((c, i) => { items[i].lines = c; items[i].fields = fieldsOf(c, dash); });
+  }
+  return { ...base, items, absent: false, dash };
+}
+
+/** The key fields of a block mapping item (`  - name: …` then `    key: …` lines); comments dropped; null for a flow
+ *  mapping or a plain item. */
+function fieldsOf(chunk: string[], dash: number): Field[] | null {
+  const head = /^([ \t]*-[ \t]+)(.*)$/s.exec(chunk[0]);
+  if (!head || !/^[^\s#'"{[\]-][^:]*:(?:[ \t]|\r?\n|$)/.test(head[2])) return null;
+  const col = head[1].length;
+  const out: Field[] = [];
+  const keyAt = (t: string) => /^([^\s#'"{[\]][^:]*):(?:[ \t]|\r?\n|$)/.exec(t)?.[1] ?? null;
+  out.push({ key: keyAt(head[2])!, lines: [' '.repeat(col) + head[2]] });
+  for (const l of chunk.slice(1)) {
+    const ind = /^[ \t]*/.exec(l)![0].length;
+    if (/^[ \t]*#/.test(l)) continue;
+    const k = ind === col ? keyAt(l.slice(ind)) : null;
+    if (k !== null) out.push({ key: k, lines: [l] });
+    else out[out.length - 1].lines.push(l);
+  }
+  void dash;
+  return out;
+}
+
+const levelText = (l: UsageSort) => `{ by: ${flowItem(l.by)}, order: ${l.order} }`;
+function flowValue(v: unknown): string {
+  if (typeof v === 'string') return flowItem(v);
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (v === null || v === undefined) return 'null';
+  if (Array.isArray(v)) return `[${v.map(flowValue).join(', ')}]`;
+  return `{ ${Object.entries(v as Record<string, unknown>).map(([k, x]) => `${flowItem(k)}: ${flowValue(x)}`).join(', ')} }`;
+}
+
+/** R196's write style for the items (`dash`: the list's dash indent), or the one flow line when every item is plain. */
+function renderViews(items: VItem[], changed: Set<VItem>, dash: number, eol: string): string {
+  if (items.every((it) => it.plain)) return `views: [${items.map((it) => flowItem(it.name)).join(', ')}]${eol}`;
+  const d = ' '.repeat(dash), k = ' '.repeat(dash + 2);
+  let out = `views:${eol}`;
+  for (const it of items) {
+    if (!changed.has(it) && it.lines) { out += it.lines.map((l) => (/\n$/.test(l) ? l : l + eol)).join(''); continue; }
+    if (it.plain) { out += `${d}- ${flowItem(it.name)}${eol}`; continue; }
+    const field = (key: string) => it.fields?.find((f) => f.key === key)?.lines.map((l) => (/\n$/.test(l) ? l : l + eol)).join('') ?? '';
+    out += `${d}- name: ${flowItem(it.name)}${eol}`;
+    if (Array.isArray(it.sort)) {
+      if (it.sort.length === 0) out += `${k}sort: []${eol}`;
+      else if (it.sort.length === 1) out += `${k}sort: ${levelText(it.sort[0])}${eol}`;
+      else out += `${k}sort:${eol}` + it.sort.map((l) => `${k}  - ${levelText(l)}${eol}`).join('');
+    } else if (it.sort === 'broken') out += field('sort');
+    if (Array.isArray(it.columns)) out += `${k}columns: [${it.columns.map(flowItem).join(', ')}]${eol}`;
+    else if (it.columns === 'broken') out += field('columns');
+    for (const u of it.unknown) out += it.fields?.some((f) => f.key === u.key) ? field(u.key) : `${k}${flowItem(u.key)}: ${flowValue(u.value)}${eol}`;
+  }
+  return out;
+}
+
+/** v1-views §14.2: one views op (`views`, `viewSort`, `viewColumns`, `viewsSource`) on a type file's text. */
+export function viewsOp(text: string, op: any): { text: string } | { error: Record<string, unknown> } {
+  const rule = (reason: string) => ({ error: err('Rule', `rule: ${reason}`, { reason }) });
+  const m = viewsModel(text);
+  const eol = /\r\n/.test(text) ? '\r\n' : '\n';
+  if (op.op === 'viewsSource') {
+    const src = String(op.source ?? '');
+    let out: string;
+    if (m) out = m.lines.slice(0, m.start).join('') + src + m.lines.slice(m.end).join('');
+    else { const es = entries(text); setTop(es, 'views', src); out = join_(es); }
+    const back = viewsModel(out);
+    if (back && back.items === null) return rule('viewsUnreadable');
+    return { text: out };
+  }
+  if (m && m.items === null) return rule('viewsUnreadable');
+  const cur: VItem[] = m?.items ?? [];
+  const changed = new Set<VItem>();
+  let next: VItem[];
+  if (op.op === 'views') {
+    const names: string[] = (op.names ?? []).map((n: string) => nfc(String(n)));
+    next = names.map((n) => cur.find((it) => viewKey(it.name) === viewKey(n)) ?? (() => { const it: VItem = { name: n, sort: null, columns: null, plain: true, unknown: [], lines: null, fields: null }; changed.add(it); return it; })());
+    // The same names in the same order on an existing key: no write (Q2; a repeat keeps its own item).
+    if (m && !m.absent && next.length === cur.length && next.every((it, i) => it.name === cur[i].name)) return { text };
+  } else if (op.op === 'viewSort' || op.op === 'viewColumns') {
+    const at = cur.findIndex((it) => viewKey(it.name) === viewKey(String(op.name ?? '')));
+    if (!m || m.absent || at < 0) return rule('viewNotListed');
+    const it = cur[at];
+    const value = op.op === 'viewSort'
+      ? (op.sort === null || op.sort === undefined ? null : (op.sort as UsageSort[]).map((l) => ({ by: nfc(trimWs(l.by)), order: l.order === 'desc' ? 'desc' as const : 'asc' as const })))
+      : (op.columns === null || op.columns === undefined ? null : (op.columns as string[]).map(nfc));
+    const old = op.op === 'viewSort' ? it.sort : it.columns;
+    if (JSON.stringify(old) === JSON.stringify(value)) return { text };
+    const nu: VItem = { ...it, [op.op === 'viewSort' ? 'sort' : 'columns']: value };
+    nu.plain = nu.sort === null && nu.columns === null && nu.unknown.length === 0;
+    changed.add(nu);
+    next = cur.map((x, i) => (i === at ? nu : x));
+  } else return { text };
+  const rendered = renderViews(next, changed, m?.dash ?? 2, eol);
+  if (!m) { const es = entries(text); setTop(es, 'views', rendered); return { text: join_(es) }; }
+  let tail = rendered;
+  // The key was the file's last line without a final newline: so is its last line now.
+  if (m.end === m.lines.length && !/\n$/.test(m.lines[m.end - 1])) tail = tail.replace(/\r?\n$/, '');
+  return { text: m.lines.slice(0, m.start).join('') + tail + m.lines.slice(m.end).join('') };
 }
 
 const UNIVERSAL_COLUMNS = ['tags', 'source', 'aliases', 'review', 'created', 'modified'];
@@ -285,14 +461,13 @@ async function patchText(key: string, text: string, ops: any[], t: TypeDto, all:
       if (t.columnsUnreadable) return rule({ reason: 'columnsUnreadable' });
       if (t.columns && JSON.stringify(op.keys) === JSON.stringify(t.columns)) continue;
       setTop(es, 'columns', `columns: ${flow(op.keys.map((k: string) => k.normalize('NFC')))}\n`);
-    } else if (op.op === 'views') {
-      // Slice Q2 (v1-views §1.3, D-1803): one flow line in NFC at its TOP place (a block list becomes that line, `[]`
-      // after the last removal); an unreadable value is refused; the same list on an existing key is no write.
-      if (t.viewsUnreadable) return rule({ reason: 'viewsUnreadable' });
-      const names: string[] = (op.names ?? []).map((n: string) => nfc(String(n)));
-      if (t.views && JSON.stringify(names) === JSON.stringify(t.views)) continue;
-      const eol = /\r\n/.test(text) ? '\r\n' : '\n';
-      setTop(es, 'views', `views: [${names.map(flowItem).join(', ')}]${eol}`);
+    } else if (op.op === 'views' || op.op === 'viewSort' || op.op === 'viewColumns' || op.op === 'viewsSource') {
+      // Slice Q2 (v1-views §1.3, D-1803) and Q2.1 (§14.2, R196; D-1840, D-1852, D-1857): the views ops on the text so
+      // far (several in one patch apply in order and are written once); plain names as one flow line, items with own
+      // values as a block list; an unchanged item keeps its lines; an unreadable value is refused.
+      const r = viewsOp(join_(es), op);
+      if ('error' in r) return r;
+      es.splice(0, es.length, ...entries(r.text));
     } else if (op.op === 'embed') {
       // D-417: the same value (any case) is no write; otherwise the line is replaced or inserted after hidden/preview.
       if (String(t.embedRaw ?? '').toLowerCase() === op.mode) continue;
@@ -417,8 +592,16 @@ export function renameView(key: string, text: string, from: string, to: string):
   const e = es.find((x) => x.key === 'views');
   if (!e) return null;
   let changed = false;
+  // Q2.1 (v1-views §14.3, D-1843): a flow mapping item's `name:` value token.
+  const inMaps = (l: string) => l.replace(/(\{[^{}]*?\bname:[ \t]*)("(?:[^"\\]|\\.)*"|'(?:[^']|'')*'|[^,}]*?)([ \t]*[,}])/g, (all, a: string, v: string, b: string) => {
+    if (!hit(v)) return all;
+    changed = true;
+    return a + flowItem(to) + b;
+  });
   const flowM = /^(views:[ \t]*\[)(.*)(\].*)$/s.exec(e.lines[0]);
-  if (e.lines.length === 1 && flowM) {
+  if (e.lines.length === 1 && flowM && flowM[2].includes('{')) {
+    e.lines[0] = inMaps(e.lines[0]);
+  } else if (e.lines.length === 1 && flowM) {
     const parts: string[] = [];
     let cur = '', q: string | null = null;
     for (let i = 0; i < flowM[2].length; i++) {
@@ -439,6 +622,14 @@ export function renameView(key: string, text: string, from: string, to: string):
   } else {
     e.lines = e.lines.map((l, i) => {
       if (i === 0) return l;
+      // Q2.1 (§14.3): a block mapping item's `name:` value (`  - name: X` or `    name: X`), a flow mapping's.
+      const nm = /^(\s*(?:-[ \t]+)?name:[ \t]*)(.*?)([ \t]+#.*)?(\r?\n)?$/s.exec(l);
+      if (nm && /^\s+/.test(l)) {
+        if (!hit(nm[2])) return l;
+        changed = true;
+        return nm[1] + flowItem(to) + (nm[3] ?? '') + (nm[4] ?? '');
+      }
+      if (/^\s*-[ \t]+\{/.test(l)) return inMaps(l);
       const m = /^(\s*-[ \t]+)(.*?)([ \t]+#.*)?(\r?\n)?$/s.exec(l);
       if (!m || !hit(m[2])) return l;
       changed = true;

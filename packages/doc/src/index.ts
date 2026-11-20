@@ -224,6 +224,7 @@ export { mindmapTree, wrapMindmap, unwrapMindmap, setMindmapLayout, layoutOf, ca
 // ---------------------------------------------------------------- slice Q (v1-queries §3.1)
 
 export { queryFences, savedName, withSavedName, referenceFence, newQueryFence, queryNameKey, type QueryFence } from './queryfence.js'
+export { fenceUsage, withUsage, applyFenceUsage, type UsageSort, type FenceUsage, type UsageChange } from './queryfence.js'
 
 // ---------------------------------------------------------------- slice I1 (v1-import §7.1)
 

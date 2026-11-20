@@ -5,7 +5,8 @@
 // AC-9) and match case-insensitively (name key). Only the `saved:` value is ever rewritten; every other byte is kept.
 
 import type { Nodes } from 'mdast'
-import { formatScalar, type Patch } from './edit.js'
+import { parse as parseYaml } from 'yaml'
+import { flowList, formatScalar, type Patch } from './edit.js'
 import { parse } from './parse.js'
 
 export type QueryFence = { range: [number, number]; body: string; saved: string | null; nested: boolean; info: string }
@@ -195,4 +196,159 @@ export function renameSavedQueryPatches(text: string, from: string, to: string):
     }
   }
   return patches
+}
+
+// ------------------------------------------------------------------------------------------------ usage settings (Q2.1)
+
+/** v1-views §13.1 (R195, D-1838): one sort level of a usage's own value. */
+export type UsageSort = { by: string; order: 'asc' | 'desc' }
+/** A reference body's own values (R195 with R185's read rules, NFC). `'broken'`: the key is present but its value has a
+ *  shape R185 calls broken. `null`: the key is absent. Both null for a non-reference body (inline, empty, unreadable). */
+export type FenceUsage = { sort: UsageSort[] | 'broken' | null; columns: string[] | 'broken' | null }
+/** `undefined`: leave the key; `null`: remove it (`Use the query's …`); a value: set it. */
+export type UsageChange = { sort?: UsageSort[] | null; columns?: string[] | null }
+
+const trimWs = (s: string) => s.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, '')
+
+/** R185's shape rules for a usage `sort` value (one mapping or a list of mappings; a missing `order` is `asc`). */
+function usageSortOf(v: unknown): UsageSort[] | 'broken' {
+  const level = (x: unknown): UsageSort | null => {
+    if (!x || typeof x !== 'object' || Array.isArray(x)) return null
+    const m = x as Record<string, unknown>
+    if (typeof m.by !== 'string' || trimWs(m.by) === '') return null
+    if (!(m.order === undefined || m.order === null || m.order === 'asc' || m.order === 'desc')) return null
+    return { by: trimWs(m.by).normalize('NFC'), order: m.order === 'desc' ? 'desc' : 'asc' }
+  }
+  const ls = Array.isArray(v) ? v.map(level) : [level(v)]
+  return ls.every((l) => l !== null) ? (ls as UsageSort[]) : 'broken'
+}
+function usageColumnsOf(v: unknown): string[] | 'broken' {
+  return Array.isArray(v) && v.every((x) => typeof x === 'string') ? (v as string[]).map((x) => x.normalize('NFC')) : 'broken'
+}
+
+/** v1-views §13.1: a reference body's own `sort:` / `columns:` (R195). Whether a `by` or a column key exists is the
+ *  core's run-time check (§17.2), not this reader's. */
+export function fenceUsage(body: string): FenceUsage {
+  const none: FenceUsage = { sort: null, columns: null }
+  if (savedName(body) === null) return none
+  let y: unknown
+  try { y = parseYaml(body) } catch { return none }
+  if (!y || typeof y !== 'object' || Array.isArray(y)) return none
+  const m = y as Record<string, unknown>
+  if (typeof m.saved !== 'string' || trimWs(m.saved) === '') return none
+  const has = (k: string) => Object.prototype.hasOwnProperty.call(m, k)
+  return { sort: has('sort') ? usageSortOf(m.sort) : null, columns: has('columns') ? usageColumnsOf(m.columns) : null }
+}
+
+/** R185's write style for a usage `sort` (one level: one flow mapping; more: a block list; none: `[]`). */
+function sortLines(sort: UsageSort[]): string[] {
+  const lv = (l: UsageSort) => `{ by: ${flowList([l.by.normalize('NFC')]).slice(1, -1)}, order: ${l.order} }`
+  if (sort.length === 0) return ['sort: []']
+  if (sort.length === 1) return [`sort: ${lv(sort[0]!)}`]
+  return ['sort:', ...sort.map((l) => `  - ${lv(l)}`)]
+}
+const columnsLines = (columns: string[]): string[] => [`columns: ${flowList(columns.map((c) => c.normalize('NFC')))}`]
+
+/** The trailing comment of a key line (from the blanks before `#`, outside quotes), or ''. */
+function trailingComment(line: string): string {
+  let q: string | null = null
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i]!
+    if (q) {
+      if (c === '\\' && q === '"') i++
+      else if (c === q) q = null
+      continue
+    }
+    if (c === '"' || c === "'") q = c
+    else if (c === '#' && i > 0 && (line[i - 1] === ' ' || line[i - 1] === '\t')) {
+      let s = i
+      while (s > 0 && (line[s - 1] === ' ' || line[s - 1] === '\t')) s--
+      return line.slice(s)
+    }
+  }
+  return ''
+}
+
+type Ln = { text: string; eol: string }
+
+/** v1-views §13.1: the fence's source with R195's rules applied; null when the source has no `saved:` line or the
+ *  result equals the source. A key whose current value already equals the change keeps its bytes. */
+export function withUsage(fenceSource: string, change: UsageChange): string | null {
+  const f = fenceLines(fenceSource)
+  if (!f) return null
+  const lines: Ln[] = f.lines.map((l) => {
+    const m = /\r?\n$/.exec(l)
+    return m ? { text: l.slice(0, l.length - m[0].length), eol: m[0] } : { text: l, eol: '' }
+  })
+  let end = f.close ?? lines.length
+  const body = (i: number) => bodyOf(lines[i]!.text, f.prefix)
+  let savedAt = -1
+  for (let i = 1; i < end; i++) if (savedValue(body(i).text)) { savedAt = i; break }
+  if (savedAt < 0) return null
+  const prefix = lines[savedAt]!.text.slice(0, body(savedAt).at)
+  const eol = f.eol
+  const isCont = (t: string) => /^[ \t]/.test(t) || t === '-' || t.startsWith('- ')
+  const rangeOf = (key: string): [number, number] | null => {
+    const re = new RegExp(`^${key}:(?=[ \\t]|$)`)
+    for (let i = 1; i < end; i++) {
+      if (!re.test(body(i).text)) continue
+      let j = i + 1
+      while (j < end && isCont(body(j).text)) j++
+      return [i, j]
+    }
+    return null
+  }
+  const current = () => {
+    const b: string[] = []
+    for (let i = 1; i < end; i++) b.push(body(i).text)
+    return fenceUsage(b.join('\n'))
+  }
+  const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+  /** Replace [from, to) by `texts` (new lines get the saved line's prefix and the fence's EOL). */
+  const splice = (from: number, to: number, texts: string[]) => {
+    // A line inserted after a last line without EOL: that line gets one.
+    if (to === lines.length && texts.length > 0 && from > 0 && lines[from - 1]!.eol === '') lines[from - 1]!.eol = eol
+    const tail = to > from ? lines[to - 1]!.eol : eol
+    const add = texts.map((t, i) => ({ text: prefix + t, eol: i === texts.length - 1 ? (to > from ? tail : eol) : eol }))
+    lines.splice(from, to - from, ...add)
+    end += add.length - (to - from)
+  }
+  const setKey = (key: 'sort' | 'columns', value: string[] | null, after: () => number) => {
+    const r = rangeOf(key)
+    if (value === null) { if (r) splice(r[0], r[1], []); return }
+    if (r) {
+      const comment = trailingComment(body(r[0]).text)
+      const next = [...value]
+      next[0] = next[0] + comment
+      splice(r[0], r[1], next)
+    } else {
+      const at = after()
+      splice(at, at, value)
+    }
+  }
+  const now = current()
+  if (change.sort !== undefined && !(change.sort === null ? now.sort === null : now.sort !== 'broken' && same(now.sort, change.sort.map((l) => ({ by: l.by.normalize('NFC'), order: l.order }))))) {
+    setKey('sort', change.sort === null ? null : sortLines(change.sort), () => savedAt + 1)
+  }
+  if (change.columns !== undefined && !(change.columns === null ? now.columns === null : now.columns !== 'broken' && same(now.columns, change.columns.map((c) => c.normalize('NFC'))))) {
+    setKey('columns', change.columns === null ? null : columnsLines(change.columns), () => {
+      const s = rangeOf('sort')
+      if (s) return s[1]
+      for (let i = 1; i < end; i++) if (savedValue(body(i).text)) return i + 1
+      return 1
+    })
+  }
+  const out = lines.map((l) => l.text + l.eol).join('')
+  return out === fenceSource ? null : out
+}
+
+/** v1-views §13.1: `withUsage` on the fence of `text` at the byte range `range` (as `queryFences` returns it); null as
+ *  `withUsage`. Never touches `modified:` (the editor's autosave does, D-55). */
+export function applyFenceUsage(text: string, range: [number, number], change: UsageChange): string | null {
+  const bytes = new TextEncoder().encode(text)
+  const dec = new TextDecoder()
+  const src = dec.decode(bytes.subarray(range[0], range[1]))
+  const out = withUsage(src, change)
+  if (out === null) return null
+  return dec.decode(bytes.subarray(0, range[0])) + out + dec.decode(bytes.subarray(range[1]))
 }

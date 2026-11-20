@@ -47,7 +47,9 @@ export type QueryDto = {
 export type QuerySourceDto =
   | { kind: 'saved'; name: string }
   | { kind: 'fence'; body: string }
-  | { kind: 'def'; def: QueryDefDto; name: string | null };
+  | { kind: 'def'; def: QueryDefDto; name: string | null }
+  /** Slice Q2.1 (v1-views §17.3, D-1853): a view tab, the first `views:` item named `name` of type `type`. */
+  | { kind: 'view'; type: string; name: string };
 export type QueryEnvDto = { today: string; zone: string; weekStart: number; locale: string };
 export type QueryTaskDto = { status: string | null; state: 'open' | 'in-progress' | 'done' | 'cancelled'; due: string | null };
 export type QueryRowDto = {
@@ -63,6 +65,21 @@ export type QueryResultDto = {
   usesRelative: boolean; total: number; rows: QueryRowDto[]; indexReady: boolean;
   /** Slice Q2 (v1-views §1.6): the board's lanes; null unless `view: board` with a valid `group_by`. */
   group: GroupingDto | null;
+  /** Slice Q2.1 (v1-views §17.1, D-1854): the usage's own and effective values; null for `query/<name>`, the editor's
+   *  preview, inline fences and missing, trashed or unreadable queries. `def` stays the query file's. */
+  usage: UsageRunDto | null;
+};
+/** Slice Q2.1 (v1-views §17.3): a usage's run (R194). */
+export type UsageRunDto = {
+  kind: 'tab' | 'block';
+  /** Own values as read: null = absent, or present with a broken shape (then in `broken`). */
+  own: { sort: SortDto[] | null; columns: string[] | null };
+  /** `{ reason: 'badValue', key: 'sort' | 'columns' }`, at most one per key. */
+  broken: BrokenDto[];
+  /** Effective: the own valid value, else the query file's. */
+  sort: SortDto[];
+  /** Effective (unknown keys kept). */
+  columns: string[];
 };
 export type QueryUsageDto = { path: string; title: string; type: string | null; template: boolean };
 /** `query:stale` (§1.7): the changed objects' types before and after, and their paths. */

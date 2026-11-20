@@ -128,4 +128,4 @@ test('fr_fmt_07_ac34_usage_settings_round_trip', () => {
     }
   }
   assert.deepEqual(fails, [], 'only the changed keys\' lines of the one fence change, by R195\'s rules; a no-op is null')
-})
+}, 600_000) // D-1876: the nightly scale runs 10,000 cases

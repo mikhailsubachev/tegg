@@ -131,6 +131,9 @@ export type ViewsStatus = {
   typeKey: string | null; tab: string | null; writable: boolean; viewWritable?: boolean;
   board: { lanes: 'vertical' | 'horizontal'; laneOrder: boolean; cardFocused: boolean; laneFocused: boolean } | null;
   sortable: boolean;
+  /** Slice Q2.1 (v1-views §19.4): the shown tab's or selected block's usage (null or absent: `query/<name>`,
+   *  `All <plural>`, inline blocks); `ownSort` / `ownColumns`: the usage has the key, valid or broken (D-1856). */
+  usage?: { kind: 'tab' | 'block'; ownSort: boolean; ownColumns: boolean } | null;
 };
 
 /** Slice G1 and G3 (v1-graph §4, §16.3): the graph route's commands, run by the shown graph page. */
@@ -336,6 +339,12 @@ export function commands(ctx: ShellContext): Command[] {
     if (b && vw) list.push(cmd('board.switchLanes', 'cmd.switchLanes'));
     if (vs.sortable && vw) list.push(cmd('sort.addLevel', 'cmd.addSortLevel'));
     if (b && b.laneOrder && vw) list.push(cmd('board.resetLaneOrder', 'cmd.resetLaneOrder'));
+    // Slice Q2.1 (R199, v1-views §19.4; D-1856, D-1864): on a usage that has the key and can be written; no shortcut.
+    const u = vs.usage ?? null;
+    if (u && vs.writable && vs.viewWritable !== false) {
+      if (u.ownSort) list.push(cmd('sort.useQuery', 'cmd.useQuerySort'));
+      if (u.ownColumns) list.push(cmd('columns.useQuery', 'cmd.useQueryColumns'));
+    }
     if (b && b.cardFocused) list.push(cmd('board.cardNext', 'cmd.cardNext'), cmd('board.cardPrevious', 'cmd.cardPrevious'));
     if (b && (b.cardFocused || b.laneFocused)) {
       if (b.lanes === 'vertical') list.push(cmd('board.laneLeft', 'cmd.laneLeft'), cmd('board.laneRight', 'cmd.laneRight'));

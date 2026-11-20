@@ -400,6 +400,8 @@ class RawBlockView implements NodeView {
     this.table = null
   }
   stopEvent(e: Event) {
+    // v1-views §13.3 (D-1839, D-1862): ⌘Z / ⇧⌘Z on a query block reach the editor's history (FR-QRY-01 AC-14 (b)).
+    if (String(this.node.attrs.kind) === 'query' && isHistoryKey(e)) return false
     if (this.handle) {
       // The embed's own controls and its nested editor handle their events (AP-349: a click elsewhere selects it).
       const el = e.target as HTMLElement | null
@@ -414,6 +416,16 @@ class RawBlockView implements NodeView {
 }
 
 // ------------------------------------------------------------------------------------------------ slice Q
+
+/** v1-views §13.3 (D-1839, D-1862): ⌘Z or ⇧⌘Z pressed on a query block's own controls (not in a text field, which keeps
+ *  its own undo). The query node views let it reach the editor, so it undoes the block's last write (`setSource`). */
+function isHistoryKey(e: Event): boolean {
+  if (e.type !== 'keydown') return false
+  const k = e as KeyboardEvent
+  if (!(k.metaKey || k.ctrlKey) || k.altKey || k.key.toLowerCase() !== 'z') return false
+  const el = e.target as HTMLElement | null
+  return !el?.closest?.('input, textarea, select') && !el?.isContentEditable
+}
 
 /** A nested query fence: a `codeBlock` whose language is exactly `query` (R140, D-1470). */
 export function isQueryCode(node: PMNode | null | undefined): boolean {
@@ -534,6 +546,8 @@ class QueryCodeView implements NodeView {
   stopEvent(e: Event) {
     const el = e.target as HTMLElement | null
     if (el === this.dom) return false
+    // v1-views §13.3 (D-1862): ⌘Z / ⇧⌘Z reach the editor's history.
+    if (isHistoryKey(e)) return false
     return e.type.startsWith('key') || e.type === 'beforeinput' || e.type === 'paste' || !!el?.closest?.('button, a, input, select, textarea, [role="menu"], [role="link"]')
   }
   ignoreMutation() {

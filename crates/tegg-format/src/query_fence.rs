@@ -78,7 +78,13 @@ pub fn query_fences(text: &str) -> Vec<QueryFence> {
 }
 
 /// A reference body's own values (v1-views §13.2, R195): `Absent`/`Absent` for inline, empty and unreadable bodies.
-/// Red-test stub (Q2.1): always absent.
-pub fn fence_usage(_body: &str) -> crate::usage::UsageRaw {
-    crate::usage::UsageRaw { sort: crate::usage::UsageValue::Absent, columns: crate::usage::UsageValue::Absent }
+pub fn fence_usage(body: &str) -> crate::usage::UsageRaw {
+    let absent = crate::usage::UsageRaw { sort: crate::usage::UsageValue::Absent, columns: crate::usage::UsageValue::Absent };
+    if saved_name(body).is_none() {
+        return absent;
+    }
+    match YamlLoader::load_from_str(body).ok().and_then(|d| d.into_iter().next()) {
+        Some(Yaml::Hash(h)) => crate::usage::usage_of(&h),
+        _ => absent,
+    }
 }

@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.201, for review                                            |
+| **Document status** | Draft v1.202, for review                                            |
 | **Date**            | 2026-11-19                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -215,6 +215,7 @@
 | v1.199  | 2026-11-19 | Slice Q2.1 ACs (`docs/acceptance/views.md` part two, overlay `tests/fixtures/vaults/views-usage/`): D-1838…D-1851 (AP-1519…AP-1532; owner, each as proposed): fence lines and `views:` mapping items for own settings, writes through the editor, reset actions, defaults on the query page, rename/Duplicate/trash with settings, On cards per usage, usage keys, templates, trash order, popups inside the window, view and limit shared, strings, the changed tests |
 | v1.200  | 2026-11-19 | Slice Q2.1 contract (`docs/contracts/v1-views.md` part two): D-1852…D-1863 (CP-10…CP-21; owner, each as proposed) and D-1864 (eight AC fixes) |
 | v1.201  | 2026-11-19 | Slice Q2.1 red tests (a13bca2d): D-1865…D-1874 (RT-12…RT-21; owner, each as proposed) |
+| v1.202  | 2026-11-20 | Slice Q2.1 build: D-1875…D-1877 (three AC-test fixes: catalog key sets with R199, a property-test timeout, FR-QRY-07 AC-25 (a) replacing the whole item) |
 
 ---
 
@@ -1903,6 +1904,9 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1872 | The New property dialog (RT-19) (owner, 2026-11-19; slice Q2.1 red tests a13bca2d) | Choosing Number is the combobox `Type`, option `Number`, then the button `Add` |
 | D-1873 | No block `⋯` menu (RT-20) (owner, 2026-11-19; slice Q2.1 red tests a13bca2d) | A query block in a note has no `Query actions` menu; contract §20's placed popups for blocks are the sort popover and Columns |
 | D-1874 | FR-QRY-01 AC-15 without a new L4 test (RT-21) (owner, 2026-11-19; slice Q2.1 red tests a13bca2d) | Its bytes are Q2's `query_apply` bytes, already covered; L5 checks the query page |
+| D-1875 | The catalog tests' key sets grow by R199 (owner, 2026-11-20; slice Q2.1 build) | `app/test/views_catalog.ac.test.ts` (NFR-OTH-02 AC-21) and `app/test/queries_catalog.ac.test.ts` (AC-17) assert exactly R192's and R199's, and R145's, R192's and R199's keys (`AC-Test-Change`) |
+| D-1876 | A timeout for the fence-usage property test (owner, 2026-11-20; slice Q2.1 build) | `packages/doc/test/query_usage_props.ac.test.ts` (FR-FMT-07 AC-34) gets a 600 s timeout like the other property tests; at the nightly scale it runs 10,000 cases (`AC-Test-Change`) |
+| D-1877 | FR-QRY-07 AC-25 (a) replaces the whole item (owner, 2026-11-20; slice Q2.1 build) | `crates/tegg-core/tests/ac_views_usage.rs` step (a) replaced only the item's `name:` line, leaving its `sort:` and so a duplicate key that made the type file invalid; it now replaces the whole item with `- sort: { by: title }` (`AC-Test-Change`) |
 
 ---
 

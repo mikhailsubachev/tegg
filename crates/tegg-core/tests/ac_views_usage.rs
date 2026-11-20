@@ -167,7 +167,7 @@ fn fr_qry_07_ac25_views_items_read_and_kept() {
     assert_eq!(paths(&r), bs(&["Mapa bez severu", "Sto zimních dní", "Cizí přístavy", "Čarovná mapa", "Šest cest k moři", "Kniha o čaji", "Tiché město", "Zahrada v dešti"]), "(b) the query's order (R193)");
     assert_eq!(u.columns, strs(&["author", "rating", "finished", "genres"]), "(b) its own columns still apply");
     // (a) A mapping without `name`: views unreadable, no tab items.
-    write(&root, BOOK, swapped(&o, "  - name: Přečtené 2026\n", "  - sort: { by: title }\n").as_bytes());
+    write(&root, BOOK, swapped(&o, "  - name: Přečtené 2026\n    sort:\n      - { by: rating, order: asc }\n      - { by: title, order: asc }\n    columns: [author, rating, finished, genres]\n", "  - sort: { by: title }\n").as_bytes());
     reread(&core, &[BOOK]);
     let t = some!(core.type_get("book"), "type_get(book) (a)");
     assert!(t.views_unreadable && t.view_items.is_none(), "(a) views_unreadable, no items");

@@ -306,7 +306,7 @@ pub enum QuerySource {
     View { type_key: String, name: String },
 }
 
-/// v1-views §17.1 (R194). Red-test stubs (Q2.1): no run fills a usage yet.
+/// v1-views §17.1 (R194): a usage's kind, its own values as read and its effective values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UsageKind {
     Tab,
@@ -438,7 +438,8 @@ pub struct QueryResult {
     pub index_ready: bool,
     /// v1-views §1.1: Some only with `view: board` and a valid `group_by` (§1.6).
     pub group: Option<Grouping>,
-    /// v1-views §17.1 (D-1854). Red-test stub (Q2.1): always None yet.
+    /// v1-views §17.1 (D-1854): a tab's or a reference block's own and effective `sort` / `columns`; None for
+    /// `query/<name>`, inline fences, the editor's def and queries without a def.
     pub usage: Option<UsageRun>,
 }
 
@@ -2172,7 +2173,7 @@ struct Level {
 
 /// The kind of one sort key, checked as slice Q's single `sort` (title / created / modified / an attribute of every
 /// chosen type with one kind); None when invalid.
-fn level_of(by: &str, order: Order, chosen: &[String], ctx: &Ctx) -> Option<Level> {
+fn level_of(by: &str, order: Order, chosen: &[String], defs: &Defs) -> Option<Level> {
     let fixed = match by {
         "title" => Some(Kind::Text),
         "created" | "modified" => Some(Kind::DateTime),
@@ -2181,12 +2182,59 @@ fn level_of(by: &str, order: Order, chosen: &[String], ctx: &Ctx) -> Option<Leve
     if let Some(kind) = fixed {
         return Some(Level { by: by.to_string(), order, kind, options: Vec::new() });
     }
-    let infos: Vec<Option<AttrInfo>> = if chosen.is_empty() { vec![attr_of(None, by)] } else { chosen.iter().map(|t| attr_of(ctx.defs.get(t), by)).collect() };
+    let infos: Vec<Option<AttrInfo>> = if chosen.is_empty() { vec![attr_of(None, by)] } else { chosen.iter().map(|t| attr_of(defs.get(t), by)).collect() };
     match infos.first().cloned().flatten() {
         Some(f) if f.kind != Kind::Unsupported && infos.iter().all(|a| a.as_ref().is_some_and(|a| a.kind == f.kind)) => {
             Some(Level { by: by.to_string(), order, kind: f.kind, options: f.options.iter().map(|(l, _)| fold(l)).collect() })
         }
         _ => None,
+    }
+}
+
+/// Whether every level of `sort` is valid for the chosen types (§1.6 checks, run time; `[]` is valid, D-1806).
+fn sort_ok(sort: &[Sort], chosen: &[String], defs: &Defs) -> bool {
+    sort.iter().all(|x| level_of(&nfc(trim_ws(&x.by)), x.order, chosen, defs).is_some())
+}
+
+/// v1-views §17.1, §17.2 (R194, D-1853, D-1854): a usage's own values against the query's def: the broken entries and
+/// the effective `sort` / `columns`. An own value that is broken (shape, or a `by` not valid for the query's types)
+/// gives the query file's effective value.
+fn usage_run(kind: UsageKind, raw: &tegg_format::usage::UsageRaw, def: &QueryDef, defs: &Defs) -> UsageRun {
+    use tegg_format::usage::{UsageOrder, UsageValue};
+    let chosen: Vec<String> = def.types.iter().map(|t| nfc(t)).collect();
+    let bad = |k: &str| Broken { reason: BrokenReason::BadValue, at: None, key: k.into(), r#type: None };
+    let mut broken: Vec<Broken> = Vec::new();
+    let own_sort: Option<Vec<Sort>> = match &raw.sort {
+        UsageValue::Absent => None,
+        UsageValue::Broken => {
+            broken.push(bad("sort"));
+            None
+        }
+        UsageValue::Set(levels) => {
+            let levels: Vec<Sort> = levels.iter().map(|l| Sort { by: nfc(trim_ws(&l.by)), order: if l.order == UsageOrder::Asc { Order::Asc } else { Order::Desc } }).collect();
+            if sort_ok(&levels, &chosen, defs) {
+                Some(levels)
+            } else {
+                broken.push(bad("sort"));
+                None
+            }
+        }
+    };
+    let own_columns: Option<Vec<String>> = match &raw.columns {
+        UsageValue::Absent => None,
+        UsageValue::Broken => {
+            broken.push(bad("columns"));
+            None
+        }
+        UsageValue::Set(c) => Some(c.iter().map(|x| nfc(x)).collect()),
+    };
+    let query_sort = if sort_ok(&def.sort, &chosen, defs) { def.sort.clone() } else { vec![Sort { by: "modified".into(), order: Order::Desc }] };
+    UsageRun {
+        kind,
+        sort: own_sort.clone().unwrap_or(query_sort),
+        columns: own_columns.clone().unwrap_or_else(|| def.columns.clone()),
+        own: UsageSettings { sort: own_sort, columns: own_columns },
+        broken,
     }
 }
 
@@ -2197,7 +2245,7 @@ fn sort_rows(hits: &mut [usize], def: &QueryDef, chosen: &[String], ctx: &Ctx, b
     let coll = collator(&ctx.env.locale);
     let mut seen: HashSet<String> = HashSet::new();
     let wanted: Vec<(String, Order)> = def.sort.iter().map(|x| (nfc(trim_ws(&x.by)), x.order)).filter(|(b, _)| seen.insert(b.clone())).collect();
-    let levels: Vec<Level> = match wanted.iter().map(|(b, o)| level_of(b, *o, chosen, ctx)).collect::<Option<Vec<Level>>>() {
+    let levels: Vec<Level> = match wanted.iter().map(|(b, o)| level_of(b, *o, chosen, ctx.defs)).collect::<Option<Vec<Level>>>() {
         Some(l) => l,
         None => {
             broken.push(Broken { reason: BrokenReason::BadValue, at: None, key: "sort".into(), r#type: None });
@@ -2914,11 +2962,17 @@ impl QCore<'_> {
             group: None,
             usage: None,
         };
-        let run = |mut r: QueryResult, def: QueryDef, syntactic: Vec<Broken>| -> QueryResult {
+        let run = |mut r: QueryResult, def: QueryDef, syntactic: Vec<Broken>, usage: Option<(UsageKind, tegg_format::usage::UsageRaw)>| -> QueryResult {
+            // v1-views §17.2: a usage's effective `sort` / `columns` order the rows and fill them; `def` stays the file's.
+            let usage = usage.map(|(kind, raw)| usage_run(kind, &raw, &def, &defs));
+            let eval_def = match &usage {
+                Some(u) => QueryDef { sort: u.sort.clone(), columns: u.columns.clone(), ..def.clone() },
+                None => def.clone(),
+            };
             // One index lock for the evaluation, the grouping and the rows' versions and excerpts (§1.6).
             let e = {
                 let idx = lock(&self.shared.index);
-                let mut e = idx.with_query_objects(|objs, resolve| evaluate(objs, resolve, &defs, &def, host, env));
+                let mut e = idx.with_query_objects(|objs, resolve| evaluate(objs, resolve, &defs, &eval_def, host, env));
                 // Versions, excerpts and read-only flags serve the board's cards and moves only: a List or Table run reads
                 // no note text (QA review of Q2; NFR-PERF-07, NFR-PERF-08).
                 let rows: &mut [QueryRow] = if e.group.is_some() { &mut e.rows } else { &mut [] };
@@ -2943,9 +2997,10 @@ impl QCore<'_> {
             r.uses_relative = e.uses_relative;
             r.rows = e.rows;
             r.group = e.group;
+            r.usage = usage;
             r
         };
-        let saved = |name: &str, form: Form| -> QueryResult {
+        let saved = |name: &str, form: Form, usage: Option<(UsageKind, tegg_format::usage::UsageRaw)>| -> QueryResult {
             let mut r = base(form);
             let Some(p) = self.find_live(name) else {
                 r.name = Some(nfc(trim_ws(name)));
@@ -2966,30 +3021,38 @@ impl QCore<'_> {
                 }
                 FileState::Newer { .. } => {
                     r.lookup = Some(Lookup::Newer);
-                    run(r, f.def, f.broken)
+                    run(r, f.def, f.broken, usage)
                 }
                 FileState::Ok => {
                     r.lookup = Some(Lookup::Ok);
-                    run(r, f.def, f.broken)
+                    run(r, f.def, f.broken, usage)
                 }
             }
         };
         match src {
-            QuerySource::Saved(name) => saved(&name, Form::Reference),
-            // Red-test stub (Q2.1): a tab runs as its saved query, without its own settings yet.
-            QuerySource::View { name, .. } => saved(&name, Form::Reference),
+            QuerySource::Saved(name) => saved(&name, Form::Reference, None),
+            // v1-views §17.2 (D-1853): the first `views:` item with the name key; none → no own values.
+            QuerySource::View { type_key, name } => {
+                let want = name_key(&name);
+                let item = self.shared.read_type(&type_key).and_then(|t| t.view_items).and_then(|items| items.into_iter().find(|i| name_key(&i.name) == want));
+                let raw = match item {
+                    Some(i) => tegg_format::usage::UsageRaw { sort: i.sort, columns: i.columns },
+                    None => tegg_format::usage::UsageRaw { sort: tegg_format::usage::UsageValue::Absent, columns: tegg_format::usage::UsageValue::Absent },
+                };
+                saved(&name, Form::Reference, Some((UsageKind::Tab, raw)))
+            }
             QuerySource::Def { def, name } => {
                 let mut r = base(Form::Def);
                 if let Some(n) = &name {
                     r.name = Some(nfc(n));
                     r.version = self.find_live(n).and_then(|p| self.shared.vault.version(&p).ok().flatten());
                 }
-                run(r, def, Vec::new())
+                run(r, def, Vec::new(), None)
             }
             QuerySource::Fence(body) => match read_fence(&body) {
                 FenceRead::Empty => base(Form::Empty),
                 FenceRead::Unreadable { line } => QueryResult { line: Some(line), ..base(Form::Unreadable) },
-                FenceRead::Reference { name } => saved(&name, Form::Reference),
+                FenceRead::Reference { name } => saved(&name, Form::Reference, Some((UsageKind::Block, tegg_format::query_fence::fence_usage(&body)))),
                 FenceRead::Inline(mut f) => {
                     if let FileState::Unreadable { line, .. } = f.state {
                         return QueryResult { line: Some(line.unwrap_or(1)), ..base(Form::Unreadable) };
@@ -2997,7 +3060,7 @@ impl QCore<'_> {
                     if !f.layout.columns_set {
                         f.def.columns = columns_default(&defs, &f.def.types);
                     }
-                    run(base(Form::Inline), f.def, f.broken)
+                    run(base(Form::Inline), f.def, f.broken, None)
                 }
             },
         }

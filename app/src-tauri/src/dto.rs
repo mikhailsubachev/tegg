@@ -319,6 +319,33 @@ pub struct TypeDto {
     pub views: Option<Vec<String>>,
     /// `views` is present but not a list of strings: no tab change is written (R184).
     pub views_unreadable: bool,
+    /// Slice Q2.1 (v1-views §17.3, D-1855): the `views:` items, same order and length as `views` (repeats kept); null as
+    /// `views`.
+    pub view_items: Option<Vec<ViewItemDto>>,
+    /// Slice Q2.1 (v1-views §17.3, D-1852): the exact text of the `views` key's lines (key line through its last line, EOLs
+    /// included); null when the key is absent.
+    pub views_source: Option<String>,
+}
+
+/// Slice Q2.1 (v1-views §17.3, R196): one item of a type file's `views:`, a plain name or a mapping with own values.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct ViewItemDto {
+    pub name: String,
+    pub sort: Option<Vec<UsageSortDto>>,
+    pub sort_broken: bool,
+    pub columns: Option<Vec<String>>,
+    pub columns_broken: bool,
+    pub plain: bool,
+}
+
+/// Slice Q2.1 (v1-views §17.3): one level of a usage's own `sort`.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct UsageSortDto {
+    pub by: String,
+    #[ts(type = "\"asc\" | \"desc\"")]
+    pub order: String,
 }
 
 /// Why a type file is invalid (AR-07 AC-4): message and 1-based line.
@@ -448,6 +475,12 @@ pub enum TypeOpDto {
     RenameOption { attr: String, from: String, to: String },
     /// v1-views §2 (D-1803): the type page's view tabs (`TypeOp::SetViews`).
     Views { names: Vec<String> },
+    /// v1-views §17.3 (D-1857): a tab's own `sort` (`TypeOp::SetViewSort`); null removes it.
+    ViewSort { name: String, sort: Option<Vec<UsageSortDto>> },
+    /// v1-views §17.3 (D-1857): a tab's own `columns` (`TypeOp::SetViewColumns`); null removes them.
+    ViewColumns { name: String, columns: Option<Vec<String>> },
+    /// v1-views §17.3 (D-1852): the `views` key's lines replaced byte for byte (`TypeOp::SetViewsSource`).
+    ViewsSource { source: String },
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -622,6 +655,14 @@ pub struct UiStateDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub board_folded: Option<std::collections::BTreeMap<String, Vec<String>>>,
+    /// Slice Q2.1 (v1-views §19.3, R198): column widths in px per usage key, then column key.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub usage_column_widths: Option<std::collections::BTreeMap<String, std::collections::BTreeMap<String, f64>>>,
+    /// Slice Q2.1 (v1-views §19.3, R198): the folded lane ids of a horizontal board per usage key.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub usage_folded: Option<std::collections::BTreeMap<String, Vec<String>>>,
 }
 
 /// Slice Q2 (v1-views §4.7): `typeViews` of `ui-state.json`.
@@ -1186,7 +1227,7 @@ fn yes() -> bool {
 
 impl Default for UiStateDto {
     fn default() -> Self {
-        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None, type_column_widths: None, vaults: None, queries: None, outline_rail: None, related: None, type_views: None, query_column_widths: None, board_folded: None }
+        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None, type_column_widths: None, vaults: None, queries: None, outline_rail: None, related: None, type_views: None, query_column_widths: None, board_folded: None, usage_column_widths: None, usage_folded: None }
     }
 }
 
@@ -1557,6 +1598,8 @@ pub fn typescript() -> String {
         ConflictDto::decl(),
         IpcError::decl(),
         TypeDto::decl(),
+        ViewItemDto::decl(),
+        UsageSortDto::decl(),
         TypeFileErrorDto::decl(),
         OptionDto::decl(),
         AttributeDto::decl(),

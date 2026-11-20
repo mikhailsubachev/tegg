@@ -95,7 +95,9 @@ test('nfr_oth_02_ac17_query_strings', async () => {
   assert.deepEqual(bad, [], 'R145\'s keys with their English texts');
   // Slice Q2 adds its own `query.editor.*` keys (views.md R192, D-1812); they are checked by views_catalog.ac.test.ts.
   const R192_QUERY = ['query.editor.usedOnPage', 'query.editor.showFixed', 'query.editor.board', 'query.editor.groupBy', 'query.editor.groupByHint', 'query.editor.lanes', 'query.editor.onCards', 'query.editor.onCardsChange'];
-  const keys = new Set([...R145.map(([k]) => k), ...R192_QUERY]);
+  // Slice Q2.1 adds R199's `query.*` keys (views.md part two, D-1850, D-1875).
+  const R199_QUERY = ['query.block.usageNotEditable', 'query.editor.perUsage'];
+  const keys = new Set([...R145.map(([k]) => k), ...R192_QUERY, ...R199_QUERY]);
   const extra = Object.keys(en).filter((k) => (k.startsWith('queries.') || k.startsWith('query.')) && !keys.has(k));
   assert.deepEqual(extra, [], 'no other `queries.*` / `query.*` key (exactly R145\'s and R192\'s)');
   for (const k of REMOVED) assert.ok(!(k in en), `${k} removed`);

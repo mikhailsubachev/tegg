@@ -82,9 +82,11 @@ test('nfr_oth_02_ac21_view_strings', async () => {
     if (got !== want) bad.push(`${key} ${JSON.stringify(vars)}: want ${JSON.stringify(want)}, got ${JSON.stringify(got)}`);
   }
   assert.deepEqual(bad, [], 'R192\'s keys (D-1812) with their English texts, and the reused keys');
-  const keys = new Set(R192.map(([k]) => k));
+  // Slice Q2.1 adds R199's keys (views.md part two, D-1850, D-1875); views_usage_registry checks their texts.
+  const R199 = ['sort.scope.tab', 'sort.scope.block', 'sort.scope.default', 'sort.useQuery', 'views.trashFailed'];
+  const keys = new Set([...R192.map(([k]) => k), ...R199]);
   const extra = Object.keys(en).filter((k) => PREFIXES.some((p) => k.startsWith(p)) && !keys.has(k));
-  assert.deepEqual(extra, [], 'no other `views.*`, `board.*`, `sort.*` key (exactly R192\'s)');
+  assert.deepEqual(extra, [], 'no other `views.*`, `board.*`, `sort.*` key (exactly R192\'s and R199\'s)');
   for (const k of REMOVED) assert.ok(!(k in en), `${k} removed`);
   for (const k of ['query.editor.sort', 'query.editor.asc', 'query.editor.desc']) assert.ok(k in en, `${k} stays (slice Q's list, §4.6)`);
 });
