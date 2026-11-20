@@ -69,14 +69,21 @@ test('fr_qry_05_ac3_columns_menu_per_query', async ({ page }) => {
   assert.equal(await menu.getByRole('menuitemcheckbox', { name: 'Title' }).getAttribute('aria-disabled'), 'true', 'Title checked and aria-disabled');
   assert.ok(!(await textOf(menu)).includes('Up to 4 columns'), 'no limit message (AP-1294)');
   const typeBefore = (await core.files())['.tegg/types/task.yml'];
+  const queryBefore = await queryFileText(core, Q.table);
+  // D-1883 (Q2.1, D-1836, D-1838): Columns in a block writes that block's fence (`columns:` after `saved:`), not the
+  // query file.
+  const note = () => core.files().then((f) => f[P.porada7]);
+  const fence = (cols: string) => `\`\`\`query\nsaved: Úkoly z této schůzky\ncolumns: [${cols}]\n\`\`\``;
   await click(menu.getByRole('menuitemcheckbox', { name: 'Tags' }), 'check Tags');
-  const t1 = await eventually(() => queryFileText(core, Q.table), (t) => !!t && t.includes('columns: [status, priority, due, modified, tags]'));
-  assert.ok(t1?.includes('columns: [status, priority, due, modified, tags]'), 'Tags appended, committed in one write');
+  const t1 = await eventually(note, (t) => !!t && t.includes(fence('status, priority, due, modified, tags')));
+  assert.ok(t1?.includes(fence('status, priority, due, modified, tags')), 'Tags appended to the block\'s own columns, in its fence');
   await click(columnsMenu(page).getByRole('menuitemcheckbox', { name: 'Modified' }), 'uncheck Modified');
-  const t2 = await eventually(() => queryFileText(core, Q.table), (t) => !!t && t.includes('columns: [status, priority, due, tags]'));
-  assert.ok(t2?.includes('columns: [status, priority, due, tags]'), 'Modified removed');
-  assert.deepEqual(await queryWrites(core), [qfile(Q.table), qfile(Q.table)], 'one write per change');
-  assert.equal((await core.files())['.tegg/types/task.yml'], typeBefore, 'the type file is untouched (`columns:` is per query)');
+  const t2 = await eventually(note, (t) => !!t && t.includes(fence('status, priority, due, tags')));
+  assert.ok(t2?.includes(fence('status, priority, due, tags')), 'Modified removed');
+  assert.deepEqual(await queryWrites(core), [], 'the query file is not written');
+  assert.equal(await queryFileText(core, Q.table), queryBefore, 'the query file is unchanged');
+  assert.ok((await noteWrites(core)).every((p) => p === P.porada7), 'only Porada 7 is written');
+  assert.equal((await core.files())['.tegg/types/task.yml'], typeBefore, 'the type file is untouched (`columns:` is per usage)');
 });
 
 test('fr_qry_05_ac4_mixed_types_table', async ({ page }) => {
@@ -119,7 +126,8 @@ test('fr_qry_05_ac5_mixed_view_drops_type_columns', async ({ page }) => {
 
 test('fr_qry_05_ac6_header_click_sorts', async ({ page }) => {
   // D-1506: the fixture's table is already sorted `due` ascending, so the first click on `Due date` sorts descending (one
-  // write) and the second ascending (one write). A second fence of the query in Porada 14 follows (D-1494).
+  // write) and the second ascending (one write). D-1883 (Q2.1, D-1836, D-1838): each click writes Porada 7's fence
+  // (`sort:` after `saved:`), never the query file; the second fence of the query in Porada 14 keeps the query's sort.
   const vault = queriesVault((f) => {
     f[P.porada14] = f[P.porada14] + '\n```query\nsaved: Úkoly z této schůzky\n```\n';
   });
@@ -132,24 +140,29 @@ test('fr_qry_05_ac6_header_click_sorts', async ({ page }) => {
   await click(due, 'Due date');
   assert.equal(await eventually(() => due.getAttribute('aria-sort'), (s) => s === 'descending'), 'descending', 'the first click: `Due date ↓`');
   assert.deepEqual(await resultsAre(b, [P.t3, P.t2, P.t1, P.t5, P.t4]), [P.t3, P.t2, P.t1, P.t5, P.t4], 'descending, empty last');
-  assert.ok((await queryFileText(core, Q.table))?.includes('sort: { by: due, order: desc }'), '`sort:` written (descending)');
-  assert.equal((await eventually(() => queryWrites(core), (w) => w.length === 1)).length, 1, 'the first click writes once');
+  const queryBefore = await queryFileText(core, Q.table);
+  const fileOf = (p: string) => core.files().then((f) => f[p]);
+  const sorted = (by: string, order: string) => `saved: Úkoly z této schůzky\nsort: { by: ${by}, order: ${order} }\n\`\`\``;
+  assert.ok(await eventually(() => fileOf(P.porada7), (t) => !!t && t.includes(sorted('due', 'desc'))), '`sort:` written to Porada 7\'s fence (descending)');
   await click(due, 'Due date again');
   assert.equal(await eventually(() => due.getAttribute('aria-sort'), (s) => s === 'ascending'), 'ascending', 'a second click: `Due date ↑`');
   assert.deepEqual(await resultsAre(b, TABLE7), TABLE7, 'ascending, empty last');
-  assert.ok((await queryFileText(core, Q.table))?.includes('sort: { by: due, order: asc }'), '`sort:` written (ascending)');
-  assert.equal((await eventually(() => queryWrites(core), (w) => w.length === 2)).length, 2, 'each click writes once');
+  assert.ok(await eventually(() => fileOf(P.porada7), (t) => !!t && t.includes(sorted('due', 'asc'))), '`sort:` written to the fence (ascending; an own value equal to the query\'s stays own)');
+  assert.deepEqual(await queryWrites(core), [], 'the query file is not written');
+  assert.equal(await queryFileText(core, Q.table), queryBefore, 'the query file is unchanged');
   await openNote(page, '2026-10-14 Týdenní porada');
   const b14 = block(page, Q.table);
-  assert.deepEqual(await resultsAre(b14, [P.t6], 1000), [P.t6], 'the second fence of the query in Porada 14 follows (D-1494)');
-  assert.equal(await b14.getByRole('columnheader', { name: /Due date/ }).getAttribute('aria-sort'), 'ascending', 'with the same sort');
-  // ⏎ / Space on a focused header do the same.
+  assert.deepEqual(await resultsAre(b14, [P.t6], 1000), [P.t6], 'the second fence of the query in Porada 14');
+  assert.equal(await b14.getByRole('columnheader', { name: /Due date/ }).getAttribute('aria-sort'), 'ascending', 'keeps the query\'s sort');
+  assert.ok(!(await fileOf(P.porada14))?.includes('sort:'), 'Porada 14 is not written by Porada 7\'s clicks');
+  // ⏎ / Space on a focused header do the same, on that block's own fence.
   const pr = b14.getByRole('columnheader', { name: /Priority/ });
   await (await must(pr, 'Priority header')).focus();
   await page.keyboard.press('Enter');
-  assert.ok(await eventually(() => queryFileText(core, Q.table), (t) => !!t && t.includes('sort: { by: priority, order: asc }')), '⏎ sorts');
+  assert.ok(await eventually(() => fileOf(P.porada14), (t) => !!t && t.includes(sorted('priority', 'asc'))), '⏎ sorts');
   await page.keyboard.press('Space');
-  assert.ok(await eventually(() => queryFileText(core, Q.table), (t) => !!t && t.includes('sort: { by: priority, order: desc }')), 'Space sorts');
+  assert.ok(await eventually(() => fileOf(P.porada14), (t) => !!t && t.includes(sorted('priority', 'desc'))), 'Space sorts');
+  assert.deepEqual(await queryWrites(core), [], 'still no query file write');
 });
 
 test('fr_qry_05_ac7_rows_are_references', async ({ page }) => {

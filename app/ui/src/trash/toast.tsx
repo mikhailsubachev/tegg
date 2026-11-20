@@ -21,6 +21,14 @@ export function showToast(text: string, undo?: () => void, ms = 8000): void {
   emit();
 }
 
+/** Slice Q2.1 (v1-views §15): the toast goes once its Undo ran another way (⌘Z on the page). */
+export function hideToast(): void {
+  if (!toast) return;
+  toast = null;
+  if (timer) { clearTimeout(timer); timer = null; }
+  emit();
+}
+
 /** A non-modal alert (`role="alert"`), with an optional action such as `Try again` (6A: trash and media). */
 export function showAlert(text: string, action?: { label: string; run: () => void }): void {
   alerts = [...alerts.filter((a) => a.text !== text), { id: ++seq, text, action }];

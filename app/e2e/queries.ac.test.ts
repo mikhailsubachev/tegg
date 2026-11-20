@@ -467,7 +467,8 @@ test('fr_syn_06_ac44_only_query_actions_write_in_the_real_app', { timeout: 900_0
     await (await blockButton(d, UKOLY, 'Due date', 5000)).click();
     assert.ok(await waitFor(() => changedPaths(pre, tree(c.vault)).length > 0, 3000), 'a header click writes');
     await sleep(1000);
-    assert.deepEqual(changedPaths(pre, tree(c.vault)), [Q(UKOLY).normalize('NFC')], 'header sort: only the query file (D-1444)');
+    // Q2.1 (R195, FR-SYN-06 AC-49): a block's header sort writes its fence, so the note, not the query file.
+    assert.deepEqual(changedPaths(pre, tree(c.vault)), [P.porada7.normalize('NFC')], 'header sort: only the note (its fence)');
 
     d = await relaunch(c, 'queries');
     pre = tree(c.vault);

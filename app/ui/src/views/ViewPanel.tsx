@@ -8,7 +8,7 @@ import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'reac
 import { createPortal } from 'react-dom';
 import { t, catalogLocale } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
-import type { QueryDefDto, QueryResultDto, QueryRowDto } from '../ipc/queries';
+import type { QueryDefDto, QueryResultDto, QueryRowDto, SortDto } from '../ipc/queries';
 import type { TypeDto } from '../ipc/types';
 import { Icon } from '../shell/Icon';
 import { TagFilter } from '../tasks/TagFilter';
@@ -25,6 +25,10 @@ import { useQueryApply } from '../queries/useQueryApply';
 import { useQueryRun } from '../queries/useQueryRun';
 import { columnsRequest } from '../types/columns';
 import { resetWidths } from '../tables/widths';
+import { canUseQuery, usageKey, type Usage } from './usage';
+import { registerUsage } from './usageHook';
+import { useUsageWrite, type TypePatch } from './useUsageWrite';
+import { NewPropertyDialog } from '../pages/TypeSettingsPage';
 
 const nfc = (s: string) => s.normalize('NFC');
 const fold = (s: string) => nfc(s).toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').normalize('NFC');
@@ -39,6 +43,12 @@ export type PanelApi = {
   board: () => BoardControl | null;
   openSort: (add: boolean) => void;
   rerun: () => void;
+  /** Slice Q2.1 (R199): the tab's usage for the palette (null while it can't be written or has no run). */
+  usage: () => { kind: 'tab'; ownSort: boolean; ownColumns: boolean } | null;
+  /** `Use the query's sort` / `columns` (R197). */
+  useQuery: (key: 'sort' | 'columns') => void;
+  /** What the editor opened from this tab works with (D-1844, D-1859). */
+  editorUsage: () => { sort: SortDto[]; columns: string[]; setColumns: (next: string[]) => Promise<boolean>; disabled: string | null } | null;
 };
 
 export function viewStateOf(r: QueryResultDto | null, typeKey: string, draft: boolean): ViewState {
@@ -53,7 +63,7 @@ export function viewStateOf(r: QueryResultDto | null, typeKey: string, draft: bo
   return 'ok';
 }
 
-export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, onFilter, onState, onMenu, onRemove, apiRef, live, draft, labelledBy }: {
+export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, onFilter, onState, onMenu, onRemove, apiRef, live, draft, labelledBy, patch }: {
   /** The saved query's name (a tab of `views:`). */
   name: string;
   typeKey: string;
@@ -74,15 +84,36 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
   /** A `New view` draft: nothing runs until the editor answers. */
   draft: boolean;
   labelledBy: string;
+  /** Slice Q2.1: the type page's queued `type_patch` (the tab's `views:` item, R197). */
+  patch?: TypePatch;
 }) {
-  const run = useQueryRun(draft ? null : { kind: 'saved', name }, null);
+  // Slice Q2.1 (CP-11, D-1853): the tab runs as a usage, its own sort and columns read from its `views:` item.
+  const run = useQueryRun(draft ? null : { kind: 'view', type: typeKey, name }, null);
   const result = live ?? run.result;
   const state = viewStateOf(result, typeKey, draft && !live);
   const readOnly = state === 'newer' ? t('query.block.readOnly') : null;
   useEffect(() => { onState(state); }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
   const def = result?.def ?? null;
   const writer = useQueryApply(!draft && !readOnly && def ? name : null, run.result, () => run.rerun());
-  const apply = (patch: Parameters<typeof writer.apply>[0]) => { if (!readOnly && !draft) writer.apply(patch); };
+  const apply = (p: Parameters<typeof writer.apply>[0]) => { if (!readOnly && !draft) writer.apply(p); };
+  // ---- Slice Q2.1 (R194, R197): the tab's own sort and columns, written to its `views:` item.
+  const usage: Usage | null = draft ? null : { kind: 'tab', typeKey, name };
+  const uw = useUsageWrite(usage, run.result, { type, ctl: null, fenceSource: null, rerun: () => run.rerun(), patch, plural });
+  const uKey = usage ? usageKey(usage) : null;
+  const usageRun = !live ? run.result?.usage ?? null : null;
+  const effSort = def ? (live || draft ? def.sort : uw.current().sort) : [];
+  const effColumns = def ? (live || draft ? def.columns : uw.current().columns) : [];
+  const disabled = draft ? null : uw.disabled;
+  const ownSort: boolean | 'broken' = usageRun ? (usageRun.broken.some((b) => b.key === 'sort') ? 'broken' : usageRun.own.sort !== null) : false;
+  const ownColumns: boolean | 'broken' = usageRun ? (usageRun.broken.some((b) => b.key === 'columns') ? 'broken' : usageRun.own.columns !== null) : false;
+  const panelEl = useRef<HTMLDivElement | null>(null);
+  const info = useRef({ uKey, name, ownSort, ownColumns, editable: !disabled });
+  info.current = { uKey, name, ownSort, ownColumns, editable: !disabled };
+  useEffect(() => registerUsage(() => (info.current.uKey ? panelEl.current : null), () => {
+    const i = info.current;
+    return { key: i.uKey ?? '', kind: 'tab', name: i.name.normalize('NFC'), ownSort: i.ownSort, ownColumns: i.ownColumns, editable: i.editable };
+  }), []);
+  const [newProp, setNewProp] = useState(false);
   const typeOf = (k: string) => types.find((x) => nfc(x.key) === nfc(k));
   const typeName = (k: string) => typeOf(k)?.name ?? k;
   const board = useRef<BoardControl | null>(null);
@@ -98,8 +129,11 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
     def: () => writer.current() ?? def,
     readOnly: () => readOnly,
     board: () => (isBoard ? board.current : null),
-    openSort: (add) => { if (def && !readOnly) setSortOpen({ add }); },
+    openSort: (add) => { if (def && !disabled) setSortOpen({ add }); },
     rerun: () => run.rerun(),
+    usage: () => (!disabled && run.result?.usage ? { kind: 'tab', ownSort: canUseQuery(run.result, 'sort'), ownColumns: canUseQuery(run.result, 'columns') } : null),
+    useQuery: (key) => { if (!disabled) void (key === 'sort' ? uw.sort(null) : uw.columns(null)); },
+    editorUsage: () => (usage ? { sort: uw.current().sort, columns: uw.current().columns, setColumns: (c) => uw.columns(c), disabled: uw.disabled } : null),
   }));
 
   // ---- §4.7: on a view tab's table the palette's `Choose columns…` opens its Columns, `Reset column widths` resets the
@@ -108,10 +142,10 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
   useEffect(() => {
     if (!isTable) return;
     const prev = columnsRequest.current;
-    const h = (what: 'choose' | 'reset') => { if (what === 'reset') resetWidths({ kind: 'query', name }); else if (!readOnly) setColumnsOpen(true); };
+    const h = (what: 'choose' | 'reset') => { if (what === 'reset') { if (uKey) resetWidths({ kind: 'usage', key: uKey }); } else if (!disabled) setColumnsOpen(true); };
     columnsRequest.current = h;
     return () => { if (columnsRequest.current === h) columnsRequest.current = prev; };
-  }, [isTable, name, readOnly]);
+  }, [isTable, name, disabled, uKey]);
 
   // ---- the toolbar's narrowing (D-1796): folded title text, every chosen tag.
   const q = fold(filter.text.trim());
@@ -130,7 +164,7 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
   })();
 
   const listFormat = (xs: string[]) => { try { return new Intl.ListFormat(catalogLocale(), { type: 'conjunction' }).format(xs); } catch { return xs.join(', '); } };
-  const sortText = def ? buttonText(def.sort, (k) => sortKeyName(k, type).label) : { text: '', more: 0 };
+  const sortText = def ? buttonText(effSort, (k) => sortKeyName(k, type).label) : { text: '', more: 0 };
   const showResults = state === 'ok' || state === 'types' || state === 'newer' || (state === 'draft' && !!live);
   const firstBroken = showResults ? result?.broken[0] ?? null : null;
 
@@ -146,8 +180,8 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
       </button>
       {def && (
         <button ref={sortBtn} type="button" tabIndex={0} className="text-button view-sort" aria-label={t('sort.button')} aria-haspopup="dialog" aria-expanded={!!sortOpen}
-          data-command="sort.open" aria-disabled={readOnly ? 'true' : undefined} aria-description={readOnly ?? undefined}
-          onClick={() => { if (!readOnly) setSortOpen((o) => (o ? null : { add: false })); }}>
+          data-command="sort.open" aria-disabled={disabled ? 'true' : undefined} aria-description={disabled ?? undefined}
+          onClick={() => { if (!disabled) setSortOpen((o) => (o ? null : { add: false })); }}>
           <Icon name="sort" size={13} />
           <span className="sort-first">{sortText.text}</span>
           {sortText.more > 0 && <span className="sort-more">{t('sort.more', { count: sortText.more })}</span>}
@@ -155,8 +189,8 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
       )}
       {def && def.view === 'table' && (
         <button ref={columnsBtn} type="button" tabIndex={0} className="text-button view-columns" data-command="view.columns" aria-haspopup="menu" aria-expanded={columnsOpen}
-          aria-disabled={readOnly ? 'true' : undefined} aria-description={readOnly ?? undefined}
-          onClick={() => { if (!readOnly) setColumnsOpen((o) => !o); }}>
+          aria-disabled={disabled ? 'true' : undefined} aria-description={disabled ?? undefined}
+          onClick={() => { if (!disabled) setColumnsOpen((o) => !o); }}>
           <Icon name="columns" size={13} />{t('typePage.columns')}
         </button>
       )}
@@ -202,16 +236,17 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
     if (!showResults || !def || !result) return null;
     if (isBoard && result.group) {
       return <QueryBoard result={{ ...result, group: result.group, def }} name={draft ? null : name} title={def.title} readOnly={readOnly} types={types}
-        filter={filter} apply={(patch) => apply(patch)} rerun={() => run.rerun()} controlRef={board} />;
+        filter={filter} apply={(p) => apply(p)} rerun={() => run.rerun()} controlRef={board} foldKey={uKey} columns={effColumns} />;
     }
     if (narrowed.length === 0) {
       return <p className="query-message">{filter.text.trim() || filter.tags.length ? t('typePage.noMatch', { plural, text: filter.text.trim() }) : t('query.block.noResults')}</p>;
     }
     if (def.view === 'table') {
-      return <ResultsTable def={def} rows={rows} types={types} typeOf={typeOf} typeName={typeName} title={def.title} name={draft ? null : name} readOnly={readOnly}
+      return <ResultsTable def={def} rows={rows} types={types} typeOf={typeOf} typeName={typeName} title={def.title} name={draft ? null : name} readOnly={disabled}
+        sort={effSort} columns={effColumns} widthKey={uKey}
         onOpen={(p) => queryNav()?.openNote(p)}
-        onSort={(by, shift) => apply((d) => { const next = headerClick(d.sort, by, shift); return sameSort(next, d.sort) ? null : { sort: next }; })}
-        onColumns={(columns) => apply({ columns })} />;
+        onSort={(by, shift) => { const cur = uw.current().sort; const next = headerClick(cur, by, shift); if (!sameSort(next, cur) || !ownSort) void uw.sort(next); }}
+        onColumns={(columns) => { void uw.columns(columns); }} />;
     }
     return (
       <ul className="query-list view-list" aria-label={def.title}>
@@ -223,9 +258,15 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
   return (
     <>
       {slot && createPortal(toolbar, slot)}
-      <div role="tabpanel" aria-labelledby={labelledBy} data-view-panel={nfc(name)} className="view-panel" data-view-state={state}>
+      <div ref={panelEl} role="tabpanel" aria-labelledby={labelledBy} data-view-panel={nfc(name)} className="view-panel" data-view-state={state}
+        data-usage-key={uKey ?? undefined} data-usage-kind={uKey ? 'tab' : undefined}
+        data-own-sort={uKey && ownSort ? (ownSort === 'broken' ? 'broken' : '') : undefined}
+        data-own-columns={uKey && ownColumns ? (ownColumns === 'broken' ? 'broken' : '') : undefined}>
         {typesNotice && <p className="query-notice view-notice"><Icon name="warning" size={13} />{typesNotice}</p>}
         {firstBroken && <p className="query-notice view-notice"><Icon name="warning" size={13} />{noticeOf(firstBroken, types)}</p>}
+        {showResults && usageRun && usageRun.broken.filter((b, i, a) => a.findIndex((x) => x.key === b.key) === i).map((b) => (
+          <p key={`usage-${b.key}`} className="query-notice view-notice" data-usage-broken={b.key}><Icon name="warning" size={13} />{t('query.block.brokenKey', { key: b.key })}</p>
+        ))}
         {message}
         {body}
         {showResults && !isBoard && more > 0 && (
@@ -235,15 +276,30 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
         )}
       </div>
       {sortOpen && def && (
-        <SortPopover sort={writer.current()?.sort ?? def.sort} type={type} anchor={sortBtn.current} addOnOpen={sortOpen.add} disabled={readOnly}
-          onChange={(sort) => apply({ sort })}
+        <SortPopover sort={effSort} type={type} anchor={sortBtn.current} addOnOpen={sortOpen.add} disabled={disabled} scope="tab"
+          onUseQuery={run.result && canUseQuery(run.result, 'sort') ? () => { void uw.sort(null); } : null}
+          onChange={(sort) => { void uw.sort(sort); }}
           onClose={() => { setSortOpen(null); sortBtn.current?.focus(); }} />
       )}
       {columnsOpen && def && (
-        <ColumnsMenu def={def} types={types} anchor={columnsBtn.current}
-          onToggle={(key, on) => apply((d) => ({ columns: toggleColumn(d, key, on) }))}
-          onNewProperty={() => setColumnsOpen(false)}
+        <ColumnsMenu def={def} types={types} anchor={columnsBtn.current} columns={effColumns} disabled={disabled} scope="tab"
+          onUseQuery={run.result && canUseQuery(run.result, 'columns') ? () => { void uw.columns(null); } : null}
+          onToggle={(key, on) => { void uw.columns(toggleColumn({ ...def, columns: uw.current().columns }, key, on)); }}
+          onNewProperty={() => { setColumnsOpen(false); setNewProp(true); }}
           onClose={() => { setColumnsOpen(false); columnsBtn.current?.focus(); }} />
+      )}
+      {newProp && def && (
+        // R197: the type file (the attribute), then the tab's columns (a second write, on the version the first returned).
+        <NewPropertyDialog type={type} types={types} attributeOnly fresh={() => ipc.typeGet(type.key).then((x) => x ?? undefined, () => undefined)}
+          onClose={() => { setNewProp(false); columnsBtn.current?.focus(); }}
+          onDone={(added) => {
+            setNewProp(false);
+            if (!added || !patch) return;
+            const k = nfc(added.key);
+            const cur = uw.current().columns;
+            if (cur.some((c) => nfc(c) === k)) return;
+            void patch([{ op: 'viewColumns', name: nfc(name), columns: [...cur.map(nfc), k] }], added.type).then(() => run.rerun(), () => run.rerun());
+          }} />
       )}
       {tagsOpen && (
         <TagPopover anchor={tagsBtn.current} onClose={() => { setTagsOpen(false); tagsBtn.current?.focus(); }}>

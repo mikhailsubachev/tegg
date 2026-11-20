@@ -9,6 +9,7 @@ import { ipc, errorKind } from '../ipc/client';
 import type { TypeDefDto, SwitcherItemDto, TypeDto } from '../ipc/types';
 import type { FilterItemDto, QueryDefDto, QueryDto, QueryOp, QueryResultDto } from '../ipc/queries';
 import { Icon } from '../shell/Icon';
+import { usePopupPlacement } from '../shell/usePopupPlacement';
 import { announceQuery, editorClosed, queryAlert, useEditorRequest, type EditorRequest } from './editorHost';
 import { queryEnv, nowIso } from './env';
 import { FLAG_OPS, UNIVERSAL, attributeGroups, attributeOf, columnsAfterTypes, defEquals, isValidRow, operatorsFor, parseLimit, type AttrItem } from './model';
@@ -47,6 +48,8 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
   // Slice Q2 (R189, D-1795): the type pages listing the query (`Used on the <plural> page and <n> notes.`).
   const [pages, setPages] = useState<string[]>([]);
   const [cardsOpen, setCardsOpen] = useState(false);
+  // Slice Q2.1 (D-1844, D-1860): a usage's own `On cards`, written at once by `Change…`.
+  const [usageCols, setUsageCols] = useState<string[] | null>(req.usage ? req.usage.columns : null);
   const cardsBtn = useRef<HTMLButtonElement | null>(null);
   const [result, setResult] = useState<QueryResultDto | null>(null);
   const [limitText, setLimitText] = useState(orig ? String(orig.limit) : '');
@@ -84,22 +87,25 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
     if (!def) return;
     const n = ++runSeq.current;
     const timer = setTimeout(() => {
-      ipc.queryRun({ kind: 'def', def: clean({ ...def, title: title || def.title }), name: req.name }, req.host, queryEnv()).then((r) => {
+      // CP-17 (D-1859): opened from a usage, the preview looks like the usage (its effective sort and columns).
+      const shown = req.usage ? { ...def, sort: req.usage.sort, columns: usageCols ?? req.usage.columns } : def;
+      ipc.queryRun({ kind: 'def', def: clean({ ...shown, title: title || def.title }), name: req.name }, req.host, queryEnv()).then((r) => {
         if (n !== runSeq.current || closing.current) return;
         setResult(r);
         req.onResult?.(r);
       }, () => {});
     }, 40);
     return () => clearTimeout(timer);
-  }, [def]);
+  }, [def, usageCols]);
 
-  // Below the anchor (the block's header or `Edit query`), kept in the window.
+  // Below the anchor (the block's header, a tab or `Edit query`), placed inside the window (Q2.1 §20, D-1861).
+  const opener = (req.anchor?.querySelector?.('.query-header') as HTMLElement | null) ?? req.anchor;
+  const placed = usePopupPlacement(root, opener, 'menu', 6);
   useLayoutEffect(() => {
-    const a = req.anchor?.querySelector?.('.query-header') ?? req.anchor;
-    const r = a?.getBoundingClientRect();
+    if (opener) return;
     const h = root.current?.getBoundingClientRect().height ?? 400;
-    const left = Math.max(8, Math.min((r?.left ?? 240), window.innerWidth - 648));
-    let top = (r?.bottom ?? 80) + 6;
+    const left = Math.max(8, Math.min(240, window.innerWidth - 648));
+    let top = 86;
     if (top + h > window.innerHeight - 8) top = Math.max(8, window.innerHeight - h - 8);
     setPos((p) => (p.left === left && p.top === top ? p : { left, top }));
   });
@@ -128,6 +134,8 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
     const outside = (e: MouseEvent) => {
       const tg = e.target as Node;
       if (root.current?.contains(tg) || req.anchor?.contains(tg)) return;
+      // Its own menus (the `On cards` Columns menu) are placed in the body (§20).
+      if ((tg as HTMLElement).closest?.('[data-popup="columns"]')) return;
       void finish(true);
     };
     document.addEventListener('mousedown', outside, true);
@@ -236,6 +244,9 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
   const pagePlural = pages.length ? (types.find((x) => nfc(x.key) === nfc(pages[0]))?.plural ?? pages[0]) : null;
   const usedOn = pagePlural && usages >= 1 ? t('query.editor.usedOnPage', { plural: pagePlural, count: usages }) : usages > 1 ? t('query.editor.usedOn', { count: usages }) : null;
   const count = result ? (result.total ?? result.rows.length) : null;
+  // R197 (D-1842): sort and columns are per usage; said when the query has two or more usages.
+  const perUsage = req.name !== null && pages.length + usages >= 2;
+  const cardColumns = usageCols ?? def.columns;
 
   // The attribute choices of the filter rows (no Sort row: sorting is on the view, D-1795).
   const groups = attributeGroups(types, def.types);
@@ -341,7 +352,8 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
   const typeOpts: ListOption[] = types.filter((x) => !def.types.some((k) => nfc(k) === nfc(x.key))).map((x) => ({ id: x.key, label: x.name, userNamed: true }));
 
   return (
-    <div ref={root} data-qe-root="" role="dialog" aria-label={t('query.editor.dialog')} className="query-editor" style={{ left: pos.left, top: pos.top }}
+    <div ref={root} data-qe-root="" role="dialog" aria-label={t('query.editor.dialog')} className="query-editor" data-popup="query.editor"
+      style={opener ? placed : { left: pos.left, top: pos.top }}
       onKeyDown={(e) => {
         if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); e.stopPropagation(); if (source) setSource(false); else void finish(true); }
       }}>
@@ -351,6 +363,7 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
           onChange={(e) => setTitle(e.target.value)} />
       </div>
       {usedOn && <p className="qe-usage">{usedOn}</p>}
+      {perUsage && <p className="qe-usage" data-per-usage="">{t('query.editor.perUsage')}</p>}
       <div className="qe-section">
         <div className="qe-label">{t('query.editor.show')}</div>
         <div className="qe-types">
@@ -419,15 +432,22 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
           </div>
           <div className="qe-section" role="group" aria-label={t('query.editor.onCards')}>
             <div className="qe-label">{t('query.editor.onCards')}</div>
-            <span className="qe-cards" data-user-content>{def.columns.map((k) => columnLabel(k)).join(', ')}</span>
+            <span className="qe-cards" data-user-content>{cardColumns.map((k) => columnLabel(k)).join(', ')}</span>
             <button ref={cardsBtn} tabIndex={0} type="button" className="qe-add" aria-haspopup="menu" aria-expanded={cardsOpen}
-              onClick={() => setCardsOpen((o) => !o)}>{t('query.editor.onCardsChange')}</button>
+              aria-disabled={req.usage?.disabled ? 'true' : undefined} aria-description={req.usage?.disabled ?? undefined}
+              onClick={() => { if (!req.usage?.disabled) setCardsOpen((o) => !o); }}>{t('query.editor.onCardsChange')}</button>
           </div>
         </>
       )}
       {cardsOpen && (
-        <ColumnsMenu def={def} types={types as never} anchor={cardsBtn.current}
-          onToggle={(key, on) => update((d) => ({ ...d, columns: on ? [...d.columns.filter((c) => nfc(c) !== nfc(key)), nfc(key)] : d.columns.filter((c) => nfc(c) !== nfc(key)) }))}
+        <ColumnsMenu def={def} types={types as never} anchor={cardsBtn.current} columns={cardColumns}
+          scope={req.usage ? (req.fixedType ? 'tab' : 'block') : undefined}
+          onToggle={(key, on) => {
+            const toggled = (cols: string[]) => (on ? [...cols.filter((c) => nfc(c) !== nfc(key)), nfc(key)] : cols.filter((c) => nfc(c) !== nfc(key)));
+            // D-1860: a usage's `Change…` writes its own columns at once; `Done` never writes `columns`.
+            if (req.usage) { const next = toggled(cardColumns); setUsageCols(next); void req.usage.setColumns(next); return; }
+            update((d) => ({ ...d, columns: toggled(d.columns) }));
+          }}
           onNewProperty={() => setCardsOpen(false)}
           onClose={() => { setCardsOpen(false); cardsBtn.current?.focus(); }} />
       )}

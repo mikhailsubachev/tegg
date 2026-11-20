@@ -128,7 +128,7 @@ export function QueryPage({ name, heading, onAll, commandRef, statusRef, onRenam
       </header>
       {state === 'unreadable' && q
         ? <p className="query-page-message">{t('query.block.unreadable', { line: q.line ?? 1 })}</p>
-        : q && (q.state === 'ok' || q.state === 'newer') && <QueryBlock source={{ kind: 'saved', name: q.name }} host={null} onPage apiRef={blockApi} query={q} />}
+        : q && (q.state === 'ok' || q.state === 'newer') && <QueryBlock source={{ kind: 'saved', name: q.name }} host={null} onPage apiRef={blockApi} query={q} usage={{ kind: 'page', name: q.name }} />}
       {state === 'missing' && <p className="query-page-message">{t('query.block.notFound', { name })}</p>}
       {state === 'trashed' && <p className="query-page-message">{t('query.block.trashed', { name })}</p>}
       <section className="query-used-on">

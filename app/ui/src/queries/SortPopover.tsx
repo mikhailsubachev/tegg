@@ -2,12 +2,13 @@
 // one row per level (`Sort by` / `then by`), each with a grip `Drag to change the order`, a column combobox (a key used at
 // another level isn't offered), an order combobox with the kind's labels and `Remove`; then `+ Add sort` and `Clear`.
 // Each change is one write (`onChange`, the caller's one `query_apply`); Esc closes and writes nothing more. Not modal.
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { t } from '../i18n/catalog';
 import type { SortDto } from '../ipc/queries';
 import type { TypeDto } from '../ipc/types';
 import { Icon } from '../shell/Icon';
+import { usePopupPlacement } from '../shell/usePopupPlacement';
 import { Chooser } from './Listbox';
 import { addLevel, clearSort, levels, moveLevel, orderLabels, removeLevel, sameSort, sortChoices } from './sort';
 
@@ -25,7 +26,7 @@ export function sortKeyName(key: string, type: TypeDto | null | undefined): { la
   return { label: k, user: true };
 }
 
-export function SortPopover({ sort, type, anchor, addOnOpen, disabled, onChange, onClose }: {
+export function SortPopover({ sort, type, anchor, addOnOpen, disabled, onChange, onClose, scope, onUseQuery }: {
   /** The levels as written (the file's `sort`). */
   sort: SortDto[];
   /** The query's one type (column choices and order labels). */
@@ -36,12 +37,17 @@ export function SortPopover({ sort, type, anchor, addOnOpen, disabled, onChange,
   disabled?: string | null;
   onChange: (sort: SortDto[]) => void;
   onClose: () => void;
+  /** Slice Q2.1 (R197, §16.2): what a change writes, the popover's first line. */
+  scope?: 'tab' | 'block' | 'default';
+  /** Slice Q2.1 (R197, D-1856): `Use the query's sort`, when offered. */
+  onUseQuery?: (() => void) | null;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [ls, setLs] = useState<SortDto[]>(() => levels(sort));
   const key = JSON.stringify(levels(sort));
   useEffect(() => { setLs(levels(sort)); }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [pos, setPos] = useState<{ left: number; top: number }>({ left: 0, top: 0 });
+  // Slice Q2.1 (§20): placed inside the window, below its button (above when there is no room).
+  const style = usePopupPlacement(ref, anchor, 'menu', 6);
   const [drag, setDrag] = useState<{ from: number; over: number | null } | null>(null);
   const choices = sortChoices(type);
   const change = (next: SortDto[]) => {
@@ -49,19 +55,13 @@ export function SortPopover({ sort, type, anchor, addOnOpen, disabled, onChange,
     setLs(next);
     onChange(next);
   };
-  useLayoutEffect(() => {
-    if (!anchor) return;
-    const r = anchor.getBoundingClientRect();
-    const w = ref.current?.getBoundingClientRect().width ?? 420;
-    setPos({ left: Math.max(8, Math.min(r.right - w, window.innerWidth - w - 8)), top: r.bottom + 6 });
-  }, [anchor]);
   const focusLevel = (i: number) => requestAnimationFrame(() => ref.current?.querySelector<HTMLElement>(`[data-sort-level="${i}"] [role="combobox"]`)?.focus());
   useEffect(() => {
     if (addOnOpen && !disabled) {
       const next = addLevel(ls, choices);
       if (!sameSort(next, ls)) { change(next); focusLevel(next.length - 1); return; }
     }
-    (ref.current?.querySelector<HTMLElement>('[data-sort-level] [role="combobox"], button') ?? ref.current)?.focus();
+    (ref.current?.querySelector<HTMLElement>('[data-sort-level] [role="combobox"], button') ?? ref.current)?.focus({ preventScroll: true });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const outside = (e: MouseEvent) => {
@@ -111,10 +111,12 @@ export function SortPopover({ sort, type, anchor, addOnOpen, disabled, onChange,
 
   // In the body, not inside the block: a note's editor would take the focus (and the clicks) of a popover in its content.
   return createPortal(
-    <div ref={ref} role="dialog" aria-label={t('sort.dialog')} className="sort-popover popover" style={{ left: pos.left, top: pos.top }} tabIndex={-1}
+    <div ref={ref} role="dialog" aria-label={t('sort.dialog')} className="sort-popover popover" style={style} tabIndex={-1} data-popup="sort"
+      aria-describedby={scope ? 'sort-scope-line' : undefined}
       onKeyDown={(e) => {
         if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); e.stopPropagation(); onClose(); }
       }}>
+      {scope && <p id="sort-scope-line" className="sort-scope" data-scope={scope}>{t(`sort.scope.${scope}`)}</p>}
       {ls.map((l, i) => {
         const nm = name(l.by);
         const labels = orderLabels(l.by, type);
@@ -150,6 +152,10 @@ export function SortPopover({ sort, type, anchor, addOnOpen, disabled, onChange,
         <button type="button" tabIndex={0} className="qe-add" aria-disabled={disabled ? 'true' : undefined}
           onClick={() => { const next = addLevel(ls, choices); change(next); focusLevel(next.length - 1); }}>{t('sort.add')}</button>
         <button type="button" tabIndex={0} className="qe-add" aria-disabled={disabled ? 'true' : undefined} onClick={() => change(clearSort())}>{t('sort.clear')}</button>
+        {onUseQuery && (
+          <button type="button" tabIndex={0} className="qe-add" data-command="sort.useQuery" aria-disabled={disabled ? 'true' : undefined}
+            onClick={() => { if (!disabled) onUseQuery(); }}>{t('sort.useQuery')}</button>
+        )}
       </div>
     </div>,
     document.body,

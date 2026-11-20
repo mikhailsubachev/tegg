@@ -35,7 +35,7 @@ async function blockRows(b: Locator): Promise<string[]> {
   return b.evaluate((el) => ([...el.querySelectorAll('[data-query-result]')] as HTMLElement[]).map((e) => (e.getAttribute('data-query-result') ?? '').normalize('NFC').split('/').pop()!.replace(/\.md$/, ''))).catch(() => []);
 }
 const rowsAre = (b: Locator, want: string[], ms = 3000) => eventually(() => blockRows(b), (r) => JSON.stringify(r) === JSON.stringify(want), ms);
-const headersOf = (b: Locator) => b.locator('[role="columnheader"]').evaluateAll((hs) => hs.map((h) => ((h as HTMLElement).innerText ?? '').replace(/\s+/g, ' ').trim().normalize('NFC'))).catch(() => [] as string[]);
+const headersOf = (b: Locator) => b.locator('table thead th').evaluateAll((hs) => hs.map((h) => ((h as HTMLElement).innerText ?? '').replace(/\s+/g, ' ').trim().normalize('NFC'))).catch(() => [] as string[]);
 /** Changes a file on disk without `vault:changed`. */
 async function silently(core: FakeCoreHandle, rel: string, text?: string) {
   await core.setFile(rel, text ?? `${await fileText(core, rel)}# změněno jinde\n`, { silent: true });
@@ -193,7 +193,7 @@ test('fr_qry_07_ac23_tab_sort_is_its_own', async ({ page }) => {
   // (a) ⇧-click on Finished.
   await (await must(hdr(panelOf(page), 'Finished'), 'header Finished')).click({ modifiers: ['Shift'] });
   assert.equal(await fileWhen(core, BOOK_YML, (x) => x === expectedUsage('types/book-vyborne-shift-finished.yml')), expectedUsage('types/book-vyborne-shift-finished.yml'), '(a) book.yml: seven lines');
-  assert.deepEqual(await writes(core), [], '(a) no note written');
+  assert.deepEqual((await writes(core)).filter((p) => !p.startsWith('.tegg/types/')), [], '(a) no note written');
   assert.deepEqual((await core.typeCalls()).map((c) => c.ops), [[{ op: 'viewSort', name: Q.vyb, sort: [{ by: 'title', order: 'asc' }, { by: 'finished', order: 'asc' }] }]], '(a) one type_patch viewSort');
   assert.deepEqual((await core.queryCalls()).map((c) => c.cmd), [], '(a) the query file untouched');
   // (b) The popover (scope `This tab's sort`): Remove Finished.
@@ -286,7 +286,7 @@ test('fr_qry_07_ac25_views_items_read_and_kept', async ({ page }) => {
 
 test('fr_qry_07_ac25_views_items_read_and_kept_variants', async ({ page }) => {
   // (a) A mapping item without `name`: views unreadable.
-  const a = overlayVault((f) => { f[BOOK_YML] = swap(f[BOOK_YML], '  - name: Přečtené 2026\n', '  - sort: { by: title }\n'); });
+  const a = overlayVault((f) => { f[BOOK_YML] = swap(f[BOOK_YML], '  - name: Přečtené 2026\n    sort:\n      - { by: rating, order: asc }\n      - { by: title, order: asc }\n    columns: [author, rating, finished, genres]\n', '  - sort: { by: title }\n'); });
   const core = await startViews(page, { route: typeRoute('book'), vault: a });
   await must(allTab(page), 'All Books', 8000);
   assert.deepEqual(await tabsAre(page, []), [''], '(a) only All Books');
@@ -430,7 +430,7 @@ test('fr_qry_01_ac14_block_sort_is_its_own_without_an_editor', async ({ page }) 
   await must(blk, 'its block', 8000);
   assert.equal(await isDisabled(sortButton(blk)), true, 'the sort button aria-disabled');
   assert.equal(await sortButton(blk).getAttribute('aria-description'), NOT_EDITABLE, 'with query.block.usageNotEditable');
-  await click(hdr(blk, 'Rating'), 'a header click');
+  await hdr(blk, 'Rating').click({ force: true });
   await sleep(300);
   assert.deepEqual(await writes(core), [], 'nothing written');
 });

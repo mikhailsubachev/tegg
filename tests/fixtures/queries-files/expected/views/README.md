@@ -17,6 +17,12 @@ is the runtime block-list variant of `book.yml` (line 13 as `views:` plus the th
 `Podle autora.yml` with the runtime line `lane_order: ["[[Marek Sova]]", "[[Eva Lindová]]"]` inserted right after
 `group_by: author` (FR-LNK-03 AC-24 (b); the 4C job leaves `modified:` alone, D-1467).
 
+**Where the steps run (slice Q2.1, D-1842, D-1851).** Sort and columns are per usage since Q2.1: on a view tab they
+write the tab's `views:` item, in a block its fence. The query-file steps of FR-QRY-01 AC-9, AC-10, AC-11 and FR-QRY-07
+AC-3, AC-18 (`prectene-2026-sort-*`, `vyborne-knihy-sort-*`, `podle-zanru-sort-add-level`, `prectene-2026-click-*`,
+`-shift-finished`, `prectene-2026-columns-*`) therefore run on the query page `query/<name>`, which sets the defaults;
+the expected files keep their bytes.
+
 | File | Input → action | Criteria |
 | --- | --- | --- |
 | `new-view-autor.yml`, `new-view-board-book.yml` | `New view` › Table on `type/autor`, › Board on `type/book`, `Done` | FR-QRY-07 AC-4 (b), (c) |

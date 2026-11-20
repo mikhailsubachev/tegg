@@ -1,13 +1,15 @@
 // A popup menu opened from a button (D-219 vault switcher, D-220 logo menu; ms3-shell §12.5): arrow keys move,
 // Enter/Space choose, Esc or a click outside closes it and returns focus to the opener.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { usePopupPlacement, type PopupOpener } from './usePopupPlacement';
 
 export type MenuEntry =
   | { kind: 'separator' }
   | { kind: 'note'; key: string; content: React.ReactNode }
   | { kind: 'item' | 'radio' | 'checkbox'; key: string; content: React.ReactNode; label?: string; checked?: boolean; disabled?: boolean; description?: string; onChoose: () => void };
 
-export function PopupMenu({ label, anchor, entries, onClose, placement = 'below', restoreFocus = true, disabledFocusable = false, scrollable = false }: {
+export function PopupMenu({ label, anchor, entries, onClose, placement = 'below', restoreFocus = true, disabledFocusable = false, scrollable = false, fit = false, popupId, openerKind = 'menu', at, head, onItemHover, keepOpenOn, onKeyDownExtra }: {
   label: string;
   anchor: HTMLElement | null;
   entries: MenuEntry[];
@@ -20,12 +22,29 @@ export function PopupMenu({ label, anchor, entries, onClose, placement = 'below'
   disabledFocusable?: boolean;
   /** Capped at the window's height and scrolling (the type page's Columns menu, which has no limit, D-1240). */
   scrollable?: boolean;
+  /** Slice Q2.1 (v1-views §20; D-1848, D-1861): placed inside the window by `placePopup`, in a body portal. */
+  fit?: boolean;
+  /** §19.1 `data-popup` id. */
+  popupId?: string;
+  /** §20's opener kind: `context` opens from `at` (the pointer), `submenu` beside its item. */
+  openerKind?: 'menu' | 'context' | 'submenu';
+  at?: { x: number; y: number } | null;
+  /** Rows before the items (a scope line, §19.1). */
+  head?: React.ReactNode;
+  /** An item under the pointer (a submenu opener). */
+  onItemHover?: (key: string, el: HTMLElement) => void;
+  /** A mousedown inside these elements doesn't close the menu (its open submenu). */
+  keepOpenOn?: () => (HTMLElement | null)[];
+  /** Keys the menu doesn't handle itself (→ opens a submenu). Return true when handled. */
+  onKeyDownExtra?: (e: React.KeyboardEvent, focused: HTMLElement | null) => boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number }>({ left: 0, top: 0 });
 
+  const opener: PopupOpener = openerKind === 'context' && at ? at : anchor;
+  const fitStyle = usePopupPlacement(fit ? ref : { current: null }, fit ? opener : null, openerKind);
   useLayoutEffect(() => {
-    if (!anchor) return;
+    if (!anchor || fit) return;
     const r = anchor.getBoundingClientRect();
     setPos(placement === 'below' ? { left: r.left, top: r.bottom + 4 } : { left: r.left, bottom: window.innerHeight - r.top + 4 });
   }, [anchor, placement]);
@@ -40,6 +59,7 @@ export function PopupMenu({ label, anchor, entries, onClose, placement = 'below'
     const outside = (e: MouseEvent) => {
       const t = e.target as Node;
       if (ref.current?.contains(t) || anchor?.contains(t)) return;
+      if (keepOpenOn?.().some((x) => x?.contains(t))) return;
       onClose();
       // After the click's own focus change.
       if (restoreFocus) setTimeout(() => anchor?.focus(), 0);
@@ -49,6 +69,8 @@ export function PopupMenu({ label, anchor, entries, onClose, placement = 'below'
   }, []);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.target instanceof Node && !ref.current?.contains(e.target)) return;
+    if (onKeyDownExtra?.(e, document.activeElement as HTMLElement | null)) return;
     const list = items();
     const i = list.indexOf(document.activeElement as HTMLElement);
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -69,10 +91,11 @@ export function PopupMenu({ label, anchor, entries, onClose, placement = 'below'
     }
   };
 
-  return (
+  const menu = (
     // A scrollable menu taller than the window scrolls; focusing an item keeps it in view.
-    <div ref={ref} className="popup-menu" role="menu" aria-label={label} onKeyDown={onKeyDown}
-      style={{ left: pos.left, top: pos.top, bottom: pos.bottom, ...(scrollable ? { maxHeight: `calc(100vh - ${(pos.top ?? pos.bottom ?? 0) + 8}px)`, overflowY: 'auto' as const } : {}) }}>
+    <div ref={ref} className="popup-menu" role="menu" aria-label={label} onKeyDown={onKeyDown} data-popup={popupId}
+      style={fit ? fitStyle : { left: pos.left, top: pos.top, bottom: pos.bottom, ...(scrollable ? { maxHeight: `calc(100vh - ${(pos.top ?? pos.bottom ?? 0) + 8}px)`, overflowY: 'auto' as const } : {}) }}>
+      {head}
       {entries.map((m, i) => {
         if (m.kind === 'separator') return <div key={`sep${i}`} role="separator" className="menu-sep" />;
         if (m.kind === 'note') return <div key={m.key} className="menu-note">{m.content}</div>;
@@ -88,6 +111,7 @@ export function PopupMenu({ label, anchor, entries, onClose, placement = 'below'
             tabIndex={-1}
             className={`menu-item${m.checked ? ' checked' : ''}`}
             onClick={choose}
+            onMouseEnter={onItemHover ? (e) => onItemHover(m.key, e.currentTarget) : undefined}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(); } }}
           >
             {m.content}
@@ -96,4 +120,5 @@ export function PopupMenu({ label, anchor, entries, onClose, placement = 'below'
       })}
     </div>
   );
+  return fit ? createPortal(menu, document.body) : menu;
 }

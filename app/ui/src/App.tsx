@@ -308,7 +308,7 @@ export function App() {
   useEffect(() => { watchFocus(); }, []);
   useEffect(() => registerViewsUiState({ get: () => uiRef.current ?? undefined, update: (f) => updateUi((u) => f(u)) }), [updateUi]);
   useEffect(() => registerWidthsStore({ get: () => uiRef.current ?? undefined, update: (f) => updateUi((u) => f(u)) }), [updateUi]);
-  useEffect(() => { widthsChanged(); }, [ui.typeColumnWidths, ui.queryColumnWidths]);
+  useEffect(() => { widthsChanged(); }, [ui.typeColumnWidths, ui.usageColumnWidths]);
 
   useEffect(() => {
     const onResize = () => setWidth(window.innerWidth);

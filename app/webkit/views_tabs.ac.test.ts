@@ -95,22 +95,23 @@ test('fr_qry_07_ac3_a_view_tab_shows_its_query', async ({ page }) => {
   assert.equal(await filterField(page).inputValue(), '', 'Rozečtené keeps its own (empty) filter text');
   await selectTab(page, Q.p26);
   assert.equal(await filterField(page).inputValue(), 'mapa', 'back on Přečtené 2026: `mapa` again (D-1796)');
-  // Columns › Genres writes the query file once (only `columns:` and `modified:`), book.yml untouched.
-  await (await filterField(page)).fill('');
+  // Leaving the page clears the filter text.
+  await runCommand(page, 'Go to Inbox');
+  await runCommand(page, 'Go to type: Books');
+  await selectTab(page, Q.p26);
+  assert.equal(await filterField(page).inputValue(), '', 'leaving the page clears it');
+  // Q2.1 (D-1842, FR-QRY-07 AC-24): the Columns step moves to the query page, where Columns › Genres writes the query
+  // file once (only `columns:` and `modified:`), book.yml untouched.
   const book = await fileText(core, BOOK_YML);
-  await click(columnsButton(page), 'Columns');
+  await runCommand(page, 'Go to Queries');
+  await click(queriesRow(page, Q.p26).locator('a').first(), 'query/Přečtené 2026');
+  await click(main(page).locator('.query-header').getByRole('button', { name: rx('Columns') }), 'Columns');
   const menu = await must(page.getByRole('menu', { name: rx('Columns') }), 'menu Columns');
   await click(menu.getByRole('menuitemcheckbox', { name: rx('Genres') }), 'check Genres');
   const t = await fileWhen(core, qfile(Q.p26), (x) => x === expectedView('prectene-2026-columns-genres.yml'));
   assert.equal(t, expectedView('prectene-2026-columns-genres.yml'), 'Přečtené 2026.yml: columns: [author, rating, finished, genres] and modified');
   assert.deepEqual((await writes(core)).filter((p) => p.startsWith('.tegg/')), [qfile(Q.p26)], 'one write');
   assert.equal(await fileText(core, BOOK_YML), book, 'book.yml untouched');
-  // Leaving the page clears the filter text.
-  await (await must(filterField(page), 'Filter Books…')).fill('mapa');
-  await runCommand(page, 'Go to Inbox');
-  await runCommand(page, 'Go to type: Books');
-  await selectTab(page, Q.p26);
-  assert.equal(await filterField(page).inputValue(), '', 'leaving the page clears it');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-QRY-07 AC-4
@@ -268,7 +269,7 @@ test('fr_qry_07_ac7_the_views_menu', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ FR-QRY-07 AC-8, AC-9
 
 test('fr_qry_07_ac8_rename_patches_views', async ({ page }) => {
-  const core = await startViews(page, { route: typeRoute('book'), ui: { queryColumnWidths: { [Q.p26]: { title: 200 } }, typeViews: { lastTab: { book: Q.p26 } } } });
+  const core = await startViews(page, { route: typeRoute('book'), ui: { usageColumnWidths: { [`tab:book/${nfc(Q.p26).toLowerCase()}`]: { title: 200 } }, typeViews: { lastTab: { book: Q.p26 } } } });
   assert.equal(await eventually(() => selectedTab(page), (s) => s === Q.p26, 5000), Q.p26, 'the remembered tab opens');
   const menu = await tabMenu(page, Q.p26);
   await click(menuItem(menu, 'Rename…'), 'Rename…');
@@ -284,8 +285,9 @@ test('fr_qry_07_ac8_rename_patches_views', async ({ page }) => {
   assert.equal(await fileText(core, qfile('Přečtené letos')), expectedView('prectene-letos-renamed.yml'), 'the query file renamed, title only');
   assert.equal(await fileText(core, CTENI), expectedView('cteni-2026-renamed.md'), 'Čtení\'s `saved:` line');
   assert.equal(await eventually(() => selectedTab(page), (s) => s === 'Přečtené letos', 1000), 'Přečtené letos', 'the tab reads `Přečtené letos` within 1 s and stays selected');
-  const ui = await eventually(() => uiState(core), (u) => u?.queryColumnWidths?.['Přečtené letos']?.title === 200, 2000);
-  assert.equal(ui?.queryColumnWidths?.['Přečtené letos']?.title, 200, 'its widths follow the new name (AP-1513)');
+  // Q2.1 (R198, D-1845): widths are per usage key; the tab's key moves to the new name.
+  const ui = await eventually(() => uiState(core), (u) => u?.usageColumnWidths?.['tab:book/přečtené letos']?.title === 200, 2000);
+  assert.equal(ui?.usageColumnWidths?.['tab:book/přečtené letos']?.title, 200, 'its widths follow the new name (AP-1513, R198)');
   assert.equal(ui?.typeViews?.lastTab?.book, 'Přečtené letos', 'and the remembered tab');
   const job = (await core.jobs()).at(-1);
   assert.ok(job?.written.includes(BOOK_YML), 'the job reports book.yml as written');
@@ -329,7 +331,10 @@ test('fr_qry_07_ac11_trashed_views_keep_their_tab', async ({ page }) => {
   assert.equal(await eventually(() => tab(page, Q.odlozene).getAttribute('data-view-state'), (s) => s === 'trashed'), 'trashed', 'Odložené: the trashed state from the start');
   const book = await fileText(core, BOOK_YML);
   await selectTab(page, Q.vyb);
-  await click(menuItem(await tabMenu(page, Q.vyb), 'Move to trash'), 'Move to trash');
+  // Q2.1 (D-1835): `Move to trash` from the view's menu now removes the tab (FR-QRY-07 AC-20); a query trashed
+  // elsewhere (here a helper moving its file into .trash/.tegg/queries/, AC-22) keeps its tab in the trashed state.
+  await core.setFile(`.trash/${qfile(Q.vyb)}`, original(qfile(Q.vyb)));
+  await core.setFile(qfile(Q.vyb), null);
   assert.equal(await fileWhen(core, `.trash/${qfile(Q.vyb)}`, (x) => x !== undefined), original(qfile(Q.vyb)), 'moved to .trash/.tegg/queries/ with the same bytes');
   assert.ok(await seen(panelOf(page).getByText('The query “Výborné knihy” is in the trash.'), 2000), 'the trashed text');
   assert.equal(await fileText(core, BOOK_YML), book, 'book.yml untouched');
@@ -505,10 +510,6 @@ test('fr_qry_07_ac18_columns_reorder_by_header_drag', async ({ page }) => {
   await drag(page, h('Finished'), h('Finished'));
   await drag(page, h('Title'), h('Rating'));
   assert.deepEqual(await writes(core), [], 'a drop in the same place and a Title drag write nothing');
-  await drag(page, h('Finished'), h('Author'), { at: 'left' });
-  assert.deepEqual((await eventually(() => panelHeaders(page), (x) => x[1]?.startsWith('Finished'))).map((x) => x.replace(/\s*[↑↓][¹²³]?$/, '')), ['Title', 'Finished', 'Author', 'Rating'], 'Title, Finished, Author, Rating');
-  assert.equal(await fileWhen(core, qfile(Q.p26), (x) => x === expectedView('prectene-2026-columns-reordered.yml')), expectedView('prectene-2026-columns-reordered.yml'), 'only columns: and modified:');
-  assert.equal(await fileText(core, BOOK_YML), original(BOOK_YML), 'book.yml untouched');
   const n = (await writes(core)).length;
   await h('Author').focus();
   await page.keyboard.press('Alt+ArrowLeft');
@@ -520,16 +521,18 @@ test('fr_qry_07_ac18_columns_reorder_by_header_drag', async ({ page }) => {
   await panelOf(page).getByRole('columnheader', { name: /^Author/ }).focus();
   await page.keyboard.press('Alt+ArrowRight');
   assert.ok(await fileWhen(core, BOOK_YML, (x) => !!x && x.includes('columns: [rating, author, status, modified]\n')), 'All Books: ⌥→ moves Author (book.yml columns)');
-  // The same drag in Čtení's block writes the same file the same way; the tab follows live.
-  await core.setFile(qfile(Q.p26), original(qfile(Q.p26)));
-  await openNote(page, 'Čtení 2026');
-  const b = block(page, Q.p26);
-  const bh = (n: string) => b.getByRole('columnheader', { name: new RegExp(`^${n}`) });
-  await must(bh('Finished'), 'Čtení\'s Přečtené 2026 block: header Finished', 5000);
+  // Q2.1 (D-1842; FR-QRY-07 AC-24, FR-QRY-05 AC-24): a drag on a tab writes its item, in a block its fence; the
+  // reorder with its expected bytes moves to the query page, which writes the query file.
+  const book = await fileText(core, BOOK_YML);
+  await runCommand(page, 'Go to Queries');
+  await click(queriesRow(page, Q.p26).locator('a').first(), 'query/Přečtené 2026');
+  const ph = (n: string) => main(page).getByRole('columnheader', { name: new RegExp(`^${n}`) });
+  await must(ph('Finished'), 'the query page: header Finished', 5000);
   const w0 = (await writes(core)).length;
-  await dragTo(page, bh('Finished'), bh('Author'), { at: 'left' });
-  assert.equal(await fileWhen(core, qfile(Q.p26), (x) => x === expectedView('prectene-2026-columns-reordered.yml')), expectedView('prectene-2026-columns-reordered.yml'), 'the block writes the same bytes');
-  assert.deepEqual((await writes(core)).slice(w0), [qfile(Q.p26)], 'one write, the note untouched');
+  await dragTo(page, ph('Finished'), ph('Author'), { at: 'left' });
+  assert.equal(await fileWhen(core, qfile(Q.p26), (x) => x === expectedView('prectene-2026-columns-reordered.yml')), expectedView('prectene-2026-columns-reordered.yml'), 'only columns: and modified:');
+  assert.deepEqual((await writes(core)).slice(w0), [qfile(Q.p26)], 'one write');
+  assert.equal(await fileText(core, BOOK_YML), book, 'book.yml untouched');
   assert.equal(await fileText(core, CTENI), original(CTENI), 'Čtení untouched');
 });
 

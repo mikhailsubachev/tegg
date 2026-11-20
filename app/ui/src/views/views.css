@@ -84,3 +84,7 @@
 .query-table th:hover .col-resize::after, .query-table .col-resize:focus-visible::after { opacity: 1; }
 .query-table .col-resize:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 .query-table th.reordering { cursor: grabbing; color: var(--text); }
+
+/* Slice Q2.1 (R197, v1-views §19.1): the scope line of the sort popover and of the Columns menu. */
+.sort-scope { margin: 0 0 2px; padding: 2px 4px; color: var(--muted); font-size: 12px; }
+.menu-scope { padding: 6px 8px 4px; color: var(--muted); font-size: 12px; }

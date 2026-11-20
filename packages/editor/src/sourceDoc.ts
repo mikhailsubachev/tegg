@@ -4,7 +4,7 @@
 
 import type { Editor, JSONContent } from '@tiptap/core'
 import type { Node as PMNode, Schema } from '@tiptap/pm/model'
-import { parse, renderBlock, type Doc } from '@tegg/doc'
+import { parse, queryFences, renderBlock, type Doc } from '@tegg/doc'
 import { blockToPM, edgeSpacesOutside, pmToBlock } from './convert'
 
 export interface Loaded {
@@ -115,7 +115,7 @@ export function reconcile(loaded: Loaded, pmDoc: PMNode, opts: { forceVerifyFail
     if (node.type.name === 'paragraph' && node.textContent.trim() === '' && !hasAtoms(node)) return // empty line: nothing to write
     const srcRaw = original ? doc.blocks[src!].raw : undefined
     const isRaw = node.type.name === 'rawBlock'
-    const md = isRaw ? String(node.attrs.source) : (srcRaw !== undefined && (checkboxPatch(original!, node, srcRaw) || tablePatch(original!, node, srcRaw))) || renderBlock(pmToBlock(node.toJSON()), srcRaw)
+    const md = isRaw ? String(node.attrs.source) : (srcRaw !== undefined && (checkboxPatch(original!, node, srcRaw) || tablePatch(original!, node, srcRaw) || queryBodyPatch(original!, node, srcRaw))) || renderBlock(pmToBlock(node.toJSON()), srcRaw)
     if (!isRaw && md.trim() === '') return // e.g. a paragraph of spaces: nothing to write
     // A raw block holds bytes the file already had (a copy, a moved or mode-changed embed): never re-normalized, so
     // an NFD embed line stays NFD when duplicated (AP-336, FR-FMT-07 AC-15). Rendered blocks are written in NFC.
@@ -285,6 +285,63 @@ function tablePatch(original: PMNode, node: PMNode, raw: string): string | null 
     out[r === 0 ? 0 : r + 1] = `| ${cells.join(' | ')} |`
   }
   return out.join('\n')
+}
+
+const isNestedQuery = (j: JSONContent) => j.type === 'codeBlock' && String(j.attrs?.language ?? '') === 'query'
+const queryBodies = (n: PMNode): string[] => {
+  const out: string[] = []
+  n.descendants((c) => { if (c.type.name === 'codeBlock' && String(c.attrs.language ?? '') === 'query') { out.push(c.textContent); return false } return true })
+  return out
+}
+
+/**
+ * Slice Q2.1 (v1-views §13.3, R195; D-1839): a container (a callout, a quote, a list) whose only change is the text of
+ * nested `query` fences, as a block's sort or columns write gives it, is written by replacing only the changed lines of
+ * those fences' bodies in its original source: the container's other lines, its prefixes (`> `, list indentation) and
+ * the gaps between its children keep their bytes; new lines get the prefix of the fence's opening line.
+ */
+function queryBodyPatch(original: PMNode, node: PMNode, raw: string): string | null {
+  if (node.isTextblock || node.type.name === 'codeBlock' || node.type.name === 'rawBlock') return null
+  const strip = (j: JSONContent): JSONContent => (isNestedQuery(j) ? { ...j, content: [] } : { ...j, ...(j.content ? { content: j.content.map(strip) } : {}) })
+  if (JSON.stringify(strip(original.toJSON())) !== JSON.stringify(strip(node.toJSON()))) return null
+  const before = queryBodies(original)
+  const after = queryBodies(node)
+  if (before.length !== after.length || before.every((b, i) => b === after[i])) return null
+  const text = raw.replace(/\r\n/g, '\n')
+  const fences = queryFences(text).filter((f) => f.nested)
+  if (fences.length !== after.length) return null
+  const enc = new TextEncoder()
+  const dec = new TextDecoder()
+  const bytes = enc.encode(text)
+  let out = ''
+  let at = 0
+  for (let i = 0; i < fences.length; i++) {
+    if (before[i] === after[i]) continue
+    const f = fences[i]!
+    const src = dec.decode(bytes.subarray(f.range[0], f.range[1]))
+    const lines = src.split('\n')
+    const trailing = lines[lines.length - 1] === '' ? (lines.pop(), '\n') : ''
+    if (lines.length < 2) return null
+    // The opening line's container prefix lies before the fence's range (`> ` of a callout, list indentation).
+    const startAt = dec.decode(bytes.subarray(0, f.range[0])).length
+    const lead = text.slice(text.lastIndexOf('\n', startAt - 1) + 1, startAt)
+    let prefix = lead + (/^([ \t]*)(`{3,}|~{3,})/.exec(lines[0]!)?.[1] ?? '')
+    if (/[^ \t>]/.test(prefix)) prefix = lead.replace(/[^ \t>]/g, ' ') // a list marker: its width in spaces
+    const close = /^[ \t>]*(`{3,}|~{3,})[ \t]*$/.test(lines[lines.length - 1]!) ? lines.length - 1 : lines.length
+    const oldBody = lines.slice(1, close)
+    const bodyText = (l: string) => (l.startsWith(prefix) ? l.slice(prefix.length) : l.replace(/^[ \t>]*/, ''))
+    if (oldBody.map(bodyText).join('\n') !== before[i]) return null
+    const nextBody = after[i] === '' ? [] : after[i]!.split('\n')
+    let head = 0
+    while (head < oldBody.length && head < nextBody.length && bodyText(oldBody[head]!) === nextBody[head]) head++
+    let tail = 0
+    while (tail < oldBody.length - head && tail < nextBody.length - head && bodyText(oldBody[oldBody.length - 1 - tail]!) === nextBody[nextBody.length - 1 - tail]) tail++
+    const body = [...oldBody.slice(0, head), ...nextBody.slice(head, nextBody.length - tail).map((l) => prefix + l), ...oldBody.slice(oldBody.length - tail)]
+    const rebuilt = [lines[0]!, ...body, ...lines.slice(close)].join('\n') + trailing
+    out += dec.decode(bytes.subarray(at, f.range[0])) + rebuilt
+    at = f.range[1]
+  }
+  return out + dec.decode(bytes.subarray(at))
 }
 
 // An empty item is a bare marker at the end of its line (bug_4a_fr_edt_08_empty_list_after_checklist_saves).

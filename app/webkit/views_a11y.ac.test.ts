@@ -98,7 +98,8 @@ test('fr_ux_03_ac51_views_keyboard_only', async ({ page }) => {
   await page.keyboard.type('Rating');
   await page.keyboard.press('Enter');
   await page.keyboard.press('Escape');
-  assert.ok(await fileWhen(core, qfile(Q.autor), (x) => !!x && x.includes('{ by: rating, order: asc }')), 'Add sort level, Rating: one write');
+  // Q2.1 (FR-QRY-07 AC-23): that write is book.yml's `Podle autora` item, not `Podle autora.yml`.
+  assert.ok(await fileWhen(core, BOOK_YML, (x) => !!x && x.includes(`  - name: ${Q.autor}\n`) && x.includes('{ by: rating, order: asc }')), 'Add sort level, Rating: one write');
   // ⇧F10 on the tab, Remove from Books page (one write).
   await tab(page, Q.autor).focus();
   await page.keyboard.press('Shift+F10');

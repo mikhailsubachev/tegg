@@ -4,18 +4,22 @@
 // editor; Show a saved query), tab drags and `Move view left / right`, the view menu (chevron, right-click, ⇧F10, the
 // toolbar's `⋯`), rename / duplicate / remove / trash, the remembered tab (machine-local, no history entry) and the
 // per-tab filter text. Each tab change is one `type_patch` of the `views` line, refused on an outside change.
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { usePopupPlacement } from '../shell/usePopupPlacement';
 import { t } from '../i18n/catalog';
 import { errorKind, ipc } from '../ipc/client';
 import type { QueryDefDto, QueryResultDto, QuerySummaryDto } from '../ipc/queries';
-import type { TypeDto } from '../ipc/types';
+import type { TypeDto, TypeOpDto } from '../ipc/types';
 import { Icon } from '../shell/Icon';
 import { PopupMenu, type MenuEntry } from '../shell/Menu';
 import { openQueryEditor, queryAlert } from '../queries/editorHost';
 import { announceView, ensureViewsLive } from './live';
 import { nowIso } from '../queries/env';
 import { queryNav } from '../queries/nav';
-import { renameQuery, trashQuery } from '../queries/QueryMenu';
+import { renameQuery } from '../queries/QueryMenu';
+import { trashView } from './trashView';
+import type { TypePatch } from './useUsageWrite';
 import { refreshQueries, useQueries } from '../queries/store';
 import { defaultGroupBy, hasViews, nameKey, newViewDef, savedOffers, viewTabs, viewsAfterDrop, viewsAfterInsert, viewsAfterMove, viewsAfterRemove, type OfferReason } from './model';
 import { lastTab, setLastTab } from './uiState';
@@ -79,42 +83,75 @@ export function TypeViews({ typeKey, type, types, plural, all }: {
   const tablist = useRef<HTMLDivElement | null>(null);
   const addBtn = useRef<HTMLButtonElement | null>(null);
   const [addOpen, setAddOpen] = useState(false);
-  const [menu, setMenu] = useState<{ name: string; anchor: HTMLElement; toolbar: boolean } | null>(null);
+  const [menu, setMenu] = useState<{ name: string; anchor: HTMLElement; toolbar: boolean; at?: { x: number; y: number } } | null>(null);
   const undoNew = useRef<{ name: string; before: string[]; version: unknown } | null>(null);
 
   // ---- one `views` write (D-1803): queued, each based on the version the last one wrote; refused on an outside change.
   const queue = useRef<Promise<void>>(Promise.resolve());
   const disk = useRef<TypeDto | null>(null);
   useEffect(() => { disk.current = null; }, [type]);
+  /** Reloads the type file from disk (a refusal: the tabs show what the file holds). */
+  const reload = () => {
+    disk.current = null;
+    void ipc.typeGet(cur.key).then((x) => { if (x) setLocal(x); }, () => {});
+  };
+  /** Slice Q2.1: one `type_patch` in the page's queue, based on `base` (else the version the last write returned).
+   *  On a refusal the type as on disk is shown and the error is passed on (the caller says what failed). */
+  const patchType: TypePatch = (ops, base) => {
+    const p = queue.current.then(async () => {
+      const on = base ?? disk.current ?? cur;
+      try {
+        const r = await ipc.typePatch(on.key, on.exists ? on.version : null, ops);
+        disk.current = r;
+        setLocal(r);
+        return r;
+      } catch (e) {
+        const x = e as { kind?: string; disk?: TypeDto };
+        disk.current = null;
+        if (x.kind === 'Conflict' && x.disk) setLocal(x.disk); else if (x.kind === 'Conflict' || x.kind === 'Rule') reload();
+        throw e;
+      }
+    });
+    queue.current = p.then(() => undefined, () => undefined);
+    return p;
+  };
+  /** A tab's sort or columns (R197): refusals alert as the views do (FR-SYN-03 AC-31). */
+  const usagePatch: TypePatch = (ops, base) => patchType(ops, base).catch((e) => {
+    const k = errorKind(e);
+    queryAlert(k === 'Conflict' || k === 'Rule' || k === 'Gone' || k === 'NewerVersion' ? t('views.changedOutside', { plural }) : t('query.saveFailed'));
+    throw e;
+  });
   const writeViews = (next: string[], o: { afterCreate?: boolean; select?: string | null; announce?: string } = {}): Promise<boolean> => {
     const base = disk.current ?? cur;
     if (!(base.state === 'ok' && !base.viewsUnreadable)) return Promise.resolve(false);
     const before = base.views ?? [];
     setLocal({ ...base, views: next });
     if (o.select !== undefined) select(o.select);
-    const p = queue.current.then(async () => {
-      const on = disk.current ?? base;
-      try {
-        const r = await ipc.typePatch(on.key, on.exists ? on.version : null, [{ op: 'views', names: next.map(nfc) }]);
-        disk.current = r;
-        setLocal(r);
-        if (o.announce) announceView(o.announce);
-        return true;
-      } catch (e) {
-        const x = e as { kind?: string; disk?: TypeDto };
-        disk.current = null;
-        setLocal(x.kind === 'Conflict' && x.disk ? x.disk : { ...base, views: before });
-        if (o.select !== undefined) setSelected((s) => (s === o.select ? (o.afterCreate ? null : s) : s));
-        queryAlert(t(o.afterCreate ? 'views.addFailed' : 'views.changedOutside', { plural }));
-        return false;
-      }
+    return patchType([{ op: 'views', names: next.map(nfc) }]).then(() => {
+      if (o.announce) announceView(o.announce);
+      return true;
+    }, (e) => {
+      const x = e as { kind?: string; disk?: TypeDto };
+      if (!(x.kind === 'Conflict' && x.disk)) setLocal({ ...base, views: before });
+      if (o.select !== undefined) setSelected((s) => (s === o.select ? (o.afterCreate ? null : s) : s));
+      queryAlert(t(o.afterCreate ? 'views.addFailed' : 'views.changedOutside', { plural }));
+      return false;
     });
-    queue.current = p.then(() => undefined);
-    return p;
   };
 
   // ---- actions
   const viewName = () => (shownName && shownName !== DRAFT ? shownName : null);
+  const trash = (tabName: string, queryName: string, title: string) => {
+    if (!writable) return;
+    const i = tabs.findIndex((x) => x.key === nameKey(tabName));
+    const shownKey = shownName ? nameKey(shownName) : null;
+    const previous = shownKey === nameKey(tabName) ? (i > 0 ? tabs[i - 1].name : null) : shownName;
+    void trashView(disk.current ?? cur, queryName, title, {
+      patch: patchType, plural, previous,
+      select: (n) => select(n),
+      reload,
+    });
+  };
   const remove = (name: string) => {
     if (!writable) return;
     const next = viewsAfterRemove(names, name);
@@ -135,7 +172,22 @@ export function TypeViews({ typeKey, type, types, plural, all }: {
     try { q = await ipc.queryDuplicate(name, nowIso(Date.now())); } catch (e) { queryAlert(errorKind(e) === 'NewerVersion' ? t('query.block.readOnly') : t('query.saveFailed')); return; }
     void refreshQueries();
     const next = viewsAfterInsert(names, q.name, name);
-    if (next) void writeViews(next, { afterCreate: true, select: q.name });
+    if (!next) return;
+    // D-1843, D-1863: the copy gets the tab's own sort and columns in the same write (widths aren't copied).
+    const item = (cur.viewItems ?? []).find((x) => nameKey(x.name) === nameKey(name)) ?? null;
+    const extra: TypeOpDto[] = [];
+    if (item?.sort && !item.sortBroken) extra.push({ op: 'viewSort', name: nfc(q.name), sort: item.sort });
+    if (item?.columns && !item.columnsBroken) extra.push({ op: 'viewColumns', name: nfc(q.name), columns: item.columns.map(nfc) });
+    if (!extra.length) { void writeViews(next, { afterCreate: true, select: q.name }); return; }
+    const base = disk.current ?? cur;
+    if (!(base.state === 'ok' && !base.viewsUnreadable)) return;
+    setLocal({ ...base, views: next });
+    select(q.name);
+    void patchType([{ op: 'views', names: next.map(nfc) }, ...extra]).catch(() => {
+      setLocal(null);
+      setSelected((s) => (s === q.name ? null : s));
+      queryAlert(t('views.addFailed', { plural }));
+    });
   };
   const showSaved = (s: QuerySummaryDto) => {
     if (!writable) return;
@@ -176,6 +228,7 @@ export function TypeViews({ typeKey, type, types, plural, all }: {
     openQueryEditor({
       name: n, host: null, anchor: anchor ?? tablist.current, returnFocus: anchor ?? tablist.current,
       fixedType: { key: cur.key, plural },
+      usage: panel.current?.editorUsage() ?? null,
       onResult: (r) => setLive(r),
       onCommitted: () => { panel.current?.rerun(); },
       onClosed: () => setLive(null),
@@ -267,7 +320,8 @@ export function TypeViews({ typeKey, type, types, plural, all }: {
       const v = viewName();
       const ro = v ? panel.current?.readOnly() ?? null : null;
       const b = v ? panel.current?.board() ?? null : null;
-      return { typeKey: cur.key, tab: v, writable, viewWritable: !!v && !ro && !!panel.current?.def(), board: b ? b.status() : null, sortable: !!v && !!panel.current?.def() };
+      return { typeKey: cur.key, tab: v, writable, viewWritable: !!v && !ro && !!panel.current?.def(), board: b ? b.status() : null, sortable: !!v && !!panel.current?.def(),
+        usage: v ? panel.current?.usage() ?? null : null };
     },
     run: (id) => {
       switch (id) {
@@ -278,6 +332,8 @@ export function TypeViews({ typeKey, type, types, plural, all }: {
         case 'views.moveLeft': moveBy(-1); return;
         case 'views.moveRight': moveBy(1); return;
         case 'sort.addLevel': panel.current?.openSort(true); return;
+        case 'sort.useQuery': panel.current?.useQuery('sort'); return;
+        case 'columns.useQuery': panel.current?.useQuery('columns'); return;
         default: panel.current?.board()?.run(id);
       }
     },
@@ -299,7 +355,8 @@ export function TypeViews({ typeKey, type, types, plural, all }: {
       item('open', t('views.openAsQuery'), () => queryNav()?.openQuery(summary?.name ?? name), { description: t('views.openAsQueryHint') }),
       { kind: 'separator' },
       item('remove', t('views.remove', { plural }), () => remove(name), { description: writable ? t('views.removeHint') : reason ?? undefined, disabled: !writable }),
-      item('trash', t('views.trash'), () => { void trashQuery(summary?.name ?? name, summary?.title ?? name, () => panel.current?.rerun()); }),
+      // Slice Q2.1 (§15; D-1835): the tab goes too, in one Undo with the move.
+      item('trash', t('views.trash'), () => { trash(name, summary?.name ?? name, summary?.title ?? name); }, { description: writable ? undefined : reason ?? undefined, disabled: !writable }),
       ...(toolbar && isSel && def?.view === 'board' && def.laneOrder !== null
         ? [item('reset', t('board.resetOrder'), () => panel.current?.board()?.run('board.resetLaneOrder'))] : []),
     ];
@@ -348,7 +405,7 @@ export function TypeViews({ typeKey, type, types, plural, all }: {
                   className={`view-tab${on ? ' on' : ''}${tabDrag?.name === it.name ? ' dragging' : ''}${dropBefore ? ' drop-before' : ''}${dropAfter ? ' drop-after' : ''}`}
                   onMouseDown={it.draft ? undefined : startTabDrag(it.name)}
                   onClick={() => { if (!on) select(it.name); }}
-                  onContextMenu={(e) => { e.preventDefault(); if (!it.draft) setMenu({ name: it.name, anchor: e.currentTarget, toolbar: false }); }}
+                  onContextMenu={(e) => { e.preventDefault(); if (!it.draft) setMenu({ name: it.name, anchor: e.currentTarget, toolbar: false, at: { x: e.clientX, y: e.clientY } }); }}
                   onKeyDown={(e) => {
                     if (e.key === 'F10' && e.shiftKey && !it.draft) { e.preventDefault(); e.stopPropagation(); setMenu({ name: it.name, anchor: e.currentTarget, toolbar: false }); }
                   }}>
@@ -380,7 +437,8 @@ export function TypeViews({ typeKey, type, types, plural, all }: {
           filter={filters[selectedItem.name] ?? EMPTY} onFilter={(f) => setFilters((m) => ({ ...m, [selectedItem.name]: f }))}
           onState={(s) => setStates((m) => (m[selectedItem.name] === s ? m : { ...m, [selectedItem.name]: s }))}
           onMenu={(anchor) => setMenu({ name: selectedItem.name, anchor, toolbar: true })}
-          onRemove={() => remove(selectedItem.name)} apiRef={panel} live={live} draft={selectedItem.draft} labelledBy={tabId(selectedItem.name)} />
+          onRemove={() => remove(selectedItem.name)} apiRef={panel} live={live} draft={selectedItem.draft} labelledBy={tabId(selectedItem.name)}
+          patch={usagePatch} />
       )}
       {addOpen && (
         <AddViewMenu anchor={addBtn.current} boardBy={t('views.kind.boardBy', { attribute: groupName })}
@@ -391,7 +449,8 @@ export function TypeViews({ typeKey, type, types, plural, all }: {
       )}
       {menu && (
         <PopupMenu label={t('views.menu')} anchor={menu.anchor} disabledFocusable entries={viewMenuEntries(menu.name, menu.toolbar)}
-          onClose={() => setMenu(null)} />
+          onClose={() => setMenu(null)} fit popupId={menu.toolbar ? 'views.menu' : 'views.tabMenu'}
+          openerKind={menu.at ? 'context' : 'menu'} at={menu.at ?? null} />
       )}
     </>
   );
@@ -406,11 +465,8 @@ function AddViewMenu({ anchor, boardBy, offers, reasonText, onKind, onSaved, onC
   onKind: (k: 'table' | 'list' | 'board') => void; onSaved: (s: QuerySummaryDto) => void; onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
-  const [pos, setPos] = useState({ left: 0, top: 0 });
-  useLayoutEffect(() => {
-    const r = anchor?.getBoundingClientRect();
-    if (r) setPos({ left: Math.max(8, Math.min(r.left, window.innerWidth - 300)), top: r.bottom + 4 });
-  }, [anchor]);
+  // Slice Q2.1 (§20): placed inside the window, in a body portal.
+  const style = usePopupPlacement(ref, anchor, 'menu');
   const items = () => [...(ref.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
   useEffect(() => {
     items()[0]?.focus();
@@ -428,8 +484,8 @@ function AddViewMenu({ anchor, boardBy, offers, reasonText, onKind, onSaved, onC
     );
     return el;
   };
-  return (
-    <div ref={ref} role="menu" aria-label={t('views.addMenu')} className="popup-menu view-add-menu" style={{ left: pos.left, top: pos.top, maxHeight: `calc(100vh - ${pos.top + 8}px)`, overflowY: 'auto' }}
+  return createPortal(
+    <div ref={ref} role="menu" aria-label={t('views.addMenu')} className="popup-menu view-add-menu" style={style} data-popup="views.addMenu"
       onKeyDown={(e) => {
         const list = items();
         const i = list.indexOf(document.activeElement as HTMLElement);
@@ -453,6 +509,7 @@ function AddViewMenu({ anchor, boardBy, offers, reasonText, onKind, onSaved, onC
         {offers.greyed.map(({ summary: s, reason }) => item(`g:${s.name}`, s.state === 'unreadable' ? s.name : s.title || s.name, <><Icon name={s.view ?? 'table'} size={14} /><span className="menu-title">{s.state === 'unreadable' ? s.name : s.title || s.name}</span><span className="menu-hint" aria-hidden="true">{reasonText(reason, s)}</span></>,
           null, { description: reasonText(reason, s), query: nfc(s.name), user: true }))}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

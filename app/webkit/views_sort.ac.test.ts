@@ -24,6 +24,16 @@ async function openSort(page: Page, scope: Locator): Promise<Locator> {
   await click(sortButton(scope), 'the sort button');
   return must(sortDialog(page), 'dialog `Sort`');
 }
+/** Q2.1: `query/<name>` through the Queries page (the page shows and sets the defaults, D-1842). */
+async function openQueryPage(page: Page, name: string) {
+  await runCommand(page, 'Go to Queries');
+  await click(main(page).locator(`tr[data-query-row="${name.normalize('NFC')}"] a`).first(), `query/${name}`);
+  await must(sortButton(main(page)), `query/${name}: the sort button`, 5000);
+}
+/** The rows of the query page's table, in order. */
+const pageRows = (page: Page) => main(page).evaluate((el) => ([...el.querySelectorAll('[data-query-result]')] as HTMLElement[]).map((e) => (e.getAttribute('data-query-result') ?? '').normalize('NFC').split('/').pop()!.replace(/\.md$/, ''))).catch(() => [] as string[]);
+const pageRowsAre = (page: Page, want: string[], ms = 3000) => eventually(() => pageRows(page), (r) => JSON.stringify(r) === JSON.stringify(want), ms);
+const pageHeaders = (page: Page) => main(page).locator('table thead th').evaluateAll((hs) => hs.map((h) => ((h as HTMLElement).innerText ?? '').replace(/\s+/g, ' ').trim())).catch(() => [] as string[]);
 /** The popover's rows as `aria-label`s. */
 const levelLabels = (page: Page) => sortLevels(page).evaluateAll((ls) => ls.map((l) => (l.getAttribute('aria-label') ?? '').normalize('NFC')));
 
@@ -63,10 +73,12 @@ test('fr_qry_01_ac8_multi_level_order_broken_lists', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ FR-QRY-01 AC-9
 
 test('fr_qry_01_ac9_sort_popover_writes_each_change_once', async ({ page }) => {
-  const core = await startViews(page, { route: typeRoute('book') });
-  await openP26(page);
-  const dlg = await openSort(page, toolbar(page));
-  assert.equal(await sortButton(toolbar(page)).getAttribute('aria-haspopup'), 'dialog', 'the sort button opens a dialog');
+  // Q2.1 (D-1842, FR-QRY-01 AC-15): steps (a)…(e) and their bytes move to the query page, which sets the defaults; on a
+  // tab the popover writes the tab's `views:` item (FR-QRY-07 AC-23).
+  const core = await startViews(page, { route: queryRoute(Q.p26) });
+  await must(sortButton(main(page)), 'query/Přečtené 2026: the sort button', 8000);
+  const dlg = await openSort(page, main(page));
+  assert.equal(await sortButton(main(page)).getAttribute('aria-haspopup'), 'dialog', 'the sort button opens a dialog');
   assert.deepEqual(await levelLabels(page), ['Sort by Finished, Newest first', 'then by Rating, Excellent first', 'then by Title, A → Z'], 'three rows');
   for (const b of ['+ Add sort', 'Clear']) assert.ok(await seen(dlg.getByRole('button', { name: rx(b) }), 500), b);
   const level = (i: number) => sortLevels(page).nth(i);
@@ -121,17 +133,18 @@ test('fr_qry_01_ac10_sort_file_shapes', async ({ page }) => {
   // Opening, running and drawing every fixture query writes nothing.
   for (const n of [Q.roz, Q.p26, Q.vyb, Q.zanr, Q.autor, Q.datum]) { await must(tab(page, n), `tab ${n}`, 8000); await selectTab(page, n); await sleep(200); }
   assert.deepEqual(await writes(core), [], 'one-level files are never rewritten into a list');
-  await selectTab(page, Q.vyb);
-  assert.deepEqual(await panelRowsAre(page, VYB_ROWS, 3000), VYB_ROWS, 'Výborné knihy (R193)');
-  await header(panelOf(page), 'Finished').click({ modifiers: ['Shift'] });
+  // Q2.1 (D-1842, FR-QRY-01 AC-15): the file-shape steps run on query/Výborné knihy and query/Podle žánru (the defaults).
+  await openQueryPage(page, Q.vyb);
+  assert.deepEqual(await pageRowsAre(page, VYB_ROWS, 3000), VYB_ROWS, 'Výborné knihy (R193)');
+  await header(main(page), 'Finished').click({ modifiers: ['Shift'] });
   assert.equal(await fileWhen(core, qfile(Q.vyb), (x) => x === expectedView('vyborne-knihy-sort-two-levels.yml')), expectedView('vyborne-knihy-sort-two-levels.yml'), '(a) the three lines in place of line 8');
-  const dlg = await openSort(page, toolbar(page));
+  const dlg = await openSort(page, main(page));
   await click(sortLevels(page).nth(1).getByRole('button', { name: rx('Remove') }), 'Remove Finished');
   assert.equal(await fileWhen(core, qfile(Q.vyb), (x) => x === expectedView('vyborne-knihy-sort-back-to-one.yml')), expectedView('vyborne-knihy-sort-back-to-one.yml'), '(b) back to one line: the fixture except modified');
   await page.keyboard.press('Escape');
   assert.ok(dlg, 'the popover was open');
-  await selectTab(page, Q.zanr);
-  await openSort(page, toolbar(page));
+  await openQueryPage(page, Q.zanr);
+  await openSort(page, main(page));
   await click(sortDialog(page).getByRole('button', { name: rx('+ Add sort') }), '+ Add sort');
   const z = await fileWhen(core, qfile(Q.zanr), (x) => x === expectedView('podle-zanru-sort-add-level.yml'));
   assert.equal(z, expectedView('podle-zanru-sort-add-level.yml'), '(c) `sort:   # jedna úroveň` and two items; comments and x-barva stay');
@@ -141,14 +154,15 @@ test('fr_qry_01_ac10_sort_file_shapes', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ FR-QRY-01 AC-11
 
 test('fr_qry_01_ac11_header_click_and_shift_click', async ({ page }) => {
-  const core = await startViews(page, { route: typeRoute('book') });
-  await openP26(page);
-  const p = panelOf(page);
+  // Q2.1 (D-1842, FR-QRY-01 AC-15): the steps move to the query page; on the tab they write its item (FR-QRY-07 AC-23).
+  const core = await startViews(page, { route: queryRoute(Q.p26) });
+  assert.deepEqual(await pageRowsAre(page, P26_ROWS, 8000), P26_ROWS, 'precondition: R193\'s order');
+  const p = main(page);
   await click(header(p, 'Rating'), 'Rating');
   assert.equal(await fileWhen(core, qfile(Q.p26), (x) => x === expectedView('prectene-2026-click-rating.yml')), expectedView('prectene-2026-click-rating.yml'), '(a) `sort: { by: rating, order: asc }`');
   const a = ['Cizí přístavy', 'Čarovná mapa', 'Mapa bez severu', 'Sto zimních dní', 'Šest cest k moři', 'Tiché město', 'Kniha o čaji', 'Zahrada v dešti'];
-  assert.deepEqual(await panelRowsAre(page, a), a, '(a) Excellent, Good, Bad; title inside');
-  assert.deepEqual((await panelHeaders(page)).map(flat).filter((h) => /[↑↓]/.test(h)), ['Rating ↑'], '(a) headers `Rating ↑` only');
+  assert.deepEqual(await pageRowsAre(page, a), a, '(a) Excellent, Good, Bad; title inside');
+  assert.deepEqual((await pageHeaders(page)).map(flat).filter((h) => /[↑↓]/.test(h)), ['Rating ↑'], '(a) headers `Rating ↑` only');
   await click(header(p, 'Rating'), 'Rating again');
   assert.equal(await fileWhen(core, qfile(Q.p26), (x) => x === expectedView('prectene-2026-click-rating-desc.yml')), expectedView('prectene-2026-click-rating-desc.yml'), '(b) flipped');
   await header(p, 'Finished').click({ modifiers: ['Shift'] });
@@ -166,6 +180,7 @@ test('fr_qry_01_ac11_header_click_and_shift_click', async ({ page }) => {
   await page.keyboard.press('Shift+Enter');
   assert.ok(await fileWhen(core, qfile(Q.p26), (x) => !!x && x.includes('  - { by: author, order: asc }\n  - { by: rating, order: asc }\n')), '⇧⏎ acts as ⇧-click');
   // On All Books ⇧-click acts as a plain click (one machine-local level).
+  await runCommand(page, 'Go to type: Books');
   await click(main(page).locator('[role="tab"][data-view-tab=""]'), 'All Books');
   const n = (await writes(core)).length;
   await header(panelOf(page), 'Rating').click({ modifiers: ['Shift'] });
@@ -175,9 +190,9 @@ test('fr_qry_01_ac11_header_click_and_shift_click', async ({ page }) => {
 });
 
 test('fr_qry_01_ac11_header_click_and_shift_click_block_follows', async ({ page }) => {
-  const core = await startViews(page, { route: typeRoute('book') });
-  await openP26(page);
-  await click(header(panelOf(page), 'Rating'), 'Rating');
+  // Q2.1 (FR-QRY-01 AC-15): on the query page, where Čtení's block (no own sort) still follows.
+  const core = await startViews(page, { route: queryRoute(Q.p26) });
+  await click(header(main(page), 'Rating'), 'Rating');
   await fileWhen(core, qfile(Q.p26), (x) => x === expectedView('prectene-2026-click-rating.yml'));
   await openNote(page, 'Čtení 2026');
   const blk = block(page, Q.p26);
@@ -260,15 +275,17 @@ test('fr_qry_05_ac23_widths_per_query_shared_by_tab_and_blocks', async ({ page }
   const start = (await th.boundingBox())!;
   await drag(page, handle, { dx: 200 - start.width, dy: 0 });
   assert.ok(near((await th.boundingBox())!.width, 200), 'Title 200 px in the block');
-  const ui = await eventually(() => uiState(core), (u) => u?.queryColumnWidths?.[Q.p26]?.title === 200);
-  assert.equal(ui?.queryColumnWidths?.[Q.p26]?.title, 200, 'queryColumnWidths["Přečtené 2026"].title = 200');
+  // Q2.1 (D-1836 amends D-1767; R198): widths are per usage; the tab and the other block keep theirs.
+  const key = 'block:id:01JB5V00000000000000000029/přečtené 2026#1';
+  const ui = await eventually(() => uiState(core), (u) => u?.usageColumnWidths?.[key]?.title === 200);
+  assert.equal(ui?.usageColumnWidths?.[key]?.title, 200, `usageColumnWidths["${key}"].title = 200`);
   assert.equal((await uiWrites(core)) - w0, 1, 'once on release');
   assert.deepEqual(await writes(core), [], 'no vault file changes');
   await openNote(page, 'Druhá stránka');
-  assert.ok(near((await header(block(page, Q.p26), 'Title').boundingBox())!.width, 200), 'a second block of the query shows 200 px');
+  assert.ok(!near((await (await must(header(block(page, Q.p26), 'Title'), 'the second block', 5000)).boundingBox())!.width, 200), 'a second block of the query keeps its own width');
   await runCommand(page, 'Go to type: Books');
   await selectTab(page, Q.p26);
-  assert.ok(near((await header(panelOf(page), 'Title').boundingBox())!.width, 200), 'the tab shows 200 px');
+  assert.ok(!near((await header(panelOf(page), 'Title').boundingBox())!.width, 200), 'the tab keeps its own width');
   await click(main(page).locator('[role="tab"][data-view-tab=""]'), 'All Books');
   assert.ok(!near((await header(panelOf(page), 'Title').boundingBox())!.width, 200), 'All Books keeps its own Title width');
   void original;
