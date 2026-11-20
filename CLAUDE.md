@@ -29,6 +29,8 @@ Spike code was throwaway; it was removed on 2026-11-04 (D-1366) and only each sp
 - **S4 done (GO):** Rust index (SQLite FTS5, in-memory switcher, FSEvents watcher) beats every NFR-PERF target it can measure by ≥ 3.5× (most by 10–1000×), see `spikes/s4-index/FINDINGS.md`. The Rust extractor matches the TS reference (`tests/fixtures/format/extract/expected.json`, plus a nightly differential corpus). The reference vault comes from `tools/gen-vault`. AP-15 and AP-16 decided (D-64, D-65).
 - **S5 done (GO):** Capacities dry run (preview + report, no writes) in Rust, see `spikes/s5-capacities-import/FINDINGS.md`. Fixtures C1–C19: `tests/fixtures/import/capacities/`. The owner's real-export run passes (0 unreadable, imported + reported = total in all 3 spaces); it caught a link-scanner gap, so the importer takes links from a real Markdown parser. AP-22…AP-28 decided (D-75…D-81).
 
+**Android MVP** (a separate track after v1.0; a sideloaded APK from the same Tauri project; its decision numbers start at D-2000 and its BRD version at v1.230 to stay clear of slice Q2-T's): plan `docs/plans/android-mvp-plan.md` (AP-2000…AP-2012 → D-2000…D-2012, BRD v1.230: a local vault folder synced with Google Drive, first by a separate sync app, then built-in Drive sync as slice AND-4, the second exception to NFR-SEC-01; views read-only and no bulk jobs on the phone; peer-to-peer sync later); slices AND-0 spike, AND-1 shell, AND-2 phone layout and reading, AND-3 editing, AND-4 Drive sync.
+
 ## Stack (confirmed, D-19)
 
 - Tauri 2 (Rust core) + React + TypeScript UI
