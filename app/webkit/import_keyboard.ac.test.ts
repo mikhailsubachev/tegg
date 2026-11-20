@@ -197,6 +197,9 @@ test('fr_ux_03_ac44_import_without_the_pointer', async ({ page }) => {
 test('fr_ux_03_ac44_import_without_the_pointer: Tab cycles inside the dialog; Step 0\'s radios move with arrows', async ({ page }) => {
   await startImport(page, { imports: C01() });
   // The element that had the focus before the window opened (contract §3.2: closing returns the focus to it).
+  // The route puts the focus on its heading a moment after the frame shows: read the opener once that has happened,
+  // or the test marks <body> and the window rightly returns the focus to the heading.
+  await eventually(() => page.evaluate(() => document.activeElement?.tagName ?? 'BODY'), (tag) => tag !== 'BODY', 3000);
   const opener = await page.evaluate(() => {
     const a = (document.activeElement ?? document.body) as HTMLElement;
     a.setAttribute('data-test-opener', '1');
