@@ -8,7 +8,8 @@ import {
   paletteDialog, paletteOptions, runCommand, seen, shellVaultWithQuery, shellVaultWithTag, sidebar, sleep, start, switcherDialog, theme, titleState, settled,
   searchQueryField,
 } from './helpers';
-import { pressNewObject, typePickerField } from './helpers'; // D-1431: ⌘N / New object… open the type picker first
+import { pressNewObject, typePickerField, shellVault } from './helpers';
+import { withTaskViews } from './tasks-helpers'; // D-1431: ⌘N / New object… open the type picker first
 
 const TYPE_PLURALS = ['Pages', 'Tasks', 'Quick Notes', 'Daily Notes', 'Cesty', 'Čajovny', 'Schůzky', 'Images', 'PDFs', 'recept'];
 const query = (page: Page) => page.getByRole('combobox', { name: 'Command query' });
@@ -22,8 +23,10 @@ async function reached(page: Page, name: string, ms: number): Promise<boolean> {
 
 /** Starts the app for an R1 row: `tag/<key>` needs a vault with a tag (AP-685, D-747: `tag/účty`), `query/<name>` one with a
  *  saved query (slice Q, D-1447: `query/Porady`). */
+// D-1932 (AC-Test-Change, slice Q2-T): the `tasks` / `tasks/kanban` rows run on a vault with the default task views,
+// since `Show Kanban` is listed only when Task's `views` names Kanban (R207).
 const startFor = (page: Page, row: (typeof R1)[number]) =>
-  start(page, row.id === 'tag/<key>' ? { vault: shellVaultWithTag() } : row.id === 'query/<name>' ? { vault: shellVaultWithQuery() } : {});
+  start(page, row.id === 'tag/<key>' ? { vault: shellVaultWithTag() } : row.id === 'query/<name>' ? { vault: shellVaultWithQuery() } : row.id === 'tasks' || row.id === 'tasks/kanban' ? { vault: withTaskViews(shellVault()) } : {});
 
 /** Goes to an R1 route by its "Reached by" palette means; returns the expected centre-pane name (DRAFT for a draft). */
 async function goRoute(page: Page, row: (typeof R1)[number]): Promise<string> {

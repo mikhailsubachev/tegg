@@ -73,7 +73,8 @@ test('fr_typ_09_ac3_sort_by_columns_and_remember_per_type', async ({ page }) => 
   const rows = await rowTitles(page, S);
   assert.equal(rows[0], '2026-10-07 Porada', 'dates: the only valid date first');
   const ui = await eventually(() => core.uiState(), (u: any) => !!u?.typeSort?.['schůzka'], 2000) as any;
-  assert.deepEqual(ui?.typeSort?.['schůzka'], { column: 'datum', dir: 'asc' }, 'kept per type in the machine-local UI state');
+  // D-1934 (AC-Test-Change, slice Q2-T): `typeSort` is always a list of levels (D-1907, contract §30.3); 0.4.x values are still read.
+  assert.deepEqual(ui?.typeSort?.['schůzka'], [{ by: 'datum', order: 'asc' }], 'kept per type in the machine-local UI state');
   assert.deepEqual(await nonReadCalls(core), [], 'nothing written to the vault');
 });
 
