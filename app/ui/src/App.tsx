@@ -68,7 +68,7 @@ import type { InterruptedDto } from './ipc/types';
 import { TagPage } from './tags/TagPage';
 import { AllTagsPage } from './tags/AllTagsPage';
 import { tagOfFile, useTags, loadTags, refreshTags } from './tags/store';
-import { findPin, editReason } from './pinned/model';
+import { findPin, editReason, typePinnable } from './pinned/model';
 import { ImportDialog } from './import/ImportDialog';
 import { ImportStatus } from './import/ImportStatus';
 import { importOpen, importRunning, openImport as openImportWindow, quitRequested as importQuitRequested, setImportHost, startImportEvents } from './import/store';
@@ -747,7 +747,7 @@ export function App() {
     if (!r) return null;
     if (r.id === 'new/<type>') return 'unsaved';
     if (r.id === 'tag/<key>') return r.param ? { kind: 'tag', key: r.param } : null;
-    if (r.id === 'type/<type>') return r.param ? { kind: 'type', key: r.param } : null;
+    if (r.id === 'type/<type>') return typePinnable(r.param) ? { kind: 'type', key: r.param! } : null; // D-1933
     if (r.id === 'note/<path>') return r.param ? { kind: 'object', path: r.param.normalize('NFC') } : null;
     if (r.id === DAILY) { const p = objectPathOf(r); return p ? { kind: 'object', path: p.normalize('NFC') } : 'unsaved'; }
     // Slice Q (v1-queries §1.9): a query page pins its query by name.

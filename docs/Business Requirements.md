@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.215, for review                                            |
+| **Document status** | Draft v1.216, for review                                            |
 | **Date**            | 2026-11-19                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -225,6 +225,7 @@
 | v1.213  | 2026-11-20 | Slice Q2-T contract (`docs/contracts/v1-views.md` part three, §23–§32): D-1914…D-1923 (CP-22…CP-31; owner, each as proposed): period lanes in the core with a TS twin, `group_period`, Task card data in query rows, read-only date-time period lanes, the `task_views_restore` command, the migration in `open_vault`, lane counts by type name, the summary in three parts, AC names fixed to the code, invalid dates sort as empty |
 | v1.214  | 2026-11-20 | Slice Q2-T red tests: D-1924…D-1928 (owner, each as proposed): more changed tests under D-1912, an already-green schema test dropped, type-only test edits for the stubs, red-test clarifications, the order of the test commits |
 | v1.215  | 2026-11-20 | Slice Q2-T build: D-1929 (test fixes to the decided behaviour), D-1930 (lane counts on every single-type board), D-1931 (the week lane's order) |
+| v1.216  | 2026-11-20 | Slice Q2-T push gate: D-1932 (older Kanban tests get the default views), D-1933 (the Tasks page is not pinnable), D-1934 (`typeSort` is always a list) |
 
 ---
 
@@ -1970,6 +1971,9 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1929 | Q2-T build test fixes (owner, 2026-11-20; slice Q2-T build) | About 20 AC tests whose expectations conflicted with decided behaviour or with each other are changed to the decided behaviour or fixed in their harness, without dropping what they check: the state-operator rename step (T13 is Cancelled), the Pages-only migration step (`Bez hlavičky` is a Page, D-103), the migration and restore kill windows widened as D-1889, `fr_qry_07_ac4` (c) builds its Board with no `columns` (D-1910), history checks by a navigation spy, the `id:` line removed before comparing (RT-6), `Thursday 15` day headings, drag sources scrolled into view, period `Group by` choices on date attributes (D-1776), the default views added where tests open the Tasks page, the remembered tab, the done window, the `none` lane id, the folded done lane, §26's board alerts, nested pseudo-locale marks, one `ui_state_set` from adopting 0.4.x state (`AC-Test-Change`) |
 | D-1930 | Lane counts on every single-type board (owner, 2026-11-20; slice Q2-T build) | As D-1920: `3 Books`, `4 Tasks` on every board of one type, `cards` only on boards of several types; Q2's `Reading, 3 cards` tests change (`AC-Test-Change`) |
 | D-1931 | The week lane's order (owner, 2026-11-20; slice Q2-T build) | The This week lane lists its cards in the view's sort order inside each day group; contract §24.1's comment is corrected to §24.4 |
+| D-1932 | Older tests that open Kanban (owner, 2026-11-20; slice Q2-T push gate) | `keyboard` (the `tasks` / `tasks/kanban` rows), `search_goto` and `pinned_drag`'s Kanban source run on vaults with the default task views, as D-1924, since `Show Kanban` is listed only when Task's `views` names Kanban (R207) (`AC-Test-Change`) |
+| D-1933 | The Tasks page is not pinnable (owner, 2026-11-20; slice Q2-T push gate) | `type/task` has its fixed sidebar entry, so like Inbox it offers no `Pin to sidebar` (palette, type page, Types entry); pinned.md FR-HOM-02 AC-7 stays |
+| D-1934 | `typeSort` is always a list (owner, 2026-11-20; slice Q2-T push gate) | The machine-local sort of `All <plural>` is written as a list of levels even for one level (D-1907, contract §30.3); 0.4.x `{ column, dir }` values are still read. type_page FR-TYP-09 AC-3 expects the list (`AC-Test-Change`) |
 
 ---
 

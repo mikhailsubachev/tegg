@@ -391,7 +391,7 @@ export function Board(p: BoardProps) {
               className={['board-lane', l.excluded ? 'excluded' : '', over !== null ? 'drop-over' : '', laneOver ? `lane-drop-${laneOver}` : '', laneDrag?.id === l.id ? 'lane-dragging' : ''].filter(Boolean).join(' ')}>
               <header className="board-lane-head">
                 {!vertical && (
-                  <button type="button" tabIndex={0} className="icon-button small lane-fold" aria-expanded={!isFolded}
+                  <button type="button" tabIndex={0} className="icon-button small lane-fold" aria-expanded={!isFolded} data-command="board.toggleLane"
                     aria-label={t(isFolded ? 'board.expand' : 'board.collapse', { lane: l.label })}
                     onClick={(e) => p.onFold(l.id, e.altKey)}>
                     <Icon name={isFolded ? 'chevron-right' : 'chevron-down'} size={13} />

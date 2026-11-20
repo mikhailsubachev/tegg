@@ -60,7 +60,7 @@ export function LanesSwitch({ lanes, disabled, onSwitch }: { lanes: 'vertical' |
   return (
     <div role="radiogroup" aria-label={t('board.lanes')} data-command="board.switchLanes" className="segmented lanes-switch">
       {(['vertical', 'horizontal'] as const).map((l) => (
-        <button key={l} type="button" role="radio" aria-checked={lanes === l} tabIndex={lanes === l ? 0 : -1}
+        <button key={l} type="button" role="radio" aria-checked={lanes === l} tabIndex={lanes === l ? 0 : -1} data-command="board.switchLanes"
           title={t(l === 'vertical' ? 'board.verticalTitle' : 'board.horizontalTitle')}
           aria-disabled={disabled ? 'true' : undefined} aria-description={disabled ?? undefined}
           className={lanes === l ? 'on' : ''}
