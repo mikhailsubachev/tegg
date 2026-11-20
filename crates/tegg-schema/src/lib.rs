@@ -387,7 +387,32 @@ fn nfc_value(v: &Value) -> Value {
 }
 
 /// Never fails and never writes (NFR-REL-03). Validity rules of ms3-shell §14.1.1 (AR-07 AC-4).
+///
+/// A pure function of `key` and `text`, so the last results are kept in a small memo: a write path reads a type file
+/// (`type_get`), patches it (which parses the same text again) and verifies the new text, which the next read of the
+/// file parses once more. With the memo each text is parsed once (QA of Q2.1: a view tab's write in a debug build).
 pub fn parse(key: &str, text: &str) -> Parsed {
+    use std::sync::{Mutex, OnceLock};
+    const SIZE: usize = 32;
+    static MEMO: OnceLock<Mutex<Vec<(String, String, Parsed)>>> = OnceLock::new();
+    let key = nfc(key);
+    let memo = MEMO.get_or_init(|| Mutex::new(Vec::new()));
+    if let Ok(m) = memo.lock() {
+        if let Some((_, _, p)) = m.iter().find(|(k, t, _)| *k == key && t == text) {
+            return p.clone();
+        }
+    }
+    let p = parse_uncached(&key, text);
+    if let Ok(mut m) = memo.lock() {
+        if m.len() >= SIZE {
+            m.remove(0);
+        }
+        m.push((key, text.to_string(), p.clone()));
+    }
+    p
+}
+
+fn parse_uncached(key: &str, text: &str) -> Parsed {
     let key = nfc(key);
     match read_def(&key, text) {
         Ok((def, readability, top)) => {

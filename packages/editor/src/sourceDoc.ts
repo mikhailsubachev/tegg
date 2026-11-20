@@ -115,11 +115,17 @@ export function reconcile(loaded: Loaded, pmDoc: PMNode, opts: { forceVerifyFail
     if (node.type.name === 'paragraph' && node.textContent.trim() === '' && !hasAtoms(node)) return // empty line: nothing to write
     const srcRaw = original ? doc.blocks[src!].raw : undefined
     const isRaw = node.type.name === 'rawBlock'
-    const md = isRaw ? String(node.attrs.source) : (srcRaw !== undefined && (checkboxPatch(original!, node, srcRaw) || tablePatch(original!, node, srcRaw) || queryBodyPatch(original!, node, srcRaw))) || renderBlock(pmToBlock(node.toJSON()), srcRaw)
+    // D-1885 (v1-views §13.3): a container whose only change is the text of nested query fences is written by
+    // patching those fences' lines in its source, and never re-rendered: its other bytes (NFD text, prefixes) are kept.
+    const bodiesOnly = srcRaw !== undefined && !isRaw && onlyQueryBodiesChanged(original!, node)
+    const patched = bodiesOnly ? queryBodyPatch(original!, node, srcRaw!) : null
+    if (bodiesOnly && patched === null) throw new VerifyError(QUERY_PATCH_FAILED)
+    const md = isRaw ? String(node.attrs.source) : patched ?? ((srcRaw !== undefined && (checkboxPatch(original!, node, srcRaw) || tablePatch(original!, node, srcRaw))) || renderBlock(pmToBlock(node.toJSON()), srcRaw))
     if (!isRaw && md.trim() === '') return // e.g. a paragraph of spaces: nothing to write
     // A raw block holds bytes the file already had (a copy, a moved or mode-changed embed): never re-normalized, so
-    // an NFD embed line stays NFD when duplicated (AP-336, FR-FMT-07 AC-15). Rendered blocks are written in NFC.
-    const written = isRaw ? fitEol(md, eol) : fit(md, eol)
+    // an NFD embed line stays NFD when duplicated (AP-336, FR-FMT-07 AC-15). A query-fence patch keeps the container's
+    // bytes too (its new lines come from `withUsage` in NFC, D-1885). Rendered blocks are written in NFC.
+    const written = isRaw || patched !== null ? fitEol(md, eol) : fit(md, eol)
     items.push({ base: written, text: written, src: original ? src : null, unchanged: false, node, srcRaw, hint: srcRaw })
   })
 
@@ -294,6 +300,40 @@ const queryBodies = (n: PMNode): string[] => {
   return out
 }
 
+/** The message of the VerifyError a container's query-fence write throws when its fences can't be patched (D-1885). */
+export const QUERY_PATCH_FAILED = 'A query block inside this block could not be written without changing its other text; nothing was saved'
+
+/** A container (a callout, a quote, a list) whose only change from `original` is the text of nested `query` fences. */
+function onlyQueryBodiesChanged(original: PMNode, node: PMNode): boolean {
+  if (node.isTextblock || node.type.name === 'codeBlock' || node.type.name === 'rawBlock' || original.type !== node.type) return false
+  const strip = (j: JSONContent): JSONContent => (isNestedQuery(j) ? { ...j, content: [] } : { ...j, ...(j.content ? { content: j.content.map(strip) } : {}) })
+  if (JSON.stringify(strip(original.toJSON())) !== JSON.stringify(strip(node.toJSON()))) return false
+  const before = queryBodies(original)
+  const after = queryBodies(node)
+  return before.length === after.length && before.some((b, i) => b !== after[i])
+}
+
+/**
+ * Whether a save of `pmDoc` can write it: false when a container whose only change is the text of nested query fences
+ * can't be patched, so `reconcile` would throw instead of re-rendering it (D-1885). A usage write checks this before it
+ * applies, so nothing is written and the app shows `query.saveFailed`.
+ */
+export function queryWritesFit(loaded: Loaded, pmDoc: PMNode): boolean {
+  const used = new Set<number>()
+  let ok = true
+  pmDoc.forEach((shown) => {
+    if (!ok) return
+    const src = shown.attrs.srcIndex as number | null
+    const original = src !== null && src < loaded.originals.length && !used.has(src) ? loaded.originals[src] : null
+    if (src === null || !original) return
+    used.add(src)
+    const node = writable(shown)
+    if (node.eq(original) || !onlyQueryBodiesChanged(original, node)) return
+    if (queryBodyPatch(original, node, loaded.doc.blocks[src]!.raw) === null) ok = false
+  })
+  return ok
+}
+
 /**
  * Slice Q2.1 (v1-views §13.3, R195; D-1839): a container (a callout, a quote, a list) whose only change is the text of
  * nested `query` fences, as a block's sort or columns write gives it, is written by replacing only the changed lines of
@@ -301,12 +341,9 @@ const queryBodies = (n: PMNode): string[] => {
  * the gaps between its children keep their bytes; new lines get the prefix of the fence's opening line.
  */
 function queryBodyPatch(original: PMNode, node: PMNode, raw: string): string | null {
-  if (node.isTextblock || node.type.name === 'codeBlock' || node.type.name === 'rawBlock') return null
-  const strip = (j: JSONContent): JSONContent => (isNestedQuery(j) ? { ...j, content: [] } : { ...j, ...(j.content ? { content: j.content.map(strip) } : {}) })
-  if (JSON.stringify(strip(original.toJSON())) !== JSON.stringify(strip(node.toJSON()))) return null
+  if (!onlyQueryBodiesChanged(original, node)) return null
   const before = queryBodies(original)
   const after = queryBodies(node)
-  if (before.length !== after.length || before.every((b, i) => b === after[i])) return null
   const text = raw.replace(/\r\n/g, '\n')
   const fences = queryFences(text).filter((f) => f.nested)
   if (fences.length !== after.length) return null

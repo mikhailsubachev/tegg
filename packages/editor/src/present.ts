@@ -456,12 +456,16 @@ function bodyFrom(source: string): string {
   return source.replace(/\r\n?/g, '\n')
 }
 
-/** Replaces the query block at `pos` with `source` as one transaction and one undo step; clears `draft`. */
+/** The meta of a `setSource` transaction: the editor refuses it when the save couldn't write it (D-1885). */
+export const QUERY_SOURCE_META = 'teggQuerySource'
+
+/** Replaces the query block at `pos` with `source` as one transaction and one undo step; clears `draft`. False when
+ *  the editor refused the transaction (a nested fence whose container can't be patched, D-1885): nothing changed. */
 export function setQuerySource(view: EditorView, pos: number, source: string): boolean {
   if (!view.editable) return false
   const node = view.state.doc.nodeAt(pos)
   if (!node || !isQueryNode(node)) return false
-  const tr = closeHistory(view.state.tr)
+  const tr = closeHistory(view.state.tr).setMeta(QUERY_SOURCE_META, true)
   if (node.type.name === 'rawBlock') {
     if (node.attrs.source === source && !node.attrs.draft) return true
     tr.setNodeMarkup(pos, undefined, { ...node.attrs, source, draft: false })
@@ -471,7 +475,7 @@ export function setQuerySource(view: EditorView, pos: number, source: string): b
     tr.replaceWith(pos + 1, pos + node.nodeSize - 1, body ? view.state.schema.text(body) : [])
   }
   view.dispatch(tr)
-  return true
+  return view.state.doc === tr.doc
 }
 
 function queryCtl(view: EditorView, getPos: () => number | undefined, node: () => PMNode, nested: boolean): QueryCtl {

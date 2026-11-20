@@ -11,7 +11,7 @@ import type { QueryDefDto, QueryResultDto, SortDto } from '../ipc/queries';
 import type { TypeDto, TypeOpDto } from '../ipc/types';
 import type { BlockCtl } from '../queries/QueryBlock';
 import { queryAlert } from '../queries/editorHost';
-import { effectiveColumns, effectiveSort, type Usage } from './usage';
+import { effectiveColumns, effectiveSort, queryEffective, type Usage } from './usage';
 
 export type UsageWriter = {
   /** null: `Use the query's sort` (tab, block only). Resolves true when written or nothing to write. */
@@ -70,11 +70,13 @@ export function useUsageWrite(usage: Usage | null, result: QueryResultDto | null
 
   const current = () => {
     const r = res.current;
-    const def = r?.def ?? null;
     const p = pending.current;
+    // After `Use the query's …` (pending null) the usage shows the query's effective value (R194; R185's default for a
+    // broken sort), not the query file's raw value.
+    const q = r ? queryEffective(r) : { sort: [], columns: [] };
     return {
-      sort: p.sort !== undefined ? (p.sort ?? def?.sort ?? []) : r ? effectiveSort(r) : [],
-      columns: p.columns !== undefined ? (p.columns ?? def?.columns ?? []) : r ? effectiveColumns(r) : [],
+      sort: p.sort !== undefined ? (p.sort ?? q.sort) : r ? effectiveSort(r) : [],
+      columns: p.columns !== undefined ? (p.columns ?? q.columns) : r ? effectiveColumns(r) : [],
     };
   };
   /** The usage's own value now: undefined = none (absent), 'broken' = present but broken. */
@@ -107,7 +109,8 @@ export function useUsageWrite(usage: Usage | null, result: QueryResultDto | null
       if (!ctl || fenceSource === null) return false;
       const src = withUsage(fenceSource, key === 'sort' ? { sort: value as SortDto[] | null } : { columns: value as string[] | null });
       if (src === null) return true;
-      if (!ctl.setSource(src)) return false;
+      // False: the block is gone, or the editor refused the write (its container couldn't be patched, D-1885).
+      if (!ctl.setSource(src)) { queryAlert(t('query.saveFailed')); return false; }
       pending.current = { ...pending.current, [key]: value };
       return true;
     }

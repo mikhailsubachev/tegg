@@ -480,7 +480,8 @@ fn fr_syn_02_ac12_usage_writes_are_atomic() {
             seed ^= seed << 13;
             seed ^= seed >> 7;
             seed ^= seed << 17;
-            std::thread::sleep(Duration::from_micros(200 + seed % 3000));
+            // D-1889: 0.2–8 ms, so kills fall before, during and after a debug write (fsync alone takes 2–3 ms).
+            std::thread::sleep(Duration::from_micros(200 + seed % 7800));
             let _ = child.kill();
             let _ = child.wait();
             if ready.with_extension("failed").exists() {

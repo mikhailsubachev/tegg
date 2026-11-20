@@ -14,6 +14,7 @@ import {
   sortDialog, sortLevels, sortScope, startViews, swap, tab, tabKey, tabMenu, tabsAre, textOf, toolbar, toolbarMenuButton, typeRoute, uiState, uiWrites, usageNotice,
   usageRoot, usages, viewMenu, viewQuery, viewsVault, writes, type FakeCoreHandle,
 } from './views-usage-helpers';
+import { attributeBox, done, editorButton, filterRows, operatorBox, pickOption, valueControl } from './queries-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
 const flat = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim().normalize('NFC');
@@ -45,6 +46,33 @@ const TITLE_ASC = ['Cizí přístavy', 'Čarovná mapa', 'Kniha o čaji', 'Mapa 
 const TAB_P26 = ['Cizí přístavy', 'Čarovná mapa', 'Mapa bez severu', 'Sto zimních dní', 'Šest cest k moři', 'Tiché město', 'Kniha o čaji', 'Zahrada v dešti'];
 const VYB_ROWS = ['Cizí přístavy', 'Čarovná mapa', 'Mapa bez severu'];
 const minusModified = (t: string | undefined) => (t ?? '').replace(/^modified: .*$/m, '');
+/** Counts every `role="alert"` element the page adds from now on (one alert node at a time is shown; a new alert is a
+ *  new node), so a check can ask for a new alert per action. */
+async function countAlerts(page: Page) {
+  await page.evaluate(() => {
+    const w = window as unknown as { __alertsShown?: string[] };
+    w.__alertsShown = [];
+    new MutationObserver((ms) => {
+      for (const m of ms) for (const nd of m.addedNodes) {
+        if (!(nd instanceof HTMLElement)) continue;
+        for (const el of [nd, ...nd.querySelectorAll('[role="alert"]')]) if (el.getAttribute('role') === 'alert') w.__alertsShown!.push(el.textContent ?? '');
+      }
+    }).observe(document.body, { subtree: true, childList: true });
+  });
+}
+const alertsShown = (page: Page, text: string) => page.evaluate((x) => ((window as unknown as { __alertsShown?: string[] }).__alertsShown ?? []).filter((a) => a.includes(x)).length, text);
+/** `Add filter` in the open editor, then attribute / condition / value by the pointer. */
+async function addFilter(page: Page, attr: string, op: string, value: string) {
+  const n = await filterRows(page).count();
+  await click(editorButton(page, 'Add filter'), 'Add filter');
+  const row = filterRows(page).nth(n);
+  await click(attributeBox(row), 'Attribute');
+  await pickOption(page, attr);
+  await click(operatorBox(row), 'Condition');
+  await pickOption(page, op);
+  await click(valueControl(row).first(), 'Value');
+  await pickOption(page, value);
+}
 
 // ------------------------------------------------------------------------------------------------ FR-QRY-07 AC-20
 
@@ -459,6 +487,47 @@ test('fr_qry_01_ac15_query_page_sets_the_defaults', async ({ page }) => {
   assert.equal(await editor(page).locator('p[data-per-usage]').count(), 1, 'p[data-per-usage]');
 });
 
+test('fr_qry_01_ac15_query_page_sets_the_defaults_columns', async ({ page }) => {
+  // `Columns` on the query page writes the query file's `columns` (the defaults) with its scope line.
+  const core = await startViews(page, { route: queryRoute(Q.p26) });
+  const pb = await must(main(page).locator('figure[data-query-block]').first(), 'the query page\'s block', 8000);
+  await must(hdr(pb, 'Rating'), 'the query page\'s table', 8000);
+  await click(blockColumns(pb), 'Columns');
+  await must(columnsMenu(page), 'menu Columns');
+  assert.equal(flat(await textOf(columnsScope(page))), 'Default for tabs and blocks without their own columns', 'the scope line');
+  await click(check(page, 'Genres'), 'Genres');
+  assert.equal(await fileWhen(core, qfile(Q.p26), (x) => x === expectedView('prectene-2026-columns-genres.yml')), expectedView('prectene-2026-columns-genres.yml'), 'the query file\'s columns (Q2\'s expected bytes)');
+  await page.keyboard.press('Escape');
+  assert.equal(await fileText(core, BOOK_YML), original(BOOK_YML), 'book.yml untouched');
+  assert.equal(await fileText(core, CTENI), original(CTENI), 'Čtení untouched');
+});
+
+test('fr_qry_01_ac15_query_page_sets_the_defaults_filter_from_a_block', async ({ page }) => {
+  // The editor opened from Cesty's block 1 writes the query file (shared): `rating: Excellent` leaves 3 rows in every
+  // usage of `Přečtené 2026`, each in its own order.
+  const core = await startViews(page, { route: noteRoute(CESTY), vault: overlayVault() });
+  const b1 = await must(block(page, Q.p26, 0), 'Cesty\'s block 1', 8000);
+  await click(blockEdit(b1), 'Edit query from block 1');
+  await must(editor(page), 'the editor');
+  await addFilter(page, 'Rating', 'is', 'Excellent');
+  await done(page);
+  assert.ok((await fileWhen(core, qfile(Q.p26), (x) => !!x && x.includes('rating: Excellent')))?.includes('rating: Excellent'), 'the filter is in the query file');
+  assert.equal(minusModified(await fileText(core, CESTY)), minusModified(OVERLAY_CESTY), 'Cesty\'s fences untouched');
+  assert.equal(await fileText(core, BOOK_YML), OVERLAY_BOOK, 'book.yml untouched');
+  const byTitle = ['Cizí přístavy', 'Čarovná mapa', 'Mapa bez severu'];
+  const byQuery = ['Mapa bez severu', 'Cizí přístavy', 'Čarovná mapa']; // finished ↓, rating ↑, title ↑
+  assert.deepEqual(await rowsAre(block(page, Q.p26, 0), byTitle), byTitle, 'block 1: its own `title ↑`');
+  assert.deepEqual(await rowsAre(block(page, Q.p26, 1), byQuery), byQuery, 'block 2: the query\'s sort');
+  await openNote(page, 'Čtení 2026');
+  assert.deepEqual(await rowsAre(block(page, Q.p26), byQuery), byQuery, 'Čtení\'s block: the query\'s sort');
+  await runCommand(page, 'Go to type: Books');
+  await selectTab(page, Q.p26);
+  assert.deepEqual(await panelRowsAre(page, byTitle), byTitle.map((x) => x.normalize('NFC')), 'the tab: its own `rating ↑, title ↑`');
+  await runCommand(page, 'Go to Queries');
+  await click(main(page).locator(`tr[data-query-row="${Q.p26}"] a`).first(), 'query/Přečtené 2026');
+  assert.deepEqual(await rowsAre(main(page), byQuery), byQuery, 'the query page: the query\'s sort');
+});
+
 // ------------------------------------------------------------------------------------------------ FR-QRY-01 AC-16
 
 test('fr_qry_01_ac16_effective_and_broken_usage_values', async ({ page }) => {
@@ -608,18 +677,22 @@ test('fr_syn_03_ac31_usage_writes_check_the_base', async ({ page }) => {
   await selectTab(page, Q.p26);
   const actions: [string, () => Promise<void>][] = [
     ['a header click', () => click(hdr(panelOf(page), 'Finished'), 'Finished')],
+    ['a popover change', async () => { await click(sortButton(toolbar(page)), 'sort'); await must(sortDialog(page), 'Sort'); await click(sortLevels(page).nth(1).getByRole('button', { name: rx('Remove') }), 'Remove Title'); await page.keyboard.press('Escape'); }],
     ['a Columns change', async () => { await click(tabColumns(page), 'Columns'); await click(check(page, 'Genres'), 'Genres'); await page.keyboard.press('Escape'); }],
+    ['a header drag', () => drag(page, hdr(panelOf(page), 'Finished'), hdr(panelOf(page), 'Author'), { at: 'left' })],
     ['Use the query\'s sort', async () => { await click(sortButton(toolbar(page)), 'sort'); await click(sortDialog(page).getByRole('button', { name: rx('Use the query\'s sort') }), 'Use'); await page.keyboard.press('Escape'); }],
   ];
+  await countAlerts(page);
   for (const [what, act] of actions) {
     const disk = await silently(core, BOOK_YML);
-    const n = await alertWith(page, VIEWS_OUT).count();
+    const n = await alertsShown(page, VIEWS_OUT);
     await act();
-    assert.ok(await eventually(() => alertWith(page, VIEWS_OUT).count(), (c) => c > n || c >= 1, 3000), `${what}: the alert`);
+    assert.ok(await eventually(() => alertsShown(page, VIEWS_OUT), (c) => c > n, 3000), `${what}: a new alert`);
+    assert.ok(await seen(alertWith(page, VIEWS_OUT), 1000), `${what}: the alert shows`);
     assert.equal(await fileText(core, BOOK_YML), disk, `${what}: nothing written`);
   }
   assert.ok((await core.typeCalls()).every((c) => c.ok === false), 'every type_patch refused');
-  assert.ok((await core.typeCalls()).length >= 3, 'and each was a type_patch (not a query file write)');
+  assert.ok((await core.typeCalls()).length >= actions.length, 'and each was a type_patch (not a query file write)');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-SYN-06 AC-49
@@ -633,9 +706,25 @@ test('fr_syn_06_ac49_each_usage_action_writes_one_file', async ({ page }) => {
     await page.keyboard.press('Escape');
     await click(toolbarMenuButton(page), '⋯');
     await page.keyboard.press('Escape');
+    if (n === Q.roz) continue; // a board with vertical lanes: no Columns, no folding
+    // A table tab: its Columns menu opened and closed, and a resize.
+    await click(tabColumns(page), 'Columns');
+    await must(columnsMenu(page), 'menu Columns');
+    await page.keyboard.press('Escape');
+    await drag(page, await must(panelOf(page).getByRole('separator', { name: rx('Resize Title') }), 'Resize Title'), { dx: 40, dy: 0 });
   }
   await openNote(page, 'Knihy na cesty');
-  await must(block(page, Q.p26, 0), 'Cesty', 8000);
+  const b1 = await must(block(page, Q.p26, 0), 'Cesty', 8000);
+  await click(blockColumns(b1), 'block 1: Columns');
+  await must(columnsMenu(page), 'menu Columns');
+  await page.keyboard.press('Escape');
+  await drag(page, await must(b1.getByRole('separator', { name: rx('Resize Title') }), 'block 1: Resize Title'), { dx: 40, dy: 0 });
+  // Folding: a lane of a board with horizontal lanes (`query/Podle žánru`), closed and opened again.
+  await runCommand(page, 'Go to Queries');
+  await click(main(page).locator(`tr[data-query-row="${Q.zanr}"] a`).first(), 'query/Podle žánru');
+  const zb = await must(board(page, Q.zanr), 'Podle žánru\'s board', 5000);
+  await click(lane(zb, 'option:Román').getByRole('button', { name: rx('Collapse Román') }), 'Collapse Román');
+  await click(lane(zb, 'option:Román').getByRole('button', { name: rx('Expand Román') }), 'Expand Román');
   await openNote(page, 'Čtení 2026');
   assert.deepEqual(await writes(core), [], 'the tour writes nothing');
   assert.equal((await core.typeCalls()).length, 0, 'no type_patch');
@@ -708,7 +797,7 @@ test('fr_lnk_03_ac25_rename_keeps_usage_settings', async ({ page }) => {
   const st = await eventually(() => uiState(core), (u) => !!u?.usageColumnWidths?.[tabKey('Přečtené letos')], 3000);
   assert.deepEqual(st?.usageColumnWidths, { [tabKey('Přečtené letos')]: { title: 300 }, [pageKey('Přečtené letos')]: { author: 180 } }, 'R198\'s keys move after done');
   assert.equal(st?.typeViews?.lastTab?.book, 'Přečtené letos', 'lastTab follows');
-  assert.ok((await uiWrites(core)) - n0 >= 1, 'in a ui_state_set');
+  assert.equal((await uiWrites(core)) - n0, 1, 'in one ui_state_set');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-UX-03 AC-52

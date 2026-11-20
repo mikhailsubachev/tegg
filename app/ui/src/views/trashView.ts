@@ -18,12 +18,17 @@ export type TrashViewHost = {
   /** Reloads the type from disk (a refusal). */
   reload: () => void;
   plural: string;
+  /** The type page that trashes (its root element): ⌘Z undoes only while the focus is inside it. */
+  page: () => HTMLElement | null;
 };
 
 let undoKey: ((e: KeyboardEvent) => void) | null = null;
+let undoWhere: ((e: Event) => void) | null = null;
 function clearUndoKey() {
   if (undoKey) window.removeEventListener('keydown', undoKey, true);
+  if (undoWhere) { document.removeEventListener('focusin', undoWhere, true); document.removeEventListener('mousedown', undoWhere, true); }
   undoKey = null;
+  undoWhere = null;
 }
 
 /** §15: `type` as the page shows it, `name` the view, `title` its query's title, `previous` the tab selected after. */
@@ -90,11 +95,20 @@ export async function trashView(type: TypeDto, name: string, title: string, host
     }
   };
   showToast(t('queries.trashed', { name: title }), () => { void undo(); });
-  // ⌘Z while the toast shows, with the focus on the page (not in a text field).
+  // ⌘Z while the toast shows, with the focus on the type page that did the trash (not in a text field). A click on
+  // the page's empty area leaves the focus on the body: the page keeps it until a focus or a click lands elsewhere.
   clearUndoKey();
+  const pageEl = host.page();
+  let inPage = true;
+  undoWhere = (e: Event) => { inPage = !!pageEl && pageEl.contains(e.target as Node | null); };
+  document.addEventListener('focusin', undoWhere, true);
+  document.addEventListener('mousedown', undoWhere, true);
   undoKey = (e: KeyboardEvent) => {
     if (!(e.metaKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z')) return;
     const el = e.target as HTMLElement | null;
+    if (!pageEl || !pageEl.isConnected) return;
+    const onBody = !el || el === document.body || el === document.documentElement;
+    if (onBody ? !inPage : !pageEl.contains(el)) return;
     if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
     if (document.querySelector('[role="dialog"]')) return;
     e.preventDefault();

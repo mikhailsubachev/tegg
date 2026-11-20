@@ -871,6 +871,19 @@ pub fn fence_usage(body: &str) -> UsageRaw;
   drag, `Columns` and `On cards` › `Change…` are `aria-disabled` with `query.block.usageNotEditable`; resizing and
   folding work (machine-local). `Choose a query…` / `Save as query…` stay absent there (v1-queries §3.3).
 - A draft block (`ctl.draft`) and an inline fence have no usage (D-1810, unchanged).
+- **Fence-only patch** (D-1885; `packages/editor/src/sourceDoc.ts` `queryBodyPatch`): when the save's `reconcile`
+  finds a top-level container (a callout, a quote, a list) whose only change from the opened file is the text of nested
+  `query` fences, it writes that container by patching its original source: only the fence body lines that changed are
+  replaced (head and tail lines that match are kept), new lines get the prefix of the fence's opening line (`> `, list
+  indentation, a list marker's width in spaces). Every other byte of the container is kept: other paragraphs, the
+  callout title, an NFD `saved:` value, the EOLs (the patch is written with the note's EOL and is **not** NFC-normalized;
+  the new lines are NFC because `withUsage` writes them so). A top-level fence (`rawBlock`) keeps its bytes as before.
+- **Fail, never re-render** (D-1885, QA review of Q2.1): when such a container can't be patched (its fences don't match
+  the parsed blocks, a body line without the expected prefix), the write fails instead of re-rendering the container:
+  `setSource` returns false and changes nothing (the editor refuses the transaction; `queryWritesFit`), so nothing is
+  written and the block shows `query.saveFailed`; a save of such a change that didn't come through `setSource` throws
+  `VerifyError` (the autosave's failed state) and writes nothing. A container that also has other edits is rendered as
+  before (FR-EDT-08).
 
 ## 14. Usage settings in `views:` (R196; D-1840, D-1843; AR-07 AC-10)
 
@@ -1024,8 +1037,9 @@ export function useUsageWrite(usage: Usage | null, result: QueryResultDto | null
   tab whose type file can't be written (Newer, invalid) → the reason `Remove` has (R194 as fixed by D-1864). An unreadable
   query has no controls (R141).
 - **`On cards` › `Change…`** (D-1844): the editor's `On cards` row shows the opener's **effective** `columns`;
-  `Change…` (the R130 Columns menu) calls the opener's `UsageWriter.columns` at once, on a tab, in a block and on the
-  page (CP-18, D-1860).
+  `Change…` (the R130 Columns menu) calls the opener's `UsageWriter.columns` at once on a tab and in a block (CP-18,
+  D-1860). On the query page (`query/<name>`) it changes the editor's draft and applies with the editor's `Done`, as in
+  Q2 (D-1884 amends D-1860).
 - **The editor** opened from any usage (`Edit view`, `Edit query`) commits the shared keys to the query file; its
   commit's `sort` and `columns` are always the **query file's** (`result.def`), never the usage's, so `patch` writes
   neither (D-1842). Its preview run (`query_run({ kind: 'def' })`) substitutes the opener's effective `sort` and

@@ -150,6 +150,7 @@ export function TypeViews({ typeKey, type, types, plural, all }: {
       patch: patchType, plural, previous,
       select: (n) => select(n),
       reload,
+      page: () => tablist.current?.closest<HTMLElement>('.type-page') ?? null,
     });
   };
   const remove = (name: string) => {

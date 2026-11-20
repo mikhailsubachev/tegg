@@ -83,10 +83,18 @@ fn model(lines: &[String]) -> Result<Model, RuleError> {
     let span = top_span(lines, "views");
     let mut m = Model { span, block: false, ind: ITEM_INDENT, items: Vec::new() };
     let Some((s, e)) = span else { return Ok(m) };
-    let text = join_lines(lines, true);
-    let top = match tegg_format::parse_yaml_value(&text) {
-        Ok(Some(Value::Object(t))) => t,
-        _ => return Err(RuleError::ViewsUnreadable),
+    // The `views` key's own lines read as the same value as in the whole file (they are one top-level key); the whole
+    // file is read only when they don't parse alone (an alias of an anchor elsewhere). A tab's write reads less.
+    let alone = match tegg_format::parse_yaml_value(&join_lines(&lines[s..e], true)) {
+        Ok(Some(Value::Object(t))) if t.len() == 1 && t.contains_key("views") => Some(t),
+        _ => None,
+    };
+    let top = match alone {
+        Some(t) => t,
+        None => match tegg_format::parse_yaml_value(&join_lines(lines, true)) {
+            Ok(Some(Value::Object(t))) => t,
+            _ => return Err(RuleError::ViewsUnreadable),
+        },
     };
     let raw: Vec<Value> = match top.get("views") {
         None | Some(Value::Null) => Vec::new(),
@@ -256,17 +264,29 @@ pub(crate) fn apply_views(def: &mut TypeFile, lines: &mut Vec<String>, op: &Type
             if m.span.is_some() && old == names {
                 return Ok(());
             }
-            let mut used: Vec<usize> = Vec::new();
+            // §14.2: a kept name takes the first existing item with its name key; a name listed again (same name key)
+            // is dropped, never written as a copy of that item (bug_q21qa_fr_qry_07_set_views_drops_later_repeats).
+            let mut seen: Vec<String> = Vec::new();
+            let names: Vec<String> = names
+                .into_iter()
+                .filter(|n| {
+                    let k = view_name_key(n);
+                    if seen.contains(&k) {
+                        return false;
+                    }
+                    seen.push(k);
+                    true
+                })
+                .collect();
             let items: Vec<Item> = names
                 .iter()
                 .map(|n| match find(&m, n) {
                     Ok(i) => {
                         let mut it = m.items[i].clone();
-                        if used.contains(&i) || it.name != *n {
+                        if it.name != *n {
                             it.changed = true;
                         }
                         it.name = n.clone();
-                        used.push(i);
                         it
                     }
                     Err(_) => Item::new_plain(n),

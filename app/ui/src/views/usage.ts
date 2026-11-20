@@ -83,6 +83,18 @@ export function effectiveColumns(result: RunLike): string[] {
   return result.usage ? result.usage.columns : (result.def?.columns ?? []);
 }
 
+/** R194: the query's own effective values, which a usage without its own value shows (after `Use the query's …`):
+ *  the core's effective value when the run's usage has no own value; otherwise the query file's, with R185's default
+ *  `[modified desc]` for a broken `sort`. */
+export function queryEffective(result: Pick<QueryResultDto, 'def' | 'usage' | 'broken'>): { sort: SortDto[]; columns: string[] } {
+  const u = result.usage;
+  const ownBroken = (k: 'sort' | 'columns') => !!u && u.broken.some((b) => b.key === k);
+  const sort = u && u.own.sort === null && !ownBroken('sort') ? u.sort
+    : result.broken.some((b) => b.key === 'sort') || !result.def ? [{ by: 'modified', order: 'desc' as const }] : result.def.sort;
+  const columns = u && u.own.columns === null && !ownBroken('columns') ? u.columns : (result.def?.columns ?? []);
+  return { sort, columns };
+}
+
 /** The usage's own values as read (null: absent or broken); null for a run without a usage. */
 export function ownOf(result: RunLike): { sort: SortDto[] | null; columns: string[] | null } | null {
   return result.usage ? result.usage.own : null;
