@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.202, for review                                            |
+| **Document status** | Draft v1.210, for review                                            |
 | **Date**            | 2026-11-19                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -216,6 +216,7 @@
 | v1.200  | 2026-11-19 | Slice Q2.1 contract (`docs/contracts/v1-views.md` part two): D-1852…D-1863 (CP-10…CP-21; owner, each as proposed) and D-1864 (eight AC fixes) |
 | v1.201  | 2026-11-19 | Slice Q2.1 red tests (a13bca2d): D-1865…D-1874 (RT-12…RT-21; owner, each as proposed) |
 | v1.202  | 2026-11-20 | Slice Q2.1 build: D-1875…D-1877 (three AC-test fixes: catalog key sets with R199, a property-test timeout, FR-QRY-07 AC-25 (a) replacing the whole item) |
+| v1.210  | 2026-11-19 | A shorter WebKit run (owner, 2026-11-19: "Build it"; measurement of the same day): D-1880 (the WebKit tests load a built bundle served from memory), D-1881 (6 WebKit workers in the gates, replaces D-1347's 4), D-1882 (the nightly gate also runs the WebKit suite on the dev server; QA review, owner: "Add nightly run"). `tools/qa/CONTRACT.md` §3.2.1, §3.2.2. (v1.198…v1.209 and D-1835…D-1879 are reserved for slice Q2.1) |
 
 ---
 
@@ -1907,6 +1908,9 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1875 | The catalog tests' key sets grow by R199 (owner, 2026-11-20; slice Q2.1 build) | `app/test/views_catalog.ac.test.ts` (NFR-OTH-02 AC-21) and `app/test/queries_catalog.ac.test.ts` (AC-17) assert exactly R192's and R199's, and R145's, R192's and R199's keys (`AC-Test-Change`) |
 | D-1876 | A timeout for the fence-usage property test (owner, 2026-11-20; slice Q2.1 build) | `packages/doc/test/query_usage_props.ac.test.ts` (FR-FMT-07 AC-34) gets a 600 s timeout like the other property tests; at the nightly scale it runs 10,000 cases (`AC-Test-Change`) |
 | D-1877 | FR-QRY-07 AC-25 (a) replaces the whole item (owner, 2026-11-20; slice Q2.1 build) | `crates/tegg-core/tests/ac_views_usage.rs` step (a) replaced only the item's `name:` line, leaving its `sort:` and so a duplicate key that made the type file invalid; it now replaces the whole item with `- sort: { by: title }` (`AC-Test-Change`) |
+| D-1880 | The WebKit tests load a built bundle (owner, 2026-11-19: "Build it") | A page load from the Vite dev server made about 356 requests and took about 610 ms; from a built bundle it makes 5 and takes about 180 ms, and the dev server stopped scaling past 6 workers. `app/webkit/serve-built.ts` builds the UI once per run with the app's Vite config, keeps it in memory and serves it on the run's port; the page entries and the eight modules the tests import in the page (seven of the UI and `packages/doc`) are entry chunks at their source paths, so no test changed. A test prelude is now a module of its own that the page entry imports first, so it runs before the app's modules, as the shipped app's region setting does. The bundle is a production build (minified, React's production mode), as the shipped app is. `TEGG_WEBKIT_DEV=1` serves the dev server for debugging. CONTRACT §3.2.1 |
+| D-1881 | 6 WebKit workers in the gates (owner, 2026-11-19: "Build it"; replaces D-1347) | D-1347 lowered the gates to 4 workers because 6 drove the load average to about 14–24 while every test loaded the dev server. With the built bundle (D-1880) 6 workers gave a load average of about 8 and ran 293 tests in 83 s against 148 s for the dev server with 4, also with four busy cores next to them. 8 workers were faster still (71 s) but are not used until 6 has held in the gates. `app/playwright.config.ts` |
+| D-1882 | A nightly WebKit run on the dev server (owner, 2026-11-19: "Add nightly run"; QA review of D-1880) | The app renders inside React's StrictMode, which runs effects twice in a development build only. With the built bundle (D-1880) the push gate no longer exercises that, and at least eight guards in the UI exist only to stay correct under it. The nightly step `app-webkit-dev` runs the whole WebKit suite on the Vite dev server with 4 workers (`VERIFY_WEBKIT_DEV=1`), so a removed guard fails the nightly gate the next morning. The push gate stays on the bundle. CONTRACT §3.2.1 |
 
 ---
 
