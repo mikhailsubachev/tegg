@@ -92,6 +92,7 @@ The Mac is not changed: it keeps the desktop client. FR-SYN-21 (no mixing of fol
 A new layout for narrow screens, chosen by window width so the same build also serves a narrow desktop window later (FR-UX-04):
 
 - one column; the sidebar becomes a drawer;
+- **a note opens as its own full-screen page**, never beside the sidebar (owner, 2026-11-20, on the first emulator screenshot: "we should open each note as a new tab/page"). Whether open notes are also kept as tabs to switch between is settled on the design boards;
 - no right panel (Backlinks, Graph, Related are out, §8);
 - a bottom bar: sidebar, search, new object, today's daily note;
 - touch targets ≥ 44 pt (FR-UX-04);
