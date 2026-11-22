@@ -64,7 +64,7 @@ export const R1: R1Row[] = [
   // v0.52 (D-608): Help › Keyboard Shortcuts; no `Go to` command (palette `Keyboard shortcuts`, ⇧⌘/).
   { id: 'help/shortcuts', page: 'Keyboard shortcuts', built: true, due: d('MS5'), reqs: 'FR-UX-03', design: null, goto: 'Keyboard shortcuts' },
   { id: 'settings/menu-bar', page: 'Settings: Menu bar and startup', built: true, due: d('MS5'), reqs: 'FR-SET-05', design: 'Settings', goto: 'Go to Settings: Menu bar and startup' },
-  { id: 'settings/backups', page: 'Settings: Backups', built: true, due: d('MS4'), reqs: 'FR-HIS-04, NFR-REL-04', design: null, goto: 'Go to Settings: Backups' },
+  { id: 'settings/backups', page: 'Settings: Backups', built: true, due: d('MS4'), reqs: 'FR-HIS-04, NFR-REL-04', design: 'Settings', goto: 'Go to Settings: Backups' }, // D-1994, D-2042
   { id: 'settings/trash-history', page: 'Settings: Trash and history', built: false, due: d('v1.0'), reqs: 'FR-SET-06', design: 'Settings', goto: 'Go to Settings: Trash and history' },
   // Built in slice P (previews.md R106, FR-SET-07 AC-1; D-943).
   { id: 'settings/previews', page: 'Settings: Previews', built: true, due: d('v1.0'), reqs: 'FR-SET-07', design: 'Settings', goto: 'Go to Settings: Previews' },

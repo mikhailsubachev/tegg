@@ -133,7 +133,7 @@ test('fr_ux_02_ac25_settings_keyboard_and_screen_reader', async ({ page }) => {
   const n = await must(nav(page), 'the section list', 8000);
   await page.getByRole('main').getByRole('heading', { level: 1 }).focus();
   const seen: string[] = [];
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 11; i++) { // D-2044: 11 Tab stops on settings/date-time
     await page.keyboard.press('Tab');
     const f = await focusName(page);
     seen.push(`${f.role}:${f.name.replace(/[⟦⟧]/g, '')}`);

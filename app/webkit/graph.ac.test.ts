@@ -749,9 +749,11 @@ test('fr_grp_06_ac1_preview_column_with_the_connections_line', async ({ page }) 
   const col = await must(previewCol(page), 'the Preview column');
   await must(col.locator(`[data-preview-path="${nfc(P.rozpocet)}"]`), 'data-preview-path="Projekty/Rozpočet 2027.md"');
   const text = flat(await col.innerText());
-  for (const part of ['Rozpočet 2027', 'Projekt', 'Projekt · 6 connections', 'Vlastník', 'Jana Nováková', 'Termín', 'Dec 31, 2026', 'Rozpočet na příští rok.']) {
+  for (const part of ['Rozpočet 2027', 'Projekt', 'Projekt · 6 connections', 'Jana Nováková', 'Termín', 'Dec 31, 2026', 'Rozpočet na příští rok.']) {
     assert.ok(text.includes(part), `the column shows ${JSON.stringify(part)}: ${text}`);
   }
+  // D-2024, D-2027: the link chip shows the target only; its accessible name carries the property's Name.
+  assert.ok(await col.getByLabel(nfc('Vlastník: Jana Nováková'), { exact: true }).count() >= 1, 'the link chip is named "Vlastník: Jana Nováková"');
   assert.ok(await col.locator('[data-icon="folder"]').count() >= 1, 'the folder icon');
   const btns = await col.getByRole('button').allInnerTexts();
   const ci = btns.findIndex((b) => b.includes('Center graph here')), oi = btns.findIndex((b) => /^Open/.test(b.trim()));

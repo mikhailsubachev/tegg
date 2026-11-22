@@ -8,8 +8,8 @@ import type { Page } from '@playwright/test';
 import { test } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
-  P, SEVEN, STAV_Q, addPopover, addProperty, another, board, cardsVault, editProperty, focusName, main, must, noteRoute, objectCard, picker, pickerSearch, propertyIcon,
-  queryRoute, sevenTypes, settingsNav, settingsRoute, sleep, startCards, viewsList,
+  P, SEVEN, STAV_Q, addPopover, addProperty, another, board, cardWhen, cardsVault, editProperty, focusName, main, must, nfc, noteRoute, objectCard, picker, pickerSearch, propertyIcon,
+  queryRoute, sevenTypes, settingsNav, settingsRoute, sleep, startCards, swap, viewsList,
 } from './cards-helpers';
 import { axeContrast, colourLeaks } from './read-helpers';
 
@@ -26,7 +26,7 @@ for (const theme of ['light', 'dark'] as const) {
       for (const v of await axeContrast(p)) bad.push(`${theme}, ${what}: ${v}`);
       for (const v of await colourLeaks(p, theme)) bad.push(`${theme}, ${what}: colour outside the tokens ${v}`);
     };
-    await startCards(page, { vault: cardsVault((f) => sevenTypes(f)), route: queryRoute(STAV_Q), ui: { theme } });
+    const core = await startCards(page, { vault: cardsVault((f) => sevenTypes(f)), route: queryRoute(STAV_Q), ui: { theme } });
     await must(objectCard(board(page), P.snezka), 'Výlety podle stavu', 8000);
     await check(page, 'Výlety podle stavu');
     for (const [r, what] of [[noteRoute(P.karty), 'Karty'], [queryRoute(SEVEN), 'the seven-type board']] as const) {
@@ -50,7 +50,10 @@ for (const theme of ['light', 'dark'] as const) {
       await must(settingsNav(x.page), `${r}: the section list`, 8000);
       await check(x.page, r);
     }
-    // Option dots use --type-<colour>; +N more uses --muted.
+    // Option dots use --type-<colour>; +N more uses --muted. D-2043: R187 hides the grouping property's pill, so the
+    // board is regrouped by náročnost (as cards_parts ac10 does) before the stav dot is read.
+    await core.setFile(`.tegg/queries/${STAV_Q}.yml`, swap((await core.files())[nfc(`.tegg/queries/${STAV_Q}.yml`)], 'group_by: stav', 'group_by: náročnost'));
+    await cardWhen(objectCard(board(page), P.snezka), (c) => !!c?.items.some((i) => i.attribute === 'stav'), 3000);
     const tokens = await page.evaluate(() => { const cs = getComputedStyle(document.documentElement); return { green: cs.getPropertyValue('--type-green').trim(), muted: cs.getPropertyValue('--muted').trim() }; });
     const colours = await objectCard(board(page), P.snezka).evaluate((c) => ({ dot: getComputedStyle(c.querySelector('.card-pill[data-attribute="stav"] .card-dot')!).backgroundColor, more: getComputedStyle(c.querySelector('.card-more')!).color })).catch(() => null);
     const resolve = (v: string) => page.evaluate((x) => { const d = document.createElement('div'); d.style.color = x; document.body.append(d); const r = getComputedStyle(d).color; d.remove(); return r; }, v);

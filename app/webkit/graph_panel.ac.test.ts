@@ -853,9 +853,11 @@ test('fr_grp_06_ac6_panel_preview_popover_content', async ({ page }) => {
   const d = await mustPreview(page, 'Rozpočet 2027', 'dialog "Preview: Rozpočet 2027"');
   assert.equal(nfc((await d.getAttribute('data-preview-path')) ?? ''), nfc(P.rozpocet), 'data-preview-path="Projekty/Rozpočet 2027.md"');
   const text = await eventually(async () => flat(await d.innerText()), (t) => t.includes('Rozpočet na příští rok.'), 3000);
-  for (const part of ['Rozpočet 2027', 'Projekt', 'Projekt · 6 connections', 'Links to Plán čtvrtletí by relation Podklady · Linked from Plán čtvrtletí', 'Vlastník', 'Jana Nováková', 'Termín', 'Dec 31, 2026', 'Rozpočet na příští rok.']) {
+  for (const part of ['Rozpočet 2027', 'Projekt', 'Projekt · 6 connections', 'Links to Plán čtvrtletí by relation Podklady · Linked from Plán čtvrtletí', 'Jana Nováková', 'Termín', 'Dec 31, 2026', 'Rozpočet na příští rok.']) {
     assert.ok(text.includes(part), `the popover shows ${JSON.stringify(part)}: ${text}`);
   }
+  // D-2024, D-2027: the link chip shows the target only; its accessible name carries the property's Name.
+  assert.ok(await d.getByLabel(nfc('Vlastník: Jana Nováková'), { exact: true }).count() >= 1, 'the link chip is named "Vlastník: Jana Nováková"');
   assert.ok(await d.locator('[data-icon="folder"]').count() >= 1, 'the folder icon');
   const btns = (await d.getByRole('button').allInnerTexts()).map(flat);
   const fi = btns.findIndex((b) => b === 'In full graph'), oi = btns.findIndex((b) => /^Open\b/.test(b));

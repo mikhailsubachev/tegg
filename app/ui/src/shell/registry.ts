@@ -72,7 +72,7 @@ export const ROUTES: RouteDef[] = [
   { id: 'settings/vault', name: 'route.settings.vault', purpose: 'purpose.settings.vault', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-01'], design: 'Settings' },
   { id: 'settings/shortcuts', name: 'route.settings.shortcuts', purpose: 'purpose.settings.shortcuts', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-04'], design: 'Settings' },
   { id: 'settings/menu-bar', name: 'route.settings.menuBar', purpose: 'purpose.settings.menuBar', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-05'], design: 'Settings' },
-  { id: 'settings/backups', name: 'route.settings.backups', purpose: 'purpose.settings.backups', status: { built: true, due: { milestone: 'MS4' } }, reqs: ['FR-HIS-04', 'NFR-REL-04'], design: null }, // D-1994 says `Settings`; registry_4d still asserts null (open point for the owner)
+  { id: 'settings/backups', name: 'route.settings.backups', purpose: 'purpose.settings.backups', status: { built: true, due: { milestone: 'MS4' } }, reqs: ['FR-HIS-04', 'NFR-REL-04'], design: 'Settings' }, // D-1994, D-2042
   { id: 'settings/trash-history', name: 'route.settings.trashHistory', purpose: 'purpose.settings.trashHistory', status: tbd('v1.0'), reqs: ['FR-SET-06'], design: 'Settings' },
   // D-608: Help › Keyboard Shortcuts (FR-UX-03 AC-14).
   { id: 'help/shortcuts', name: 'route.help.shortcuts', purpose: 'purpose.help.shortcuts', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-UX-03'], design: null },
