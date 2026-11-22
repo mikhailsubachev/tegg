@@ -1,5 +1,7 @@
 # Contract: The phone layout and reading (slice AND-2)
 
+**Status: accepted, 2026-11-22** (owner: "Accept all"; CP-1…CP-16 → D-2083…D-2098).
+
 Public interfaces of slice AND-2, for the test author (D-61) and the build. ACs: `docs/acceptance/android-phone.md`
 (approved; RA8…RA13; FR-UX-04 AC-1…AC-7, FR-NAV-04 AC-13…AC-15, FR-NAV-03 AC-17…AC-19, FR-UX-03 AC-54, AR-03 AC-13,
 AC-14, FR-UX-01 AC-8, FR-VLT-01 AC-29, FR-HOM-04 AC-1, FR-HOM-02 AC-32, FR-INB-01 AC-14…AC-16, FR-DLY-01 AC-13, FR-DLY-03
@@ -14,7 +16,7 @@ AC-36, NFR-SEC-01 AC-4, NFR-PERF-05 AC-6). Decisions: D-2000…D-2012 (plan `doc
 
 The desktop does not change (AR-03 AC-14): every item below is Android-only, chosen by `currentLayout() === 'phone'`
 (§4.1), or a pure function both platforms share with unchanged desktop results. The phone layout writes nothing to the
-vault (D-2068). §15 lists the points for the owner (CP-1…CP-16); the contract follows each proposal.
+vault (D-2068). §15 lists the points for the owner (CP-1…CP-16), accepted as proposed (D-2083…D-2098, BRD v1.239; owner, 2026-11-22).
 
 ## 1. Files
 
@@ -603,7 +605,7 @@ accepts it, else rejects `{ kind: 'Unsupported' }` (exposed as `openedUrls()`). 
 `ipcLog(id)` (§12.1), `actionModeShown()` (a floating toolbar or `ActionMode` window in `dumpsys window`). Real-app test
 files: `android_phone.ac.test.ts`, `android_phone_sync.ac.test.ts`, `nightly_android_phone.ac.test.ts` (ACs' list).
 
-## 15. Points for the owner (CP-1…CP-16)
+## 15. Points for the owner (CP-1…CP-16 → D-2083…D-2098, accepted as proposed)
 
 | CP | Point | Proposal | Alternative | Affects |
 | --- | --- | --- | --- | --- |

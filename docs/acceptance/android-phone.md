@@ -622,7 +622,7 @@ Proposals for the contract:
 - **AC-6** **Bounds a defect, not a target (D-2010; AP-2062).** On the emulator with `tools/gen-vault --seed 1 --small-images` in shared storage, after `index-idle`, the perf log reports:
   - `note-ready` for 20 opens of notes under 5,000 words, p95 ≤ 1,000 ms;
   - `route-ready:search` for the first page of 10 queries, p95 ≤ 1,000 ms;
-  - `route-ready:type` for `type/page`, ≤ 1,500 ms.
+  - `route-ready:type/page` for `type/page`, ≤ 1,500 ms (the mark's real name; D-2094).
 
   The run fails only above these bounds. The numbers go to D-2010's targets with the owner's OC-1. *(LA nightly)* Test: `nightly_nfr_perf_05_ac6_reading_speed_on_the_emulator`
 
