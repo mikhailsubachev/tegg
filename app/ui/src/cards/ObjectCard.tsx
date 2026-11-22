@@ -148,7 +148,9 @@ export function ObjectCard(p: ObjectCardProps) {
       {...(board ? { 'data-board-card': path, 'data-read-only': p.readOnly ? '' : undefined } : {})}
       {...(task ? { 'data-task-card': '', 'data-state': task.state, 'data-overdue': overdue ? 'true' : 'false' } : {})}
       {...(example ? { inert: true, 'data-example': '' } : {})}
-      tabIndex={p.slot ? p.slot.tabIndex : p.surface === 'tasks' ? 0 : undefined}
+      // The Daily Note's Task cards (surface `tasks`) aren't a Tab stop themselves: Tab goes checkbox, title, source chip
+      // (FR-DLY-04 AC-14, D-2021).
+      tabIndex={p.slot ? p.slot.tabIndex : undefined}
       onClick={openCard}
     >
       <Strip parts={parts} card={card} title={title} onOpen={example ? undefined : onOpen} />
