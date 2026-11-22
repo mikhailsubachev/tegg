@@ -454,8 +454,13 @@ fn rename_no_clobber(from: &Path, to: &Path) -> io::Result<()> {
 /// Portable fallback: a hard link fails if the target exists; then drop the old name.
 #[cfg(not(target_os = "macos"))]
 fn rename_no_clobber(from: &Path, to: &Path) -> io::Result<()> {
-    fs::hard_link(from, to)?;
-    fs::remove_file(from)
+    no_clobber_via(from, to, &|a: &Path, b: &Path| fs::hard_link(a, b).and_then(|_| fs::remove_file(a)))
+}
+
+/// A create that never replaces `to`, through `primitive` (AND-1 regression bug_and1la: red-commit stub, the
+/// primitive's error is returned as it is).
+pub(crate) fn no_clobber_via(from: &Path, to: &Path, primitive: &dyn Fn(&Path, &Path) -> io::Result<()>) -> io::Result<()> {
+    primitive(from, to)
 }
 
 // ---------------------------------------------------------------- Application Support (FR-STO-07)
@@ -613,3 +618,36 @@ mod bug_and0f1 {
         assert_eq!(changed, Some(FsChange::Paths(vec!["Pages/Úvodní stránka.md".to_string()])), "a content change still is");
     }
 }
+
+/// Slice AND-1, emulator run: Android's shared storage (FUSE) has no hard links (`ENOSYS`), so every create of a new
+/// vault file failed with an error and New vault could not be made (FR-VLT-01 AC-26, FR-SYN-02). A create must still
+/// never replace an existing file when the no-replace primitive isn't available.
+#[cfg(test)]
+mod bug_and1la_fr_syn_02_create_without_hard_links {
+    use super::no_clobber_via;
+    use std::io;
+    use std::path::Path;
+
+    fn unsupported(_: &Path, _: &Path) -> io::Result<()> {
+        Err(io::Error::from_raw_os_error(libc::ENOSYS))
+    }
+
+    #[test]
+    fn bug_and1la_fr_syn_02_create_without_hard_links() {
+        let dir = std::env::temp_dir().join(format!("tegg-bug-and1la-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let (tmp, target) = (dir.join(".a.tegg-tmp"), dir.join("a.md"));
+        std::fs::write(&tmp, b"new").unwrap();
+        no_clobber_via(&tmp, &target, &unsupported).expect("a new file is created without hard links");
+        assert_eq!(std::fs::read(&target).unwrap(), b"new");
+        assert!(!tmp.exists(), "the temporary file is gone");
+        // An existing file is never replaced: AlreadyExists, and both files are left as they were.
+        std::fs::write(&tmp, b"other").unwrap();
+        let e = no_clobber_via(&tmp, &target, &unsupported).expect_err("an existing target is refused");
+        assert_eq!(e.kind(), io::ErrorKind::AlreadyExists);
+        assert_eq!(std::fs::read(&target).unwrap(), b"new", "the existing file is untouched");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
