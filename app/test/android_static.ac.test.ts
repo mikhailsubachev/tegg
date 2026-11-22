@@ -75,10 +75,11 @@ test('ar_03_ac7_desktop_only_code_is_gated', () => {
   assert.ok(!/^tauri-plugin-dialog\s*=/m.test(all), '[dependencies] has no tauri-plugin-dialog (desktop targets only)');
   const tauriLine = (toml.get('dependencies') ?? []).find((l) => /^tauri\s*=/.test(l)) ?? '';
   assert.ok(tauriLine, '[dependencies] keeps tauri');
-  for (const f of ['tray-icon', 'macos-private-api']) assert.ok(!tauriLine.includes(f), `[dependencies] tauri has no "${f}" feature: ${tauriLine}`);
+  // D-2044: tauri-build checks this entry against tauri.conf.json's macOSPrivateApi, so that feature stays here.
+  assert.ok(!tauriLine.includes('tray-icon'), `[dependencies] tauri has no "tray-icon" feature: ${tauriLine}`);
   const desk = [...toml.entries()].filter(([h]) => desktopTarget(h)).map(([, lines]) => lines.join('\n')).join('\n');
   assert.ok(/^tauri-plugin-dialog\s*=/m.test(desk), 'tauri-plugin-dialog is a desktop-target dependency');
-  for (const f of ['tray-icon', 'macos-private-api']) assert.ok(new RegExp(`^tauri\\s*=.*"${f}"`, 'm').test(desk), `tauri's "${f}" feature is enabled for desktop targets only`);
+  assert.ok(/^tauri\s*=.*"tray-icon"/m.test(desk), 'tauri\'s "tray-icon" feature is enabled for desktop targets only');
 });
 
 // ------------------------------------------------------------------------------------------------ NFR-SEC-01 AC-2
@@ -123,7 +124,14 @@ test('nfr_sec_01_ac2_android_sources_ask_for_no_network', () => {
   const tree = spawnSync('cargo', ['tree', '--offline', '--target', 'aarch64-linux-android', '-e', 'normal', '--prefix', 'none', '--format', '{p}'], { cwd: SHELL, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   assert.equal(tree.status, 0, `cargo tree --target aarch64-linux-android runs: ${tree.stderr?.slice(-400)}`);
   const crates = new Set(tree.stdout.split('\n').map((l) => l.trim().split(' ')[0]).filter(Boolean));
-  for (const c of ['tauri-plugin-http', 'tauri-plugin-updater', 'reqwest', 'ureq']) assert.ok(!crates.has(c), `the Android build has no ${c}`);
+  for (const c of ['tauri-plugin-http', 'tauri-plugin-updater', 'ureq']) assert.ok(!crates.has(c), `the Android build has no ${c}`);
+  // D-2046: reqwest only as Tauri's own dependency (its dev-server proxy).
+  if (crates.has('reqwest')) {
+    const inv = spawnSync('cargo', ['tree', '--offline', '--target', 'aarch64-linux-android', '-e', 'normal', '-i', 'reqwest', '--depth', '1', '--prefix', 'none', '--format', '{p}'], { cwd: SHELL, encoding: 'utf8' });
+    assert.equal(inv.status, 0, `cargo tree -i reqwest runs: ${inv.stderr?.slice(-400)}`);
+    const users = [...new Set(inv.stdout.split('\n').map((l) => l.trim().split(' ')[0]).filter((n) => n && n !== 'reqwest'))];
+    assert.deepEqual(users, ['tauri'], `reqwest is only Tauri's dependency: ${users.join(', ')}`);
+  }
 });
 
 // ------------------------------------------------------------------------------------------------ AR-03 AC-12

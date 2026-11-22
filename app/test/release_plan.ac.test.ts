@@ -62,7 +62,10 @@ test('ar_08_ac1_release_builds_the_apk', async () => {
   const apk = p.steps[at('build-apk')];
   assert.equal(apk.cmd, 'npx', 'build-apk runs npx');
   const a = apk.args.join(' ');
-  for (const part of ['tauri android build', '--apk', '--target aarch64', '--features preview', '--config src-tauri/tauri.preview.conf.json']) {
+  // D-2045: Tauri's identifier stays app.tegg.desktop (the Kotlin package); the application id comes from Gradle.
+  assert.ok(!a.includes('tauri.preview.conf.json'), `build-apk does not pass the preview config: ${a}`);
+  assert.equal(apk.env?.TEGG_ANDROID_APP_ID, 'app.tegg.preview', 'build-apk sets the application id app.tegg.preview');
+  for (const part of ['tauri android build', '--apk', '--target aarch64', '--features preview']) {
     assert.ok(a.includes(part), `build-apk args contain "${part}": ${a}`);
   }
   const cfg = apk.args.filter((x, i) => apk.args[i - 1] === '--config').map((x) => { try { return JSON.parse(x); } catch { return null; } }).find((x) => x && typeof x === 'object');

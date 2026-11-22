@@ -160,7 +160,8 @@ test('fr_fmt_12_ac14_nfd_names_on_android', async () => {
   // over the note gives a new inode); "the same file" is checked as the same NFD-named entry and no second one.
   void ino;
   assert.equal(names.filter((n) => n === hex('Poznámka.md'.normalize('NFD'))).length, 1, '(d) one NFD-named entry');
-  assert.match(sh(`cat ${quote(`${vault}/${nfd}`)}`), /zahradu\.x\s*$/, '(d) the edit is in the NFD-named file');
+  // D-2048: until AND-3 a file stored under an NFD name is never written on the phone; the edit fails and the file stays.
+  assert.match(sh(`cat ${quote(`${vault}/${nfd}`)}`), /Rozpočet na zahradu\.\s*$/, '(d) the NFD-named file is unchanged (read-only until AND-3)');
 
   // Both forms: an NFC twin with another id is a name conflict; opening either writes nothing.
   forceStop(TEST_ID);

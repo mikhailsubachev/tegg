@@ -11,7 +11,7 @@ function uids(): number[] {
   const out: number[] = [];
   for (const id of [TEST_ID, RELEASE_ID]) {
     const r = adb(['shell', `dumpsys package ${id}`]);
-    const m = /userId=(\d+)/.exec(r.stdout);
+    const m = /(?:userId|appId)=(\d+)/.exec(r.stdout);
     if (m) out.push(Number(m[1]));
   }
   return out;

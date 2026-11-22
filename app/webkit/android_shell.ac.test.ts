@@ -132,7 +132,7 @@ test('fr_vlt_01_ac18_remembered_vault_never_shows_chooser', async ({ browser }) 
     await sleep(500);
     assert.equal(await core.seenChooser(), false, `${order}: the chooser was never in the DOM`);
     await startReads(core, order);
-    assert.equal((await callsOf(core, 'link_resolve')).length, 1, `${order}: exactly one link_resolve for the landing (NFR-PERF-05 AC-3)`);
+    assert.ok((await callsOf(core, 'link_resolve')).length <= 1, `${order}: at most one link_resolve for the landing (NFR-PERF-05 AC-3; none without links, D-2051)`);
     assert.equal((await callsOf(core, 'note_read')).filter((c) => (c.args as { path?: string })?.path === EVA).length, 1, `${order}: exactly one note_read of the landing`);
     assert.equal((await callsOf(core, 'note_read')).length, 1, `${order}: no other note_read`);
     await page.close();

@@ -37,7 +37,10 @@ function hostCounts(root: string): Record<string, number> {
       } else if (n.endsWith('.md')) {
         const fm = /^﻿?---\r?\n([\s\S]*?)\r?\n---/.exec(readFileSync(p, 'utf8'));
         const type = (fm && /^type:\s*["']?([^"'\n]+?)["']?\s*$/m.exec(fm[1])?.[1]) || 'page';
-        out[type] = (out[type] ?? 0) + 1;
+        // D-2051: the index counts system types by their key (`Daily Note` → `daily-note`), other types as written.
+        const SYSTEM: Record<string, string> = { Page: 'page', Task: 'task', 'Quick Note': 'quick-note', 'Daily Note': 'daily-note', Tag: 'tag', Image: 'image', PDF: 'pdf' };
+        const key = SYSTEM[type] ?? type;
+        out[key] = (out[key] ?? 0) + 1;
       }
     }
   };

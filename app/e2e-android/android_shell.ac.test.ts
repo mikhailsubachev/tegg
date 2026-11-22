@@ -18,7 +18,7 @@
 // Written from the ACs and the contract only (D-61).
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, statSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
@@ -361,12 +361,12 @@ test('fr_vlt_01_ac27_recent_vaults_keep_disk_path', async () => {
   const nfdName = 'Poznámky'.normalize('NFD');
   const local = join(mkdtempSync(join(tmpdir(), 'tegg-la-nfd-')), nfdName);
   mkdirSync(local);
+  // D-2051: the vault's .tegg/ is in the folder before the push (adb skips an empty folder).
+  cpSync(resolve(REPO, 'tests/fixtures/vaults/new-empty/.tegg'), join(local, '.tegg'), { recursive: true });
   const onPhone = `${SHARED}/Documents/${nfdName}`;
   sh(`rm -rf ${quote(onPhone)} ${quote(`${SHARED}/Documents/Poznámky`)}`);
   const pushed = adb(['push', local, `${SHARED}/Documents/`]);
   assert.equal(pushed.status, 0, `push the NFD folder: ${pushed.stderr}`);
-  const r = adb(['push', `${resolve(REPO, 'tests/fixtures/vaults/new-empty/.tegg')}`, `${onPhone}/`]);
-  assert.equal(r.status, 0, `push .tegg: ${r.stderr}`);
   assert.ok(listHex(`${SHARED}/Documents`).includes(hex(nfdName)), 'setup: Documents/Poznámky is stored in NFD bytes');
 
   const { v } = await launch();
@@ -480,8 +480,8 @@ test('ar_08_ac5_test_hooks_only_in_test_apk', async () => {
   const files = `/data/user/0/${RELEASE_ID}/files`;
   sh(`mkdir -p ${files} && printf '%s' ${quote(env)} > ${files}/test-env.json && chown -R $(stat -c %u ${files}/..):$(stat -c %g ${files}/..) ${files}`);
   sh(`am start -W -n ${RELEASE_ID}/.MainActivity`);
-  await sleep(5000);
-  const dump = uiDump();
+  // D-2051: wait for the first screen, not a fixed time (D-688).
+  const dump = await eventually(() => uiDump(), (x) => /Choose a vault|Switch vault/.test(x), 20_000, 500);
   assert.match(dump, /Choose a vault/, 'the release build ignores test-env.json: the chooser');
   assert.doesNotMatch(dump, /Switch vault/, 'no vault opened from test-env.json');
 });
@@ -503,8 +503,11 @@ test('fr_ux_01_ac7_version_label_on_android', async () => {
   tapText('Folder path');
   inputText(vault);
   tapText('Open');
-  const dump = await eventually(() => uiDump(), (x) => /v0\.5\.0/.test(x), 15_000, 500);
-  assert.match(dump, /v0\.5\.0/, 'the release APK built for 0.5.0 shows v0.5.0 on the sidebar\'s bottom-left button');
+  // D-2051: the label is read through DevTools (the LA's release-variant APK is debuggable; the real release is not).
+  const rv = await webview(RELEASE_ID);
+  views.push(rv);
+  assert.ok(await rv.waitFor(SIDEBAR, 15_000), 'the release-variant APK opens the vault');
+  assert.equal((await text(rv, `${SIDEBAR} button[aria-label="Tegg: About and Settings"]`)).trim(), 'v0.5.0', 'the release APK built for 0.5.0 shows v0.5.0 on the sidebar\'s bottom-left button');
 });
 
 // ------------------------------------------------------------------------------------------------ NFR-SEC-01 AC-3

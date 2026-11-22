@@ -193,7 +193,7 @@ export function cpuTicks(pid: number): { ticks: number; hz: number } {
 }
 
 export function uidOf(id: string): number {
-  const m = /userId=(\d+)/.exec(sh(`dumpsys package ${id}`));
+  const m = /(?:userId|appId)=(\d+)/.exec(sh(`dumpsys package ${id}`));
   assert.ok(m, `dumpsys package ${id} names its userId`);
   return Number(m![1]);
 }

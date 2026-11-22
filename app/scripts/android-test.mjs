@@ -4,7 +4,7 @@
 //                                               test-env.json), 0.0.1, `app.tegg.desktop`, debuggable →
 //                                               src-tauri/target/android/Tegg-test.apk
 //   npm run app:android-test -- --release 0.5.0 a release-variant APK as the release builds it (`preview`,
-//                                               `app.tegg.preview`, not debuggable), for FR-UX-01 AC-7 and AR-08
+//                                               `app.tegg.preview`, debuggable for DevTools, D-2051), for FR-UX-01 AC-7 and AR-08
 //                                               AC-5 → src-tauri/target/android/Tegg-<v>-testkey.apk
 import { execFileSync, execSync } from 'node:child_process';
 import { copyFileSync, mkdirSync } from 'node:fs';
@@ -26,7 +26,9 @@ execFileSync('npx', args, {
     ...env,
     TEGG_ANDROID_SIGNING: signing,
     TEGG_ANDROID_APP_ID: release ? 'app.tegg.preview' : 'app.tegg.desktop',
-    ...(release ? { TEGG_VERSION: release } : { ORG_GRADLE_PROJECT_teggDebuggable: 'true' }),
+    // The LA layer reads both APKs' pages over DevTools (D-2051); only the real release is non-debuggable (AR-08 AC-4).
+    ORG_GRADLE_PROJECT_teggDebuggable: 'true',
+    ...(release ? { TEGG_VERSION: release } : {}),
   },
 });
 const out = join(app, 'src-tauri/target/android');
