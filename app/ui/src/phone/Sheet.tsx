@@ -1,6 +1,7 @@
 // Slice AND-2 (docs/contracts/android-phone.md §8.4): the bottom sheet. A modal dialog over a scrim; the scrim, Close,
 // Esc and system Back close it; the focus returns to the control that opened it.
 import { useEffect, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { t } from '../i18n/catalog';
 import { Icon } from '../shell/Icon';
 import { pushLayer } from './back';
@@ -17,15 +18,23 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
       if (o?.isConnected) o.focus();
     };
     const pop = pushLayer(done);
+    // Modal: the rest of the app is inert while the sheet is open.
+    const layer = box.current?.parentElement;
+    const root = layer?.parentElement;
+    const others = root ? [...root.children].filter((c) => c !== layer) : [];
+    for (const o of others) o.setAttribute('inert', '');
     box.current?.querySelector<HTMLElement>('button')?.focus();
-    return pop;
+    return () => {
+      pop();
+      for (const o of others) o.removeAttribute('inert');
+    };
   }, []);
   const closeNow = () => {
     onClose();
     const o = opener.current as HTMLElement | null;
     if (o?.isConnected) setTimeout(() => o.focus(), 0);
   };
-  return (
+  return createPortal(
     <div className="phone-sheet-layer">
       <div className="phone-scrim" onClick={closeNow} />
       <div ref={box} role="dialog" aria-modal="true" aria-label={title} className="phone-sheet"
@@ -38,6 +47,7 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
         </div>
         <div className="phone-sheet-body">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.querySelector('.app') ?? document.body,
   );
 }

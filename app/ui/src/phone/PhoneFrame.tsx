@@ -66,14 +66,37 @@ export function PhoneFrame(props: {
     setHistoryBack(() => { if (!back.current.canBack) return false; back.current.onBack(); return true; });
     setBackHandler(systemBack);
   }, []);
-  // §8.6: after each viewport resize the focused field stays in view.
+  // §8.6: after each viewport resize the focused field stays in view; FR-UX-04 AC-7 (D-2071): a rotation keeps the first
+  // visible block at the top.
   useEffect(() => {
+    const m = () => document.querySelector<HTMLElement>('main.phone-main');
+    let anchor: { el: Element; offset: number } | null = null;
+    const remember = () => {
+      const main = m();
+      if (!main) return;
+      const top = main.getBoundingClientRect().top;
+      const blocks = main.querySelectorAll('article > *, .page-column > *, li, tr, p, h2, h3');
+      anchor = null;
+      for (const el of blocks) {
+        const r = el.getBoundingClientRect();
+        if (r.height > 0 && r.bottom > top + 1) { anchor = { el, offset: r.top - top }; break; }
+      }
+    };
+    const onScroll = () => remember();
+    document.addEventListener('scroll', onScroll, true);
+    remember();
     const f = () => {
       const el = document.activeElement as HTMLElement | null;
-      if (el && /^(INPUT|TEXTAREA)$/.test(el.tagName)) el.scrollIntoView({ block: 'nearest' });
+      if (el && /^(INPUT|TEXTAREA)$/.test(el.tagName)) { el.scrollIntoView({ block: 'nearest' }); return; }
+      const main = m();
+      const a = anchor;
+      if (main && a && a.el.isConnected) {
+        const top = main.getBoundingClientRect().top;
+        main.scrollTop += a.el.getBoundingClientRect().top - top - a.offset;
+      }
     };
     window.addEventListener('resize', f);
-    return () => window.removeEventListener('resize', f);
+    return () => { window.removeEventListener('resize', f); document.removeEventListener('scroll', onScroll, true); };
   }, []);
   const [indexing, setIndexing] = useState(false);
   const running = props.progress?.state === 'running';
