@@ -32,6 +32,9 @@ android {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
         // D-2019: the release APK is app.tegg.preview (as Tegg.app), the test APK app.tegg.desktop.
         applicationId = System.getenv("TEGG_ANDROID_APP_ID") ?: "app.tegg.desktop"
+        // The Kotlin classes stay in app.tegg.desktop (Tauri's identifier, which the JNI names follow); with another
+        // application id, `<id>/.MainActivity` resolves through this alias (AND-1 build decision).
+        manifestPlaceholders["teggLaunchAlias"] = if (applicationId == "app.tegg.desktop") "app.tegg.desktop.LaunchAlias" else "$applicationId.MainActivity"
         minSdk = 30
         targetSdk = 35
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()

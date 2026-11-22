@@ -457,10 +457,22 @@ fn rename_no_clobber(from: &Path, to: &Path) -> io::Result<()> {
     no_clobber_via(from, to, &|a: &Path, b: &Path| fs::hard_link(a, b).and_then(|_| fs::remove_file(a)))
 }
 
-/// A create that never replaces `to`, through `primitive` (AND-1 regression bug_and1la: red-commit stub, the
-/// primitive's error is returned as it is).
+/// A create that never replaces `to`, through `primitive` (a hard link, which fails when `to` exists). Where the file
+/// system has no hard links (Android's shared storage: `ENOSYS` for the shell user, `EACCES` for an app; also `EPERM`,
+/// `EOPNOTSUPP`, `EXDEV`; bug_and1la), the target is
+/// checked and the file renamed: an existing `to` is `AlreadyExists` and nothing is replaced. The window between the
+/// check and the rename is the residual window D-84 accepts.
+#[cfg_attr(target_os = "macos", allow(dead_code))]
 pub(crate) fn no_clobber_via(from: &Path, to: &Path, primitive: &dyn Fn(&Path, &Path) -> io::Result<()>) -> io::Result<()> {
-    primitive(from, to)
+    match primitive(from, to) {
+        Err(e) if matches!(e.raw_os_error(), Some(libc::ENOSYS | libc::EACCES | libc::EPERM | libc::EOPNOTSUPP | libc::EXDEV)) => {
+            if fs::symlink_metadata(to).is_ok() {
+                return Err(io::Error::new(io::ErrorKind::AlreadyExists, to.display().to_string()));
+            }
+            fs::rename(from, to)
+        }
+        other => other,
+    }
 }
 
 // ---------------------------------------------------------------- Application Support (FR-STO-07)
@@ -628,23 +640,26 @@ mod bug_and1la_fr_syn_02_create_without_hard_links {
     use std::io;
     use std::path::Path;
 
-    fn unsupported(_: &Path, _: &Path) -> io::Result<()> {
-        Err(io::Error::from_raw_os_error(libc::ENOSYS))
-    }
-
     #[test]
     fn bug_and1la_fr_syn_02_create_without_hard_links() {
+        // The shell user gets ENOSYS from Android's FUSE layer, an app EACCES (both seen on the emulator).
+        for errno in [libc::ENOSYS, libc::EACCES] {
+            check(&move |_: &Path, _: &Path| Err(io::Error::from_raw_os_error(errno)));
+        }
+    }
+
+    fn check(unsupported: &dyn Fn(&Path, &Path) -> io::Result<()>) {
         let dir = std::env::temp_dir().join(format!("tegg-bug-and1la-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let (tmp, target) = (dir.join(".a.tegg-tmp"), dir.join("a.md"));
         std::fs::write(&tmp, b"new").unwrap();
-        no_clobber_via(&tmp, &target, &unsupported).expect("a new file is created without hard links");
+        no_clobber_via(&tmp, &target, unsupported).expect("a new file is created without hard links");
         assert_eq!(std::fs::read(&target).unwrap(), b"new");
         assert!(!tmp.exists(), "the temporary file is gone");
         // An existing file is never replaced: AlreadyExists, and both files are left as they were.
         std::fs::write(&tmp, b"other").unwrap();
-        let e = no_clobber_via(&tmp, &target, &unsupported).expect_err("an existing target is refused");
+        let e = no_clobber_via(&tmp, &target, unsupported).expect_err("an existing target is refused");
         assert_eq!(e.kind(), io::ErrorKind::AlreadyExists);
         assert_eq!(std::fs::read(&target).unwrap(), b"new", "the existing file is untouched");
         let _ = std::fs::remove_dir_all(&dir);
