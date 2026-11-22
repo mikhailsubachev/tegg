@@ -490,7 +490,7 @@ AC-17's L0 rule), `Embed.tsx`'s own strip helper, the `TaskCard` component. Cata
   icon (`LucideIcon`, `data-icon` as written, `aria-hidden`) or the visible Name; Select: dot `--type-<colour>` and the
   label; an unknown option: no dot, raw value, FR-EDT-07 AC-7's warning icon with `Not an option`.
 - **Link items** (`relation`, `source`, `url`): the footer link is the first key in list order of kind `relation` or
-  `source` whose value is set and is a wikilink or an `http(s)` URL; a multi-value relation shows its first value and
+  `source` whose value is set and is a wikilink, an `http(s)` URL or a `file://` URL (R218's `↗ <name>`, not a link, D-2001); a multi-value relation shows its first value and
   `+<n>` (`span.card-link-more`, `title` = the other targets joined by `Intl.ListFormat(locale, { type: 'unit', style:
   'short' })`). Other relation and source links and every `url` value are link items in the pill area at their place
   (D-1972). Wikilinks resolve through `card.links` by target text (`linkOf`); resolved → the D-73 chip (a reference,
@@ -777,7 +777,7 @@ Through `ipc.perfMark` (v1-views §4.8's mechanism):
 | app-shell FR-UX-02 AC-22…AC-26 | `app/test/registry.ac.test.ts` (AC-26) | | `app/webkit/settings_layout.ac.test.ts` | |
 | FR-SYN-06 AC-51, FR-UX-08 AC-26 | | | `cards_surfaces.ac.test.ts` (counts) | `cards.ac.test.ts` |
 | FR-UX-03 AC-54, AC-55, FR-UX-05 AC-26, NFR-OTH-02 AC-24 | `app/test/cards_catalog.ac.test.ts` | | `app/webkit/cards_keyboard.ac.test.ts`, `cards_themes.ac.test.ts` | |
-| NFR-PERF-07 AC-6, FR-TYP-01 AC-21 | | `ac_cards_perf.rs` | | `app/e2e/nfr_perf_07_cards.ac.test.ts`, `app/e2e/perf_icon_picker.ac.test.ts` |
+| NFR-PERF-07 AC-6, FR-TYP-01 AC-21 | | `ac_cards_perf.rs` | | `app/e2e/nfr_perf_07_cards.ac.test.ts`, `app/e2e/nfr_perf_icon_picker.ac.test.ts` |
 
 `qa.config.json` needs no new step (the files sit in existing packages); `tools/icons/gen-lucide.mjs --check` is added to
 the commit gate's L0 checks when the data, aliases, `Credits.rtf` or the script are staged.
