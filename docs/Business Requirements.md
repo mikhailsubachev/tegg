@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.219, for review                                            |
+| **Document status** | Draft v1.220, for review                                            |
 | **Date**            | 2026-11-19                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -229,6 +229,7 @@
 | v1.217  | 2026-11-22 | QA review of slice Q2-T: D-1935 (FR-SYN-06 AC-22 checks the real Schedule grouping), D-1936 (the migration skips without `task.yml` or with online-only files; identical default bytes on every Mac), D-1937 (Undo of Restore writes `views: []` when there was no key) |
 | v1.218  | 2026-11-22 | D-1938 (FR-LNK-11 AC-1's L5 check is a 1,000 ms regression bound, not 2 animation frames; the flaky `fr_lnk_11_ac1`) |
 | v1.219  | 2026-11-22 | The flaky `nav_swipe` (FR-NAV-03 AC-11): D-1939 (busy time is never a pause in a swipe), D-1940 (AC-11's swipes are sent from inside the page); D-1941 (block links land below the note toolbar) |
+| v1.220  | 2026-11-22 | D-1942 (the graph size-step test waits for the drawing; the backlinks flake left as is) |
 
 ---
 
@@ -1984,6 +1985,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1939 | Busy time is never a pause in a swipe (owner, 2026-11-22; flaky `nav_swipe` `fr_nav_03_ac11`) | After a swipe goes Back or Forward, for 2 s, a gap of 200 ms between wheel events ends the gesture only if the app was idle for at least half of it (a 16 ms tick runs while the main thread is free). The new page's drawing and data loading kept the main thread busy 200–400 ms under load, which delayed the rest of the same swipe past the gap and made it go Back a second time. Amends D-1511's gesture end (FR-NAV-03 AC-11: one step per gesture); regression test `bug_d1939_fr_nav_03_render_time_is_not_a_pause` |
 | D-1940 | AC-11's swipes are sent from inside the page (owner, 2026-11-22; flaky `nav_swipe` `fr_nav_03_ac11`) | Under heavy load the test process itself sent a swipe's next `wheel` event more than 200 ms late while the page was idle, which no app rule can tell from a real pause (a trackpad never pauses mid-swipe). `nav_swipe.ac.test.ts`'s FR-NAV-03 AC-11 tests dispatch each swipe's 13 events in the page on the element under the pointer, at the AC's timing (12 × 40 px, then 400 px, 10 ms apart); AC-12 and AC-13, which need real scrolling, keep Playwright's wheel (`AC-Test-Change`) |
 | D-1941 | Block links land below the note toolbar (owner, 2026-11-22; flaky `bug_v094gp_fr_lnk_11_editor_block_open_scrolls_to_the_block`) | Opening `[[Note#^block]]` in the editor scrolled the block with `scrollIntoView` to the pane's very top, behind the sticky note toolbar, and a race with the toolbar's mount sometimes left it 48 px lower. As heading links (D-1673), a block link now lands at the viewport's top below the toolbar, as far as the pane scrolls, placed again on the next two frames. The bug test and previews.md FR-LNK-11 AC-17's editor step measure from the toolbar's bottom (`AC-Test-Change`) |
+| D-1942 | The graph size-step test waits for the drawing (owner, 2026-11-22; flaky `graph` `fr_grp_07_ac2`) | `fr_grp_07_ac2_three_steps_by_vault_degree` read the nodes of its later graphs as soon as the page heading showed, before they were drawn, and once found Rozpočet missing. Its later checks wait up to 2 s for the expected size steps, as its first part already did; nothing it checks changes (`AC-Test-Change`). The flaky `backlinks` `fr_lnk_01_ac10` stays as it is: a removed link leaves Backlinks in 170–200 ms in 100 stressed runs against its 1 s limit, so its one gate failure was a load spike; revisit if it fails again |
 
 ---
 
