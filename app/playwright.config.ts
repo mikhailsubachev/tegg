@@ -19,6 +19,9 @@ if (!gate) process.env.TEGG_WEBKIT_PORT ??= String(gatePortBase(`${process.cwd()
 const port = Number(gate ? process.env.VERIFY_PORT_BASE : process.env.TEGG_WEBKIT_PORT);
 if (gate && !Number.isInteger(port)) throw new Error('VERIFY_GATE is set but VERIFY_PORT_BASE is not a port');
 
+const PHONE = /(^|\/)(phone_[^/]+\.ac\.test\.ts|bug_[^/]+_phone\.test\.ts)$/;
+const phone = { viewport: { width: 412, height: 915 }, deviceScaleFactor: 2.625, isMobile: true, hasTouch: true };
+
 export default defineConfig({
   testDir: 'webkit',
   testMatch: /\.ac\.test\.ts$|\/bug_[^/]+\.test\.ts$/, // AC tests and bug regressions (bug_<issue>_<req-id>_…)
@@ -41,7 +44,14 @@ export default defineConfig({
   expect: { timeout: 3_000 },
   reporter: [['list']],
   use: { baseURL: `http://localhost:${port}`, actionTimeout: 3_000, viewport: { width: 1440, height: 900 } },
-  projects: [{ name: 'webkit', use: { ...devices['Desktop Safari'], viewport: { width: 1440, height: 900 } } }],
+  // Slice AND-2 (docs/contracts/android-phone.md §13.2; D-2009, D-2082): the L5p projects. Phone-layout tests
+  // (`phone_*.ac.test.ts`, phone regressions `bug_<issue>_<req-id>_…_phone.test.ts`, CP-15) run on WebKit and on Chromium
+  // (Android's WebView) at 412 × 915, device scale factor 2.625, touch and mobile; every other test stays on `webkit`.
+  projects: [
+    { name: 'webkit', testIgnore: PHONE, use: { ...devices['Desktop Safari'], viewport: { width: 1440, height: 900 } } },
+    { name: 'phone-webkit', testMatch: PHONE, use: { browserName: 'webkit', ...phone } },
+    { name: 'phone-chromium', testMatch: PHONE, use: { browserName: 'chromium', ...phone } },
+  ],
   // The build takes a few seconds before the port answers; the limit is generous for a loaded machine.
   webServer: { command: devServer ? `npx vite --port ${port} --strictPort` : `node webkit/serve-built.ts ${port}`, port, reuseExistingServer: false, timeout: 180_000 },
 });
