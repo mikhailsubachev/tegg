@@ -321,13 +321,33 @@ export function uiDump(): string {
 }
 /** Taps the centre of the first node whose text or content-desc equals `text`. */
 export function tapText(text: string): void {
-  const xml = uiDump();
   const esc = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
-  const m = new RegExp(`<node[^>]*(?:text|content-desc)="${esc}"[^>]*bounds="\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]"`).exec(xml);
-  assert.ok(m, `a node "${text}" is on the screen`);
-  const [x1, y1, x2, y2] = m!.slice(1).map(Number);
-  sh(`input tap ${Math.round((x1 + x2) / 2)} ${Math.round((y1 + y2) / 2)}`);
+  const re = new RegExp(`<node[^>]*(?:text|content-desc)="${esc}"[^>]*bounds="\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]"`);
+  const size = /(\d+)x(\d+)/.exec(sh('wm size', false));
+  const height = size ? Number(size[2]) : Infinity;
+  // A node below the visible area (a long list above it, or under the keyboard) is brought into view first, at most 6
+  // tries. With the keyboard shown, only the top half of the screen counts as visible.
+  for (let i = 0; ; i++) {
+    const m = re.exec(uiDump());
+    const box = m ? m.slice(1).map(Number) : null;
+    const h = Number.isFinite(height) ? height : 2400;
+    const w = size ? Number(size[1]) : 1080;
+    const ime = /mInputShown=true/.test(sh('dumpsys input_method', false));
+    const visibleBottom = ime ? h * 0.5 : h - 150;
+    const onScreen = box !== null && box[3] > box[1] && (box[1] + box[3]) / 2 < visibleBottom;
+    if (onScreen || i >= 6) {
+      assert.ok(box && onScreen, `a node "${text}" is on the screen`);
+      const [x1, y1, x2, y2] = box!;
+      sh(`input tap ${Math.round((x1 + x2) / 2)} ${Math.round((y1 + y2) / 2)}`);
+      return;
+    }
+    // The WebView doesn't resize for the keyboard (AND-2's phone layout), so a node under it is reached by closing the
+    // keyboard: Back while the keyboard is shown only closes it.
+    if (ime) sh('input keyevent 4');
+    else sh(`input swipe ${Math.round(w / 2)} ${Math.round(visibleBottom - 100)} ${Math.round(w / 2)} ${Math.round(h * 0.15)} 400`);
+  }
 }
+
 /** Types ASCII `text` into the focused field (`input text`; spaces as %s). */
 export function inputText(text: string): void {
   sh(`input text ${quote(text.replace(/ /g, '%s'))}`);

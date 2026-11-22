@@ -21,6 +21,8 @@ function uids(): number[] {
 export function startMonitor(log: string, everyMs = 2000): () => void {
   const tick = () => {
     const ids = uids();
+    // No uid read: adb was unreachable (`adb root` restarts adbd). That is no sample, so nothing is written.
+    if (ids.length === 0) return;
     const sockets = ids.flatMap((u) => socketsOf(u));
     appendFileSync(log, `${JSON.stringify({ at: Date.now(), uids: ids, sockets })}\n`);
   };
