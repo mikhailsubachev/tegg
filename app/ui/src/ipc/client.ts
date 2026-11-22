@@ -1,6 +1,8 @@
 // The only module that talks to the shell (architecture §10: UI ↔ core through one client).
 // Commands: docs/contracts/ms2-shell.md §2, ms3-shell.md §2.
 import { invoke } from './android';
+import { isAndroid } from '../platform';
+import { openUrlAllowed } from '../phone/links';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { GraphPresetsDto, GraphRequestDto, GraphResultDto, PresetOpDto } from '../graph/types';
 import type { PinOpDto, PinsDto } from './pins';
@@ -15,6 +17,7 @@ import type {
   InboxRowDto, VaultSettingsDto, ShellSettingsDto, HotkeyStateDto,
   TrashEntryDto, MovedDto, TrashRemovalDto, MediaAddedDto, MediaAddResultDto, StagedMediaResultDto, RelatedDto,
   StartStateDto, FoundVaultDto, StorageAccessDto,
+  WindowStateDto,
 } from './types';
 
 export const ipc = {
@@ -24,6 +27,9 @@ export const ipc = {
   vaultFind: () => invoke<FoundVaultDto[]>('vault_find'),
   storageAccess: () => invoke<StorageAccessDto>('storage_access'),
   storageAccessSettings: () => invoke<void>('storage_access_settings'),
+  // Slice AND-2 (android-phone §2.2; D-2074, D-2086).
+  androidOpenUrl: (url: string) => invoke<void>('android_open_url', { url }),
+  androidWindow: (dark: boolean) => invoke<WindowStateDto>('android_window', { dark }),
   vaultOpen: (path: string) => invoke<VaultInfo>('vault_open', { path }),
   vaultCreate: (parent: string, name: string, kind: 'empty' | 'starter') => invoke<VaultInfo>('vault_create', { parent, name, kind }),
   vaultPickDir: () => invoke<string | null>('vault_pick_dir'),
@@ -91,7 +97,13 @@ export const ipc = {
   /** The open note is saved, or the user chose to quit anyway (D-196). */
   appQuit: () => invoke<void>('app_quit'),
   linkResolve: (from: string, targets: string[]) => invoke<LinkTargetDto[]>('link_resolve', { from, targets }),
-  openExternal: (url: string) => invoke<void>('open_external', { url }),
+  // Slice AND-2 (android-phone §2.2, NFR-SEC-01 AC-4): on Android a link leaves through the system, percent-encoded;
+  // `open_external` is never invoked there, and other schemes do nothing.
+  openExternal: (url: string): Promise<void> => {
+    if (!isAndroid()) return invoke<void>('open_external', { url });
+    if (!openUrlAllowed(url)) return Promise.resolve();
+    return invoke<void>('android_open_url', { url: new URL(url.trim()).href });
+  },
   // 3D (ms3-shell §14.3).
   typeGet: (key: string) => invoke<TypeDto | null>('type_get', { key }),
   typeCreate: (name: string, plural: string, folder?: string) => invoke<TypeDto>('type_create', { name, plural, folder: folder ?? null }),

@@ -2,6 +2,8 @@
 // controls reference theirs with `data-command`, and one key handler runs them by shortcut.
 import { ANDROID_HIDDEN_COMMANDS } from '../ipc/android';
 import { isAndroid } from '../platform';
+import { phoneCommands } from '../phone/commands';
+import { isPhone } from '../phone/layout';
 import { columnsRequest } from '../types/columns';
 import type { TypeDefDto, VaultInfo } from '../ipc/types';
 import { t } from '../i18n/catalog';
@@ -52,6 +54,8 @@ export type ShellActions = {
   /** 4B (R17): the calendar of the open daily route (or of today), and the review toggle. */
   pickDate?: () => void;
   setReviewed?: (reviewed: boolean) => void;
+  /** Slice AND-2 (android-phone §10): the phone frame's own commands (menu, sheets, map zoom, …) by id. */
+  phone?: (id: string) => void;
   /** D-1284, Q2-T §30.4: `Filter tasks` (opens `type/task` when elsewhere, focuses the current tab's `Filter Tasks…`). */
   filterTasks?: () => void;
   /** Slice Q2-T (v1-views §30.4, R202): `Restore default views`, and why it can't run now (null: it can). */
@@ -540,7 +544,10 @@ export function commands(ctx: ShellContext): Command[] {
     list.push({ id, title: ctl.label, section: 'app', shortcut: shortcutOf(id), due: ctl.due, needsVault: true, run: () => {} });
   }
   // Slice AND-1 (AR-03 AC-11, D-2026): on Android, no command whose only action the shell refuses.
-  if (isAndroid()) return list.filter((c) => !ANDROID_HIDDEN_COMMANDS.has(c.id));
+  const android = isAndroid() ? list.filter((c) => !ANDROID_HIDDEN_COMMANDS.has(c.id)) : list;
+  // Slice AND-2 (android-phone §10, D-2059): the phone layout's registry.
+  if (isPhone()) return phoneCommands(android, ctx);
+  if (isAndroid()) return android;
   return list;
 }
 
