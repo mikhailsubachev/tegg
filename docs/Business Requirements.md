@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.221, for review                                            |
+| **Document status** | Draft v1.222, for review                                            |
 | **Date**            | 2026-11-19                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -231,6 +231,7 @@
 | v1.219  | 2026-11-22 | The flaky `nav_swipe` (FR-NAV-03 AC-11): D-1939 (busy time is never a pause in a swipe), D-1940 (AC-11's swipes are sent from inside the page); D-1941 (block links land below the note toolbar) |
 | v1.220  | 2026-11-22 | Slice OC, object cards, Object settings and the Settings layout (`docs/plans/oc-object-cards-and-settings-plan.md`): D-1942…D-1961 (AP-1551…AP-1570; owner: "Accept all"): the card replaces Preview properties (`card:` in the type file, FR-TYP-11 reworded), property icons and the Lucide icon picker (FR-TYP-01), one layout for Settings and type settings; built now, released as 0.6.0 |
 | v1.221  | 2026-11-22 | D-1962 (board `CardSettings` keeps its section C as drawn, an owner's exception to D-62 for these boards; where its notes differ from D-1942…D-1961 the decisions win; supersedes D-1960) |
+| v1.222  | 2026-11-22 | D-1963 (the commit gate's file size limit outside `tests/fixtures/` is 2 MiB, was 1 MiB; the `IconSet` boards are committed) |
 
 ---
 
@@ -2007,6 +2008,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1960 | The boards are committed with invented data (AP-1569, owner, 2026-11-22: "Accept all"; slice OC, `docs/plans/oc-object-cards-and-settings-plan.md`) | Boards `TypeCards`, `CardSettings`, `IconSet`, `Settings`, `SettingsApp` (and dark) are committed after `CardSettings` section C is redrawn with invented data (D-62) |
 | D-1961 | Slice OC is built now, released as 0.6.0 (AP-1570, owner, 2026-11-22: "Accept all"; slice OC, `docs/plans/oc-object-cards-and-settings-plan.md`) | Order: OC-a core, OC-b card, OC-c icon picker and type settings, OC-d Settings layout (D-1512) |
 | D-1962 | Board `CardSettings` keeps its section C as drawn (owner, 2026-11-22: "no changes are needed in the design"; slice OC, `docs/plans/oc-object-cards-and-settings-plan.md`) | Section C of boards `CardSettings` and `CardSettingsDark` keeps the project data the owner pasted from his vault; the boards are committed as drawn. This is an exception to D-62 for these two boards only, made by the owner for his own data: tests, fixtures, ACs, contracts and code still use invented data and never copy the section's content. Where the board's notes differ from D-1942…D-1961 the decisions win: the card's text (D-1950, no generated-block rule), URL chips (D-1952, host and last path segment, not an issue key), Recent icons (D-1954, this Mac). Board `CardAnatomy` is moved to `_Archive` by the owner in the design tool (D-1945). Supersedes D-1960 |
+| D-1963 | The commit gate allows files up to 2 MiB (owner, 2026-11-22: "Raise the limit") | The privacy check of `./verify commit` rejects a staged file larger than 2,097,152 bytes outside `tests/fixtures/` (was 1,048,576). Boards `IconSet` and `IconSetDark` (all 1,539 Lucide icons, about 1.06 MB each) are committed. The other privacy rules stay: nothing under `test exports/`, no `.zip` outside `tests/fixtures/`. Amends TS-P1 and TS-P AC-1; `privacy.ac.test.ts` uses the new limit (`AC-Test-Change`) |
 
 ---
 
