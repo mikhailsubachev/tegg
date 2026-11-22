@@ -135,7 +135,7 @@ test('fr_typ_01_ac19_old_names_keep_drawing', async () => {
 function files(dir: string, re: RegExp): string[] {
   const out: string[] = [];
   for (const n of readdirSync(dir)) {
-    if (n === 'node_modules') continue;
+    if (n === 'node_modules' || n === 'target' || n === '.git' || n === '.verify' || n === 'test exports') continue;
     const p = join(dir, n);
     if (statSync(p).isDirectory()) out.push(...files(p, re));
     else if (re.test(n)) out.push(p);

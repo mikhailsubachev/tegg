@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.225, for review                                            |
+| **Document status** | Draft v1.226, for review                                            |
 | **Date**            | 2026-11-19                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -235,6 +235,7 @@
 | v1.223  | 2026-11-22 | Slice OC acceptance criteria (`docs/acceptance/cards.md`, additions in `types.md`, `views.md`, `embeds.md`, `previews.md`, `app-shell.md`; fixture `tests/fixtures/vaults/cards/`): D-1964…D-1997 (AP-1571…AP-1604; owner: "Accept all proposals"): where `card:` and `icon:` go, `preview:` still read for the default list and fallback columns, system-type default card lists, `Size` shown, card layout details, the icon picker, the Views section back in type settings, the Settings layout numbers, changed AC tests approved as one decision |
 | v1.224  | 2026-11-22 | Slice OC contract (`docs/contracts/v1-cards.md`): D-1998 (CP-1: every type icon drawn from Lucide), D-1999 (seven AC wording fixes in `cards.md`), D-2000 (`d3-force`'s licence in `Credits.rtf`); owner: "Accept all" |
 | v1.225  | 2026-11-22 | Slice OC red tests (f21aaeab stubs, f040e7b1 tests): red-test decisions D-2001…D-2010 (RT-1…RT-10), further AC-test changes D-2011; owner: "Accept all" |
+| v1.226  | 2026-11-22 | D-2012 (two slice OC red-test fixes; owner: "Approve both") |
 
 ---
 
@@ -2060,6 +2061,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-2009 | Positions read after a card move (RT-9, owner, 2026-11-22: "Accept all"; slice OC red tests f040e7b1) | FR-UX-08 AC-26: positions count from 1 among the property rows, Title not counted |
 | D-2010 | The top of the type settings pane (RT-10, owner, 2026-11-22: "Accept all"; slice OC red tests f040e7b1) | FR-TYP-01 AC-22's "top of the pane" is the top of the scrolling area that holds the sections (± 8 px) |
 | D-2011 | Further slice OC AC-test changes (red-test review, owner, 2026-11-22: "Accept all") | Approved as D-1997, with the same trailer: the struct literals of `ac_schema.rs`, `ac_views_usage_type_file.rs`, `ac_type_columns.rs` and `widen_table.rs` gain `icon` / `card` (type only, as D-1926); `hidden_properties.ac.test.ts` (its `Preview properties` section step); `previews_settings` and `page_width` where they measure the old Settings boxes |
+| D-2012 | Two slice OC red-test fixes (OC-a build, owner, 2026-11-22: "Approve both") | `crates/tegg-jobs/tests/ac_cards_jobs.rs` (FR-TYP-11 AC-28) expects the changed files in `changed()`'s sorted order and includes `Výlety/Okolo Máchova jezera.md` (its `kraj: "—"` is a value for the delete job, D-814; `—` is empty only on a card); `app/test/icon_picker.ac.test.ts` (FR-TYP-01 AC-20) skips `target/`, `.git/`, `.verify/` and `test exports/` when it scans the repo, so it no longer times out under load |
 
 ---
 
