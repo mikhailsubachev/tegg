@@ -98,7 +98,8 @@ test('fr_lnk_10_ac2_alfa_strip_holds_three_items_rozpocet_none', async () => {
   const s = strip(dialog);
   assert.ok(s, 'the region Preview properties');
   const t = text(s);
-  inOrder(t, ['Stav', 'Aktivní', 'Vlastník', 'Jana Nováková', 'Termín', 'Dec 31, 2026'], 'the strip in the type\'s order');
+  // Slice OC (D-1956, cards.md AP-1588): the card's pills in the card list's order, then its link chip.
+  inOrder(t, ['Stav', 'Aktivní', 'Termín', 'Dec 31, 2026', 'Jana Nováková'], 'the strip: the card\'s pills, then the link chip');
   for (const absent of ['Rozpočet', 'Poznámka', 'Interní']) assert.ok(!t.includes(absent), `no ${absent} in the strip: ${t}`);
   const chip = [...s!.querySelectorAll('a, [role="link"], [role="button"], button')].find((e) => name(e).includes('Jana Nováková'));
   assert.ok(chip, 'Vlastník is the chip Jana Nováková');

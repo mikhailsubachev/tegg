@@ -609,8 +609,9 @@ for (const view of ['editor', 'read_view'] as const) {
 
 // ------------------------------------------------------------------------------------------------ FR-EMB-02 AC-4
 
+/** Slice OC (cards.md AP-1587, D-1980): the card embed is the ObjectCard; its pills replace the `Properties` strip. */
 async function stripItems(f: Locator): Promise<string[]> {
-  return (await cardStrip(f).getByRole('listitem').allInnerTexts()).map(flat);
+  return (await f.locator('article[data-object-card] .card-pills [data-attribute]').allInnerTexts()).map(flat);
 }
 test('fr_emb_02_ac4_card_mode', async ({ page }) => {
   await openEmbeds(page, M.rezimy);
@@ -620,11 +621,11 @@ test('fr_emb_02_ac4_card_mode', async ({ page }) => {
   assert.ok((await headerText(jana)).includes('Jana Nováková'), 'title');
   await must(openButton(jana, 'Jana Nováková'), 'Open Jana Nováková');
   await must(displayAsButton(jana), 'Display as');
-  assert.deepEqual(await stripItems(jana), ['Firma Beta a.s.', 'Role Analytička'], 'the Properties strip in preview order');
-  assert.ok(!flat(await jana.innerText()).includes('Poznámky o Janě.'), "Jana's body isn't in the card");
+  assert.deepEqual(await stripItems(jana), ['Firma Beta a.s.', 'Role Analytička'], 'the card\'s pills in the card list\'s order (Osoba: tags, body, firma, role, modified)');
+  assert.ok(flat(await jana.innerText()).includes('Poznámky o Janě.'), "Jana's body text is on the card (D-1950)");
   const sarka = await needTop(main(page), 2, "Šárka's card");
-  assert.equal(await cardStrip(sarka).count(), 0, 'Šárka: no strip');
-  assert.equal(flat(await sarka.innerText()).replace(/Šárka Malá/g, '').trim(), flat(await headerText(sarka)).replace(/Šárka Malá/g, '').trim(), 'Šárka: the header only, no empty-state text');
+  assert.equal(await sarka.locator('.card-pills').count(), 0, 'Šárka: no pills (D-1953)');
+  assert.ok(flat(await sarka.innerText()).includes('Bez vlastností.'), 'Šárka: the body text, no empty-state text');
   const task = await needTop(main(page), 5, 'Zavolat Janě card');
   assert.equal(await task.evaluate((e) => e.firstElementChild?.querySelector('[data-icon]')?.getAttribute('data-icon') ?? null), 'check-square', 'Task icon');
   await must(openButton(task, 'Zavolat Janě'), 'Open Zavolat Janě');

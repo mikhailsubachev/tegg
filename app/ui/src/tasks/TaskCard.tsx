@@ -1,20 +1,14 @@
-// Slice 5A-1: the universal task card (tasks.md R43, CardAnatomy; D-482) and its chips: checkbox, title, More, tags,
-// body start, status, due (R44, FR-TSK-09), priority, source (FR-TSK-08, D-486), and "also in" on the Kanban by tag.
-// Slice Q2-T (v1-views §28.2, §29.5; D-1904, AP-1541): on a board the card is driven by Task's `preview` (status,
-// priority and due chips per key, other keys as the board's pills), hides the grouping key's chip, and carries the
-// board's focus and drag props (`slot`).
-import { startPinDrag } from '../pinned/drag';
+// Slice 5A-1: the parts of the task card (tasks.md R43; D-482): the checkbox, the due chip (R44, FR-TSK-09) and the
+// source chip (FR-TSK-08, D-486). Slice OC (v1-cards §6.2; D-1904, D-1942): the card itself is `cards/ObjectCard.tsx`
+// with `cards/task.ts`'s rules; these parts stay (ObjectCard, TaskEmbed, the Daily Note's rows).
 import { RefElement } from '../preview/useReference';
 import type { PreviewTarget } from '../preview/types';
-import type { ReactNode } from 'react';
-import type { CardSlotProps } from '../board/Board';
 import { t } from '../i18n/catalog';
-import type { TaskDefsDto, TaskRowDto } from '../ipc/types';
+import type { TaskRowDto } from '../ipc/types';
 import { chipIcon } from '../links/icons';
 import { requestOffer } from '../links/offer';
 import { Icon } from '../shell/Icon';
 import { dueLabel, shortDate } from './views';
-import { useTagLook } from '../tags/store';
 
 export type TaskNav = {
   openNote: (path: string) => void;
@@ -59,7 +53,7 @@ export function DueChip({ row, today, region, zone }: { row: TaskRowDto; today: 
   );
 }
 
-export function SourceChip({ row, nav, tabIndex = 0 }: { row: TaskRowDto; nav: TaskNav; tabIndex?: number }) {
+export function SourceChip({ row, nav, tabIndex = 0, footer }: { row: TaskRowDto; nav: TaskNav; tabIndex?: number; /** Slice OC: the card's footer link (D-1904). */ footer?: boolean }) {
   const s = row.source;
   if (!s) return null;
   const ok = (s.kind === 'note' || s.kind === 'daily') && !!s.path;
@@ -85,6 +79,8 @@ export function SourceChip({ row, nav, tabIndex = 0 }: { row: TaskRowDto; nav: T
       data-command="task.openSource"
       className={`chip link-chip kind-${kind} task-source`}
       data-link-kind={kind}
+      data-attribute={footer ? 'source' : undefined}
+      data-footer-link={footer ? '' : undefined}
       aria-description={ok ? t('task.source', { title: text }) : t('link.noNote', { target: text })}
       onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
       onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
@@ -92,117 +88,5 @@ export function SourceChip({ row, nav, tabIndex = 0 }: { row: TaskRowDto; nav: T
       {icon && <Icon name={icon.glyph} dataIcon={icon.def} size={12} />}
       <span data-user-content>{text}</span>
     </RefElement>
-  );
-}
-
-function optionColor(defs: TaskDefsDto, kind: 'status' | 'priority', label: string | null): string | null {
-  const list = kind === 'status' ? defs.statuses : defs.priorities;
-  return list.find((o) => o.label === label)?.color ?? null;
-}
-
-export type CardProps = {
-  row: TaskRowDto;
-  defs: TaskDefsDto;
-  today: string;
-  region: string;
-  zone?: string;
-  nav: TaskNav;
-  alsoIn?: string[];
-  onToggle: (row: TaskRowDto, done: boolean) => void;
-  onMenu: (row: TaskRowDto, anchor: HTMLElement, opener: HTMLElement | null) => void;
-  onKey?: (e: React.KeyboardEvent<HTMLElement>, row: TaskRowDto) => void;
-  dragProps?: Record<string, unknown>;
-  /** The Kanban by status (D-589). */
-  hideStatus?: boolean;
-  children?: ReactNode;
-  /** Q2-T (§28.2): Task's `preview` keys; the status, priority and due chips show only for listed keys. */
-  preview?: string[];
-  /** Q2-T: the board's grouping key (its chip is hidden; a period key is passed as null). */
-  hideKey?: string | null;
-  /** Q2-T: the other `preview` keys, as the board card's pills and footer chips. */
-  pills?: ReactNode;
-  /** Q2-T: the board's focus and drag props; the card is then `article[data-board-card][data-task-card]`. */
-  slot?: CardSlotProps;
-  /** Q2-T: the card's type name for `board.card` (`Task: <title>`). */
-  typeName?: string;
-};
-
-const DEFAULT_PREVIEW = ['status', 'priority', 'due'];
-
-export function TaskCard({ row, defs, today, region, zone, nav, alsoIn, hideStatus, onToggle, onMenu, onKey, dragProps, preview = DEFAULT_PREVIEW, hideKey = null, pills, slot, typeName }: CardProps) {
-  const look = useTagLook();
-  const done = isDone(row);
-  const keys = new Set(preview.map((k) => k.normalize('NFC')));
-  const hidden = hideKey?.normalize('NFC') ?? null;
-  const firstStatus = defs.statuses[0]?.label ?? null;
-  // D-589: the Kanban by status names the status in its column; a value that isn't a status still shows (`No status`).
-  // On a board grouped by status the chip goes for every card (its lane names the value, D-1927).
-  const showStatus = keys.has('status') && hidden !== 'status' && row.status !== null && (hideStatus ? !row.statusKnown : row.status !== firstStatus || !row.statusKnown);
-  const lastPriority = defs.priorities[defs.priorities.length - 1]?.label ?? null;
-  const showPriority = keys.has('priority') && hidden !== 'priority' && !done && row.priority !== null && row.priorityRank < defs.priorities.length && row.priority !== lastPriority;
-  const showDue = keys.has('due') && hidden !== 'due';
-  const statusColor = optionColor(defs, 'status', row.status);
-  const priorityColor = optionColor(defs, 'priority', row.priority);
-  const overdue = row.state !== 'done' && row.state !== 'cancelled' && row.due !== null && row.due < today;
-  const tags = row.fmTags.length ? row.fmTags : row.tags;
-  const shownTags = [...new Set([...tags.map((x) => x.normalize('NFC').replace(/^#/, '')), ...row.tags.filter((k) => !tags.some((x) => x.normalize('NFC').toLowerCase() === k))])];
-  const path = row.path.normalize('NFC');
-  const { dragging, ...slotRest } = slot ?? { dragging: false };
-  // On a board the card's own controls stay Tab stops, as on every R43 card (FR-UX-03 AC-53).
-  const inner = 0;
-  return (
-    <article
-      className={`task-card${done ? ' done' : ''}${slot ? ' board-card board-task-card' : ''}${dragging ? ' dragging' : ''}`}
-      aria-label={slot ? t('board.card', { type: typeName ?? 'Task', title: row.title }) : t('task.card', { title: row.title })}
-      data-path={path}
-      data-state={row.state}
-      data-overdue={overdue ? 'true' : 'false'}
-      tabIndex={0}
-      onKeyDown={(e) => onKey?.(e, row)}
-      {...dragProps}
-      {...(slot ? { ...slotRest, 'data-board-card': path, 'data-task-card': '', 'data-read-only': row.readOnly ? '' : undefined } : {})}
-    >
-      <div className="task-card-head">
-        <Checkbox row={row} onToggle={(d) => onToggle(row, d)} tabIndex={inner} />
-        {/* Slice P (R104 row 7, D-930): the title is the card's reference: a click previews, ⏎ and a double-click open. */}
-        <RefElement as="a" reference={{ target: { path: row.path.normalize('NFC'), fragment: null, kind: 'note' }, kind: 'card', open: () => nav.openNote(row.path) }}
-          href="#" tabIndex={inner} draggable={false} data-command="task.open" data-card-title="" className="task-title"
-          // Slice PIN (R135, D-1381): a drag from the title link can pin the task (a drop on Pinned).
-          // The press also reaches the card, so a drop on a column still changes the status; a drop on Pinned pins.
-          onMouseDown={(e: React.MouseEvent) => { if (e.button === 0) startPinDrag(e.nativeEvent, { request: { kind: 'object', path: row.path.normalize('NFC') }, label: row.title, icon: 'check-square' }); }}
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-          <span data-user-content>{row.title}</span>
-        </RefElement>
-        <button type="button" tabIndex={inner} data-command="task.setStatus" className="task-more icon-button" aria-label={t('task.more', { title: row.title })} aria-haspopup="menu"
-          onClick={(e) => { e.stopPropagation(); onMenu(row, e.currentTarget, e.currentTarget.closest('article')); }}>
-          <Icon name="more-horizontal" size={14} />
-        </button>
-      </div>
-      {shownTags.length > 0 && (
-        <div className="task-tags">
-          {shownTags.slice(0, 3).map((x) => <span key={x} className={`task-chip tag${slot ? ' card-tag' : ''}`} style={look(x).style} data-user-content>#{look(x).name}</span>)}
-          {shownTags.length > 3 && <span className="task-chip tag">+{shownTags.length - 3}</span>}
-        </div>
-      )}
-      {!done && row.excerpt && <p className="task-body" data-user-content>{row.excerpt}</p>}
-      <div className="task-chips">
-        {showStatus && (
-          <span className="task-chip status" data-status={row.status ?? ''} aria-description={row.statusKnown ? undefined : t('task.notStatus')}>
-            <span className="dot" data-color={statusColor ?? ''} style={statusColor ? { background: `var(--type-${statusColor})` } : undefined} />
-            <span data-user-content>{row.status}</span>
-          </span>
-        )}
-        {showDue && <DueChip row={row} today={today} region={region} zone={zone} />}
-        {showPriority && (
-          <span className="task-chip priority" data-priority={row.priority ?? ''}>
-            <span data-flag style={priorityColor ? { color: `var(--type-${priorityColor})` } : undefined}><Icon name="flag" size={12} /></span>
-            <span data-user-content>{row.priority}</span>
-          </span>
-        )}
-        <SourceChip row={row} nav={nav} tabIndex={inner} />
-      </div>
-      {pills}
-      {alsoIn && alsoIn.length > 0 && <p className="task-also">{t('task.alsoIn', { tags: alsoIn.map((x) => `#${x}`).join(', ') })}</p>}
-    </article>
   );
 }

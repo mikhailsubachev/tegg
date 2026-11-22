@@ -1022,7 +1022,9 @@ test('fr_typ_11_ac4_preview_and_columns_are_separate', async ({ page }) => {
   await (await must(typeTable(page, S).getByRole('row').filter({ hasText: '2026-10-07 Porada' }), 'row Porada')).click();
   const strip = await mustPreview(page, '2026-10-07 Porada', '(d) the row preview of Porada');
   const text = await strip.innerText();
-  assert.ok(text.includes('Datum') && text.includes('Účastníci') && !text.includes('Místo'), `(d) the preview strip follows preview, never columns: ${text.replace(/\s+/g, ' ')}`);
+  // Slice OC (D-1942, D-1956): the strip follows the card list (Schůzka's default: tags, body, datum, účastníci, modified):
+  // the Datum pill, then the Účastníci link chip; never `columns`.
+  assert.ok(text.includes('Datum') && text.includes('Jana Nováková') && !text.includes('Místo'), `(d) the preview strip follows the card list, never columns: ${text.replace(/\s+/g, ' ')}`);
   await page.keyboard.press('Escape');
   await gotoSettings(page, S, 'Schůzka');
   const sec = await must(section(page, 'Preview properties'), 'Preview properties');
