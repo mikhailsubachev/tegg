@@ -17,11 +17,19 @@ pub struct LocalFs {
     /// Folder listings by folder, with the folder's mtime when listed (a create, rename or removal in it changes the
     /// mtime): `abs` resolves non-ASCII names against them off APFS without listing a folder per file (D-2029, D-2048).
     listings: std::sync::Mutex<std::collections::HashMap<PathBuf, (i128, std::sync::Arc<Vec<String>>)>>,
+    /// Resolve non-ASCII names through the listings: off macOS, and in host tests of that path.
+    resolve_names: bool,
 }
 
 impl LocalFs {
     pub fn new(root: &Path) -> LocalFs {
-        LocalFs { root: root.to_path_buf(), listings: Default::default() }
+        LocalFs { root: root.to_path_buf(), listings: Default::default(), resolve_names: !cfg!(target_os = "macos") }
+    }
+
+    /// A `LocalFs` that resolves names as on Android, for host tests (D-2048).
+    #[cfg(test)]
+    fn resolving(root: &Path) -> LocalFs {
+        LocalFs { resolve_names: true, ..LocalFs::new(root) }
     }
 
     /// `dir`'s entry names as stored on disk, from the cache while the folder's mtime is unchanged.
@@ -43,7 +51,7 @@ impl LocalFs {
     /// is always reached through the spelling it is stored under; a new file keeps the NFC name.
     fn abs(&self, path: &str) -> io::Result<PathBuf> {
         let p = self.root.join(path);
-        if cfg!(target_os = "macos") || path.is_ascii() {
+        if !self.resolve_names || path.is_ascii() {
             return Ok(p);
         }
         let rel = on_disk_path_under(&self.root, path, &|d| self.listing(d))?;
@@ -681,7 +689,7 @@ mod bug_and0f1 {
 /// never replace an existing file when the no-replace primitive isn't available.
 #[cfg(test)]
 mod bug_and1la_fr_syn_02_create_without_hard_links {
-    use super::no_clobber_via;
+    use super::{no_clobber_via, LocalFs};
     use std::io;
     use std::path::Path;
 
@@ -709,5 +717,35 @@ mod bug_and1la_fr_syn_02_create_without_hard_links {
         assert_eq!(std::fs::read(&target).unwrap(), b"new", "the existing file is untouched");
         let _ = std::fs::remove_dir_all(&dir);
     }
-}
+    /// QA AND-1: a folder listing cached in the same mtime tick as another app's create must not hide the new entry
+    /// (D-2048).
+    #[test]
+    fn bug_and1qa_fr_fmt_12_stale_listing_refuses_nfd_write() {
+        let dir = tempfile::tempdir().unwrap();
+        let pages = dir.path().join("Pages");
+        std::fs::create_dir(&pages).unwrap();
+        let fs = LocalFs::resolving(dir.path());
+        let nfc = "Pages/Poznámka.md";
+        assert!(fs.abs_write(nfc).is_ok(), "a new note may be written");
+        let mtime = std::fs::metadata(&pages).unwrap().modified().unwrap();
+        // Another app adds the note under its NFD name in the same tick: the folder's mtime looks unchanged.
+        std::fs::write(pages.join("Pozna\u{301}mka.md"), b"x").unwrap();
+        std::fs::File::open(&pages).unwrap().set_modified(mtime).unwrap();
+        let e = fs.abs_write(nfc).expect_err("the NFD-named note is read-only");
+        assert_eq!(e.kind(), io::ErrorKind::PermissionDenied);
+    }
 
+    /// QA AND-1: a path given in its NFD bytes (a name-conflict twin from `list`) is still a file stored under an NFD
+    /// name, so it is refused too (D-2048).
+    #[test]
+    fn bug_and1qa_fr_fmt_12_nfd_path_given_as_is_refused() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join("Pages")).unwrap();
+        let nfd = "Pages/Pozna\u{301}mka.md";
+        std::fs::write(dir.path().join(nfd), b"x").unwrap();
+        let fs = LocalFs::resolving(dir.path());
+        let e = fs.abs_write(nfd).expect_err("the NFD-named note is read-only");
+        assert_eq!(e.kind(), io::ErrorKind::PermissionDenied);
+        assert!(fs.abs_write("Pages/Nová.md").is_ok(), "a new NFC note may be written");
+    }
+}
