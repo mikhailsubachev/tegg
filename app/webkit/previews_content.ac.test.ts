@@ -43,7 +43,7 @@ test('fr_lnk_10_ac2_strip_holds_the_preview_attributes_with_a_value_in_order', a
   // Slice OC (D-1956, cards.md AP-1588): the card's pills in the card list's order, then its link chip.
   assert.deepEqual(await stripItems(dlg), ['Stav Aktivní', 'Termín Dec 31, 2026', 'Jana Nováková'], 'exactly three items: Rozpočet is empty, Poznámka is not on the card');
   const s = await need(strip(dlg), 'region "Preview properties"');
-  await need(chipNamed(s, 'Jana Nováková'), 'Vlastník as the chip Jana Nováková');
+  await need(chipNamed(s, 'Vlastník: Jana Nováková'), 'Vlastník as the chip named Vlastník: Jana Nováková'); // D-2027, D-2046
   await page.keyboard.press('Escape');
   const d2 = await clickToPreview(page, await needOdkazyLink(page, 'Hlavní'), 'Rozpočet 2027', 'Rozpočet');
   assert.equal(await strip(d2).count(), 0, 'Rozpočet (Page, preview: []) has no strip element');

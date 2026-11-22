@@ -140,7 +140,7 @@ test('fr_typ_11_ac23_reordering', async ({ page }) => {
   assert.equal(await fileWhen(core, VYLET_YML, (t) => t !== original(VYLET_YML)), vyletWith('card: [tags, description, kraj, stav, náročnost, vybavení, délka, termín, odkaz, průvodce, neznámý-klíč, modified]\n'), 'Kraj above Stav: one write');
   await cardHandle(page, 'Kraj').focus();
   await page.keyboard.press('Alt+ArrowDown');
-  assert.equal(await fileWhen(core, VYLET_YML, (t) => !!t?.includes('stav, kraj, náročnost')), vyletWith(VYLET_CARD), '⌥↓ moves one place down');
+  assert.equal(await fileWhen(core, VYLET_YML, (t) => !!t?.includes('stav, kraj, náročnost')), vyletWith('card: [tags, description, stav, kraj, náročnost, vybavení, délka, termín, odkaz, průvodce, neznámý-klíč, modified]\n'), '⌥↓ moves one place down (D-2047)');
   assert.equal((await focusName(page)).name.replace(/[⟦⟧]/g, ''), 'Drag to reorder Kraj', 'the focus stays on the handle');
   const n = (await callsOf(core, 'type_patch')).length;
   await cardHandle(page, 'Tags').focus();
