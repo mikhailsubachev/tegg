@@ -15,6 +15,8 @@ export type R1Row = {
   design: string | null;
   /** "Go to <Page>" command expected by FR-UX-03 AC-3 (null: no Go-to command, see the report's AP points). */
   goto: string | null;
+  /** Slice Q2-T (v1-views §28.2): a route with no page of its own that resolves to another (`status.alias`). */
+  alias?: string;
 };
 
 const d = (milestone: string, slice?: string): Due => (slice ? { milestone, slice } : { milestone });
@@ -26,9 +28,10 @@ export const R1: R1Row[] = [
   // Built in 4B (daily-notes.md R17, D-321): `today` redirects to the daily route, whose page is named by its date.
   { id: 'today', get page() { return today(); }, built: true, due: d('MS4', '4B'), reqs: 'FR-DLY-01…06', design: 'Home', goto: 'Go to Today' },
   { id: 'daily/YYYY-MM-DD', get page() { return today(); }, built: true, due: d('MS4', '4B'), reqs: 'FR-DLY-01…06', design: 'Home', goto: 'Go to Today' },
-  // Built in 5A-1 (tasks.md R45, D-489): the Schedule and the Kanban.
-  { id: 'tasks', page: 'Tasks', built: true, due: d('MS5'), reqs: 'FR-TSK-04, FR-TSK-05', design: 'Tasks', goto: 'Go to Tasks' },
-  { id: 'tasks/kanban', page: 'Tasks', built: true, due: d('MS5'), reqs: 'FR-TSK-04, FR-TSK-05', design: 'TasksBoard', goto: 'Show Kanban' },
+  // Built in 5A-1 (tasks.md R45, D-489): the Schedule and the Kanban. Slice Q2-T (AC-Test-Change, D-1912; AP-1540,
+  // v1-views §28.2): both are aliases of `type/task` (its remembered tab; `Kanban` for `tasks/kanban`).
+  { id: 'tasks', page: 'Tasks', built: true, due: d('MS5'), reqs: 'FR-TSK-04, FR-TSK-05', design: 'Tasks', goto: 'Go to Tasks', alias: 'type/task' },
+  { id: 'tasks/kanban', page: 'Tasks', built: true, due: d('MS5'), reqs: 'FR-TSK-04, FR-TSK-05', design: 'TasksBoard', goto: 'Show Kanban', alias: 'type/task' },
   { id: 'search', page: 'Search', built: true, due: d('MS2'), reqs: 'FR-SRC-01…04', design: null, goto: 'Go to Search' },
   { id: 'type/<type>', page: 'Type page', built: true, due: d('MS3'), reqs: 'FR-TYP-09', design: 'Ideas', goto: null },
   { id: 'type-settings/<type>', page: 'Type settings', built: true, due: d('MS3', '3D'), reqs: 'FR-TYP-01…03, -05, -11, -12', design: 'TypeSettings', goto: null }, // built in 3D (types.md R1)
@@ -92,8 +95,8 @@ export const R3: R3Control[] = [
   // 6A (trash-media.md R75): the `File` row (`ctl.rowFile`) is built.
   // 4D-lite (R87): the Tag `color` row is removed (a Tag has no note page, D-692).
   { label: 'recurrence', where: 'attribute panel row', due: d('v1.0'), req: 'FR-TSK-01', route: 'note/<path>' }, // D-381 (5A-1)
-  // 5A-1 (tasks.md R45 R3).
-  { label: 'Sort tasks', where: 'Tasks page toolbar', due: d('v1.0'), req: 'FR-QRY-05', route: 'tasks' },
+  // 5A-1 (tasks.md R45 R3). Slice Q2-T (AC-Test-Change, D-1912; v1-views §28.2): the `tasks.sort` placeholder goes (the
+  // Tasks page has the working sort button of R188).
   // 6A (R75): the task card's `Move to trash` is built.
   // 5B R62 (D-565): the four Appearance extras are relabelled v1.0.
   { label: 'Font', where: 'Settings: Appearance', due: d('v1.0'), req: 'FR-SET-02', route: 'settings/appearance' },

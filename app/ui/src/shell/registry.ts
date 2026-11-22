@@ -11,7 +11,8 @@ export type RouteDef = {
   id: string;
   name: string;
   purpose: string;
-  status: { built: true; due?: Due } | { built: false; due: Due };
+  /** Q2-T (v1-views §28.2): `alias`: no page of its own, resolves to that route. */
+  status: { built: true; due?: Due; alias?: string } | { built: false; due: Due };
   reqs: string[];
   design: string | null;
 };
@@ -41,9 +42,10 @@ export const ROUTES: RouteDef[] = [
   // 4B (daily-notes.md R17): `today` redirects to `daily/<today>` (D-321).
   { id: 'today', name: 'route.today', purpose: 'purpose.today', status: { built: true, due: { milestone: 'MS4', slice: '4B' } }, reqs: ['FR-DLY-01…06'], design: 'Home' },
   { id: 'daily/YYYY-MM-DD', name: 'route.today', purpose: 'purpose.today', status: { built: true, due: { milestone: 'MS4', slice: '4B' } }, reqs: ['FR-DLY-01…06'], design: 'Home' },
-  // 5A-1 (tasks.md R45): the Schedule and the Kanban (D-378, D-379, D-481).
-  { id: 'tasks', name: 'route.tasks', purpose: 'purpose.tasks', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-TSK-04', 'FR-TSK-05'], design: 'Tasks' },
-  { id: 'tasks/kanban', name: 'route.tasks', purpose: 'purpose.tasks', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-TSK-04', 'FR-TSK-05'], design: 'TasksBoard' },
+  // 5A-1 (tasks.md R45): the Schedule and the Kanban (D-378, D-379, D-481). Q2-T (AP-1540, v1-views §29.1): aliases of
+  // `type/task` (its remembered tab; `Kanban` for `tasks/kanban`).
+  { id: 'tasks', name: 'route.tasks', purpose: 'purpose.tasks', status: { built: true, due: { milestone: 'MS5' }, alias: 'type/task' }, reqs: ['FR-TSK-04', 'FR-TSK-05'], design: 'Tasks' },
+  { id: 'tasks/kanban', name: 'route.tasks', purpose: 'purpose.tasks', status: { built: true, due: { milestone: 'MS5' }, alias: 'type/task' }, reqs: ['FR-TSK-04', 'FR-TSK-05'], design: 'TasksBoard' },
   { id: 'search', name: 'route.search', purpose: 'purpose.search', status: built, reqs: ['FR-SRC-01…04'], design: null },
   { id: 'type/<type>', name: 'route.type', purpose: 'purpose.type', status: built, reqs: ['FR-TYP-09'], design: 'Ideas' },
   { id: 'type-settings/<type>', name: 'route.typeSettings', purpose: 'purpose.typeSettings', status: built, reqs: ['FR-TYP-01…03', '-05', '-11', '-12'], design: 'TypeSettings' }, // built in 3D (types.md R1)
@@ -97,8 +99,7 @@ export const DISABLED_CONTROLS: DisabledControl[] = [
   { label: 'ctl.editTemplate', where: 'type settings, Templates', due: d('v1.0'), req: 'FR-TPL-01' },
   // Slice Q2 (D-1801): the Type settings Views section is gone (views live on the type page).
   { label: 'ctl.rowRecurrence', where: 'attribute panel row', due: d('v1.0'), req: 'FR-TSK-01' }, // D-381
-  // 5A-1 (tasks.md R45 R3).
-  { label: 'tasks.sort', where: 'Tasks page toolbar', due: d('v1.0'), req: 'FR-QRY-05' },
+  // 5A-1 (tasks.md R45 R3). Q2-T (v1-views §23.3): the `tasks.sort` placeholder goes (the sort button works).
   // 5B R62 (D-565): the four Appearance extras are v1.0.
   { label: 'ctl.font', where: 'Settings: Appearance', due: d('v1.0'), req: 'FR-SET-02' },
   { label: 'ctl.fontSize', where: 'Settings: Appearance', due: d('v1.0'), req: 'FR-SET-02' },

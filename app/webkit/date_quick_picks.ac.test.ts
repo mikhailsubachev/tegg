@@ -8,7 +8,8 @@
 // unless stated. Written from the ACs and the contracts only (D-61); every lookup goes through `must`/node:assert (TS-I1).
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { T, card, click, gotoKanban, gotoTasks, moreBtn, shortDate, startTasks, titleOf } from './tasks-helpers';
+import { T, card, click, gotoKanban, gotoTasks, moreBtn, shortDate, startTasksPage as startTasks, titleOf } from './tasks-helpers';
+// D-1924 (AC-Test-Change, slice Q2-T): route only, plus the default task views in the vault (migrations are off in tests, D-1913).
 import { D, caretAtEnd, cmdD, linkSuggestions, mustBeOn, pickDate, startDaily } from './daily-helpers';
 import { dueBtn, startCapture } from './capture-helpers';
 import { P, callsOf, eventually, lastWrite, noModified, openTypes, original, props, swap, type FakeCoreHandle } from './types-helpers';

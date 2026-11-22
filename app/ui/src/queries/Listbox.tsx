@@ -2,7 +2,9 @@
 // while its listbox is open: typing filters, ↑/↓ move, ⏎ picks, Esc closes only the list (FR-UX-03 AC-42).
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 
-export type ListOption = { id: string; label: string; userNamed?: boolean; extra?: string; group?: string };
+export type ListOption = { id: string; label: string; userNamed?: boolean; extra?: string; group?: string;
+  /** Q2-T: the option's description (`aria-description`) and extra data attributes (`data-group-by`, `data-period`). */
+  description?: string; attrs?: Record<string, string> };
 export type ListGroup = { label: string; userNamed?: boolean };
 
 const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().normalize('NFC');
@@ -134,6 +136,7 @@ export function Chooser({ role = 'combobox', label, display, faint, options, gro
     if (o.group !== lastGroup) { flush(); lastGroup = o.group; }
     bucket.push(
       <div key={o.id} id={`${id}-${i}`} role="option" aria-selected={i === active} className={`option ${i === active ? 'selected' : ''}`}
+        aria-description={o.description} {...(o.attrs ?? {})}
         onMouseDown={(e) => e.preventDefault()} onMouseMove={() => i !== active && setActive(i)} onClick={() => pick(i)}>
         <span data-user-content={o.userNamed ? '' : undefined}>{o.label}</span>
         {o.extra && <span className="meta" data-user-content>{o.extra}</span>}

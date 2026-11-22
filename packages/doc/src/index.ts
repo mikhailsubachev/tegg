@@ -236,4 +236,4 @@ export { outlineHeadings, outlineHeadingsOf, outlineTree, foldKey, railDepth, ra
 
 // ---------------------------------------------------------------- slice Q2 (v1-views §1.9)
 
-export { applyBoardMove, type BoardMove } from './board.js'
+export { applyBoardMove, applyPeriodMove, type BoardMove, type PeriodMove } from './board.js'

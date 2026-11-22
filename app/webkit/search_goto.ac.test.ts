@@ -5,6 +5,7 @@
 // core, plus runtime objects (12 `Poznámka NN` pages, a Daily Note and a Tag file). Written from the ACs only (D-61);
 // every lookup goes through `must`/node:assert (TS-I1).
 import { test, type Page } from '@playwright/test';
+import { withTaskViews } from './tasks-helpers';
 import assert from 'node:assert/strict';
 import { R1 } from '../test/shell-tables';
 import { loadFixtureVault, type FakeVault } from '../ui/test/fake-core';
@@ -30,7 +31,7 @@ function searchVault(): FakeVault {
 }
 async function startSearch(page: Page): Promise<FakeCoreHandle> {
   await page.clock.setFixedTime(new Date('2026-10-14T10:00:00+02:00'));
-  return start(page, { vault: searchVault() });
+  return start(page, { vault: withTaskViews(searchVault()) }); // D-1932: with the default task views, so `Show Kanban` is listed (R207)
 }
 
 // ------------------------------------------------------------------------------------------------ AC-18

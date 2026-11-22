@@ -155,6 +155,16 @@ export function isValidRow(row: FilterItemDto, chosenTypes: TypeDto[]): BrokenRe
     }
   }
   const kind = info!.kind;
+  // Q2-T (§24.4, AP-1533): `state is` / `state is not` on a Select that carries states in every chosen type.
+  if (row.op === 'state_is' || row.op === 'state_is_not') {
+    const states = ['open', 'in-progress', 'done', 'cancelled'];
+    const carries = chosenTypes.length > 0 && chosenTypes.every((ty) => {
+      const a = ty.attributes.find((x) => nfc(x.key) === key);
+      return !!a && a.type === 'select' && (a.options ?? []).some((o) => typeof o.state === 'string' && states.includes(o.state));
+    });
+    if (!carries) return 'operatorKind';
+    return typeof v === 'string' && states.includes(v) ? null : 'value';
+  }
   if (!OPS[kind].includes(row.op)) return 'operatorKind';
   let ok = true;
   switch (row.op) {
@@ -251,6 +261,8 @@ function plain(items: FilterItemDto[]): unknown[] {
 }
 /** Two definitions with the same effective values (title included). */
 export function defEquals(a: QueryDefDto, b: QueryDefDto): boolean {
-  const norm = (d: QueryDefDto) => JSON.stringify([nfc(d.title), d.types.map(nfc), d.match, plain(d.filters), d.sort.map((l) => [nfc(l.by), l.order]), d.limit, d.view, d.groupBy === null ? null : nfc(d.groupBy), d.lanes, d.laneOrder === null ? null : d.laneOrder.map(nfc), d.columns.map(nfc)]);
+  const norm = (d: QueryDefDto) => JSON.stringify([nfc(d.title), d.types.map(nfc), d.match, plain(d.filters), d.sort.map((l) => [nfc(l.by), l.order]), d.limit, d.view, d.groupBy === null ? null : nfc(d.groupBy), d.lanes, d.laneOrder === null ? null : d.laneOrder.map(nfc), d.columns.map(nfc),
+    // Q2-T (§24.1): the period grouping and the done lane.
+    !!d.groupPeriod, d.doneLane ? [d.doneLane.withinDays, d.doneLane.folded] : null]);
   return norm(a) === norm(b);
 }

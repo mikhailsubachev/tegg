@@ -6,7 +6,7 @@
 // typed in (FR-QRY-09 AC-5): a re-run waits until the typing pauses. An answer equal to the drawn one redraws nothing.
 import { useEffect, useRef, useState } from 'react';
 import { events, ipc } from '../ipc/client';
-import type { QueryResultDto, QuerySourceDto, QueryStaleDto } from '../ipc/queries';
+import type { QueryEnvDto, QueryResultDto, QuerySourceDto, QueryStaleDto } from '../ipc/queries';
 import { localDate } from '../zone';
 import { queryEnv } from './env';
 
@@ -33,11 +33,12 @@ function watchTyping() {
   }, true);
 }
 
-export type RunState = { result: QueryResultDto | null; loading: boolean; error: boolean };
+/** `env`: the environment the shown result was run with (Q2-T §29.3: a period board's drops and tiles use its bounds). */
+export type RunState = { result: QueryResultDto | null; loading: boolean; error: boolean; env?: QueryEnvDto | null };
 
 /** The run of a list that was just unmounted: React's StrictMode mounts every effect twice in development, and a
  *  remount with the same source right away reuses the answer in flight instead of asking the core again. */
-let disposed: { key: string; answer: Promise<QueryResultDto> } | null = null;
+let disposed: { key: string; answer: Promise<QueryResultDto>; env: QueryEnvDto } | null = null;
 
 /** `source` null: nothing runs (a draft). `key` re-runs at once when it changes (the fence's text, the host). */
 export function useQueryRun(source: QuerySourceDto | null, host: string | null): RunState & { rerun: () => void } {
@@ -56,18 +57,21 @@ export function useQueryRun(source: QuerySourceDto | null, host: string | null):
     let seq = 0;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let last: Promise<QueryResultDto> | null = null;
-    const go = (reuse: Promise<QueryResultDto> | null = null) => {
+    let lastEnv: QueryEnvDto | null = null;
+    const go = (reuse: { answer: Promise<QueryResultDto>; env: QueryEnvDto } | null = null) => {
       const s = live.current.source;
       if (!s) return;
       const n = ++seq;
-      const answer = reuse ?? ipc.queryRun(s, live.current.host, queryEnv());
+      const env = reuse?.env ?? queryEnv();
+      const answer = reuse?.answer ?? ipc.queryRun(s, live.current.host, env);
       last = answer;
+      lastEnv = env;
       answer.then((r) => {
         if (!alive || n !== seq) return;
         const same = live.current.result && JSON.stringify(live.current.result) === JSON.stringify(r);
         live.current.result = r;
-        if (!same) setState({ result: r, loading: false, error: false });
-        else setState((x) => (x.loading ? { ...x, loading: false } : x));
+        if (!same) setState({ result: r, loading: false, error: false, env });
+        else setState((x) => (x.loading || JSON.stringify(x.env) !== JSON.stringify(env) ? { ...x, loading: false, env } : x));
       }, () => { if (alive && n === seq) setState((x) => ({ ...x, loading: false, error: true })); });
     };
     const later = (ms = 300) => {
@@ -81,7 +85,7 @@ export function useQueryRun(source: QuerySourceDto | null, host: string | null):
     run.current = () => later(0);
     live.current.result = null;
     setState((x) => ({ ...x, loading: true, error: noCore }));
-    const again = disposed && disposed.key === key ? disposed.answer : null;
+    const again = disposed && disposed.key === key ? { answer: disposed.answer, env: disposed.env } : null;
     disposed = null;
     go(again);
     const r = () => live.current.result;
@@ -129,10 +133,11 @@ export function useQueryRun(source: QuerySourceDto | null, host: string | null):
         if (paths.some((p) => sources.has(p))) later();
       }, () => later());
     });
-    // (c) the local date (D-327), for relative date filters.
-    let day = localDate(Date.now());
+    // (c) the local date (D-327) and the zone (Q2-T §27.6, R203 Live), for relative date filters and period boards.
+    const zoneNow = () => queryEnv().zone;
+    let day = `${localDate(Date.now())}\n${zoneNow()}`;
     const tick = setInterval(() => {
-      const d = localDate(Date.now());
+      const d = `${localDate(Date.now())}\n${zoneNow()}`;
       if (d === day) return;
       day = d;
       if (r()?.usesRelative) later(0);
@@ -143,7 +148,7 @@ export function useQueryRun(source: QuerySourceDto | null, host: string | null):
       alive = false;
       if (last) {
         // StrictMode's remount comes in the same task; a later mount asks again.
-        const d = { key, answer: last };
+        const d = { key, answer: last, env: lastEnv ?? queryEnv() };
         disposed = d;
         queueMicrotask(() => { if (disposed === d) disposed = null; });
       }

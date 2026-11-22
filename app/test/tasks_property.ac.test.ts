@@ -3,7 +3,8 @@
 // boundaries, impossible dates, date-times, absent), `completed` values and tags, random clocks and both regions:
 // every open task is in exactly one of Today & overdue, This week, Later, Not scheduled; every Done-state task is in
 // Done and no other section; no Cancelled-state task is in any section; the Kanban by status shows every task at most
-// once and every open task exactly once. And for random sequences of checkbox, status-drag and tag-drag actions on a
+// once and every open task exactly once (Q2-T: the Schedule through `queries/board/period.ts`, the Kanban through the
+// fake core's grouping; D-1929). And for random sequences of checkbox, status-drag and tag-drag actions on a
 // fake vault, each action changes exactly one file, only in the lines R44 / FR-TSK-02 AC-10 name, and leaves every
 // other file byte-identical. Interfaces: docs/contracts/ms5-tasks.md §4 (views.ts) and §5 (@tegg/doc).
 //
@@ -83,10 +84,24 @@ function textOf(s: Spec, n: number): string {
   return `---\n${lines.join('\n')}\n---\n${s.body}`;
 }
 
-test('fr_syn_06_ac22_every_task_lands_in_exactly_one_place', { timeout }, async () => {
-  const v = await load('../ui/src/tasks/views.ts');
-  assert.ok(v && typeof v.schedule === 'function' && typeof v.kanban === 'function', 'ui/src/tasks/views.ts (§4)');
+test('fr_syn_06_ac22_every_task_lands_in_exactly_one_place', { timeout: Math.max(timeout, 120_000) }, async () => {
+  // Slice Q2-T (AC-Test-Change, D-1929, D-1935; D-1924: `views.ts` no longer exports `schedule` / `kanban`, v1-views
+  // §28.2): the default `Schedule` and `Kanban` (R202) are run by the fake core's grouping (the core's L3 twin, checked
+  // against Rust on the corpus) over every generated vault, and the checks are on their lanes: every open task in exactly
+  // one place, a Done-state task only in the done lane (within its 7-day window, `period.completedWithin` as the oracle),
+  // a Cancelled task nowhere (QA review M1).
+  const p = await load('../ui/src/queries/board/period.ts');
+  assert.ok(p && typeof p.completedWithin === 'function', 'ui/src/queries/board/period.ts (v1-views §28.1)');
+  const fq = await load('../ui/test/fake-queries.ts');
+  const tv = await load('../ui/test/fake-taskviews.ts');
+  assert.ok(fq && typeof fq.queryRun === 'function' && tv && typeof tv.defaultTaskView === 'function', 'the fake core\'s query run and default views (§31.1)');
+  const { readFileSync } = await import('node:fs');
+  const { resolve } = await import('node:path');
+  const taskYml = readFileSync(resolve(import.meta.dirname, '../../tests/fixtures/vaults/new-empty/.tegg/types/task.yml'), 'utf8');
+  const schedule = tv!.defaultTaskView('Schedule');
+  const kanban = tv!.defaultTaskView('Kanban');
   let checkedOpen = 0;
+  let checkedDone = 0;
   for (const seed of seeds) {
     console.log(`fr_syn_06_ac22 bucketing seed = ${seed}`);
     const r = rng(seed);
@@ -94,28 +109,39 @@ test('fr_syn_06_ac22_every_task_lands_in_exactly_one_place', { timeout }, async 
       const specs = genTasks(r);
       const tasks = specs.map((s) => row({ path: s.path, status: s.status, priority: s.priority, due: s.due, completed: s.completed, fmTags: s.tags }));
       const region = r.pick(['cs', 'en-US']);
-      const input = { tasks, defs: defs(), today: r.pick(TODAYS), firstWeekday: region === 'cs' ? 1 : 7, collator: new Intl.Collator(region), dateFilter: 'all', tagFilter: [], timeZone: r.pick(['Europe/Prague', 'America/Los_Angeles']) };
-      const s = v!.schedule(input);
+      const today = r.pick(TODAYS);
+      const zone = r.pick(['Europe/Prague', 'America/Los_Angeles']);
+      const env = { today, zone, weekStart: region === 'cs' ? 1 : 0, locale: region };
+      const files: Record<string, string> = { '.tegg/types/task.yml': taskYml, ...Object.fromEntries(specs.map((sp, n) => [sp.path, textOf(sp, n)])) };
+      const ctx = `seed ${seed} run ${i} today ${today} ${region}`;
+      // The default Schedule: period lanes, day groups on `period:week` only, the done lane.
+      const sres: any = await fq!.queryRun({ kind: 'def', def: schedule, name: null }, null, env, files);
+      assert.equal(sres.group?.kind, 'period', `${ctx}: the Schedule groups by period`);
       const where = new Map<string, string[]>();
-      const put = (name: string, rows: { path: string }[]) => { for (const t of rows) where.set(t.path, [...(where.get(t.path) ?? []), name]); };
-      put('today', [...s.today.overdue, ...s.today.today]);
-      put('week', s.week.flatMap((g: any) => g.tasks));
-      put('later', s.later);
-      put('none', s.none);
-      put('done', s.done);
-      const ctx = `seed ${seed} run ${i} today ${input.today} ${region}`;
+      for (const lane of sres.group?.lanes ?? []) {
+        const paths = lane.cards.map((c: { row: number }) => sres.rows[c.row].path as string);
+        for (const path of paths) where.set(path, [...(where.get(path) ?? []), String(lane.id)]);
+        if (lane.id === 'period:week') {
+          const inDays = (lane.days ?? []).flatMap((d: { cards: { row: number }[] }) => d.cards.map((c) => sres.rows[c.row].path as string));
+          assert.deepEqual([...inDays].sort(), [...paths].sort(), `${ctx}: the week's day groups hold exactly its cards, each once`);
+        } else assert.deepEqual(lane.days ?? [], [], `${ctx}: ${lane.id} has no day groups`);
+      }
       for (const t of tasks) {
         const got = where.get(t.path) ?? [];
         if (t.state === 'open' || t.state === 'in-progress') {
-          assert.equal(got.filter((x) => x !== 'done').length, 1, `${ctx}: open ${t.path} in exactly one section: ${got}`);
-          assert.ok(!got.includes('done'), `${ctx}: open ${t.path} not in Done`);
+          assert.equal(got.length, 1, `${ctx}: open ${t.path} in exactly one lane: ${got}`);
+          assert.notEqual(got[0], 'done', `${ctx}: open ${t.path} not in Done`);
           checkedOpen++;
-        } else if (t.state === 'done') assert.deepEqual(got, ['done'], `${ctx}: Done-state ${t.path} only in Done`);
-        else assert.deepEqual(got, [], `${ctx}: Cancelled ${t.path} in no section`);
+        } else if (t.state === 'done') {
+          const want: string[] = p!.completedWithin({ completed: t.completed, modified: t.modified }, today, 7, zone) ? ['done'] : [];
+          assert.deepEqual(got, want, `${ctx}: Done-state ${t.path} only in the done lane, within its window`);
+          checkedDone++;
+        } else assert.deepEqual(got, [], `${ctx}: Cancelled ${t.path} in no lane`);
       }
-      const k = v!.kanban(input, 'status', new Map());
+      // The default Kanban by status, on every vault.
+      const res = await fq!.queryRun({ kind: 'def', def: kanban, name: null }, null, env, files);
       const seen = new Map<string, number>();
-      for (const c of k.columns) for (const t of c.tasks) seen.set(t.path, (seen.get(t.path) ?? 0) + 1);
+      for (const lane of res.group?.lanes ?? []) for (const c of lane.cards) { const path = res.rows[c.row].path; seen.set(path, (seen.get(path) ?? 0) + 1); }
       for (const t of tasks) {
         const n = seen.get(t.path) ?? 0;
         if (t.state === 'cancelled') assert.equal(n, 0, `${ctx}: Cancelled ${t.path} in no column`);
@@ -125,6 +151,7 @@ test('fr_syn_06_ac22_every_task_lands_in_exactly_one_place', { timeout }, async 
     }
   }
   assert.ok(checkedOpen > 0, 'the generator produced open tasks');
+  assert.ok(checkedDone > 0, 'the generator produced Done tasks');
 });
 
 const NOW = '2026-10-14T12:00:00+02:00';

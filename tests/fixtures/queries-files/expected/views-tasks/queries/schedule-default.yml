@@ -1,0 +1,15 @@
+# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Schedule.
+version: 1
+title: Schedule
+types: [task]
+match: all
+filters:
+  - status: { state_is_not: cancelled }
+sort:
+  - { by: due, order: asc }
+  - { by: priority, order: asc }
+limit: 50
+view: board
+group_by: { due: period }
+lanes: horizontal
+done_lane: { within_days: 7, folded: true }

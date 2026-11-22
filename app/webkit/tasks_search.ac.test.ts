@@ -6,24 +6,32 @@
 // only (never in `TasksUiDto`), palette command `tasks.search` `Filter tasks` with `data-command="tasks.search"` on the
 // field. Clock 2026-10-14T12:00:00+02:00, Europe/Prague, region `cs`. Written from the ACs and the contract only
 // (D-61); every lookup goes through `must`/node:assert (TS-I1).
+//
+// Slice Q2-T (AC-Test-Change, D-1912; views.md part three, row FR-TSK-04 AC-19…AC-21, FR-TSK-05 AC-16): the field is
+// R186's `Filter Tasks…`, first in the toolbar (R204); the period lanes stay while searching (as the Kanban's lanes,
+// v1-views §29.6); each tab keeps its text while the page is open (D-1796); the date-filter and quick-add parts go;
+// `Filter tasks` opens `type/task` (its remembered tab). Matching (folded title only) and the no-match status stand.
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { axeContrast } from './read-helpers';
-import { pseudoLocale } from './helpers';
+import { mustBeDraft, pseudoLocale } from './helpers';
+import { ui as tasksUi } from './tasks-helpers';
 import {
   NOW, T, absent, addTag, allCards, attr, callsOf, card, cardPaths, click, column, columnIds, columns, description, drag, eventually, fileWhen,
-  filterBtn, flat, gotoKanban, gotoTasks, groupBy, groupsOf, heading, liveTexts, main, must, mustBeOn, nfc, openTagList, original, paths, quickAdd,
-  runCommand, sectionIds, sectionOf, seen, shortDate, sidebarTasks, sleep, sortBtn, startTasks, swap, tagChips, tagOptions, taskText, textOf, touched,
+  flat, gotoKanban, gotoTasks, groupsOf, heading, liveTexts, main, must, mustBeOn, nfc, openTagList, viewsOriginal as original, paths,
+  runCommand, sectionIds, sectionOf, seen, shortDate, sidebarTasks, sleep, startTasksPage as startTasks, swap, tagChips, tagOptions, taskText, textOf, touched,
   viewTab, writeCalls, writesOf,
 } from './tasks-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
 
-const SUMMARY = '15 open · 2 overdue · 2 due today';
+const SUMMARY = '15 open · 2 overdue · 1 done this week';
+const ALL_LANES = ['today', 'week', 'later', 'none', 'done'];
 /** R40 (v0.94): the view's title search, the type page's field. */
 const searchBox = (page: Page) => main(page).getByRole('searchbox', { name: 'Filter Tasks…', exact: true });
 const noMatch = (page: Page, text: string) => main(page).getByRole('status').filter({ hasText: `No Tasks match "${text}"` });
-const doneToggle = (page: Page) => sectionOf(page, 'done').getByRole('button', { name: /^Done\b/ });
+const doneToggle = (page: Page) => sectionOf(page, 'done').getByRole('button', { name: /^(Expand|Collapse) Done$/ });
+const sortButtonOf = (page: Page) => main(page).locator('div.view-toolbar button[data-command="sort.open"]');
 const cardIn = (page: Page, col: string, title: string) => column(page, col).getByRole('article', { name: `Task: ${title}`, exact: true });
 
 /** Puts `text` into the search field the way a user types it (focus, clear, insert). */
@@ -44,31 +52,18 @@ async function fieldFocused(page: Page): Promise<boolean> {
   return searchBox(page).first().evaluate((e) => e === document.activeElement);
 }
 async function focusedPath(page: Page): Promise<string | null> {
-  const p = await page.evaluate(() => (document.activeElement as HTMLElement | null)?.closest('[data-path]')?.getAttribute('data-path') ?? null);
+  const p = await page.evaluate(() => (document.activeElement as HTMLElement | null)?.closest('article[data-board-card]')?.getAttribute('data-board-card') ?? null);
   return p && nfc(p);
 }
-/** The search field sits right before `Sort` on the toolbar row, and `Sort` stays the row's last control (R40, AC-16). */
-async function fieldBeforeSort(page: Page, sortLabel: string) {
+/** The search field is the toolbar's first control (R204, FR-TSK-04 AC-22). */
+async function fieldFirst(page: Page) {
   const f = await must(searchBox(page), 'searchbox "Filter Tasks…"');
   assert.equal(await f.getAttribute('placeholder'), 'Filter Tasks…', 'placeholder `Filter Tasks…` (typePage.filter, Task plural)');
-  const sort = await must(sortBtn(page, sortLabel), `Sort "${sortLabel}"`);
-  const handle = await f.elementHandle();
-  const r = await sort.evaluate((s, field) => {
-    const m = s.closest('main, [role="main"]') ?? document.body;
-    const sel = 'button, input, select, textarea, a[href], [role="button"], [role="combobox"], [role="searchbox"], [role="tab"], [role="link"]';
-    const ctrls = ([...m.querySelectorAll(sel)] as HTMLElement[]).filter((e) => e.getClientRects().length > 0);
-    const i = ctrls.indexOf(s as HTMLElement);
-    const prev = i > 0 ? ctrls[i - 1] : null;
-    const sr = s.getBoundingClientRect();
-    const fr = (field as HTMLElement).getBoundingClientRect();
-    const after = ctrls.slice(i + 1).filter((e) => { const b = e.getBoundingClientRect(); return b.top < sr.bottom && b.bottom > sr.top && b.left >= sr.right - 0.5; });
-    const f = field as HTMLElement;
-    return { prevIsField: !!prev && (prev === f || f.contains(prev) || prev.contains(f)), sameRow: fr.top < sr.bottom && fr.bottom > sr.top, leftOf: fr.right <= sr.left + 0.5, after: after.length };
-  }, handle);
-  assert.equal(r.prevIsField, true, 'the search field is the control right before Sort');
-  assert.equal(r.sameRow, true, 'on the toolbar row of Sort');
-  assert.equal(r.leftOf, true, 'left of Sort');
-  assert.equal(r.after, 0, 'Sort stays the last control of its row (AC-16)');
+  const first = await main(page).locator('div.view-toolbar').first().evaluate((bar) => {
+    const c = ([...bar.querySelectorAll('button, input, select, [role="button"], [role="combobox"], [role="searchbox"], [role="radio"]')] as HTMLElement[]).filter((e) => e.getClientRects().length > 0)[0];
+    return c ? (c.getAttribute('aria-label') ?? c.getAttribute('placeholder') ?? '') : null;
+  }).catch(() => null);
+  assert.equal(first, 'Filter Tasks…', 'the search field is the toolbar\'s first control');
 }
 
 // ------------------------------------------------------------------------------------------------ FR-TSK-04 AC-19
@@ -76,7 +71,7 @@ async function fieldBeforeSort(page: Page, sortLabel: string) {
 test('fr_tsk_04_ac19_the_field_is_right_before_sort', async ({ page }) => {
   const core = await startTasks(page);
   await gotoTasks(page);
-  await fieldBeforeSort(page, 'Priority, then due');
+  await fieldFirst(page);
   assert.equal(await fieldValue(page), '', 'empty at first');
   assert.deepEqual(await writeCalls(core), [], 'nothing written');
 });
@@ -85,16 +80,13 @@ test('fr_tsk_04_ac19_za_leaves_t01_t03_and_t10', async ({ page }) => {
   const core = await startTasks(page);
   await gotoTasks(page);
   await search(page, 'za');
-  assert.deepEqual(await eventually(() => sectionIds(page), (s) => s.join() === 'today,done'), ['today', 'done'], 'only Today & overdue and Done are shown');
-  assert.deepEqual(await groupsOf(sectionOf(page, 'today')), [
-    { heading: 'Overdue', paths: paths('t01') },
-    { heading: `Today · ${shortDate('2026-10-14', 'cs')}`, paths: paths('t03') },
-  ], '`Overdue` T01, `Today` T03');
-  const h = flat(await (await must(sectionOf(page, 'today').getByRole('heading', { level: 2 }), 'heading of Today & overdue')).innerText());
-  assert.match(h, /^Today & overdue\s*2\b/, `the section count follows the cards: ${h}`);
-  const done = await must(doneToggle(page), 'button Done');
+  assert.deepEqual(await eventually(() => cardPaths(sectionOf(page, 'today')), (v) => v.length === 2), paths('t01', 't03'), 'Today & overdue: T01, T03');
+  assert.deepEqual(await sectionIds(page), ALL_LANES, 'every lane stays shown (R203)');
+  assert.equal(await attr(sectionOf(page, 'today'), 'aria-label'), 'Today & overdue, 2 Tasks', 'the lane count follows the cards');
+  assert.equal(await attr(sectionOf(page, 'later'), 'aria-label'), 'Later, 0 Tasks', 'an empty lane shows 0');
+  const done = await must(doneToggle(page), 'button Expand Done');
   assert.equal(await done.getAttribute('aria-expanded'), 'false', 'Done stays collapsed');
-  assert.match(flat(await done.innerText()), /^Done\s*1$/, 'Done 1');
+  assert.equal(await attr(sectionOf(page, 'done'), 'aria-label'), 'Done, 1 Task', 'Done 1');
   await done.click();
   assert.deepEqual(await eventually(() => cardPaths(sectionOf(page, 'done')), (v) => v.length > 0), paths('t10'), 'in Done: T10');
   assert.deepEqual(await writeCalls(core), [], 'typing writes nothing');
@@ -106,13 +98,13 @@ test('fr_tsk_04_ac19_case_and_diacritics_are_folded', async ({ page }) => {
   for (const q of ['ZALIT', 'zalít', 'kvetiny']) {
     await search(page, q);
     assert.deepEqual(await eventually(() => allCards(page), (c) => c.length === 1), paths('t03'), `${JSON.stringify(q)} leaves only T03`);
-    assert.deepEqual(await sectionIds(page), ['today'], `${q}: only Today & overdue`);
+    assert.deepEqual(await cardPaths(sectionOf(page, 'today')), paths('t03'), `${q}: in Today & overdue`);
+    assert.deepEqual(await sectionIds(page), ALL_LANES, `${q}: every lane stays`);
   }
   for (const q of ['nakup', 'nákup'.normalize('NFD')]) {
     await search(page, q);
     assert.deepEqual(await eventually(() => allCards(page), (c) => c.length === 1), paths('t19'), `${JSON.stringify(q)} leaves only T19 (NFD title)`);
-    assert.deepEqual(await sectionIds(page), ['week'], `${q}: only This week`);
-    assert.equal((await groupsOf(sectionOf(page, 'week'))).length, 1, 'one day group (Thu 15)');
+    assert.deepEqual((await groupsOf(sectionOf(page, 'week'))).map((g) => g.paths), [paths('t19'), [], [], []], `${q}: in čtvrtek 15.; every day group stays`);
   }
 });
 
@@ -122,12 +114,13 @@ test('fr_tsk_04_ac19_body_and_tags_are_not_matched', async ({ page }) => {
   for (const q of ['schuzku', 'doma']) {
     await search(page, q);
     assert.deepEqual(await eventually(() => allCards(page), (c) => c.length === 0), [], `${q}: no card`);
-    assert.deepEqual(await sectionIds(page), [], `${q}: no section`);
+    assert.deepEqual(await sectionIds(page), ALL_LANES, `${q}: every lane stays, empty`);
     assert.ok(await seen(noMatch(page, q), 2000), `the status No Tasks match "${q}"`);
   }
 });
 
 test('fr_tsk_04_ac19_combines_with_the_tag_and_date_filters', async ({ page }) => {
+  // Q2-T: the date filters are gone (D-1779); the tag part stands.
   const core = await startTasks(page);
   await gotoTasks(page);
   await addTag(page, 'práce');
@@ -135,9 +128,8 @@ test('fr_tsk_04_ac19_combines_with_the_tag_and_date_filters', async ({ page }) =
   await search(page, 'za');
   assert.deepEqual(await eventually(() => allCards(page), (c) => c.length === 1), paths('t01'), '#práce + `za` leaves T01');
   await click(main(page).getByRole('button', { name: 'Clear tags', exact: true }), 'Clear tags');
-  await click(filterBtn(page, 'Today'), 'filter Today');
   await search(page, 'kvetiny');
-  assert.deepEqual(await eventually(() => allCards(page), (c) => c.length === 1), paths('t03'), 'Today + `kvetiny` leaves T03');
+  assert.deepEqual(await eventually(() => allCards(page), (c) => c.length === 1), paths('t03'), '`kvetiny` alone leaves T03');
   assert.deepEqual(await writeCalls(core), [], 'nothing written');
 });
 
@@ -145,7 +137,8 @@ test('fr_tsk_04_ac19_only_hidden_tasks_match_cesta', async ({ page }) => {
   await startTasks(page);
   await gotoTasks(page);
   await search(page, 'cesta');
-  assert.deepEqual(await eventually(() => sectionIds(page), (s) => s.length === 0), [], 'no section is shown (T13 is Cancelled)');
+  assert.deepEqual(await eventually(() => allCards(page), (c) => c.length === 0), [], 'no card is shown (T13 is Cancelled)');
+  assert.deepEqual(await sectionIds(page), ALL_LANES, 'every lane stays shown, empty');
   assert.ok(await seen(noMatch(page, 'cesta'), 2000), 'the status `No Tasks match "cesta"`');
 });
 
@@ -157,11 +150,10 @@ test('fr_tsk_04_ac20_the_search_changes_no_count', async ({ page }) => {
   await search(page, 'za');
   assert.deepEqual(await eventually(() => allCards(page), (c) => c.length === 2), paths('t01', 't03'), 'the search applies (control)');
   assert.ok(flat(await main(page).innerText()).includes(SUMMARY), `the summary stays "${SUMMARY}"`);
-  assert.deepEqual(await Promise.all((['All', 'Today', 'This week'] as const).map((n) => description(filterBtn(page, n)))), ['15', '4', '8'], 'All 15, Today 4, This week 8');
   assert.match(flat(await (await must(sidebarTasks(page), 'sidebar Tasks')).innerText()), /^Tasks\s*15$/, 'the sidebar count stays 15 (AC-18)');
   await openTagList(page);
-  assert.deepEqual(await tagOptions(page), [['doma', '4', false], ['práce', '4', false], ['čtení', '1', false], ['finance', '1', false], ['rodina', '1', false]],
-    'the tag options keep the counts of AC-5');
+  assert.deepEqual(await tagOptions(page), [['doma', '4', false], ['práce', '4', false], ['finance', '2', false], ['čtení', '1', false], ['rodina', '1', false]],
+    'the tag options keep the counts of AC-5 (the tab\'s cards before the text filter, AP-1545)');
   assert.deepEqual(await writeCalls(core), [], 'nothing written');
 });
 
@@ -175,28 +167,29 @@ test('fr_tsk_04_ac21_arrow_down_to_the_cards_and_escape_clears', async ({ page }
   await page.keyboard.press('ArrowDown');
   assert.equal(await eventually(() => focusedPath(page), (p) => p === T.t01, 1000), T.t01, '↓ moves the focus to the first shown card (T01)');
   await page.keyboard.press('ArrowDown');
-  assert.equal(await eventually(() => focusedPath(page), (p) => p === T.t03, 1000), T.t03, 'AC-10\'s ↓ works from there (T03)');
+  await page.keyboard.press('ArrowRight');
+  assert.equal(await eventually(() => focusedPath(page), (p) => p === T.t03, 1000), T.t03, 'the board keys work from there (→: T03, R191)');
   await (await must(searchBox(page), 'the field')).focus();
   await page.keyboard.press('Escape');
   assert.equal(await eventually(() => fieldValue(page), (v) => v === '', 1000), '', 'Esc clears the text');
-  assert.deepEqual(await eventually(() => sectionIds(page), (s) => s.length === 5), ['today', 'week', 'later', 'none', 'done'], 'every section comes back');
+  assert.equal(await eventually(() => allCards(page).then((c) => c.length), (n) => n === 15, 2000), 15, 'every card comes back');
   assert.equal(await fieldFocused(page), true, 'the focus stays in the field');
   assert.deepEqual(await writeCalls(core), [], 'typing, clearing and moving the focus write nothing');
 });
 
 test('fr_tsk_04_ac21_the_text_is_not_remembered', async ({ page }) => {
+  // Q2-T (D-1796): each tab keeps its text while the page is open; leaving the page, Back after a card and a restart
+  // clear it; it is never stored.
   const core = await startTasks(page);
   await gotoTasks(page);
   await search(page, 'kvetiny');
   await click(viewTab(page, 'Kanban'), 'tab Kanban');
-  await must(groupBy(page), 'the Kanban');
-  assert.equal(await fieldValue(page), '', 'Schedule → Kanban: the field is empty');
+  await must(column(page, 'To do'), 'the Kanban');
+  assert.equal(await fieldValue(page), '', 'Schedule → Kanban: Kanban\'s own (empty) text');
   assert.ok((await allCards(page)).length > 2, 'every Kanban card is shown');
-  await search(page, 'kvetiny');
   await click(viewTab(page, 'Schedule'), 'tab Schedule');
   await must(sectionOf(page, 'today'), 'the Schedule');
-  assert.equal(await fieldValue(page), '', 'Kanban → Schedule: the field is empty');
-  await search(page, 'kvetiny');
+  assert.equal(await fieldValue(page), 'kvetiny', 'Kanban → Schedule: Schedule keeps `kvetiny`');
   await runCommand(page, 'Go to Types');
   await runCommand(page, 'Go to Tasks');
   await must(heading(page), 'Tasks again');
@@ -210,53 +203,31 @@ test('fr_tsk_04_ac21_the_text_is_not_remembered', async ({ page }) => {
   await page.keyboard.press('Meta+BracketLeft');
   await must(heading(page), 'Back to tasks');
   assert.equal(await fieldValue(page), '', 'Back after opening a card: empty (D-1282)');
-  assert.equal((await sectionIds(page)).length, 5, 'and every section is shown');
+  assert.equal((await allCards(page)).length, 15, 'and every card is shown');
   await search(page, 'kvetiny');
   await page.reload();
   await gotoTasks(page);
   assert.equal(await fieldValue(page), '', 'after a restart: empty');
   const sets = (await callsOf(core, 'ui_state_set')).map((c) => JSON.stringify(c.args ?? null));
-  assert.deepEqual(sets.filter((s) => s.includes('kvetiny')), [], 'no ui_state_set holds the text');
+  assert.deepEqual(sets.filter((x) => x.includes('kvetiny')), [], 'no ui_state_set holds the text');
   assert.ok(!JSON.stringify(await core.uiState()).includes('kvetiny'), 'no ui-state value holds it');
 });
 
-test('fr_tsk_04_ac21_quick_add_while_searching', async ({ page }) => {
-  const core = await startTasks(page);
-  await gotoTasks(page);
-  await search(page, 'kolo');
-  assert.deepEqual(await eventually(() => allCards(page), (c) => c.length === 1), paths('t09'), '`kolo` leaves T09');
-  const qa = await must(quickAdd(page), 'textbox "Add a task…"');
-  await qa.fill('Zavolat do servisu');
-  await qa.press('Enter');
-  const created = await eventually(() => callsOf(core, 'note_create'), (c) => c.filter((x) => x.ok !== false).length === 1);
-  assert.equal(created.filter((x) => x.ok !== false).length, 1, 'one note_create');
-  const text = await fileWhen(core, 'Tasks/Zavolat do servisu.md', (t) => t !== undefined);
-  assert.match(text ?? '', new RegExp(`^---\\nid: [0-9A-HJKMNP-TV-Z]{26}\\ntype: task\\ntitle: Zavolat do servisu\\nstatus: To do\\n(?:priority: .*\\n)?(?:due: \\d{4}-\\d{2}-\\d{2}\\n)?created: ${NOW.replace(/\+/g, '\\+')}\\nmodified: ${NOW.replace(/\+/g, '\\+')}\\n---\\n$`),
-    `the FR-TSK-10 AC-1 shape: ${JSON.stringify(text)}`);
-  assert.ok(await eventually(() => liveTexts(page).then((t) => t.includes('Created "Zavolat do servisu"')), (x) => x, 2000), 'the live region says Created "Zavolat do servisu"');
-  assert.equal(await fieldValue(page), 'kolo', 'the field keeps `kolo` (D-1283)');
-  await sleep(300);
-  assert.deepEqual(await allCards(page), paths('t09'), 'its card isn\'t shown');
-  await core.setFile('Tasks/Nové kolo.md', taskText(1, 'Nové kolo', 'status: To do\n'));
-  assert.deepEqual(await eventually(() => cardPaths(sectionOf(page, 'none')), (v) => v.includes('Tasks/Nové kolo.md'), 2000), ['Tasks/Nové kolo.md', T.t09],
-    'an external `Nové kolo` shows in Not scheduled within 2 s (no priority, by title: before Opravit kolo)');
-});
-
-const tasksUiKanban = { view: 'kanban' as const, groupBy: 'status' as const, dateFilter: 'all' as const, tags: [] as string[], doneExpanded: false };
+const lastKanban = { typeViews: { lastTab: { task: 'Kanban' } } };
 
 test('fr_tsk_04_ac21_palette_filter_tasks_on_the_task_views', async ({ page }) => {
   const core = await startTasks(page);
   await gotoTasks(page);
   const f = await must(searchBox(page), 'the Schedule field');
   assert.equal(await f.getAttribute('data-command'), 'tasks.search', 'the field carries data-command="tasks.search" (§13)');
-  await (await must(quickAdd(page), 'quick-add')).focus();
+  await (await must(sortButtonOf(page), 'the sort button')).focus();
   await runCommand(page, 'Filter tasks');
-  assert.equal(await eventually(() => fieldFocused(page), (x) => x, 1500), true, 'tasks: the focus is in the field');
+  assert.equal(await eventually(() => fieldFocused(page), (x) => x, 1500), true, 'Schedule: the focus is in the field');
   await click(viewTab(page, 'Kanban'), 'tab Kanban');
-  await must(groupBy(page), 'the Kanban');
+  await must(column(page, 'To do'), 'the Kanban');
   await runCommand(page, 'Filter tasks');
-  assert.equal(await eventually(() => fieldFocused(page), (x) => x, 1500), true, 'tasks/kanban: the focus is in the field');
-  await click(viewTab(page, 'All tasks'), 'tab All tasks');
+  assert.equal(await eventually(() => fieldFocused(page), (x) => x, 1500), true, 'Kanban: the focus is in the field');
+  await click(viewTab(page, 'All Tasks'), 'tab All Tasks');
   await must(main(page).getByRole('table', { name: 'Tasks', exact: true }), 'type/task');
   await runCommand(page, 'Filter tasks');
   assert.equal(await eventually(() => fieldFocused(page), (x) => x, 1500), true, 'type/task: the focus is in `Filter Tasks…`');
@@ -267,17 +238,17 @@ test('fr_tsk_04_ac21_palette_filter_tasks_from_a_note_opens_the_schedule', async
   await startTasks(page, { at: T.t01 });
   await mustBeOn(page, 'Zavolat Janě', 'landing on T01', 5000);
   await runCommand(page, 'Filter tasks');
-  await must(heading(page), 'the command opens tasks', 5000);
+  await must(heading(page), 'the command opens type/task', 5000);
   assert.equal(await attr(viewTab(page, 'Schedule'), 'aria-selected'), 'true', 'the Schedule');
   assert.equal(await eventually(() => fieldFocused(page), (x) => x, 1500), true, 'with the focus in the field');
 });
 
 test('fr_tsk_04_ac21_palette_filter_tasks_from_a_note_opens_the_last_view', async ({ page }) => {
-  await startTasks(page, { at: T.t01, tasksUi: tasksUiKanban });
+  await startTasks(page, { at: T.t01, uiState: { ...tasksUi(), ...lastKanban } as any });
   await mustBeOn(page, 'Zavolat Janě', 'landing on T01', 5000);
   await runCommand(page, 'Filter tasks');
   await must(heading(page), 'the command opens the task views', 5000);
-  assert.equal(await attr(viewTab(page, 'Kanban'), 'aria-selected'), 'true', 'tasks/kanban, the last view (D-481)');
+  assert.equal(await attr(viewTab(page, 'Kanban'), 'aria-selected'), 'true', 'the remembered tab, Kanban (D-1765)');
   assert.equal(await eventually(() => fieldFocused(page), (x) => x, 1500), true, 'with the focus in the field');
 });
 
@@ -309,7 +280,7 @@ async function unmarked(page: Page): Promise<string[]> {
 test('fr_tsk_04_ac21_pseudo_locale_with_the_search', async ({ page }) => {
   await startTasks(page, { prelude: pseudoLocale });
   await runCommand(page, '⟦Go to Tasks⟧');
-  await must(main(page).getByRole('heading', { level: 1, name: '⟦Tasks⟧' }), 'heading ⟦Tasks⟧');
+  await must(main(page).getByRole('heading', { level: 1, name: /^⟦?Tasks⟧?$/ }), 'heading Tasks');
   const f = await must(main(page).getByRole('searchbox'), 'the search field');
   assert.match(nfc((await f.getAttribute('aria-label')) ?? (await f.getAttribute('placeholder')) ?? ''), /^⟦.*Tasks.*⟧$/, 'its name is a catalog message');
   await f.fill('za');
@@ -342,43 +313,38 @@ for (const theme of ['light', 'dark'] as const) {
 test('fr_tsk_05_ac16_the_field_on_the_kanban', async ({ page }) => {
   await startTasks(page);
   await gotoKanban(page, 'Status');
-  await fieldBeforeSort(page, 'Due date');
+  await fieldFirst(page);
 });
 
 test('fr_tsk_05_ac16_by_status_keeps_its_columns', async ({ page }) => {
   const core = await startTasks(page);
   await gotoKanban(page, 'Status');
-  const ids = ['To do', 'In progress', 'Waiting', 'Done', 'no-status'];
-  assert.deepEqual(await columnIds(page), ids, 'R42 columns (control)');
+  const ids = ['option:To do', 'option:In progress', 'option:Waiting', 'option:Done', 'unknown:Rozpracováno', 'none'];
+  assert.deepEqual(await columnIds(page), ids, 'R208 lanes (control)');
   const f = await must(searchBox(page), 'searchbox "Filter Tasks…"');
   await f.focus();
   await page.keyboard.type('z');
   await sleep(150);
   assert.deepEqual(await columnIds(page), ids, 'after `z`: the same columns');
   await page.keyboard.type('a');
-  const got = await eventually(() => columns(page), (c) => (c['To do'] ?? []).length === 2);
-  assert.deepEqual(await columnIds(page), ids, 'after `za`: the same columns');
-  assert.deepEqual(got, { 'To do': paths('t01', 't03'), 'In progress': [], Waiting: [], Done: paths('t10'), 'no-status': [] }, '`za` per column');
-  const head = async (id: string) => flat(await (await must(column(page, id).getByRole('heading', { level: 2 }), `heading of ${id}`)).innerText());
-  assert.match(await head('To do'), /^To do\s*2$/, 'To do 2');
-  assert.match(await head('Done'), /^Done\s*1$/, 'Done 1');
-  for (const id of ['In progress', 'Waiting', 'no-status']) {
-    assert.match(await head(id), /\s0$/, `${id}: count 0`);
-    assert.ok((await textOf(column(page, id))).includes('No tasks'), `${id}: No tasks`);
-  }
+  const got = await eventually(() => columns(page), (c) => (c['option:To do'] ?? []).length === 2);
+  assert.deepEqual(await columnIds(page), ids, 'after `za`: the same lanes');
+  assert.deepEqual(got, { 'option:To do': paths('t01', 't03'), 'option:In progress': [], 'option:Waiting': [], 'option:Done': paths('t10'), 'unknown:Rozpracováno': [], none: [] }, '`za` per lane');
+  assert.equal(await attr(column(page, 'To do'), 'aria-label'), 'To do, 2 Tasks', 'To do 2');
+  assert.equal(await attr(column(page, 'Done'), 'aria-label'), 'Done, 1 Task', 'Done 1');
+  for (const id of ['In progress', 'Waiting', 'no-status']) assert.match(await attr(column(page, id), 'aria-label') ?? '', /, 0 Tasks$/, `${id}: count 0`);
   assert.deepEqual(await writeCalls(core), [], 'nothing written');
 });
 
 test('fr_tsk_05_ac16_by_tag_keeps_its_columns', async ({ page }) => {
   await startTasks(page);
   await gotoKanban(page, 'Tag');
-  const ids = ['#čtení', '#doma', '#finance', '#práce', '#rodina', 'no-tag'];
-  assert.deepEqual(await columnIds(page), ids, 'R42 tag columns (control)');
+  const ids = ['tag:čtení', 'tag:doma', 'tag:finance', 'tag:práce', 'tag:rodina', 'none'];
+  assert.deepEqual(await columnIds(page), ids, 'R208 tag lanes (control)');
   await search(page, 'za');
-  const got = await eventually(() => columns(page), (c) => (c['#doma'] ?? []).length === 1);
-  assert.deepEqual(await columnIds(page), ids, 'the same columns');
-  assert.deepEqual(got, { '#čtení': [], '#doma': paths('t03'), '#finance': [], '#práce': paths('t01'), '#rodina': [], 'no-tag': [] }, '`za`: doma T03, práce T01');
-  for (const id of ['#čtení', '#finance', '#rodina', 'no-tag']) assert.ok((await textOf(column(page, id))).includes('No tasks'), `${id}: No tasks`);
+  const got = await eventually(() => columns(page), (c) => (c['tag:doma'] ?? []).length === 1);
+  assert.deepEqual(await columnIds(page), ids, 'the same lanes');
+  assert.deepEqual(got, { 'tag:čtení': [], 'tag:doma': paths('t03'), 'tag:finance': paths('t10'), 'tag:práce': paths('t01'), 'tag:rodina': [], none: [] }, '`za`: doma T03, finance T10, práce T01');
 });
 
 test('fr_tsk_05_ac16_cesta_empties_every_column', async ({ page }) => {
@@ -395,18 +361,17 @@ test('fr_tsk_05_ac16_drag_and_new_task_while_searching', async ({ page }) => {
   const core = await startTasks(page);
   await gotoKanban(page, 'Status');
   await search(page, 'za');
-  await eventually(() => columns(page), (c) => (c['To do'] ?? []).length === 2);
+  await eventually(() => columns(page), (c) => (c['option:To do'] ?? []).length === 2);
   await drag(page, await must(cardIn(page, 'To do', 'Zalít květiny'), 'T03 in To do'), column(page, 'In progress'));
   const w = await eventually(() => writesOf(core, T.t03), (x) => x.length >= 1);
   assert.equal(w.length, 1, 'one note_write of T03');
   assert.equal(String((w[0].args as any).text), touched(swap(original(T.t03), 'status: To do', 'status: In progress')), 'the bytes of AC-2');
   assert.ok(await seen(cardIn(page, 'In progress', 'Zalít květiny'), 2000), 'the card stays shown, in In progress (it still matches)');
-  await click(column(page, 'Waiting').getByRole('button', { name: 'New task in Waiting', exact: true }), 'New task in Waiting');
-  const field = await must(column(page, 'Waiting').getByRole('textbox'), 'a quick-add field in Waiting');
-  await field.fill('Koupit mléko');
-  await field.press('Enter');
+  // Q2-T (FR-QRY-08): `New Task in Waiting` opens the draft new/task; the first change creates it.
+  await click(column(page, 'Waiting').getByRole('button', { name: 'New Task in Waiting', exact: true }), 'New Task in Waiting');
+  await mustBeDraft(page, 'New Task in Waiting');
+  await page.keyboard.type('Koupit mléko');
+  await page.keyboard.press('Enter');
   const t = await fileWhen(core, 'Tasks/Koupit mléko.md', (x) => x !== undefined);
   assert.ok(t && /^status: Waiting$/m.test(t), `created as AC-11 although the title doesn't match: ${t}`);
-  assert.equal(await fieldValue(page), 'za', 'the search keeps `za`');
-  assert.ok(await absent(card(page, 'Koupit mléko'), 1000), 'its card isn\'t shown');
 });

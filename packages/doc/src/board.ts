@@ -2,7 +2,7 @@
 // tag moves, D-1769). Only the grouping key's line(s) change; the caller applies `touchModified` (as tasks, D-506).
 
 import { parse as parseYaml } from 'yaml'
-import { flowList, setFlowList, setValue, type Value } from './edit.js'
+import { entryKeyText, flowList, removeAttribute, setFlowList, setValue, type Value } from './edit.js'
 import { tagKey, tags } from './links.js'
 import { parse, type Doc } from './parse.js'
 
@@ -141,4 +141,85 @@ function splitFlow(inner: string): string[] | null {
   }
   out.push(cur)
   return out
+}
+
+// ---------------------------------------------------------------- slice Q2-T (v1-views §26; FR-TSK-04 AC-25)
+
+/** A period board's write (R203): a period lane, day group or the no-value lane (`set`), onto the done lane (`done`),
+ *  or out of the done lane onto a period / no-value lane (`reopen`). */
+export type PeriodMove =
+  | { kind: 'set'; key: string; date: string | null }
+  | { kind: 'done'; status: string; now: string }
+  | { kind: 'reopen'; status: string; key: string; date: string | null }
+
+const validDate = (s: string): boolean => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s)
+  if (!m) return false
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])]
+  return mo >= 1 && mo <= 12 && d >= 1 && d <= new Date(Date.UTC(y, mo, 0)).getUTCDate()
+}
+
+/** null: nothing to write. Never touches `modified:` (the caller's `touchModified`, as part one §1.9). */
+export function applyPeriodMove(text: string, move: PeriodMove): string | null {
+  const doc = parse(text)
+  if (doc.frontmatter?.error || doc.frontmatterError) return null
+  if (move.kind === 'set') return setDateKey(doc, move.key, move.date)
+  const data = (doc.frontmatter?.data ?? {}) as Record<string, unknown>
+  const status = nfc(move.status)
+  if (move.kind === 'done') {
+    let out = scalarText(data.status) === status ? text : setValue(doc, 'status', status)
+    if (!doc.frontmatter?.entries.some((e) => e.key === 'completed')) out = setValue(parse(out), 'completed', { datetime: move.now })
+    return out === text ? null : out
+  }
+  let out = text
+  if (scalarText(data.status) !== status) out = setValue(doc, 'status', status)
+  out = removeAttribute(parse(out), 'completed')
+  const set = setDateKey(parse(out), move.key, move.date)
+  if (set !== null) out = set
+  return out === text ? null : out
+}
+
+/** `<key>: YYYY-MM-DD` (the value token replaced, the line's other bytes kept; a missing key appended, D-230), or the
+ *  key's lines removed for `null`. */
+function setDateKey(doc: Doc, rawKey: string, date: string | null): string | null {
+  const text = doc.text
+  const wanted = nfc(rawKey)
+  const e = doc.frontmatter?.entries.find((x) => nfc(x.key) === wanted)
+  if (date === null) {
+    if (!e) return null
+    const out = removeAttribute(doc, e.key)
+    return out === text ? null : out
+  }
+  if (!e) return setValue(doc, wanted, { date })
+  const data = (doc.frontmatter?.data ?? {}) as Record<string, unknown>
+  const cur = data[e.key]
+  if (typeof cur === 'string' && cur === date && validDate(cur)) return null
+  const raw = text.slice(e.range[0], e.range[1])
+  const keyText = entryKeyText(doc, e.range)
+  const eol = raw.endsWith('\r\n') ? '\r\n' : raw.endsWith('\n') ? '\n' : ''
+  const body = raw.slice(keyText.length + 1, raw.length - eol.length)
+  let next: string
+  if (body.includes('\n') || body.trim() === '') {
+    next = `${keyText}: ${date}${eol || doc.eol}`
+  } else {
+    const lead = /^[ \t]*/.exec(body)![0]
+    const rest = body.slice(lead.length)
+    let end: number
+    if (rest[0] === '"' || rest[0] === "'") {
+      const q = rest[0]
+      let i = 1
+      while (i < rest.length) {
+        if (q === '"' && rest[i] === '\\') { i += 2; continue }
+        if (rest[i] === q) { if (q === "'" && rest[i + 1] === "'") { i += 2; continue } break }
+        i++
+      }
+      end = Math.min(i + 1, rest.length)
+    } else {
+      const c = /[ \t]+#/.exec(rest)
+      end = c ? c.index : rest.replace(/[ \t]+$/, '').length
+    }
+    next = `${keyText}:${lead || ' '}${date}${rest.slice(end)}${eol}`
+  }
+  const out = text.slice(0, e.range[0]) + next + text.slice(e.range[1])
+  return out === text ? null : out
 }

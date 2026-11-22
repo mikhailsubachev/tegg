@@ -21,7 +21,8 @@ function expectedJson(): any {
   return JSON.parse(readFileSync(EXPECTED, 'utf8'));
 }
 /** expected.json keeps slice Q's DTO shape (D-1814): the first sort level, no Q2 keys; as the Rust reader's `def_dto`. */
-const sliceQDef = ({ groupBy: _g, lanes: _l, laneOrder: _o, ...d }: QueryDefDto) => ({ ...d, sort: d.sort[0] });
+// Slice Q2 and Q2-T keys aren't part of slice Q's corpus (Q2-T: `groupPeriod`, `doneLane`, v1-views §24.1).
+const sliceQDef = ({ groupBy: _g, lanes: _l, laneOrder: _o, groupPeriod: _p, doneLane: _d, ...d }: QueryDefDto) => ({ ...d, sort: d.sort[0] });
 const files = queriesVault();
 const types = listTypes(files, {});
 const cols = columnsDefault(types);

@@ -5,6 +5,7 @@ import type { BoardMove } from '@tegg/doc';
 import type { GroupingDto, LaneDto, QueryDefDto } from '../../ipc/queries';
 import type { TypeDto } from '../../ipc/types';
 import { prefill } from '../model';
+import { prefillFor as periodPrefill, type Bounds } from './period';
 
 const nfc = (s: string) => s.normalize('NFC');
 const laneOf = (g: GroupingDto, id: string): LaneDto | undefined => g.lanes.find((l) => l.id === id);
@@ -15,6 +16,8 @@ const isList = (g: GroupingDto) => g.kind === 'multiSelect' || g.kind === 'tags'
  *  kind removes the values that placed the card (`raw`) and adds the target's value unless the card is already there;
  *  `alt` (list kinds) only adds. Null: no drop target, the same lane, or nothing to change. */
 export function cardMove(group: GroupingDto, row: number, fromLaneId: string, toLaneId: string, alt: boolean): BoardMove | null {
+  // Q2-T (§28.2): period moves are `period.ts`'s (`applyPeriodMove`).
+  if (group.kind === 'period') return null;
   if (fromLaneId === toLaneId) return null;
   const to = laneOf(group, toLaneId);
   if (!to || !to.dropTarget || to.value === null) return null;
@@ -31,8 +34,10 @@ export function cardMove(group: GroupingDto, row: number, fromLaneId: string, to
 
 /** `lane_order` after a lane drag (AP-1508, D-1792): every lane's `value` but `none`, `laneId` right before `beforeId`
  *  (null: last, still before `none`). Null when `none` is dragged or nothing changes. */
+const ORDERED = new Set(['option', 'unknown', 'tag', 'relation', 'unresolved', 'period']);
 export function laneOrderAfterDrop(group: GroupingDto, laneId: string, beforeId: string | null): string[] | null {
-  const movable = group.lanes.filter((l) => l.kind !== 'none' && l.value !== null);
+  // Q2-T (§28.2): never `none`, `done` or a hidden lane; period lanes store `today`, `week`, `later`.
+  const movable = group.lanes.filter((l) => ORDERED.has(l.kind) && l.value !== null);
   const lane = movable.find((l) => l.id === laneId);
   if (!lane || beforeId === laneId) return null;
   const rest = movable.filter((l) => l.id !== laneId);
@@ -54,8 +59,18 @@ export function neighbourDropLane(group: GroupingDto, laneId: string, dir: 1 | -
 
 /** `New <Type> in <lane>` (§4.5, FR-QRY-08 AC-2): slice Q's pre-fill (top-level Select `is` values, D-1439) with the
  *  lane's value on the grouping key. */
-export function prefillFor(def: QueryDefDto, group: GroupingDto, laneId: string, type: TypeDto | null | undefined): { type: string; values: [string, unknown][] } | null {
+export function prefillFor(def: QueryDefDto, group: GroupingDto, laneId: string, type: TypeDto | null | undefined, bounds?: Bounds): { type: string; values: [string, unknown][] } | null {
   const lane = laneOf(group, laneId);
+  if (group.kind === 'period') {
+    // Q2-T (§29.3, CP-25): a period lane pre-fills its date (date keys only); the done lane has no tile.
+    if (!lane || lane.kind === 'done') return null;
+    const base = prefill(def, null, type ? [type] : undefined);
+    const key = nfc(group.key);
+    const date = !group.dateTime && bounds ? periodPrefill(laneId, bounds) : null;
+    const rest = (base?.values ?? []).filter(([k]) => nfc(k) !== key);
+    // A Date value (`due: 2026-10-14`, unquoted; FR-FMT-11).
+    return { type: base?.type ?? (def.types[0] ?? type?.key ?? ''), values: date ? [[key, { date }], ...rest] : rest };
+  }
   if (!lane || lane.value === null || !lane.dropTarget || lane.excluded) return null;
   const base = prefill(def, null, type ? [type] : undefined);
   const key = nfc(group.key);

@@ -260,6 +260,8 @@ export function viewsOp(text: string, op: any): { text: string } | { error: Reco
   const eol = /\r\n/.test(text) ? '\r\n' : '\n';
   if (op.op === 'viewsSource') {
     const src = String(op.source ?? '');
+    // Q2-T (§25.3): an empty source removes the key's lines; without a key it is a no-op.
+    if (src === '' && !m) return { text };
     let out: string;
     if (m) out = m.lines.slice(0, m.start).join('') + src + m.lines.slice(m.end).join('');
     else { const es = entries(text); setTop(es, 'views', src); out = join_(es); }
@@ -333,7 +335,13 @@ async function objects(files: Files) {
     const data = (parsed.frontmatter?.data ?? {}) as Record<string, unknown>;
     const m = s.typeMatch(parsed.frontmatter ? ('type' in data ? data.type : undefined) : undefined) as { key: string; single: boolean };
     const stem = path.split('/').pop()!.replace(/\.md$/, '');
-    return { path, data, type: m.key, single: m.single, title: typeof data.title === 'string' ? data.title : stem, id: typeof data.id === 'string' ? data.id : null };
+    // Slice Q2-T (v1-views §27.1): the tag keys, frontmatter and inline (tags.md R79: NFC, case-folded), sorted, unique.
+    const fm = (Array.isArray(data.tags) ? data.tags : data.tags == null ? [] : [data.tags]).filter((x) => typeof x === 'string' || typeof x === 'number').map(String);
+    let inline: string[] = [];
+    try { inline = ((d.tags(parsed) as { name: string }[]) ?? []).map((x) => String(x.name)); } catch { inline = []; }
+    const tagKeys = [...new Set([...fm, ...inline].map((x) => nfc(x).trim().replace(/^#/, '').toLowerCase()).filter((x) => x !== ''))]
+      .sort((x, y) => Buffer.compare(Buffer.from(x), Buffer.from(y)));
+    return { path, data, type: m.key, single: m.single, title: typeof data.title === 'string' ? data.title : stem, id: typeof data.id === 'string' ? data.id : null, tags: tagKeys };
   });
 }
 
@@ -769,7 +777,7 @@ export async function handle(cmd: string, a: any, files: Files, vers: Record<str
               for (const m of (o.data[k] as string).matchAll(/\[\[([^[\]\n]+?)\]\]/g)) { const l = resolveLink(`[[${m[1]}]]`); if (l) links.push({ ...l, target: m[1] }); }
             }
           }
-          return { path: o.path, id: o.id, title: o.title, created: (o.data.created as string) ?? null, modified: (o.data.modified as string) ?? null, values, links, typeSingle: o.single };
+          return { path: o.path, id: o.id, title: o.title, created: (o.data.created as string) ?? null, modified: (o.data.modified as string) ?? null, values, links, typeSingle: o.single, tags: o.tags };
         }),
       };
     }

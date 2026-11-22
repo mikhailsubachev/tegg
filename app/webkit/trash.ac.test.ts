@@ -9,6 +9,7 @@
 // goes through `must` (TS-I1).
 import { test } from '@playwright/test';
 import assert from 'node:assert/strict';
+import { withTaskViews } from './tasks-helpers';
 import {
   ROW_ORDER, TM, TRASHED_AT, ZONES, alertWith, callsOf, caretIn, click, deleteBtn, deletedText, description, dialogNamed, editorBody,
   emptyBtn, eventually, flat, gotoTrash, isDisabled, liveSays, main, moreBtn, moreItem, must, mustBeOn, nfc, openTM, original, restoreBtn, rowPaths,
@@ -116,7 +117,8 @@ test('fr_his_01_ac2_a_changed_file_is_never_trashed', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ AC-3
 
 test('fr_his_01_ac3_task_card_menu', async ({ page }) => {
-  const core = await startTM(page);
+  // D-1924 (AC-Test-Change, slice Q2-T): route only, plus the default task views in the vault (migrations are off in tests, D-1913).
+  const core = await startTM(page, { vault: withTaskViews(tmVault()) });
   await runCommand(page, 'Go to Tasks');
   const card = await must(main(page).getByRole('article', { name: `Task: ${UKOL}`, exact: true }), 'the task card', 5000);
   await click(card.getByRole('button', { name: `More actions for "${UKOL}"`, exact: true }), 'More actions');

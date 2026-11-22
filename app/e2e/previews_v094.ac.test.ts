@@ -15,6 +15,7 @@ import { join, relative } from 'node:path';
 import {
   FX, MARK_TIMEOUT, appiumDown, changedPaths, clickable, end, firstShown, marks, need, osa, palette, paste, press, ready, session, shown, sleep,
   testEnv, textContains, tmp, tree, waitMark, type Driver, type Env,
+  addTaskViews,
 } from './helpers/capture.ts';
 
 after(appiumDown);
@@ -154,6 +155,8 @@ test('fr_lnk_12_ac20_a_stored_value_stays_after_a_relaunch', { timeout: 900_000 
 test('fr_syn_06_ac42_the_tour_with_no_ui_state_json_writes_nothing', { timeout: 900_000 }, async () => {
   await ready();
   const c = fresh('syn06ac42', null);
+  // D-1924 (AC-Test-Change, slice Q2-T): route only, plus the default task views in the vault (D-1913); `tasks` is an alias of type/task.
+  addTaskViews(c.vault);
   const before = tree(c.vault);
   try {
     const d = await launch(c, `note/${P.odkazy}`);
@@ -201,7 +204,7 @@ test('fr_syn_06_ac42_the_tour_with_no_ui_state_json_writes_nothing', { timeout: 
     assert.ok(fig, 'the figure of ![[graf.png]] is shown in Vložení');
     await clickable(d, fig).click(); await sleep(200); press('space', ['option']); assert.ok(await previewShown(d, 'Graf'), '⌥Space on the selected figure previews Graf'); press('escape');
     palette('Go to Tasks');
-    assert.ok(await waitMark(c.log, 'route-ready:tasks', 5000), 'tasks shown');
+    assert.ok(await waitMark(c.log, 'route-ready:type/task', 5000), 'tasks shown');
     await sleep(800);
     assert.deepEqual(changedPaths(before, tree(c.vault)), [], 'the tour leaves every vault file\'s bytes, mtime and inode unchanged and creates nothing');
     assert.equal(existsSync(join(c.vault, 'Daily/2026-10-30.md')), false, 'no Daily/2026-10-30.md');

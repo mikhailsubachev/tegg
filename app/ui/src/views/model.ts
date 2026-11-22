@@ -14,11 +14,10 @@ export const nameKey = (s: string) => nfc(trimWs(s)).toLowerCase();
 export type ViewTab = { name: string; key: string; summary: QuerySummaryDto | null };
 export type OfferReason = 'otherType' | 'severalTypes' | 'allTypes' | 'needsNote' | 'unreadable';
 
-/** D-1787: defined types have views, except Task (until Q2-T) and Tag. */
+/** D-1787, Q2-T §28.2: every defined type has views except Tag (Task included since Q2-T). */
 export function hasViews(typeKey: string, type: TypeDto | null | undefined): boolean {
   if (!type) return false;
-  const k = nfc(typeKey);
-  return k !== 'task' && k !== 'tag';
+  return nfc(typeKey) !== 'tag';
 }
 
 /** The saved query a name refers to: the exact NFC name first, else the first name-key match (D-1475). */
@@ -144,9 +143,44 @@ export function defaultGroupBy(type: TypeDto | null | undefined): string {
 export function newViewDef(type: TypeDto, kind: 'table' | 'list' | 'board', _typesAll?: readonly TypeDto[]): QueryDefDto {
   const board = kind === 'board';
   const groupBy = board ? defaultGroupBy(type) : null;
-  const columns = board ? type.preview.map(nfc).filter((k, i, a) => k !== groupBy && a.indexOf(k) === i) : effectiveColumns(type);
+  // Q2-T (D-1891, D-1910): a board's cards follow each type's `preview`, so a new Board writes no `columns`.
+  const columns = board ? [] : effectiveColumns(type);
+  // Q2-T: only a Board carries `groupPeriod` / `doneLane` here (views_model's exact Table def, FR-QRY-07 AC-4); the
+  // IPC reads a missing value as false / null.
   return {
     title: t('views.newName'), types: [nfc(type.key)], match: 'all', filters: [], sort: [{ by: 'modified', order: 'desc' }], limit: 50, view: kind,
-    groupBy, lanes: 'vertical', laneOrder: null, columns,
-  };
+    groupBy, lanes: 'vertical', laneOrder: null, columns, ...(board ? { groupPeriod: false, doneLane: null } : {}),
+  } as QueryDefDto;
+}
+
+// ---------------------------------------------------------------- slice Q2-T (v1-views §28.2; R201, R203; AP-1533)
+
+const STATES = new Set(['open', 'in-progress', 'done', 'cancelled']);
+const attrOf = (type: TypeDto | null | undefined, key: string) => type?.attributes.find((a) => nfc(a.key) === nfc(key));
+
+/** `Group by … · by period` (FR-QRY-01 AC-17): Date and Date-time attributes in schema order, then `created`,
+ *  `modified`. */
+export function periodChoices(type: TypeDto | null | undefined): string[] {
+  const out: string[] = [];
+  for (const a of type?.attributes ?? []) {
+    const k = nfc(a.key);
+    if ((a.type === 'date' || a.type === 'date-time') && k !== 'created' && k !== 'modified' && !out.includes(k)) out.push(k);
+  }
+  return [...out, 'created', 'modified'];
+}
+
+/** §23.1: a Select with at least one option whose `state` is a known state. */
+export function carriesStates(type: TypeDto | null | undefined, key: string): boolean {
+  const a = attrOf(type, key);
+  return !!a && a.type === 'select' && (a.options ?? []).some((o) => typeof o.state === 'string' && STATES.has(o.state));
+}
+
+/** The done-lane checkbox (R201): every type's `status` carries states and has a Done-state option. */
+export function doneLaneOffered(types: readonly (TypeDto | null | undefined)[]): boolean {
+  return types.length > 0 && types.every((ty) => carriesStates(ty, 'status') && (attrOf(ty, 'status')?.options ?? []).some((o) => o.state === 'done'));
+}
+
+/** The state operators a filter row on `key` offers (FR-QRY-02 AC-9). */
+export function stateOps(type: TypeDto | null | undefined, key: string): ('state_is' | 'state_is_not')[] {
+  return carriesStates(type, key) ? ['state_is', 'state_is_not'] : [];
 }

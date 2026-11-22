@@ -4,7 +4,8 @@
 import { ShortcutsPage } from './pages/ShortcutsPage';
 import { resetMindmapViews } from './mindmap/mount';
 import { registerConvertPrefs } from './convert/prefs';
-import { registerViewsUiState } from './views/uiState';
+import { adoptTasksUi, registerViewsUiState } from './views/uiState';
+import { restoreDefaultViews, restoreState } from './views/defaultViews';
 import { viewsActions, watchFocus } from './views/actions';
 import { registerWidthsStore, widthsChanged } from './tables/widths';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -17,7 +18,8 @@ import { NotePage, type DraftInfo, type NoteMeta, type NotePageApi } from './pag
 import { pageWidthOf, type PageWidth } from './edit/WidthSwitch';
 import { SearchPage } from './pages/SearchPage';
 import { SettingsPage } from './pages/SettingsPage';
-import { TypePage, type TypeSort } from './pages/TypePage';
+import { TypePage } from './pages/TypePage';
+import type { SortDto } from './ipc/queries';
 import { TypeSettingsPage } from './pages/TypeSettingsPage';
 import { createObject, prepareObject, type Prepared } from './types/create';
 import { NewTypeDialog } from './types/NewTypeDialog';
@@ -51,9 +53,6 @@ import { setDateHandler } from './daily/open';
 import { resetJobs, setMoveTypes, showList, startJobs, undoLast, undoLastMove } from './jobs/jobs';
 import { startBridge } from './jobs/bridge';
 import { NotUpdatedList } from './jobs/notUpdated';
-import { DEFAULT_TASKS_UI, TasksPage, type TasksUi } from './tasks/TasksPage';
-import { AllTasks } from './tasks/AllTasks';
-import type { TasksView } from './tasks/TasksHeader';
 import { useTaskBadge } from './tasks/useTasks';
 import { InboxPage } from './inbox/InboxPage';
 import { TrashPage } from './trash/TrashPage';
@@ -69,7 +68,7 @@ import type { InterruptedDto } from './ipc/types';
 import { TagPage } from './tags/TagPage';
 import { AllTagsPage } from './tags/AllTagsPage';
 import { tagOfFile, useTags, loadTags, refreshTags } from './tags/store';
-import { findPin, editReason } from './pinned/model';
+import { findPin, editReason, typePinnable } from './pinned/model';
 import { ImportDialog } from './import/ImportDialog';
 import { ImportStatus } from './import/ImportStatus';
 import { importOpen, importRunning, openImport as openImportWindow, quitRequested as importQuitRequested, setImportHost, startImportEvents } from './import/store';
@@ -95,7 +94,7 @@ import { QueryDialogs } from './queries/QueryDialogs';
 import { QueryEditorHost } from './queries/QueryEditor';
 import { QueryPicker } from './queries/QueryPicker';
 import { QueryNotices } from './queries/QueryNotices';
-import { queriesForVault, useQueries, type QueriesSort } from './queries/store';
+import { queriesForVault, queriesNow, useQueries, type QueriesSort } from './queries/store';
 import { setPendingEdit, setQueryNav } from './queries/nav';
 import { openNameDialog } from './queries/dialogs';
 import { selectedQueryBlock } from './queries/selection';
@@ -135,8 +134,19 @@ const browserNav = (() => {
 const todayRoute = (): Route => ({ id: DAILY, param: localDate(Date.now()) });
 /** A route that shows a note page: a note, a Daily Note or an unsaved new object (D-520). */
 const isNoteRoute = (r: Route | null | undefined) => r?.id === 'note/<path>' || r?.id === DAILY || r?.id === 'new/<type>';
-/** The route of a Tasks view (D-516). */
-const tasksRoute = (v: TasksView): Route => (v === 'kanban' ? { id: 'tasks/kanban' } : v === 'all' ? { id: 'type/<type>', param: 'task' } : { id: 'tasks' });
+/** Q2-T (v1-views §29.1): `tasks`, `tasks/kanban` and a literal `type/<key>` resolve to the type page route; `tasks/kanban`
+ *  asks for the Kanban tab (TypeViews selects it when listed, else the remembered tab). */
+function resolveRoute(r: Route): Route {
+  if (r.id === 'tasks' || r.id === 'tasks/kanban') {
+    const { id: _id, param: _param, ...rest } = r;
+    return { ...rest, id: 'type/<type>', param: 'task', ...(r.id === 'tasks/kanban' ? { tab: 'Kanban' } : {}) };
+  }
+  if (!r.id.includes('<') && r.param === undefined && r.id.includes('/')) {
+    const p = parseRoute(r.id);
+    if (p && p.id !== r.id) { const { id: _id, ...rest } = r; return { ...rest, ...p }; }
+  }
+  return r;
+}
 
 const SIDEBAR_W = 232;
 const PANEL_W = 288;
@@ -144,15 +154,14 @@ const PANEL_W = 288;
 const PANEL_MIN = 240;
 const PANEL_MAX = 480;
 const MIN_CENTRE = 400; // D-136
-const QUICK_ADD = 'main [data-quick-add] input';
-/** The task views' search: Schedule and Kanban (D-1280), or All tasks' type-page filter. */
-const TASK_SEARCH = 'main [data-command="tasks.search"], main input.type-filter';
+/** `Filter tasks` (D-1284, §30.4): the current tab's `Filter Tasks…` on `type/task`. */
+const TASK_SEARCH = 'main div.view-toolbar input.type-filter';
 
 type Dialog = 'palette' | 'newType' | 'starter' | 'newObject' | null;
 type PanelTab = 'backlinks' | 'related' | 'graph';
 
 /** 3D (ms3-shell §14.7.1): `typeSort` and `otherPropertiesOpen`; missing fields read as defaults, `version` stays 1. */
-type UiState = UiStateDto & { typeSort?: Record<string, TypeSort>; otherPropertiesOpen?: boolean; noteWidth?: Record<string, PageWidth>; preview?: PreviewUiDto;
+type UiState = UiStateDto & { otherPropertiesOpen?: boolean; noteWidth?: Record<string, PageWidth>; preview?: PreviewUiDto;
   /** Slice OL (v1-outline §5, D-1601): `Show outline rail`; missing reads as true. */
   outlineRail?: boolean;
   /** Slice G1 (v1-graph §5, D-993): per-vault state, keyed by the vault's absolute path (NFC); G2 adds `graph.panel`. */
@@ -197,8 +206,6 @@ export function App() {
   const pendingNewTag = useRef(false);
   /** Where the focus goes when a task view is shown: the quick-add row (New Task, D-520) or the search (D-1284). */
   const focusOnLand = useRef<string | null>(null);
-  /** The last of Schedule and Kanban shown (New Task goes there, D-520); `null` falls back to the stored view. */
-  const lastBoard = useRef<'tasks' | 'tasks/kanban' | null>(null);
   const [focusMode, setFocusMode] = useState(false);
   const [width, setWidth] = useState(window.innerWidth);
   const [progress, setProgress] = useState<ProgressDto | null>(null);
@@ -266,9 +273,6 @@ export function App() {
   const headingFocus = useRef(false);
   const pendingReturn = useRef<HTMLElement | null>(null);
   const uiLoaded = useRef(false);
-  // 5A-1: the Tasks page's command handler (R45) and the last task view (D-481).
-  const taskCommand = useRef<((id: string) => void) | null>(null);
-  const taskCommandState = useRef<((id: string) => string | null) | null>(null);
   const inboxCommand = useRef<((id: string) => void) | null>(null);
   const trashCommand = useRef<((id: 'restore' | 'delete') => void) | null>(null);
   /** Slice Q (v1-queries §4.6): the query page's commands and status. */
@@ -286,7 +290,13 @@ export function App() {
       uiLoaded.current = true;
       return;
     }
-    ipc.uiStateGet().then((s) => { uiLoaded.current = true; setUi({ ...DEFAULT_UI, ...(s as UiState) }); }, () => { uiLoaded.current = true; });
+    ipc.uiStateGet().then((s) => {
+      uiLoaded.current = true;
+      const loaded = { ...DEFAULT_UI, ...(s as UiState) };
+      // Q2-T (§30.3, AP-1538): a 0.4.x Tasks state is adopted once (one `ui_state_set`).
+      const adopted = adoptTasksUi(loaded) as UiState;
+      if (adopted !== loaded) { uiDirty.current = true; setUi(adopted); } else setUi(loaded);
+    }, () => { uiLoaded.current = true; });
   }, []);
   // The write happens once per committed state (an effect), not inside the updater: React's StrictMode runs updaters
   // twice in development and test builds, which sent every `ui_state_set` twice (page-width.md FR-STO-07 AC-4).
@@ -300,6 +310,15 @@ export function App() {
     uiDirty.current = false;
     void ipc.uiStateSet(ui).catch(() => {});
   }, [ui]);
+  // A state handed to the page at start (tests, D-509) is adopted the same way once; after the write effect, so the
+  // adopted state is the one written.
+  useEffect(() => {
+    if (!(window as { __TEGG_UI_STATE__?: unknown }).__TEGG_UI_STATE__) return;
+    const cur = uiRef.current;
+    if (!cur) return;
+    const adopted = adoptTasksUi(cur) as UiState;
+    if (adopted !== cur) updateUi(() => adopted);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // 5A-2 (ms5-tasks §11.4): the conversion's preferences live in the same machine-local state.
   // Slice P (v1-previews §1, D-922, D-923): the Object preview setting and the popover size live in the same state.
   useEffect(() => { setStoredPrefs(ui.preview); }, [ui.preview]);
@@ -328,7 +347,8 @@ export function App() {
   const land = useCallback(async () => {
     const forced = landingOverride.current ?? (window as { __TEGG_ROUTE__?: string | null }).__TEGG_ROUTE__;
     landingOverride.current = null;
-    const r = forced ? parseRoute(forced) : null;
+    const r0 = forced ? parseRoute(forced) : null;
+    const r = r0 ? resolveRoute(r0) : null;
     const landing: Route = r ?? await ipc.vaultLast().then((last) => (last ? (parseRoute(last.path)?.id === DAILY ? parseRoute(last.path)! : { id: 'note/<path>', param: last.path }) : { id: 'inbox' }), () => ({ id: 'inbox' }));
     history.current.clear(); // D-171: the history starts with the landing route
     history.current.push(landing);
@@ -452,7 +472,7 @@ export function App() {
 
   // ------------------------------------------------------------------ navigation
   const go = useCallback(async (r0: Route, o: { keepDialog?: boolean; graph?: GraphHandover; heading?: boolean } = {}) => {
-    const r = r0.id === 'today' ? todayRoute() : r0;
+    const r = r0.id === 'today' ? todayRoute() : resolveRoute(r0);
     await flushNote();
     setChooser(null);
     if (!o.keepDialog) setDialog(null);
@@ -631,26 +651,22 @@ export function App() {
   }, [openNote, createToday]);
   const createFrom = useCallback((item: SwitcherItemDto, prepared?: Prepared | null) => createOf(item.type, item.title, prepared ?? null), [createOf]);
 
-  /** Opens the last of Schedule and Kanban (D-520) and puts the focus in `selector` there. */
+  /** Opens `type/task` (its remembered tab) and puts the focus in `selector` there (`Filter tasks`, D-1284). */
   const landOnTasks = useCallback((selector: string) => {
     focusOnLand.current = selector;
-    void go({ id: lastBoard.current ?? (uiRef.current?.tasks?.view === 'kanban' ? 'tasks/kanban' : 'tasks') }).then(() => setTimeout(() => {
-      // Already on that view: no new route to focus, so focus it here.
+    void go({ id: 'type/<type>', param: 'task' }).then(() => setTimeout(() => {
+      // Already on that page: no new route to focus, so focus it here.
       const el = focusOnLand.current ? document.querySelector<HTMLInputElement>(focusOnLand.current) : null;
       if (el) { focusOnLand.current = null; el.focus({ preventScroll: true }); }
     }, 100));
   }, [go]);
 
-  /** D-520: where `New <Name>` goes: today's Daily Note, the Tasks quick-add row, or an unsaved draft. */
+  /** D-520: where `New <Name>` goes: today's Daily Note, or an unsaved draft (Task too, D-1906). */
   const newOf = useCallback((key0: string) => {
     const key = key0.normalize('NFC');
     if (key === 'daily-note') { createToday(); return; }
-    if (key === 'task') {
-      landOnTasks(QUICK_ADD);
-      return;
-    }
     void go({ id: 'new/<type>', param: key });
-  }, [go, createToday, landOnTasks]);
+  }, [go, createToday]);
 
   // D-520: a draft's bytes come from the creation path (D-232) with an empty title; its first write creates the file
   // and the route becomes the note's without remounting the page (as a rename, FR-FMT-08 AC-5).
@@ -731,7 +747,7 @@ export function App() {
     if (!r) return null;
     if (r.id === 'new/<type>') return 'unsaved';
     if (r.id === 'tag/<key>') return r.param ? { kind: 'tag', key: r.param } : null;
-    if (r.id === 'type/<type>') return r.param ? { kind: 'type', key: r.param } : null;
+    if (r.id === 'type/<type>') return typePinnable(r.param) ? { kind: 'type', key: r.param! } : null; // D-1933
     if (r.id === 'note/<path>') return r.param ? { kind: 'object', path: r.param.normalize('NFC') } : null;
     if (r.id === DAILY) { const p = objectPathOf(r); return p ? { kind: 'object', path: p.normalize('NFC') } : 'unsaved'; }
     // Slice Q (v1-queries §1.9): a query page pins its query by name.
@@ -877,14 +893,13 @@ export function App() {
       setCalendar({ selected, anchor, onChoose: (d) => { setCalendar(null); void go({ id: DAILY, param: d }); } });
     },
     setReviewed: (r: boolean) => { if (route?.id === DAILY || noteDaily) setTimeout(() => noteApi.current?.setReviewed(r), 0); },
-    goTasks: () => { void go(tasksRoute((uiRef.current?.tasks?.view ?? 'schedule') as TasksView)); },
-    taskCommand: (id: string) => taskCommand.current?.(id),
-    taskCommandState: (id: string) => taskCommandState.current?.(id),
+    restoreDefaultViews: () => { const ty = typesRef.current.find((x) => x.key.normalize('NFC') === 'task') ?? null; if (!restoreState(ty, (queriesNow() ?? [])).reason) void restoreDefaultViews(ty, loadTypes); },
+    restoreDefaultViewsState: () => restoreState(typesRef.current.find((x) => x.key.normalize('NFC') === 'task') ?? null, (queriesNow() ?? [])).reason,
     filterTasks: () => {
       // D-1284: on a task view the focus goes to its field; elsewhere the last of Schedule and Kanban opens with it.
       const field = document.querySelector<HTMLInputElement>(TASK_SEARCH);
-      if (field && (route?.id === 'tasks' || route?.id === 'tasks/kanban' || (route?.id === 'type/<type>' && route.param?.normalize('NFC') === 'task'))) field.focus();
-      else landOnTasks('main [data-command="tasks.search"]');
+      if (field && route?.id === 'type/<type>' && route.param?.normalize('NFC') === 'task') field.focus();
+      else landOnTasks(TASK_SEARCH);
     },
     tagCommand: (id: string) => tagCommand.current?.(id),
     mergeFocused: () => mergeCommand.current?.(),
@@ -1298,12 +1313,29 @@ export function App() {
       }
       if (pendingScroll.current !== null && route.id !== 'note/<path>' && route.id !== DAILY) {
         const m = document.querySelector('main');
-        if (m) m.scrollTop = pendingScroll.current;
+        const want = pendingScroll.current;
         pendingScroll.current = null;
+        if (m) {
+          m.scrollTop = want;
+          // Q2-T (§29.1): a page whose content arrives later (a board's run) gets the position once it is tall enough,
+          // unless the user scrolled meanwhile or left.
+          if (Math.abs(m.scrollTop - want) > 1) {
+            const key = routeKey;
+            let n = 0;
+            let last = m.scrollTop;
+            const again = () => {
+              if (shownRoute.current !== key || !m.isConnected || m.scrollTop !== last || n++ > 120) return;
+              m.scrollTop = want;
+              last = m.scrollTop;
+              if (Math.abs(last - want) > 1) requestAnimationFrame(again);
+            };
+            requestAnimationFrame(again);
+          }
+        }
       }
       // The Tasks page marks itself once its cards have painted (FR-TSK-04 AC-14).
       // The Tasks page and the graph (v1-graph §3: after its first graph or state) mark themselves.
-      if (route.id === 'tasks' || route.id === 'tasks/kanban' || route.id === 'graph/<path>') return;
+      if (route.id === 'graph/<path>') return;
       // A page that doesn't wait for a note is shown once per arrival: the note left behind clearing its `meta` reruns
       // this effect and must not mark the route a second time (D-1511: a step is one route shown, FR-NAV-03 AC-12).
       if (!isNote && route.id !== DAILY) {
@@ -1409,7 +1441,12 @@ export function App() {
       refresh,
       heading,
       sort: ui.typeSort?.[key],
-      onSort: (s: TypeSort) => updateUi((u) => ({ ...u, typeSort: { ...(u.typeSort ?? {}), [key]: s } })),
+      // Q2-T (§29.7, §30.3): the whole list of levels in one `ui_state_set`; null deletes the key (the page's default).
+      onSort: (s: SortDto[] | null) => updateUi((u) => {
+        const all = { ...(u.typeSort ?? {}) };
+        if (s) all[key] = s; else delete all[key];
+        return { ...u, typeSort: all };
+      }),
       // D-1241: column widths per type key, machine-local; an empty map drops the type's entry (Reset column widths).
       widths: ui.typeColumnWidths?.[key] as Record<string, number> | undefined,
       onWidths: (w: Record<string, number>) => updateUi((u) => {
@@ -1423,11 +1460,8 @@ export function App() {
       onNew: () => actions.newObjectOfType?.(key),
       onDefine: (v: string) => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDefineValue(v); setDialog('newType'); },
     };
-    // D-516: the Task type's page is the Tasks page's `All tasks` view.
-    body = key.normalize('NFC') === 'task'
-      ? <AllTasks key={key} {...page} go={(v) => { void go(tasksRoute(v)); }}
-          onShown={() => updateUi((u) => (u.tasks?.view === 'all' ? u : { ...u, tasks: { ...DEFAULT_TASKS_UI, ...(u.tasks ?? {}), view: 'all' } }))} />
-      : <TypePage key={key} {...page} />;
+    // Each visit is a new page (the per-tab filter text is never kept, D-1796); tabs, folds and tags come from the UI state.
+    body = <TypePage key={`${key}\n${navKey}`} {...page} tab={route.tab} tabNonce={navKey} />;
   } else if (route?.id === 'tags' && vault) {
     body = (
       <AllTagsPage heading={heading} sort={ui.tagsSort as TagsSort | undefined} onSort={(x) => updateUi((u) => ({ ...u, tagsSort: x }))}
@@ -1495,34 +1529,6 @@ export function App() {
         onOpenTrash={() => { void go({ id: 'trash' }); }}
       />
     );
-  } else if ((route?.id === 'tasks' || route?.id === 'tasks/kanban') && vault) {
-    lastBoard.current = route.id;
-    const tui: TasksUi = { ...DEFAULT_TASKS_UI, ...(ui.tasks ?? {}) };
-    body = (
-      <TasksPage
-        key={route.id}
-        view={route.id === 'tasks' ? 'schedule' : 'kanban'}
-        refresh={refresh}
-        heading={heading}
-        ui={tui}
-        onUi={(f) => updateUi((u) => {
-          // A change to what is already stored writes nothing (FR-SYN-06 AC-42: reaching a stored view is no write).
-          const was = { ...DEFAULT_TASKS_UI, ...(u.tasks ?? {}) };
-          const next = f(was);
-          return u.tasks && JSON.stringify(next) === JSON.stringify(was) ? u : { ...u, tasks: next };
-        })}
-        nav={{
-          openNote: (p) => openNote(p),
-          openSource: (p, task) => { void go({ id: 'note/<path>', param: p.normalize('NFC'), selectEmbedOf: task.normalize('NFC') }); },
-          openDay,
-        }}
-        go={(v) => { void go(tasksRoute(v)); }}
-        onSettings={() => go({ id: 'type-settings/<type>', param: 'task' })}
-        plural={types.find((x) => x.key.normalize('NFC') === 'task')?.plural ?? t('tasks.title')}
-        commandRef={taskCommand}
-        commandStateRef={taskCommandState}
-      />
-    );
   } else if (route?.id === 'inbox' && vault) {
     body = (
       <InboxPage
@@ -1588,7 +1594,7 @@ export function App() {
             conflicts={conflicts}
             taskCount={taskBadge}
             inboxCount={inboxCount}
-            onTasks={actions.goTasks}
+            onTasks={() => { const r: Route = { id: 'type/<type>', param: 'task' }; if (route && sameRoute(r, route)) heading.current?.focus(); else void go(r); }}
             onOpenPinned={(r) => { if (route && sameRoute(r, route)) heading.current?.focus(); else void go(r, { heading: true }); }}
             pinnedCollapsed={!!(ui.vaults?.[vault.path.normalize('NFC')] as { sidebar?: { pinnedCollapsed?: boolean } } | undefined)?.sidebar?.pinnedCollapsed}
             onPinnedCollapse={(c) => { const vp = vault.path.normalize('NFC'); updateUi((u) => ({ ...u, vaults: { ...(u.vaults ?? {}), [vp]: { ...(u.vaults?.[vp] ?? {}), sidebar: { ...((u.vaults?.[vp] as { sidebar?: object } | undefined)?.sidebar ?? {}), pinnedCollapsed: c } } } })); }}

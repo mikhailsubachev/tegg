@@ -7,6 +7,7 @@
 // from the ACs and the contracts only (D-61); every lookup goes through `need` and node:assert (TS-I1).
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
+import { withTaskViews } from './tasks-helpers'; // D-1924 (AC-Test-Change, slice Q2-T): route only, plus the default task views in the vault (migrations are off in tests, D-1913).
 import { wordPoint } from './previews-editor-helpers';
 import {
   PV, ZONE, anyBack, anyContent, back, backBtn, backlinksPanel, chipNamed, closeBtn, content, createOffer, editorBody, embedLoadsSince, eventually,
@@ -390,7 +391,7 @@ const SURFACES: Surface[] = [
   { name: 'backlinks_chip', start: { at: PV.rozpocet, panel: true }, ref: (p) => need(chipNamed(backlinksPanel(p), 'Odkazy'), 'the Backlinks chip Odkazy'), title: 'Odkazy', word: 'Hlavní', opens: 'Odkazy', path: PV.odkazy },
   { name: 'search_result_row', start: { at: PV.odkazy }, go: async (p) => { await searchFor(p, 'rozpočet', 'Rozpočet 2027'); }, ref: (p) => need(p.getByRole('list', { name: 'Search results', exact: true }).getByRole('listitem').filter({ hasText: 'Rozpočet 2027' }), 'the result row Rozpočet 2027'), title: 'Rozpočet 2027', word: 'Návrh', opens: 'Rozpočet 2027', path: PV.rozpocet },
   { name: 'type_page_row', start: { route: 'type/osoba' }, ref: (p) => need(typeTable(p, 'Osoby').getByRole('row').filter({ hasText: 'Petr Dvořák' }), 'the type/osoba row Petr Dvořák'), title: 'Petr Dvořák', word: 'Vede', opens: 'Petr Dvořák', path: PV.petr },
-  { name: 'task_card_title', start: { route: 'tasks' }, ref: (p) => need(taskCard(p, 'Zavolat Janě').getByRole('link', { name: 'Zavolat Janě', exact: true }), 'the task card title'), title: 'Zavolat Janě', word: 'Domluvit', opens: 'Zavolat Janě', path: PV.ukol },
+  { name: 'task_card_title', start: { route: 'tasks', vault: withTaskViews(previewsVault()) }, ref: (p) => need(taskCard(p, 'Zavolat Janě').getByRole('link', { name: 'Zavolat Janě', exact: true }), 'the task card title'), title: 'Zavolat Janě', word: 'Domluvit', opens: 'Zavolat Janě', path: PV.ukol },
 ];
 
 for (const s of SURFACES) {
@@ -408,7 +409,7 @@ for (const s of SURFACES) {
 }
 
 test('fr_lnk_11_ac20_click_mode_a_click_on_the_source_previews_body_opens_porada_at_the_embed', async ({ page }) => {
-  const core = await startPreviews(page, { route: 'tasks', mode: 'click' });
+  const core = await startPreviews(page, { route: 'tasks', mode: 'click', vault: withTaskViews(previewsVault()) });
   const src = () => need(taskCard(page, 'Zavolat Janě').locator('[data-link-kind]').filter({ hasText: 'Porada 2026-10-27' }), 'the source chip Porada 2026-10-27');
   // The comparison: Open on the source preview (FR-TSK-08 AC-5).
   await (await src()).click();

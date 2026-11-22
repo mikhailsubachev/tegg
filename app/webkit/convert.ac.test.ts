@@ -10,6 +10,7 @@
 // test converts a mixed block/list selection (AP-456); the Quick Notes Dvojník `source` may carry `|Dvojník` (AP-455).
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
+import { withTaskViews } from './tasks-helpers';
 import { pseudoLocale, escPreview, mustNoPreview, mustPreview, switchPreviewMode } from './helpers';
 import { ui as convertUi } from './convert-helpers';
 import { setPreviewMode } from '../ui/test/fake-core';
@@ -833,7 +834,8 @@ async function scrollTop(sel: Locator): Promise<number> {
 }
 test('fr_cnv_04_ac2_the_source_chip_opens_bloky_at_the_embed', async ({ page }) => {
   // D-943: the D-486 click steps run with Object preview Off; click mode follows (a click previews, a double-click opens).
-  const core = await openConvert(page, C.bloky, setPreviewMode('off', { uiState: convertUi() }));
+  // D-1924 (AC-Test-Change, slice Q2-T): route only, plus the default task views in the vault (migrations are off in tests, D-1913).
+  const core = await openConvert(page, C.bloky, { ...setPreviewMode('off', { uiState: convertUi() }), vault: withTaskViews(convertVault()) });
   await convertAt(page, ZAVOLAT);
   await saved(page, core, C.bloky, (x) => x !== B0);
   await page.keyboard.press('Meta+Enter');

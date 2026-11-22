@@ -464,9 +464,10 @@ fn fr_qry_07_ac4_new_view_creates_a_query_and_a_tab() {
     assert_eq!(disk_s(&root, AUTOR), Some(expected("types/autor-views-new-view.yml")), "(b) autor.yml");
     std::fs::remove_file(root.join(qpath("New view"))).expect("setup: remove");
     reread(&core, &[&qpath("New view")]);
-    let d = new_def(&core, &["book"], View::Board, Some("status"), &["author"]);
+    // D-1910, D-1929: `New view` › Board passes no columns.
+    let d = new_def(&core, &["book"], View::Board, Some("status"), &[]);
     ok!(core.query_create(QueryCreate { title: "New view".into(), def: Some(d.clone()), fence: None, free: true }, NOW), "(c) query_create board");
-    assert_eq!(disk_s(&root, &qpath("New view")), Some(expected("new-view-board-book.yml")), "(c) group_by, lanes: vertical, columns [author]");
+    assert_eq!(disk_s(&root, &qpath("New view")), Some(expected("new-view-board-book.yml")), "(c) group_by, lanes: vertical, no columns");
     ok!(set_views(&core, "book", &["Rozečtené", "Přečtené 2026", "Výborné knihy", "New view"]), "(c) type_patch");
     assert_eq!(disk_s(&root, BOOK), Some(expected("types/book-views-new-view.yml")), "(c) book.yml");
     ok!(core.query_create(QueryCreate { title: "New view".into(), def: Some(d), fence: None, free: true }, NOW), "a second New view");

@@ -3,7 +3,11 @@
 
 .board { min-width: 0; max-width: 100%; }
 .board-scroll { min-width: 0; max-width: 100%; }
-.board-vertical .board-scroll { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; align-items: flex-start; }
+/* Q2-T (tasks.md FR-TSK-05 AC-15, D-593; 5B F5): columns stretch to the board, so a column is a drop target over its
+   whole height; the sideways scrollbar takes no space until the pointer is over the board or a card is dragged
+   (WebKit doesn't restyle a scrollbar on :hover, so the overflow itself switches; the padding keeps the height). */
+.board-vertical .board-scroll { display: flex; gap: 12px; overflow-x: hidden; overflow-y: hidden; padding-bottom: 12px; align-items: stretch; }
+.board-vertical .board-scroll:hover, .board-vertical.dragging .board-scroll { overflow-x: auto; padding-bottom: 4px; }
 .board-vertical .board-scroll::-webkit-scrollbar { height: 8px; background: transparent; }
 .board-vertical .board-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 .board-horizontal .board-scroll { display: flex; flex-direction: column; gap: 12px; }
@@ -37,7 +41,8 @@
 
 .board-card { box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); display: flex; flex-direction: column; gap: 6px; cursor: default; min-width: 0; }
 .board-card:focus-visible { outline: 2px solid var(--focus); outline-offset: -1px; }
-.board-card.dragging { opacity: .5; }
+/* Q2-T (FR-UX-05 AC-25): the dragged card keeps its text contrast; a dashed outline marks it. */
+.board-card.dragging { outline: 2px dashed var(--focus); outline-offset: -2px; box-shadow: none; }
 .board-card-head { display: flex; align-items: flex-start; gap: 6px; }
 .board-card-title { flex: 1; min-width: 0; color: var(--text); font-weight: 500; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .board-card-more { flex: none; }
@@ -49,3 +54,16 @@
 .board.dragging, .board.dragging * { cursor: grabbing; user-select: none; }
 .query-board { min-width: 0; max-width: 100%; }
 @media (prefers-reduced-motion: reduce) { .board * { transition: none !important; animation: none !important; } }
+
+/* Slice Q2-T (v1-views §29.3, §30.1; R203): period boards' day groups, the done lane's hint, heading tones. The
+   `Today & overdue` heading uses --danger, `Not scheduled` --muted (FR-UX-05: theme tokens only). */
+.board-lane-head h2[data-tone="danger"] { color: var(--danger); }
+.board-lane-head h2[data-tone="muted"] { color: var(--muted); font-weight: 500; }
+.lane-hint { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+.board-days { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.board-horizontal .board-days { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
+.board-day { min-width: 0; border-radius: 8px; padding: 2px 0; }
+.board-day.drop-over { outline: 2px dashed var(--focus); outline-offset: 2px; }
+.board-day .day-heading { margin: 0; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: none; }
+.board-day .board-cards { margin-top: 6px; display: flex; flex-direction: column; gap: 8px; }
+.board-task-card { margin: 0; }

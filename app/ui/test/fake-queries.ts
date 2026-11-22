@@ -10,16 +10,21 @@
 import { parseAllDocuments, parse as parseYaml, isMap, isScalar, isSeq, type Document } from 'yaml';
 import { listTypes, renameView, type TypeDto } from './fake-schema';
 import { objectsWith, resolver, type Obj } from './fake-links';
-import { excerpt } from './fake-tasks';
+import { excerpt, taskList } from './fake-tasks';
+import { bounds as periodBounds, completedWithin, dateOf as periodDateOf, periodOf } from '../src/queries/board/period';
 
 // ------------------------------------------------------------------------------------------------ DTOs (contract §2)
 
 export type VersionDto = { mtimeNs: string; size: number; hash: string };
 export type QueryOp = 'is' | 'is_not' | 'contains' | 'is_empty' | 'is_not_empty' | 'is_any_of' | 'has_any_of' | 'has_all_of'
   | 'has_none_of' | 'before' | 'after' | 'between' | 'today' | 'this_week' | 'within_next_days' | 'overdue'
-  | 'eq' | 'ne' | 'lt' | 'gt' | 'links_to';
+  | 'eq' | 'ne' | 'lt' | 'gt' | 'links_to' | 'state_is' | 'state_is_not';
 export const QUERY_OPS: QueryOp[] = ['is', 'is_not', 'contains', 'is_empty', 'is_not_empty', 'is_any_of', 'has_any_of', 'has_all_of',
-  'has_none_of', 'before', 'after', 'between', 'today', 'this_week', 'within_next_days', 'overdue', 'eq', 'ne', 'lt', 'gt', 'links_to'];
+  'has_none_of', 'before', 'after', 'between', 'today', 'this_week', 'within_next_days', 'overdue', 'eq', 'ne', 'lt', 'gt', 'links_to',
+  // Slice Q2-T (v1-views §24.1, AP-1533): an object's state for a Select that carries states.
+  'state_is', 'state_is_not'];
+/** Slice Q2-T (v1-views §24.1): the done lane (R201). */
+export type DoneLaneDto = { withinDays: number; folded: boolean };
 export type FilterItemDto =
   | { kind: 'filter'; key: string; op: QueryOp; value: unknown; src: number[] | null }
   | { kind: 'group'; match: 'all' | 'any'; filters: FilterItemDto[]; src: number[] | null }
@@ -31,15 +36,24 @@ export type QueryDefDto = {
   sort: SortDto[]; limit: number; view: QueryViewKind;
   groupBy: string | null; lanes: 'vertical' | 'horizontal'; laneOrder: string[] | null;
   columns: string[];
+  /** Slice Q2-T (§24.1, CP-23): `group_by` was `{ <key>: period }`; false when `groupBy` is null. Missing = false. */
+  groupPeriod?: boolean;
+  /** Slice Q2-T: null = absent or broken. Missing = null. */
+  doneLane?: DoneLaneDto | null;
 };
 /** Slice Q2 (v1-views §2): the board's lanes. */
 export type LaneCardDto = { row: number; raw: string[] };
+export type DayGroupDto = { date: string; cards: LaneCardDto[] };
 export type LaneDto = {
-  id: string; kind: 'option' | 'unknown' | 'tag' | 'relation' | 'unresolved' | 'none';
+  id: string; kind: 'option' | 'unknown' | 'tag' | 'relation' | 'unresolved' | 'none' | 'period' | 'done';
   value: string | null; label: string; color: string | null; target: string | null;
   excluded: boolean; dropTarget: boolean; cards: LaneCardDto[];
+  /** Slice Q2-T (§24.1): the `period:week` lane's day groups; [] otherwise. */
+  days: DayGroupDto[];
+  /** Slice Q2-T: the done lane's and the limited Done-state option lanes' `within_days`; null otherwise. */
+  doneWithin: number | null;
 };
-export type GroupingDto = { key: string; kind: 'select' | 'multiSelect' | 'tags' | 'relation'; multiple: boolean; name: string; lanes: LaneDto[] };
+export type GroupingDto = { key: string; kind: 'select' | 'multiSelect' | 'tags' | 'relation' | 'period'; multiple: boolean; name: string; lanes: LaneDto[]; dateTime: boolean };
 export type ViewUsageDto = { type: string; path: string };
 export type BrokenReason = 'badValue' | 'shape' | 'operator' | 'nestedGroup' | 'notAttribute' | 'operatorKind' | 'value' | 'noType';
 export type BrokenDto = { reason: BrokenReason; at: number[] | null; key: string; type: string | null };
@@ -67,6 +81,10 @@ export type QueryRowDto = {
   task: { status: string | null; state: 'open' | 'in-progress' | 'done' | 'cancelled'; due: string | null } | null;
   /** Slice Q2 (v1-views §1.1): the file's version (the page fills mtimes), the excerpt, not UTF-8. */
   version: VersionDto | null; excerpt: string; readOnly: boolean;
+  /** Slice Q2-T (§24.1): tag keys (frontmatter and inline; NFC, case-folded), sorted, unique. */
+  tags: string[];
+  /** Slice Q2-T (CP-24): ms5-tasks' TaskRowDto for a `task` object, else null. */
+  taskRow: any | null;
 };
 export type QueryResultDto = {
   form: 'reference' | 'inline' | 'unreadable' | 'empty' | 'def'; name: string | null; lookup: LookupDto | null;
@@ -77,6 +95,8 @@ export type QueryResultDto = {
   /** Slice Q2.1 (v1-views §17.1, D-1854): the usage's own and effective values; null for `query/<name>`, the editor's
    *  preview, inline fences and missing, trashed or unreadable queries. */
   usage: UsageRunDto | null;
+  /** Slice Q2-T (CP-24): the Task definitions when any row has `taskRow`; else null. */
+  taskDefs: unknown | null;
 };
 /** Slice Q2.1 (v1-views §17.3). */
 export type UsageRunDto = {
@@ -97,10 +117,10 @@ export const QUERIES_DIR = '.tegg/queries';
 export const TRASHED_QUERIES_DIR = '.trash/.tegg/queries';
 export const HEADER = '# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › ';
 /** R138 create order; also the order "the nearest earlier / later known key" is looked up in (§1.4). */
-const ORDER = ['version', 'title', 'types', 'match', 'filters', 'sort', 'limit', 'view', 'group_by', 'lanes', 'lane_order', 'columns', 'created', 'modified'] as const;
+const ORDER = ['version', 'title', 'types', 'match', 'filters', 'sort', 'limit', 'view', 'group_by', 'lanes', 'lane_order', 'done_lane', 'columns', 'created', 'modified'] as const;
 const DEFAULT_SORT = { by: 'modified', order: 'desc' as const };
 /** The keys a commit compares and replaces (v1-queries §1.4 `COMMIT_KEYS` plus Q2's, v1-views §1.4). */
-const COMMIT_KEYS = ['types', 'match', 'filters', 'sort', 'limit', 'view', 'group_by', 'lanes', 'lane_order', 'columns'] as const;
+const COMMIT_KEYS = ['types', 'match', 'filters', 'sort', 'limit', 'view', 'group_by', 'lanes', 'lane_order', 'done_lane', 'columns'] as const;
 
 const nfc = (s: string) => s.normalize('NFC');
 const trimWs = (s: string) => s.replace(/^\p{White_Space}+|\p{White_Space}+$/gu, '');
@@ -218,6 +238,12 @@ export type QueryReadTwin = {
 };
 
 const isStrList = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === 'string');
+/** A `group_by` node whose single key is a string scalar (a non-string key such as `1:` or `true:` is broken, §24.2). */
+const isMapKeyString = (node: unknown): boolean => {
+  if (!isMap(node)) return false;
+  const k = (node as any).items?.[0]?.key;
+  return isScalar(k) && typeof k.value === 'string';
+};
 const normValue = (v: unknown): unknown => (typeof v === 'string' ? nfc(v) : Array.isArray(v) ? v.map(normValue) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [nfc(k), normValue(x)])) : v);
 
 /** Parses one filter item (R139) at `src`; `inGroup`: nested groups are `nestedGroup`. */
@@ -307,7 +333,7 @@ function itemsIn(T: string[], from: number, to: number, raw: unknown[]): ItemRan
  *  `colsFor`: the default `columns` for the effective `types` (the single type's effective type-page columns, else
  *  `[type, modified]`; contract §1.4 Create). */
 export function queryRead(text: string | null, utf8 = true, name = '', colsFor: (types: string[]) => string[] = defaultColumnsNoSchema): QueryReadTwin {
-  const defaults = (): QueryDefDto => ({ title: nfc(name), types: [], match: 'all', filters: [], sort: [{ ...DEFAULT_SORT }], limit: 50, view: 'list', groupBy: null, lanes: 'vertical', laneOrder: null, columns: colsFor([]) });
+  const defaults = (): QueryDefDto => ({ title: nfc(name), types: [], match: 'all', filters: [], sort: [{ ...DEFAULT_SORT }], limit: 50, view: 'list', groupBy: null, lanes: 'vertical', laneOrder: null, columns: colsFor([]), groupPeriod: false, doneLane: null });
   const unreadable = (line: number | null, reason: string): QueryReadTwin => ({ state: 'unreadable', line, reason, def: defaults(), broken: [], usesThis: false, created: null, modified: null, present: [], layout: null });
   if (text === null) return unreadable(null, 'no file');
   if (!utf8) return unreadable(null, 'The file isn\'t valid UTF-8.');
@@ -357,11 +383,27 @@ export function queryRead(text: string | null, utf8 = true, name = '', colsFor: 
   }
   if (has('limit')) { if (typeof y.limit === 'number' && Number.isInteger(y.limit) && y.limit >= 1 && y.limit <= 1000) def.limit = y.limit; else badKey('limit'); }
   if (has('view')) { if (y.view === 'list' || y.view === 'table' || y.view === 'board') def.view = y.view; else badKey('view'); }
-  if (has('group_by')) { if (typeof y.group_by === 'string' && trimWs(y.group_by) !== '') def.groupBy = nfc(trimWs(y.group_by)); else badKey('group_by'); }
+  if (has('group_by')) {
+    const g = y.group_by;
+    // Q2-T (§24.2, CP-23): a mapping with exactly one entry `{ <key>: period }` is a period grouping.
+    const ents = g && typeof g === 'object' && !Array.isArray(g) ? Object.entries(g as Record<string, unknown>) : null;
+    if (typeof g === 'string' && trimWs(g) !== '') def.groupBy = nfc(trimWs(g));
+    else if (ents && ents.length === 1 && trimWs(ents[0][0]) !== '' && ents[0][1] === 'period' && isMapKeyString(top.get('group_by', true))) { def.groupBy = nfc(trimWs(ents[0][0])); def.groupPeriod = true; }
+    else badKey('group_by');
+  }
   if (has('lanes')) { if (y.lanes === 'vertical' || y.lanes === 'horizontal') def.lanes = y.lanes; else badKey('lanes'); }
   if (has('lane_order')) { if (isStrList(y.lane_order)) def.laneOrder = y.lane_order.map(nfc); else badKey('lane_order'); }
-  if (has('columns')) { if (isStrList(y.columns)) def.columns = y.columns.map(nfc); else { badKey('columns'); def.columns = colsFor(def.types); } }
-  else def.columns = colsFor(def.types);
+  if (has('done_lane')) {
+    // Q2-T (§24.2): `{ within_days: 1…366, folded?: bool }`, no other entry.
+    const d = y.done_lane as Record<string, unknown> | null;
+    const ok = !!d && typeof d === 'object' && !Array.isArray(d) && Object.keys(d).every((k) => k === 'within_days' || k === 'folded')
+      && typeof d.within_days === 'number' && Number.isInteger(d.within_days) && d.within_days >= 1 && d.within_days <= 366
+      && (d.folded === undefined || typeof d.folded === 'boolean');
+    if (ok) def.doneLane = { withinDays: d!.within_days as number, folded: d!.folded === true }; else badKey('done_lane');
+  }
+  // Q2-T (§24.2, D-1927): a missing `columns` reads as `[]` on a board (a board never uses it).
+  if (has('columns')) { if (isStrList(y.columns)) def.columns = y.columns.map(nfc); else { badKey('columns'); def.columns = def.view === 'board' ? [] : colsFor(def.types); } }
+  else def.columns = def.view === 'board' ? [] : colsFor(def.types);
   const filterBroken: BrokenDto[] = [];
   def.filters = (rawItems ?? []).map((r, i) => readItem(r, [i], false, filterBroken));
   // File order: the broken top-level keys and the broken items by where they stand.
@@ -443,9 +485,10 @@ const topLine = (k: string, def: QueryDefDto): string[] | null => {
     }
     case 'limit': return [`limit: ${def.limit}`];
     case 'view': return [`view: ${def.view}`];
-    case 'group_by': return def.groupBy === null ? null : [`group_by: ${scalar(def.groupBy)}`];
+    case 'group_by': return def.groupBy === null ? null : def.groupPeriod ? [`group_by: { ${scalar(def.groupBy, true)}: period }`] : [`group_by: ${scalar(def.groupBy)}`];
     case 'lanes': return [`lanes: ${def.lanes}`];
     case 'lane_order': return def.laneOrder === null ? null : [`lane_order: ${flowList(def.laneOrder)}`];
+    case 'done_lane': return def.doneLane ? [`done_lane: { within_days: ${def.doneLane.withinDays}, folded: ${def.doneLane.folded ? 'true' : 'false'} }`] : null;
     case 'columns': return [`columns: ${flowList(def.columns)}`];
     default: return null;
   }
@@ -464,9 +507,10 @@ function effective(def: QueryDefDto, k: string, keepRawSrc = true): string {
     case 'sort': return json(def.sort.map((l) => [nfc(l.by), l.order]));
     case 'limit': return String(def.limit);
     case 'view': return def.view;
-    case 'group_by': return def.groupBy === null ? '' : nfc(def.groupBy);
+    case 'group_by': return def.groupBy === null ? '' : `${def.groupPeriod ? 'period:' : ''}${nfc(def.groupBy)}`;
     case 'lanes': return def.lanes;
     case 'lane_order': return def.laneOrder === null ? 'null' : json(def.laneOrder.map(nfc));
+    case 'done_lane': return def.doneLane ? json([def.doneLane.withinDays, !!def.doneLane.folded]) : 'null';
     case 'columns': return json(def.columns.map(nfc));
     default: return '';
   }
@@ -549,7 +593,7 @@ export function queryPatch(text: string, read: QueryReadTwin, def: QueryDefDto, 
   const next = joinLines(out);
   // Read-back check (D-1458): the new text must read as exactly `def` (the title aside).
   const back = queryRead(next, true, read.def.title);
-  const want = { ...def, title: read.def.title, groupBy: def.groupBy ?? read.def.groupBy };
+  const want = { ...def, title: read.def.title, groupBy: def.groupBy ?? read.def.groupBy, groupPeriod: def.groupBy === null ? read.def.groupPeriod : def.groupPeriod };
   const keys = COMMIT_KEYS.filter((k) => (k !== 'columns' || back.present.includes('columns')) && (k !== 'group_by' || want.groupBy !== null));
   const ok = back.state === 'ok' && keys.every((k) => effective(back.def, k, false) === effective(want, k, false));
   if (!ok) return { error: { kind: 'Unreadable', message: 'fake: the written file would not read back as the query' } };
@@ -564,7 +608,9 @@ export function queryCreateText(def: QueryDefDto, now: string, tail?: string | n
     ...topLine('sort', def)!, ...topLine('limit', def)!, ...topLine('view', def)!,
     // v1-views §1.4 Create (D-1783): `group_by` and `lanes` only on a board, `lane_order` only when set.
     ...(def.view === 'board' ? [...(topLine('group_by', def) ?? []), ...topLine('lanes', def)!] : []), ...(topLine('lane_order', def) ?? []),
-    ...topLine('columns', def)!, `created: ${now}`, `modified: ${now}`,
+    // Q2-T (§24.3): `done_lane` when set (any view); a Board with empty `columns` writes none (D-1910).
+    ...(topLine('done_lane', def) ?? []),
+    ...(def.view === 'board' && def.columns.length === 0 ? [] : topLine('columns', def)!), `created: ${now}`, `modified: ${now}`,
   ];
   if (tail) L.push(...tail.replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n'));
   return `${L.join('\n')}\n`;
@@ -874,6 +920,13 @@ function check(f: Extract<FilterItemDto, { kind: 'filter' }>, chosen: string[], 
     const ok = f.op === 'is' && (f.value === 'this' || linkTargetOf(f.value) !== null);
     return { broken: ok ? null : f.op === 'is' ? 'value' : 'operatorKind', type: null, kind: 'links', needsDate: false };
   }
+  if (f.op === 'state_is' || f.op === 'state_is_not') {
+    // Q2-T (§24.4, AP-1533): valid when `key` is, in every chosen type, a Select that carries states; the value one of
+    // the four states.
+    const ok = chosen.length > 0 && chosen.every((t) => carriesStates(attrOf(ctx.types.find((x) => x.key === t), key)));
+    if (!ok) return { broken: 'operatorKind', type: null, kind: 'select', needsDate: false };
+    return { broken: typeof f.value === 'string' && STATE_NAMES.includes(f.value) ? null : 'value', type: null, kind: 'select', needsDate: false };
+  }
   let info: AttrInfo | null = null;
   if (chosen.length === 0) { if (key in UNIVERSAL) info = attrOf(undefined, key); else return { broken: 'notAttribute', type: null, kind: null, needsDate: false }; }
   else {
@@ -910,6 +963,17 @@ function check(f: Extract<FilterItemDto, { kind: 'filter' }>, chosen: string[], 
   return { broken: ok ? null : 'value', type: null, kind, needsDate };
 }
 
+const STATE_NAMES = ['open', 'in-progress', 'done', 'cancelled'];
+/** §23.1: a Select with at least one option of a known state. */
+const carriesStates = (a: AttrInfo | null): boolean => !!a && a.kind === 'select' && a.options.some((o) => o.state !== null && STATE_NAMES.includes(o.state));
+/** tasks.md R44: an object's state for a Select that carries states (missing or unknown value, or an option without a
+ *  known state → `open`); labels match NFC-exact (D-1808). */
+function stateOf(o: Obj, key: string, ctx: Ctx): string {
+  const a = attrOf(ctx.types.find((x) => x.key === o.type), key);
+  const v = valueOf(o, key);
+  const opt = typeof v === 'string' ? a?.options.find((x) => x.label === nfc(v)) : undefined;
+  return opt?.state && STATE_NAMES.includes(opt.state) ? opt.state : 'open';
+}
 function valueOf(o: Obj, key: string): unknown {
   if (key === 'title') return o.title;
   if (key === 'tags') return o.tags ?? [];
@@ -940,6 +1004,8 @@ function matches(f: Extract<FilterItemDto, { kind: 'filter' }>, c: Check, o: Obj
     const from = x === ctx.host && ctx.hostObj ? ctx.hostObj : ctx.byPath.get(x);
     return !!from && linksOf(from, ctx).includes(o.path);
   }
+  if (f.op === 'state_is') return stateOf(o, key, ctx) === v;
+  if (f.op === 'state_is_not') return stateOf(o, key, ctx) !== v;
   const raw = valueOf(o, key);
   const kind = c.kind as Kind;
   if (f.op === 'is_empty') return isEmptyValue(raw);
@@ -1049,7 +1115,9 @@ function sortRows(objs: Obj[], def: QueryDefDto, chosen: string[], ctx: Ctx, bro
     if (lv.by === 'title') return { empty: false, n: 0, s: o.title };
     switch (lv.kind) {
       case 'number': return typeof raw === 'number' ? { empty: false, n: raw, s: '' } : { empty: true, n: 0, s: '' };
-      case 'date': case 'datetime': { const ms = instantMs(raw, ctx.env.zone); return ms === null ? { empty: true, n: 0, s: '' } : { empty: false, n: ms, s: '' }; }
+      // Q2-T (§24.4, CP-31): a Date attribute sorts by its valid `YYYY-MM-DD` only; anything else is empty.
+      case 'date': { const d = periodDateOf(raw, 'date'); return d === null ? { empty: true, n: 0, s: '' } : { empty: false, n: Date.parse(`${d}T00:00:00Z`), s: '' }; }
+      case 'datetime': { const ms = instantMs(raw, ctx.env.zone); return ms === null ? { empty: true, n: 0, s: '' } : { empty: false, n: ms, s: '' }; }
       case 'checkbox': return typeof raw === 'boolean' ? { empty: false, n: raw ? 1 : 0, s: '' } : { empty: true, n: 0, s: '' };
       case 'select': case 'review': {
         const s = strs(raw)[0];
@@ -1097,14 +1165,14 @@ async function context(files: Record<string, string>, host: string | null, env: 
 
 /** The evaluator over the fake's files (§1.6): every result, sorted (the page size is the UI's, D-1451). */
 export async function evaluate(def: QueryDefDto, host: string | null, env: QueryEnvDto, files: Record<string, string>, types?: TypeDto[]):
-  Promise<Pick<QueryResultDto, 'state' | 'broken' | 'targets' | 'usesRelative' | 'total' | 'rows' | 'group'>> {
+  Promise<Pick<QueryResultDto, 'state' | 'broken' | 'targets' | 'usesRelative' | 'total' | 'rows' | 'group' | 'taskDefs'>> {
   const ctx = await context(files, host, env, types);
   const broken: BrokenDto[] = [];
   const chosen = def.types.map(nfc);
   const missing = chosen.filter((t) => !ctx.types.some((x) => x.key === t) && !ctx.objs.some((o) => o.type === t));
   if (missing.length) {
     for (const t of missing) broken.push({ reason: 'noType', at: null, key: t, type: null });
-    return { state: 'noType', broken, targets: [], usesRelative: false, total: 0, rows: [], group: null };
+    return { state: 'noType', broken, targets: [], usesRelative: false, total: 0, rows: [], group: null, taskDefs: null };
   }
   const active = activeItems(def.filters, chosen, ctx, broken);
   let usesThis = false, dateThis = false, relative = false;
@@ -1112,29 +1180,130 @@ export async function evaluate(def: QueryDefDto, host: string | null, env: Query
     if (a.f.value === 'this') { usesThis = true; if (a.c.needsDate) dateThis = true; }
     if (['today', 'this_week', 'within_next_days', 'overdue'].includes(a.f.op) || a.c.needsDate) relative = true;
   });
-  if (usesThis && !ctx.host) return { state: 'needsHost', broken, targets: [], usesRelative: relative, total: 0, rows: [], group: null };
-  if (dateThis && !ctx.hostDaily) return { state: 'needsContext', broken, targets: ctx.host ? [ctx.host] : [], usesRelative: relative, total: 0, rows: [], group: null };
+  if (usesThis && !ctx.host) return { state: 'needsHost', broken, targets: [], usesRelative: relative, total: 0, rows: [], group: null, taskDefs: null };
+  if (dateThis && !ctx.hostDaily) return { state: 'needsContext', broken, targets: ctx.host ? [ctx.host] : [], usesRelative: relative, total: 0, rows: [], group: null, taskDefs: null };
   if (usesThis && ctx.host) ctx.targets.add(ctx.host);
   const candidates = ctx.objs.filter((o) => o.path !== ctx.host && (!chosen.length || chosen.includes(o.type)));
   const hits = candidates.filter((o) => evalItems(active, def.match, o, ctx));
-  const sorted = sortRows(hits, def, chosen, ctx, broken);
+  let sorted = sortRows(hits, def, chosen, ctx, broken);
+  const str = (x: unknown) => (typeof x === 'string' ? x : null);
+  // Q2-T (§24.4, D-1898): the done lane. Done rows outside `within_days` leave the rows before grouping.
+  let done: Done | null = null;
+  if (def.view === 'board' && def.doneLane) {
+    const statusOf = (t: string) => attrOf(ctx.types.find((x) => x.key === t), 'status');
+    const ok = chosen.length > 0 && chosen.every((t) => { const a = statusOf(t); return carriesStates(a) && a!.options.some((o) => o.state === 'done'); });
+    if (!ok) broken.push({ reason: 'badValue', at: null, key: 'done_lane', type: null });
+    else {
+      const n = def.doneLane.withinDays;
+      const isDone = (o: Obj) => stateOf(o, 'status', ctx) === 'done';
+      done = { n, isDone };
+      sorted = sorted.filter((o) => !isDone(o) || completedWithin({ completed: str(o.attributes?.completed), modified: str(o.attributes?.modified) }, env.today, n, env.zone));
+      relative = true;
+    }
+  }
   // v1-views §1.6: a board groups its rows; the grouping key is in `values` too (D-1769).
   const d = await doc();
   // D-185: a tag lane is named by the tag's most frequent spelling among the results (the first on a tie).
   const spell = (o: Obj): string[] => { try { return ((d.tags(d.parse(files[o.path] ?? '')) as { name: string }[]) ?? []).map((x) => nfc(String(x.name).replace(/^#/, ''))); } catch { return []; } };
-  const group = def.view === 'board' ? grouping(def, sorted, chosen, active, ctx, broken, spell) : null;
+  let group: GroupingDto | null = null;
+  if (def.view === 'board') {
+    if (def.groupPeriod) {
+      group = periodGrouping(def, sorted, chosen, ctx, broken, done);
+      if (group) relative = true;
+    } else group = grouping(def, sorted, chosen, active, ctx, broken, spell, done);
+  }
   const cols = [...new Set([...def.columns.map(nfc), ...(group ? [group.key] : []), 'type', 'tags'])];
+  // Q2-T (CP-24, D-1916): a Task row's TaskRowDto from the 5A row builder; the defs once per result.
+  const hasTask = sorted.some((o) => o.type === 'task');
+  const tl = hasTask ? taskList(files) : null;
+  const taskRows = new Map<string, unknown>((tl?.tasks ?? []).map((t: any) => [t.path, t]));
+  // Q2-T (§29.5, D-1891): a board card shows its own type's `preview` keys, so a board's rows carry them too; the
+  // relation (and `source`) values' links are resolved for the cards' chips (F3, as `index_type_rows` resolves them).
+  const linkOf = (from: string, v: unknown) => {
+    const m = /^\[\[([^\]|#]+)/.exec(String(v ?? '').trim());
+    if (!m) return null;
+    const p = ctx.res(from, m[1]);
+    const hit = p ? ctx.byPath.get(p) : undefined;
+    return { target: String(v), kind: hit ? 'note' : 'unresolved', path: hit?.path ?? null, title: hit?.title ?? null, type: hit?.type ?? null };
+  };
   const rows: QueryRowDto[] = sorted.map((o) => {
     const values: Record<string, unknown> = {};
-    for (const k of cols) values[k] = k === 'type' ? o.type : k === 'tags' ? (o.tags ?? []) : (o.attributes ?? {})[k] ?? null;
-    const str = (x: unknown) => (typeof x === 'string' ? x : null);
+    const ty = ctx.types.find((t) => t.key === o.type);
+    const keys = group ? [...new Set([...cols, ...((ty?.preview ?? []) as string[]).map(nfc)])] : cols;
+    for (const k of keys) values[k] = k === 'type' ? o.type : k === 'tags' ? (o.tags ?? []) : (o.attributes ?? {})[k] ?? null;
+    const links: unknown[] = [];
+    for (const k of keys) {
+      const at = (ty?.attributes ?? []).find((x: any) => nfc(x.key) === k);
+      if (at?.type !== 'relation' && k !== 'source') continue;
+      for (const v of ([] as unknown[]).concat(values[k] as any ?? [])) { const l = linkOf(o.path, v); if (l) links.push(l); }
+    }
     return {
-      path: o.path, id: o.id, title: o.title, type: o.type, created: str(o.attributes?.created), modified: str(o.attributes?.modified), values, links: [],
+      path: o.path, id: o.id, title: o.title, type: o.type, created: str(o.attributes?.created), modified: str(o.attributes?.modified), values, links: links as any,
       task: o.type === 'task' ? { status: str(o.attributes?.status), state: statusState(o, ctx) as any, due: localDate(o.attributes?.due, env.zone) } : null,
       version: null, excerpt: bodyExcerpt(d, files[o.path]), readOnly: false,
+      tags: tagKeysOf(o), taskRow: o.type === 'task' ? taskRows.get(o.path) ?? null : null,
     };
   });
-  return { state: 'ok', broken, targets: [...ctx.targets].sort(byBytes), usesRelative: relative, total: rows.length, rows, group };
+  return { state: 'ok', broken, targets: [...ctx.targets].sort(byBytes), usesRelative: relative, total: rows.length, rows, group, taskDefs: tl ? tl.defs : null };
+}
+
+type Done = { n: number; isDone: (o: Obj) => boolean };
+/** §24.1 `QueryRow.tags`: frontmatter and inline tag keys (tags.md R79: NFC, case-folded), sorted, unique. */
+export function tagKeysOf(o: Obj): string[] {
+  const fm = strs(o.attributes?.tags);
+  const keys = [...fm, ...((o.tags ?? []) as unknown[]).map((t) => String(t))].map(tagKeyOf).filter((k) => k !== '');
+  return [...new Set(keys)].sort(byBytes);
+}
+
+/** Q2-T (§24.4, AP-1536; CP-22): a period board's lanes by `queries/board/period.ts`, or null with `group_by` broken. */
+function periodGrouping(def: QueryDefDto, rows: Obj[], chosen: string[], ctx: Ctx, broken: BrokenDto[], done: Done | null): GroupingDto | null {
+  const bad = () => { broken.push({ reason: 'badValue', at: null, key: 'group_by', type: null }); return null; };
+  const key = nfc(def.groupBy ?? '');
+  let dateTime = true;
+  let name = key === 'created' ? 'Created' : 'Modified';
+  if (key !== 'created' && key !== 'modified') {
+    if (!chosen.length) return bad();
+    let kind: string | null = null;
+    for (const t of chosen) {
+      const a = ((ctx.types.find((x) => x.key === t)?.attributes ?? []) as any[]).find((x) => nfc(String(x.key)) === key);
+      if (!a || (a.type !== 'date' && a.type !== 'date-time')) return bad();
+      if (kind && kind !== a.type) return bad();
+      if (!kind) { kind = a.type; name = nfc(String(a.name ?? key)); }
+    }
+    dateTime = kind === 'date-time';
+  }
+  const b = periodBounds({ today: ctx.env.today, weekStart: ctx.env.weekStart });
+  const mk = (id: string, kind: LaneDto['kind'], value: string | null, extra: Partial<LaneDto> = {}): LaneDto =>
+    ({ id, kind, value, label: '', color: null, target: null, excluded: false, dropTarget: !dateTime, cards: [], days: [], doneWithin: null, ...extra });
+  const lanes: Record<string, LaneDto> = { today: mk('period:today', 'period', 'today'), later: mk('period:later', 'period', 'later') };
+  if (b.days.length) lanes.week = mk('period:week', 'period', 'week');
+  const none = mk('none', 'none', null);
+  const dayCards = new Map<string, LaneCardDto[]>(b.days.map((x) => [x, []]));
+  let doneLane: LaneDto | null = null;
+  if (done) {
+    const first = chosen[0];
+    const st = ((ctx.types.find((x) => x.key === first)?.attributes ?? []) as any[]).find((x) => nfc(String(x.key)) === 'status');
+    const opt = (st?.options ?? []).find((o: any) => o.state === 'done');
+    doneLane = mk('done', 'done', null, { dropTarget: true, doneWithin: done.n, color: opt?.color ?? null });
+  }
+  rows.forEach((o, row) => {
+    if (done && doneLane && done.isDone(o)) { doneLane.cards.push({ row, raw: [] }); return; }
+    const v = valueOf(o, key);
+    const raw = typeof v === 'string' ? [v] : [];
+    const at = periodOf(v, dateTime ? 'dateTime' : 'date', b, ctx.env.zone);
+    if (at.lane === 'none') none.cards.push({ row, raw });
+    else if (at.lane === 'week' && at.day) dayCards.get(at.day)?.push({ row, raw });
+    else lanes[at.lane].cards.push({ row, raw });
+  });
+  if (lanes.week) {
+    lanes.week.days = b.days.map((x) => ({ date: x, cards: dayCards.get(x)! }));
+    lanes.week.cards = b.days.flatMap((x) => dayCards.get(x)!);
+  }
+  const ids = ['today', 'week', 'later'].filter((x) => lanes[x]);
+  const front: string[] = [];
+  for (const e of def.laneOrder ?? []) if (ids.includes(e) && !front.includes(e)) front.push(e);
+  const order = [...front, ...ids.filter((x) => !front.includes(x))].map((x) => lanes[x]);
+  return { key, kind: 'period', multiple: false, name, dateTime, lanes: [...order, none, ...(doneLane ? [doneLane] : [])] };
 }
 
 function bodyExcerpt(d: any, text: string | undefined): string {
@@ -1144,12 +1313,12 @@ function bodyExcerpt(d: any, text: string | undefined): string {
 
 /** v1-views §1.6 (R187; D-1769, D-1770, D-1791, D-1805, D-1807, D-1808): the board's lanes over the sorted rows, or
  *  null with `group_by` broken. */
-function grouping(def: QueryDefDto, rows: Obj[], chosen: string[], active: Active[], ctx: Ctx, broken: BrokenDto[], spell: (o: Obj) => string[] = () => []): GroupingDto | null {
+function grouping(def: QueryDefDto, rows: Obj[], chosen: string[], active: Active[], ctx: Ctx, broken: BrokenDto[], spell: (o: Obj) => string[] = () => [], done: Done | null = null): GroupingDto | null {
   const spellings = new Map<string, Map<string, number>>();
   const bad = () => { broken.push({ reason: 'badValue', at: null, key: 'group_by', type: null }); return null; };
   if (def.groupBy === null) return bad();
   const key = nfc(def.groupBy);
-  type G = { kind: GroupingDto['kind']; multiple: boolean; name: string; options: { label: string; color: string | null }[] };
+  type G = { kind: GroupingDto['kind']; multiple: boolean; name: string; options: { label: string; color: string | null; state: string | null }[] };
   let g: G | null = null;
   if (key === 'tags') g = { kind: 'tags', multiple: true, name: 'Tags', options: [] };
   else {
@@ -1161,7 +1330,7 @@ function grouping(def: QueryDefDto, rows: Obj[], chosen: string[], active: Activ
       if (!kind) return bad();
       const multiple = kind === 'multiSelect' ? true : kind === 'relation' ? !!a.multiple : false;
       if (g && (g.kind !== kind || g.multiple !== multiple)) return bad();
-      g ??= { kind, multiple, name: nfc(String(a.name ?? key)), options: (a.options ?? []).map((o: any) => ({ label: nfc(String(o.label)), color: o.color ?? null })) };
+      g ??= { kind, multiple, name: nfc(String(a.name ?? key)), options: (a.options ?? []).map((o: any) => ({ label: nfc(String(o.label)), color: o.color ?? null, state: o.state ?? null })) };
     }
   }
   const G = g!;
@@ -1172,7 +1341,7 @@ function grouping(def: QueryDefDto, rows: Obj[], chosen: string[], active: Activ
   const lane = (id: string, kind: LaneDto['kind'], value: string | null, label: string, o: { color?: string | null; target?: string | null; rank: number; sortKey: string }): L => {
     let l = lanes.get(id);
     if (!l) {
-      l = { id, kind, value, label, color: o.color ?? null, target: o.target ?? null, excluded: false, dropTarget: kind === 'option' || kind === 'tag' || kind === 'relation', cards: [], sortKey: o.sortKey, rank: o.rank };
+      l = { id, kind, value, label, color: o.color ?? null, target: o.target ?? null, excluded: false, dropTarget: kind === 'option' || kind === 'tag' || kind === 'relation', cards: [], days: [], doneWithin: null, sortKey: o.sortKey, rank: o.rank };
       lanes.set(id, l);
     }
     return l;
@@ -1268,10 +1437,26 @@ function grouping(def: QueryDefDto, rows: Obj[], chosen: string[], active: Activ
       }
     }
   }
+  // Q2-T (§24.4, AP-1533): hidden lanes. Under `match: all`, a top-level valid state filter on the grouping key removes
+  // the option lanes (and unknown-value lanes, state `open`) whose state it excludes.
+  if (def.match === 'all' && G.kind === 'select') {
+    const known = (s: string | null) => (s && STATE_NAMES.includes(s) ? s : 'open');
+    const laneState = (l: L) => (l.kind === 'option' ? known(G.options.find((o) => o.label === l.label)?.state ?? null) : 'open');
+    for (const a of active) {
+      if (a.kind !== 'filter' || nfc(a.f.key) !== key || (a.f.op !== 'state_is' && a.f.op !== 'state_is_not')) continue;
+      const want = a.f.value;
+      const op = a.f.op;
+      order = order.filter((l) => (l.kind !== 'option' && l.kind !== 'unknown') || (op === 'state_is' ? laneState(l) === want : laneState(l) !== want));
+    }
+  }
+  // Q2-T (R201): on a board grouped by `status`, each Done-state option lane carries the done lane's window.
+  if (done && key === 'status' && G.kind === 'select') {
+    for (const l of order) if (l.kind === 'option' && G.options.find((o) => o.label === l.label)?.state === 'done') l.doneWithin = done.n;
+  }
   const n = lanes.get('none');
   if (n && n.cards.length) order.push(n);
   return {
-    key, kind: G.kind, multiple: G.multiple, name: G.name,
+    key, kind: G.kind, multiple: G.multiple, name: G.name, dateTime: false,
     lanes: order.map(({ sortKey: _s, rank: _r, ...l }) => ({ ...l, cards: [...l.cards].sort((a, b) => a.row - b.row) })),
   };
 }
@@ -1281,7 +1466,7 @@ export async function queryRun(source: QuerySourceDto, host: string | null, env:
   Promise<QueryResultDto & { _path?: string | null }> {
   const tys = types ?? listTypes(files, {});
   const cols = columnsDefault(tys);
-  const base: QueryResultDto & { _path?: string | null } = { form: 'def', name: null, lookup: null, line: null, version: null, def: null, state: 'ok', broken: [], targets: [], usesRelative: false, total: 0, rows: [], indexReady: o.indexReady ?? true, group: null, usage: null, _path: null };
+  const base: QueryResultDto & { _path?: string | null } = { form: 'def', name: null, lookup: null, line: null, version: null, def: null, state: 'ok', broken: [], targets: [], usesRelative: false, total: 0, rows: [], indexReady: o.indexReady ?? true, group: null, usage: null, taskDefs: null, _path: null };
   /** v1-views §17.2: a usage's own values as read (`'broken'`: a broken shape). */
   type Own = { kind: 'tab' | 'block'; sort: SortDto[] | 'broken' | null; columns: string[] | 'broken' | null };
   const run = async (r: QueryResultDto & { _path?: string | null }, def: QueryDefDto, syntactic: BrokenDto[], own: Own | null = null) => {
@@ -1414,7 +1599,7 @@ export async function queryUsages(files: Record<string, string>, name: string): 
   return out;
 }
 
-const defaults = (title: string, columns: string[]): QueryDefDto => ({ title, types: [], match: 'all', filters: [], sort: [{ ...DEFAULT_SORT }], limit: 50, view: 'list', groupBy: null, lanes: 'vertical', laneOrder: null, columns });
+const defaults = (title: string, columns: string[]): QueryDefDto => ({ title, types: [], match: 'all', filters: [], sort: [{ ...DEFAULT_SORT }], limit: 50, view: 'list', groupBy: null, lanes: 'vertical', laneOrder: null, columns, groupPeriod: false, doneLane: null });
 
 export type HandleAnswer = { result?: unknown; error?: QueriesErr; writes?: Record<string, string | null>; moves?: { from: string; to: string }[] };
 /** The Node side of the in-page fake (`__teggQueries`). Versions and base checks are the page's (it knows mtimes). */

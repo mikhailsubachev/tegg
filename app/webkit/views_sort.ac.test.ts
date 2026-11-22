@@ -179,14 +179,16 @@ test('fr_qry_01_ac11_header_click_and_shift_click', async ({ page }) => {
   await header(p, 'Rating').focus();
   await page.keyboard.press('Shift+Enter');
   assert.ok(await fileWhen(core, qfile(Q.p26), (x) => !!x && x.includes('  - { by: author, order: asc }\n  - { by: rating, order: asc }\n')), '⇧⏎ acts as ⇧-click');
-  // On All Books ⇧-click acts as a plain click (one machine-local level).
+  // Slice Q2-T (AC-Test-Change, D-1912; views.md part three, row part one FR-QRY-01 AC-11's last sentence; D-1892): on
+  // All Books ⇧-click adds a level too, machine-locally (`typeSort.book` a list, AP-1544); no vault write.
   await runCommand(page, 'Go to type: Books');
   await click(main(page).locator('[role="tab"][data-view-tab=""]'), 'All Books');
   const n = (await writes(core)).length;
   await header(panelOf(page), 'Rating').click({ modifiers: ['Shift'] });
   await sleep(300);
   assert.equal((await writes(core)).length, n, 'All Books: no vault write');
-  assert.equal((await panelHeaders(page)).filter((h) => /[↑↓]/.test(h)).length, 1, 'one level');
+  assert.equal((await panelHeaders(page)).filter((h) => /[↑↓]/.test(h)).length, 2, 'two levels (Modified ↓¹, Rating ↑²)');
+  assert.equal(((await uiState(core))?.typeSort?.book ?? []).length, 2, 'typeSort.book holds two levels');
 });
 
 test('fr_qry_01_ac11_header_click_and_shift_click_block_follows', async ({ page }) => {
@@ -219,7 +221,8 @@ test('fr_qry_01_ac12_the_editor_for_a_view', async ({ page }) => {
   assert.equal(flat(await gb.inputValue().catch(() => textOf(gb))), 'Status', '`Group by` Status');
   assert.equal(await description(gb), 'one lane per option', 'hint');
   assert.ok(await seen(e.getByRole('radiogroup', { name: rx('Lanes') }), 500), '`Lanes`');
-  assert.ok(flat(await textOf(e.getByRole('group', { name: rx('On cards') }))).includes('Author, Rating'), '`On cards` Author, Rating');
+  // Slice Q2-T (AC-Test-Change, D-1912; D-1891): no `On cards` row; cards follow the type's Preview properties.
+  assert.equal(await e.getByRole('group', { name: rx('On cards') }).count(), 0, 'no `On cards` row');
   assert.equal(await e.getByText('Sort', { exact: true }).count(), 0, 'no Sort row');
   assert.equal(await e.getByRole('spinbutton', { name: rx('Limit') }).count() + await e.getByRole('textbox', { name: rx('Limit') }).count(), 0, 'no Limit with Board');
   await click(gb, 'Group by');
@@ -250,7 +253,9 @@ test('fr_qry_01_ac13_group_by_choices', async ({ page }) => {
   await click(menuItem(await must(viewMenu(page), 'menu'), 'Edit view'), 'Edit view');
   await click(editor(page).getByRole('combobox', { name: rx('Group by') }), 'Group by');
   const opts = (await page.getByRole('option').allInnerTexts()).map(flat);
-  assert.deepEqual(opts, ['Author', 'Status', 'Rating', 'Genres', 'Tags'], 'Book: Author, Status, Rating, Genres, then Tags; no Finished');
+  // Q2-T (D-1929; D-1776, R201, v1-views §28.2): the date keys by period follow R189's choices.
+  assert.deepEqual(opts, ['Author', 'Status', 'Rating', 'Genres', 'Tags', 'Finished · by period', 'Created · by period', 'Modified · by period'],
+    'Book: Author, Status, Rating, Genres, then Tags; Finished only by period, then Created and Modified by period');
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
   await runCommand(page, 'Go to type: Autoři');
@@ -258,7 +263,7 @@ test('fr_qry_01_ac13_group_by_choices', async ({ page }) => {
   await click(toolbarMenuButton(page), '⋯');
   await click(menuItem(await must(viewMenu(page), 'menu'), 'Edit view'), 'Edit view');
   await click(editor(page).getByRole('combobox', { name: rx('Group by') }), 'Group by');
-  assert.deepEqual((await page.getByRole('option').allInnerTexts()).map(flat), ['Tags'], 'Autor: only Tags');
+  assert.deepEqual((await page.getByRole('option').allInnerTexts()).map(flat), ['Tags', 'Created · by period', 'Modified · by period'], 'Autor: only Tags, then Created and Modified by period (D-1929)');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-QRY-05 AC-23

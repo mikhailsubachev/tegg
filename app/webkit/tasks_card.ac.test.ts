@@ -5,11 +5,18 @@
 // docs/contracts/ms5-tasks.md §5 (`note_read` + @tegg/doc + `note_write` with the row's version), §6.2 (`SourceChip`,
 // `selectEmbedOf`), §7 (fake core: silent `setFile`, `writeControl` per path). Written from the ACs and the contract
 // only (D-61).
+//
+// Slice Q2-T (AC-Test-Change, D-1912; views.md part three, rows FR-TSK-02 AC-6, AC-8, AC-9 and AC-10…AC-12, FR-TSK-03
+// AC-3, FR-TSK-08, FR-TSK-09, FR-TSK-01 AC-2…AC-4): route only, the Task card on the boards of `type/task` (views-tasks
+// overlay) keeps R43's parts (D-1904; board cards carry `data-board-card`); the Overdue sub-group heading is gone (its
+// danger tone is on the `Today & overdue` lane heading, R203); an unknown status is its own lane (D-1791) and its
+// `Not a status` chip shows where the status isn't the grouping key.
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
   NOW, NOW_IN, O, T, attr, callsOf, card, checkbox, click, column, description, eventually, fileText, fileWhen, gotoKanban, gotoTasks, isDisabled, main,
-  moreBtn, must, mustBeOn, navs, nfc, original, seen, shortDate, sleep, startTasks, swap, tasksVault, textOf, touched, writeCalls, writesOf, flat,
+  moreBtn, must, mustBeOn, navs, nfc, viewsOriginal as original, seen, shortDate, sleep, startTasksPage as startTasks, swap, tasksViewsVault as tasksVault, textOf, touched, writeCalls, writesOf, flat,
+  sectionOf,
 } from './tasks-helpers';
 import { heading as tasksHeading, ui as tasksUi } from './tasks-helpers';
 import { escPreview, mainName, mustNoPreview, mustPreview, switchPreviewMode } from './helpers';
@@ -50,7 +57,7 @@ test('fr_tsk_02_ac10_card_parts_follow_r43', async ({ page }) => {
   await startTasks(page);
   await gotoTasks(page);
   const c = await must(card(page, 'Zavolat Janě'), 'article "Task: Zavolat Janě"');
-  assert.equal(await attr(c, 'data-path'), T.t01, 'data-path');
+  assert.equal(await attr(c, 'data-board-card'), T.t01, 'data-board-card (v1-views §30.1)');
   assert.equal(await attr(c, 'data-state'), 'open', 'data-state');
   assert.equal(await attr(c, 'data-overdue'), 'true', 'data-overdue');
   assert.equal(await attr(checkbox(c, 'Zavolat Janě'), 'aria-checked'), 'false', 'checkbox Complete "Zavolat Janě"');
@@ -77,6 +84,9 @@ test('fr_tsk_02_ac10_checkbox_writes_through_one_note_write', async ({ page }) =
   assert.equal(String((w[0].args as any).text), want, 'status Done, completed appended, modified updated');
   assert.deepEqual((w[0].args as any).base, base, 'the base is the version the view was loaded with');
   assert.ok((await callsOf(core, 'note_read')).some((c) => nfc(String((c.args as any).path)) === T.t03), 'note_read before the write (§5)');
+  // D-1929 (AC-Test-Change, slice Q2-T): a checked task moves to the folded done lane (AC-24); expand it first.
+  const doneToggle = sectionOf(page, 'done').getByRole('button', { name: 'Expand Done', exact: true });
+  if (await seen(doneToggle, 1000)) await click(doneToggle, 'Expand Done');
   await click(checkbox(card(page, 'Zalít květiny'), 'Zalít květiny'), 'uncheck T03');
   const back = await fileWhen(core, T.t03, (t) => !!t && !t.includes('completed:'));
   assert.equal(back, touched(original(T.t03)), 'To do, completed removed');
@@ -126,16 +136,19 @@ test('fr_tsk_02_ac12_a_failed_write_and_try_again', async ({ page }) => {
   await gotoTasks(page);
   await core.writeControl({ fail: 'Io', path: T.t03 });
   await click(checkbox(card(page, 'Zalít květiny'), 'Zalít květiny'), 'checkbox of T03');
-  const alert = await must(alertWith(page, 'Couldn’t save "Zalít květiny". Try again.'), 'the save alert', 2000);
+  // D-1929 (AC-Test-Change, slice Q2-T): a board write fails with contract §26's alert (part one §1.9: `query.saveFailed`), no Try again button.
+  await must(alertWith(page, "The query couldn't be saved."), 'the save alert', 2000);
   assert.equal(await attr(checkbox(card(page, 'Zalít květiny'), 'Zalít květiny'), 'aria-checked'), 'false', 'the card returns to its previous state');
   assert.equal(await fileText(core, T.t03), original(T.t03), 'nothing partial');
   await click(checkbox(card(page, 'Poslat rozpočet'), 'Poslat rozpočet'), 'another task still writes');
   assert.ok((await fileWhen(core, T.t02, (t) => t !== original(T.t02)))?.includes('status: Done'), 'the failure hits T03 only (writeControl path)');
   await core.writeControl({ fail: null, path: null });
   await core.setFile(T.t03, swap(original(T.t03), 'priority: Low', 'priority: Medium'));
-  await click(alert.getByRole('button', { name: 'Try again', exact: true }), 'Try again');
+  // D-1929 (harness): wait until the board has re-run with the changed file, so the next attempt has its version.
+  await eventually(() => textOf(card(page, 'Zalít květiny')), (x) => x.includes('Medium'), 3000);
+  await click(checkbox(card(page, 'Zalít květiny'), 'Zalít květiny'), 'check T03 again');
   const t = await fileWhen(core, T.t03, (x) => !!x?.includes('status: Done'));
-  assert.ok(t?.includes('priority: Medium') && t.includes('status: Done'), 'Try again writes with the file\'s current base');
+  assert.ok(t?.includes('priority: Medium') && t.includes('status: Done'), 'the next attempt writes with the file\'s current base');
 });
 
 test('fr_tsk_02_ac12_a_read_only_task_is_never_written', async ({ page }) => {
@@ -318,9 +331,9 @@ for (const theme of ['light', 'dark'] as const) {
     assert.deepEqual([s03.color, s03.bg, s03.weight], [s03.tok.link, s03.tok.linkBg, '600'], 'Today: link on link-bg, 600');
     const s05 = await chipStyle(await dueChip(page, 'Úklid garáže'));
     assert.deepEqual([s05.color, s05.bg, s05.weight], [s05.tok.muted, s05.tok.hover, '400'], 'others: muted on hover, 400');
-    const h = await must(main(page).locator('[data-section="today"]').getByRole('heading', { level: 3, name: 'Overdue' }), 'Overdue heading');
+    const h = await must(sectionOf(page, 'today').locator('h2').first(), '`Today & overdue` heading');
     const hs = await chipStyle(h);
-    assert.equal(hs.color, hs.tok.danger, 'the Overdue heading uses danger');
+    assert.equal(hs.color, hs.tok.danger, 'the `Today & overdue` heading uses danger (R203)');
   });
 
   test(`fr_tsk_09_ac3_not_by_colour_alone_${theme}`, async ({ page }) => {
@@ -404,10 +417,12 @@ for (const tz of ['Europe/Prague', 'America/Los_Angeles'] as const) {
 
 test('fr_tsk_02_ac9_an_unknown_status_shows_not_a_status', async ({ page }) => {
   await startTasks(page);
-  await gotoKanban(page, 'Status');
-  const c = await must(column(page, 'no-status').getByRole('article', { name: 'Task: Cizí stav' }), 'T15 in No status');
-  const chip = await must(c.locator('[data-status]'), 'status chip');
+  await gotoTasks(page);
+  const s = await must(card(page, 'Cizí stav'), 'T15 on Schedule');
+  const chip = await must(s.locator('[data-status]'), 'status chip');
   assert.equal(await textOf(chip), 'Rozpracováno', 'the raw value');
   assert.equal(await description(chip), 'Not a status', 'Not a status (AP-401)');
-  assert.ok(await seen(column(page, 'no-status').getByRole('article', { name: 'Task: Bez stavu' })), 'T14 in No status');
+  await gotoKanban(page, 'Status');
+  assert.ok(await seen(column(page, 'unknown:Rozpracováno').getByRole('article', { name: 'Task: Cizí stav' })), 'T15 in its own lane `Rozpracováno` (D-1791)');
+  assert.ok(await seen(column(page, 'no-status').getByRole('article', { name: 'Task: Bez stavu' })), 'T14 in No Status');
 });

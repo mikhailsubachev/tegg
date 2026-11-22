@@ -123,7 +123,7 @@ test('fr_ux_08_ac24_views_for_voiceover', async ({ page }) => {
   await selectTab(page, Q.roz);
   const b = await must(board(page, Q.roz), 'the board');
   assert.equal(await b.getAttribute('aria-label'), Q.roz, 'a group labelled with the view name');
-  assert.deepEqual((await lanes(b)).map((l) => l.label), ['Reading, 3 cards', 'To read, 2 cards', 'Read, 0 cards'], 'each lane a region `<lane>, <n> cards`');
+  assert.deepEqual((await lanes(b)).map((l) => l.label), ['Reading, 3 Books', 'To read, 2 Books', 'Read, 0 Books'], 'each lane a region `<lane>, <n> <plural>` on a single-type board (CP-28, D-1930)');
   assert.equal(await lane(b, 'option:Read').getAttribute('aria-description'), 'Not in this view', 'the excluded lane adds `Not in this view`');
   assert.equal(await card(b, B('Noční vlak')).getAttribute('aria-label'), 'Book: Noční vlak', 'each card an article `Book: <title>`');
   const radios = await lanesGroup(toolbar(page)).getByRole('radio').evaluateAll((rs) => rs.map((r) => [(r as HTMLElement).innerText.trim(), r.getAttribute('aria-checked')]));

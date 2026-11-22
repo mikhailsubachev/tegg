@@ -212,7 +212,10 @@ test('fr_vlt_05_ac6_new_task_and_capture_a_task_ignore_the_default', async ({ pa
   await runCommand(page, 'Quick Capture');
   assert.deepEqual((await core.captureLog()).opens, ['task', 'default'], 'Quick Capture opens it with the default type');
   await runCommand(page, 'New Task');
-  await must(main(page).getByRole('textbox', { name: 'Add a task…', exact: true }), 'New Task focuses the quick-add row (FR-TSK-04 AC-17)');
+  // Slice Q2-T (AC-Test-Change, D-1912; views.md part three, row FR-VLT-05 AC-6; AP-1543): New Task opens the draft
+  // `new/task`, whatever the default type.
+  await mustBeDraft(page, 'New Task opens the draft new/task (FR-TSK-10 AC-13)');
+  assert.equal(await main(page).getByRole('textbox', { name: 'Add a task…', exact: true }).count(), 0, 'no quick-add row');
 });
 
 // ------------------------------------------------------------------------------------------------ AC-7

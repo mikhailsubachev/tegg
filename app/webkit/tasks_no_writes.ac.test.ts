@@ -3,14 +3,18 @@
 // AC-21 (each action writes exactly one path). docs/acceptance/tasks.md; interface docs/contracts/ms5-tasks.md §3
 // (`task_list`, `daily_tasks` read-only), §5, §7 (`writesTo` per path). Written from the ACs and the contract only
 // (D-61). `ui_state_set` is machine-local (D-128) and isn't a vault write.
+//
+// Slice Q2-T (AC-Test-Change, D-1912; views.md part three, row FR-TSK-04 AC-13, FR-SYN-06 AC-20, AC-21): the tour of
+// FR-SYN-06 AC-50 on `type/task` (tabs, folds and the tag filter write only ui-state.json; no date filter, no `Group by`);
+// the quick-add action goes (D-1780); moves use R207's `Move card to next lane` (no ⌥→, D-1905); a period move is one write.
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { cmdD, gotoDaily, section } from './daily-helpers';
 import { setPreviewMode } from '../ui/test/fake-core';
 import { ui as tasksUi } from './tasks-helpers';
 import {
-  O, T, card, checkbox, click, column, eventually, fileWhen, filterBtn, gotoKanban, gotoTasks, main, moreBtn, must, mustBeOn, nfc, original, quickAdd,
-  runCommand, sectionOf, seen, sleep, startTasks, addTag, clearTagsBtn, removeTagBtn, writeCalls, writtenSince, groupBy, viewTab,
+  O, T, card, checkbox, click, column, eventually, fileWhen, gotoKanban, gotoTasks, main, moreBtn, must, mustBeOn, nfc, viewsOriginal as original,
+  runCommand, sectionOf, seen, sleep, startTasksPage as startTasks, addTag, clearTagsBtn, removeTagBtn, writeCalls, writtenSince, viewTab,
 } from './tasks-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
@@ -30,16 +34,15 @@ test('fr_tsk_04_ac13_opening_and_browsing_write_nothing', async ({ page }) => {
   const core = await startTasks(page);
   await gotoTasks(page);
   await click(viewTab(page, 'Kanban'), 'tab Kanban');
-  await click(groupBy(page).getByRole('tab', { name: 'Tag', exact: true }), 'Group by Tag');
-  await click(groupBy(page).getByRole('tab', { name: 'Status', exact: true }), 'Group by Status');
+  await click(viewTab(page, 'Podle štítků'), 'tab Podle štítků');
+  await click(viewTab(page, 'All Tasks'), 'tab All Tasks');
   await click(viewTab(page, 'Schedule'), 'tab Schedule');
-  for (const f of ['Today', 'This week', 'All'] as const) await click(filterBtn(page, f), f);
   // D-518: the tag filter is a combobox; add each tag, remove it with its chip button, then ⌫ and Clear tags.
   for (const t of ['čtení', 'doma', 'finance', 'práce', 'rodina']) { await addTag(page, t); await click(removeTagBtn(page, t), `Remove #${t}`); }
   await addTag(page, 'doma'); await addTag(page, 'práce'); await page.keyboard.press('Backspace'); await page.keyboard.press('Escape');
   await click(clearTagsBtn(page), 'Clear tags');
-  const done = sectionOf(page, 'done').getByRole('button', { name: /^Done\b/ });
-  await click(done, 'Done'); await click(done, 'Done again');
+  const done = sectionOf(page, 'done').getByRole('button', { name: /^(Expand|Collapse) Done$/ });
+  await click(done, 'Expand Done'); await click(done, 'Collapse Done'); await click(done, 'Expand Done');
   assert.ok((await everyMenu(page)) >= 15, 'every card menu opened and closed');
   await (await must(card(page, 'Zavolat Janě'), 'card')).focus();
   for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowDown');
@@ -52,7 +55,7 @@ test('fr_syn_06_ac20_a_browsing_tour_sends_no_write', async ({ page }) => {
   // D-949: the tour opens titles and the source chip with a single click, so it runs under preview.mode = off.
   const core = await startTasks(page, setPreviewMode('off', { uiState: tasksUi() }));
   await gotoTasks(page);
-  await click(sectionOf(page, 'done').getByRole('button', { name: /^Done\b/ }), 'Done');
+  await click(sectionOf(page, 'done').getByRole('button', { name: /^Expand Done$/ }), 'Expand Done');
   for (const title of ['Zavolat Janě', 'Zalít květiny']) {
     await click(card(page, title).getByRole('link', { name: title, exact: true }), `title ${title}`);
     await mustBeOn(page, title, title, 5000);
@@ -88,11 +91,12 @@ test('fr_syn_06_ac21_each_action_writes_exactly_one_file', async ({ page }) => {
   await gotoTasks(page);
   await step('checkbox', T.t03, () => click(checkbox(card(page, 'Zalít květiny'), 'Zalít květiny'), 'check T03'));
   await gotoKanban(page, 'Status');
-  await step('status move', T.t04, async () => { await (await must(column(page, 'Waiting').getByRole('article', { name: 'Task: Koupit dárek' }), 'T04')).focus(); await page.keyboard.press('Alt+ArrowRight'); });
+  await step('status move', T.t04, async () => { await (await must(column(page, 'Waiting').getByRole('article', { name: 'Task: Koupit dárek' }), 'T04')).focus(); await runCommand(page, 'Move card to previous lane'); });
   await gotoKanban(page, 'Tag');
-  await step('tag move', T.t08, async () => { await (await must(column(page, '#čtení').getByRole('article', { name: 'Task: Přečíst knihu' }), 'T08')).focus(); await page.keyboard.press('Alt+ArrowRight'); });
+  await step('tag move', T.t08, async () => { await (await must(column(page, '#čtení').getByRole('article', { name: 'Task: Přečíst knihu' }), 'T08')).focus(); await runCommand(page, 'Move card to next lane'); });
   await gotoTasks(page);
-  await step('quick-add', 'Tasks/Nový úkol.md', async () => { const f = await must(quickAdd(page), 'quick-add'); await f.fill('Nový úkol'); await f.press('Enter'); });
+  await (await must(viewTab(page, 'Schedule'), 'tab Schedule')).click();
+  await step('period move', T.t07, async () => { await (await must(sectionOf(page, 'later').getByRole('article', { name: 'Task: Obnovit pas' }), 'T07')).focus(); await runCommand(page, 'Move card to previous lane'); });
   await runCommand(page, 'Go to type: Tasks');
   await click(main(page).getByRole('button', { name: 'Type settings', exact: true }), 'Type settings');
   const g = main(page).getByRole('region', { name: 'Properties', exact: true }).getByRole('group', { name: 'Status', exact: true });

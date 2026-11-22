@@ -1,5 +1,5 @@
 // Slice 5A-1: the card's `More` menu (R43, D-482, D-479): Open, Status ›, Priority ›, Due date…, Move to trash (built in 6A);
-// on the Kanban `Move to ›` and, grouped by tag, `Also add to ›`. A submenu replaces the list in place, so one menu is
+// on a board `Move to ›` and, on a multi-value board, `Also add to ›` (v1-views §28.2: the board's targets). A submenu replaces the list in place, so one menu is
 // open at a time; Esc closes and gives the focus back to what had it.
 import { useState } from 'react';
 import { moveToTrash } from '../trash/moveToTrash';
@@ -9,7 +9,9 @@ import { PopupMenu, type MenuEntry } from '../shell/Menu';
 import { usePinMenuEntry } from '../pinned/PinMenu';
 import { PickDate } from '../dates/PickDate';
 import { localDate } from '../zone';
-import type { KanbanColumn } from './views';
+
+/** A board target a card can move to (a lane, a day group). */
+export type MoveTarget = { id: string; label: string };
 
 export type MenuTarget = { row: TaskRowDto; anchor: HTMLElement; opener: HTMLElement | null; column?: string };
 
@@ -18,26 +20,29 @@ export type MenuActions = {
   status: (row: TaskRowDto, label: string) => void;
   priority: (row: TaskRowDto, label: string | null) => void;
   due: (row: TaskRowDto, date: string | null) => void;
-  moveTo?: (row: TaskRowDto, from: string, to: KanbanColumn, alsoAdd: boolean) => void;
+  moveTo?: (row: TaskRowDto, to: MoveTarget, alsoAdd: boolean) => void;
 };
 
-export function CardMenu({ target, defs, columns, tagMode, region, actions, onClose }: {
+export function CardMenu({ target, defs, moveTo, alsoAddTo, actions, onClose, start = 'root' }: {
   target: MenuTarget;
+  /** Q2-T: `Set task status…` opens the status list at once. */
+  start?: 'root' | 'status';
   defs: TaskDefsDto;
-  columns?: KanbanColumn[];
-  tagMode?: boolean;
-  region: string;
+  /** `Move to ›`: the board's targets other than the card's own (v1-views §29.3). */
+  moveTo?: MoveTarget[];
+  /** `Also add to ›` on a multi-value board. */
+  alsoAddTo?: MoveTarget[];
+  region?: string;
   actions: MenuActions;
   onClose: () => void;
 }) {
-  const [level, setLevel] = useState<'root' | 'status' | 'priority' | 'move' | 'also' | 'due'>('root');
+  const [level, setLevel] = useState<'root' | 'status' | 'priority' | 'move' | 'also' | 'due'>(start);
   const pinEntry = usePinMenuEntry();
   const { row } = target;
   const close = () => { onClose(); (target.opener ?? target.anchor)?.focus(); };
   const run = (f: () => void) => () => { close(); f(); };
   const disabled = row.readOnly;
   const why = disabled ? t('task.readOnly') : undefined;
-  const real = (columns ?? []).filter((c) => c.dropTarget && c.id !== target.column);
 
   if (level === 'due') {
     // D-763 (date-picker.md FR-TSK-09 AC-5): `Due date…` opens the app's date picker; `No date` removes `due:`.
@@ -60,8 +65,8 @@ export function CardMenu({ target, defs, columns, tagMode, region, actions, onCl
       { kind: 'radio', key: 'p-none', checked: row.priority === null, disabled, description: why, content: t('task.noPriority'), onChoose: run(() => actions.priority(row, null)) },
     ];
   } else if (level === 'move' || level === 'also') {
-    entries = real.map((c) => ({ kind: 'item', key: `m-${c.id}`, disabled, description: why, content: <span data-user-content>{c.label}</span>, label: c.label,
-      onChoose: run(() => actions.moveTo?.(row, target.column ?? '', c, level === 'also')) }));
+    entries = ((level === 'move' ? moveTo : alsoAddTo) ?? []).map((c) => ({ kind: 'item', key: `m-${c.id}`, disabled, description: why, content: <span data-user-content>{c.label}</span>, label: c.label,
+      onChoose: run(() => actions.moveTo?.(row, c, level === 'also')) }));
   } else {
     // Slice PIN (R134): `Pin to sidebar` / `Unpin from sidebar` first.
     const pin = pinEntry({ request: { kind: 'object', path: row.path.normalize('NFC') }, label: row.title }, onClose);
@@ -71,11 +76,11 @@ export function CardMenu({ target, defs, columns, tagMode, region, actions, onCl
       { kind: 'item', key: 'status', content: t('task.status'), disabled, description: why, onChoose: () => setLevel('status') },
       { kind: 'item', key: 'priority', content: t('task.priority'), disabled, description: why, onChoose: () => setLevel('priority') },
       { kind: 'item', key: 'due', content: t('task.dueDate'), disabled, description: why, onChoose: () => setLevel('due') },
-      ...(columns ? [{ kind: 'item', key: 'move', content: t('task.moveTo'), disabled, description: why, onChoose: () => setLevel('move') } as MenuEntry] : []),
-      ...(columns && tagMode ? [{ kind: 'item', key: 'also', content: t('task.alsoAddTo'), disabled, description: why, onChoose: () => setLevel('also') } as MenuEntry] : []),
+      ...(moveTo ? [{ kind: 'item', key: 'move', content: t('task.moveTo'), disabled, description: why, onChoose: () => setLevel('move') } as MenuEntry] : []),
+      ...(alsoAddTo ? [{ kind: 'item', key: 'also', content: t('task.alsoAddTo'), disabled, description: why, onChoose: () => setLevel('also') } as MenuEntry] : []),
       // 6A (R75, FR-HIS-01 AC-3): built.
       { kind: 'item', key: 'trash', content: t('task.trash'), disabled, description: why, onChoose: run(() => { void moveToTrash([{ path: row.path, base: row.version, title: row.title }]); }) },
     ];
   }
-  return <PopupMenu key={level} label={t('task.more', { title: row.title })} anchor={target.anchor} entries={entries} onClose={onClose} />;
+  return <PopupMenu key={level} label={t("task.more", { title: row.title })} anchor={target.anchor} entries={entries} onClose={onClose} fit />;
 }

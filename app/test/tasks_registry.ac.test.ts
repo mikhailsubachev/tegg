@@ -4,6 +4,11 @@
 // FR-TSK-09 AC-3 (colour tokens and contrast), FR-TSK-01 AC-3 (R3: recurrence row v1.0, new disabled controls),
 // FR-DLY-04 AC-8 (the `daily-tasks` placeholder is gone). A new file: the R1–R4 tables of shell-tables.ts and the
 // existing registry tests change with the 5A-1 build (D-489, TS-I3). Written from the ACs and the contract only (D-61).
+//
+// Slice Q2-T (AC-Test-Change, D-1912; docs/acceptance/views.md part three, rows FR-TSK-04 AC-1, AC-10, AC-11): the routes
+// `tasks`, `tasks/kanban` are aliases of `type/task` (AP-1540, v1-views §28.2); R45's removed commands go and R207's
+// come (§30.4, D-1922); the R3 control `tasks.sort` goes; R46 loses the keys R207 removes (§30.2's exact list) and the
+// summary becomes `… done this week` (`tasks.summaryWeek`, D-1921).
 import { afterEach, test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -31,7 +36,19 @@ afterEach(async () => {
 
 const REPO = resolve(import.meta.dirname, '../..');
 const VAULT = { name: 'Úkoly', path: '/tmp/Úkoly', placeholders: 0 };
-const TYPES = [{ key: 'task', name: 'Task', plural: 'Tasks', folder: 'Tasks', icon: 'check-square', color: 'blue', system: true, invalid: false }];
+const TYPES = [{ key: 'task', name: 'Task', plural: 'Tasks', folder: 'Tasks', icon: 'check-square', color: 'blue', system: true, invalid: false, views: ['Schedule', 'Kanban'] }];
+/** v1-views §30.2: the catalog keys Q2-T removes (exactly these, D-1922). */
+const REMOVED_KEYS = ['tasks.title', 'tasks.summary', 'tasks.summary.today', 'tasks.views', 'tasks.view.schedule', 'tasks.view.kanban', 'tasks.view.all', 'tasks.groupBy',
+  'tasks.group.status', 'tasks.group.tag', 'tasks.group.overdue', 'tasks.group.today', 'tasks.filter', 'tasks.filter.all', 'tasks.filter.today', 'tasks.filter.week',
+  'tasks.section.today', 'tasks.section.week', 'tasks.section.later', 'tasks.section.none', 'tasks.section.done', 'tasks.hint.today', 'tasks.hint.week', 'tasks.hint.later',
+  'tasks.hint.none', 'tasks.add', 'tasks.add.example', 'tasks.add.due', 'tasks.add.noDue', 'tasks.add.priority', 'tasks.add.noPriority', 'tasks.add.clearDue',
+  'tasks.add.clearPriority', 'tasks.add.hotkey', 'tasks.add.noTitle', 'tasks.add.today', 'tasks.add.week', 'tasks.add.none', 'tasks.add.dueToday', 'tasks.column.add',
+  'tasks.column.noTag', 'tasks.column.noStatus', 'tasks.column.empty', 'tasks.column.drag', 'tasks.column.moved', 'tasks.column.cantMove', 'tasks.drop.status',
+  'tasks.drop.tag', 'tasks.board.hintStatus', 'tasks.board.hintTag', 'tasks.moved', 'tasks.created', 'tasks.sort', 'tasks.sort.schedule', 'tasks.sort.kanban',
+  'tasks.doneMore', 'tasks.newIn', 'cmd.tasks.groupStatus', 'cmd.tasks.groupTag', 'cmd.tasks.filterAll', 'cmd.tasks.filterToday', 'cmd.tasks.filterWeek', 'cmd.tasks.add',
+  'cmd.tasks.columnLeft', 'cmd.tasks.columnRight', 'cmd.task.moveNext', 'cmd.task.movePrevious'];
+const REMOVED_COMMANDS = ['tasks.groupStatus', 'tasks.groupTag', 'tasks.filterAll', 'tasks.filterToday', 'tasks.filterWeek', 'tasks.add', 'task.moveNext', 'task.movePrevious',
+  'tasks.columnLeft', 'tasks.columnRight'];
 const ctx = (route: Record<string, unknown> | null) => ({ vault: VAULT, types: TYPES, counts: { task: 19 }, ...(route ? { route } : {}) });
 
 /** R46 pairs `key` `English text`, read from the approved criteria (docs/acceptance/tasks.md R46). */
@@ -50,8 +67,8 @@ test('fr_tsk_04_ac1_routes_tasks_and_kanban_are_built', async () => {
   for (const id of ['tasks', 'tasks/kanban']) {
     const r = routes.find((x) => x.id === id);
     assert.ok(r, `R1 route ${id}`);
-    assert.equal(r.status.built, true, `${id} built in 5A (R45)`);
-    assert.equal(r.status.due?.milestone ?? 'MS5', 'MS5', `${id}: MS5`);
+    assert.equal(r.status.built, true, `${id} built (R45)`);
+    assert.equal(r.status.alias, 'type/task', `${id}: an alias of type/task (AP-1540, v1-views §28.2)`);
   }
   const ms5 = (reg.overdue('MS5') as string[]).join('\n');
   assert.ok(!/\btasks\b/.test(ms5), `overdue('MS5') doesn't list tasks:\n${ms5}`);
@@ -59,13 +76,14 @@ test('fr_tsk_04_ac1_routes_tasks_and_kanban_are_built', async () => {
 
 test('fr_tsk_04_ac10_every_r45_command_is_in_the_palette', async () => {
   const { reg, cat, cmd } = await mods();
+  // R207 (v1-views §30.4): kept and new commands on type/task; `task.complete` / `task.setStatus` are listed only with a
+  // Task card focused, which this context has no way to state (their L5 test: FR-TSK-05 AC-22).
   const want: [string, string][] = [
-    ['tasks.go', 'Go to Tasks'], ['tasks.schedule', 'Show Schedule'], ['tasks.kanban', 'Show Kanban'], ['tasks.groupStatus', 'Group Kanban by status'],
-    ['tasks.groupTag', 'Group Kanban by tag'], ['tasks.filterAll', 'Show all tasks'], ['tasks.filterToday', 'Show tasks for today'],
-    ['tasks.filterWeek', 'Show tasks for this week'], ['tasks.add', 'Add task…'], ['task.complete', 'Complete task'], ['task.setStatus', 'Set task status…'],
-    ['task.moveNext', 'Move task to next column'], ['task.movePrevious', 'Move task to previous column'],
+    ['tasks.go', 'Go to Tasks'], ['tasks.schedule', 'Show Schedule'], ['tasks.kanban', 'Show Kanban'], ['tasks.search', 'Filter tasks'],
+    ['types.restoreDefaultViews', 'Restore default views'],
   ];
-  const list = cmd.commands(ctx({ id: 'tasks/kanban' })) as any[];
+  const list = cmd.commands(ctx({ id: 'type/task' })) as any[];
+  for (const id of REMOVED_COMMANDS) assert.equal(list.find((x) => x.id === id), undefined, `${id} is removed (R207)`);
   for (const [id, title] of want) {
     const c = list.find((x) => x.id === id);
     assert.ok(c, `${id} is registered (R45 R4)`);
@@ -87,11 +105,10 @@ test('fr_tsk_01_ac3_r3_controls_recurrence_v1_and_new_disabled_controls', async 
   const ctl = reg.DISABLED_CONTROLS as any[];
   const by = (label: string) => ctl.find((c) => c.label === label);
   assert.equal(reg.showDue(by('ctl.rowRecurrence')?.due ?? { milestone: 'MS5' }), 'v1.0', 'the Recurrence row moves to v1.0 (D-381)');
-  assert.equal(by('tasks.sort')?.req, 'FR-QRY-05', 'Tasks page Sort (FR-QRY-05)');
-  assert.equal(reg.showDue(by('tasks.sort')?.due ?? { milestone: 'MS5' }), 'v1.0', 'Sort: Coming in v1.0 (AP-407)');
+  assert.equal(by('tasks.sort'), undefined, 'the Tasks page Sort placeholder goes: the sort button works (slice Q2-T, v1-views §28.2)');
   // 6A (trash-media.md R75, tasks.md R43): the card's Move to trash is built, no longer a disabled control.
   assert.equal(by('task.trash'), undefined, 'card Move to trash is built in 6A (no longer Coming in MS6)');
-  for (const l of ['tasks.sort']) assert.ok(l in cmd.CONTROL_COMMANDS, `${l} is also a command (FR-UX-03 AC-8)`);
+  assert.ok(!('tasks.sort' in cmd.CONTROL_COMMANDS), 'no tasks.sort control command');
 });
 
 test('fr_dly_04_ac8_the_daily_tasks_placeholder_is_gone', async () => {
@@ -106,8 +123,10 @@ test('fr_dly_04_ac8_the_daily_tasks_placeholder_is_gone', async () => {
 
 test('fr_tsk_04_ac11_r46_strings_are_catalog_keys_with_the_exact_english', async () => {
   const { cat } = await mods();
-  const pairs = r46();
-  assert.equal(pairs.length, 89, `R46 has ${pairs.length} keys`); // D-518, D-516: +8 keys, tasks.tagAny removed; D-1357: +2 keys
+  const all = r46();
+  assert.equal(all.length, 89, `R46 has ${all.length} keys`); // D-518, D-516: +8 keys, tasks.tagAny removed; D-1357: +2 keys
+  const pairs = all.filter(([k]) => !REMOVED_KEYS.includes(k));
+  for (const k of REMOVED_KEYS) assert.ok(!(k in cat.en), `${k} is removed (R207, D-1922)`);
   const bad: string[] = [];
   for (const [key, text] of pairs) {
     if (key === 'tasks.summary') continue; // composed of plural parts, below
@@ -127,10 +146,11 @@ test('fr_tsk_04_ac11_summary_counts_use_plural_forms', async () => {
   // AP-434 (red-test report): the summary line has three counts, each with plural forms; one catalog message selects
   // only one form (`count`), so the parts are the plural messages `tasks.summary.open|overdue|today` and
   // `tasks.summary` joins them.
+  // Slice Q2-T (R204, D-1921): `tasks.summaryWeek` joins `tasks.summary.open`, `.overdue` and `.doneWeek`.
   const { cat } = await mods();
-  for (const k of ['tasks.summary', 'tasks.summary.open', 'tasks.summary.overdue', 'tasks.summary.today']) assert.ok(k in cat.en, `catalog key ${k}`);
+  for (const k of ['tasks.summaryWeek', 'tasks.summary.open', 'tasks.summary.overdue', 'tasks.summary.doneWeek']) assert.ok(k in cat.en, `catalog key ${k}`);
   const part = (k: string, n: number) => cat.t(`tasks.summary.${k}`, { count: n });
-  assert.equal(cat.t('tasks.summary', { open: part('open', 15), overdue: part('overdue', 2), today: part('today', 2) }), '15 open · 2 overdue · 2 due today', 'R40 summary on the fixture');
+  assert.equal(cat.t('tasks.summaryWeek', { open: part('open', 15), overdue: part('overdue', 2), done: part('doneWeek', 1) }), '15 open · 2 overdue · 1 done this week', 'R204 summary on the fixture');
   cat.setCatalog({ ...(cat.en as object), 'tasks.summary.open': { one: '{count} otevřený', few: '{count} otevřené', other: '{count} otevřených' } }, 'cs');
   assert.deepEqual([1, 3, 5].map((n) => part('open', n)), ['1 otevřený', '3 otevřené', '5 otevřených'], 'the Czech test catalog');
 });
