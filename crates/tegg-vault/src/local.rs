@@ -289,6 +289,36 @@ impl VaultFs for LocalFs {
     }
 }
 
+/// docs/contracts/android-shell.md §3.1 (FR-SYN-03 AC-32, D-2028): what one `notify` event means for the vault.
+/// Red-commit stub with today's behaviour: every event is a change (read events included).
+pub fn fs_change_of(ev: &notify::Event, base: &Path) -> Option<FsChange> {
+    if ev.need_rescan() {
+        return Some(FsChange::Rescan);
+    }
+    let paths: Vec<String> = ev
+        .paths
+        .iter()
+        .filter_map(|p| p.strip_prefix(base).ok())
+        .map(|r| tegg_format::nfc(&r.to_string_lossy()))
+        .filter(|r| !r.is_empty())
+        .collect();
+    (!paths.is_empty()).then_some(FsChange::Paths(paths))
+}
+
+/// docs/contracts/android-shell.md §3.2 (FR-FMT-12 AC-14, D-2029): the on-disk entry of a folder listing for one NFC
+/// path component.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OnDiskName {
+    Found(String),
+    Missing,
+    Ambiguous,
+}
+
+/// docs/contracts/android-shell.md §3.2. Red-commit stub: finds nothing.
+pub fn on_disk_name(_listing: &[String], _nfc_name: &str) -> OnDiskName {
+    OnDiskName::Missing
+}
+
 /// The file id of an entry on its volume (v1-import §12.2): the inode.
 #[cfg(unix)]
 fn inode(md: &fs::Metadata) -> u64 {
@@ -462,4 +492,31 @@ pub fn trash_import_leftover(dir: &Path, sink: &dyn SystemTrash) -> io::Result<(
         return Err(io::Error::other(format!("{}: still there after the move to the Trash", dir.display())));
     }
     Ok(())
+}
+
+/// Spike AND-0 finding F1 (docs/acceptance/android-shell.md FR-SYN-03 AC-32, D-2028): on Linux-family systems
+/// (Android) `notify` reports Tegg's own reads as `Access` events; treated as changes they re-index the read file,
+/// which is read again, so the index never settles. Regression test, committed red before the fix (D-61).
+#[cfg(test)]
+mod bug_and0f1 {
+    use super::fs_change_of;
+    use crate::FsChange;
+    use notify::event::{AccessKind, AccessMode, EventKind, ModifyKind, DataChange};
+    use std::path::Path;
+
+    #[test]
+    fn bug_and0f1_fr_syn_03_access_events_are_not_changes() {
+        let base = Path::new("/storage/emulated/0/Documents/Trezor");
+        let file = base.join("Pages/Úvodní stránka.md");
+        let ev = |kind: EventKind| notify::Event::new(kind).add_path(file.clone());
+        for kind in [
+            EventKind::Access(AccessKind::Open(AccessMode::Any)),
+            EventKind::Access(AccessKind::Read),
+            EventKind::Access(AccessKind::Close(AccessMode::Read)),
+        ] {
+            assert_eq!(fs_change_of(&ev(kind), base), None, "{kind:?} (Tegg reading its own file) is not a change");
+        }
+        let changed = fs_change_of(&ev(EventKind::Modify(ModifyKind::Data(DataChange::Content))), base);
+        assert_eq!(changed, Some(FsChange::Paths(vec!["Pages/Úvodní stránka.md".to_string()])), "a content change still is");
+    }
 }

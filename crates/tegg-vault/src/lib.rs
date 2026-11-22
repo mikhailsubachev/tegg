@@ -22,7 +22,10 @@ pub use local::{
     append_local_file, create_external_dir_new, create_local_dir, list_local_dir, read_local_file, remove_dir_tree, remove_local_path, rename_dir_no_replace, trash_import_leftover,
     write_local_file, LocalFs, BEFORE_RENAME,
 };
+pub use local::{fs_change_of, on_disk_name, OnDiskName};
 pub use mem::MemFs;
+/// docs/contracts/android-shell.md §1: tests build `notify::Event`s through this re-export.
+pub use notify;
 pub use new_vault::EMPTY_VAULT;
 pub use types::TypeDef;
 

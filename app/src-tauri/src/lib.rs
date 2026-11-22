@@ -3,6 +3,11 @@
 //! files; the perf log and the UI state are machine-local (docs/contracts/ms2-shell.md §1, ms3-shell.md §1, §2).
 
 mod dto;
+// docs/contracts/android-shell.md §1: compiled on every target, host-tested (red-commit stubs until AND-1 is built).
+pub mod commands;
+pub mod platform;
+pub mod start;
+pub mod vaultfind;
 mod shell5b;
 mod shell6a;
 mod strings;

@@ -299,6 +299,26 @@ pub struct Core {
     jobs_engine: tegg_jobs::Jobs,
 }
 
+/// docs/contracts/android-shell.md §3.3 (FR-SYN-06 AC-50, D-2025; CP-1 → D-2036): what `Core::open_ext` adds to
+/// `CoreOptions`. Red-commit stub (compile only): `bulk_jobs` isn't honoured yet.
+#[derive(Clone, Copy, Debug)]
+pub struct OpenExtras {
+    pub bulk_jobs: bool,
+}
+
+impl Default for OpenExtras {
+    fn default() -> Self {
+        OpenExtras { bulk_jobs: true }
+    }
+}
+
+impl Core {
+    /// docs/contracts/android-shell.md §3.3: `Core::open` with `OpenExtras`. Red-commit stub: the extras are ignored.
+    pub fn open_ext(root: &Path, dirs: &AppDirs, opts: CoreOptions, _extras: OpenExtras) -> Result<Core, CoreError> {
+        Core::open(root, dirs, opts)
+    }
+}
+
 impl Core {
     /// §5.1: opens the vault (zero writes), opens or rebuilds the index in the background, starts the watcher.
     pub fn open(root: &Path, dirs: &AppDirs, opts: CoreOptions) -> Result<Core, CoreError> {
