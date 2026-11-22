@@ -14,32 +14,39 @@ pub static BEFORE_RENAME: std::sync::OnceLock<Box<dyn Fn(&str) + Send + Sync>> =
 
 pub struct LocalFs {
     root: PathBuf,
+    /// Folder listings by folder, with the folder's mtime when listed (a create, rename or removal in it changes the
+    /// mtime): `abs` resolves non-ASCII names against them off APFS without listing a folder per file (D-2029, D-2048).
+    listings: std::sync::Mutex<std::collections::HashMap<PathBuf, (i128, std::sync::Arc<Vec<String>>)>>,
 }
 
 impl LocalFs {
     pub fn new(root: &Path) -> LocalFs {
-        LocalFs { root: root.to_path_buf() }
+        LocalFs { root: root.to_path_buf(), listings: Default::default() }
     }
 
-    /// The file's path on disk (D-2029): as given when it exists or on APFS (which finds every spelling); else each
-    /// component as listed, so a name stored in NFD on Android's storage is read and replaced in place, never written
-    /// a second time under its NFC name. A new file keeps the NFC name.
+    /// `dir`'s entry names as stored on disk, from the cache while the folder's mtime is unchanged.
+    fn listing(&self, dir: &Path) -> std::sync::Arc<Vec<String>> {
+        let mtime = fs::metadata(dir).map(|m| mtime_ns(&m)).unwrap_or(-1);
+        let mut cache = self.listings.lock().unwrap_or_else(|p| p.into_inner());
+        if let Some((t, l)) = cache.get(dir) {
+            if *t == mtime && mtime >= 0 {
+                return l.clone();
+            }
+        }
+        let l = std::sync::Arc::new(listing_of(dir).unwrap_or_default());
+        cache.insert(dir.to_path_buf(), (mtime, l.clone()));
+        l
+    }
+
+    /// The file's path on disk (D-2029): as given on APFS or for an ASCII path; else each component as listed.
+    /// Android's shared storage treats the NFC and NFD spellings as one name, but caches each spelling apart, so a file
+    /// is always reached through the spelling it is stored under; a new file keeps the NFC name.
     fn abs(&self, path: &str) -> io::Result<PathBuf> {
         let p = self.root.join(path);
         if cfg!(target_os = "macos") || path.is_ascii() {
             return Ok(p);
         }
-        if fs::symlink_metadata(&p).is_ok() {
-            // Both spellings of the name in one folder are a name conflict (FR-FMT-12 AC-3, D-2029): neither is read
-            // or written through the NFC path (QA AND-1).
-            if let (Some(dir), Some(name)) = (p.parent(), p.file_name()) {
-                if on_disk_name(&listing_of(dir).unwrap_or_default(), &name.to_string_lossy()) == OnDiskName::Ambiguous {
-                    return Err(io::Error::new(io::ErrorKind::InvalidData, format!("{path}: two names with one NFC form")));
-                }
-            }
-            return Ok(p);
-        }
-        let rel = on_disk_path_under(&self.root, path)?;
+        let rel = on_disk_path_under(&self.root, path, &|d| self.listing(d))?;
         Ok(self.root.join(rel))
     }
 
@@ -122,10 +129,18 @@ pub(crate) fn mtime_ns(md: &fs::Metadata) -> i128 {
 impl VaultFs for LocalFs {
     fn list(&self) -> io::Result<Vec<FsEntry>> {
         fn walk(root: &Path, dir: &Path, out: &mut Vec<FsEntry>) -> io::Result<()> {
-            for e in fs::read_dir(dir)? {
-                let e = e?;
+            let entries: Vec<fs::DirEntry> = fs::read_dir(dir)?.collect::<io::Result<_>>()?;
+            // Where a folder holds two spellings of one name (possible off APFS), both keep their on-disk bytes, so the
+            // index lists them as a name conflict (FR-FMT-12 AC-3, D-2029) instead of folding them into one path.
+            let mut seen: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+            for e in &entries {
+                *seen.entry(tegg_format::nfc(&e.file_name().to_string_lossy())).or_default() += 1;
+            }
+            for e in entries {
                 let p = e.path();
-                let rel = tegg_format::nfc(&p.strip_prefix(root).expect("under root").to_string_lossy());
+                let raw = p.strip_prefix(root).expect("under root").to_string_lossy().into_owned();
+                let twin = seen.get(&tegg_format::nfc(&e.file_name().to_string_lossy())).copied().unwrap_or(0) > 1;
+                let rel = if twin { raw } else { tegg_format::nfc(&raw) };
                 if e.file_type()?.is_dir() {
                     out.push(FsEntry::Dir { path: rel });
                     walk(root, &p, out)?;
@@ -407,19 +422,20 @@ pub fn on_disk_path(path: &Path) -> io::Result<PathBuf> {
 }
 
 /// `rel` below `root`, each existing component as on disk (`root` itself is taken as given).
-fn on_disk_path_under(root: &Path, rel: &str) -> io::Result<PathBuf> {
+fn on_disk_path_under(root: &Path, rel: &str, listing: &dyn Fn(&Path) -> std::sync::Arc<Vec<String>>) -> io::Result<PathBuf> {
     let mut dir = root.to_path_buf();
     let mut out = PathBuf::new();
     let mut parts = rel.split('/').filter(|c| !c.is_empty()).peekable();
     while let Some(c) = parts.next() {
-        let name = match on_disk_name(&listing_of(&dir).unwrap_or_default(), c) {
+        let names = listing(&dir);
+        let name = match on_disk_name(&names, c) {
             OnDiskName::Found(n) => n,
             OnDiskName::Missing => {
                 out.push(c);
                 parts.for_each(|r| out.push(r));
                 return Ok(out);
             }
-            OnDiskName::Ambiguous if listing_of(&dir).unwrap_or_default().iter().any(|e| e == c) => c.to_string(),
+            OnDiskName::Ambiguous if names.iter().any(|e| e == c) => c.to_string(),
             OnDiskName::Ambiguous => return Err(io::Error::new(io::ErrorKind::InvalidData, format!("{rel}: two names with one NFC form"))),
         };
         dir.push(&name);
@@ -428,10 +444,10 @@ fn on_disk_path_under(root: &Path, rel: &str) -> io::Result<PathBuf> {
     Ok(out)
 }
 
-/// APFS finds every spelling of a name, so an exact hit there is the on-disk path only if that path's bytes are the
-/// stored ones; elsewhere (Linux, Android) an exact hit is always the stored name.
+/// APFS and Android's shared storage find every spelling of a name, so an exact hit is the on-disk path only when the
+/// listing has those bytes; a non-ASCII path is always checked against the listings.
 fn needs_listing(path: &Path) -> bool {
-    cfg!(target_os = "macos") && path.to_string_lossy().chars().any(|c| !c.is_ascii())
+    path.to_string_lossy().chars().any(|c| !c.is_ascii())
 }
 
 /// The file id of an entry on its volume (v1-import §12.2): the inode.

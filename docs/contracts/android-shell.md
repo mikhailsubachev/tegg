@@ -110,12 +110,15 @@ resolves to another spelling, so the desktop is unchanged.
 **Shared storage, checked on the emulator (Android 15, AND-1 build; D-2029 asked for it).**
 - Names are **case-insensitive** and case-preserving, as on APFS: `CASE-A.TXT` finds `case-a.txt`, and writing it
   writes that file. `rename_case` and the ` (2)` suffixes need no change.
-- Names are **not** normalization-insensitive: an NFD name is found only by its own bytes (hence §3.2).
+- Names are also **normalization-insensitive**: an NFC name finds a file stored in NFD bytes, and the two spellings
+  can't both exist in one folder (writing the other spelling writes the same file). But FUSE caches each spelling
+  apart, so a reader using one spelling can see stale content after a write through the other. `LocalFs` therefore
+  always reaches a file through the spelling it is stored under (folder listings cached by the folder's mtime).
 - **No hard links** (`ENOSYS` for the shell user, `EACCES` for an app) and **no `renameat2(RENAME_NOREPLACE)`**
   (`EINVAL`). A create of a new file therefore checks the target and renames (regression `bug_and1la`); the window
   between the check and the rename is accepted for AND-1 (D-2047).
-- After Tegg replaces a file whose name is NFD bytes, other processes reading through FUSE see the old file until the
-  kernel cache drops (an NFC name is fine). Until AND-3 such a file is never written (D-2048, §3.2).
+- After Tegg replaces a file whose name is NFD bytes, other processes reading through FUSE can see the old file until
+  the kernel cache drops (an NFC name is fine). Until AND-3 such a file is never written (D-2048, §3.2).
 
 ### 3.3 No bulk jobs (FR-SYN-06 AC-50, D-2025; CP-1)
 
