@@ -27,6 +27,8 @@ export const ANDROID_EXCLUDED: readonly string[] = [
 ];
 
 const EXCLUDED = new Set(ANDROID_EXCLUDED);
+/** Reads the desktop UI makes on its own (no user action): refused without the alert. */
+const QUIET = new Set(['hotkeys', 'shell_settings', 'capture_context', 'capture_draft_get', 'import_status', 'graph_presets_get']);
 
 /** Palette commands whose only action is a refused command: not listed on Android (AR-03 AC-11). */
 export const ANDROID_HIDDEN_COMMANDS: ReadonlySet<string> = new Set([
@@ -50,7 +52,8 @@ export function onUnsupported(f: Listener): () => void {
 /** `invoke`, except that on Android an RA2 command is refused here with kind `Unsupported` and never reaches the shell. */
 export function invoke<T>(cmd: string, args?: InvokeArgs, options?: InvokeOptions): Promise<T> {
   if (EXCLUDED.has(cmd) && isAndroid()) {
-    for (const f of listeners) f();
+    console.warn(`[tegg] ${cmd} isn't available on Android`);
+    if (!QUIET.has(cmd)) for (const f of listeners) f();
     return Promise.reject({ kind: 'Unsupported', message: '' });
   }
   return tauriInvoke<T>(cmd, args, options);
