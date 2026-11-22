@@ -159,8 +159,8 @@ test('fr_qry_05_ac29_task_card_on_boards', async ({ page }) => {
 
 test('fr_qry_05_ac29_task_card_on_boards_preview_adds_a_footer_chip', async ({ page }) => {
   // Slice OC (cards.md change table, views.md FR-QRY-05 AC-31): Task's card list drives the card; projekt is added to `card:`.
-  const yml = swap(swap(overlayOriginal(TASK_YML), 'preview: [status, priority, due]\n', 'preview: [status, priority, due]\ncard: [tags, body, status, due, priority, recurrence, source, projekt]\n'),
-    '  - key: due\n    name: Due date\n    type: date\n', '  - key: due\n    name: Due date\n    type: date\n  - key: projekt\n    name: Projekt\n    type: relation\n    to: [projekt]\n');
+  // D-2037: the overlay's task.yml already defines the relation `projekt`.
+  const yml = swap(overlayOriginal(TASK_YML), 'preview: [status, priority, due]\n', 'preview: [status, priority, due]\ncard: [tags, body, status, due, priority, recurrence, source, projekt]\n');
   const vault = overlayVault((f) => {
     f[TASK_YML] = yml;
     f[T.t03] = swap(f[T.t03], 'tags: [doma]\n', 'tags: [doma]\nprojekt: "[[Web]]"\n');

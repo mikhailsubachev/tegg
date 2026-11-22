@@ -144,9 +144,10 @@ const SETTINGS = ['settings/appearance', 'settings/date-time', 'settings/vault',
 
 test('fr_ux_02_ac26_settings_design_entries', async () => {
   const { reg } = await mods();
-  const routes = reg.ROUTES as { id: string; design: string | null; built?: boolean; status?: string }[];
+  const routes = reg.ROUTES as { id: string; design: string | null; status?: { built?: boolean } }[];
   assert.deepEqual(SETTINGS.map((id) => [id, routes.find((r) => r.id === id)?.design ?? null]), SETTINGS.map((id) => [id, 'Settings']), 'the eight settings routes: design Settings');
   assert.equal(routes.find((r) => r.id === 'type-settings/<type>')?.design, 'CardSettings', 'type-settings/<type>: design CardSettings (D-1994)');
   const th = routes.find((r) => r.id === 'settings/trash-history');
-  assert.ok(th && (th.built === false || th.status === 'tbd' || th.status === 'TBD'), 'settings/trash-history stays TBD');
+  // D-2035: the registry's own shape, `status.built === false` (registry.ts `tbd`).
+  assert.ok(th && th.status?.built === false, 'settings/trash-history stays TBD');
 });

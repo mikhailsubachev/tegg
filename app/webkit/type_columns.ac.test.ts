@@ -228,16 +228,14 @@ test('fr_typ_09_ac18_without_columns_the_preview_fallback_follows_type_settings'
   const core = await openTypes(page);
   await gotoTypePage(page, S);
   assert.deepEqual(await headers(page), ['Title', 'Datum', 'Účastníci', 'Modified'], '(b) the R130 fallback');
-  await gotoSettings(page, S, 'Schůzka');
-  const sec = await must(section(page, 'Preview properties'), 'Preview properties');
-  await (await must(sec.getByRole('button', { name: 'Remove Datum from preview', exact: true }), 'Remove Datum from preview')).click();
-  await fileWhen(core, typeFile('schůzka'), (t) => !!t?.includes('preview: [účastníci]\n'));
-  await gotoTypePage(page, S);
-  assert.deepEqual(await headersWhen(page, (h) => !h.includes('Datum')), ['Title', 'Účastníci', 'Modified'], '(b) the fallback follows preview within 1 s');
+  // D-2038: the Preview properties UI is gone (slice OC); the columns are set through `columns:` in the type file.
+  const yml = schuzkaWith('columns: [účastníci, modified]\n');
+  await core.setFile(typeFile('schůzka'), yml);
+  assert.deepEqual(await headersWhen(page, (h) => !h.includes('Datum')), ['Title', 'Účastníci', 'Modified'], '(b) the columns follow the type file within 1 s');
   await openColumns(page);
   const checked = (await menuItems(page)).filter((i) => i.checked).map((i) => i.name);
-  assert.deepEqual(checked, ['Title', 'Účastníci', 'Modified'], 'the fallback columns are the checked items, Modified included (D-1240)');
-  assert.ok(!(await fileText(core, typeFile('schůzka')))?.includes('columns:'), 'no columns key is written by viewing (AC-20 (g))');
+  assert.deepEqual(checked, ['Title', 'Účastníci', 'Modified'], 'the columns are the checked items, Modified included (D-1240)');
+  assert.equal(await fileText(core, typeFile('schůzka')), yml, 'nothing is written by viewing (AC-20 (g))');
 });
 
 test('fr_typ_09_ac18_review_and_date_cells_use_the_existing_display', async ({ page }) => {

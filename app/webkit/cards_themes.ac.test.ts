@@ -66,7 +66,12 @@ async function leaks(page: Page, root: string, allowed: string[]): Promise<strin
   return page.evaluate(([sel, ok]) => {
     const allow = new Set((ok as string[]).map((s) => s.normalize('NFC')));
     const isData = (t: string) => allow.has(t) || /^[\d\s.,:+#·—–-]*$/.test(t) || /^[A-Z][a-z]{2} \d{1,2}, \d{4}$/.test(t) || /^\d{4}-\d{2}-\d{2}$/.test(t) || /^[a-z0-9]+(-[a-z0-9]+)*$/.test(t) || /^#\S+$/.test(t) || /^\S+\.\S+(\/\S*)?$/.test(t);
-    const rest = (t: string) => t.replace(/⟦[^⟧]*⟧/g, ' ').replace(/\s+/g, ' ').trim();
+    // D-2034: pseudo brackets nest (`⟦Remove ⟦Tags⟧ from the card⟧`): drop the innermost pairs until none is left.
+    const rest = (t: string) => {
+      let x = t, y = '';
+      while (x !== y) { y = x; x = x.replace(/⟦[^⟦⟧]*⟧/g, ' '); }
+      return x.replace(/\s+/g, ' ').trim();
+    };
     const out: string[] = [];
     for (const r of document.querySelectorAll(sel as string)) {
       const walk = document.createTreeWalker(r, NodeFilter.SHOW_TEXT);
@@ -80,6 +85,9 @@ async function leaks(page: Page, root: string, allowed: string[]): Promise<strin
         for (const a of ['title', 'aria-label', 'aria-description']) {
           const v = el.getAttribute(a);
           if (!v) continue;
+          // D-2034: a pill's `title` is its property's Name from the type file (user data, not a UI string), and a
+          // title on user content (a local item's path) is data.
+          if (a === 'title' && (v === el.getAttribute('data-name-title') || el.matches('[data-user-content]'))) continue;
           const t = rest(v).replace(/(^|\s)[^\s⟦⟧]*:\s*/g, ' ').trim();
           if (t && !isData(t.normalize('NFC')) && !t.split(/[,\s]+/).every((w) => !w || isData(w.normalize('NFC')))) out.push(`${a}: ${v}`);
         }

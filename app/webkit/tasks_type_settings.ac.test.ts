@@ -274,7 +274,8 @@ test('fr_tsk_03_ac2_priority_options', async ({ page }) => {
 
 test('fr_tsk_01_ac6_own_attributes_on_task', async ({ page }) => {
   // D-1924, D-1929 (AC-Test-Change, slice Q2-T): on the views-tasks overlay; Schedule has no subgroups in its Today lane.
-  const vault = tasksViewsVault((f) => { f[YML] = `${f[YML]}  - key: projekt\n    name: Projekt\n    type: relation\n    to: [projekt]\n`; });
+  // D-2037: the overlay's task.yml already defines the relation `projekt` (to: [projekt]).
+  const vault = tasksViewsVault();
   const core = await startTasksPage(page, { vault, at: T.t01 });
   await mustBeOn(page, 'Zavolat Janě', 'T01', 5000);
   await click(page.getByRole('region', { name: 'Properties', exact: true }).getByRole('button', { name: 'Add Projekt', exact: true }), 'Projekt relation (Add Projekt, FR-TYP-02)');

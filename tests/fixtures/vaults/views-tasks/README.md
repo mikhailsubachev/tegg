@@ -14,7 +14,7 @@ Synthetic overlay for `docs/acceptance/views.md` **part three** (R201…R208; D-
 
 | File | What it holds | What it tests |
 | --- | --- | --- |
-| `.tegg/types/task.yml` | new-empty's `task.yml` with one added line 11: `views: [Schedule, Kanban, Čeká na ostatní]` (R184's place, after `preview`); `attributes:` moves to line 12; every other byte equals new-empty's | the Tasks page's tabs (R204); a tab's own sort written into a block-style `views:` (FR-QRY-01 AC-19) |
+| `.tegg/types/task.yml` | new-empty's `task.yml` with one added line 11: `views: [Schedule, Kanban, Čeká na ostatní]` (R184's place, after `preview`); `attributes:` moves to line 12; and, after `recurrence`, the user attribute `projekt` (`name: Projekt`, `type: relation`, `to: [projekt]`, D-2037); every other byte equals new-empty's | the Tasks page's tabs (R204); a tab's own sort written into a block-style `views:` (FR-QRY-01 AC-19); a Task property to add to Task's card (views.md FR-QRY-05 AC-31) and to set from the panel (FR-TSK-01 AC-6) |
 | `.tegg/queries/Schedule.yml` | R202's Schedule bytes, `created` / `modified` `2026-10-13T08:00:00+02:00` | `group_by: { due: period }`, `lanes: horizontal`, `done_lane` folded (R201, R203) |
 | `.tegg/queries/Kanban.yml` | R202's Kanban bytes, same stamps | the Kanban by status as a view, no `lane_order`, `done_lane` on a board grouped by status (R201) |
 | `.tegg/queries/Čeká na ostatní.yml` | Task, `status: Waiting`, Table, `sort: { by: due, order: asc }`, `columns: [due, priority]` | a user Table view on the Tasks page; the tag filter on a table tab (FR-QRY-07 AC-30) |

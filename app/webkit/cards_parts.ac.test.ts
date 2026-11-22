@@ -88,7 +88,8 @@ test('fr_typ_11_ac8_empty_values_draw_nothing', async ({ page }) => {
   assert.ok((await cardWhen(objectCard(b, P.machovo), (x) => !!x?.items[0]?.text.includes('— nic')))?.items[0]?.text.includes('— nic'), '"— nic" draws');
   await variant('kraj: "— nic"\n', 'kraj: "—"\n');
   await variant('vybavení: []\n', 'vybavení: [Mapa, —]\n');
-  const one = await cardWhen(objectCard(b, P.machovo), (x) => (x?.items.length ?? 0) === 1);
+  // D-2028: wait for the vybavení pill, not for any one-item card (the stale card may still show a pill).
+  const one = await cardWhen(objectCard(b, P.machovo), (x) => !!x?.items.some((i) => i.attribute === 'vybavení'));
   assert.deepEqual(one?.items.map((i) => [i.attribute, i.label]), [['vybavení', 'Vybavení: Mapa']], '[Mapa, —]: one pill Mapa');
   void c;
   // Height equals a card with card: [modified] (± 1 px).
@@ -273,14 +274,15 @@ test('fr_typ_11_ac13_url_values', async ({ page }) => {
   assert.equal((await cardInfo(objectCard(b, P.chaty)))?.footerLink, 'example.org/horske-chaty', 'Chaty\'s source');
   const pod = objectCard(b, P.podklady).locator('.card-local');
   assert.deepEqual([(await pod.textContent().catch(() => ''))?.trim(), await pod.getAttribute('title').catch(() => null)], ['↗ Podklady k výletům', '/Users/test/Dokumenty/Podklady k výletům/'], 'the file:// folder');
-  await pod.click().catch(() => undefined);
-  assert.ok(!(await core.externalOpened()).some((u) => u.startsWith('file:')), 'a file:// value is never passed to open_external');
   await core.setFile(P.chaty, swap(original(P.chaty), 'source: "https://www.example.org/clanky/horske-chaty?ref=rss#uvod"', 'source: "javascript:alert(1)"'));
   const js = await cardWhen(objectCard(b, P.chaty), (c) => !!c?.items.some((i) => i.attribute === 'source'), 2000);
   assert.deepEqual([js?.footerLink, js?.items.find((i) => i.attribute === 'source')?.kind], [null, 'pill'], 'javascript: is a Source pill, never a link');
   await core.setFile(P.snezka, swap(original(P.snezka), 'odkaz: "https://www.example.com/trasy/snezka-z-pece?zdroj=rss#mapa"', 'odkaz: example.org'));
   await sleep(500);
   assert.equal(await objectCard(b, P.snezka).locator('[data-attribute="odkaz"][data-invalid]').count(), 1, 'a URL without a scheme: a pill with the invalid-value icon');
+  // D-2028: the click on Podklady's local item opens Podklady (a click on the card), so it comes after the board's checks.
+  await pod.click().catch(() => undefined);
+  assert.ok(!(await core.externalOpened()).some((u) => u.startsWith('file:')), 'a file:// value is never passed to open_external');
   assert.deepEqual(net, [], 'no request to a non-local host');
   assert.deepEqual((await core.calls()).filter((c) => /metadata|fetch|unfurl/i.test(c.cmd)).map((c) => c.cmd), [], 'no link-metadata call');
 });

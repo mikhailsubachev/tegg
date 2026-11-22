@@ -101,7 +101,9 @@ test('fr_ux_03_ac55_cards_keyboard_only', async ({ page }) => {
   assert.ok(await tabTo(page, 'Remove Poznámka from the card'), 'Tab to Remove Poznámka from the card');
   await check('Remove Poznámka from the card');
   await page.keyboard.press('Enter');
-  assert.ok(!(await fileWhen(core, VYLET_YML, (t) => !t?.includes('poznámka'), 2000))?.includes('poznámka'), 'Remove: one write');
+  // D-2033: poznámka leaves the card: list; the type file still defines the attribute.
+  const cardLine = (t: string | null | undefined) => /^card: \[(.*)\]$/m.exec(t ?? '')?.[1] ?? '';
+  assert.ok(!cardLine(await fileWhen(core, VYLET_YML, (t) => !cardLine(t).includes('poznámka'), 2000)).includes('poznámka'), 'Remove: one write');
   await runCommand(page, 'Change type icon…');
   await page.keyboard.type('tent');
   await page.keyboard.press('Enter');

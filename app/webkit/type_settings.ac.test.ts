@@ -616,7 +616,12 @@ test('fr_typ_06_ac2_built_in_attributes_are_locked', async ({ page }) => {
     if (await seen(del, 200)) assert.equal(await isDisabled(del), true, `${n}: Delete property… disabled`);
   }
   const status = await must(property(page, 'Status'), 'Status');
+  // D-2039 (types.md FR-TYP-01 AC-24): one property open at a time; opening the others collapsed Status, so it opens again.
+  const editStatus = status.getByRole('button', { name: 'Edit Status', exact: true });
+  assert.equal(await editStatus.getAttribute('aria-expanded'), 'false', 'opening another property collapsed Status');
+  await editStatus.click();
   const label = status.getByRole('textbox', { name: 'Option label' }).first();
+  await must(label, 'Status open again: its option labels');
   // D-489: Task status options are editable since 5A-1 (tasks.md FR-TSK-02 AC-2); a used label says why it is read-only.
   assert.notEqual(await description(label), 'Coming in MS5', 'Task status labels are no longer Coming in MS5 (FR-TSK-02)');
 });

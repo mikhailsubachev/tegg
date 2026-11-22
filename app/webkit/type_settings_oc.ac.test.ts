@@ -80,7 +80,9 @@ test('fr_typ_11_ac21_changing_the_card_writes_only_card', async ({ page }) => {
   const k = await another(page, { route: settingsRoute('kontrola') });
   await click(cardRemove(k.page, 'Tags'), 'kontrola: Remove Tags', 8000);
   assert.equal(await fileWhen(k.core, KONTROLA_YML, (t) => !!t?.includes('card:')), swap(original(KONTROLA_YML), 'review: false\n', 'review: false\ncard: [body, modified]\n'), '(d) after review: false');
-  assert.deepEqual([...(await core.writesTo()), ...(await s.core.writesTo()), ...(await k.core.writesTo())], [], 'no note file is written');
+  // D-2029: type-file writes under .tegg/types/ are allowed; no note file is written.
+  const notes = [...(await core.writesTo()), ...(await s.core.writesTo()), ...(await k.core.writesTo())].filter((p) => !nfc(p).startsWith('.tegg/types/'));
+  assert.deepEqual(notes, [], 'no note file is written');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-TYP-11 AC-22
@@ -126,6 +128,9 @@ test('fr_typ_11_ac22_add_property', async ({ page }) => {
 test('fr_typ_11_ac23_reordering', async ({ page }) => {
   const core = await openSettings(page, 'výlet');
   await must(cardHandle(page, 'Kraj'), 'Drag to reorder Kraj');
+  // D-2030: the handles are scrolled into view before the mouse drag.
+  await cardHandle(page, 'Stav').scrollIntoViewIfNeeded();
+  await cardHandle(page, 'Kraj').scrollIntoViewIfNeeded();
   const from = (await cardHandle(page, 'Kraj').boundingBox())!;
   const to = (await cardHandle(page, 'Stav').boundingBox())!;
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
@@ -239,10 +244,12 @@ test('fr_typ_11_ac28_kept_consistent_with_schema_changes', async ({ page }) => {
   await click(editProperty(page, 'Kraj'), 'Edit Kraj', 5000);
   await click(main(page).getByRole('button', { name: /^⟦?Delete property…⟧?$/ }), 'Delete property…');
   const d = await must(page.getByRole('dialog', { name: /^⟦?Delete property "Kraj"\?⟧?$/ }), 'the delete dialog');
-  await click(d.getByRole('button', { name: /^⟦?Delete property⟧?$/ }), 'Delete property');
-  const t = await fileWhen(core, VYLET_YML, (x) => !x?.includes('key: kraj'), 3000);
-  assert.ok(t?.includes('card: [tags, description, stav, náročnost, vybavení, délka, termín, odkaz, průvodce, neznámý-klíč, modified]\n') && t.includes('preview: [stav]\n'), 'the no-value delete removes kraj from card: and preview in the same write');
-  assert.equal((await typePatches(core)).length, 1, 'one type-file change');
+  // D-2031: Máchovo keeps `kraj: "—"`, a value for the delete job (D-2012), so the dialog is the job's, as for an
+  // attribute that still has values (type-moves.md FR-TYP-04 AC-6, AC-7).
+  await click(d.getByRole('button', { name: /^⟦?Delete from 1 note⟧?$/ }), 'Delete from 1 note');
+  const t = await fileWhen(core, VYLET_YML, (x) => !x?.includes('key: kraj'), 5000);
+  assert.ok(t?.includes('card: [tags, description, stav, náročnost, vybavení, délka, termín, odkaz, průvodce, neznámý-klíč, modified]\n') && t.includes('preview: [stav]\n'), 'the delete job removes kraj from card: and preview in the same write');
+  assert.equal((await core.writesTo()).filter((p) => nfc(p) === nfc(VYLET_YML)).length, 1, 'one type-file change');
   // Renaming, the type's Name and colour never write card:.
   const r = await another(page, { route: settingsRoute('výlet') });
   await click(editProperty(r.page, 'Kraj'), 'Edit Kraj', 8000);

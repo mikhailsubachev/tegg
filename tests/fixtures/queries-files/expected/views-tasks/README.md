@@ -48,6 +48,8 @@ changed by the red tests: it is an existing fixture and changes with a `Fixture-
 | `task-overlay-schedule-sort-title.yml` | overlay; `Schedule` tab sort replaced by one level `Title A → Z`: line 11 → the block list of R196 | FR-QRY-01 AC-19 |
 | `task-overlay-kanban-add-title.yml` | overlay; `+ Add sort` on the `Kanban` tab: the query's `due ↑`, `priority ↑` plus `title ↑` as the tab's own sort | FR-QRY-01 AC-19 |
 
+The `task-overlay-*` files end with the overlay's `projekt` attribute, as the overlay's `task.yml` does (D-2037).
+
 ## `tasks/` (`Tasks/<title>.md` after the drop or the create)
 
 | File | Input → action | Criteria |

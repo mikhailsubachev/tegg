@@ -40,9 +40,9 @@ test('fr_emb_02_ac19_card_mode_is_the_object_card', async ({ page }) => {
   await sn.locator('p.card-text').click();
   assert.ok((await eventually(() => mainName(page), (n) => (n ?? '').includes('Sněžka z Pece'), 3000) ?? '').includes('Sněžka z Pece'), 'a click on the card opens Sněžka');
   assert.deepEqual(await core.writesTo(), [], 'no note written');
-  // The embeds fixture: Jana's card shows Osoba's default list; Zavolat Janě stays R52's Task card embed.
+  // The embeds fixture's Režimy (D-2026): Jana's card shows Osoba's default list; Zavolat Janě stays R52's Task card embed.
   const e = await page.context().newPage();
-  await openEmbeds(e, M.vkladani ?? 'Pages/Vkládání.md');
+  await openEmbeds(e, M.rezimy);
   const jana = await must(e.getByRole('group', { name: 'Embedded: Jana Nováková', exact: true }).locator('article[data-object-card]'), 'Jana\'s ObjectCard', 8000);
   const j = await cardInfo(jana);
   assert.deepEqual([j?.text, j?.items.map((i) => i.text)], ['Poznámky o Janě.', ['Firma Beta a.s.', 'Role Analytička']], 'Jana: the text and the pills Firma, Role');

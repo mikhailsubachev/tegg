@@ -118,8 +118,8 @@ test('fr_typ_12_ac4_the_unreviewed_pill', async ({ page }) => {
 
 // ------------------------------------------------------------------------------------------------ FR-TYP-01 AC-13
 
-async function headerIcons(scope: Locator): Promise<[string, string | null, string | null][]> {
-  return scope.locator('[role="columnheader"]').evaluateAll((hs) => hs.map((h) => {
+async function headerIcons(scope: Locator, cells = '[role="columnheader"]'): Promise<[string, string | null, string | null][]> {
+  return scope.locator(cells).evaluateAll((hs) => hs.map((h) => {
     const s = h.querySelector('svg[data-icon]');
     return [(h.textContent ?? '').replace(/\s+/g, ' ').trim(), s?.getAttribute('data-icon') ?? null, s?.getAttribute('aria-hidden') ?? null] as [string, string | null, string | null];
   })).catch(() => []);
@@ -149,8 +149,10 @@ test('fr_typ_01_ac13_where_property_icons_show', async ({ page }) => {
   assert.deepEqual(['Stav', 'Kraj', 'Vybavení', 'Termín', 'Odkaz', 'Náročnost', 'Délka v km', 'Průvodce'].map((l) => icons[l] ?? null), ['circle-dot', 'map-pin', 'backpack', 'calendar', 'link', null, null, null], 'icons before Stav, Kraj, Vybavení, Termín, Odkaz; none before the others');
   // A Table query over [výlet].
   const q = await another(page, { vault: cardsVault((f) => { f['.tegg/queries/Výlety tabulka.yml'] = ['# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Výlety tabulka.', 'version: 1', 'title: Výlety tabulka', 'types: [výlet]', 'match: all', 'filters: []', 'sort: { by: title, order: asc }', 'limit: 50', 'view: table', 'columns: [stav, kraj, délka]', 'created: 2026-11-01T09:00:00+01:00', 'modified: 2026-11-01T09:00:00+01:00', ''].join('\n'); }), route: queryRoute('Výlety tabulka') });
-  await must(main(q.page).locator('[role="columnheader"]').first(), 'the query table', 8000);
-  const qh = await headerIcons(main(q.page));
+  // D-2036: a query's table draws plain header cells (no role="columnheader"); they are found by the table's class.
+  const QUERY_TH = 'table.query-table thead th';
+  await must(main(q.page).locator(QUERY_TH).first(), 'the query table', 8000);
+  const qh = await headerIcons(main(q.page), QUERY_TH);
   assert.deepEqual([qh.find(([t]) => t.startsWith('Stav'))?.[1], qh.find(([t]) => t.startsWith('Kraj'))?.[1]], ['circle-dot', 'map-pin'], 'the same in a Table query');
 });
 
@@ -190,7 +192,8 @@ test('fr_syn_06_ac51_cards_upgrade_and_browsing_write_nothing', async ({ page })
   await click(s.page.getByRole('button', { name: /^⟦?Remove Kraj from the card⟧?$/ }), 'Remove Kraj from the card', 5000);
   await eventually(() => typePatches(s.core), (x) => x.length >= 1, 2000);
   assert.deepEqual((await typePatches(s.core)).map((x) => x.key), ['výlet'], 'a Card change: one type_patch of výlet.yml');
-  assert.deepEqual(await s.core.writesTo(), [], 'no note is written');
+  // D-2029: type-file writes under .tegg/types/ are allowed; no note file is written.
+  assert.deepEqual((await s.core.writesTo()).filter((p) => !nfc(p).startsWith('.tegg/types/')), [], 'no note is written');
   void uiState;
   void picker;
 });
@@ -209,7 +212,8 @@ test('fr_ux_08_ac26_cards_and_picker_for_voiceover', async ({ page }) => {
   const s = await another(page, { route: settingsRoute('výlet'), reducedMotion: 'reduce' });
   const list = await must(s.page.getByRole('list', { name: /^⟦?Card properties⟧?$/ }), 'the list Card properties', 8000);
   assert.equal(await list.getByRole('listitem').count(), 12, 'Card properties, list, 12 items');
-  const handle = s.page.getByRole('button', { name: /^⟦?Drag to reorder Kraj⟧?$/ });
+  // D-2032: Properties has its own `Drag to reorder Kraj`; the handle is found within the Card section's list.
+  const handle = list.getByRole('button', { name: /^⟦?Drag to reorder Kraj⟧?$/ });
   await handle.focus();
   await s.page.keyboard.press('Alt+ArrowUp');
   const live = s.page.locator('div.sr-live');
