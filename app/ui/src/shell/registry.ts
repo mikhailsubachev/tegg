@@ -48,7 +48,7 @@ export const ROUTES: RouteDef[] = [
   { id: 'tasks/kanban', name: 'route.tasks', purpose: 'purpose.tasks', status: { built: true, due: { milestone: 'MS5' }, alias: 'type/task' }, reqs: ['FR-TSK-04', 'FR-TSK-05'], design: 'TasksBoard' },
   { id: 'search', name: 'route.search', purpose: 'purpose.search', status: built, reqs: ['FR-SRC-01…04'], design: null },
   { id: 'type/<type>', name: 'route.type', purpose: 'purpose.type', status: built, reqs: ['FR-TYP-09'], design: 'Ideas' },
-  { id: 'type-settings/<type>', name: 'route.typeSettings', purpose: 'purpose.typeSettings', status: built, reqs: ['FR-TYP-01…03', '-05', '-11', '-12'], design: 'TypeSettings' }, // built in 3D (types.md R1)
+  { id: 'type-settings/<type>', name: 'route.typeSettings', purpose: 'purpose.typeSettings', status: built, reqs: ['FR-TYP-01…03', '-05', '-11', '-12'], design: 'CardSettings' }, // built in 3D (types.md R1); OC: board CardSettings (D-1994)
   // 4D-lite (tags.md R87): All tags, the tag page (D-703) and Settings › Backups (D-705).
   { id: 'tags', name: 'route.tags', purpose: 'purpose.tags', status: { built: true, due: { milestone: 'MS4' } }, reqs: ['FR-TAG-06', 'FR-TAG-07'], design: 'TagsAll' },
   { id: 'tag/<key>', name: 'route.tag', purpose: 'purpose.tag', status: { built: true, due: { milestone: 'MS4' } }, reqs: ['FR-TAG-06'], design: 'TagPage' },

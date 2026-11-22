@@ -50,6 +50,8 @@ export type ObjectCardProps = {
   inertLinks?: boolean;
   env?: CardEnv;
   className?: string;
+  /** The example card of a type with no objects: `No <plural> yet` (R214, AP-1591). */
+  note?: ReactNode;
 };
 
 function Strip({ parts, card, title, onOpen }: { parts: CardParts; card: CardDataDto; title: string; onOpen?: (p: string) => void }) {
@@ -95,7 +97,7 @@ export function ObjectCard(p: ObjectCardProps) {
   const example = p.surface === 'example';
   const board = !!p.slot;
   const onOpen = p.onOpen ?? (() => {});
-  const linkOpts: LinkOpts = { from: path, onOpen, tabIndex: (board && !task) || example ? -1 : 0, inert: example || p.inertLinks };
+  const linkOpts: LinkOpts = { from: path, onOpen, tabIndex: (board && !task) || example ? -1 : 0, inert: example || p.inertLinks, plain: example };
   const title = card.title;
   const done = task?.state === 'done';
   const today = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: env.zone }).format(env.now);
@@ -180,6 +182,7 @@ export function ObjectCard(p: ObjectCardProps) {
           {parts.footer.date && <time className="card-date" data-date-key={parts.footer.date.key} dateTime={parts.footer.date.iso}>{parts.footer.date.text}</time>}
         </footer>
       )}
+      {p.note && <p className="card-note">{p.note}</p>}
     </article>
   );
 }

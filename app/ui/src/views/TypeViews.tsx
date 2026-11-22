@@ -36,12 +36,14 @@ export { hasViews };
 
 export type AllTab = { toolbar: ReactNode; body: ReactNode };
 
-export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce }: {
+export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, openAdd }: {
   typeKey: string;
   /** Q2-T (§29.1): the view tab the route asks for (selected and remembered when listed). */
   tab?: string;
   /** Changes with each navigation that asks for `tab`. */
   tabNonce?: number;
+  /** Slice OC (types.md FR-TYP-01 AC-26): opened from type settings' `Add view`: the `Add view` menu opens. */
+  openAdd?: boolean;
   type: TypeDto;
   types: TypeDto[];
   plural: string;
@@ -103,6 +105,7 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce }: 
   const tablist = useRef<HTMLDivElement | null>(null);
   const addBtn = useRef<HTMLButtonElement | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  useEffect(() => { if (openAdd && writable) setAddOpen(true); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [menu, setMenu] = useState<{ name: string; anchor: HTMLElement; toolbar: boolean; at?: { x: number; y: number } } | null>(null);
   const undoNew = useRef<{ name: string; before: string[]; version: unknown } | null>(null);
 

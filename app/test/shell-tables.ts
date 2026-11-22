@@ -34,7 +34,7 @@ export const R1: R1Row[] = [
   { id: 'tasks/kanban', page: 'Tasks', built: true, due: d('MS5'), reqs: 'FR-TSK-04, FR-TSK-05', design: 'TasksBoard', goto: 'Show Kanban', alias: 'type/task' },
   { id: 'search', page: 'Search', built: true, due: d('MS2'), reqs: 'FR-SRC-01…04', design: null, goto: 'Go to Search' },
   { id: 'type/<type>', page: 'Type page', built: true, due: d('MS3'), reqs: 'FR-TYP-09', design: 'Ideas', goto: null },
-  { id: 'type-settings/<type>', page: 'Type settings', built: true, due: d('MS3', '3D'), reqs: 'FR-TYP-01…03, -05, -11, -12', design: 'TypeSettings', goto: null }, // built in 3D (types.md R1)
+  { id: 'type-settings/<type>', page: 'Type settings', built: true, due: d('MS3', '3D'), reqs: 'FR-TYP-01…03, -05, -11, -12', design: 'CardSettings', goto: null }, // built in 3D (types.md R1); OC: board CardSettings (D-1994)
   // 4D-lite (tags.md R87): All tags is built (board TagsAll); the tag page and Settings › Backups are new built routes.
   { id: 'tags', page: 'Tags', built: true, due: d('MS4'), reqs: 'FR-TAG-06, FR-TAG-07', design: 'TagsAll', goto: 'Go to Tags' },
   { id: 'tag/<key>', page: 'Tag page', built: true, due: d('MS4'), reqs: 'FR-TAG-06', design: 'TagPage', goto: null },

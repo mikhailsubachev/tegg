@@ -1,0 +1,17 @@
+/* The icon picker (docs/contracts/v1-cards.md §7.7, §8.3; boards CardSettings D, E, IconSet). Tokens only (FR-UX-05 AC-2).
+   Rows are 64 px high (IconPicker.tsx ROW_H) and group headers 26 px (HEADER_H): the virtualisation depends on them. */
+.popover.icon-picker { width: 420px; max-width: calc(100vw - 16px); max-height: none; padding: 8px; display: flex; flex-direction: column; gap: 6px; overflow: hidden; z-index: 60; }
+.icon-picker-search { flex: none; box-sizing: border-box; width: 100%; height: 32px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
+.icon-picker-search:focus-visible { outline: 2px solid var(--focus); outline-offset: 0; }
+.icon-picker-grid { flex: 0 1 288px; height: 288px; min-height: 64px; overflow-y: auto; overflow-x: hidden; outline: none; }
+.icon-picker-group .group-header { box-sizing: border-box; height: 26px; padding: 8px 4px 2px; margin: 0; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: none; letter-spacing: 0; }
+.icon-picker-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); height: 64px; }
+.icon-option { box-sizing: border-box; height: 64px; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 4px 2px; border-radius: 6px; color: var(--text); cursor: default; }
+.icon-option:hover { background: var(--hover); }
+.icon-option.selected { background: var(--sel); box-shadow: inset 0 0 0 2px var(--focus); }
+.icon-option .icon-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; line-height: 12px; color: var(--muted); }
+.icon-option .icon-name b { color: var(--text); font-weight: 700; }
+.icon-option.selected .icon-name { color: var(--text); }
+.icon-picker-status { flex: none; margin: 0; padding: 4px; color: var(--muted); font-size: 13px; }
+.icon-picker-foot { flex: none; display: flex; justify-content: flex-end; border-top: 1px solid var(--border); padding-top: 6px; }
+.icon-picker-foot button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }

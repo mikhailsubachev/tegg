@@ -19,6 +19,8 @@ export type LinkOpts = {
   tabIndex?: number;
   /** A card inside a preview or the example: links don't act (D-933). */
   inert?: boolean;
+  /** The example card of type settings: chips aren't links (no `href`, R214 "no link"). */
+  plain?: boolean;
 };
 
 export function CardPillView({ item, valueIndex }: { item: PillItem; valueIndex?: number }) {
@@ -74,7 +76,7 @@ export function CardLinkChip({ link, opts, footer, extra }: { link: CardLink; op
     : null;
   if (link.kind === 'external') {
     return (
-      <a href="#" className="chip link-chip kind-external" data-link-kind="external" data-command="card.openLink" {...common}
+      <a href={opts.plain ? undefined : '#'} className="chip link-chip kind-external" data-link-kind="external" data-command="card.openLink" {...common}
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (!opts.inert) void ipc.openExternal(link.url).catch(() => {}); }}>
         <span data-user-content>{link.text}</span>{more}{extra}
@@ -89,7 +91,7 @@ export function CardLinkChip({ link, opts, footer, extra }: { link: CardLink; op
   const icon = ok ? chipIcon(info?.kind === 'daily' ? 'daily-note' : info?.type ?? 'page') : null;
   const reference = chipReference({ info: info ?? null, target: link.target, from: opts.from, onOpen: opts.onOpen });
   return (
-    <RefAnchor href="#" className={`chip link-chip kind-${ok ? info!.kind : 'unresolved'}`} data-link-kind={ok ? info!.kind : 'broken'} data-command="card.openLink"
+    <RefAnchor href={opts.plain ? undefined : '#'} className={`chip link-chip kind-${ok ? info!.kind : 'unresolved'}`} data-link-kind={ok ? info!.kind : 'broken'} data-command="card.openLink"
       reference={opts.inert ? { ...reference, target: null, open: () => {}, createOffer: undefined } : reference}
       aria-description={ok ? undefined : t('link.noNote', { target: link.target })}
       {...common}

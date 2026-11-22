@@ -7,6 +7,8 @@ import { registerConvertPrefs } from './convert/prefs';
 import { adoptTasksUi, registerViewsUiState } from './views/uiState';
 import { restoreDefaultViews, restoreState } from './views/defaultViews';
 import { viewsActions, watchFocus } from './views/actions';
+import { cardsActions } from './cards/actions';
+import { registerRecentIcons } from './icons/recent';
 import { registerWidthsStore, widthsChanged } from './tables/widths';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { t } from './i18n/catalog';
@@ -327,6 +329,8 @@ export function App() {
   useEffect(() => { watchFocus(); }, []);
   useEffect(() => registerViewsUiState({ get: () => uiRef.current ?? undefined, update: (f) => updateUi((u) => f(u)) }), [updateUi]);
   useEffect(() => registerWidthsStore({ get: () => uiRef.current ?? undefined, update: (f) => updateUi((u) => f(u)) }), [updateUi]);
+  // Slice OC (v1-cards §7.8, §10): Recent icons in the machine-local UI state, one `ui_state_set` per choice.
+  useEffect(() => registerRecentIcons({ get: () => uiRef.current ?? undefined, update: (f) => updateUi((u) => f(u)) }), [updateUi]);
   useEffect(() => { widthsChanged(); }, [ui.typeColumnWidths, ui.usageColumnWidths]);
 
   useEffect(() => {
@@ -1031,6 +1035,8 @@ export function App() {
     pinnedRowFocused: () => focusedPinnedRow() !== null,
     // Slice Q2 (v1-views §4.7): the shown view tab, query page or selected query block.
     views: viewsActions,
+    // Slice OC (v1-cards §11): the shown type settings' Card section and the type icon picker.
+    cards: cardsActions,
     // Slice Q (v1-queries §4.6): the query page's query or the note's selected query block.
     queryStatus: () => {
       if (route?.id === 'query/<name>') {
@@ -1461,7 +1467,7 @@ export function App() {
       onDefine: (v: string) => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDefineValue(v); setDialog('newType'); },
     };
     // Each visit is a new page (the per-tab filter text is never kept, D-1796); tabs, folds and tags come from the UI state.
-    body = <TypePage key={`${key}\n${navKey}`} {...page} tab={route.tab} tabNonce={navKey} />;
+    body = <TypePage key={`${key}\n${navKey}`} {...page} tab={route.tab} tabNonce={navKey} openAddView={route.focus === 'views.new'} />;
   } else if (route?.id === 'tags' && vault) {
     body = (
       <AllTagsPage heading={heading} sort={ui.tagsSort as TagsSort | undefined} onSort={(x) => updateUi((u) => ({ ...u, tagsSort: x }))}
@@ -1527,6 +1533,8 @@ export function App() {
         heading={heading}
         onDeleted={() => { loadTypes(); void go({ id: 'type/<type>', param: 'page' }); }}
         onOpenTrash={() => { void go({ id: 'trash' }); }}
+        request={{ section: route.section, focus: route.focus, nonce: navKey }}
+        onAddView={() => { void go({ id: 'type/<type>', param: key, focus: 'views.new' }); }}
       />
     );
   } else if (route?.id === 'inbox' && vault) {

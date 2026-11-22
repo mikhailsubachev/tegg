@@ -75,3 +75,37 @@
 
 /* The preview's Preview properties region (D-1981): the card's pills, then its link chip. */
 .preview-strip.card-pills { padding: 0 16px 10px; }
+
+/* The Card section of type settings (docs/contracts/v1-cards.md §7.5, §8.2; board CardSettings A, B). */
+.card-section-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(200px, 280px); gap: 20px; align-items: start; }
+@media (max-width: 1023px) { .card-section-body { grid-template-columns: minmax(0, 1fr); } }
+.card-list { list-style: none; margin: 0 0 8px; padding: 0; border: 1px solid var(--border); border-radius: 8px; }
+.card-row { display: grid; grid-template-columns: 22px 18px minmax(0, 1fr) auto 28px; align-items: center; gap: 6px; min-height: 34px; padding: 2px 6px; border-top: 1px solid var(--border); }
+.card-row:first-child { border-top: 0; }
+.card-row.fixed { grid-template-columns: 22px minmax(0, 1fr) auto; color: var(--text); }
+.card-row.dragging { opacity: 0.55; }
+.card-row.drop-before { box-shadow: inset 0 2px 0 var(--focus); }
+.card-drop-end { height: 0; border-top: 2px solid var(--focus); list-style: none; }
+.card-row-handle { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 26px; border-radius: 4px; color: var(--muted); cursor: grab; }
+.card-row-handle.placeholder { cursor: default; }
+.card-row-handle:focus-visible { outline: 2px solid var(--focus); outline-offset: 0; }
+.card-row-handle[aria-disabled='true'] { cursor: default; }
+.card-row-icon { display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
+.card-name, .card-row-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-kind { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.card-row-remove:focus-visible { outline: 2px solid var(--focus); outline-offset: 0; }
+.card-section-actions { display: flex; align-items: center; gap: 12px; margin: 4px 0 8px; }
+.card-add-wrap { position: relative; display: inline-block; }
+.card-add-popover { top: calc(100% + 4px); left: 0; width: 260px; }
+.card-add-find { box-sizing: border-box; width: 100%; height: 30px; margin-bottom: 4px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
+.card-add-find:focus-visible { outline: 2px solid var(--focus); outline-offset: 0; }
+.card-add-list { max-height: 260px; overflow: auto; }
+.card-unknown { margin: 0 0 8px; }
+.card-fixed { margin: 0; }
+.card-example { min-width: 0; }
+.card-note { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 12px; }
+
+/* Properties: the icon button before each name (types.md FR-TYP-01 AC-24). */
+.prop-head .prop-icon { color: var(--muted); }
+.prop-head .prop-icon[aria-description] { color: var(--muted); }
+.prop-head .prop-icon:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }

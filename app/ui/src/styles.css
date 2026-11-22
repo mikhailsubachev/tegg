@@ -1478,3 +1478,5 @@ button.tag-tile { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .outline-chevron, .outline-rail, [data-outline-fade] { transition: none; }
 }
+.th-icon { flex: none; margin-right: 4px; vertical-align: -2px; color: var(--muted); }
+.attr-label .attr-icon { margin-right: 4px; vertical-align: -1px; color: var(--muted); }
