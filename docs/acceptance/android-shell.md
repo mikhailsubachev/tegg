@@ -11,7 +11,7 @@ See [README](README.md) for conventions. Slice **AND-1 "Shell"** of the Android 
 - a cross-compile step in the gates;
 - an unchanged macOS app.
 
-**Status: draft, awaiting the owner.** AP-2013…AP-2035 (end of this file) are open. Where the BRD and the plan don't decide, a criterion follows the **proposal** of the AP point it names. The names used here (`vault_start`, `vault_find`, `storage_access`, `storage_access_settings`, `test-env.json`, `tools/android/env.sh`, the `android-check` and `app-android-e2e` steps, `CoreOptions::bulk_jobs`, `fs_change_of`) are proposals that the contract (`docs/contracts/android-shell.md`, written after approval) starts from.
+**Status: approved, 2026-11-22.** AP-2013…AP-2035 (end of this file) are D-2013…D-2035 in order (owner, "Accept all"; BRD v1.231): every proposal is the decision. A criterion that names an AP point follows its proposal. The names used here (`vault_start`, `vault_find`, `storage_access`, `storage_access_settings`, `test-env.json`, `tools/android/env.sh`, the `android-check` and `app-android-e2e` steps, `CoreOptions::bulk_jobs`, `fs_change_of`) are proposals that the contract (`docs/contracts/android-shell.md`, written after approval) starts from.
 
 **Scope.**
 - **AR-03** (the shell as the platform layer): the mobile entry point, gated desktop code, command sets per platform, the cross-compile step, the unchanged desktop build.
@@ -514,7 +514,7 @@ The APK layer's tests are in `tools/qa/test/apk_check.ac.test.ts`. They run agai
 
 ---
 
-## Points for the owner (AP-2013…AP-2035, open)
+## Points for the owner (AP-2013…AP-2035, accepted as D-2013…D-2035)
 
 Raised while writing these criteria. Each criterion that depends on one names it and follows its **proposal**.
 

@@ -56,6 +56,9 @@ Test depth follows the cost of a bug, not the size of a feature.
 ```
   L8  Owner manual checks             two-Mac sync, release sign-off           per release
   L7  Claude exploratory sessions     computer use on the real app             per milestone
+  LA  Android real app (UiAutomator2) test APK on the arm64 emulator          nightly / milestone
+  APK Built-APK check                 manifest, permissions, signature, version release / milestone
+  XC  Android cross-compile           cargo check --target aarch64-linux-android every push
   L6  Real-app E2E (Appium Mac2)      built .app, menu bar, hotkeys, capture   nightly / milestone
   L5  UI flows (Playwright, WebKit)   React UI, mocked core over IPC           every push
   L4  Integration (real filesystem)   core in temp vaults, fault injection     every push (+ long runs nightly)
@@ -144,6 +147,12 @@ Core services against **temporary vaults on APFS** (`$TMPDIR`), never mocks of t
 - **Harness (D-1355):** every L6 step loads `app/e2e/helpers/l6-guard.ts` (`node --import`). Element clicks are mouse clicks at the element's centre (XCTest's own element click crashes WebDriverAgent on web content with Xcode 27.2); a WebDriverAgent that dies is restarted and the leftover test build quit, so one crash fails one test, not the rest of the run; a locked screen fails the run at once, and `caffeinate` keeps the display awake.
 - **Network check (NFR-SEC-01):** during every L6 run, a monitor samples `lsof -i -a -p <app pids>` and fails on any socket other than local IPC.
 - **Feasibility is unproven:** driving content inside a WKWebView through accessibility may be limited. **Spike S3 must prove** hotkey, menu bar and capture-window automation, and a basic in-webview interaction, before we rely on L6 (exit criterion in §10.1).
+
+### Android layers XC, APK, LA (TS-LA; D-2031…D-2034)
+
+- **XC:** the push step `android-check` runs `cargo check --target aarch64-linux-android` on the core crates and the shell, with the environment from `tools/android/env.sh`. It fails, never skips, when the SDK, NDK or JDK is missing (D-2033).
+- **APK:** `apk-check <apk>` reads a built APK's manifest, permissions, version, ABIs and signature with the SDK's `aapt2` and `apksigner`. The release command runs it on the release APK, `app-android-e2e` on the test APK.
+- **LA:** Appium with the UiAutomator2 driver on a headless arm64 emulator (AVD `tegg-and-35`) runs the test APK (`app.tegg.desktop`) through `app/e2e-android/`. Step `app-android-e2e` at milestone level and nightly (D-2031). Test hooks reach the test APK through `test-env.json` in its private folder (D-2032); the release APK never reads it. Synthetic fixtures and generated vaults only (D-62). An AC whose layer names LA gets an `app/e2e-android/` test in the slice's red commit (TS-I7).
 
 ### L7 Claude exploratory sessions (TS-L7)
 
