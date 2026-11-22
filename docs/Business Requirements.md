@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.223, for review                                            |
+| **Document status** | Draft v1.224, for review                                            |
 | **Date**            | 2026-11-19                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -233,6 +233,7 @@
 | v1.221  | 2026-11-22 | D-1962 (board `CardSettings` keeps its section C as drawn, an owner's exception to D-62 for these boards; where its notes differ from D-1942…D-1961 the decisions win; supersedes D-1960) |
 | v1.222  | 2026-11-22 | D-1963 (the commit gate's file size limit outside `tests/fixtures/` is 2 MiB, was 1 MiB; the `IconSet` boards are committed) |
 | v1.223  | 2026-11-22 | Slice OC acceptance criteria (`docs/acceptance/cards.md`, additions in `types.md`, `views.md`, `embeds.md`, `previews.md`, `app-shell.md`; fixture `tests/fixtures/vaults/cards/`): D-1964…D-1997 (AP-1571…AP-1604; owner: "Accept all proposals"): where `card:` and `icon:` go, `preview:` still read for the default list and fallback columns, system-type default card lists, `Size` shown, card layout details, the icon picker, the Views section back in type settings, the Settings layout numbers, changed AC tests approved as one decision |
+| v1.224  | 2026-11-22 | Slice OC contract (`docs/contracts/v1-cards.md`): D-1998 (CP-1: every type icon drawn from Lucide), D-1999 (seven AC wording fixes in `cards.md`), D-2000 (`d3-force`'s licence in `Credits.rtf`); owner: "Accept all" |
 
 ---
 
@@ -2044,6 +2045,9 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1995 | Commands (FR-UX-03) (AP-1602, owner, 2026-11-22: "Accept all proposals"; slice OC, `docs/acceptance/cards.md`) | R217: `Edit card…`, `Add property to card…`, `Reset card to default`, `Change type icon…`; no shortcuts; the picker and the Card list are keyboard-operable inside |
 | D-1996 | Which performance numbers apply (AP-1603, owner, 2026-11-22: "Accept all proposals"; slice OC, `docs/acceptance/cards.md`) | NFR-PERF-07 AC-3…AC-5 unchanged, plus AC-6 (the 500-card board with a nine-key card: 225 ms p95, ≤ 150 card elements, `query_run` ≤ 100 ms p95); the picker: first open ≤ 300 ms p95 with the data load, later opens ≤ 100 ms, each keystroke ≤ 50 ms; all report-only until the v1.0 gate (D-1800) |
 | D-1997 | Changed AC tests (AP-1604, owner, 2026-11-22: "Accept all proposals"; slice OC, `docs/acceptance/cards.md`) | Approve them as one decision (as D-1912), each changed in the commit that builds OC with `AC-Test-Change: slice OC replaces Preview properties with the card (D-1942…D-1959); approved-by: owner`; fixture text with `Fixture-Change:` |
+| D-1998 | Every type icon is drawn from Lucide (CP-1, owner, 2026-11-22: "Accept all"; slice OC, `docs/contracts/v1-cards.md`) | Every type icon on every surface (cards, sidebar, type page header, link chips, search rows, the capture window, the graph) is drawn from Lucide 0.460 through the one resolver; D-237's hand-drawn system glyphs are retired for type icons. Task cards keep their checkbox (R43); app icons such as `Home`, `Inbox`, `Settings` stay hand-drawn |
+| D-1999 | Slice OC AC fixes (contract review, owner, 2026-11-22: "Accept all"; `docs/acceptance/cards.md`) | R217 removes only the Card section's own keys and keeps `preview.properties` (the previews' region); FR-TYP-11 AC-7 counts pills shown or hidden by `+N more` (hidden pills stay in the DOM); AC-12's link chip is at the left edge when present; AC-18 names `card.values`, `card.excerpt`, `card.links`; FR-TYP-01 AC-16: ↓ / ↑ move 6 in the flat option order, clamped to the last option; AC-20 (b) names the icon data chunk (a JSON fetch is blocked by the CSP); on a card `data-icon` is the name as written, in the picker the Lucide name |
+| D-2000 | `d3-force`'s licence in the app's credits (contract review, owner, 2026-11-22: "Accept all"; slice OC) | `Credits.rtf` (D-1993) also carries the ISC licence of `d3-force`, already bundled for the graph (D-913) |
 
 ---
 
