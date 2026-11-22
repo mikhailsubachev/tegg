@@ -140,6 +140,7 @@ fn graph_err(e: GraphError) -> IpcError {
     }
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn graph_neighbourhood(window: tauri::Window, state: State<'_, AppState>, req: GraphRequestDto) -> Result<GraphResultDto, IpcError> {
     let core = core(&state)?;

@@ -20,7 +20,9 @@ dist/
 
 # Rust / Tauri
 target/
-**/src-tauri/gen/
+**/src-tauri/gen/*
+# Slice AND-1 (D-2018): the Gradle project is committed, without build outputs (its own .gitignore).
+!app/src-tauri/gen/android/
 
 # Editors
 .vscode/

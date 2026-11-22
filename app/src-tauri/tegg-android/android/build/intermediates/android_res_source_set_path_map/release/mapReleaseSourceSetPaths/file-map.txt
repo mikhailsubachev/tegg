@@ -1,0 +1,9 @@
+app.tegg.android.tauri-plugin-tegg-android-pngs-0 /Users/mikhail/Claude/Tegg notes/.claude/worktrees/and-1-android-shell-f59128/app/src-tauri/tegg-android/android/build/generated/res/pngs/release
+app.tegg.android.tauri-plugin-tegg-android-updated_navigation_xml-1 /Users/mikhail/Claude/Tegg notes/.claude/worktrees/and-1-android-shell-f59128/app/src-tauri/tegg-android/android/build/generated/updated_navigation_xml/release
+app.tegg.android.tauri-plugin-tegg-android-mergeReleaseResources-2 /Users/mikhail/Claude/Tegg notes/.claude/worktrees/and-1-android-shell-f59128/app/src-tauri/tegg-android/android/build/intermediates/incremental/release/mergeReleaseResources/merged.dir
+app.tegg.android.tauri-plugin-tegg-android-mergeReleaseResources-3 /Users/mikhail/Claude/Tegg notes/.claude/worktrees/and-1-android-shell-f59128/app/src-tauri/tegg-android/android/build/intermediates/incremental/release/mergeReleaseResources/stripped.dir
+app.tegg.android.tauri-plugin-tegg-android-release-4 /Users/mikhail/Claude/Tegg notes/.claude/worktrees/and-1-android-shell-f59128/app/src-tauri/tegg-android/android/build/intermediates/merged_res/release/mergeReleaseResources
+app.tegg.android.tauri-plugin-tegg-android-release-5 /Users/mikhail/Claude/Tegg notes/.claude/worktrees/and-1-android-shell-f59128/app/src-tauri/tegg-android/android/build/intermediates/packaged_res/release/packageReleaseResources
+app.tegg.android.tauri-plugin-tegg-android-main-6 /Users/mikhail/Claude/Tegg notes/.claude/worktrees/and-1-android-shell-f59128/app/src-tauri/tegg-android/android/src/main/res
+app.tegg.android.tauri-plugin-tegg-android-release-7 /Users/mikhail/Claude/Tegg notes/.claude/worktrees/and-1-android-shell-f59128/app/src-tauri/tegg-android/android/src/release/res
+gradleHome-0 /Users/mikhail/.gradle

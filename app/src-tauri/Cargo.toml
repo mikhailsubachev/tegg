@@ -7,7 +7,7 @@ name = "tegg-app"
 version = "0.0.0"
 edition = "2021"
 publish = false
-description = "Tegg desktop shell: windows, IPC to tegg-core, events (docs/contracts/ms2-shell.md, architecture §3.3)"
+description = "Tegg shell (macOS and Android): windows, IPC to tegg-core, events (docs/contracts/ms2-shell.md, android-shell.md, architecture §3.3)"
 
 [lib]
 name = "tegg_app_lib"
@@ -29,8 +29,9 @@ tegg-format = { path = "../../crates/tegg-format" }
 tegg-import = { path = "../../crates/tegg-import" }
 blake3 = "1"
 # `test`: the mock runtime of `acl_probe` (D-570, NFR-SEC-03 AC-2); `tray-icon`, `image-png`: the status item (§1.4).
-tauri = { version = "2", features = ["tray-icon", "image-png", "test", "macos-private-api"] }
-tauri-plugin-dialog = "2"
+# `macos-private-api` stays here: tauri-build checks this entry against tauri.conf.json's `macOSPrivateApi` (a no-op on
+# Android); `tray-icon` is desktop-only below.
+tauri = { version = "2", features = ["image-png", "test", "macos-private-api"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
@@ -38,6 +39,15 @@ chrono-tz = "0.10"
 iana-time-zone = "0.1"
 ts-rs = "10"
 libc = "0.2"
+
+# The desktop only (AR-03 AC-7, android-shell §1): the status item, the private macOS API, the folder dialog.
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png", "test", "macos-private-api"] }
+tauri-plugin-dialog = "2"
+
+# Android only (D-2018): the Kotlin side of the shell.
+[target.'cfg(target_os = "android")'.dependencies]
+tauri-plugin-tegg-android = { path = "tegg-android" }
 
 # macOS: the mouse back/forward buttons, which WKWebView doesn't pass to the page (FR-NAV-03).
 [target.'cfg(target_os = "macos")'.dependencies]

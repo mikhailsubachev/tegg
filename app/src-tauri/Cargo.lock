@@ -3616,6 +3616,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-plugin-tegg-android"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "tauri",
+ "tauri-plugin",
+]
+
+[[package]]
 name = "tauri-runtime"
 version = "2.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3732,6 +3741,7 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
+ "tauri-plugin-tegg-android",
  "tegg-core",
  "tegg-format",
  "tegg-import",

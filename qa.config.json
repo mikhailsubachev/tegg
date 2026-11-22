@@ -62,6 +62,15 @@
     { "id": "app-e2e-nightly", "lane": "browser", "dir": "app", "cargoCache": false,
       "run": "export APPIUM_HOME=\"${APPIUM_HOME:-$(cd \"$(git rev-parse --path-format=absolute --git-common-dir)/..\" && pwd)/app/e2e/.appium}\" && npm run --silent app:build && node --import ./e2e/helpers/l6-guard.ts --test --test-concurrency=1 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=\"$VERIFY_RESULTS/app-e2e-nightly.xml\" e2e/nightly_*.ac.test.ts",
       "level": "nightly" },
+    { "id": "android-check", "lane": "cargo", "inputs": ["crates", "Cargo.toml", "Cargo.lock", "app/src-tauri", "tools/android"], "dir": ".",
+      "run": ". tools/android/env.sh && (cd crates && cargo check --workspace --target aarch64-linux-android --quiet) && mkdir -p app/dist && (cd app/src-tauri && cargo check --lib --target aarch64-linux-android --quiet)",
+      "level": "push" },
+    { "id": "app-android-e2e", "lane": "browser", "dir": "app", "cargoCache": false,
+      "run": "npm run --silent app:android-test && sh ../tools/android/avd.sh up && trap 'sh ../tools/android/avd.sh down' EXIT && . ../tools/android/env.sh && node ../tools/qa/src/apk-check.ts src-tauri/target/android/Tegg-test.apk --expect test && node --test --test-concurrency=1 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=\"$VERIFY_RESULTS/app-android-e2e.xml\" $(ls e2e-android/*.ac.test.ts | grep -v '/nightly_')",
+      "level": "milestone" },
+    { "id": "app-android-e2e-nightly", "lane": "browser", "dir": "app", "cargoCache": false,
+      "run": "npm run --silent app:android-test && sh ../tools/android/avd.sh up && trap 'sh ../tools/android/avd.sh down' EXIT && . ../tools/android/env.sh && node --test --test-concurrency=1 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=\"$VERIFY_RESULTS/app-android-e2e-nightly.xml\" e2e-android/*.ac.test.ts",
+      "level": "nightly" },
     { "id": "app-perf", "lane": "browser", "dir": "app", "cargoCache": false,
       "run": "export APPIUM_HOME=\"${APPIUM_HOME:-$(cd \"$(git rev-parse --path-format=absolute --git-common-dir)/..\" && pwd)/app/e2e/.appium}\" && npm run --silent app:build && node --import ./e2e/helpers/l6-guard.ts --test --test-concurrency=1 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination=\"$VERIFY_RESULTS/app-perf.xml\" e2e/nfr_perf_*.ac.test.ts",
       "level": "milestone" }
@@ -89,6 +98,6 @@
     { "dir": "app", "match": "^app/e2e-android/.*\\.ac\\.test\\.ts$",
       "run": "node --test --test-reporter=junit --test-reporter-destination={junit} {files}" }
   ],
-  "realAppTests": ["app/e2e/"],
+  "realAppTests": ["app/e2e/", "app/e2e-android/"],
   "budgets": { "commit": 60, "push": 600, "nightly": 5400 }
 }

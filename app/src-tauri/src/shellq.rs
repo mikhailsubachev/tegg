@@ -575,6 +575,7 @@ pub async fn query_run(state: State<'_, AppState>, source: QuerySourceDto, host:
     Ok(result_dto(core.query_run(src, host.as_deref(), &env)))
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn query_apply(state: State<'_, AppState>, name: String, base: VersionDto, def: QueryDefDto, now: String) -> Result<QueryApplyDto, IpcError> {
     let core = core(&state)?;
@@ -585,6 +586,7 @@ pub async fn query_apply(state: State<'_, AppState>, name: String, base: Version
     Ok(QueryApplyDto { query: query_dto(r), undo })
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn query_revert(state: State<'_, AppState>, name: String, base: VersionDto, text: String) -> Result<QueryDto, IpcError> {
     let core = core(&state)?;
@@ -592,6 +594,7 @@ pub async fn query_revert(state: State<'_, AppState>, name: String, base: Versio
     core.query_revert(&name, &base, &text).map(query_dto).map_err(|e| query_err(&core, &name, e))
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn query_create(state: State<'_, AppState>, title: String, def: Option<QueryDefDto>, fence: Option<String>, free: bool, now: String) -> Result<QueryDto, IpcError> {
     let core = core(&state)?;
@@ -599,12 +602,14 @@ pub async fn query_create(state: State<'_, AppState>, title: String, def: Option
     core.query_create(QueryCreate { title: title.clone(), def, fence, free }, &now).map(query_dto).map_err(|e| query_err(&core, &title, e))
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn query_duplicate(state: State<'_, AppState>, name: String, now: String) -> Result<QueryDto, IpcError> {
     let core = core(&state)?;
     core.query_duplicate(&name, &now).map(query_dto).map_err(|e| query_err(&core, &name, e))
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn query_rename(state: State<'_, AppState>, name: String, title: String) -> Result<QueryJobDto, IpcError> {
     let core = core(&state)?;
@@ -612,12 +617,14 @@ pub async fn query_rename(state: State<'_, AppState>, name: String, title: Strin
     Ok(QueryJobDto { job_id: id as u32 })
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn query_trash(state: State<'_, AppState>, name: String) -> Result<QueryTrashedDto, IpcError> {
     let core = core(&state)?;
     core.query_trash(&name).map(|trashed| QueryTrashedDto { trashed }).map_err(|e| query_err(&core, &name, e))
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn query_restore(state: State<'_, AppState>, name: String) -> Result<QueryDto, IpcError> {
     let core = core(&state)?;

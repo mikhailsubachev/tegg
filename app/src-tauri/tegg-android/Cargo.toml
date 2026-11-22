@@ -1,0 +1,15 @@
+# Slice AND-1 (D-2018, docs/contracts/android-shell.md §6): the local Tauri plugin that holds the shell's few lines of
+# Kotlin: "All files access", the system page that grants it, the shared-storage root and the app's private files folder.
+[package]
+name = "tauri-plugin-tegg-android"
+version = "0.0.0"
+edition = "2021"
+publish = false
+links = "tauri-plugin-tegg-android"
+
+[dependencies]
+tauri = { version = "2" }
+serde = { version = "1", features = ["derive"] }
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }

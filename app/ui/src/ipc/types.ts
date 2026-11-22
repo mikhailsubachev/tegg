@@ -607,4 +607,7 @@ export type JobPlanDto = { jobId: number, kind: string, files: number, templates
 empty: number, renames: Array<RenamePairDto>, trashes: Array<string>, warnings: Array<PlanWarningDto>, conflicts: Array<MergeConflictDto>, };
 export type RelatedEntryDto = { path: string, title: string, type: string, review: string | null, status: string | null, due: string | null, completed: string | null, linked: boolean, excerpt: string | null, score: number, shared: number, };
 export type RelatedDto = { entries: Array<RelatedEntryDto>, reason: 'short' | null, };
+export type StartStateDto = { "state": "needsAccess", path?: string, } | { "state": "opening", name: string, path: string, } | { "state": "open", vault: VaultInfo, } | { "state": "failed", path: string, kind: string, } | { "state": "none" };
+export type FoundVaultDto = { name: string, path: string, rel: string, };
+export type StorageAccessDto = { granted: boolean, sharedRoot: string, };
 export type TypeDefDto = TypeDto;

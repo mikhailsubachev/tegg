@@ -1531,3 +1531,14 @@ button.tag-tile { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .outline-chevron, .outline-rail, [data-outline-fade] { transition: none; }
 }
+
+/* Slice AND-1 (android-shell §9): the phone's start screens, chooser and the refused-command alert. The phone layout
+   itself is AND-2; these only keep the screens readable on a narrow window. */
+.unsupported-alert { position: fixed; z-index: 70; left: 50%; bottom: 24px; transform: translateX(-50%); max-width: 480px; padding: 10px 14px; border-radius: 8px; background: var(--pop); color: var(--text); border: 1px solid var(--border); box-shadow: 0 8px 24px color-mix(in srgb, var(--text) 18%, transparent); font-size: 13px; }
+.android-chooser h2 { font-size: 13px; margin: 20px 0 8px; color: var(--muted); }
+.android-chooser .vault-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.android-chooser .vault-list button { width: 100%; min-height: 44px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; }
+.android-chooser .vault-list .path { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.android-chooser .android-path { display: flex; gap: 8px; align-items: flex-end; margin-top: 20px; }
+.android-chooser .android-path .field { flex: 1; }
+.android-access .path, .android-opening .hint { overflow-wrap: anywhere; }

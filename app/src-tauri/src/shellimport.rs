@@ -205,6 +205,7 @@ pub(crate) fn transformed_from(result: TransformedDto) -> Result<Transformed, Tr
     }
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn import_transform_result(app: AppHandle, request_id: u64, result: TransformedDto) -> Result<(), IpcError> {
     let b = bridge(&app);
@@ -655,9 +656,10 @@ fn plan_waiting(scan: &Scan, space: &str, target: &Target<'_>, mapping: &Mapping
 
 // ------------------------------------------------------------------------------------------------ commands (§2.1)
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn import_pick_source(app: AppHandle, kind: String) -> Option<String> {
-    if std::env::var("TEGG_TEST").as_deref() == Ok("1") {
+    if crate::test_mode() {
         if kind == "zip" {
             if let Ok(f) = std::env::var("TEGG_TEST_PICK_FILE") {
                 return if f.is_empty() { None } else { Some(f) };
@@ -683,6 +685,7 @@ pub(crate) async fn import_pick_source(app: AppHandle, kind: String) -> Option<S
     rx.recv().ok().flatten()
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn import_scan(app: AppHandle, state: State<'_, AppState>, path: String) -> Result<ScanInfo, IpcError> {
     let p = PathBuf::from(tegg_format::nfc(&path));
@@ -732,6 +735,7 @@ pub(crate) struct Stopped {
     stopped: &'static str,
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn import_cancel(state: State<'_, AppState>) -> Result<Stopped, IpcError> {
     let sh = shared(&state);
@@ -762,6 +766,7 @@ fn proposed_parent(state: &State<'_, AppState>) -> PathBuf {
     home().unwrap_or_default().join("Documents").join("Tegg")
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn import_where(app: AppHandle, state: State<'_, AppState>, space: String) -> Result<Value, IpcError> {
     let sh = shared(&state);
@@ -860,6 +865,7 @@ fn take_plans(s: &mut ImportSession, drop_if: impl Fn(&StoredPlan) -> bool) -> V
     gone.into_values().collect()
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn import_check_target(state: State<'_, AppState>, parent: String, name: String) -> Result<NewVaultDto, IpcError> {
     let source = lock(&shared(&state).session).source_path.clone();
@@ -873,6 +879,7 @@ pub(crate) enum TargetArg {
     Existing,
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn import_plan(app: AppHandle, state: State<'_, AppState>, space: String, target: TargetArg, mapping: Mapping) -> Result<Value, IpcError> {
     let sh = shared(&state);
@@ -952,6 +959,7 @@ pub(crate) struct JobDto {
     job: u64,
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn import_start(app: AppHandle, state: State<'_, AppState>, token: u64, report_strings: BTreeMap<String, String>) -> Result<JobDto, IpcError> {
     let sh = shared(&state);
@@ -1162,6 +1170,7 @@ fn status_dto(rs: &RunState) -> Value {
     })
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn import_status(state: State<'_, AppState>) -> Result<Option<Value>, IpcError> {
     let sh = shared(&state);
@@ -1169,6 +1178,7 @@ pub(crate) async fn import_status(state: State<'_, AppState>) -> Result<Option<V
     Ok(s.run.as_ref().map(status_dto))
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn import_discard(state: State<'_, AppState>) -> Result<(), IpcError> {
     let sh = shared(&state);

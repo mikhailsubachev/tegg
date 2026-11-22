@@ -1,4 +1,5 @@
 // The frame (FR-UX-02, docs/contracts/ms3-shell.md §3.7): title bar with one tab, sidebar, context panel.
+import { isAndroid } from '../platform';
 import { PopupMenu, type MenuEntry } from './Menu';
 import { vaultColor } from './vaultColor';
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -207,7 +208,8 @@ function LogoMenu({ onAbout, onSettings }: { onAbout: () => void; onSettings: ()
       </button>
       {open && (
         <PopupMenu label={t('logo.menu')} anchor={button.current} placement="above" onClose={() => setOpen(false)} entries={[
-          { kind: 'item', key: 'about', content: <span className="menu-title">{t('cmd.about')}</span>, onChoose: () => { setOpen(false); button.current?.focus(); onAbout(); } },
+          // AND-1 (AR-03 AC-11): the phone has no About panel (D-2026).
+          ...(isAndroid() ? [] : [{ kind: 'item' as const, key: 'about', content: <span className="menu-title">{t('cmd.about')}</span>, onChoose: () => { setOpen(false); button.current?.focus(); onAbout(); } }]),
           { kind: 'item', key: 'settings', content: <span className="menu-title">{t('logo.settings')}</span>, onChoose: () => { setOpen(false); onSettings(); } },
         ]} />
       )}

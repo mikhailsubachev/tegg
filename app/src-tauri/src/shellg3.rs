@@ -109,11 +109,13 @@ pub(crate) fn presets_err(core: &Core, e: CoreError) -> IpcError {
     }
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn graph_presets_get(state: State<'_, AppState>) -> Result<GraphPresetsDto, IpcError> {
     Ok(presets_dto(core(&state)?.graph_presets()))
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn graph_presets_apply(state: State<'_, AppState>, base: Option<VersionDto>, op: PresetOpDto) -> Result<GraphPresetsDto, IpcError> {
     let core = core(&state)?;

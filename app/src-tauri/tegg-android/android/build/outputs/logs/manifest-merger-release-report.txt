@@ -1,0 +1,16 @@
+-- Merging decision tree log ---
+manifest
+ADDED from /Users/mikhail/Claude/Tegg notes/.claude/worktrees/and-1-android-shell-f59128/app/src-tauri/tegg-android/android/src/main/AndroidManifest.xml:2:1-3:12
+INJECTED from /Users/mikhail/Claude/Tegg notes/.claude/worktrees/and-1-android-shell-f59128/app/src-tauri/tegg-android/android/src/main/AndroidManifest.xml:2:1-3:12
+	package
+		INJECTED from /Users/mikhail/Claude/Tegg notes/.claude/worktrees/and-1-android-shell-f59128/app/src-tauri/tegg-android/android/src/main/AndroidManifest.xml
+	xmlns:android
+		ADDED from /Users/mikhail/Claude/Tegg notes/.claude/worktrees/and-1-android-shell-f59128/app/src-tauri/tegg-android/android/src/main/AndroidManifest.xml:2:11-69
+uses-sdk
+INJECTED from /Users/mikhail/Claude/Tegg notes/.claude/worktrees/and-1-android-shell-f59128/app/src-tauri/tegg-android/android/src/main/AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from /Users/mikhail/Claude/Tegg notes/.claude/worktrees/and-1-android-shell-f59128/app/src-tauri/tegg-android/android/src/main/AndroidManifest.xml
+INJECTED from /Users/mikhail/Claude/Tegg notes/.claude/worktrees/and-1-android-shell-f59128/app/src-tauri/tegg-android/android/src/main/AndroidManifest.xml
+	android:targetSdkVersion
+		INJECTED from /Users/mikhail/Claude/Tegg notes/.claude/worktrees/and-1-android-shell-f59128/app/src-tauri/tegg-android/android/src/main/AndroidManifest.xml
+	android:minSdkVersion
+		INJECTED from /Users/mikhail/Claude/Tegg notes/.claude/worktrees/and-1-android-shell-f59128/app/src-tauri/tegg-android/android/src/main/AndroidManifest.xml

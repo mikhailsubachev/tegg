@@ -1,6 +1,6 @@
 // The only module that talks to the shell (architecture §10: UI ↔ core through one client).
 // Commands: docs/contracts/ms2-shell.md §2, ms3-shell.md §2.
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from './android';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { GraphPresetsDto, GraphRequestDto, GraphResultDto, PresetOpDto } from '../graph/types';
 import type { PinOpDto, PinsDto } from './pins';
@@ -14,10 +14,16 @@ import type {
   NoteRenameDto, JobIdDto, JobReportDto, JobProgressDto, RetryDto, InterruptedDto, TaskListDto, DailyTasksDto,
   InboxRowDto, VaultSettingsDto, ShellSettingsDto, HotkeyStateDto,
   TrashEntryDto, MovedDto, TrashRemovalDto, MediaAddedDto, MediaAddResultDto, StagedMediaResultDto, RelatedDto,
+  StartStateDto, FoundVaultDto, StorageAccessDto,
 } from './types';
 
 export const ipc = {
   vaultCurrent: () => invoke<VaultInfo | null>('vault_current'),
+  // Slice AND-1 (android-shell §2.2): Android only.
+  vaultStart: () => invoke<StartStateDto>('vault_start'),
+  vaultFind: () => invoke<FoundVaultDto[]>('vault_find'),
+  storageAccess: () => invoke<StorageAccessDto>('storage_access'),
+  storageAccessSettings: () => invoke<void>('storage_access_settings'),
   vaultOpen: (path: string) => invoke<VaultInfo>('vault_open', { path }),
   vaultCreate: (parent: string, name: string, kind: 'empty' | 'starter') => invoke<VaultInfo>('vault_create', { parent, name, kind }),
   vaultPickDir: () => invoke<string | null>('vault_pick_dir'),
@@ -197,6 +203,8 @@ export type JobTransformEvent = { requestId: number; source: string; text: strin
 
 export const events = {
   progress: (f: (p: ProgressDto) => void): Promise<UnlistenFn> => listen<ProgressDto>('index:progress', (e) => f(e.payload)),
+  /** Slice AND-1 (android-shell §2.3): the start state on Android. */
+  vaultStart: (f: (s: StartStateDto) => void): Promise<UnlistenFn> => listen<StartStateDto>('vault:start', (e) => f(e.payload)),
   changed: (f: (c: ChangedDto) => void): Promise<UnlistenFn> => listen<ChangedDto>('vault:changed', (e) => f(e.payload)),
   trashChanged: (f: () => void): Promise<UnlistenFn> => listen('trash:changed', () => f()),
   conflict: (f: (c: ConflictDto) => void): Promise<UnlistenFn> => listen<ConflictDto>('note:conflict', (e) => f(e.payload)),
