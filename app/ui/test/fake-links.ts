@@ -2,6 +2,7 @@
 // (like fake-schema.ts) so it can use the real `@tegg/doc` extraction and `excerptWindow`; the rules mirror
 // crates/tegg-core/src/links4a.rs and the resolution rules of ms3-shell §11.1 (D-291).
 import { listTypes, type Answer, type Files, type VersionDto } from './fake-schema';
+import { cardExample, cardsFor, detailValues } from './fake-cards';
 
 const nfc = (s: string) => s.normalize('NFC');
 const low = (s: string) => nfc(s).toLowerCase();
@@ -456,9 +457,8 @@ async function brokenLinks(files: Files, ctx: Ctx) {
 }
 
 function details(ctx: Ctx, o: Obj) {
-  const def = ctx.types.find((t) => t.key === o.type);
-  const preview = ((def?.preview ?? []) as string[]).map((k) => [k, o.attributes[k]] as [string, unknown])
-    .filter(([, v]) => v !== null && v !== undefined && !(typeof v === 'string' && !v.trim()) && !(Array.isArray(v) && !v.length)).slice(0, 2);
+  // Slice OC (v1-cards §3.5, D-1982): the first two set pill values of the object's card list.
+  const preview = detailValues(o, ctx.types);
   return { created: typeof o.attributes.created === 'string' ? o.attributes.created : null, preview, stem: nfc(o.stem) !== nfc(o.title) ? nfc(o.stem) : null };
 }
 function titleGroups(ctx: Ctx): Map<string, Obj[]> {
@@ -539,6 +539,10 @@ export async function handle(cmd: string, a: any, files: Files, vers: Record<str
   if (cmd === 'file_targets') return { result: await fileTargets(String(a.text ?? '')) };
   // Slice P: both lists in one round trip (embed_load with `media`).
   if (cmd === 'link_and_file_targets') { const all = await allTargets(String(a.text ?? '')); return { result: { links: all.filter((x) => !attachment(x)), files: all.filter(attachment) } }; }
+  // Slice OC (v1-cards §3.3, §13): the card data of an `embed_load` batch, and `type_card_example`; `bin` lists the
+  // vault's binary files (an Image's or PDF's file).
+  if (cmd === 'cards_for') return { result: cardsFor(files, (a.paths ?? []) as string[], { bin: (a.bin ?? []) as string[] }) };
+  if (cmd === 'type_card_example') return { result: cardExample(files, String(a.key ?? ''), { bin: (a.bin ?? []) as string[] }) };
   const ctx = await context(files, vers);
   if (cmd.startsWith('daily_')) return daily(cmd, a, files, ctx);
   switch (cmd) {

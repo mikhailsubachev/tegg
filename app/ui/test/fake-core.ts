@@ -55,6 +55,8 @@ export type UiStateDto = {
   queryColumnWidths?: Record<string, Record<string, number>>;
   /** Slice Q2 (v1-views §4.7): the folded lane ids of a horizontal board per saved query name. */
   boardFolded?: Record<string, string[]>;
+  /** Slice OC (v1-cards §10, R216): the icon picker's Recent icons, canonical names, newest first, at most 12. */
+  recentIcons?: string[];
 };
 /** ms5-capture §1.6, §5.2 (5B). */
 export type HotkeyStateDto = { id: 'quick-capture' | 'new-task'; keys: string; state: 'active' | 'taken' };
@@ -595,6 +597,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     'index_tags', 'index_conflicts', // 3C: read-only (ms3-shell §13.2)
     'vault_recent', 'app_about', // D-219, D-220 (ms3-shell §12.5): read-only / shows the About panel
     'type_get', 'type_template', 'type_usage', 'type_misfits', 'index_type_rows', 'starter_plan', // 3D (ms3-shell §14.3): read-only
+    'type_card_example', // slice OC (v1-cards §4.1): read-only
     'index_backlinks', 'index_broken_links', 'index_duplicate_titles', 'link_create_plan', 'backlinks', // 4A (ms4-links §4): read-only
     'daily_view', 'daily_dates', 'daily_draft', 'daily_context', 'daily_backlinks', // 4B (ms4-daily §4): read-only
     'job_report', 'job_interrupted', 'backups_list', 'editor_open', 'editor_close', // 4C (ms4-jobs §4): read-only / editor registration
@@ -2067,7 +2070,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     query_get: async (a) => qWithVersion((await viaQueries('query_get', { name: a.name })).result),
     query_run: async (a) => {
       await x.querySeed?.();
-      const r = await viaQueries('query_run', { source: a.source, host: a.host ?? null, env: a.env });
+      const r = await viaQueries('query_run', { source: a.source, host: a.host ?? null, env: a.env, bin: Object.keys(x.bin) });
       const { _path, ...res } = r.result as any;
       if (x.queriesNotReady) return { ...res, indexReady: false, rows: [], total: 0, group: null };
       // Slice Q2 (v1-views §1.1): each row's version (the card move's base) and whether its bytes were valid UTF-8.
@@ -2254,6 +2257,8 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       void state.emit('vault:changed', { paths: [path] });
       return path;
     },
+    // Slice OC (v1-cards §4.1, D-1984): the type settings' example card, read-only.
+    type_card_example: (a) => viaNode('type_card_example', '__teggLinks')({ key: a.key, bin: Object.keys(x.bin) }),
     ui_state_get: () => state.uiState ?? { version: 1, theme: 'system', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' }, propertiesOpen: true },
     ui_state_set: (a) => {
       state.uiState = a.state;
@@ -2289,11 +2294,11 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         const text = key === undefined ? undefined : state.vault!.files[key];
         if (opts.trashedLinks !== false && p.startsWith('.trash/') && (text !== undefined || x.bin[p] !== undefined)) {
           // 6A (ms6-trash-media §2): a trashed object shows the D-27 placeholder.
-          out.push({ path: p, state: 'trashed', title: text !== undefined ? (front(text).title ?? p.split('/').pop()!.replace(/\.md$/, '')) : p.split('/').pop()!, text: null, version: null, utf8: true, links: [] });
+          out.push({ path: p, state: 'trashed', title: text !== undefined ? (front(text).title ?? p.split('/').pop()!.replace(/\.md$/, '')) : p.split('/').pop()!, text: null, version: null, utf8: true, links: [], card: null });
           continue;
         }
         if (text === undefined || /^(_templates|\.trash)\//.test(p)) {
-          out.push({ path: p, state: 'missing', text: null, version: null, utf8: true, links: [] });
+          out.push({ path: p, state: 'missing', text: null, version: null, utf8: true, links: [], card: null });
           continue;
         }
         // Slice P (v1-previews §2): with `media`, the files the note links resolve too, after its note links (one
@@ -2303,7 +2308,13 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
         const targets = [...got.links];
         if (a.media) for (const f of got.files) if (!targets.includes(f)) targets.push(f);
         const links = targets.length ? await (handlers.link_resolve as any)({ from: p, targets }) : [];
-        out.push({ path: p, state: 'ok', text, version: state.ver(p), utf8: !(p in state.invalid), links });
+        out.push({ path: p, state: 'ok', text, version: state.ver(p), utf8: !(p in state.invalid), links, card: null });
+      }
+      // Slice OC (v1-cards §3.3, §13): the batch's card data, one round trip for every `ok` path (D-429).
+      const ok = out.filter((n) => n.state === 'ok').map((n) => n.path);
+      if (ok.length && state.vault) {
+        const cards = ((await w.__teggLinks('cards_for', { paths: ok, bin: Object.keys(x.bin) }, state.vault.files, {})).result ?? {}) as Record<string, unknown>;
+        for (const n of out) if (n.state === 'ok') n.card = cards[n.path] ?? null;
       }
       return out;
     },

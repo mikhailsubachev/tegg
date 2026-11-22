@@ -11,6 +11,7 @@ import { parseAllDocuments, parse as parseYaml, isMap, isScalar, isSeq, type Doc
 import { listTypes, renameView, type TypeDto } from './fake-schema';
 import { objectsWith, resolver, type Obj } from './fake-links';
 import { excerpt, taskList } from './fake-tasks';
+import { cardsFor } from './fake-cards';
 import { bounds as periodBounds, completedWithin, dateOf as periodDateOf, periodOf } from '../src/queries/board/period';
 
 // ------------------------------------------------------------------------------------------------ DTOs (contract §2)
@@ -85,6 +86,8 @@ export type QueryRowDto = {
   tags: string[];
   /** Slice Q2-T (CP-24): ms5-tasks' TaskRowDto for a `task` object, else null. */
   taskRow: any | null;
+  /** Slice OC (v1-cards §3.3): the card data on board runs; null on List and Table runs. */
+  card?: any | null;
 };
 export type QueryResultDto = {
   form: 'reference' | 'inline' | 'unreadable' | 'empty' | 'def'; name: string | null; lookup: LookupDto | null;
@@ -910,6 +913,8 @@ const linkTargetOf = (v: unknown): string | null => { const m = typeof v === 'st
 type Ctx = {
   objs: Obj[]; byPath: Map<string, Obj>; types: TypeDto[]; env: QueryEnvDto; host: string | null; hostObj: Obj | null; hostDaily: string | null;
   res: (from: string, target: string) => string | null; outLinks: Map<string, string[]>; targets: Set<string>;
+  /** Slice OC (v1-cards §3.2): the vault's binary files, for Image and PDF cards' files. */
+  bin?: string[];
 };
 type Check = { broken: BrokenReason | null; type: string | null; kind: Kind | 'links' | null; needsDate: boolean };
 
@@ -1145,7 +1150,7 @@ function sortRows(objs: Obj[], def: QueryDefDto, chosen: string[], ctx: Ctx, bro
   });
 }
 
-async function context(files: Record<string, string>, host: string | null, env: QueryEnvDto, types?: TypeDto[]): Promise<Ctx> {
+async function context(files: Record<string, string>, host: string | null, env: QueryEnvDto, types?: TypeDto[], bin: string[] = []): Promise<Ctx> {
   const d = await doc();
   const s = await schema();
   const objs = objectsWith(files, d, s);
@@ -1158,15 +1163,15 @@ async function context(files: Record<string, string>, host: string | null, env: 
     const one = objectsWith({ [`__host__/${(nfc(host).split('/').pop() ?? host)}`]: files[nfc(host)] }, d, s)[0];
     hostObj = one ? { ...one, path: nfc(host) } : null;
   }
-  const ctx: Ctx = { objs, byPath, types: types ?? listTypes(files, {}), env, host: host ? nfc(host) : null, hostObj, hostDaily: hostObj?.daily ?? null, res, outLinks: new Map(), targets: new Set() };
+  const ctx: Ctx = { objs, byPath, types: types ?? listTypes(files, {}), env, host: host ? nfc(host) : null, hostObj, hostDaily: hostObj?.daily ?? null, res, outLinks: new Map(), targets: new Set(), bin };
   for (const o of objs) ctx.outLinks.set(o.path, linksOf(o, ctx));
   return ctx;
 }
 
 /** The evaluator over the fake's files (§1.6): every result, sorted (the page size is the UI's, D-1451). */
-export async function evaluate(def: QueryDefDto, host: string | null, env: QueryEnvDto, files: Record<string, string>, types?: TypeDto[]):
+export async function evaluate(def: QueryDefDto, host: string | null, env: QueryEnvDto, files: Record<string, string>, types?: TypeDto[], bin: string[] = []):
   Promise<Pick<QueryResultDto, 'state' | 'broken' | 'targets' | 'usesRelative' | 'total' | 'rows' | 'group' | 'taskDefs'>> {
-  const ctx = await context(files, host, env, types);
+  const ctx = await context(files, host, env, types, bin);
   const broken: BrokenDto[] = [];
   const chosen = def.types.map(nfc);
   const missing = chosen.filter((t) => !ctx.types.some((x) => x.key === t) && !ctx.objs.some((o) => o.type === t));
@@ -1226,6 +1231,9 @@ export async function evaluate(def: QueryDefDto, host: string | null, env: Query
     const hit = p ? ctx.byPath.get(p) : undefined;
     return { target: String(v), kind: hit ? 'note' : 'unresolved', path: hit?.path ?? null, title: hit?.title ?? null, type: hit?.type ?? null };
   };
+  // Slice OC (v1-cards §3.3): board runs carry each row's card data (its own type's keys; the excerpt only where `body`
+  // is a key) and `excerpt` becomes the card's; List and Table runs carry none.
+  const cards = group ? cardsFor(files, sorted.map((o) => o.path), { bin: ctx.bin ?? [] }) : {};
   const rows: QueryRowDto[] = sorted.map((o) => {
     const values: Record<string, unknown> = {};
     const ty = ctx.types.find((t) => t.key === o.type);
@@ -1240,8 +1248,9 @@ export async function evaluate(def: QueryDefDto, host: string | null, env: Query
     return {
       path: o.path, id: o.id, title: o.title, type: o.type, created: str(o.attributes?.created), modified: str(o.attributes?.modified), values, links: links as any,
       task: o.type === 'task' ? { status: str(o.attributes?.status), state: statusState(o, ctx) as any, due: localDate(o.attributes?.due, env.zone) } : null,
-      version: null, excerpt: bodyExcerpt(d, files[o.path]), readOnly: false,
+      version: null, excerpt: group ? (cards[nfc(o.path)]?.excerpt ?? '') : bodyExcerpt(d, files[o.path]), readOnly: false,
       tags: tagKeysOf(o), taskRow: o.type === 'task' ? taskRows.get(o.path) ?? null : null,
+      card: group ? cards[nfc(o.path)] ?? null : null,
     };
   });
   return { state: 'ok', broken, targets: [...ctx.targets].sort(byBytes), usesRelative: relative, total: rows.length, rows, group, taskDefs: tl ? tl.defs : null };
@@ -1462,7 +1471,7 @@ function grouping(def: QueryDefDto, rows: Obj[], chosen: string[], active: Activ
 }
 
 /** §2 `query_run` over the fake's files. `_path` (stripped by the page) names the query file whose version is answered. */
-export async function queryRun(source: QuerySourceDto, host: string | null, env: QueryEnvDto, files: Record<string, string>, types?: TypeDto[], o: { indexReady?: boolean; invalid?: string[] } = {}):
+export async function queryRun(source: QuerySourceDto, host: string | null, env: QueryEnvDto, files: Record<string, string>, types?: TypeDto[], o: { indexReady?: boolean; invalid?: string[]; bin?: string[] } = {}):
   Promise<QueryResultDto & { _path?: string | null }> {
   const tys = types ?? listTypes(files, {});
   const cols = columnsDefault(tys);
@@ -1472,7 +1481,7 @@ export async function queryRun(source: QuerySourceDto, host: string | null, env:
   const run = async (r: QueryResultDto & { _path?: string | null }, def: QueryDefDto, syntactic: BrokenDto[], own: Own | null = null) => {
     // Q2.1 (§17.2): the rows follow the usage's effective sort and carry its effective columns; `def` stays the file's.
     const usage = own ? usageRun(own, def, tys) : null;
-    const e = await evaluate(usage ? { ...def, sort: usage.sort, columns: usage.columns } : def, host, env, files, tys);
+    const e = await evaluate(usage ? { ...def, sort: usage.sort, columns: usage.columns } : def, host, env, files, tys, o.bin ?? []);
     // The query's own run-time `sort` check (the evaluator saw the usage's effective sort instead).
     if (usage && !sortValid(def.sort, def.types, tys)) e.broken.push({ reason: 'badValue', at: null, key: 'sort', type: null });
     const rank = (b: BrokenDto) => (b.reason === 'noType' ? ORDER.indexOf('types') : b.at === null ? ORDER.indexOf(b.key as never) : ORDER.indexOf('filters')) * 10000 + (b.at?.[0] ?? 0) * 100 + (b.at?.[1] ?? 0);
@@ -1611,7 +1620,7 @@ export async function handle(cmd: string, a: any, files: Record<string, string>,
   switch (cmd) {
     case 'queries_list': return { result: querySummaries(files, invalid) };
     case 'query_get': return { result: queryDto(files, invalid, String(a.name ?? ''), types) };
-    case 'query_run': return { result: await queryRun(a.source, a.host ?? null, a.env, files, types, { indexReady, invalid }) };
+    case 'query_run': return { result: await queryRun(a.source, a.host ?? null, a.env, files, types, { indexReady, invalid, bin: (a.bin ?? []) as string[] }) };
     case 'query_usages': return { result: await queryUsages(files, String(a.name ?? '')) };
     case 'query_view_usages': return { result: queryViewUsages(files, String(a.name ?? '')) };
     case 'query_apply': {
