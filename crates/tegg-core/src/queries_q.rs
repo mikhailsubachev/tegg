@@ -398,6 +398,8 @@ pub struct QueryRow {
     pub tags: Vec<String>,
     /// Q2-T (CP-24, D-1916): for an object of type `task`, ms5-tasks §2.1's `TaskRow`, from the same index read.
     pub task_row: Option<TaskRow>,
+    /// v1-cards §3.3 (slice OC): the card data on board runs. Compile-only stub: always None.
+    pub card: Option<crate::cards::CardData>,
 }
 
 /// v1-views §1.1 (R187): a board's lanes.
@@ -2990,6 +2992,7 @@ fn row_of(o: &QueryObject, def: &QueryDef, ctx: &Ctx, group_key: Option<&str>) -
         // v1-views §24.1: tag keys (NFC, case-folded), sorted, unique.
         tags: o.tags.iter().map(|t| tag_key(t)).filter(|t| !t.is_empty()).collect::<BTreeSet<String>>().into_iter().collect(),
         task_row: None,
+        card: None,
     }
 }
 

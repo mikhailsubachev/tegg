@@ -1211,6 +1211,8 @@ pub mod graph_presets;
 pub mod pinned;
 // docs/contracts/v1-queries.md §1: saved queries in `.tegg/queries/` and the evaluator (`queries_q.rs`).
 pub mod queries_q;
+/// Slice OC (docs/contracts/v1-cards.md §3.2): card data. Compile-only stub.
+pub mod cards;
 /// v1-views §25 (Q2-T, R202): the default task views, their migration and `Restore default views`.
 pub mod taskviews;
 mod yaml_text;

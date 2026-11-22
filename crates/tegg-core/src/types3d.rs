@@ -43,6 +43,11 @@ pub struct TypeInfo {
     /// D-417 (ms4-embeds §3): the effective default embed mode and the raw `embed` value.
     pub embed: tegg_schema::EmbedMode,
     pub embed_raw: Option<String>,
+    /// v1-cards §3.1 (slice OC): the card list (§2.2 `card_list`), its ignored keys and the unreadable flag.
+    /// Compile-only stub: empty.
+    pub card: tegg_schema::CardList,
+    pub card_ignored: Vec<String>,
+    pub card_unreadable: bool,
 }
 
 /// One row of a type page (FR-TYP-09 AC-2, ms3-shell §14.2.4).
@@ -132,6 +137,9 @@ pub(crate) fn info(key: &str, text: Option<&[u8]>, version: Option<FileVersion>)
         views_source,
         embed: tegg_schema::effective_embed(&d.key, parsed.embed_raw.as_deref()),
         embed_raw: parsed.embed_raw.clone(),
+        card: tegg_schema::CardList::default(),
+        card_ignored: Vec::new(),
+        card_unreadable: false,
     }
 }
 

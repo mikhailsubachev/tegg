@@ -37,6 +37,8 @@ pub struct TaskRow {
     pub modified: Option<String>,
     pub version: FileVersion,
     pub read_only: bool,
+    /// v1-cards §3.3 (slice OC): the Task card's data with Task's keys. Compile-only stub: always empty.
+    pub card: crate::cards::CardData,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -217,6 +219,7 @@ fn build(o: Fields, fm: &serde_json::Map<String, Value>, defs: &TaskDefs, source
         modified: scalar(fm.get("modified")),
         version: st.version,
         read_only: !st.utf8,
+        card: crate::cards::CardData::default(),
     }
 }
 

@@ -12,6 +12,10 @@ use tegg_format::nfc;
 
 mod views;
 pub use views::{rename_view, views_source};
+// Slice OC (docs/contracts/v1-cards.md §2.2, §2.4): compile-only stubs, no behaviour yet (D-61).
+pub mod card;
+pub use card::{card_list, card_list_undefined, default_card, CardList, CARD_BUILT_INS, CARD_FALLBACK};
+pub mod icons;
 pub use tegg_format::usage::{UsageOrder, UsageSort, UsageValue};
 
 /// D-96 / D-239: NFC, trim, lower case, each whitespace run as `-` (`Quick Note` → `quick-note`).
@@ -201,6 +205,10 @@ pub struct Parsed {
     pub views_unreadable: bool,
     /// v1-views §14.1 (D-1840, D-1855): the `views:` items, same order and length as `def.views`.
     pub view_items: Option<Vec<ViewItem>>,
+    /// v1-cards §2.1 (D-1964): `card` is present but not a list of strings. Stub: always false.
+    pub card_unreadable: bool,
+    /// v1-cards §2.1 (D-1964): `card` entries that are neither attribute keys nor card built-ins. Stub: always empty.
+    pub card_ignored: Vec<String>,
 }
 
 /// One item of `views:` (v1-views §14.1, R196): a plain name, or a mapping with a non-blank string `name`.
@@ -432,9 +440,9 @@ fn parse_uncached(key: &str, text: &str) -> Parsed {
             let columns_unreadable = list_unreadable(&top, "columns");
             let (_, view_items, views_unreadable) = read_views(&top);
             let embed_raw = embed_raw_of(&top);
-            Parsed { def, readability, preview_ignored, embed_raw, columns_unreadable, columns_ignored, views_unreadable, view_items }
+            Parsed { def, readability, preview_ignored, embed_raw, columns_unreadable, columns_ignored, views_unreadable, view_items, card_unreadable: false, card_ignored: Vec::new() }
         }
-        Err((message, line)) => Parsed { def: fallback_def(&key), readability: Readability::Invalid { message, line: line.max(1) }, preview_ignored: Vec::new(), embed_raw: None, columns_unreadable: false, columns_ignored: Vec::new(), views_unreadable: false, view_items: None },
+        Err((message, line)) => Parsed { def: fallback_def(&key), readability: Readability::Invalid { message, line: line.max(1) }, preview_ignored: Vec::new(), embed_raw: None, columns_unreadable: false, columns_ignored: Vec::new(), views_unreadable: false, view_items: None, card_unreadable: false, card_ignored: Vec::new() },
     }
 }
 
@@ -663,6 +671,8 @@ pub enum RuleError {
     /// Slice 5A-1 (D-473): no `status` option of the Task type with state Open / Done would remain.
     NeedOpen,
     NeedDone,
+    /// v1-cards §2.3 (D-1964): a `SetCard` on a file whose `card` value can't be read. Stub: never returned.
+    CardUnreadable,
 }
 
 const FORBIDDEN: &str = "/:\\*?\"<>|#^[]";
@@ -1127,6 +1137,10 @@ pub enum TypeOp {
     MoveOption { attr: String, label: String, to: usize },
     RemoveOption { attr: String, label: String },
     RenameOption { attr: String, from: String, to: String },
+    /// v1-cards §2.3 (D-1947, D-1964): the `card` line; None removes it (`Reset to default`). Stub: writes nothing.
+    SetCard(Option<Vec<String>>),
+    /// v1-cards §2.3 (D-1958, D-1987): an attribute item's `icon:` line; None removes it. Stub: writes nothing.
+    SetAttributeIcon { key: String, icon: Option<String> },
 }
 
 #[derive(Debug, Clone, Default)]
@@ -1292,6 +1306,9 @@ fn apply(def: &mut TypeFile, lines: &mut Vec<String>, op: &TypeOp, system: bool,
                 def.preview = keys;
                 set_top(lines, "preview", render_top("preview", def));
             }
+        }
+        TypeOp::SetCard(_) | TypeOp::SetAttributeIcon { .. } => {
+            // Slice OC compile-only stub (v1-cards §2.3): no behaviour yet.
         }
         TypeOp::SetViews(_) | TypeOp::SetViewSort { .. } | TypeOp::SetViewColumns { .. } | TypeOp::SetViewsSource(_) => {
             // v1-views §1.3 (D-1782), §14.2 (R196; D-1840, D-1852, D-1857).

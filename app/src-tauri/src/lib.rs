@@ -310,6 +310,7 @@ fn rule_err(r: RuleError) -> IpcError {
         RuleError::ViewNotListed => ("viewNotListed", None, None, None),
         RuleError::NeedOpen => ("needOpen", Some("optionLabel".into()), None, None),
         RuleError::NeedDone => ("needDone", Some("optionLabel".into()), None, None),
+        RuleError::CardUnreadable => ("cardUnreadable", None, None, None),
     };
     IpcError { reason: Some(reason.into()), field: f, key, label, ..err("Rule", format!("typeRule.{reason}")) }
 }
