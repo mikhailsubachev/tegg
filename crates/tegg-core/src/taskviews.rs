@@ -57,6 +57,9 @@ pub enum TaskViewsMigration {
     Done { created: Vec<String>, views: Vec<String> },
     /// A create or the views write failed; `reason` = the error kind. Files already created stay.
     Stopped { created: Vec<String>, reason: String },
+    /// docs/contracts/android-phone.md §3 (D-2062, CP-5 → D-2087): the core was opened with
+    /// `OpenExtras { bulk_jobs: false }` (Android); nothing was read or written. Compile-only stub: not answered yet.
+    Off,
 }
 
 /// §25.3: the outcome of `Core::task_views_restore`.

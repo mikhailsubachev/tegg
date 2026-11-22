@@ -14,6 +14,8 @@ pub mod commands;
 pub mod platform;
 pub mod start;
 pub mod vaultfind;
+// docs/contracts/android-phone.md §1, §4.4: pure, compiled on every target (a red-commit stub until AND-2 is built).
+pub mod phone;
 mod shell5b;
 mod shell6a;
 mod strings;
