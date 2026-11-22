@@ -44,7 +44,6 @@ pub struct TypeInfo {
     pub embed: tegg_schema::EmbedMode,
     pub embed_raw: Option<String>,
     /// v1-cards §3.1 (slice OC): the card list (§2.2 `card_list`), its ignored keys and the unreadable flag.
-    /// Compile-only stub: empty.
     pub card: tegg_schema::CardList,
     pub card_ignored: Vec<String>,
     pub card_unreadable: bool,
@@ -137,9 +136,9 @@ pub(crate) fn info(key: &str, text: Option<&[u8]>, version: Option<FileVersion>)
         views_source,
         embed: tegg_schema::effective_embed(&d.key, parsed.embed_raw.as_deref()),
         embed_raw: parsed.embed_raw.clone(),
-        card: tegg_schema::CardList::default(),
-        card_ignored: Vec::new(),
-        card_unreadable: false,
+        card: tegg_schema::card_list(&parsed),
+        card_ignored: parsed.card_ignored.clone(),
+        card_unreadable: parsed.card_unreadable,
     }
 }
 
@@ -182,8 +181,36 @@ impl Shared {
 
     /// Re-reads the definitions the index queries use (at open, after own writes, on watched `.tegg/types/` changes).
     pub(crate) fn refresh_types(&self) {
-        let defs: BTreeMap<String, TypeFile> = self.read_types().into_iter().map(|t| (t.key.clone(), t.def)).collect();
+        let stamps = self.type_stamps();
+        let types = self.read_types();
+        let cards: BTreeMap<String, tegg_schema::CardList> = types.iter().map(|t| (t.key.clone(), t.card.clone())).collect();
+        let defs: BTreeMap<String, TypeFile> = types.into_iter().map(|t| (t.key.clone(), t.def)).collect();
         *lock(&self.type_defs) = defs;
+        *lock(&self.type_cards) = cards;
+        *lock(&self.type_stamps) = stamps;
+    }
+
+    /// The `.tegg/types/` files with their (mtime, size), by name: cheap (one folder listing, no file read).
+    fn type_stamps(&self) -> Vec<(String, i128, u64)> {
+        let mut out: Vec<(String, i128, u64)> = self
+            .vault
+            .list_dir(tegg_schema::TYPES_DIR)
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|p| p.ends_with(".yml"))
+            .filter_map(|p| self.vault.stat(&p).ok().flatten().map(|(m, s)| (p, m, s)))
+            .collect();
+        out.sort();
+        out
+    }
+
+    /// v1-cards §3.4: re-reads the definitions when a type file changed since the last refresh and the watcher hasn't
+    /// reported it yet (so a read follows another program's write at once; FR-TYP-11 AC-19).
+    pub(crate) fn fresh_types(&self) {
+        let now = self.type_stamps();
+        if *lock(&self.type_stamps) != now {
+            self.refresh_types();
+        }
     }
 
     pub(crate) fn type_defs(&self) -> BTreeMap<String, TypeFile> {

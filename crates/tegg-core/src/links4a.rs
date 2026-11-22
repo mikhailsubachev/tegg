@@ -465,24 +465,9 @@ impl Core {
         BrokenLinks { occurrences, objects, groups: out }
     }
 
-    fn details(&self, o: &crate::ObjectInfo, defs: &BTreeMap<String, tegg_schema::TypeFile>) -> DuplicateDetails {
-        let preview: Vec<(String, Value)> = defs
-            .get(&o.r#type)
-            .map(|t| t.preview.clone())
-            .unwrap_or_default()
-            .into_iter()
-            .filter_map(|k| {
-                let v = o.attributes.get(&k)?.clone();
-                let set = match &v {
-                    Value::Null => false,
-                    Value::String(s) => !s.trim().is_empty(),
-                    Value::Array(a) => !a.is_empty(),
-                    _ => true,
-                };
-                set.then_some((k, v))
-            })
-            .take(2)
-            .collect();
+    /// v1-cards §3.5 (FR-LNK-14 AC-15, D-1982): `preview` holds the first two set pill values of the object's card list.
+    fn details(&self, o: &crate::ObjectInfo, cd: &crate::cards::CardDefs) -> DuplicateDetails {
+        let preview = crate::cards::detail_values(o, cd);
         let name = o.path.rsplit('/').next().unwrap_or(&o.path);
         let stem = nfc(name.strip_suffix(".md").unwrap_or(name));
         DuplicateDetails { created: attr_str(&o.attributes, "created"), preview, stem: (stem != nfc(&o.title)).then_some(stem) }
@@ -507,7 +492,7 @@ impl Core {
             return;
         }
         let groups = self.title_groups();
-        let defs = self.type_names();
+        let defs = self.shared.card_defs();
         for it in items.iter_mut().filter(|i| i.kind == SwitcherKind::Object) {
             let Some(g) = groups.get(&title_key(&it.title)).filter(|g| g.len() > 1) else { continue };
             if let Some(o) = it.path.as_deref().and_then(|p| g.iter().find(|o| o.path == p)) {
@@ -517,7 +502,7 @@ impl Core {
     }
 
     pub fn duplicate_titles(&self) -> Vec<DuplicateGroup> {
-        let defs = self.type_names();
+        let defs = self.shared.card_defs();
         let mut out: Vec<DuplicateGroup> = self
             .title_groups()
             .into_iter()
