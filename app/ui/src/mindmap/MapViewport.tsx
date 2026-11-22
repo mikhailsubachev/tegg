@@ -64,7 +64,7 @@ function Area({ map, scale, onScale, size, onSize, fill }: {
   const w = size ? size.width * s : undefined;
   const h = size ? blockHeight(size.height, s) : undefined;
   return (
-    <div ref={area} className={`mindmap-map phone-map-area${fill ? ' fill' : ''}`} data-map-area="" data-scale={String(Math.round(s * 1000) / 1000)}
+    <div ref={area} className={`phone-map-area${fill ? ' fill' : ''}`} data-map-area="" data-scale={String(Math.round(s * 1000) / 1000)}
       style={fill ? undefined : { height: h }}>
       <div className="phone-map-sizer" style={{ width: w, height: size ? size.height * s : undefined }}>
         <div ref={inner} className="phone-map-inner" style={{ transform: `scale(${s})`, transformOrigin: '0 0', width: size?.width }}>
@@ -102,7 +102,7 @@ export function MapViewport({ title, map, list }: { title: string; map: ReactNod
     });
     const t0 = performance.now();
     const step = zoomSteps++;
-    requestAnimationFrame(() => { void ipc.perfMark(`mindmap-zoom:${step}:${Math.round(performance.now() - t0)}`).catch(() => {}); });
+    requestAnimationFrame(() => { void ipc.perfMarkFrame('mindmap-zoom', step, Math.round((performance.now() - t0) * 10) / 10).catch(() => {}); });
   }, [full]);
   const s = scale ?? 1;
   const openFull = () => {

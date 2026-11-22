@@ -231,7 +231,7 @@ export function TagPage(p: TagPageProps) {
       <header className="page-header tag-header">
         {/* The tile comes after the heading in the focus order and before it on screen (`order: -1`). */}
         <div className="type-header-text">
-          <PageHeading ref={p.heading} tabIndex={-1}><span data-user-content>{name}</span></PageHeading>
+          <PageHeading ref={p.heading} tabIndex={-1}><span data-user-content>{isPhone() ? `#${p.tagKey}` : name}</span></PageHeading>
           <p className="type-count">{t('tag.summary', { objects: s.objects, types: s.types })}</p>
         </div>
         {row && !phone ? (

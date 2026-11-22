@@ -146,7 +146,7 @@ export function PinnedSection({ route, types, onGo, collapsed, onCollapse, readO
                     <Icon name={glyph(r, v)} dataIcon={v.icon} />
                   </span>
                   <span className="entry-label" data-label="" data-user-content>{v.label}</span>
-                  {desc && <span className="sr-only">{desc}</span>}
+                  {desc && <span className="sr-only" data-user-content>{desc}</span>}
                 </a>
                 {!readOnly && <button type="button" tabIndex={0} className="icon-button small pin-unpin" aria-label={t('pinned.unpinNamed', { label: v.label })} title={t('pinned.unpin')}
                   data-command="sidebar.unpin" aria-disabled={locked ? true : undefined} onClick={() => { if (!locked) doUnpin(i); }}>

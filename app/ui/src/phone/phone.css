@@ -179,7 +179,7 @@ html[data-layout="phone"] .phone-sheet-layer {
 html[data-layout="phone"] .phone-scrim {
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, var(--text) 32%, transparent);
+  background: color-mix(in srgb, var(--side) 75%, transparent);
   opacity: 0;
   transition: opacity 200ms ease;
 }
@@ -218,6 +218,9 @@ html[data-layout="phone"] .phone-drawer nav.sidebar {
 html[data-layout="phone"] .phone-drawer .sidebar-scroll {
   flex: 1;
   overflow-y: auto;
+}
+html[data-layout="phone"] .phone-drawer .logo {
+  min-width: 48px;
 }
 html[data-layout="phone"] .phone-drawer .entry,
 html[data-layout="phone"] .phone-drawer .logo,
@@ -563,4 +566,9 @@ html[data-layout="phone"] .phone-title .search-field input {
   min-width: 0;
   width: auto;
   min-height: 40px;
+}
+
+/* §9.1: the source view shows the file's bytes only (no line numbers on the phone). */
+html[data-layout="phone"] .source-gutter {
+  display: none;
 }

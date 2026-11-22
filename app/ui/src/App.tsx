@@ -1720,7 +1720,7 @@ export function App() {
     const sourceShown = () => !!document.querySelector('main .source-view');
     const closeDrawer = (navigated: boolean) => {
       setDrawerOpen(false);
-      if (!navigated) setTimeout(() => document.querySelector<HTMLElement>('.phone-bottombar [data-command="phone.menu"]')?.focus(), 0);
+      if (!navigated) setTimeout(() => document.querySelector<HTMLElement>('.phone-bottombar [data-command="phone.menu"]')?.focus(), 40);
     };
     return withImport(
       <div className="app phone">
@@ -1743,7 +1743,7 @@ export function App() {
           overlays={(
             <>
               <Drawer open={drawerOpen} onClose={closeDrawer}>
-                <VaultSwitcher vault={vault} onOpenPath={openVaultPath} onOpenFolder={actions.openFolder} onCreate={() => actions.openChooser(true)} onSettings={() => { void go({ id: 'settings/vault' }); }} />
+                <VaultSwitcher vault={vault} onOpenPath={openVaultPath} onOpenFolder={actions.openFolder} onCreate={() => actions.openChooser(true)} onSettings={() => { setDrawerOpen(false); void go({ id: 'settings/vault' }); }} />
                 <Sidebar
                   variant="drawer"
                   route={route ?? { id: 'inbox' }}

@@ -50,6 +50,8 @@ export const ipc = {
   uiStateGet: () => invoke<UiStateDto>('ui_state_get'),
   uiStateSet: (state: UiStateDto) => invoke<void>('ui_state_set', { state }),
   perfMark: (name: string) => invoke<void>('perf_mark', { name }),
+  /** A mark in the `frame`/`ms` form (android-phone §12.3: `mindmap-zoom`). */
+  perfMarkFrame: (name: string, frame: number, ms: number) => invoke<void>('perf_mark', { name, frame, ms }),
   /** NFR-PERF-06 AC-3 (D-199): one typing-latency record per keystroke. */
   /** A timed mark (`TEGG_PERF_LOG`, FR-MMP-02 AC-14 `mindmap-layout`). */
   perfTimed: (mark: string, ms: number) => invoke<void>('perf_mark', { name: mark, mark, ms }),

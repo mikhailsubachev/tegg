@@ -334,7 +334,7 @@ export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, 
             <Icon name="plus" size={14} />
           </button>}
         </div>
-        <ul className="types" aria-label={t('frame.types')}>
+        <ul className="types" aria-label={t('frame.types')} role={drawer ? 'list' : undefined}>
           {types.map((e) => {
             const current = route.id === 'type/<type>' && route.param === e.key;
             return (
@@ -344,7 +344,7 @@ export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, 
                   tabIndex={0}
                   className={`entry type-entry ${current ? 'current' : ''}`}
                   aria-current={current ? 'page' : undefined}
-                  aria-label={t('frame.typeEntry', { plural: e.plural, count: e.count })}
+                  aria-label={drawer ? undefined : t('frame.typeEntry', { plural: e.plural, count: e.count })}
                   aria-description={!e.defined ? t('frame.noTypeDefinition') : e.invalid ? t('frame.invalidType') : undefined}
                   data-command={`goto.type:${e.key}`}
                   style={{ ['--type' as string]: `var(--type-${e.color || 'gray'})` }}

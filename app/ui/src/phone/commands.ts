@@ -50,6 +50,9 @@ function own(ctx: ShellContext): Command[] {
   const list: Command[] = [
     { id: 'phone.menu', title: 'cmd.phone.menu', section: 'navigate', needsVault: true, run: p('phone.menu') },
     { id: 'phone.sheet.close', title: 'cmd.phone.closeSheet', section: 'view', needsVault: true, run: p('phone.sheet.close') },
+    // The drawer's Pinned header and rows (§10: kept page controls).
+    { id: 'sidebar.pinned.toggle', title: 'pinned.section', section: 'view', needsVault: true, run: p('sidebar.pinned.toggle') },
+    { id: 'sidebar.pinned.open', title: 'pinned.section', section: 'navigate', needsVault: true, run: p('sidebar.pinned.open') },
     { id: 'goto.settings', title: 'cmd.goto.settings', section: 'navigate', needsVault: true, run: (c) => a(c)?.go({ id: 'settings' }) },
     { id: 'goto.settings/storage', title: 'cmd.goto.settings.storage', section: 'navigate', needsVault: true, run: (c) => a(c)?.go({ id: 'settings/storage' }) },
     { id: 'vault.switch', title: 'cmd.switchVault', section: 'vault', needsVault: true, run: p('vault.switch') },
