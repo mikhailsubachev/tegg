@@ -28,10 +28,11 @@ export function SourceView({ text, warning }: { text: string; warning?: Frontmat
       <section className="source-view" aria-label={t('note.source')} tabIndex={-1} data-user-content>
         {/* Slice OL (outline.md FR-EDT-11 AC-12): the line element holds only its text; the gutter is its previous
             sibling, so the outline's jump and flash act on the line itself. */}
-        {lines.map((l, i) => (
+        {/* Slice AND-2 (android-phone §9.1): on the phone the file's text as it is, in one block. */}
+        {isPhone() ? <pre className="source-text phone-source">{text}</pre> : lines.map((l, i) => (
           <div key={i} className="source-row">
             <span className="source-gutter" aria-hidden="true">{i + 1}</span>
-            <div className="source-line" data-line={i + 1}><span className="source-text">{l === '' && isPhone() ? <br /> : l}</span></div>
+            <div className="source-line" data-line={i + 1}><span className="source-text">{l}</span></div>
           </div>
         ))}
       </section>
