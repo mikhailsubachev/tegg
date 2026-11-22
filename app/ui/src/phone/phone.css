@@ -368,3 +368,89 @@ html[data-layout="phone"] .phone-properties .property {
   align-items: center;
   border-bottom: 1px solid var(--border);
 }
+html[data-layout="phone"] .view-bar {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  border-bottom: 0;
+  margin: 12px 0 4px;
+}
+html[data-layout="phone"] .view-tabs-wrap {
+  border-bottom: 1px solid var(--border);
+}
+html[data-layout="phone"] .view-tabs .view-tab {
+  flex: none;
+  min-height: 48px;
+  white-space: nowrap;
+}
+
+/* Tables (§9.5): the table itself scrolls sideways; the Title column stays at its left edge. */
+html[data-layout="phone"] .table-scroll,
+html[data-layout="phone"] .query-table-box {
+  overflow: visible;
+  max-width: 100%;
+}
+html[data-layout="phone"] table.type-table,
+html[data-layout="phone"] table.query-table {
+  display: block;
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: auto !important;
+  max-width: 100%;
+  touch-action: pan-x pan-y;
+}
+html[data-layout="phone"] .type-table th:first-child,
+html[data-layout="phone"] .type-table td:first-child,
+html[data-layout="phone"] .query-table th:first-child,
+html[data-layout="phone"] .query-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--bg);
+}
+html[data-layout="phone"] .query-table th,
+html[data-layout="phone"] .query-table td {
+  white-space: nowrap;
+}
+html[data-layout="phone"] .type-table td,
+html[data-layout="phone"] .query-table td {
+  height: 40px;
+}
+
+/* Lists (§9.5): rows at least 56 px. */
+html[data-layout="phone"] .query-list {
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+}
+html[data-layout="phone"] .query-list li {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Boards (§9.5): vertical lanes 300 px that snap; horizontal rows with 300 px card columns. */
+html[data-layout="phone"] .board-vertical .board-scroll,
+html[data-layout="phone"] .board-vertical .board-scroll:hover {
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  touch-action: pan-x pan-y;
+  padding-bottom: 4px;
+}
+html[data-layout="phone"] .board-vertical .board-lane {
+  width: 300px;
+  scroll-snap-align: start;
+}
+html[data-layout="phone"] .board-horizontal .board-cards,
+html[data-layout="phone"] .board-horizontal .board-days {
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+html[data-layout="phone"] .lane-fold {
+  min-width: 48px;
+  min-height: 48px;
+}
+html[data-layout="phone"] .type-table td:not(:first-child) *,
+html[data-layout="phone"] .query-table td:not(:first-child) * {
+  pointer-events: none;
+}

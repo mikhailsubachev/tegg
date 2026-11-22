@@ -30,6 +30,8 @@ import { canUseQuery, usageKey, type Usage } from './usage';
 import { registerUsage } from './usageHook';
 import { useUsageWrite, type TypePatch } from './useUsageWrite';
 import { NewPropertyDialog } from '../pages/TypeSettingsPage';
+import { isPhone } from '../phone/layout';
+import { phoneSortLine } from '../phone/sortLine';
 
 const nfc = (s: string) => s.normalize('NFC');
 const fold = (s: string) => nfc(s).toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').normalize('NFC');
@@ -167,7 +169,10 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
   const showResults = state === 'ok' || state === 'types' || state === 'newer' || (state === 'draft' && !!live);
   const firstBroken = showResults ? result?.broken[0] ?? null : null;
 
-  const toolbar = (
+  // Slice AND-2 (android-phone §9.5, RA11): on the phone the toolbar is the view-only line (no filter, tags, sort, columns,
+  // lanes or view menu).
+  const phone = isPhone();
+  const toolbar = phone ? (def ? <p className="phone-sort-line">{phoneSortLine(effSort, type)}</p> : null) : (
     <div className="view-toolbar">
       <input type="search" className="type-filter view-filter" aria-label={t('typePage.filter', { plural })} placeholder={t('typePage.filter', { plural })}
         data-command={nfc(typeKey) === 'task' ? 'tasks.search' : undefined}
@@ -214,17 +219,17 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
     switch (state) {
       case 'trashed':
         return (
-          <p className="query-message">{t('query.block.trashed', { name })}{' '}
-            <button type="button" tabIndex={0} className="query-msg-button" data-command="query.block.action"
+          <p className="query-message">{t('query.block.trashed', { name })}{phone ? null : ' '}
+            {!phone && <button type="button" tabIndex={0} className="query-msg-button" data-command="query.block.action"
               onClick={() => { void ipc.queryRestore(name).then(() => { void refreshQueries(); run.rerun(); }, () => queryAlert(t('query.saveFailed'))); }}>
               {t('query.block.restore')}
-            </button>
+            </button>}
           </p>
         );
       case 'missing':
         return (
-          <p className="query-message">{t('query.block.notFound', { name })}{' '}
-            <button type="button" tabIndex={0} className="query-msg-button" data-command="views.remove" onClick={onRemove}>{t('views.remove', { plural })}</button>
+          <p className="query-message">{t('query.block.notFound', { name })}{phone ? null : ' '}
+            {!phone && <button type="button" tabIndex={0} className="query-msg-button" data-command="views.remove" onClick={onRemove}>{t('views.remove', { plural })}</button>}
           </p>
         );
       case 'unreadable':

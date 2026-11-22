@@ -47,6 +47,8 @@ import { usePinMenuEntry } from '../pinned/PinMenu';
 import { pinDragSource } from '../pinned/drag';
 import { typeIconName as pinIconName } from '../shell/Icon';
 import { PageHeading } from '../phone/PageHeading';
+import { isPhone } from '../phone/layout';
+import { phoneSortLine } from '../phone/sortLine';
 
 const fold = (s: string) => nfc(s).toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').normalize('NFC');
 const isEmpty = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
@@ -255,6 +257,9 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
     return () => { if (columnsRequest.current === h) columnsRequest.current = null; };
   }, []);
   const gone = !type && rows !== null && rows.length === 0;
+  // Slice AND-2 (android-phone §9.5, RA11): on the phone the page is view only: no Type settings, New, filter, tags,
+  // sort button, Columns, row menu or drags; the view-only line in place of the toolbar.
+  const phone = isPhone();
 
   if (gone) {
     return (
@@ -319,7 +324,7 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
           {type?.description && <p className="type-description" data-user-content>{type.description}</p>}
           {rows && typeKey.normalize('NFC') === 'task' && type ? <TasksSummary refresh={refresh} /> : rows && <p className="type-count">{t('typePage.countPlural', { count: rows.length, plural: '\u0000' }).split('\u0000')[0]}<span data-user-content>{pluralName}</span>{t('typePage.countPlural', { count: rows.length, plural: '\u0000' }).split('\u0000')[1]}</p>}
         </div>
-        {type && (
+        {type && !phone && (
           <div className="page-actions">
             <TypeSettingsButton onClick={onSettings} />
             <button tabIndex={0} type="button" className="text-button primary" data-command="type.newObject" onClick={onNew}>
@@ -329,7 +334,7 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
         )}
       </header>}
       {!type && <p role="note" className="type-note">{t('typePage.noDefinition', { value: plural })}</p>}
-      {!type && onDefine && (() => {
+      {!type && onDefine && !phone && (() => {
         // The value as written, once a row is read; until then its key (the route has only the key).
         const v = value ?? typeKey;
         const ok = canDefine(v).ok;
@@ -399,12 +404,12 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
                         key={r.path} tabIndex={i === Math.min(Math.max(cursor, win.from), win.to - 1, shown.length - 1) ? 0 : -1} className="type-row"
                         data-path={r.path.normalize('NFC')} data-query-result={r.path.normalize('NFC')} data-title={r.title} data-index={i}
                         // 6A (FR-HIS-01 AC-3): the row's context menu has Move to trash (⌘⌫ on a focused row).
-                        onContextMenu={(e) => { e.preventDefault(); const el = e.currentTarget; el.focus(); setRowMenu(el); }}
-                        {...pinDragSource({ request: { kind: 'object', path: r.path.normalize('NFC') }, label: r.title, icon: pinIconName(typeKey, type?.icon), color: type?.color })}
+                        onContextMenu={(e) => { e.preventDefault(); if (phone) return; const el = e.currentTarget; el.focus(); setRowMenu(el); }}
+                        {...(phone ? {} : pinDragSource({ request: { kind: 'object', path: r.path.normalize('NFC') }, label: r.title, icon: pinIconName(typeKey, type?.icon), color: type?.color }))}
                         onFocus={() => setCursor(i)}
                         onKeyDown={(e) => {
                           if (e.target !== e.currentTarget) return;
-                          if (e.key === 'F10' && e.shiftKey) { e.preventDefault(); setRowMenu(e.currentTarget); return; }
+                          if (e.key === 'F10' && e.shiftKey && !phone) { e.preventDefault(); setRowMenu(e.currentTarget); return; }
                           if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); focusRow(i + (e.key === 'ArrowDown' ? 1 : -1)); }
                         }}>
                         {columns.map((c) => (
@@ -420,7 +425,9 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
             </div>
           </>
         );
+        const sortLine = phone ? <p className="phone-sort-line">{phoneSortLine(levels, type)}</p> : null;
         if (views && type) {
+          if (sortLine) return <TypeViews typeKey={typeKey} type={type} types={types} plural={pluralName} tab={tab} tabNonce={tabNonce} all={{ toolbar: sortLine, body }} />;
           const st = buttonText(levels, (k) => sortKeyName(k, type).label);
           const tagControl = <TagFilterControl rows={(rows ?? []).map((r) => ({ tags: r.tags ?? [] }))} selected={tagSel} onChange={chooseTags} allHint={typeKey.normalize('NFC') === 'task' ? t('tasks.tagAll') : null} />;
           const sortButton = (
@@ -434,6 +441,7 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
           return <TypeViews typeKey={typeKey} type={type} types={types} plural={pluralName} tab={tab} tabNonce={tabNonce}
             all={{ toolbar: <div className="view-toolbar">{filterField}{tagControl}{sortButton}{columnsButton}</div>, body }} />;
         }
+        if (sortLine) return <>{sortLine}{body}</>;
         return (
           <>
             <div className="page-toolbar type-toolbar">

@@ -28,6 +28,7 @@ import { BoardCard, type TaskCardContext } from './BoardCard';
 import { cardMove, excludedValues, laneOrderAfterDrop, neighbourDropLane, prefillFor } from './model';
 import { writeCardChange, writeCardMove, writePeriodMove, type CardMoveResult } from './write';
 import type { PeriodMove } from '@tegg/doc';
+import { isPhone } from '../../phone/layout';
 
 const nfc = (s: string) => s.normalize('NFC');
 const fold = (s: string) => nfc(s).toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').normalize('NFC');
@@ -79,7 +80,7 @@ export function LanesSwitch({ lanes, disabled, onSwitch }: { lanes: 'vertical' |
   );
 }
 
-export function QueryBoard({ result, name, title, readOnly, types, filter, apply, rerun, controlRef, foldKey = null, env: runEnv }: {
+export function QueryBoard({ result, name, title, readOnly: readOnlyProp, types, filter, apply, rerun, controlRef, foldKey = null, env: runEnv }: {
   result: QueryResultDto & { group: GroupingDto; def: QueryDefDto };
   /** The saved query's name (folds, the hook); null for an inline fence. */
   name: string | null;
@@ -99,6 +100,8 @@ export function QueryBoard({ result, name, title, readOnly, types, filter, apply
   /** Q2-T (§29.3): the environment the shown result was run with (drops and tiles use its bounds). */
   env?: QueryEnvDto | null;
 }) {
+  // Slice AND-2 (android-phone §9.5, D-2006): on the phone every board is view only (no drags, grips, `+`, tiles, menus).
+  const readOnly = readOnlyProp ?? (isPhone() ? t('phone.viewOnly') : null);
   const { group, def } = result;
   const env = runEnv ?? queryEnv();
   const isPeriod = group.kind === 'period';

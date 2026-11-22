@@ -6,6 +6,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { t } from '../i18n/catalog';
 import { Icon } from '../shell/Icon';
+import { isPhone } from '../phone/layout';
 import './board.css';
 
 export type BoardLaneView = {
@@ -46,6 +47,8 @@ export type CardSlotProps = {
   onDragStart: (e: React.DragEvent) => void;
   draggable: false;
   dragging: boolean;
+  /** Slice AND-2: the phone's tap on a card. */
+  onClick?: (e: React.MouseEvent<HTMLElement>) => void;
 };
 
 export type BoardProps = {
@@ -367,6 +370,8 @@ export function Board(p: BoardProps) {
     onDragStart: (e) => e.preventDefault(),
     draggable: false,
     dragging: !!drag && drag.key === key && drag.from === laneId,
+    // Slice AND-2 (android-phone §9.5): on the phone a tap on a card opens it (its links and checkbox keep their own).
+    ...(isPhone() ? { onClick: (e: React.MouseEvent<HTMLElement>) => { if (!(e.target as HTMLElement).closest('a, button, [role="checkbox"]')) p.onOpen(key); } } : {}),
   });
 
   return (
@@ -397,7 +402,8 @@ export function Board(p: BoardProps) {
                     <Icon name={isFolded ? 'chevron-right' : 'chevron-down'} size={13} />
                   </button>
                 )}
-                {l.grip && (
+                {/* Slice AND-2 (android-phone §9.5, RA11): no lane grips on the phone. */}
+                {l.grip && !isPhone() && (
                   <span role="button" tabIndex={0} className="lane-grip" data-command="board.laneDrag" aria-label={t(vertical ? 'board.dragColumn' : 'board.dragRow')}
                     aria-describedby={headingId} aria-disabled={p.readOnly ? 'true' : undefined} title={t(vertical ? 'board.dragColumn' : 'board.dragRow')}
                     onMouseDown={startLaneDrag(l.id)} onDragStart={(e) => e.preventDefault()}>

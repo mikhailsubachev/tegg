@@ -17,6 +17,7 @@ import { TypeCell } from '../types/cell';
 import { columnChoices, UNIVERSAL } from './model';
 import { queryNav } from './nav';
 import { levels, markers } from './sort';
+import { isPhone } from '../phone/layout';
 
 const nfc = (s: string) => s.normalize('NFC');
 /** At most this many table rows in the DOM (§4.3, D-1482). */
@@ -76,6 +77,8 @@ export function ResultsTable({ def: fileDef, rows, types, typeOf, typeName, titl
   const ls = levels(def.sort);
   const marks = markers(def.sort);
   const shown = rows.slice(win.from, win.to);
+  // Slice AND-2 (android-phone §9.5): on the phone a tap anywhere on a row opens it (the cells' values are inert).
+  const phone = isPhone();
 
   // ---- widths per usage (R198, D-1845): stored per column; Title without one fills what the others leave.
   const { widths, set } = useColumnWidths({ kind: 'usage', key: saved && widthKey ? widthKey : '\u0000inline' });
@@ -145,11 +148,11 @@ export function ResultsTable({ def: fileDef, rows, types, typeOf, typeName, titl
                 }}>
                 {cols.map((c) => (
                   // Read-only cells (FR-QRY-05 AC-8): a click or double-click on a value does nothing; the title opens.
-                  <td key={c.key} onClick={c.key === 'title' ? undefined : (e) => e.stopPropagation()} onDoubleClick={c.key === 'title' ? undefined : (e) => e.stopPropagation()}>
+                  <td key={c.key} onClick={c.key === 'title' || phone ? undefined : (e) => e.stopPropagation()} onDoubleClick={c.key === 'title' || phone ? undefined : (e) => e.stopPropagation()}>
                     {c.key === 'title' ? (
                       <span className="cell-title">
                         {r.task && !mixed
-                          ? <span role="checkbox" aria-checked={done} aria-disabled="true" aria-label={r.title} aria-description={t('query.block.taskReadOnly')} className={`query-task-box${done ? ' done' : ''}`}>{done && <Icon name="check" size={11} />}</span>
+                          ? <span role="checkbox" aria-checked={done} aria-disabled="true" aria-label={r.title} aria-description={t(isPhone() ? 'phone.viewOnly' : 'query.block.taskReadOnly')} className={`query-task-box${done ? ' done' : ''}`}>{done && <Icon name="check" size={11} />}</span>
                           : <Icon name={typeIconName(r.type, rt?.icon)} dataIcon={chipIcon(r.type).def} size={14} />}
                         <span data-user-content>{r.title}</span>
                       </span>

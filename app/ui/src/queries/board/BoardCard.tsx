@@ -17,6 +17,7 @@ import { useTagLook } from '../../tags/store';
 import { dateText, dateTimeText, rawText, wiki } from '../../types/util';
 import type { CardSlotProps } from '../../board/Board';
 import { UNIVERSAL } from '../model';
+import { isPhone } from '../../phone/layout';
 
 const nfc = (s: string) => s.normalize('NFC');
 const isEmpty = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
@@ -129,10 +130,11 @@ export function BoardCard({ row, laneId, type, typeName, group, slot, onOpen, on
           onClick={(e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); }}>
           <span data-user-content>{row.title}</span>
         </RefElement>
-        <button type="button" tabIndex={-1} className="icon-button small board-card-more" aria-label={t('task.more', { title: row.title })} aria-haspopup="menu"
+        {/* Slice AND-2 (android-phone §9.5, RA11): no card menu on the phone. */}
+        {!isPhone() && <button type="button" tabIndex={-1} className="icon-button small board-card-more" aria-label={t('task.more', { title: row.title })} aria-haspopup="menu"
           onClick={(e) => { e.stopPropagation(); onMenu(row, e.currentTarget, laneId); }}>
           <Icon name="more-horizontal" size={14} />
-        </button>
+        </button>}
       </div>
       {tags.length > 0 && (
         <div className="board-card-tags">

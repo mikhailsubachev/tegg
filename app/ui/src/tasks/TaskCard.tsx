@@ -12,6 +12,7 @@ import { t } from '../i18n/catalog';
 import type { TaskDefsDto, TaskRowDto } from '../ipc/types';
 import { chipIcon } from '../links/icons';
 import { requestOffer } from '../links/offer';
+import { isPhone } from '../phone/layout';
 import { Icon } from '../shell/Icon';
 import { dueLabel, shortDate } from './views';
 import { useTagLook } from '../tags/store';
@@ -28,6 +29,9 @@ export const isDone = (r: TaskRowDto) => r.state === 'done';
 export function Checkbox({ row, onToggle, tabIndex = 0 }: { row: TaskRowDto; onToggle: (done: boolean) => void; tabIndex?: number }) {
   const done = isDone(row);
   const name = done ? t('task.uncomplete', { title: row.title }) : t('task.complete', { title: row.title });
+  // Slice AND-2 (android-phone §9.5, §9.8): on the phone every task checkbox is view only; a tap does nothing.
+  const phone = isPhone();
+  const off = row.readOnly || phone;
   return (
     <button
       type="button"
@@ -37,9 +41,9 @@ export function Checkbox({ row, onToggle, tabIndex = 0 }: { row: TaskRowDto; onT
       className={`task-check${done ? ' checked' : ''}`}
       aria-checked={done}
       aria-label={name}
-      aria-disabled={row.readOnly || undefined}
-      aria-description={row.readOnly ? t('task.readOnly') : undefined}
-      onClick={(e) => { e.stopPropagation(); if (!row.readOnly) onToggle(!done); }}
+      aria-disabled={off || undefined}
+      aria-description={phone ? t('phone.viewOnly') : row.readOnly ? t('task.readOnly') : undefined}
+      onClick={(e) => { e.stopPropagation(); if (!off) onToggle(!done); }}
       onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') e.stopPropagation(); }}
     >
       {done && <Icon name="check" size={12} />}
@@ -169,14 +173,14 @@ export function TaskCard({ row, defs, today, region, zone, nav, alsoIn, hideStat
           href="#" tabIndex={inner} draggable={false} data-command="task.open" data-card-title="" className="task-title"
           // Slice PIN (R135, D-1381): a drag from the title link can pin the task (a drop on Pinned).
           // The press also reaches the card, so a drop on a column still changes the status; a drop on Pinned pins.
-          onMouseDown={(e: React.MouseEvent) => { if (e.button === 0) startPinDrag(e.nativeEvent, { request: { kind: 'object', path: row.path.normalize('NFC') }, label: row.title, icon: 'check-square' }); }}
+          onMouseDown={(e: React.MouseEvent) => { if (e.button === 0 && !isPhone()) startPinDrag(e.nativeEvent, { request: { kind: 'object', path: row.path.normalize('NFC') }, label: row.title, icon: 'check-square' }); }}
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
           <span data-user-content>{row.title}</span>
         </RefElement>
-        <button type="button" tabIndex={inner} data-command="task.setStatus" className="task-more icon-button" aria-label={t('task.more', { title: row.title })} aria-haspopup="menu"
+        {!isPhone() && <button type="button" tabIndex={inner} data-command="task.setStatus" className="task-more icon-button" aria-label={t('task.more', { title: row.title })} aria-haspopup="menu"
           onClick={(e) => { e.stopPropagation(); onMenu(row, e.currentTarget, e.currentTarget.closest('article')); }}>
           <Icon name="more-horizontal" size={14} />
-        </button>
+        </button>}
       </div>
       {shownTags.length > 0 && (
         <div className="task-tags">

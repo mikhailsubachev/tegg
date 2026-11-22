@@ -26,6 +26,7 @@ import { lastTab, lastTabOf, setLastTab, setTagFilter, tagFilterOf } from './uiS
 import { tagFilterKey } from './tagFilter';
 import { lastFocused, useViewsHandler } from './actions';
 import { ViewPanel, type PanelApi, type TabFilter, type ViewState } from './ViewPanel';
+import { isPhone } from '../phone/layout';
 import './views.css';
 
 const nfc = (s: string) => s.normalize('NFC');
@@ -394,6 +395,9 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce }: 
   const groupName = (() => { const k = defaultGroupBy(cur); return k === 'tags' ? t('attr.tags') : cur.attributes.find((a) => nfc(a.key) === k)?.name ?? k; })();
 
   const selectedItem = shownName === null ? null : items.find((it) => it.name === shownName) ?? null;
+  // Slice AND-2 (android-phone §9.5, RA11): on the phone the tabs are chips that only select: no `Add view`, chevron,
+  // view menu or tab drag.
+  const phone = isPhone();
   return (
     <>
       <div className="view-bar">
@@ -424,15 +428,15 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce }: 
                   data-view-state={st && (on || it.draft || st === 'trashed' || st === 'missing') ? st : undefined} aria-selected={on} aria-haspopup={it.draft ? undefined : 'menu'}
                   aria-posinset={i + 2} aria-setsize={items.length + 1} tabIndex={on ? 0 : -1}
                   className={`view-tab${on ? ' on' : ''}${tabDrag?.name === it.name ? ' dragging' : ''}${dropBefore ? ' drop-before' : ''}${dropAfter ? ' drop-after' : ''}`}
-                  onMouseDown={it.draft ? undefined : startTabDrag(it.name)}
+                  onMouseDown={it.draft || phone ? undefined : startTabDrag(it.name)}
                   onClick={() => { if (!on) select(it.name); }}
-                  onContextMenu={(e) => { e.preventDefault(); if (!it.draft) setMenu({ name: it.name, anchor: e.currentTarget, toolbar: false, at: { x: e.clientX, y: e.clientY } }); }}
+                  onContextMenu={(e) => { e.preventDefault(); if (!it.draft && !phone) setMenu({ name: it.name, anchor: e.currentTarget, toolbar: false, at: { x: e.clientX, y: e.clientY } }); }}
                   onKeyDown={(e) => {
-                    if (e.key === 'F10' && e.shiftKey && !it.draft) { e.preventDefault(); e.stopPropagation(); setMenu({ name: it.name, anchor: e.currentTarget, toolbar: false }); }
+                    if (e.key === 'F10' && e.shiftKey && !it.draft && !phone) { e.preventDefault(); e.stopPropagation(); setMenu({ name: it.name, anchor: e.currentTarget, toolbar: false }); }
                   }}>
                   <span data-icon={it.kind ?? 'table'} className="view-tab-icon" aria-hidden="true"><Icon name={it.kind ?? 'table'} size={14} /></span>
                   <span data-user-content={it.draft ? undefined : ''}>{it.label}</span>
-                  {on && !it.draft && (
+                  {on && !it.draft && !phone && (
                     <span className="view-chevron" data-view-chevron="" aria-hidden="true"
                       onMouseDown={(e) => e.stopPropagation()}
                       onClick={(e) => { e.stopPropagation(); setMenu({ name: it.name, anchor: e.currentTarget.parentElement as HTMLElement, toolbar: false }); }}>
@@ -443,11 +447,11 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce }: 
               );
             })}
           </div>
-          <button ref={addBtn} type="button" tabIndex={0} className="icon-button view-add" aria-label={t('views.add')} title={t('views.add')} aria-haspopup="menu" aria-expanded={addOpen}
+          {!phone && <button ref={addBtn} type="button" tabIndex={0} className="icon-button view-add" aria-label={t('views.add')} title={t('views.add')} aria-haspopup="menu" aria-expanded={addOpen}
             data-command="views.new" aria-disabled={writable ? undefined : 'true'} aria-description={writable ? undefined : reason ?? undefined}
             onClick={() => { if (writable) setAddOpen((o) => !o); }}>
             <Icon name="plus" size={14} />
-          </button>
+          </button>}
         </aside>
         <div className="view-toolbar-slot" ref={setSlot}>{shownName === null && all.toolbar}</div>
       </div>

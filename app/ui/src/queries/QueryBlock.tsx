@@ -22,6 +22,8 @@ import { canUseQuery, usageKey, type Usage } from '../views/usage';
 import { registerUsage } from '../views/usageHook';
 import { useUsageWrite } from '../views/useUsageWrite';
 import { LanesSwitch, QueryBoard, type BoardControl } from './board/QueryBoard';
+import { isPhone } from '../phone/layout';
+import { phoneSortLine } from '../phone/sortLine';
 import { ResultsTable } from './ResultsTable';
 import { SortPopover, sortKeyName } from './SortPopover';
 import { useQueryApply } from './useQueryApply';
@@ -339,7 +341,10 @@ export function QueryBlock(p: QueryBlockProps) {
     },
   });
   const host = p.host;
-  const foot = showResults && host && def && !inline && !readOnly ? prefill(def, host, types) : null;
+  // Slice AND-2 (android-phone §9.6, RA11): on the phone a block is view only: its header keeps the title and the count;
+  // no Edit query, sort, Columns, Lanes, Save as query…, state buttons or New <Type>; a query page adds the view-only line.
+  const phone = isPhone();
+  const foot = showResults && host && def && !inline && !readOnly && !phone ? prefill(def, host, types) : null;
   const typeName = (k: string) => types.find((x) => nfc(x.key) === nfc(k))?.name ?? typeNameOf(k);
 
   if (p.onPage && (state === 'needsHost' || state === 'needsContext')) {
@@ -353,7 +358,7 @@ export function QueryBlock(p: QueryBlockProps) {
   }
 
   const message = (() => {
-    const btn = (label: string, on: () => void, primary = false) => (
+    const btn = (label: string, on: () => void, primary = false) => phone ? null : (
       <button type="button" tabIndex={0} className={`query-msg-button${primary ? ' primary' : ''}`} data-command="query.block.action" onClick={on}>{label}</button>
     );
     switch (state) {
@@ -436,7 +441,7 @@ export function QueryBlock(p: QueryBlockProps) {
       {/* D-1515: the result count also as hidden text, for the macOS tree (D-1424's way). */}
       {showResults && <span className="sr-only" data-description-text="">{t('query.editor.results', { count: total })}</span>}
       <span className="query-header-gap" />
-      {inline ? (
+      {phone ? null : inline ? (
         p.ctl && showResults && <button type="button" tabIndex={0} className="query-head-button" data-command="query.saveAs" onClick={saveAs}>{t('query.block.saveAs')}</button>
       ) : (
         <>
@@ -515,10 +520,11 @@ export function QueryBlock(p: QueryBlockProps) {
         if (e.key === 'Enter' && e.metaKey && !e.shiftKey && !e.altKey) { e.preventDefault(); e.stopPropagation(); edit(); }
       }}>
       {header}
+      {phone && p.onPage && showResults && def && <p className="phone-sort-line">{phoneSortLine(effSort, def.types.length === 1 ? types.find((x) => nfc(x.key) === nfc(def.types[0])) : undefined)}</p>}
       {showResults && firstBroken && (
         <p className="query-notice">
           <Icon name="warning" size={13} />{noticeOf(firstBroken, types)}{' '}
-          {firstBroken.reason !== 'noType' && firstBroken.reason !== 'badValue' && !inline && !readOnly && name && (
+          {firstBroken.reason !== 'noType' && firstBroken.reason !== 'badValue' && !inline && !readOnly && name && !phone && (
             <button type="button" tabIndex={0} className="text-button" data-command="query.edit" onClick={() => edit({ focusFilter: firstBroken.at })}>{t('query.block.fixFilter')}</button>
           )}
         </p>
