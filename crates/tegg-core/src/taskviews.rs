@@ -15,7 +15,7 @@ pub const TASK_VIEW_NAMES: [&str; 2] = ["Schedule", "Kanban"];
 
 const TASK_YML: &str = "task.yml";
 
-/// R202's def of `Schedule` or `Kanban` (None for any other name). `create_text(&def, now, None)` gives R202's bytes.
+/// R202's def of `Schedule` or `Kanban` (None for any other name). `default_task_view_text` gives R202's bytes.
 pub fn default_task_view(name: &str) -> Option<QueryDef> {
     let (group_by, period, lanes, folded) = match name {
         "Schedule" => ("due", true, Lanes::Horizontal, true),
@@ -39,12 +39,19 @@ pub fn default_task_view(name: &str) -> Option<QueryDef> {
     })
 }
 
+/// R202's bytes of `Schedule` or `Kanban` (D-1936): `queries_q::create_text_unstamped` of `default_task_view`, without
+/// `created` / `modified`, so every Mac writes the same bytes. None for any other name.
+pub fn default_task_view_text(name: &str) -> Option<String> {
+    default_task_view(name).map(|d| queries_q::create_text_unstamped(&d))
+}
+
 /// §25.2: the outcome of `Core::task_views_migrate`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TaskViewsMigration {
     /// Task has a `views` key, any value (`views: []` included).
     NotNeeded,
-    /// `task.yml` is Newer, invalid, or its `views` unreadable: nothing written.
+    /// `task.yml` is missing, Newer, invalid, or its `views` unreadable, or the vault has online-only placeholders
+    /// (D-1936): nothing written.
     Skipped,
     /// `created`: vault paths; `views`: the names written.
     Done { created: Vec<String>, views: Vec<String> },
@@ -96,38 +103,40 @@ impl Core {
 
     /// §25.2 step 2: creates the default file `name` unless a live query resolves to it (D-1434). Ok(Some(path)) when
     /// created, Ok(None) when the name is taken (a create race's `NameTaken` included).
-    fn create_default_view(&self, name: &str, now: &str) -> Result<Option<String>, CoreError> {
+    fn create_default_view(&self, name: &str) -> Result<Option<String>, CoreError> {
         let q = self.q();
         if q.taken(name) {
             return Ok(None);
         }
-        let def = default_task_view(name).expect("a default task view name");
-        match q.create_query_file(name, &queries_q::create_text(&def, now, None)) {
+        let text = default_task_view_text(name).expect("a default task view name");
+        match q.create_query_file(name, &text) {
             Ok(_) => Ok(Some(nfc(&format!("{QUERIES_DIR}/{name}.yml")))),
             Err(CoreError::Query(QueryError::NameTaken)) => Ok(None),
             Err(e) => Err(e),
         }
     }
 
-    /// R202 (§25.2, D-1901, D-1919): writes the default task views and `task.yml`'s `views:` once. Never alerts; the
-    /// caller ignores the outcome except for logging. `Core::open` never calls it (zero-write open); the app calls it
-    /// for a newly opened core, tests call it directly.
-    pub fn task_views_migrate(&self, now: &str) -> TaskViewsMigration {
+    /// R202 (§25.2, D-1901, D-1919, D-1936): writes the default task views and `task.yml`'s `views:` once. Never alerts;
+    /// the caller ignores the outcome except for logging. `Core::open` never calls it (zero-write open); the app calls
+    /// it for a newly opened core, tests call it directly. Skips (writes nothing) when unsure on a synced vault: no
+    /// `task.yml` yet, or online-only placeholders. `_now` is unused: the default files carry no time stamps (D-1936).
+    pub fn task_views_migrate(&self, _now: &str) -> TaskViewsMigration {
         let file = match self.task_file() {
             Ok(f) => f,
             Err(e) => return TaskViewsMigration::Stopped { created: Vec::new(), reason: kind_of(&e) },
         };
-        if file.base.is_some() {
-            if file.info.readability != Readability::Ok || file.info.views_unreadable {
-                return TaskViewsMigration::Skipped;
-            }
-            if file.info.def.views.is_some() {
-                return TaskViewsMigration::NotNeeded;
-            }
+        if file.base.is_none() || !self.placeholders().is_empty() {
+            return TaskViewsMigration::Skipped;
+        }
+        if file.info.readability != Readability::Ok || file.info.views_unreadable {
+            return TaskViewsMigration::Skipped;
+        }
+        if file.info.def.views.is_some() {
+            return TaskViewsMigration::NotNeeded;
         }
         let mut created = Vec::new();
         for name in TASK_VIEW_NAMES {
-            match self.create_default_view(name, now) {
+            match self.create_default_view(name) {
                 Ok(Some(p)) => created.push(p),
                 Ok(None) => {}
                 Err(e) => return TaskViewsMigration::Stopped { created, reason: kind_of(&e) },
@@ -144,7 +153,8 @@ impl Core {
     /// R202 `Restore default views` (§25.3, CP-26, D-1918): creates the missing default files (exclusively), then writes
     /// `views:` with `Schedule` first and `Kanban` right after it when missing. `Err(Query(NothingToDo))` when both names
     /// are listed and resolve to live queries. A refused type write returns its error; files already created stay.
-    pub fn task_views_restore(&self, base: Option<&FileVersion>, now: &str) -> Result<TaskViewsRestore, CoreError> {
+    /// `_now` is unused: the default files carry no time stamps (D-1936).
+    pub fn task_views_restore(&self, base: Option<&FileVersion>, _now: &str) -> Result<TaskViewsRestore, CoreError> {
         let file = self.task_file()?;
         match &file.info.readability {
             Readability::Newer(_) => return Err(CoreError::Schema(SchemaError::NewerVersion)),
@@ -163,7 +173,7 @@ impl Core {
         let before = file.info.views_source.clone().filter(|_| file.info.def.views.is_some());
         let mut created = Vec::new();
         for name in TASK_VIEW_NAMES {
-            if let Some(p) = self.create_default_view(name, now)? {
+            if let Some(p) = self.create_default_view(name)? {
                 created.push(p);
             }
         }

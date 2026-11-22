@@ -167,11 +167,11 @@ fn row(o: &ObjectInfo, defs: &TaskDefs, resolver: &Resolver, st: tegg_index::Not
 
 /// v1-views §24.4 (CP-24, D-1916): a query row's `TaskRow`, from the query evaluator's index read (no file read, no
 /// second lock). `source` resolves through the index's own resolution of the object's `source` link.
-pub(crate) fn query_task_row(o: &tegg_index::QueryObject, objs: &[tegg_index::QueryObject], defs: &TaskDefs, st: tegg_index::NoteState) -> Option<TaskRow> {
+pub(crate) fn query_task_row(o: &tegg_index::QueryObject, objs: &[tegg_index::QueryObject], by_path: &PathMap, defs: &TaskDefs, st: tegg_index::NoteState) -> Option<TaskRow> {
     let fm = o.attributes.as_object()?;
     let source = fm.get("source").and_then(link_inner).map(|t| {
         let to = o.attr_links.iter().find(|(a, _, _)| nfc(a) == "source").and_then(|(_, _, p)| *p);
-        query_link(objs, t, to)
+        query_link(objs, by_path, t, to)
     });
     Some(build(Fields { path: o.path, id: o.id, title: o.title, tags: o.tags }, fm, defs, source, st))
 }
@@ -220,13 +220,16 @@ fn build(o: Fields, fm: &serde_json::Map<String, Value>, defs: &TaskDefs, source
     }
 }
 
+/// A run's objects by path (built once per run; QA S2 of Q2-T, NFR-PERF-07).
+pub(crate) type PathMap<'a> = std::collections::HashMap<&'a str, usize>;
+
 /// A link target from the query evaluator's index read (v1-views §24.4): `to` is the index's resolution of `target`.
-pub(crate) fn query_link(objs: &[tegg_index::QueryObject], target: String, to: Option<&str>) -> LinkTarget {
+pub(crate) fn query_link(objs: &[tegg_index::QueryObject], by_path: &PathMap, target: String, to: Option<&str>) -> LinkTarget {
     let date = {
         let bare = target.split(['|', '#']).next().unwrap_or("").trim();
         bare.len() == 10 && chrono::NaiveDate::parse_from_str(bare, "%Y-%m-%d").is_ok()
     };
-    match to.and_then(|p| objs.iter().find(|x| x.path == p)) {
+    match to.and_then(|p| by_path.get(p)).map(|&i| &objs[i]) {
         Some(x) => LinkTarget {
             target,
             kind: if date && x.daily.is_some() { crate::LinkKind::Daily } else { crate::LinkKind::Note },

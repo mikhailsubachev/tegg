@@ -1,6 +1,7 @@
 // Slice Q2-T: `Restore default views` (docs/contracts/v1-views.md §25.3, §28.1, §29.10; R202, AP-1539, CP-26, D-1918;
 // FR-TYP-01 AC-11). The core creates the missing default files (exclusive) and then writes Task's `views:`; one Undo
-// (the toast's, 8 s) puts the `views` lines back byte for byte, then moves the created files to the trash.
+// (the toast's, 8 s) puts the `views` lines back byte for byte (D-1937: `views: []` when there was no key), then moves
+// the created files to the trash.
 import { t, catalogLocale } from '../i18n/catalog';
 import { errorKind, ipc } from '../ipc/client';
 import type { QuerySummaryDto } from '../ipc/queries';
@@ -54,7 +55,10 @@ export async function restoreDefaultViews(type: TypeDto | null | undefined, relo
     done = true;
     hideToast();
     try {
-      await ipc.typePatch('task', r.type.version, [{ op: 'viewsSource', source: r.before ?? '' }]);
+      // D-1937: the previous `views:` source when the key existed; else `views: []` (no tabs, and the on-open migration
+      // never adds them again), also when Restore created `task.yml`.
+      const ops = r.before !== null ? [{ op: 'viewsSource' as const, source: r.before }] : [{ op: 'views' as const, names: [] as string[] }];
+      await ipc.typePatch('task', r.type.version, ops);
     } catch {
       void reload();
       showAlert(t('views.changedOutside', { plural: type?.plural ?? r.type.plural }));

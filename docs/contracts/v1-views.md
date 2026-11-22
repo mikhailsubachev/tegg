@@ -1622,30 +1622,35 @@ pub struct QueryResult {
   same index entry; `task_defs` is filled once per result. No file read.
 - `query_run` still takes one index lock; nothing in a run writes.
 
-## 25. Default task views (R202; D-1777, D-1897, D-1901, D-1902, D-1913)
+## 25. Default task views (R202; D-1777, D-1897, D-1901, D-1902, D-1913, D-1936)
 
 ### 25.1 The default files
 
 ```rust
 // crates/tegg-core/src/taskviews.rs (new, `pub mod taskviews`, re-exported; AR-03)
 pub const TASK_VIEW_NAMES: [&str; 2] = ["Schedule", "Kanban"];
-/// R202's def of `Schedule` or `Kanban` (None for any other name). `create_text(&def, now, None)` gives R202's bytes.
+/// R202's def of `Schedule` or `Kanban` (None for any other name).
 pub fn default_task_view(name: &str) -> Option<QueryDef>;
+/// R202's bytes: `queries_q::create_text_unstamped(&default_task_view(name)?)` (D-1936).
+pub fn default_task_view_text(name: &str) -> Option<String>;
+// queries_q: `create_text` without the `created` / `modified` lines (both optional when read, R138).
+pub fn create_text_unstamped(def: &QueryDef) -> String;
 ```
 
 - `Schedule`: `types [task]`, `match all`, `filters [status state_is_not cancelled]`, `sort [due asc, priority asc]`,
   `limit 50`, `view Board`, `group_by due` with `group_period: true`, `lanes Horizontal`, `lane_order None`,
   `done_lane { 7, folded: true }`, `columns []`. `Kanban`: the same with `group_by status` (`group_period: false`),
   `lanes Vertical`, `done_lane { 7, folded: false }`. Titles and names are English (D-1897).
-- `now` is the instant of the write, `YYYY-MM-DDTHH:MM:SS±HH:MM` in the local zone (the format of `created` /
-  `modified`); with `TEGG_TEST=1` and `TEGG_NOW` it is that instant in the process zone (`TZ`, D-504).
+- **No time stamps (D-1936):** the default files have no `created` / `modified`, so every Mac writes the same bytes
+  and two Macs migrating before they sync make no conflict copy. A later commit inserts `modified:` at its R138 place.
+  The `now` parameters of `task_views_migrate` / `task_views_restore` are kept and unused.
 
 ### 25.2 The migration (AP-1538, AP-1550)
 
 ```rust
 pub enum TaskViewsMigration {
     NotNeeded,                                              // Task has a `views` key, any value (`views: []` included)
-    Skipped,                                                // task.yml Newer, invalid, or `views` unreadable: nothing written
+    Skipped,                                                // no task.yml, placeholders, task.yml Newer, invalid, or `views` unreadable: nothing written
     Done { created: Vec<String>, views: Vec<String> },      // created: vault paths; views: the names written
     Stopped { created: Vec<String>, reason: String },       // a create or the views write failed; `reason` = the error kind
 }
@@ -1655,22 +1660,23 @@ impl Core {
 }
 ```
 
-1. Read the Task type: `.tegg/types/task.yml` absent → the built-in definition (D-90), base None. Present: `Newer`,
-   invalid, or `views_unreadable` → `Skipped`; `views` Some (any list) → `NotNeeded`; None → go on, base = its version.
+1. Read the Task type: `.tegg/types/task.yml` absent, or `Core::placeholders()` not empty (online-only files,
+   FR-VLT-03) → `Skipped`, nothing written (D-1936: a Mac that opens a synced vault before `task.yml` arrives must not
+   write a built-in one). Present: `Newer`, invalid, or `views_unreadable` → `Skipped`; `views` Some (any list) →
+   `NotNeeded`; None → go on, base = its version.
 2. For `Schedule`, then `Kanban`: when a **live** query resolves to the name (D-1434: NFC, case-insensitive; `.trash/`
    copies don't count; `QCore::taken`) it is left alone, neither read for content nor written. Otherwise
-   `create_query_file(name, create_text(default_task_view(name), now, None))` (exclusive `create_exact`, `free: false`).
+   `create_query_file(name, default_task_view_text(name))` (exclusive `create_exact`, `free: false`).
    `NameTaken` from the create (a race) counts as taken. Any other error → `Stopped` (files already created stay).
 3. `type_patch("task", base, [TypeOp::SetViews(["Schedule", "Kanban"])])`: one minimal write inserting the line at R184's
-   place (line 11 of new-empty's file); without `task.yml`, the built-in file plus the line, created exclusively (as
-   part one §1.3). `Conflict` (the file changed since step 1, FR-QRY-07 AC-29) or any error → `Stopped`; the next open
-   retries on the new bytes.
+   place (line 11 of new-empty's file). `Conflict` (the file changed since step 1, FR-QRY-07 AC-29) or any error →
+   `Stopped`; the next open retries on the new bytes.
 4. `Done`. No restore point. The writes emit `VaultChanged` as every core write.
 
 **Where it runs (CP-27, D-1919).** `app/src-tauri/src/lib.rs` `open_vault`, right after a **new** `Core` is opened and
 before `VaultInfo` is returned (not on a reattach of a held core, so it runs at most once per session per vault), when
 `task_views_enabled()`: `TEGG_TEST` isn't `1`, or `TEGG_TEST_TASK_VIEWS=1` (D-1913). `vault_create` reaches it through
-`open_vault`, so a new vault gets the same files and line (FR-QRY-07 AC-27). `Core::open` stays zero-write. L4 tests call
+`open_vault`, so a new vault (whose `task.yml` `Vault::create` writes) gets the same files and line (FR-QRY-07 AC-27). `Core::open` stays zero-write. L4 tests call
 `Core::task_views_migrate` directly ("migrations on").
 
 **Old UI state** (AP-1538): `adoptTasksUi` (§30.3), in the UI, independent of the vault migration.
@@ -1691,7 +1697,9 @@ impl Core {
 ```
 
 - Refusals before any write: a `Newer` or invalid `task.yml` and `views_unreadable` → the same errors `type_patch` gives
-  for them (part one §1.3, `Rule(ViewsUnreadable)` included); nothing to restore → `Query(NothingToDo)`.
+  for them (part one §1.3, `Rule(ViewsUnreadable)` included); nothing to restore → `Query(NothingToDo)`. Without
+  `task.yml` the restore still writes the built-in file plus the line, created exclusively (an explicit user action,
+  D-1936).
 - Then, for `Schedule` then `Kanban`, step 2 of §25.2 (a changed existing file is never touched; a trashed copy stays in
   `.trash/.tegg/queries/`). Then the names: `views` (names) with `Schedule` inserted first when missing and `Kanban`
   inserted right after `Schedule` (first when `Schedule` isn't listed); other names keep their order; a name is
@@ -2160,9 +2168,9 @@ variants). `tasks/` hold whole files after the write, `modified:` per the clock.
 
 | File | Input → action | Criteria |
 | --- | --- | --- |
-| `queries/schedule-default.yml`, `queries/kanban-default.yml` | R202 with `<stamp>` the clock | FR-QRY-07 AC-27, AC-28, FR-TYP-01 AC-11 |
+| `queries/schedule-default.yml`, `queries/kanban-default.yml` | R202's bytes, no time stamps (D-1936) | FR-QRY-07 AC-27, AC-28, FR-TYP-01 AC-11 |
 | `types/task-migrated.yml` | base `task.yml` + line 11 `views: [Schedule, Kanban]` | FR-QRY-07 AC-27, AC-28 |
-| `types/task-builtin-migrated.yml` | no `task.yml`: the built-in file + the line | AC-28 (a) |
+| `types/task-builtin-migrated.yml` | no `task.yml`: the built-in file + the line (`Restore default views`; the migration writes nothing there since D-1936) | FR-TYP-01 AC-11 |
 | `types/task-overlay-without-kanban.yml`, `types/task-overlay-without-schedule.yml` | overlay; `Move to trash` on `Kanban`; `Remove from Tasks page` on `Schedule` | FR-TYP-01 AC-11 (the restore of either gives the overlay's `task.yml`) |
 | `types/task-overlay-schedule-sort-title.yml` | overlay; `Schedule` one level `Title A → Z` | FR-QRY-01 AC-19 |
 | `types/task-overlay-kanban-add-title.yml` | overlay; `+ Add sort` on `Kanban` | AC-19 |

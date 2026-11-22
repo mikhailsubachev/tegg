@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.216, for review                                            |
+| **Document status** | Draft v1.217, for review                                            |
 | **Date**            | 2026-11-19                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -226,6 +226,7 @@
 | v1.214  | 2026-11-20 | Slice Q2-T red tests: D-1924…D-1928 (owner, each as proposed): more changed tests under D-1912, an already-green schema test dropped, type-only test edits for the stubs, red-test clarifications, the order of the test commits |
 | v1.215  | 2026-11-20 | Slice Q2-T build: D-1929 (test fixes to the decided behaviour), D-1930 (lane counts on every single-type board), D-1931 (the week lane's order) |
 | v1.216  | 2026-11-20 | Slice Q2-T push gate: D-1932 (older Kanban tests get the default views), D-1933 (the Tasks page is not pinnable), D-1934 (`typeSort` is always a list) |
+| v1.217  | 2026-11-22 | QA review of slice Q2-T: D-1935 (FR-SYN-06 AC-22 checks the real Schedule grouping), D-1936 (the migration skips without `task.yml` or with online-only files; identical default bytes on every Mac), D-1937 (Undo of Restore writes `views: []` when there was no key) |
 
 ---
 
@@ -1974,6 +1975,9 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1932 | Older tests that open Kanban (owner, 2026-11-20; slice Q2-T push gate) | `keyboard` (the `tasks` / `tasks/kanban` rows), `search_goto` and `pinned_drag`'s Kanban source run on vaults with the default task views, as D-1924, since `Show Kanban` is listed only when Task's `views` names Kanban (R207) (`AC-Test-Change`) |
 | D-1933 | The Tasks page is not pinnable (owner, 2026-11-20; slice Q2-T push gate) | `type/task` has its fixed sidebar entry, so like Inbox it offers no `Pin to sidebar` (palette, type page, Types entry); pinned.md FR-HOM-02 AC-7 stays |
 | D-1934 | `typeSort` is always a list (owner, 2026-11-20; slice Q2-T push gate) | The machine-local sort of `All <plural>` is written as a list of levels even for one level (D-1907, contract §30.3); 0.4.x `{ column, dir }` values are still read. type_page FR-TYP-09 AC-3 expects the list (`AC-Test-Change`) |
+| D-1935 | FR-SYN-06 AC-22 checks the real Schedule (owner, 2026-11-22; QA review of slice Q2-T, `qa/reviews/q2t-tasks-build.md`) | `tasks_property.ac.test.ts` `fr_syn_06_ac22_every_task_lands_in_exactly_one_place` runs the default Schedule query (`defaultTaskView('Schedule')`) over the generated vaults and asserts on its lanes and days: every open task once, Done only in the done lane (within its window), Cancelled nowhere, as its Kanban half does (QA M1; restores what D-1929 must keep) (`AC-Test-Change`) |
+| D-1936 | The migration skips when unsure (synced vaults) (owner, 2026-11-22; QA review of slice Q2-T, `qa/reviews/q2t-tasks-build.md`) | On vault open the task-views migration runs only when `.tegg/types/task.yml` exists and the vault has no online-only placeholders; without `task.yml` nothing is written (a new vault gets the views at `vault_create`, an old one through `Restore default views`). The default `Schedule.yml` and `Kanban.yml` have the same bytes on every Mac (no per-Mac time stamps), so two Macs migrating before they sync write identical files. Amends D-1901 and FR-QRY-07 AC-28 (a), whose test and expected bytes change (QA S1) (`AC-Test-Change`, `Fixture-Change`) |
+| D-1937 | Undo of `Restore default views` (owner, 2026-11-22; QA review of slice Q2-T, N2) | Undo puts back the previous `views:` source when the key existed; when it didn't (including a `task.yml` that Restore created), Undo writes `views: []`, so no tabs show and the on-open migration (D-1936) doesn't add them again |
 
 ---
 

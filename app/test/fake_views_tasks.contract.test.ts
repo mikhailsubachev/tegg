@@ -11,7 +11,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { columnsDefault, handle, queryCreateText, queryPatch, queryRead, queryRun, type QueryDefDto } from '../ui/test/fake-queries';
 import { handle as handleSchema, listTypes } from '../ui/test/fake-schema';
-import { defaultTaskView, migrate, restore } from '../ui/test/fake-taskviews';
+import { defaultTaskView, defaultTaskViewText, migrate, restore } from '../ui/test/fake-taskviews';
 
 const REPO = resolve(import.meta.dirname, '../..');
 const QFX = resolve(REPO, 'tests/fixtures/queries-files');
@@ -116,8 +116,9 @@ test('the twin fills the Q2-T fields of rows and results', async () => {
 // ------------------------------------------------------------------------------------------------ query-file bytes (§31.4)
 
 test('the default task views give R202\'s bytes', () => {
-  assert.equal(queryCreateText(defaultTaskView('Schedule')!, NOW), expected('queries/schedule-default.yml'));
-  assert.equal(queryCreateText(defaultTaskView('Kanban')!, NOW), expected('queries/kanban-default.yml'));
+  // D-1936: no `created` / `modified`, the same bytes on every Mac.
+  assert.equal(defaultTaskViewText('Schedule'), expected('queries/schedule-default.yml'));
+  assert.equal(defaultTaskViewText('Kanban'), expected('queries/kanban-default.yml'));
   assert.equal(defaultTaskView('Other'), null);
 });
 
@@ -155,7 +156,9 @@ test('the migration gives task-migrated.yml and the default files once', async (
   const noYml = base();
   delete noYml[TASK_YML];
   const b = await migrate(noYml, versOf(noYml), NOW);
-  assert.equal(b.writes![TASK_YML], expected('types/task-builtin-migrated.yml'), 'without task.yml: the built-in file plus the line');
+  assert.deepEqual([(b.result as any).kind, b.writes ?? {}], ['Skipped', {}], 'without task.yml: nothing written (D-1936)');
+  const ph = await migrate(base(), versOf(base()), NOW, { placeholders: 2 });
+  assert.deepEqual([(ph.result as any).kind, ph.writes ?? {}], ['Skipped', {}], 'online-only placeholders: nothing written (D-1936)');
   const user = { ...base(), '.tegg/queries/schedule.yml': 'version: 1\ntitle: schedule\ntypes: [page]\nview: table\n' };
   const u = await migrate(user, versOf(user), NOW);
   assert.deepEqual(Object.keys(u.writes ?? {}).sort(), [qfile('Kanban'), TASK_YML].sort(), 'a live `schedule` is taken (name key)');

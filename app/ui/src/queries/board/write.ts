@@ -21,6 +21,10 @@ export type CardMoveResult =
 const sameVersion = (a: VersionDto | null | undefined, b: VersionDto | null | undefined) =>
   !!a && !!b && (a.hash && b.hash ? a.hash === b.hash && a.size === b.size : JSON.stringify(a) === JSON.stringify(b));
 const inFlight = new Map<string, Promise<unknown>>();
+/** QA S3: per path, the unbroken chain of versions this window's own board writes went through (the version replaced,
+ *  then each one written). A queued write whose row is any version in the chain, while the file is at its end, builds
+ *  on this window's own writes (not an outside change); any outside write breaks the chain (as tasks/write.ts). */
+const chains = new Map<string, VersionDto[]>();
 
 /** A change of a note's text: the new text (before `touchModified`), or null for nothing to write. */
 export type CardChange = (text: string) => { text: string; inlineKept: boolean } | null;
@@ -55,13 +59,18 @@ async function doWrite(row: QueryRowDto, change: CardChange): Promise<CardMoveRe
   } catch (e) {
     return { outcome: (e as { kind?: string })?.kind === 'NotFound' ? 'gone' : 'failed' };
   }
-  if (!sameVersion(note.version, row.version)) return { outcome: 'conflict' };
+  const key = row.path.normalize('NFC');
+  const chain = chains.get(key) ?? [];
+  const ours = chain.length > 1 && sameVersion(chain[chain.length - 1], note.version) && chain.some((v) => sameVersion(v, row.version));
+  if (!sameVersion(note.version, row.version) && !ours) return { outcome: 'conflict' };
   if (!note.utf8) return { outcome: 'unchanged' };
   const r = change(note.text);
   if (!r) return { outcome: 'unchanged' };
   const text = touchModified(note.text, r.text, localIso(new Date(Date.now())));
   try {
-    await ipc.noteWrite(row.path, text, note.version);
+    const w = await ipc.noteWrite(row.path, text, note.version);
+    const prev = chains.get(key);
+    if (w?.version) chains.set(key, prev && sameVersion(prev[prev.length - 1], note.version) ? [...prev.slice(-15), w.version] : [note.version, w.version]);
     if (row.type.normalize('NFC') === 'task') tasksWritten();
     return { outcome: 'written', inlineKept: r.inlineKept };
   } catch (e) {

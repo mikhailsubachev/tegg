@@ -1,6 +1,7 @@
 // Fake core, slice Q2-T (docs/contracts/v1-views.md §25, §31.1): the default task views (R202), the migration
 // (`Core::task_views_migrate`, §25.2) and `task_views_restore` (§25.3) over the fake's in-memory files, in Node. The
-// default files' bytes are fake-queries.ts's `queryCreateText` of `defaultTaskView(name)`; the `views:` write is
+// default files' bytes are fake-queries.ts's `queryCreateText` of `defaultTaskView(name)` without `created` /
+// `modified` (D-1936: the same bytes on every Mac, as the core's `create_text_unstamped`); the `views:` write is
 // fake-schema.ts's `type_patch` (the same minimal write as the core's `SetViews`). Test code, not product code.
 import { handle as schemaHandle, listTypes, type VersionDto } from './fake-schema';
 import { QUERIES_DIR, findLive, nameKey, queryCreateText, type QueryDefDto } from './fake-queries';
@@ -26,12 +27,18 @@ type Answer = { result?: unknown; error?: Record<string, unknown>; writes?: Reco
 const err = (kind: string, message: string, extra: Record<string, unknown> = {}) => ({ kind, message: `fake: ${message}`, ...extra });
 const taskType = (files: Files, vers: Record<string, VersionDto>) => listTypes(files, vers).find((t) => t.key === 'task') as any;
 
+/** §25.1 (D-1936): R202's bytes of a default view, with no time stamps (identical on every Mac). */
+export function defaultTaskViewText(name: string): string | null {
+  const def = defaultTaskView(name);
+  return def ? queryCreateText(def, '\u0000').replace(/^(created|modified): \u0000\n/gm, '') : null;
+}
+
 /** The default files missing as live queries (§25.2 step 2): `{ path: text }` in R202 order. */
-function creates(files: Files, now: string): Record<string, string> {
+function creates(files: Files, _now: string): Record<string, string> {
   const out: Record<string, string> = {};
   for (const name of TASK_VIEW_NAMES) {
     if (findLive(files, name)) continue;
-    out[`${QUERIES_DIR}/${name}.yml`] = queryCreateText(defaultTaskView(name)!, now);
+    out[`${QUERIES_DIR}/${name}.yml`] = defaultTaskViewText(name)!;
   }
   return out;
 }
@@ -41,9 +48,12 @@ async function setViews(files: Files, vers: Record<string, VersionDto>, base: Ve
 }
 
 /** §25.2: `NotNeeded` (a `views` key), `Skipped` (Newer, invalid, unreadable `views`), `Done`, or `Stopped`. */
-export async function migrate(files: Files, vers: Record<string, VersionDto>, now: string): Promise<Answer> {
+export async function migrate(files: Files, vers: Record<string, VersionDto>, now: string, o: { placeholders?: number } = {}): Promise<Answer> {
   const t = taskType(files, vers);
   const exists = files[TASK_YML] !== undefined;
+  // D-1936 (as the core): only a vault with a `task.yml` and no online-only placeholders is migrated; nothing is written
+  // otherwise.
+  if (!exists || (o.placeholders ?? 0) > 0) return { result: { kind: 'Skipped' } };
   if (exists && (!t || t.state === 'newer' || t.state === 'invalid' || t.invalid || t.viewsUnreadable)) return { result: { kind: 'Skipped' } };
   if (exists && t.views !== null) return { result: { kind: 'NotNeeded' } };
   const made = creates(files, now);
@@ -82,7 +92,7 @@ export async function restore(files: Files, vers: Record<string, VersionDto>, ba
 
 export async function handle(cmd: string, a: any, files: Files, vers: Record<string, VersionDto>): Promise<Answer> {
   switch (cmd) {
-    case 'task_views_migrate': return migrate(files, vers, String(a.now));
+    case 'task_views_migrate': return migrate(files, vers, String(a.now), { placeholders: Number(a.placeholders ?? 0) });
     case 'task_views_restore': return restore(files, vers, a.base ?? null, String(a.now));
     default: return { error: err('Io', `unknown command ${cmd}`) };
   }

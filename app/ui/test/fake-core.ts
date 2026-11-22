@@ -1762,7 +1762,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
     if (!opts.taskViews || !state.vault) return;
     // The Node binding is installed with the page; at launch it may not be callable yet.
     for (let i = 0; i < 200 && typeof w.__teggTypes !== 'function'; i++) await new Promise((r) => setTimeout(r, 5));
-    try { await viaNode('task_views_migrate')({ now: isoLocal(Date.now()) }); } catch { /* never alerts (§25.2) */ }
+    try { await viaNode('task_views_migrate')({ now: isoLocal(Date.now()), placeholders: opts.placeholders ?? 0 }); } catch { /* never alerts (§25.2) */ }
   };
 
   const handlers: Record<string, (a: any) => unknown> = {

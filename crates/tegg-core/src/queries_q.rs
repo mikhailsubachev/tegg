@@ -1428,6 +1428,16 @@ pub fn patch(text: &str, file: &QueryFile, def: &QueryDef, now: &str) -> Result<
 
 /// A new file (R138 create order). `tail`: lines copied verbatim after `modified` (Save as query…, §1.5).
 pub fn create_text(def: &QueryDef, now: &str, tail: Option<&str>) -> String {
+    create_text_at(def, Some(now), tail)
+}
+
+/// v1-views §25.1 (D-1936): a new file without `created` / `modified`, so the same definition gives the same bytes on
+/// every Mac (the default task views). Both keys are optional when read (R138); a later commit inserts `modified`.
+pub fn create_text_unstamped(def: &QueryDef) -> String {
+    create_text_at(def, None, None)
+}
+
+fn create_text_at(def: &QueryDef, now: Option<&str>, tail: Option<&str>) -> String {
     let mut l = vec![format!("{HEADER}{}.", nfc(&def.title)), "version: 1".into(), format!("title: {}", scalar_in(&def.title, false))];
     l.push(top_line("types", def).unwrap_or_default());
     l.push(top_line("match", def).unwrap_or_default());
@@ -1448,8 +1458,10 @@ pub fn create_text(def: &QueryDef, now: &str, tail: Option<&str>) -> String {
         }
         l.extend(key_lines(k, def));
     }
-    l.push(format!("created: {now}"));
-    l.push(format!("modified: {now}"));
+    if let Some(now) = now {
+        l.push(format!("created: {now}"));
+        l.push(format!("modified: {now}"));
+    }
     if let Some(t) = tail {
         let t = t.replace("\r\n", "\n");
         l.extend(t.strip_suffix('\n').unwrap_or(&t).split('\n').map(str::to_string));
@@ -2945,7 +2957,7 @@ fn row_of(o: &QueryObject, def: &QueryDef, ctx: &Ctx, group_key: Option<&str>) -
             let a = nfc(a);
             a != "type" && a != "tags" && cols.contains(&a)
         })
-        .map(|(_, t, to)| crate::tasks5a::query_link(ctx.objs, nfc(trim_ws(t)), *to))
+        .map(|(_, t, to)| crate::tasks5a::query_link(ctx.objs, &ctx.by_path, nfc(trim_ws(t)), *to))
         .collect();
     let mut values = serde_json::Map::new();
     for k in cols {
@@ -3346,6 +3358,7 @@ impl QCore<'_> {
                     // D-1916), all under this one lock.
                     let board = e.group.is_some();
                     let mut tdefs: Option<TaskDefs> = None;
+                    let mut by_path: Option<crate::tasks5a::PathMap> = None;
                     for (row, &oi) in e.rows.iter_mut().zip(e.hits.iter()) {
                         let task = objs[oi].r#type == "task";
                         if !board && !task {
@@ -3356,7 +3369,8 @@ impl QCore<'_> {
                         let Some(st) = st else { continue };
                         if task {
                             let td = tdefs.get_or_insert_with(|| crate::tasks5a::task_defs_in(&defs));
-                            row.task_row = crate::tasks5a::query_task_row(&objs[oi], objs, td, st.clone());
+                            let paths = by_path.get_or_insert_with(|| objs.iter().enumerate().map(|(i, o)| (o.path, i)).collect());
+                            row.task_row = crate::tasks5a::query_task_row(&objs[oi], objs, paths, td, st.clone());
                         }
                         if board {
                             row.version = st.version;
