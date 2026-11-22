@@ -135,18 +135,21 @@ pub(crate) async fn object_trash(state: State<'_, AppState>, path: String, base:
     }
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn trash_restore(state: State<'_, AppState>, path: String) -> Result<Vec<MovedDto>, IpcError> {
     let core = core(&state)?;
     core.trash_restore(&path).map(moved_dto).map_err(core_err)
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn trash_delete(state: State<'_, AppState>, paths: Vec<String>) -> Result<TrashRemovalDto, IpcError> {
     let core = core(&state)?;
     Ok(removal_dto(core.trash_delete(&paths, &MacTrash)))
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn trash_empty(state: State<'_, AppState>) -> Result<TrashRemovalDto, IpcError> {
     let core = core(&state)?;
@@ -283,8 +286,9 @@ pub(crate) async fn media_add_paths(
 
 const IMAGE_EXT: [&str; 7] = ["png", "jpg", "jpeg", "gif", "webp", "heic", "svg"];
 
+#[cfg(desktop)]
 fn pick(app: &AppHandle, kind: &str) -> Vec<String> {
-    if std::env::var("TEGG_TEST").as_deref() == Ok("1") {
+    if crate::test_mode() {
         if let Ok(files) = std::env::var("TEGG_TEST_PICK_FILES") {
             return files.split(':').filter(|s| !s.is_empty()).map(str::to_string).collect();
         }
@@ -304,16 +308,18 @@ fn pick(app: &AppHandle, kind: &str) -> Vec<String> {
     rx.recv().unwrap_or_default()
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn media_pick(app: AppHandle, kind: String) -> Result<Vec<String>, IpcError> {
     Ok(pick(&app, &kind))
 }
 
 /// `open <path>` or `reveal <path>` to `TEGG_TEST_REVEAL`; else the system.
+#[cfg(desktop)]
 fn open_or_reveal(state: &State<'_, AppState>, path: &str, reveal: bool) -> Result<(), IpcError> {
     let core = core(state)?;
     let abs = core.vault().root().join(nfc(path));
-    if std::env::var("TEGG_TEST").as_deref() == Ok("1") {
+    if crate::test_mode() {
         if let Some(file) = test_var("TEGG_TEST_REVEAL") {
             use std::io::Write;
             let mut f = std::fs::OpenOptions::new().create(true).append(true).open(file).map_err(|e| err("Io", e))?;
@@ -328,11 +334,13 @@ fn open_or_reveal(state: &State<'_, AppState>, path: &str, reveal: bool) -> Resu
     c.arg(&abs).spawn().map(|_| ()).map_err(|e| err("Io", e))
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn media_open(state: State<'_, AppState>, path: String) -> Result<(), IpcError> {
     open_or_reveal(&state, &path, false)
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn media_reveal(state: State<'_, AppState>, path: String) -> Result<(), IpcError> {
     open_or_reveal(&state, &path, true)
@@ -380,6 +388,7 @@ pub(crate) fn take_staged(tokens: &[String]) -> Vec<(String, Vec<u8>)> {
     tokens.iter().filter_map(|t| map.remove(t)).map(|v| (v.name, v.bytes)).collect()
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn capture_media_add(app: AppHandle, request: tauri::ipc::Request<'_>) -> Result<Vec<StagedMediaResultDto>, IpcError> {
     match request.body() {

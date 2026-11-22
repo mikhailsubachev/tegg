@@ -1,0 +1,5 @@
+# Build outputs and the copy of Tauri's Android API that tauri-plugin generates (D-2018: no build outputs).
+/build/
+/.tauri/
+/.gradle/
+local.properties

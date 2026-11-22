@@ -2,6 +2,9 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "capture",
   "description": "The capture window and its Saved panel: only create a capture (NFR-SEC-03, D-552, D-553; ms5-capture §2.1)",
+  "platforms": [
+    "macOS"
+  ],
   "windows": [
     "capture",
     "capture-saved"

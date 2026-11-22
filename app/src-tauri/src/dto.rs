@@ -1592,6 +1592,39 @@ pub struct JobPlanDto {
     pub conflicts: Vec<MergeConflictDto>,
 }
 
+/// android-shell §5.1 (RA3): the start state on Android, from `vault_start` and the `vault:start` event.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(tag = "state", rename_all = "camelCase")]
+#[ts(tag = "state", rename_all = "camelCase")]
+pub enum StartStateDto {
+    NeedsAccess {
+        #[ts(optional)]
+        #[serde(skip_serializing_if = "Option::is_none")]
+        path: Option<String>,
+    },
+    Opening { name: String, path: String },
+    Open { vault: VaultInfo },
+    Failed { path: String, kind: String },
+    None,
+}
+
+/// android-shell §2.2: one vault `vault_find` found (RA6); `rel` is `path` relative to the shared-storage root.
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct FoundVaultDto {
+    pub name: String,
+    pub path: String,
+    pub rel: String,
+}
+
+/// android-shell §2.2: `storage_access`.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct StorageAccessDto {
+    pub granted: bool,
+    pub shared_root: String,
+}
+
 /// The generated `types.ts`, in a fixed order.
 pub fn typescript() -> String {
     let decls = [
@@ -1713,6 +1746,9 @@ pub fn typescript() -> String {
         JobPlanDto::decl(),
         RelatedEntryDto::decl(),
         RelatedDto::decl(),
+        StartStateDto::decl(),
+        FoundVaultDto::decl(),
+        StorageAccessDto::decl(),
     ];
     let mut out = String::from("// Generated from app/src-tauri/src/dto.rs by ts-rs. Do not edit: run\n// `UPDATE_TYPES=1 cargo test --manifest-path app/src-tauri/Cargo.toml types_file_is_current`.\n\n");
     for d in decls {

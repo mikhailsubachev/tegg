@@ -1,5 +1,7 @@
 // The command registry (FR-UX-03, docs/contracts/ms3-shell.md §3.3, §10). Every action of the frame is a command;
 // controls reference theirs with `data-command`, and one key handler runs them by shortcut.
+import { ANDROID_HIDDEN_COMMANDS } from '../ipc/android';
+import { isAndroid } from '../platform';
 import { columnsRequest } from '../types/columns';
 import type { TypeDefDto, VaultInfo } from '../ipc/types';
 import { t } from '../i18n/catalog';
@@ -537,6 +539,8 @@ export function commands(ctx: ShellContext): Command[] {
     const id = CONTROL_COMMANDS[ctl.label];
     list.push({ id, title: ctl.label, section: 'app', shortcut: shortcutOf(id), due: ctl.due, needsVault: true, run: () => {} });
   }
+  // Slice AND-1 (AR-03 AC-11, D-2026): on Android, no command whose only action the shell refuses.
+  if (isAndroid()) return list.filter((c) => !ANDROID_HIDDEN_COMMANDS.has(c.id));
   return list;
 }
 

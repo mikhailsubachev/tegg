@@ -2,7 +2,18 @@
 //! forwarded to the UI. Thin by design: validate, call the core, map errors. Nothing here reads or writes vault
 //! files; the perf log and the UI state are machine-local (docs/contracts/ms2-shell.md §1, ms3-shell.md §1, §2).
 
+// android-shell §2.1: the phone compiles out the desktop-only commands, which leaves their helpers and imports unused
+// there; the desktop build keeps every warning.
+#![cfg_attr(mobile, allow(dead_code, unused_imports, unused_variables, unused_mut))]
+
 mod dto;
+#[cfg(mobile)]
+mod mobile;
+// docs/contracts/android-shell.md §1: compiled on every target, host-tested.
+pub mod commands;
+pub mod platform;
+pub mod start;
+pub mod vaultfind;
 mod shell5b;
 mod shell6a;
 mod strings;
@@ -11,11 +22,13 @@ pub use shell5b::{acl_probe, AclProbe};
 pub use shell6a::{media_scheme_probe, MediaResponse};
 mod shell4d;
 mod shell4e;
+#[cfg(desktop)] // not on the phone (RA2 group O)
 mod shellg1;
 mod shellg3;
 mod shellimport;
 mod shellpin;
 mod shellq;
+#[cfg(desktop)] // not on the phone (RA2 group O)
 mod shellrel;
 
 use std::io::Write;
@@ -41,34 +54,50 @@ pub(crate) struct AppState {
     pub(crate) import: Arc<shellimport::ImportShared>,
 }
 
-/// The test environment (contract §1): honoured only with `TEGG_TEST=1`.
+/// The test environment (contract §1): honoured only with `TEGG_TEST=1`. On the Android test APK the values come from
+/// `test-env.json` first (android-shell §7.1, D-2032).
 pub(crate) fn test_var(name: &str) -> Option<String> {
-    if std::env::var("TEGG_TEST").as_deref() != Ok("1") {
+    if !crate::test_mode() {
         return None;
+    }
+    #[cfg(all(mobile, not(feature = "preview")))]
+    if let Some(v) = mobile::test_env(name) {
+        return Some(v).filter(|v| !v.is_empty());
     }
     std::env::var(name).ok().filter(|v| !v.is_empty())
 }
 
+/// `TEGG_TEST=1`: the environment's, or on the Android test APK `test-env.json`'s (android-shell §7.1).
+pub(crate) fn test_mode() -> bool {
+    #[cfg(all(mobile, not(feature = "preview")))]
+    if mobile::test_env("TEGG_TEST").as_deref() == Some("1") {
+        return true;
+    }
+    std::env::var("TEGG_TEST").as_deref() == Ok("1")
+}
+
 /// The app name shown in the window title and menus: Tegg in every build (D-1514).
 pub(crate) const APP_NAME: &str = "Tegg";
-/// The Application Support folder: the release build (feature `preview`) keeps the preview's own data (D-118, D-1514).
-const SUPPORT_FOLDER: &str = if cfg!(feature = "preview") { "Tegg Preview" } else { "Tegg" };
 /// The bundle identifier (tauri.conf.json, tauri.preview.conf.json): single instance is per bundle (D-71, D-549, D-1514).
 pub(crate) const BUNDLE_ID: &str = if cfg!(feature = "preview") { "app.tegg.preview" } else { "app.tegg.desktop" };
 
+/// The desktop's machine-local root (FR-STO-07 AC-12): `platform::app_dirs_for` from the environment. Android takes
+/// its folder from the platform in `mobile_run` (android-shell §4.1).
+#[cfg(desktop)]
 fn app_dirs() -> AppDirs {
-    let root = test_var("TEGG_APP_SUPPORT").map(PathBuf::from).unwrap_or_else(|| {
-        let home = std::env::var("HOME").unwrap_or_default();
-        PathBuf::from(home).join("Library/Application Support").join(SUPPORT_FOLDER)
-    });
-    AppDirs { root }
+    platform::app_dirs_for(&platform::Platform::MacOs {
+        home: PathBuf::from(std::env::var("HOME").unwrap_or_default()),
+        preview: cfg!(feature = "preview"),
+        test: test_mode(),
+        app_support: std::env::var("TEGG_APP_SUPPORT").ok(),
+    })
 }
 
 // ---------------------------------------------------------------- perf marks (test-strategy §9)
 
 /// Milliseconds since this process started, by the OS start time (contract §1).
 #[cfg(target_os = "macos")]
-fn ms_since_process_start() -> f64 {
+pub(crate) fn ms_since_process_start() -> f64 {
     // SAFETY: `info` is a plain C struct the call fills in; size passed matches its type.
     unsafe {
         let mut info: libc::proc_bsdinfo = std::mem::zeroed();
@@ -83,9 +112,24 @@ fn ms_since_process_start() -> f64 {
     }
 }
 
+/// Android and Linux (android-shell §7.2): the process start (`/proc/self/stat` field 22, clock ticks since boot)
+/// against `CLOCK_BOOTTIME` (apps may not read `/proc/uptime` on Android).
 #[cfg(not(target_os = "macos"))]
-fn ms_since_process_start() -> f64 {
-    f64::NAN
+pub(crate) fn ms_since_process_start() -> f64 {
+    let start = std::fs::read_to_string("/proc/self/stat").ok().and_then(|s| {
+        let rest = &s[s.rfind(')')? + 2..];
+        rest.split_whitespace().nth(19)?.parse::<f64>().ok()
+    });
+    // SAFETY: `ts` is a plain C struct the call fills in; sysconf has no preconditions.
+    let (now, hz) = unsafe {
+        let mut ts: libc::timespec = std::mem::zeroed();
+        let ok = libc::clock_gettime(libc::CLOCK_BOOTTIME, &mut ts) == 0;
+        (ok.then(|| ts.tv_sec as f64 + ts.tv_nsec as f64 / 1e9), libc::sysconf(libc::_SC_CLK_TCK) as f64)
+    };
+    match (start, now) {
+        (Some(start), Some(now)) if hz > 0.0 => (now - start / hz) * 1e3,
+        _ => f64::NAN,
+    }
 }
 
 static MARKS: Mutex<Vec<String>> = Mutex::new(Vec::new());
@@ -139,7 +183,7 @@ fn watch_mouse_buttons(app: AppHandle) {
     std::mem::forget(monitor);
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(all(desktop, not(target_os = "macos")))]
 fn watch_mouse_buttons(_app: AppHandle) {}
 
 /// macOS's `Swipe between pages` set to scroll with two fingers (D-1511, FR-NAV-03 AC-14): only then the UI turns a
@@ -161,6 +205,7 @@ fn nav_swipe_scroll() -> bool {
 }
 
 /// The UI's answer to `app:quit-requested`: everything is saved, or the user confirmed (D-179, D-196).
+#[cfg(desktop)]
 #[tauri::command]
 fn app_quit(app: AppHandle) {
     ALLOW_EXIT.store(true, std::sync::atomic::Ordering::SeqCst);
@@ -314,7 +359,7 @@ fn rule_err(r: RuleError) -> IpcError {
     IpcError { reason: Some(reason.into()), field: f, key, label, ..err("Rule", format!("typeRule.{reason}")) }
 }
 
-fn open_vault(app: &AppHandle, path: PathBuf) -> Result<VaultInfo, IpcError> {
+pub(crate) fn open_vault(app: &AppHandle, path: PathBuf) -> Result<VaultInfo, IpcError> {
     let state = app.state::<AppState>();
     // FR-VLT-01 AC-4/AC-5, D-91: a folder that isn't a Tegg vault is refused before anything else (zero writes).
     let probe = match Vault::open(&path, &state.dirs) {
@@ -355,7 +400,9 @@ fn open_vault(app: &AppHandle, path: PathBuf) -> Result<VaultInfo, IpcError> {
             core
         }
         None => {
-            let core = Arc::new(Core::open(&path, &state.dirs, CoreOptions { watch: true, sync: None }).map_err(core_err)?);
+            // D-2025: no tidy job and no bulk job on the phone.
+            let extras = tegg_core::OpenExtras { bulk_jobs: cfg!(desktop) };
+            let core = Arc::new(Core::open_ext(&path, &state.dirs, CoreOptions { watch: true, sync: None }, extras).map_err(core_err)?);
             forward_events(app.clone(), &core);
             // v1-views §25.2 (R202, CP-27, D-1919): the default task views, once per newly opened core, before
             // `VaultInfo` is returned (`vault_create` comes through here too). Never alerts; the outcome is only logged.
@@ -511,6 +558,10 @@ fn vault_current(state: State<AppState>) -> Option<VaultInfo> {
 
 #[tauri::command]
 async fn vault_open(app: AppHandle, path: String) -> Result<VaultInfo, IpcError> {
+    // android-shell §2.2: on the phone the typed-path rules and the access check come first.
+    #[cfg(mobile)]
+    return mobile::open(&app, std::path::Path::new(&path));
+    #[cfg(desktop)]
     open_vault(&app, PathBuf::from(path))
 }
 
@@ -760,19 +811,26 @@ async fn vault_create(app: AppHandle, parent: String, name: String, kind: String
         other => return Err(err("Unsupported", format!("unknown vault kind {other}"))),
     };
     let dirs = app.state::<AppState>().dirs.clone();
+    #[cfg(mobile)]
+    let parent = mobile::create_parent(&app, &parent)?.to_string_lossy().into_owned();
     let vault = Vault::create(&PathBuf::from(&parent), &name, kind, &dirs).map_err(|e| match e {
         CreateError::NotEmpty => err("NotEmpty", "the target folder exists and isn't empty"),
         other => err("Io", format!("{other:?}")),
     })?;
     let root = vault.root().to_path_buf();
     drop(vault);
+    // android-shell §5: on the phone every open goes through the start flow's gate.
+    #[cfg(mobile)]
+    return mobile::open(&app, &root);
+    #[cfg(desktop)]
     open_vault(&app, root)
 }
 
 /// The folder dialog, or the test hook `TEGG_TEST_PICK_DIR` (empty = cancelled, D-135).
+#[cfg(desktop)]
 #[tauri::command]
 async fn vault_pick_dir(app: AppHandle) -> Option<String> {
-    if std::env::var("TEGG_TEST").as_deref() == Ok("1") {
+    if crate::test_mode() {
         if let Ok(dir) = std::env::var("TEGG_TEST_PICK_DIR") {
             return if dir.is_empty() { None } else { Some(dir) };
         }
@@ -801,6 +859,7 @@ async fn vault_recent(state: State<'_, AppState>) -> Result<Vec<RecentVaultDto>,
 }
 
 /// D-220: the logo menu's `About Tegg` shows the standard macOS About panel.
+#[cfg(desktop)]
 #[tauri::command]
 async fn app_about(app: AppHandle) -> Result<(), IpcError> {
     let _ = app.run_on_main_thread(|| {
@@ -1148,6 +1207,7 @@ pub(crate) fn job_err(e: JobError) -> IpcError {
         JobError::NotCancellable => err("NotCancellable", "the job can't be cancelled now"),
         JobError::NotFound => err("NotFound", "no such job"),
         JobError::NotImplemented => err("NotImplemented", "not available"),
+        JobError::Unsupported => err("Unsupported", "not available on this device"),
         JobError::BackupFailed(m) => err("BackupFailed", m),
         JobError::InvalidName { error, char } => IpcError { error: Some(error.clone()), char, ..err("InvalidName", error) },
         JobError::TagExists { name } => IpcError { name: Some(name.clone()), ..err("TagExists", format!("#{name} already exists")) },
@@ -1195,6 +1255,7 @@ fn report_dto(r: &JobReport) -> JobReportDto {
 }
 
 /// `note_rename` (FR-FMT-08, FR-LNK-03, D-268): starts a `note-rename` job; `toPath` is the planned path.
+#[cfg(desktop)]
 #[tauri::command]
 async fn note_rename(state: State<'_, AppState>, path: String, title: String, from_title: String) -> Result<NoteRenameDto, IpcError> {
     let core = core(&state)?;
@@ -1239,12 +1300,14 @@ async fn job_retry(state: State<'_, AppState>, job_id: u32, path: String) -> Res
     })
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 async fn job_undo(state: State<'_, AppState>, job_id: u32) -> Result<JobIdDto, IpcError> {
     let id = core(&state)?.jobs().start(JobOp::Undo { job: job_id as u64 }).map_err(job_err)?;
     Ok(JobIdDto { job_id: id as u32 })
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 async fn job_redo(state: State<'_, AppState>, job_id: u32) -> Result<JobIdDto, IpcError> {
     let id = core(&state)?.jobs().start(JobOp::Redo { job: job_id as u64 }).map_err(job_err)?;
@@ -1287,6 +1350,7 @@ async fn backups_list(state: State<'_, AppState>) -> Result<Vec<BackupDto>, IpcE
         .collect())
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 async fn backup_restore(state: State<'_, AppState>, name: String) -> Result<JobIdDto, IpcError> {
     let core = core(&state)?;
@@ -1582,12 +1646,14 @@ async fn type_get(state: State<'_, AppState>, key: String) -> Result<Option<Type
     Ok(core.type_get(&key).map(type_dto))
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 async fn type_create(state: State<'_, AppState>, name: String, plural: String, folder: Option<String>) -> Result<TypeDto, IpcError> {
     let core = core(&state)?;
     core.type_create_in(&name, &plural, folder.as_deref()).map(type_dto).map_err(core_err)
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 async fn type_patch(state: State<'_, AppState>, key: String, base: Option<VersionDto>, ops: Vec<TypeOpDto>) -> Result<TypeDto, IpcError> {
     let core = core(&state)?;
@@ -1616,6 +1682,7 @@ async fn type_patch(state: State<'_, AppState>, key: String, base: Option<Versio
     Ok(type_dto(t))
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 async fn type_delete(state: State<'_, AppState>, key: String, base: VersionDto) -> Result<Vec<String>, IpcError> {
     let core = core(&state)?;
@@ -1666,6 +1733,7 @@ async fn starter_plan(state: State<'_, AppState>) -> Result<StarterPlanDto, IpcE
     Ok(starter_dto(core.starter_plan()))
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 async fn starter_add(state: State<'_, AppState>) -> Result<StarterPlanDto, IpcError> {
     let core = core(&state)?;
@@ -1679,12 +1747,13 @@ fn external_allowed(url: &str) -> bool {
 
 /// `open_external` (ms3-shell §11.1, D-145): the default macOS handler opens the URL; Tegg fetches nothing
 /// (NFR-SEC-01). With `TEGG_TEST=1` nothing is launched.
+#[cfg(desktop)]
 #[tauri::command]
 async fn open_external(url: String) -> Result<(), IpcError> {
     if !external_allowed(&url) {
         return Err(err("Unsupported", "only http, https and mailto links are opened"));
     }
-    if std::env::var("TEGG_TEST").as_deref() == Ok("1") {
+    if crate::test_mode() {
         return Ok(());
     }
     std::process::Command::new("/usr/bin/open").arg(url.trim()).spawn().map(|_| ()).map_err(|e| err("Io", e.to_string()))
@@ -1779,13 +1848,15 @@ pub(crate) fn init_script(dirs: &AppDirs) -> String {
         None => String::new(),
     };
     format!(
-        "window.__TEGG_UI_STATE__ = {}; window.__TEGG_REGION__ = {}; window.__TEGG_ROUTE__ = {}; window.__TEGG_TEST_MODE__ = {}; window.__TEGG_TZ__ = {};{clock}",
+        "window.__TEGG_UI_STATE__ = {}; window.__TEGG_REGION__ = {}; window.__TEGG_ROUTE__ = {}; window.__TEGG_TEST_MODE__ = {}; window.__TEGG_TZ__ = {}; window.__TEGG_PLATFORM__ = {};{clock}",
         serde_json::to_string(&ui).unwrap_or_else(|_| "null".into()),
         serde_json::to_string(&region_locale()).unwrap_or_else(|_| "null".into()),
         serde_json::to_string(&route).unwrap_or_else(|_| "null".into()),
-        std::env::var("TEGG_TEST").as_deref() == Ok("1"),
+        crate::test_mode(),
         // L6 time-zone runs: WebKit's content process doesn't inherit TZ, so the UI gets the zone here (D-382 run).
         serde_json::to_string(&test_var("TZ")).unwrap_or_else(|_| "null".into()),
+        // android-shell §9.1 (D-2026).
+        if cfg!(target_os = "android") { "\"android\"" } else { "\"macos\"" },
     )
 }
 
@@ -1806,7 +1877,17 @@ pub(crate) fn context<R: tauri::Runtime>() -> tauri::Context<R> {
     tauri::generate_context!()
 }
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(desktop)]
+    desktop_run();
+    #[cfg(mobile)]
+    mobile_run();
+}
+
+/// The desktop app: windows, menus, the capture window, the status item, hotkeys (unchanged, AR-03 AC-12).
+#[cfg(desktop)]
+fn desktop_run() {
     let dirs = app_dirs();
     shellimport::note_launch();
     // D-71: one instance per app bundle (FR-CAP-05 AC-4, AC-9); a second launch shows the first one's window.
@@ -1951,6 +2032,45 @@ pub fn run() {
                 #[cfg(target_os = "macos")]
                 tauri::RunEvent::Reopen { .. } => shell5b::show_main(app),
                 _ => {}
+            }
+        });
+}
+
+/// The Android app (android-shell §5.2): one window, no menus, tray, hotkeys, capture or import window, no
+/// single-instance socket; the vault opens on a background thread once "All files access" is on.
+#[cfg(mobile)]
+fn mobile_run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_tegg_android::init())
+        // ms6-trash-media §3.6 (D-626): vault media for the webview, read-only.
+        .register_asynchronous_uri_scheme_protocol("tegg-media", shell6a::media_scheme)
+        .setup(|app| {
+            mobile::setup(app)?;
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            vault_current, vault_open, index_search, index_switcher, note_read, note_create, perf_mark, vault_create,
+            vault_last, vault_recent, vault_types, index_type_counts, index_list, nav_opened, nav_swipe_scroll,
+            ui_state_get, ui_state_set, link_resolve, embed_load, index_path_by_id, note_write, note_create_exact,
+            note_trash, note_discard, index_tags, index_conflicts, type_get, type_template, type_usage,
+            index_type_rows, starter_plan, index_backlinks, index_broken_links, index_duplicate_titles,
+            link_create_plan, link_create, daily_view, daily_dates, daily_draft, daily_create, daily_context,
+            daily_backlinks, job_cancel, job_confirm, job_report, job_retry, job_transform_result, job_interrupted,
+            job_resolve_interrupted, backups_list, editor_open, editor_close, task_list, daily_tasks,
+            shell5b::vault_settings, shell5b::vault_settings_patch, shell5b::inbox_list, shell5b::inbox_count,
+            shell5b::index_versions, shell6a::trash_list, shell6a::object_trash, shell6a::media_add,
+            shell6a::media_add_paths, shell4d::tag_objects, shell4d::index_tagged_objects, shell4d::tag_usage,
+            shell4d::tag_new_path, shell4e::jobs_ready, shell4d::job_plan, shellpin::pins_get, shellpin::pins_apply,
+            shellq::queries_list, shellq::query_get, shellq::query_run, shellq::query_usages,
+            shellq::query_view_usages, mobile::vault_start, mobile::vault_find, mobile::storage_access,
+            mobile::storage_access_settings
+        ])
+        .build(context())
+        .expect("error while building Tegg")
+        .run(|app, event| {
+            // The quit flow of D-196 doesn't exist on Android (D-2027): the page saves when it is hidden.
+            if let tauri::RunEvent::Resumed = event {
+                mobile::resumed(app);
             }
         });
 }
