@@ -241,7 +241,7 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
 
   With `'macos'`, the palette registry, the chooser and the logo menu are the same as on `main` at `7ff0fc0b` (snapshot). *(L5; L1 for the client's refusal list, which equals RA2)* Test: `ar_03_ac11_ui_skips_missing_commands_on_android`
 - **AC-12** **The macOS app is unchanged.**
-  - (a) An L0 check over the AND-1 branch: no existing `*.ac.test.ts` or `tests/ac_*.rs` is changed or deleted, and no commit has an `AC-Test-Change` trailer.
+  - (a) An L0 check over the AND-1 branch: no existing `*.ac.test.ts` or `tests/ac_*.rs` is changed or deleted, and none is changed except by a commit with an owner-approved `AC-Test-Change: <reason>; approved-by: owner` trailer (D-2052).
   - (b) `tauri.conf.json` (except a `bundle.android` block), `tauri.preview.conf.json`, `capabilities/capture.json` and the permission list of `capabilities/default.json` are equal to `7ff0fc0b`. The only change in `default.json` and `capture.json` is their `platforms` field (D-2050).
   - (c) `./verify push` passes, and the `app-e2e` and `app-shell-test` steps pass on the built `Tegg.app`.
   - (d) FR-STO-07 AC-12's macOS cases pass.
@@ -389,7 +389,7 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
 
 ### FR-FMT-12 NFD file names on the phone (adds to AC-1…AC-13)
 
-- **AC-14** **A note stored in NFD bytes on a file system that doesn't normalise names (AP-2029; T1, T2).** Android's shared storage keeps NFC and NFD names apart, unlike APFS, so AC-1 and AC-3 are checked again on the device.
+- **AC-14** **A note stored in NFD bytes on a file system that doesn't normalise names (AP-2029; T1, T2).** Android's shared storage keeps the bytes of an NFD name, so AC-1 is checked again on the device (it compares NFC and NFD as one name, D-2052).
   - **Pure function (L1, Mac host).** `on_disk_name(listing, nfc_path)` returns the listed entry whose NFC form equals `nfc_path`, `None` when there is none, and `Ambiguous` when two entries share it.
   - **Device (LA).** The shell fixture plus the NFD note is on the test APK:
     - (a) Pages lists Poznámka once;
@@ -397,7 +397,7 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
     - (c) opening it writes nothing;
     - (d) typing `x` at the end of its body and waiting 2 s writes nothing until AND-3 (D-2048): the file is unchanged, its name still NFD bytes, and there is no second `Poznámka.md` in either form;
     - (e) `[[Poznámka]]` in Úvodní resolves to it (AC-1).
-  - **Both forms (LA).** An NFC `Pages/Poznámka.md` with a different `id` is added beside the NFD one. Both are listed as a name conflict (AC-3), and opening either writes nothing.
+  - **Both forms: not on the device (D-2052).** Android's shared storage treats the NFC and NFD spellings as one name (as APFS does), so the two files can't coexist there; the host layers keep AC-3's case. (d)'s file is read through `/data/media`, below the storage layer's per-spelling cache.
 
   *(L1; LA)* Test: `fr_fmt_12_ac14_nfd_names_on_android`
 

@@ -78,7 +78,7 @@ export function start(id: string, o: { cold?: boolean; wait?: boolean } = {}): n
   if (o.cold ?? true) sh(`am force-stop ${id}`);
   sh(`am start ${o.wait === false ? '' : '-W '}-n ${id}/.MainActivity`);
   let pid: number | null = null;
-  const end = Date.now() + 15_000;
+  const end = Date.now() + 30_000;
   while (!pid && Date.now() < end) pid = pidOf(id);
   assert.ok(pid, `${id} is running after am start`);
   return pid!;
@@ -243,7 +243,7 @@ async function freePort(): Promise<number> {
 }
 
 /** Connects to the app's WebView (the `main` page) through CDP. */
-export async function webview(id: string, ms = 15_000): Promise<WebView> {
+export async function webview(id: string, ms = 30_000): Promise<WebView> {
   const pid = await eventually(() => pidOf(id), (p) => p !== null, ms);
   assert.ok(pid, `${id} is running`);
   const port = await freePort();

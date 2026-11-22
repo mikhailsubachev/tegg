@@ -4,15 +4,16 @@
 //   untouched (D-2007; T1). The tidy job is allowed in the test environment (`TEGG_TEST_TIDY=1`,
 //   `TEGG_TEST_QUIET_MS=200`), so a tidy run on the phone would show;
 // - FR-FMT-12 AC-14, device part: a note stored in NFD bytes on a file system that doesn't normalise names (AP-2029;
-//   T1, T2), and both forms beside each other (a name conflict, AC-3).
+//   T1, T2). Both forms beside each other can't exist on Android shared storage, which treats NFC and NFD as one name;
+//   that part stays on the host layers (D-2052).
 // Red-test reading (reported): notes are "opened" with the app's own IPC (`note_read`, as the page does) or with
 // `TEGG_ROUTE`, as the LA harness has no navigation driver. Every test starts with `ready()` (requireDevice: fails,
 // never skips, without an emulator). Written from the ACs and the contract only (D-61).
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  adb, appops, clearPrivate, cpuTicks, eventually, fileState, forceStop, hex, home, install, listHex, perfMarks, pushShell, quote, requireDevice,
-  resume, searchPaths, sh, SHARED, sleep, start, TEST_APK, TEST_ID, webview, writeShared, writeTestEnv, type WebView,
+  adb, adbRoot, appops, clearPrivate, cpuTicks, eventually, fileState, forceStop, hex, home, install, listHex, perfMarks, pushShell, quote, requireDevice,
+  RELEASE_ID, resume, searchPaths, sh, SHARED, sleep, start, TEST_APK, TEST_ID, webview, writeShared, writeTestEnv, type WebView,
 } from './helpers/device.ts';
 
 const UVODNI = 'Pages/Úvodní stránka.md';
@@ -63,6 +64,9 @@ test('fr_syn_03_ac33_index_settles_on_android', async () => {
   const before = fileState(vault);
   const eva = sh(`cat ${quote(`${vault}/${EVA}`)}`);
   const evaId = EVA_ID_RE.exec(eva)?.[1];
+  // A fresh start on a quiet device (D-2052): no other Tegg process left from earlier tests, 5 s to settle.
+  forceStop(RELEASE_ID);
+  await sleep(5000);
   const { pid, v } = await launch(vault);
   const first = await eventually(() => idleMarks(), (m) => m.length > 0, 60_000, 500);
   assert.ok(first.length > 0, 'the perf log has an index-idle mark');
@@ -161,22 +165,8 @@ test('fr_fmt_12_ac14_nfd_names_on_android', async () => {
   void ino;
   assert.equal(names.filter((n) => n === hex('Poznámka.md'.normalize('NFD'))).length, 1, '(d) one NFD-named entry');
   // D-2048: until AND-3 a file stored under an NFD name is never written on the phone; the edit fails and the file stays.
-  assert.match(sh(`cat ${quote(`${vault}/${nfd}`)}`), /Rozpočet na zahradu\.\s*$/, '(d) the NFD-named file is unchanged (read-only until AND-3)');
-
-  // Both forms: an NFC twin with another id is a name conflict; opening either writes nothing.
-  forceStop(TEST_ID);
-  writeShared(`${vault}/${nfc}`, '---\nid: 01JAND1POZNAMKA2000000000000\ntype: page\ntitle: Poznámka\n---\nJiná poznámka.\n');
-  const both = fileState(vault);
-  writeTestEnv(TEST_ID, { TEGG_VAULT: vault });
-  start(TEST_ID);
-  const z = await webview(TEST_ID);
-  views.push(z);
-  assert.ok(await z.waitFor(SIDEBAR, 30_000), 'the vault opens with both forms');
-  await eventually(() => perfMarks(TEST_ID).filter((m) => m.mark === 'index-idle'), (m) => m.length > 0, 60_000, 500);
-  const conflicts = await z.invoke<{ ok: boolean; v: unknown }>('index_conflicts');
-  const shown = JSON.stringify(conflicts);
-  assert.ok(conflicts.ok && shown.normalize('NFC').includes('Poznámka'), `both are listed as a name conflict (FR-FMT-12 AC-3): ${shown}`);
-  for (const p of [nfc, nfd]) await z.invoke('note_read', { path: p });
-  await sleep(1500);
-  assert.deepEqual(changedFiles(both, fileState(vault)), [], 'opening either writes nothing');
+  // Read through /data/media (adb root), below Android's storage layer, which caches each spelling apart (D-2052).
+  adbRoot();
+  const lower = `/data/media/0${vault.slice(SHARED.length)}/${nfd}`;
+  assert.match(sh(`cat ${quote(lower)}`), /Rozpočet na zahradu\.\s*$/, '(d) the NFD-named file is unchanged on disk (read-only until AND-3)');
 });

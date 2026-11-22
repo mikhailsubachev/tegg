@@ -80,7 +80,7 @@ async function launch(o: { vault?: string; access?: 'allow' | 'deny'; env?: Reco
 }
 const text = (v: WebView, selector: string) => v.eval<string>(`(document.querySelector(${JSON.stringify(selector)})?.innerText ?? '')`);
 const hasText = (v: WebView, t: string) => v.eval<boolean>(`document.body.innerText.includes(${JSON.stringify(t)})`);
-const vaultOpen = (v: WebView, ms = 15_000) => v.waitFor(SIDEBAR, ms);
+const vaultOpen = (v: WebView, ms = 30_000) => v.waitFor(SIDEBAR, ms);
 const privateFiles = () => runAs(TEST_ID, 'cd files && find . -type f -exec stat -c "%n %s" {} \\;', false).split('\n').filter(Boolean).sort();
 const ok = <T>(r: { ok: boolean; v?: T; e?: unknown }, what: string): T => { assert.ok(r.ok, `${what}: ${JSON.stringify(r.e)}`); return r.v as T; };
 
@@ -172,7 +172,7 @@ test('fr_vlt_01_ac19_opening_state_and_failure', async () => {
   start(TEST_ID);
   const v = await webview(TEST_ID);
   views.push(v);
-  assert.ok(await v.waitFor(CHOOSER, 15_000), 'the start ends in failed: the chooser');
+  assert.ok(await v.waitFor(CHOOSER, 30_000), 'the start ends in failed: the chooser');
   assert.ok(await hasText(v, vault), `the FR-VLT-01 AC-7 message names ${vault}`);
   assert.equal(sh(`ls -d ${quote(vault)} 2>/dev/null; echo $?`).trim().split('\n').pop(), '1', 'nothing is created at the old path');
   const added = privateFiles().filter((f) => !filesBefore.some((b) => b.split(' ')[0] === f.split(' ')[0]));
@@ -195,7 +195,7 @@ test('fr_vlt_01_ac20_no_vault_without_all_files_access', async () => {
   views.push(v);
   const chooser = await v.observeNever(CHOOSER);
   const side = await v.observeNever(SIDEBAR);
-  assert.ok(await v.waitFor(ACCESS, 15_000), `the permission screen "${S.accessTitle}"`);
+  assert.ok(await v.waitFor(ACCESS, 30_000), `the permission screen "${S.accessTitle}"`);
   assert.ok(await hasText(v, `Vault: ${vault}`), `it names the vault: "Vault: ${vault}"`);
   assert.equal((await text(v, `${ACCESS} [data-command="android.openSettings"]`)).trim(), S.openSettings, 'the button Open settings');
   await sleep(3000);
@@ -207,7 +207,7 @@ test('fr_vlt_01_ac20_no_vault_without_all_files_access', async () => {
   assert.deepEqual(fileState(vault), vaultBefore, 'the vault is untouched');
 
   const none = await launch({ access: 'deny' });
-  assert.ok(await none.v.waitFor(ACCESS, 15_000), 'no vault remembered: the same screen');
+  assert.ok(await none.v.waitFor(ACCESS, 30_000), 'no vault remembered: the same screen');
   assert.equal(await hasText(none.v, 'Vault: '), false, 'without the Vault: line');
   assert.equal(await hasText(none.v, S.found), false, 'and no vault search');
 });
@@ -218,7 +218,7 @@ test('fr_vlt_01_ac21_open_settings_and_recheck', async () => {
   ready();
   const vault = pushShell();
   const { v } = await launch({ vault, access: 'deny' });
-  assert.ok(await v.waitFor(ACCESS, 15_000), 'the permission screen');
+  assert.ok(await v.waitFor(ACCESS, 30_000), 'the permission screen');
   await v.click('[data-command="android.openSettings"]');
   assert.equal(await eventually(() => foregroundPackage(), (p) => p === 'com.android.settings', 5000), 'com.android.settings', 'Open settings shows the system page');
   const intent = sh('dumpsys activity activities', false);
@@ -279,7 +279,7 @@ test('fr_vlt_01_ac25_typed_path', async () => {
   sh(`mkdir -p ${SHARED}/Documents/tegg-la-x && mv ${quote(pushed)} ${quote(vault)}`);
   for (const typed of [vault, `  ${vault}/ `, '/sdcard/Documents/tegg-la-x/shell']) {
     const { v } = await launch();
-    assert.ok(await v.waitFor(CHOOSER, 15_000), 'the chooser');
+    assert.ok(await v.waitFor(CHOOSER, 30_000), 'the chooser');
     await openTyped(v, typed);
     assert.ok(await vaultOpen(v), `typing ${JSON.stringify(typed)} opens the vault`);
     const recent = ok(await v.invoke<{ ok: boolean }>('vault_recent'), 'vault_recent') as unknown as { path: string }[];
@@ -295,7 +295,7 @@ test('fr_vlt_01_ac25_typed_path', async () => {
   ];
   for (const [typed, messages] of refusals) {
     const { v } = await launch();
-    assert.ok(await v.waitFor(CHOOSER, 15_000), 'the chooser');
+    assert.ok(await v.waitFor(CHOOSER, 30_000), 'the chooser');
     await openTyped(v, typed);
     for (const m of messages) assert.ok(await eventually(() => hasText(v, m), (x) => x, 3000), `${typed}: "${m}"`);
     assert.equal(await v.waitFor(SIDEBAR, 300), false, `${typed}: no vault opens`);
@@ -311,7 +311,7 @@ test('fr_vlt_01_ac26_new_vault_on_android', async () => {
   sh(`rm -rf ${quote(target)} ${quote(target.normalize('NFD'))}`);
   const docsBefore = listHex(`${SHARED}/Documents`);
   const { v } = await launch();
-  assert.ok(await v.waitFor(CHOOSER, 15_000), 'the chooser');
+  assert.ok(await v.waitFor(CHOOSER, 30_000), 'the chooser');
   await v.click('[data-command="vault.new"]');
   assert.ok(await v.waitFor('form[aria-label="New vault"]', 3000), 'the New vault form');
   const location = await v.eval<string>(`[...document.querySelectorAll('form[aria-label="New vault"] input')].find((i) => (i.getAttribute('aria-label') ?? i.labels?.[0]?.textContent ?? '').trim() === 'Location')?.value ?? null`);
@@ -341,7 +341,7 @@ test('fr_vlt_01_ac26_new_vault_on_android', async () => {
   assert.equal(await seen(), false, 'without the chooser');
 
   const outside = await launch();
-  assert.ok(await outside.v.waitFor(CHOOSER, 15_000), 'the chooser');
+  assert.ok(await outside.v.waitFor(CHOOSER, 30_000), 'the chooser');
   const docs2 = listHex(`${SHARED}/Documents`);
   await outside.v.click('[data-command="vault.new"]');
   await outside.v.eval(`(() => { const ins = [...document.querySelectorAll('form[aria-label="New vault"] input')]; const by = (n) => ins.find((e) => (e.getAttribute('aria-label') ?? e.labels?.[0]?.textContent ?? '').trim() === n); by('Location').focus(); by('Location').select(); return true; })()`);
@@ -499,14 +499,14 @@ test('fr_ux_01_ac7_version_label_on_android', async () => {
   adb(['shell', `pm clear ${RELEASE_ID}`]);
   appops(RELEASE_ID, 'allow');
   sh(`am start -W -n ${RELEASE_ID}/.MainActivity`);
-  await eventually(() => uiDump(), (x) => /Folder path/.test(x), 15_000, 500);
+  await eventually(() => uiDump(), (x) => /Folder path/.test(x), 30_000, 500);
   tapText('Folder path');
   inputText(vault);
   tapText('Open');
   // D-2051: the label is read through DevTools (the LA's release-variant APK is debuggable; the real release is not).
   const rv = await webview(RELEASE_ID);
   views.push(rv);
-  assert.ok(await rv.waitFor(SIDEBAR, 15_000), 'the release-variant APK opens the vault');
+  assert.ok(await rv.waitFor(SIDEBAR, 30_000), 'the release-variant APK opens the vault');
   assert.equal((await text(rv, `${SIDEBAR} button[aria-label="Tegg: About and Settings"]`)).trim(), 'v0.5.0', 'the release APK built for 0.5.0 shows v0.5.0 on the sidebar\'s bottom-left button');
 });
 

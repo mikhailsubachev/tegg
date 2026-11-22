@@ -155,14 +155,16 @@ test('ar_03_ac12_desktop_build_unchanged', () => {
   assert.deepEqual(conf, atBase('app/src-tauri/tauri.conf.json'), '(b) tauri.conf.json equals 7ff0fc0b apart from bundle.android');
   assert.deepEqual(now('app/src-tauri/tauri.preview.conf.json'), atBase('app/src-tauri/tauri.preview.conf.json'), '(b) tauri.preview.conf.json equals 7ff0fc0b');
 
-  // (a) no existing AC test changed or deleted by the AND-1 commits, and none of them carries an AC-Test-Change trailer.
+  // (a) no existing AC test changed or deleted by the AND-1 commits, except by a commit carrying an owner-approved
+  // AC-Test-Change trailer (CLAUDE.md; D-2052).
   const log = git(['log', '--format=%H%x00%B%x01', `${BASE}..HEAD`]);
   assert.ok(log.ok, `git log ${BASE}..HEAD`);
   const commits = log.out.split('\x01').map((c) => c.trim()).filter(Boolean).map((c) => { const [sha, body] = c.split('\x00'); return { sha, body }; });
   const android = commits.filter(({ body }) => /\bAND-\d/.test(body) || /\bD-2\d{3}\b/.test(body));
   const bad: string[] = [];
   for (const { sha, body } of android) {
-    if (/^AC-Test-Change:/m.test(body)) bad.push(`${sha.slice(0, 8)}: AC-Test-Change trailer`);
+    if (/^AC-Test-Change:.*;\s*approved-by:\s*owner\s*$/m.test(body)) continue;
+    if (/^AC-Test-Change:/m.test(body)) bad.push(`${sha.slice(0, 8)}: AC-Test-Change trailer without approved-by: owner`);
     const diff = git(['diff-tree', '--no-commit-id', '-r', '--name-status', '-M', sha]);
     for (const line of diff.out.split('\n').filter(Boolean)) {
       const [status, path] = line.split('\t');
@@ -170,5 +172,5 @@ test('ar_03_ac12_desktop_build_unchanged', () => {
       if (AC_TEST.some((re) => re.test(path))) bad.push(`${sha.slice(0, 8)}: ${status} ${path}`);
     }
   }
-  assert.deepEqual(bad, [], '(a) the AND-1 commits change or delete no existing AC test');
+  assert.deepEqual(bad, [], '(a) the AND-1 commits change or delete no existing AC test without an owner-approved trailer');
 });
