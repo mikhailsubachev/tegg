@@ -278,6 +278,8 @@ export function App() {
   const [phoneMore, setPhoneMore] = useState<HTMLElement | null>(null);
   const [phoneNotice, setPhoneNotice] = useState<string | null>(null);
   const phone = isPhone();
+  // Another vault opened from the drawer's switcher closes the drawer.
+  useEffect(() => { setDrawerOpen(false); }, [vault?.path]);
   const [quitAsk, setQuitAsk] = useState<'unsaved' | 'keepBoth' | null>(null);
   // The note page stays mounted through a rename (FR-SYN-03 AC-18): it is keyed by navigation, not by path.
   const [navKey, setNavKey] = useState(0);
@@ -1722,6 +1724,8 @@ export function App() {
     const sourceShown = () => !!document.querySelector('main .source-view');
     const closeDrawer = (navigated: boolean) => {
       setDrawerOpen(false);
+      // D-130: after a navigation from the drawer the new page's heading gets the focus once the page isn't inert.
+      if (navigated) setTimeout(() => heading.current?.focus(), 60);
       if (!navigated) setTimeout(() => document.querySelector<HTMLElement>('.phone-bottombar [data-command="phone.menu"]')?.focus(), 40);
     };
     return withImport(

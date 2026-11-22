@@ -1,5 +1,6 @@
 // Slice AND-2 (docs/contracts/android-phone.md §8.5; RA12, FR-NAV-03 AC-17, CP-3 → D-2085): what system Back does.
 // First match wins: close the topmost layer, else go back, else let the app go to the background.
+import { flushSync } from 'react-dom';
 
 type Layer = { close(): void };
 
@@ -27,7 +28,8 @@ export function setHistoryBack(f: () => boolean): void {
 export function systemBack(): boolean {
   const top = layers[layers.length - 1];
   if (top) {
-    top.close();
+    // Closed before Back returns, as the system expects.
+    flushSync(() => top.close());
     return true;
   }
   return backFn ? backFn() : false;

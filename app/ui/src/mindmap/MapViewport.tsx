@@ -66,11 +66,12 @@ function Area({ map, scale, onScale, size, onSize, fill }: {
   return (
     <div ref={area} className={`phone-map-area${fill ? ' fill' : ''}`} data-map-area="" data-scale={String(Math.round(s * 1000) / 1000)}
       style={fill ? undefined : { height: h }}>
-      <div className="phone-map-sizer" style={{ width: w, height: size ? size.height * s : undefined }}>
-        <div ref={inner} className="phone-map-inner" style={{ transform: `scale(${s})`, transformOrigin: '0 0', width: size?.width }}>
-          {map}
-        </div>
+      {/* The drawing at scale 1 (its offset size is the layout's), scaled from the top left; the sizer after it gives
+          the area its scaled scroll extent. */}
+      <div ref={inner} className="phone-map-inner" style={{ transform: `scale(${s})`, transformOrigin: '0 0', width: size?.width, height: size?.height }}>
+        {map}
       </div>
+      <div className="phone-map-sizer" aria-hidden="true" style={{ width: w, height: size ? size.height * s : undefined }} />
     </div>
   );
 }

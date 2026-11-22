@@ -1245,7 +1245,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         </div>
       )}
       <div className="note-column" data-width={pageWidth}>
-        <div className="note-type-row" hidden={isPhone() || undefined}>
+        {!isPhone() && <div className="note-type-row">
           <TypeChip apiRef={chipApi} type={chipType} typeKey={chipKey} types={types} readOnly={!editable || showSource || moving}
             pin={{ request: daily?.virtual || draft ? 'unsaved' : { kind: 'object', path: path.normalize('NFC') }, label: title || (daily?.date ?? path.split('/').pop()!.replace(/\.md$/, '')) }}
             onChange={(key) => { void changeType(key); }} onOpenType={onType} />
@@ -1259,7 +1259,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
           )}
           {reviewToggle && <span className="spacer" />}
           {reviewToggle}
-        </div>
+        </div>}
         {daily && (
           <DailyHeader info={daily} review={reviewOf(fmData)} written={!daily.virtual && editable}
             onReview={(r) => setReviewedRef.current(r)} />
@@ -1332,9 +1332,9 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         {!showSource && loaded.mode !== 'edit' && (
           <>
             {warning && <WarningBanner warning={warning} />}
-            {isPhone() && chipKey !== 'image' && chipKey !== 'pdf'
-              ? <PhoneProperties text={loaded.text} links={loaded.links} type={panelType} onOpen={(p: string) => onOpen(p)} onTag={onTag} />
-              : <Properties text={loaded.text} links={loaded.links} open={propertiesOpen || isPhone()} onToggle={onToggleProperties} onOpen={(p: string) => onOpen(p)} onTag={onTag} />}
+            {isPhone()
+              ? <PhoneProperties text={loaded.text} links={loaded.links} type={panelType} all={chipKey === 'image' || chipKey === 'pdf'} onOpen={(p: string) => onOpen(p)} onTag={onTag} />
+              : <Properties text={loaded.text} links={loaded.links} open={propertiesOpen} onToggle={onToggleProperties} onOpen={(p: string) => onOpen(p)} onTag={onTag} />}
             <ReadView text={loaded.text} path={path} links={loaded.links} onOpen={onOpen} onTag={onTag}
               onExternal={(url) => void ipc.openExternal(url).catch(() => {})} onScrollInNote={(f) => scrollToFragment(root.current, f)}
               renderEmbed={(value, line, inline) => {

@@ -172,7 +172,9 @@ export function PropertyRows({ rows, links, from, emails }: { rows: AttrRow[]; l
 
 /** Slice AND-2 (android-phone §9.2; FR-EDT-07 AC-22, CP-14 → D-2096): the phone's Properties strip (up to three of the
  *  type's preview keys) and the `Properties` sheet with every row of the attribute panel, read-only. */
-export function PhoneProperties({ text, links, type, onOpen, onTag }: {
+export function PhoneProperties({ text, links, type, onOpen, onTag, all = false }: {
+  /** Image and PDF object pages list every row (FR-ATT-01 AC-17). */
+  all?: boolean;
   text: string; links: Map<string, LinkTargetDto>; type: TypeDto | null | undefined; onOpen: (path: string) => void; onTag: (key: string) => void;
 }) {
   const [sheet, setSheet] = useState(false);
@@ -184,7 +186,7 @@ export function PhoneProperties({ text, links, type, onOpen, onTag }: {
   const doc = parse(text.replace(/^\uFEFF/, ''));
   if (doc.frontmatter?.error || doc.frontmatterError || !type) return null;
   const model = panelRows(doc, type);
-  const { strip, more } = stripRows(model.rows, type.preview ?? []);
+  const { strip, more } = all ? { strip: model.rows, more: 0 } : stripRows(model.rows, type.preview ?? []);
   const values = new Map(attributeRows(doc).rows.map((r) => [r.key.normalize('NFC'), r]));
   const p: Props = { text, links, open: true, onToggle: () => {}, onOpen: (x) => { setSheet(false); onOpen(x); }, onTag: (k) => { setSheet(false); onTag(k); } };
   const cell = (key: string) => { const r = values.get(key.normalize('NFC')); return r ? <Value row={r} p={p} /> : null; };

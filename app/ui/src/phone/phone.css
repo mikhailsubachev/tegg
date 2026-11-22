@@ -299,6 +299,7 @@ html[data-layout="phone"] .phone-map-header [role="group"] button {
   min-height: 48px;
 }
 html[data-layout="phone"] .phone-map-area {
+  position: relative;
   overflow-x: auto;
   overflow-y: hidden;
   touch-action: pan-x pan-y;
@@ -576,4 +577,21 @@ html[data-layout="phone"] .source-gutter {
 /* §9.4: the map's drawing keeps its own width inside the scaled box. */
 html[data-layout="phone"] .phone-map-inner .mindmap-canvas {
   max-width: none !important;
+}
+html[data-layout="phone"] .phone-map-inner {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* The search field in the app bar takes the theme's colours. */
+html[data-layout="phone"] .phone-title input {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-height: 40px;
+  padding: 0 10px;
+  width: 100%;
+  box-sizing: border-box;
 }
