@@ -539,6 +539,7 @@ All in `app/ui/src/i18n/catalog.ts`; no literal in `app/ui/src/phone/`. RA13's k
 | `keyboard(shown: boolean)` | `receive('window', { keyboard: shown })`; the test resizes the viewport itself (412 × 520) |
 | `systemBack(): 'handled' \| 'background'` | runs `__TEGG_NATIVE__.back()`; `'background'` where the plugin would move the task to the back |
 | `systemDark(dark: boolean \| null)` | `receive('window', { systemDark: dark })` |
+| `run(id: string): Promise<void>` | runs the registered command `id` through the registry, as a phone control does (D-2101); rejects for an id the phone doesn't list |
 | `readView` (existing, D-215) | read on the desktop layout to compare Bloky's body with the phone's |
 
 `window.__TEGG_LAYOUT__` set before the app's scripts forces a layout (§4.1).
