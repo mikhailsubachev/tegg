@@ -185,7 +185,7 @@ After AND-3 the owner has a usable APK, with the separate Drive sync app.
 
 **AND-4: built-in Google Drive sync.** The `tegg-sync` crate with a fake remote for tests, the Drive adapter, sign-in, sync state on the phone, conflicts, attachments on demand, a sync status in the UI (§3.4). After AND-4 the separate app is no longer needed.
 
-Releases follow the desktop convention (D-1514): the same version number, an `.apk` built next to `Tegg.app` (AP-2011).
+Releases follow the desktop convention (D-1514): the same version number, an `.apk` built next to `Tegg.app` (AP-2011). **The first released APK ships after AND-3** (D-2042, owner 2026-11-22: "lets wait till and-3 with apk"): 0.5.0 stays Mac only; AND-1 and AND-2 builds are unversioned test builds showing `dev`, installed by hand for the owner's phone checks; the APK's first release is its own MINOR release after AND-3, and AND-4 a later one.
 
 ## 7. Risks
 
