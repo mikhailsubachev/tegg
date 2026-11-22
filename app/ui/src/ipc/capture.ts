@@ -1,6 +1,6 @@
 // The capture window's only client (docs/contracts/ms5-capture.md §2.2; NFR-SEC-03, D-552, D-553): the commands its
 // capability allows and the events it listens to. The main window's `ipc/client.ts` is never imported here.
-import { invoke } from './android';
+import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { CaptureContextDto, CaptureDraftDto, CapturedDto, CaptureSuggestDto, DateTimeUiDto, StagedMediaResultDto } from './types';
 

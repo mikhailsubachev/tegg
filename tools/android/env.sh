@@ -19,7 +19,7 @@ case ":$PATH:" in *":$ANDROID_HOME/platform-tools:"*) ;; *) export PATH="$ANDROI
 _tegg_missing=""
 [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ] || _tegg_missing="JDK 21"
 [ -n "$_tegg_missing" ] || [ -d "$ANDROID_HOME/platforms/android-36" ] || _tegg_missing="Android SDK platform 36 in $ANDROID_HOME"
-[ -n "$_tegg_missing" ] || [ -x "$CC_aarch64_linux_android" ] || _tegg_missing="NDK $TEGG_NDK_VERSION in $NDK_HOME"
+[ -n "$_tegg_missing" ] || { [ -d "$NDK_HOME/toolchains/llvm" ] && [ -x "$CC_aarch64_linux_android" ]; } || _tegg_missing="NDK $TEGG_NDK_VERSION in $NDK_HOME"
 [ -n "$_tegg_missing" ] || rustup target list --installed 2>/dev/null | grep -qx aarch64-linux-android || _tegg_missing="Rust target aarch64-linux-android (rustup target add aarch64-linux-android)"
 unset _tegg_tc
 if [ -n "$_tegg_missing" ]; then
