@@ -69,7 +69,22 @@ export function scrollToFragment(root: HTMLElement | null, fragment: string, ed?
   // The read view gives a block its `^id` as the element id; the editor keeps the id in the block's text (D-1197).
   const block = () => art.querySelector(`[id="${CSS.escape(f)}"]`)
     ?? [...art.querySelectorAll<HTMLElement>(':scope > *, li')].find((b) => nfc(b.textContent ?? '').trimEnd().toLowerCase().endsWith(` ${f.toLowerCase()}`));
-  if (f.startsWith('^')) { block()?.scrollIntoView({ block: 'start' }); return; }
+  if (f.startsWith('^')) {
+    const b = block();
+    const main = root.closest('main') as HTMLElement | null;
+    // The read view (a test fallback, D-215) keeps its own landing. In the editor the block lands at the viewport's top,
+    // below the sticky note toolbar (D-1673), as far as the pane scrolls; `scrollIntoView` put it behind the toolbar.
+    if (!b || !main || !ed || root.querySelector('article')) { b?.scrollIntoView({ block: 'start' }); return; }
+    // Placed again on the next two frames, as the heading jump does: the toolbar can still be mounting and move it.
+    const place = () => {
+      if (!b.isConnected) return;
+      const top = b.getBoundingClientRect().top - viewportTop(main);
+      main.scrollTop = Math.max(0, Math.min(main.scrollTop + top, main.scrollHeight - main.clientHeight));
+    };
+    place();
+    requestAnimationFrame(() => { place(); requestAnimationFrame(place); });
+    return;
+  }
   const byText = () => [...art.querySelectorAll<HTMLElement>('[data-heading], h1, h2, h3, h4, h5, h6')].find((h) => nfc(h.dataset.heading ?? h.textContent ?? '').trim().toLowerCase() === f.toLowerCase()) ?? null;
   // The read view (a test fallback, D-215) keeps its own landing at the top (read-view FR-EDT-02 AC-7).
   if (!ed || root.querySelector('article')) { byText()?.scrollIntoView({ block: 'start' }); return; }
