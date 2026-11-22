@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.217, for review                                            |
+| **Document status** | Draft v1.218, for review                                            |
 | **Date**            | 2026-11-19                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -227,6 +227,7 @@
 | v1.215  | 2026-11-20 | Slice Q2-T build: D-1929 (test fixes to the decided behaviour), D-1930 (lane counts on every single-type board), D-1931 (the week lane's order) |
 | v1.216  | 2026-11-20 | Slice Q2-T push gate: D-1932 (older Kanban tests get the default views), D-1933 (the Tasks page is not pinnable), D-1934 (`typeSort` is always a list) |
 | v1.217  | 2026-11-22 | QA review of slice Q2-T: D-1935 (FR-SYN-06 AC-22 checks the real Schedule grouping), D-1936 (the migration skips without `task.yml` or with online-only files; identical default bytes on every Mac), D-1937 (Undo of Restore writes `views: []` when there was no key) |
+| v1.218  | 2026-11-22 | D-1938 (FR-LNK-11 AC-1's L5 check is a 1,000 ms regression bound, not 2 animation frames; the flaky `fr_lnk_11_ac1`) |
 
 ---
 
@@ -1978,6 +1979,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1935 | FR-SYN-06 AC-22 checks the real Schedule (owner, 2026-11-22; QA review of slice Q2-T, `qa/reviews/q2t-tasks-build.md`) | `tasks_property.ac.test.ts` `fr_syn_06_ac22_every_task_lands_in_exactly_one_place` runs the default Schedule query (`defaultTaskView('Schedule')`) over the generated vaults and asserts on its lanes and days: every open task once, Done only in the done lane (within its window), Cancelled nowhere, as its Kanban half does (QA M1; restores what D-1929 must keep) (`AC-Test-Change`) |
 | D-1936 | The migration skips when unsure (synced vaults) (owner, 2026-11-22; QA review of slice Q2-T, `qa/reviews/q2t-tasks-build.md`) | On vault open the task-views migration runs only when `.tegg/types/task.yml` exists and the vault has no online-only placeholders; without `task.yml` nothing is written (a new vault gets the views at `vault_create`, an old one through `Restore default views`). The default `Schedule.yml` and `Kanban.yml` have the same bytes on every Mac (no per-Mac time stamps), so two Macs migrating before they sync write identical files. Amends D-1901 and FR-QRY-07 AC-28 (a), whose test and expected bytes change (QA S1) (`AC-Test-Change`, `Fixture-Change`) |
 | D-1937 | Undo of `Restore default views` (owner, 2026-11-22; QA review of slice Q2-T, N2) | Undo puts back the previous `views:` source when the key existed; when it didn't (including a `task.yml` that Restore created), Undo writes `views: []`, so no tabs show and the on-open migration (D-1936) doesn't add them again |
+| D-1938 | FR-LNK-11 AC-1's L5 check is a regression bound, not a frame count (owner, 2026-11-22; flaky `fr_lnk_11_ac1`) | In the test app the preview is ready a steady ~40 ms after the pointer-up, which counted as 2 or 3 animation frames by frame phase alone, so "within 2 frames" failed about one run in six. A time bound flakes too under the gate's 6 parallel workers: the page's first layout when the popover mounts (~16 ms alone) stretches to 60–320 ms now and then (75 ms failed 4 of 24 runs, 200 ms 1 of 48). The L5 test asserts `preview-ready` ≤ 1,000 ms after the pointer-up (the preview waits for nothing slow) and is renamed `fr_lnk_11_ac1_preview_ready_without_waiting_after_the_click`; the 75 ms target stays the L6 benchmark's, enforced at the v1.0 release gate (`AC-Test-Change`) |
 
 ---
 
