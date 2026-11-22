@@ -82,7 +82,8 @@ test('fr_typ_11_ac8_empty_values_draw_nothing', async ({ page }) => {
   const kraj = 'kraj: "—"\n';
   assert.deepEqual((await variant(kraj, 'kraj: " — "\n'))?.items, [], '" — " draws nothing');
   let c = await variant('kraj: " — "\n', 'kraj: "–"\n');
-  assert.deepEqual(await cardWhen(objectCard(b, P.machovo), (x) => (x?.items.length ?? 0) === 1).then((x) => x?.items.map((i) => i.text)), ['Kraj –'], 'the en dash draws a Kraj pill');
+  // Kraj has the icon map-pin, so the pill shows the icon and – with no visible name (D-2015).
+  assert.deepEqual(await cardWhen(objectCard(b, P.machovo), (x) => (x?.items.length ?? 0) === 1).then((x) => x?.items.map((i) => [i.icon, i.text, i.label])), [['map-pin', '–', 'Kraj: –']], 'the en dash draws a Kraj pill: map-pin and –, named Kraj: –, no visible Kraj');
   c = await variant('kraj: "–"\n', 'kraj: "— nic"\n');
   assert.ok((await cardWhen(objectCard(b, P.machovo), (x) => !!x?.items[0]?.text.includes('— nic')))?.items[0]?.text.includes('— nic'), '"— nic" draws');
   await variant('kraj: "— nic"\n', 'kraj: "—"\n');
@@ -261,9 +262,12 @@ test('fr_typ_11_ac13_url_values', async ({ page }) => {
   const core = await startCards(page, { vault: cardsVault((f) => sevenTypes(f)), route: queryRoute(SEVEN) });
   const b = await must(board(page), 'the seven-type board', 8000);
   const chip = objectCard(b, P.snezka).locator('a.chip[data-attribute="odkaz"]');
-  await must(chip, 'Sněžka\'s odkaz chip');
+  // Sněžka's odkaz chip is item 16: the two-row rule (AC-11) hides it, so it is listed in the "not shown" hint (D-2016).
+  assert.equal(await chip.count(), 1, 'Sněžka\'s odkaz chip is in the DOM');
+  const sm = await cardInfo(objectCard(b, P.snezka));
+  assert.ok(sm?.more?.title?.startsWith('Not shown: ') && sm.more.title.includes('example.com/snezka-z-pece'), `the odkaz chip is listed in the not-shown hint: ${sm?.more?.title}`);
   assert.deepEqual([await chip.getAttribute('data-link-kind'), (await chip.textContent())?.trim()], ['external', 'example.com/snezka-z-pece'], 'the URL chip');
-  await chip.click();
+  await chip.evaluate((e) => (e as HTMLElement).click());
   assert.deepEqual(await eventually(() => core.externalOpened(), (x) => x.length > 0, 2000), ['https://www.example.com/trasy/snezka-z-pece?zdroj=rss#mapa'], 'open_external with the value as written, once');
   assert.equal((await cardInfo(objectCard(b, P.palava)))?.items.find((i) => i.attribute === 'odkaz')?.text, 'example.org', 'host only');
   assert.equal((await cardInfo(objectCard(b, P.chaty)))?.footerLink, 'example.org/horske-chaty', 'Chaty\'s source');

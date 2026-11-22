@@ -188,6 +188,24 @@ export async function fileText(core: FakeCoreHandle, rel: string): Promise<strin
 export async function fileWhen(core: FakeCoreHandle, rel: string, ok: (t: string | undefined) => boolean, ms = 3000) {
   return eventually(() => fileText(core, rel), ok, ms);
 }
+/**
+ * Reads per card (D-2018, cards.md FR-TYP-11 AC-18, embeds.md FR-EMB-02 AC-21): `note_read`, `type_get`, `embed_load`,
+ * `link_resolve` and `index_*` calls whose arguments name one of the drawn cards' objects (its path or `id`). App-level
+ * calls (`index_tags`, `index_conflicts`, `index_type_counts`, and the like) and the opened note's own `note_read` name
+ * no card and aren't counted. Returns `<cmd> <card path>` per such call.
+ */
+export async function perCardReads(core: FakeCoreHandle, scope: Locator | Page): Promise<string[]> {
+  const cards = await objectCards(scope).evaluateAll((es) => es.map((e) => ({ path: e.getAttribute('data-path') ?? '', id: e.getAttribute('data-id') ?? '' })));
+  const keys = cards.flatMap((c) => [nfc(c.path), c.id].filter((k) => k.length > 0).map((k) => [c.path, k] as const));
+  const out: string[] = [];
+  for (const c of await core.calls()) {
+    if (!(['note_read', 'type_get', 'embed_load', 'link_resolve'].includes(c.cmd) || c.cmd.startsWith('index_'))) continue;
+    const args = nfc(JSON.stringify(c.args ?? null));
+    const hit = keys.find(([, k]) => args.includes(JSON.stringify(k).slice(1, -1)));
+    if (hit) out.push(`${c.cmd} ${nfc(hit[0])}`);
+  }
+  return out;
+}
 /** `type_patch` calls with their op lists. */
 export async function typePatches(core: FakeCoreHandle): Promise<{ key: string; ops: any[]; ok: boolean }[]> {
   return (await callsOf(core, 'type_patch')).map((c: any) => ({ key: nfc(String(c.args?.key ?? '')), ops: (c.args?.ops ?? []) as any[], ok: c.ok !== false }));

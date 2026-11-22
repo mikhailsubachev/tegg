@@ -770,7 +770,7 @@ test('fr_grp_06_ac2_every_kind_of_node_previews', async ({ page }) => {
     [P.jana, ['Osoba · 3 connections', 'Firma', 'Alfa s.r.o.', 'Vede Projekt Beta.']],
     ['tag:účty', ['#Účty', 'Tag', 'Tag · 3 connections', '3 objects', 'Rozpočet 2027', 'Plán čtvrtletí', 'Faktury']],
     ['tag:nápad', ['#nápad', '2 objects']],
-    [P.den, ['Daily Note · 2 connections', 'Date', 'Oct 7, 2026', 'Ráno: Nákupní seznam.']],
+    [P.den, ['Daily Note · 2 connections', 'Ráno: Nákupní seznam.']], // no Date: the title is the date (D-2023)
     [P.graf, ['Image · 1 connection', 'Width', '64', 'Height', '48']],
     [P.chybna, ['Page · 1 connection', 'This note\'s properties can\'t be read.', 'Text s odkazem na Shrnutí.']],
   ];

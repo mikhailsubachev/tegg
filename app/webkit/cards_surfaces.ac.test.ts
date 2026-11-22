@@ -51,13 +51,14 @@ test('fr_typ_11_ac15_image_and_pdf_cards', async ({ page }) => {
   });
   assert.equal(strip.first, 'image', 'the card starts with the strip');
   assert.equal(strip.alt, 'Vyhlídka na Pálavě', 'alt = the title');
-  assert.ok(/^tegg-media:\/\/.*\/_attachments\/vyhlidka\.png$/.test(decodeURIComponent(strip.src ?? '')), `src from tegg-media:// (${strip.src})`);
+  // The fake core's media base (http://localhost/__media/…) stands for tegg-media:// in WebKit (D-2017, contract §7.1).
+  assert.ok(/^(tegg-media:\/\/.*|http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/__media)\/_attachments\/vyhlidka\.png$/.test(decodeURIComponent(strip.src ?? '')), `src from tegg-media:// or the fake's media base (${strip.src})`);
   assert.ok(Math.abs((strip.w ?? 0) - strip.inner) <= 1 && (strip.h ?? 999) <= 120 && strip.fit === 'cover', `the card's inner width, ≤ 120 px, cover (${JSON.stringify(strip)})`);
   const vi = await cardInfo(v);
   assert.deepEqual([vi?.lead, vi?.items.map((i) => i.text), vi?.date], ['image', ['Width 64', 'Height 48', 'Size 1.2 KB'], 'Added Mon'], 'then the lead, pills and footer');
   const pr = objectCard(b, P.pravidla);
   const ps = await pr.evaluate((c) => ({ first: (c.firstElementChild as HTMLElement)?.getAttribute('data-strip'), text: (c.firstElementChild as HTMLElement)?.textContent ?? '', canvas: c.querySelectorAll('canvas, iframe, embed, object').length }));
-  assert.deepEqual([ps.first, ps.text.includes('2 pages · 844 B'), ps.canvas], ['pdf', true, 0], 'the PDF strip: R77\'s card, no page rendered');
+  assert.deepEqual([ps.first, ps.text.includes('2 pages · 844 bytes'), ps.canvas], ['pdf', true, 0], 'the PDF strip: R77\'s card, no page rendered');
   await core.setFile('_attachments/vyhlidka.png', null);
   await sleep(1000);
   assert.ok(await v.locator('.card-strip[data-missing]').count(), 'a removed PNG: R77\'s missing-file state');

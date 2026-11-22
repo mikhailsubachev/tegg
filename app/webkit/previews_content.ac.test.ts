@@ -81,7 +81,8 @@ test('fr_lnk_10_ac4_nested_embeds_are_cards_without_recursion', async ({ page })
   const { dlg } = await previewOf(page, 'Hlavní', 0, 'Rozpočet 2027');
   const art = await need(content(dlg, 'Rozpočet 2027'), 'content');
   assert.ok((await contentSequence(art)).includes('CARD:Projekt Alfa'), 'Projekt Alfa is a card');
-  assert.ok(!flat(await art.innerText()).includes('Hlavní projekt roku.'), 'the card has no body text');
+  // Cards show body text (D-1950, D-2022); nested embeds still don't recurse.
+  assert.ok(flat(await art.innerText()).includes('Hlavní projekt roku.'), 'the card shows its body text');
 });
 
 test('fr_lnk_10_ac4_kruh_a_shows_kruh_b_as_a_card_in_at_most_two_embed_loads', async ({ page }) => {
@@ -195,7 +196,8 @@ test('fr_lnk_10_ac9_existing_daily_note_preview_and_open', async ({ page }) => {
   const { core, dlg } = await previewOf(page, 'Dny', 0, '2026-10-07');
   const h = await needHeader(dlg, 'daily preview');
   assert.deepEqual([h.icon, h.title, h.rest], ['calendar', '2026-10-07', 'Daily Note'], 'header');
-  assert.deepEqual(await stripItems(dlg), ['Date Oct 7, 2026'], 'strip');
+  // A Daily Note's card list is `body, modified`: no Date in the strip, the title is the date (D-2023).
+  assert.equal(await strip(dlg).count(), 0, 'no strip (no Date)');
   assert.equal(await textOf(anyContent(dlg)), 'Zápis dne. Viz Rozpočet 2027.', 'body');
   await (await need(openBtn(dlg, '2026-10-07'), 'Open 2026-10-07')).click();
   await need(page.getByRole('textbox', { name: 'Title', exact: true }), 'daily/2026-10-07', 5000);

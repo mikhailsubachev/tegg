@@ -4,16 +4,13 @@
 import { test } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
-  BOOK_YML, P, SEVEN, STAV_Q, VYLET_YML, another, board, callsOf, cardInfo, cardWhen, cardsVault, eventually, main, must, nfc, noteRoute, objectCard, objectCards, queryRoute,
+  BOOK_YML, P, SEVEN, STAV_Q, VYLET_YML, another, board, callsOf, cardInfo, cardWhen, cardsVault, eventually, main, must, nfc, noteRoute, objectCard, objectCards, perCardReads, queryRoute,
   sevenTypes, sleep, startCards, swap, vyletWith, writtenPaths,
 } from './cards-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
 
-const PER_CARD = ['note_read', 'type_get', 'embed_load', 'link_resolve'];
-async function perCard(core: Awaited<ReturnType<typeof startCards>>): Promise<string[]> {
-  return (await core.calls()).map((c) => c.cmd).filter((c) => PER_CARD.includes(c) || c.startsWith('index_'));
-}
+// Only reads per card (per object) count; app-level calls and the opened note's own note_read don't (D-2018).
 
 // ------------------------------------------------------------------------------------------------ FR-TYP-11 AC-18
 
@@ -25,7 +22,7 @@ test('fr_typ_11_ac18_one_read_per_list', async ({ page }) => {
     await must(objectCards(b).first(), `${name}: object cards`);
     await sleep(500);
     assert.equal((await callsOf(o.core, 'query_run')).length, 1, `${name}: exactly one query_run`);
-    assert.deepEqual(await perCard(o.core), [], `${name}: no note_read, type_get, embed_load, link_resolve or index_* per card`);
+    assert.deepEqual(await perCardReads(o.core, b), [], `${name}: no note_read, type_get, embed_load, link_resolve or index_* per card`);
     const rows = ((await callsOf(o.core, 'query_run'))[0] as any)?.result?.rows ?? [];
     assert.ok(rows.length > 0 && rows.every((r: any) => r.card && Array.isArray(r.card.keys)), `${name}: every row carries its card data`);
   }
@@ -35,7 +32,7 @@ test('fr_typ_11_ac18_one_read_per_list', async ({ page }) => {
   await sleep(500);
   assert.equal((await callsOf(k.core, 'link_resolve')).length, 1, 'Karty: one link_resolve');
   assert.ok((await callsOf(k.core, 'embed_load')).length <= 1, 'Karty: at most one embed_load');
-  assert.deepEqual((await k.core.calls()).map((c) => c.cmd).filter((c) => c === 'note_read' || c === 'type_get' || c.startsWith('index_')), [], 'no read per card');
+  assert.deepEqual((await perCardReads(k.core, main(k.page))).filter((c) => !/^(embed_load|link_resolve) /.test(c)), [], 'no read per card');
   // Přečtené 2026 (a Table) asks for no excerpt.
   const t = await another(page, { route: queryRoute('Přečtené 2026') });
   await must(main(t.page).locator('[data-query-result]').first(), 'Přečtené 2026', 8000);

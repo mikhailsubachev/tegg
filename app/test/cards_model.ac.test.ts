@@ -88,7 +88,7 @@ const R218: [string, string, string[], number, string | null, unknown[][], strin
   [P.kontrola, 'check-square', ['kolo'], 0, 'Brzdy seřízené, řetěz namazaný.', [], null, 'Edited Tue'],
   [P.napad, 'zap', [], 0, 'Zkusit Jizerky na běžkách, až napadne sníh.', [['unreviewed']], null, 'Created today'],
   [P.vyhlidka, 'image', [], 0, null, [['pill', 'width', '64'], ['pill', 'height', '48'], ['pill', 'size', '1.2 KB']], null, 'Added Mon'],
-  [P.pravidla, 'file', ['tábor'], 0, null, [['pill', 'pages', '2'], ['pill', 'size', '844 B']], null, 'Added Nov 2, 2026'],
+  [P.pravidla, 'file', ['tábor'], 0, null, [['pill', 'pages', '2'], ['pill', 'size', '844 bytes']], null, 'Added Nov 2, 2026'],
   [P.ucetni, 'book', [], 0, 'Kriminálka z kanceláře nad hospodou.', [['pill', 'status', 'Reading']], 'Jana Brázdová', 'Edited Mon'],
 ];
 
@@ -175,7 +175,7 @@ test('fr_typ_11_ac11_two_rows_then_more', async () => {
   const m = await model();
   const sn = await parts(P.snezka);
   assert.equal(sn.items.length, 16, 'Sněžka: 16 items in the pill area');
-  const hidden = sn.items.slice(10);
+  const hidden = sn.items.slice(11); // Svačina is item 11 (D-2014)
   const hint = String(m.moreHint(hidden));
   assert.ok(hint.startsWith('Not shown: Vybavení: Svačina, '), `moreHint lists the hidden items by their accessible names: ${hint}`);
   const board = await parts(P.snezka, { hideKey: 'stav' });

@@ -1040,7 +1040,8 @@ test('fr_emb_02_ac10_live_update_card_value', async ({ page }) => {
   const core = await openEmbeds(page, M.rezimy);
   await needEmbeds(main(page), 12, 'the host note');
   await core.setFile(M.jana, swap(original(M.jana), 'role: Analytička\n', 'role: Vedoucí\n'));
-  const items = await eventually(async () => (await cardStrip(topEmbed(main(page), 1)).getByRole('listitem').allInnerTexts().catch(() => [] as string[])).map(flat), (x) => x.includes('Role Vedoucí'), 2000);
+  // The card's pills replace the old Properties list (D-1942, D-2025).
+  const items = await eventually(async () => (await topEmbed(main(page), 1).locator('span.card-pill[data-attribute]').allInnerTexts().catch(() => [] as string[])).map(flat), (x) => x.includes('Role Vedoucí'), 2000);
   assert.deepEqual(items, ['Firma Beta a.s.', 'Role Vedoucí'], "Jana's card updates within 2 s");
   assert.deepEqual(await writeCalls(core), [], 'nothing is written');
 });

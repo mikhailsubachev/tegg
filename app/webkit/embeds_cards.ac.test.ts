@@ -5,7 +5,7 @@
 import { test } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
-  P, VYLET_YML, another, callsOf, cardInfo, cardWhen, click, eventually, mainName, main, must, noteRoute, objectCard, settingsRoute, sleep, startCards, tsSection, typePatches,
+  P, VYLET_YML, another, callsOf, cardInfo, cardWhen, click, eventually, mainName, main, must, noteRoute, objectCard, perCardReads, settingsRoute, sleep, startCards, tsSection, typePatches,
   writtenPaths,
 } from './cards-helpers';
 import { M, openEmbeds } from './embeds-helpers';
@@ -79,5 +79,6 @@ test('fr_emb_02_ac21_card_embeds_load_in_one_batch', async ({ page }) => {
   assert.ok(loads.length <= 1, `at most one embed-content call (${loads.length})`);
   const notes = ((loads[0] as any)?.result ?? []) as any[];
   assert.ok(notes.length === 5 && notes.every((n) => n.card && Array.isArray(n.card.keys) && 'values' in n.card), 'the batch carries every card\'s data');
-  assert.deepEqual((await core.calls()).map((c) => c.cmd).filter((c) => c === 'note_read' || c === 'type_get' || c.startsWith('index_')), [], 'no read per card');
+  // Only reads per card count, not app-level calls or Karty's own note_read (D-2018).
+  assert.deepEqual((await perCardReads(core, main(page))).filter((c) => !/^(embed_load|link_resolve) /.test(c)), [], 'no read per card');
 });

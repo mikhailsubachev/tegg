@@ -70,7 +70,7 @@ test('fr_lnk_10_ac19_tasks_images_and_pdfs', async ({ page }) => {
   await startPreviews(page, { at: PV.odkazy, mode: 'click' });
   const t = await openPreview(page, PV.odkazy, 'Zavolat Janě');
   const ti = await items(await must(strip(t), 'Zavolat Janě\'s strip'));
-  assert.deepEqual(ti.map((i) => i.attribute), ['status', 'priority', 'due', 'source'], 'status, priority, due, then the source chip');
+  assert.deepEqual(ti.map((i) => i.attribute), ['status', 'due', 'priority', 'source'], 'status, due, priority (R210, D-2020), then the source chip');
   assert.equal(ti.at(-1)?.text, 'Porada 2026-10-27', 'the source chip');
   assert.equal(await t.locator('[role="checkbox"]:not([aria-readonly="true"]), input[type="checkbox"]:not([disabled])').count(), 0, 'no control that changes the task');
   await page.keyboard.press('Escape');
@@ -78,5 +78,5 @@ test('fr_lnk_10_ac19_tasks_images_and_pdfs', async ({ page }) => {
   assert.deepEqual((await items(await must(strip(g), 'Graf\'s strip'))).map((i) => i.text), ['Width 64', 'Height 48', 'Size 1.2 KB'], 'Graf: Width, Height, Size');
   await page.keyboard.press('Escape');
   const s = await openPreview(page, PV.odkazy, 'Smlouva');
-  assert.deepEqual((await items(await must(strip(s), 'Smlouva\'s strip'))).map((i) => i.text), ['Pages 2', 'Size 844 B'], 'Smlouva: Pages, Size');
+  assert.deepEqual((await items(await must(strip(s), 'Smlouva\'s strip'))).map((i) => i.text), ['Pages 2', 'Size 844 bytes'], 'Smlouva: Pages, Size');
 });

@@ -165,7 +165,8 @@ test('fr_lnk_10_ac4_nested_embeds_are_cards_and_load_at_most_twice', async () =>
   const card = [...a.querySelectorAll('[data-embed-mode]')].find((e) => text(e).includes('Projekt Alfa'));
   assert.ok(card, 'an embed frame for Projekt Alfa');
   assert.equal(card!.getAttribute('data-embed-mode'), 'card', 'a card, whatever Projekt\'s embed mode (AP-815)');
-  assert.ok(!text(a).includes('Hlavní projekt roku.'), 'no body text of Alfa');
+  // Cards show body text (D-1950, D-2022); the nested embed still doesn't recurse.
+  assert.ok(text(card!).includes('Hlavní projekt roku.'), 'the card shows Alfa\'s body text');
   assert.ok(ipc.count('embed_load') <= 2, `at most two embed_load calls (got ${ipc.count('embed_load')})`);
 });
 
@@ -177,7 +178,9 @@ test('fr_lnk_10_ac4_kruh_a_shows_kruh_b_as_a_card_without_recursion', async () =
   assert.ok(t.includes('Začátek kruhu A.'), 'Kruh A\'s body');
   const card = [...a.querySelectorAll('[data-embed-mode]')].find((e) => text(e).includes('Kruh B'));
   assert.equal(card?.getAttribute('data-embed-mode'), 'card', 'Kruh B is a card');
-  assert.ok(!t.includes('Začátek kruhu B.'), 'no body of Kruh B');
+  // Cards show body text (D-1950, D-2022), but Kruh B's card doesn't recurse into Kruh A.
+  assert.ok(text(card!).includes('Začátek kruhu B.'), 'the card shows Kruh B\'s body text');
+  assert.equal(t.split('Začátek kruhu A.').length - 1, 1, 'Kruh A is drawn once: no recursion');
   assert.ok(!/Circular embed/i.test(t), 'no Circular embed message');
   const loads = ipc.calls.filter((c) => c.cmd === 'embed_load').map((c) => (c.args.paths as string[]).map(nfc));
   assert.ok(loads.length >= 1 && loads.length <= 2, `one or two embed_load calls: ${JSON.stringify(loads)}`);

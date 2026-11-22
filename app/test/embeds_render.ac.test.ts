@@ -14,7 +14,7 @@ import { cleanup, render, fireEvent } from '@testing-library/react';
 import { parse } from '@tegg/doc';
 import { computeAccessibleDescription, computeAccessibleName } from 'dom-accessibility-api';
 import { catalog, need } from './read-helpers';
-import { TYPES, fixture, fixtureLoader, hostOf, resolveOnEmbeds, type EmbedNoteDto, type LinkTargetDto } from './embeds-helpers';
+import { TYPES, embedsCard, fixture, fixtureLoader, hostOf, resolveOnEmbeds, type EmbedNoteDto, type LinkTargetDto } from './embeds-helpers';
 
 const nfc = (s: string) => s.normalize('NFC');
 const name = (e: Element) => nfc(computeAccessibleName(e).trim());
@@ -285,15 +285,17 @@ test('fr_emb_02_ac15_embed_strings_come_from_the_catalog', async () => {
   assert.ok(typeof cat.pseudo === 'function', 'catalog.pseudo (NFR-OTH-02 AC-3)');
   cat.setCatalog(cat.pseudo(cat.en), 'en-XA');
   try {
-    const jana = await loaded('Osoby/Jana Nováková.md');
+    // The batch carries the card data (v1-cards §3.3), so the card draws its pills (D-2025).
+    const jana = { ...(await loaded('Osoby/Jana Nováková.md')), card: embedsCard('Osoby/Jana Nováková.md') };
     const { container } = await show(node('Jana Nováková', { mode: 'card', note: jana }));
     const f = frameOf(container);
     assert.ok(name(f).includes('⟦') && name(f).includes('Jana Nováková'), `frame name from embed.name: ${name(f)}`);
     const buttons = [...f.querySelectorAll('button, [role="button"]')] as HTMLElement[];
     assert.ok(buttons.length >= 2, 'Open and Display as');
     for (const b of buttons) assert.ok(name(b).includes('⟦'), `button "${name(b)}" from the catalog`);
-    const list = f.querySelector('[role="list"], ul, ol');
-    assert.ok(list && name(list).includes('⟦'), 'Properties from the catalog');
+    // The card's pills replace the old Properties list (D-1942, D-2025): their names come from card.pill.
+    const pills = [...f.querySelectorAll('span.card-pill[data-attribute]')] as HTMLElement[];
+    assert.ok(pills.length > 0 && pills.every((p) => name(p).includes('⟦')), `the card's pills from the catalog: ${pills.map(name).join(' | ')}`);
     cleanup();
     const c = await show(node('Sama sebe', { state: 'circular', target: target('Pages/Sama sebe.md', 'Sama sebe') }));
     const msg = text(c.container.querySelector('[data-embed-message]'));
