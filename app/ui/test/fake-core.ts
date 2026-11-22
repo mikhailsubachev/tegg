@@ -670,7 +670,12 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       const p = path.normalize('NFC');
       if (!state.vault) return;
       if (o.sameBytesTouch) state.touch(p);
-      else if (text === null) { delete state.vault.files[p]; delete state.invalid[p]; delete state.mtimes[p]; }
+      else if (text === null) {
+        delete state.vault.files[p]; delete state.invalid[p]; delete state.mtimes[p];
+        // A removed attachment is gone too (slice OC, cards.md FR-TYP-11 AC-15: the binary files live in `bin`).
+        const bin = (state as any).bin as Record<string, string> | undefined;
+        if (bin && bin[p] !== undefined) { delete bin[p]; state.sync({ kind: 'bin', path: p, b64: null }); }
+      }
       else if (typeof text === 'string') { if (o.silent && !state.stale.has(p) && state.vault.files[p] !== undefined) state.indexVer[p] = state.ver(p)!; state.vault.files[p] = text; delete state.invalid[p]; state.touch(p); }
       else {
         const bytes = Uint8Array.from(text.bytes);
