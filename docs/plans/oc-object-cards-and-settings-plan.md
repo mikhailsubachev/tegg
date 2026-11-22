@@ -13,7 +13,7 @@ Boards (owner, 2026-11-22): `TypeCards`, `TypeCardsDark`, `CardSettings`, `CardS
 5. **Type settings redrawn** in the Settings style, and its `Views` section lists the type's real views (reorder, Edit, Add view) in place of the disabled buttons.
 6. **Settings redrawn** in the same style: a section list on the left, one label column, one control column, notes under the control. No setting is added, removed or changed.
 
-Not in this slice: Templates, Font / Font size / Accent color, Trash and history, shortcut editing (all stay `Coming in v1.0`); a card setup per view (AP-1552).
+Not in this slice: Templates, Font / Font size / Accent color, Trash and history, shortcut editing (all stay `Coming in v1.0`); a card setup per view (AP-1552); property icons in the read view's properties strip (`PropertiesStrip`, D-2041).
 
 ## 2. Where we are
 

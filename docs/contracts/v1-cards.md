@@ -464,7 +464,7 @@ Nothing is fetched at runtime: the set is in the bundle (UI chunk) and in the bi
 | `links/DuplicateDetails.tsx` | unchanged code; the values it gets follow §3.5 |
 | `pages/TypeSettingsPage.tsx` | R12 after OC's ten sections in `SettingsLayout`; `PreviewSection` → `CardSection`; `DefaultViewsSection` → `ViewsSection`; Properties: one row expanded at a time, `Icon for <Name>` buttons; General: `Change icon` opens the picker |
 | `pages/SettingsPage.tsx`, `pages/settings5b.tsx`, `pages/BackupsPage.tsx`, `pages/ShortcutsPage.tsx` | the same controls inside `SettingsLayout` / `SettingsRow` (no control added, removed or changed, FR-UX-02 AC-24) |
-| `tables/HeaderCell.tsx` (type page and `queries/ResultsTable.tsx` headers), `types/AttributePanel.tsx`, `read/PropertiesStrip.tsx` | property icons before header and label text (FR-TYP-01 AC-13, FR-EDT-07 AC-22); a header's icon is that of the attribute its Name comes from |
+| `tables/HeaderCell.tsx` (type page and `queries/ResultsTable.tsx` headers), `types/AttributePanel.tsx` | property icons before header and label text (FR-TYP-01 AC-13, FR-EDT-07 AC-22); a header's icon is that of the attribute its Name comes from. The read view's `read/PropertiesStrip.tsx` shows no property icons in slice OC (D-2041) |
 | `shell/Icon.tsx` | `TYPE_ICONS`, `SYSTEM_DEFAULT`, `typeIconName` removed for type icons (callers use `icons/resolve.ts` + `LucideIcon`; CP-1); `PATHS` / `Icon` stay for app chrome |
 | `links/icons.ts` (`chipIcon`) | from `TypeDto.resolvedIcon` |
 | `shell/commands.ts`, `shell/registry.ts` | §11; R1's `design` of `settings/*` → `'Settings'`, `type-settings/<type>` → `'CardSettings'` (D-1994) |
@@ -494,7 +494,9 @@ AC-17's L0 rule), `Embed.tsx`'s own strip helper, the `TaskCard` component. Cata
   `+<n>` (`span.card-link-more`, `title` = the other targets joined by `Intl.ListFormat(locale, { type: 'unit', style:
   'short' })`). Other relation and source links and every `url` value are link items in the pill area at their place
   (D-1972). Wikilinks resolve through `card.links` by target text (`linkOf`); resolved → the D-73 chip (a reference,
-  previews.md R104); unresolved → the D-73 broken chip with the Create offer.
+  previews.md R104); unresolved → the D-73 broken chip with the Create offer. Every link chip (pill area and footer)
+  keeps its visible text and is named `card.pill` (`<Name>: <target title>`, `source`: `Source: …`), so `+N more`'s
+  hint lists it so too (D-2027); a Task's source chip keeps R43's form, no name.
 - **URL text** (D-1973): `urlChipText` = host without a leading `www.` + `/` + the last non-empty path segment,
   percent-decoded (raw on a decoding error), NFC; query and fragment dropped; the host alone when the path is empty or
   `/`. Only `http:` / `https:` values are links (`open_external` with the value as written). A `file:` value is a
@@ -644,7 +646,7 @@ for the section at the top (an `IntersectionObserver` on the `h2`s).
 | Pill area | `div.card-pills` | items in order; overflow items `[hidden][data-overflow]` |
 | Unreviewed | `span.card-unreviewed` | `data-review="unreviewed"`; first item |
 | Pill | `span.card-pill` | `data-attribute="<key>"` (one per value of a multi-value key, `data-value-index`); `aria-label` `card.pill`; `title`; children: `svg[data-icon][aria-hidden=true]` or `span.card-pill-name`, `span.card-dot[data-color]`, `span.card-pill-value`; invalid: `data-invalid` with the warning icon; never editable, `white-space: nowrap` |
-| Link item | `a.chip` | `data-attribute="<key>"`; URL: `data-link-kind="external"`; wikilinks: the D-73 chip attributes (`data-link-kind="note\|broken"`) |
+| Link item | `a.chip` | `data-attribute="<key>"`; `aria-label` `card.pill` with the property's Name and the chip's text (`Vlastník: Jana Nováková`, D-2027; a Task's source chip has none); URL: `data-link-kind="external"`; wikilinks: the D-73 chip attributes (`data-link-kind="note\|broken"`) |
 | Local item | `span.card-local` | `data-attribute`, `title` = decoded path; not focusable |
 | More | `span.card-more` | text `card.more`; `title` and `aria-description` `card.moreHint` |
 | Footer | `footer.card-footer` | link `a.chip[data-footer-link]` (+ `span.card-link-more`), date `time.card-date[data-date-key="created\|modified"][datetime]` |
@@ -664,7 +666,7 @@ for the section at the top (an `IntersectionObserver` on the `h2`s).
 | Example | `div[role=region]` | `typeSettings.cardExample`; holds one `article[data-object-card][data-example]` |
 | Fixed note | `p.card-fixed` | `typeSettings.cardFixed` |
 | Property icon | `button` | `typeSettings.propertyIcon`, `aria-haspopup="dialog"`, `data-command="property.icon"`; placeholder `aria-description` `typeSettings.noIcon` |
-| Property row | `div.ts-prop[data-attribute]` | `button` `Edit <Name>` with `aria-expanded`; `Collapse <Name>` when open |
+| Property row | `div.ts-prop[data-attribute]` | the toggle `button` stays `Edit <Name>` with `aria-expanded` (`true` while open); a separate `button` `Collapse <Name>` sits in the open row (D-2040) |
 | Views list | `ul[role=list]` | `typeSettings.viewsList`; `li[data-view-row="<name NFC>"]` (`""` for `All`); handle `typeSettings.viewDrag`; `button` `typeSettings.viewEdit`; `button` `views.remove`; `button` `views.add` (`data-command="views.new"`); Task: `button` `typeSettings.restoreViews` (`data-command="types.restoreDefaultViews"`) |
 | Live region | `div.sr-live` | `typeSettings.cardMoved`, `views.moved` |
 
