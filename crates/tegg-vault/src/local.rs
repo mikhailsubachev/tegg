@@ -16,7 +16,8 @@ pub struct LocalFs {
     root: PathBuf,
     /// Folder listings by folder, with the folder's mtime when listed (a create, rename or removal in it changes the
     /// mtime): `abs` resolves non-ASCII names against them off APFS without listing a folder per file (D-2029, D-2048).
-    listings: std::sync::Mutex<std::collections::HashMap<PathBuf, (i128, std::sync::Arc<Vec<String>>)>>,
+    /// The mtime is coarse on Linux, so a name a listing lacks is looked up again in a fresh listing (QA AND-1).
+    listings: std::sync::Mutex<std::collections::HashMap<PathBuf, (i128, std::sync::Arc<Listing>)>>,
     /// Resolve non-ASCII names through the listings: off macOS, and in host tests of that path.
     resolve_names: bool,
 }
@@ -32,17 +33,20 @@ impl LocalFs {
         LocalFs { resolve_names: true, ..LocalFs::new(root) }
     }
 
-    /// `dir`'s entry names as stored on disk, from the cache while the folder's mtime is unchanged.
-    fn listing(&self, dir: &Path) -> std::sync::Arc<Vec<String>> {
+    /// `dir`'s entries as stored on disk, from the cache while the folder's mtime is unchanged, unless `fresh`. The
+    /// folder is read without holding the cache's lock.
+    fn listing(&self, dir: &Path, fresh: bool) -> std::sync::Arc<Listing> {
         let mtime = fs::metadata(dir).map(|m| mtime_ns(&m)).unwrap_or(-1);
-        let mut cache = self.listings.lock().unwrap_or_else(|p| p.into_inner());
-        if let Some((t, l)) = cache.get(dir) {
-            if *t == mtime && mtime >= 0 {
-                return l.clone();
+        if !fresh {
+            let cache = self.listings.lock().unwrap_or_else(|p| p.into_inner());
+            if let Some((t, l)) = cache.get(dir) {
+                if *t == mtime && mtime >= 0 {
+                    return l.clone();
+                }
             }
         }
-        let l = std::sync::Arc::new(listing_of(dir).unwrap_or_default());
-        cache.insert(dir.to_path_buf(), (mtime, l.clone()));
+        let l = std::sync::Arc::new(Listing::new(listing_of(dir).unwrap_or_default()));
+        self.listings.lock().unwrap_or_else(|p| p.into_inner()).insert(dir.to_path_buf(), (mtime, l.clone()));
         l
     }
 
@@ -54,17 +58,17 @@ impl LocalFs {
         if !self.resolve_names || path.is_ascii() {
             return Ok(p);
         }
-        let rel = on_disk_path_under(&self.root, path, &|d| self.listing(d))?;
+        let rel = on_disk_path_under(&self.root, path, &|d, fresh| self.listing(d, fresh))?;
         Ok(self.root.join(rel))
     }
 
     /// `abs` for a write, rename or removal. A path that resolves to an on-disk spelling other than its NFC form is
     /// refused (`PermissionDenied`) and nothing changes: until AND-3, Tegg doesn't write a file stored under an NFD
-    /// name, because Android's FUSE layer would show other apps the old file after the replace (D-2048). On APFS a path
-    /// never resolves to another spelling, so the desktop is unchanged.
+    /// name, because Android's FUSE layer would show other apps the old file after the replace (D-2048). The desktop
+    /// doesn't resolve names, so it is unchanged.
     fn abs_write(&self, path: &str) -> io::Result<PathBuf> {
         let p = self.abs(path)?;
-        if p != self.root.join(path) {
+        if self.resolve_names && p != self.root.join(tegg_format::nfc(path)) {
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, format!("{path}: stored under another spelling; read-only on this device (D-2048)")));
         }
         Ok(p)
@@ -429,21 +433,55 @@ pub fn on_disk_path(path: &Path) -> io::Result<PathBuf> {
     Ok(out)
 }
 
-/// `rel` below `root`, each existing component as on disk (`root` itself is taken as given).
-fn on_disk_path_under(root: &Path, rel: &str, listing: &dyn Fn(&Path) -> std::sync::Arc<Vec<String>>) -> io::Result<PathBuf> {
+/// One folder's entries by their NFC form, so a lookup costs one map access (QA AND-1).
+pub(crate) struct Listing {
+    by_nfc: std::collections::HashMap<String, Vec<String>>,
+}
+
+impl Listing {
+    fn new(names: Vec<String>) -> Listing {
+        let mut by_nfc: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+        for n in names {
+            by_nfc.entry(tegg_format::nfc(&n)).or_default().push(n);
+        }
+        Listing { by_nfc }
+    }
+
+    /// As `on_disk_name`, for one component.
+    fn find(&self, name: &str) -> OnDiskName {
+        match self.by_nfc.get(&tegg_format::nfc(name)).map(Vec::as_slice) {
+            None | Some([]) => OnDiskName::Missing,
+            Some([one]) => OnDiskName::Found(one.clone()),
+            Some(_) => OnDiskName::Ambiguous,
+        }
+    }
+
+    fn has_exact(&self, name: &str) -> bool {
+        self.by_nfc.get(&tegg_format::nfc(name)).is_some_and(|v| v.iter().any(|e| e == name))
+    }
+}
+
+/// `rel` below `root`, each existing component as on disk (`root` itself is taken as given). `listing(dir, fresh)`
+/// gives a folder's entries; a component missing from a cached listing is looked up once more in a fresh one.
+fn on_disk_path_under(root: &Path, rel: &str, listing: &dyn Fn(&Path, bool) -> std::sync::Arc<Listing>) -> io::Result<PathBuf> {
     let mut dir = root.to_path_buf();
     let mut out = PathBuf::new();
     let mut parts = rel.split('/').filter(|c| !c.is_empty()).peekable();
     while let Some(c) = parts.next() {
-        let names = listing(&dir);
-        let name = match on_disk_name(&names, c) {
+        let mut names = listing(&dir, false);
+        let mut found = names.find(c);
+        if found == OnDiskName::Missing {
+            names = listing(&dir, true);
+            found = names.find(c);
+        }
+        let name = match found {
             OnDiskName::Found(n) => n,
             OnDiskName::Missing => {
                 out.push(c);
                 parts.for_each(|r| out.push(r));
                 return Ok(out);
             }
-            OnDiskName::Ambiguous if names.iter().any(|e| e == c) => c.to_string(),
+            OnDiskName::Ambiguous if names.has_exact(c) => c.to_string(),
             OnDiskName::Ambiguous => return Err(io::Error::new(io::ErrorKind::InvalidData, format!("{rel}: two names with one NFC form"))),
         };
         dir.push(&name);

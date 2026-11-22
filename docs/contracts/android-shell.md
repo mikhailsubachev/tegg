@@ -98,14 +98,17 @@ pub fn on_disk_name(listing: &[String], nfc_name: &str) -> OnDiskName
 `listing` is one folder's entry names as read from disk (any normalisation); `nfc_name` one path component. `Found`
 holds the listed bytes of the single entry whose NFC form equals `nfc_name`; two such entries give `Ambiguous`.
 
-`LocalFs` resolves a vault path for reading, stat, rename source and replacing write: the path as given if it exists;
-otherwise component by component with `on_disk_name` over `read_dir`. `Ambiguous` is `io::ErrorKind::InvalidData`
-(the note is listed once as a name conflict through the existing FR-FMT-12 AC-3 path and never written). A new file is
-created under its NFC name. On APFS the first lookup always succeeds, so the desktop does no extra work.
+Off macOS, `LocalFs` resolves every non-ASCII vault path (reading, stat, rename source, write) component by component
+against folder listings: each listing is cached as a map from the NFC form to the on-disk names, kept while the folder's
+mtime is unchanged, and a component missing from a cached listing is looked up once more in a fresh listing (the mtime
+is coarse on Linux; QA AND-1). `Ambiguous` is `io::ErrorKind::InvalidData` (the note is listed once as a name conflict
+through the existing FR-FMT-12 AC-3 path and never written). A new file is created under its NFC name. On macOS, and
+for ASCII paths, the path is used as given, so the desktop does no extra work.
 
 **Read-only until AND-3 (D-2048).** A write, rename or removal whose path resolves to an on-disk name other than its
-NFC form fails with `io::ErrorKind::PermissionDenied` and changes nothing; reads go through. On APFS the path never
-resolves to another spelling, so the desktop is unchanged.
+NFC form (also when the path is given in those NFD bytes) fails with `io::ErrorKind::PermissionDenied` and changes
+nothing; reads go through. The desktop doesn't resolve names, so it is unchanged. Host regressions:
+`bug_and1qa_fr_fmt_12_stale_listing_refuses_nfd_write`, `bug_and1qa_fr_fmt_12_nfd_path_given_as_is_refused`.
 
 **Shared storage, checked on the emulator (Android 15, AND-1 build; D-2029 asked for it).**
 - Names are **case-insensitive** and case-preserving, as on APFS: `CASE-A.TXT` finds `case-a.txt`, and writing it
