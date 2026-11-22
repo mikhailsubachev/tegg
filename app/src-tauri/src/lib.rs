@@ -795,6 +795,10 @@ async fn vault_create(app: AppHandle, parent: String, name: String, kind: String
     })?;
     let root = vault.root().to_path_buf();
     drop(vault);
+    // android-shell §5: on the phone every open goes through the start flow's gate.
+    #[cfg(mobile)]
+    return mobile::open(&app, &root);
+    #[cfg(desktop)]
     open_vault(&app, root)
 }
 

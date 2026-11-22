@@ -2,7 +2,6 @@
 //! Android-only commands and the test APK's `test-env.json`. Compiled only on mobile.
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
 use tauri::{App, AppHandle, Emitter, Manager, Wry};
@@ -19,8 +18,9 @@ pub(crate) struct Mobile {
     shared_root: PathBuf,
     files_dir: PathBuf,
     state: Mutex<StartStateDto>,
-    /// An open is running on the background thread; a second check waits for it.
-    opening: AtomicBool,
+    /// Serializes the access checks and every open (the start, a return to the app, the chooser): a second check waits
+    /// for the running one, and two `Core`s never open on one vault (QA AND-1).
+    gate: Mutex<()>,
 }
 
 // ---------------------------------------------------------------- test-env.json (§7.1, D-2032)
@@ -61,7 +61,7 @@ pub(crate) fn setup(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     let _ = std::fs::create_dir_all(&dirs.root);
     let shared_root = plugin(&handle).access().map(|a| PathBuf::from(a.shared_root)).unwrap_or_else(|_| PathBuf::from("/storage/emulated/0"));
     app.manage(AppState { dirs: dirs.clone(), core: Mutex::new(None), vault: Mutex::new(None), import: crate::shellimport::new_shared() });
-    app.manage(Mobile { shared_root, files_dir, state: Mutex::new(StartStateDto::None), opening: AtomicBool::new(false) });
+    app.manage(Mobile { shared_root, files_dir, state: Mutex::new(StartStateDto::None), gate: Mutex::new(()) });
     tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into())).initialization_script(crate::init_script(&dirs)).build()?;
     mark_with(&handle, "setup-done", serde_json::json!({ "windows": handle.webview_windows().keys().cloned().collect::<Vec<_>>() }));
     let h = handle.clone();
@@ -126,9 +126,7 @@ fn close_vault(app: &AppHandle) {
 /// without access (F5).
 fn check(app: &AppHandle) {
     let m = app.state::<Mobile>();
-    if m.opening.swap(true, Ordering::SeqCst) {
-        return;
-    }
+    let _gate = m.gate.lock().unwrap_or_else(|p| p.into_inner());
     let remembered = remembered(app);
     // The guard is dropped here: `open_vault` below locks the same mutex.
     let current_vault = app.state::<AppState>().vault.lock().unwrap_or_else(|p| p.into_inner()).clone();
@@ -146,12 +144,11 @@ fn check(app: &AppHandle) {
     } else {
         set_state(app, dto(start_state(true, remembered.as_deref(), None)));
         if let Some(path) = remembered {
-            if let Err(e) = open(app, &path) {
+            if let Err(e) = open_locked(app, &path) {
                 set_state(app, dto(start_state(true, Some(&path), Some(Err(e.kind)))));
             }
         }
     }
-    m.opening.store(false, Ordering::SeqCst);
 }
 
 /// `RunEvent::Resumed`: access may have changed in the system settings.
@@ -179,6 +176,13 @@ fn need_access(app: &AppHandle) -> Result<(), IpcError> {
 
 /// Opens a vault on the phone: the typed-path rules (RA4) first, bulk jobs off (D-2025).
 pub(crate) fn open(app: &AppHandle, input: &Path) -> Result<VaultInfo, IpcError> {
+    let m = app.state::<Mobile>();
+    let _gate = m.gate.lock().unwrap_or_else(|p| p.into_inner());
+    open_locked(app, input)
+}
+
+/// `open` with the gate held by the caller.
+fn open_locked(app: &AppHandle, input: &Path) -> Result<VaultInfo, IpcError> {
     need_access(app)?;
     let m = app.state::<Mobile>();
     let path = resolve_typed_path(&input.to_string_lossy(), &m.shared_root, &m.files_dir, true).map_err(refusal)?;

@@ -342,6 +342,9 @@ impl Jobs {
 
     /// v1-import §12.1: queues an import. It waits behind this vault's other jobs and they wait behind it (R153).
     pub fn start_import(&self, job: Arc<dyn ImportJob>) -> Result<JobId, JobError> {
+        if self.inner.bulk_off.load(Ordering::SeqCst) {
+            return Err(JobError::Unsupported); // D-2025: no bulk job with bulk jobs off
+        }
         let host = self.inner.host.clone().ok_or(JobError::NotImplemented)?;
         // The job exists (and can be cancelled) before it is in the queue, so its `queued` event (§10.2) always comes
         // before the job thread's `planning`.
@@ -485,6 +488,9 @@ impl Jobs {
         job: JobId,
         choice: ResolveChoice,
     ) -> Result<JobId, JobError> {
+        if self.inner.bulk_off.load(Ordering::SeqCst) {
+            return Err(JobError::Unsupported); // D-2025: no bulk job with bulk jobs off
+        }
         let host = self.inner.host.clone().ok_or(JobError::NotImplemented)?;
         // v1-import §9.6: an import is never resumed. `Undo` is the roll-back from the log alone (no transformer, no
         // source); then both journal files go. The backup zip stays.

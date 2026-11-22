@@ -36,6 +36,8 @@ export const ANDROID_HIDDEN_COMMANDS: ReadonlySet<string> = new Set([
   'type.new', 'vault.addStarterTypes', 'tag.rename', 'tag.delete', 'duplicates.merge', 'note.changeType',
   'job.undoRename', 'job.undo.typeChange', 'job.undo.move', 'job.undo.valueRemove', 'job.undo.typeDelete', 'settings.backups',
   'queries.new', 'views.new', 'query.edit', 'query.rename', 'query.trash',
+  // Views and sort controls that write the type or query file (D-2006).
+  'views.moveLeft', 'views.moveRight', 'views.edit', 'board.switchLanes', 'board.resetLaneOrder', 'sort.addLevel', 'sort.useQuery', 'columns.useQuery',
   'graph.open', 'graph.view.list', 'graph.view.graph', 'panel.graph', 'panel.related', 'related.toggleLinked',
   'trash.restore', 'trash.delete',
 ]);

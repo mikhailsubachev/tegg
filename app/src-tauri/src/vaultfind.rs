@@ -93,7 +93,8 @@ pub fn resolve_typed_path(input: &str, shared_root: &Path, private_root: &Path, 
     let (shared, private) = (canon(shared_root), canon(private_root));
     let resolved = tegg_vault::on_disk_path(&p).unwrap_or(p);
     let real = canon(&resolved);
-    let under = |base: &Path| real.starts_with(base) || resolved.starts_with(base);
+    // The real path decides: a symbolic link inside shared storage that points elsewhere is outside it (QA AND-1).
+    let under = |base: &Path| real.starts_with(base);
     if !under(&shared) || (private.starts_with(&shared) && under(&private)) || under(&private) {
         return Err(PathRefusal::OutsideShared);
     }

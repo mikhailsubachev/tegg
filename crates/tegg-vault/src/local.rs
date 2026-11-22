@@ -26,7 +26,17 @@ impl LocalFs {
     /// a second time under its NFC name. A new file keeps the NFC name.
     fn abs(&self, path: &str) -> io::Result<PathBuf> {
         let p = self.root.join(path);
-        if cfg!(target_os = "macos") || path.is_ascii() || fs::symlink_metadata(&p).is_ok() {
+        if cfg!(target_os = "macos") || path.is_ascii() {
+            return Ok(p);
+        }
+        if fs::symlink_metadata(&p).is_ok() {
+            // Both spellings of the name in one folder are a name conflict (FR-FMT-12 AC-3, D-2029): neither is read
+            // or written through the NFC path (QA AND-1).
+            if let (Some(dir), Some(name)) = (p.parent(), p.file_name()) {
+                if on_disk_name(&listing_of(dir).unwrap_or_default(), &name.to_string_lossy()) == OnDiskName::Ambiguous {
+                    return Err(io::Error::new(io::ErrorKind::InvalidData, format!("{path}: two names with one NFC form")));
+                }
+            }
             return Ok(p);
         }
         let rel = on_disk_path_under(&self.root, path)?;
@@ -454,14 +464,21 @@ fn rename_no_clobber(from: &Path, to: &Path) -> io::Result<()> {
 /// Portable fallback: a hard link fails if the target exists; then drop the old name.
 #[cfg(not(target_os = "macos"))]
 fn rename_no_clobber(from: &Path, to: &Path) -> io::Result<()> {
-    no_clobber_via(from, to, &|a: &Path, b: &Path| fs::hard_link(a, b).and_then(|_| fs::remove_file(a)))
+    no_clobber_via(from, to, &|a: &Path, b: &Path| fs::hard_link(a, b))?;
+    // Only the link decides; once it exists, a failure to drop the temp name is reported as such (QA AND-1).
+    if fs::symlink_metadata(from).is_ok() {
+        fs::remove_file(from)?;
+    }
+    Ok(())
 }
 
-/// A create that never replaces `to`, through `primitive` (a hard link, which fails when `to` exists). Where the file
+/// A create that never replaces `to`, through `primitive` (a hard link, which fails when `to` exists; the caller drops
+/// `from` afterwards when it is still there). Where the file
 /// system has no hard links (Android's shared storage: `ENOSYS` for the shell user, `EACCES` for an app; also `EPERM`,
 /// `EOPNOTSUPP`, `EXDEV`; bug_and1la), the target is
-/// checked and the file renamed: an existing `to` is `AlreadyExists` and nothing is replaced. The window between the
-/// check and the rename is the residual window D-84 accepts.
+/// checked and the file renamed: an existing `to` is `AlreadyExists`. A file another program creates between the check
+/// and the rename would be replaced: Android's FUSE layer rejects `renameat2(RENAME_NOREPLACE)` (EINVAL, checked on the
+/// emulator), so this window is open for the owner's decision (AND-1 QA review), not covered by D-84.
 #[cfg_attr(target_os = "macos", allow(dead_code))]
 pub(crate) fn no_clobber_via(from: &Path, to: &Path, primitive: &dyn Fn(&Path, &Path) -> io::Result<()>) -> io::Result<()> {
     match primitive(from, to) {
