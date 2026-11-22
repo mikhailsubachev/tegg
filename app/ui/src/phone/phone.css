@@ -552,3 +552,15 @@ html[data-layout="phone"] .conflict-list a {
 html[data-layout="phone"] .phone-drawer-layer.closing {
   pointer-events: none;
 }
+html[data-layout="phone"] .phone-title .search-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+html[data-layout="phone"] .phone-title .search-field input {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  min-height: 40px;
+}

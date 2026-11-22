@@ -66,6 +66,31 @@ export function PhoneFrame(props: {
     setHistoryBack(() => { if (!back.current.canBack) return false; back.current.onBack(); return true; });
     setBackHandler(systemBack);
   }, []);
+  // §8.5: a long press does nothing: no WebView context menu anywhere on the phone.
+  // The click that ends a long press is dropped too, so a long press on a row or card doesn't open it.
+  useEffect(() => {
+    let downAt = 0;
+    let swallowUntil = 0;
+    const menu = (e: Event) => { e.preventDefault(); swallowUntil = performance.now() + 1500; };
+    const down = (e: PointerEvent) => { if (e.pointerType === 'touch') downAt = performance.now(); };
+    const up = (e: PointerEvent) => { if (e.pointerType === 'touch' && performance.now() - downAt >= 500) swallowUntil = performance.now() + 700; };
+    const click = (e: MouseEvent) => {
+      if (performance.now() >= swallowUntil) return;
+      swallowUntil = 0;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    document.addEventListener('contextmenu', menu, true);
+    document.addEventListener('pointerdown', down, true);
+    document.addEventListener('pointerup', up, true);
+    document.addEventListener('click', click, true);
+    return () => {
+      document.removeEventListener('contextmenu', menu, true);
+      document.removeEventListener('pointerdown', down, true);
+      document.removeEventListener('pointerup', up, true);
+      document.removeEventListener('click', click, true);
+    };
+  }, []);
   // §8.6: after each viewport resize the focused field stays in view; FR-UX-04 AC-7 (D-2071): a rotation keeps the first
   // visible block at the top.
   useEffect(() => {

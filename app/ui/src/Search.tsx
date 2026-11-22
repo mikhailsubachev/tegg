@@ -55,6 +55,9 @@ function withUser(key: string, vars: Record<string, string>, user: Record<string
  *  type, date, match line, snippet or body lead and tag chips, `Show next`, and the empty states. Quick switching is
  *  the results list (FR-NAV-01, D-1340): ↓ goes to the first row, ⏎ opens it, ⌥⏎ creates. Its state belongs to the
  *  history entry (D-1217): `initial` restores it, `onState` reports it. */
+/** The phone's last shown search (its query key, rows and total), for Back (FR-SRC-03 AC-22). */
+let phoneShown: { key: string; rows: SearchResultDto[]; total: number } | null = null;
+
 export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, types, dateTime, initial, onState, noCreate = false, fieldSlot = null }: {
   onOpen: (path: string) => void;
   /** Esc: back to the page Search was opened from, as the switcher closed (D-760); false when there is none. */
@@ -90,10 +93,12 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
   const typeName = (k: string) => typeNames[k || 'page'] ?? k;
 
   // Buttons carry tabIndex 0: WebKit's Tab reaches a button only with an explicit tabindex (as on the tag page).
-  const [rows, setRows] = useState<SearchResultDto[]>([]);
-  const [total, setTotal] = useState<number | null>(null);
+  // Slice AND-2 (FR-SRC-03 AC-22): on the phone Back to a search shows its last rows at once, then asks again.
+  const cached = noCreate && initial && phoneShown?.key === `${initial.text}\u0000${initial.type ?? ''}\u0000${initial.tags.join('\u0001')}` ? phoneShown : null;
+  const [rows, setRows] = useState<SearchResultDto[]>(cached?.rows ?? []);
+  const [total, setTotal] = useState<number | null>(cached?.total ?? null);
   const loaded = useRef(initial?.loaded ?? 0);
-  const totalRef = useRef<number | null>(null);
+  const totalRef = useRef<number | null>(cached?.total ?? null);
   const focusPath = useRef<string | null>(initial?.focusPath ?? null);
   const restoreFocus = useRef<string | null>(initial?.focusPath ?? null);
   const restored = useRef(!!initial);
@@ -163,6 +168,7 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
         }
         setRows(p.results);
         setTotal(p.total);
+        if (noCreate) phoneShown = { key: keyOf, rows: p.results, total: p.total };
         totalRef.current = p.total;
         loaded.current = p.results.length;
         rowsKey.current = keyOf;

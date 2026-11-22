@@ -57,7 +57,8 @@ export async function syncWindow(dark: boolean): Promise<void> {
     if (!b || !s) return;
     // A pushed state (insets from a test hook or the plugin) wins over zero insets in the answer.
     const zero = !s.insets || (s.insets.top === 0 && s.insets.bottom === 0 && s.insets.left === 0 && s.insets.right === 0);
-    b.receive('window', { ...(zero ? {} : { insets: s.insets }), keyboard: s.keyboard, systemDark: s.systemDark, fontScale: s.fontScale });
+    // A pushed night mode wins too: the answer to the theme's own sync must not undo the push that caused it.
+    b.receive('window', { ...(zero ? {} : { insets: s.insets }), keyboard: s.keyboard, ...(b.state.systemDark === null ? { systemDark: s.systemDark } : {}), fontScale: s.fontScale });
   } catch {
     /* errors ignored (§6.2) */
   }
