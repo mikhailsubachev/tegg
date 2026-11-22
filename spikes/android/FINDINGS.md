@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-20 · **Branch:** `claude/tegg-android-mvp-plan-9e9b45` · **Host:** the owner's M2 Pro · **Device:** Android emulator, Android 15 (API 35), arm64, 4 cores, 4 GB, system WebView 124 · **Toolchain:** Tauri CLI 2.12.1, NDK 28.2, SDK platform 36, JDK 21, Rust 1.99 · **Plan:** `docs/plans/android-mvp-plan.md` §6 (D-2000…D-2012)
 
-## Verdict: GO so far, three items still open
+## Verdict: GO for AND-1, three checks carried into it
 
 The current app, with a small gating patch and no changes to the core's logic, builds as an APK, starts on Android, opens the 5,000-note reference vault from shared storage, shows it, opens a note and saves an edit with a minimal diff. One real defect was found in the core (the watcher, F1) and one in the start-up order (F2); both have a clear fix.
 
@@ -68,14 +68,17 @@ Reference vault, seed 1, `--small-images`: 5,000 notes + 2,000 Image objects + 2
 
 ## How it was run
 
-- Toolchain: `brew install --cask android-commandlinetools`; `sdkmanager` for platform tools, platform 36, build tools 36.0.0, NDK 28.2.13676358, the emulator and the `android-35` `google_apis` arm64 image (about 8.3 GB in `/opt/homebrew/share/android-commandlinetools`); `rustup target add aarch64-linux-android x86_64-linux-android`. Environment: `spikes/android/env.sh`.
+- Toolchain: `brew install --cask android-commandlinetools`; `sdkmanager` for platform tools, platform 36, build tools 36.0.0, NDK 28.2.13676358, the emulator and the `android-35` `google_apis` arm64 image (about 8.3 GB in `/opt/homebrew/share/android-commandlinetools`); `rustup target add aarch64-linux-android x86_64-linux-android`. The environment: `JAVA_HOME` (JDK 21), `ANDROID_HOME`, `NDK_HOME`, and for the core build `CC_aarch64_linux_android`, `AR_aarch64_linux_android` and `CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER` pointing at the NDK's `aarch64-linux-android26-clang` and `llvm-ar`.
 - Core: `cargo build --release --target aarch64-linux-android --manifest-path tools/core-perf/Cargo.toml`, pushed to `/data/local/tmp` and run with `TMPDIR` in private storage and in `/sdcard/Documents`.
-- App: the patch `spikes/android/and0-spike.patch` (throwaway; the product code is unchanged), `npx tauri android init`, `npx tauri android build --debug --apk --target aarch64 --config '{"version":"0.0.1"}'`, installed with `adb`, permission granted with `adb shell appops set app.tegg.desktop MANAGE_EXTERNAL_STORAGE allow`. The vault was the generated reference vault in `/sdcard/Documents/TeggVault`.
+- App: a throwaway patch of about 60 lines over `app/src-tauri` and one line in `tegg-vault` (F1…F3, F7; the product code is unchanged), `npx tauri android init`, `npx tauri android build --debug --apk --target aarch64 --config '{"version":"0.0.1"}'`, installed with `adb`, permission granted with `adb shell appops set app.tegg.desktop MANAGE_EXTERNAL_STORAGE allow`. The vault was the generated reference vault in `/sdcard/Documents/TeggVault`.
 - Only generated data was used (D-62).
+- The spike's patch, environment file, generated Android project, APK and emulator device were removed on 2026-11-22 (owner: "keep just findings", as D-1366 did for S1–S5); the patch and the environment file are in commit `d4c753e6`. The Android SDK, NDK and Rust targets stay installed for slice AND-1.
 
-## Still to do in AND-0
+## Open items, moved to slice AND-1
 
-1. **On the owner's phone:** install the spike APK, grant "All files access", type in a note with Gboard (Czech diacritics, autocorrect, Enter in lists, backspace at block starts), and time the index.
+The spike was closed on 2026-11-22 with these checks open; they run on the first AND-1 build instead of a spike APK.
+
+1. **On the owner's phone:** install the AND-1 build, grant "All files access", type in a note with Gboard (Czech diacritics, autocorrect, Enter in lists, backspace at block starts), and time the index.
 2. **The separate Drive sync app:** hidden folders `.tegg/` and `.trash/`, Tegg's temporary files, conflict-copy names.
 3. **Drive API:** sign-in with the full `drive` scope and token lifetime, the change list, and whether the Mac client uploads Tegg's atomic writes as an update or as a delete and a create.
 4. The round-trip corpus and the UI tests on Chromium (D-2009).
