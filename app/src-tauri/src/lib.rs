@@ -17,6 +17,7 @@ mod shellimport;
 mod shellpin;
 mod shellq;
 mod shellrel;
+mod shellcards;
 
 use std::io::Write;
 use std::path::PathBuf;
@@ -892,6 +893,7 @@ async fn embed_load(state: State<'_, AppState>, paths: Vec<String>, media: Optio
             version: n.version.as_ref().map(version_dto),
             utf8: n.utf8,
             links: n.links.into_iter().map(link_dto).collect(),
+            card: n.card.map(shellcards::card_dto),
         })
         .collect())
 }
@@ -1334,7 +1336,9 @@ pub(crate) fn type_dto(t: TypeInfo) -> TypeDto {
         Readability::Invalid { message, line } => ("invalid", Some(TypeFileErrorDto { message: message.clone(), line: *line as u32 })),
     };
     let d = t.def;
+    let resolved_icon = shellcards::icon_dto(Some(&t.icon));
     TypeDto {
+        resolved_icon,
         key: t.key,
         name: t.name,
         plural: t.plural,
@@ -1365,6 +1369,11 @@ pub(crate) fn type_dto(t: TypeInfo) -> TypeDto {
         views_unreadable: t.views_unreadable,
         view_items: t.view_items.map(|items| items.into_iter().map(view_item_dto).collect()),
         views_source: t.views_source,
+        card_list: t.card.list,
+        card_default: t.card.default,
+        card_keys: t.card.keys,
+        card_ignored: t.card_ignored,
+        card_unreadable: t.card_unreadable,
         embed: t.embed.as_str().into(),
         embed_raw: t.embed_raw,
         template: d.template,
@@ -1419,6 +1428,8 @@ pub(crate) fn attribute_dto(a: AttrDef) -> AttributeDto {
         multiple: a.multiple,
         description: a.description,
         built_in: a.built_in,
+        resolved_icon: shellcards::icon_dto(a.icon.as_deref()),
+        icon: a.icon,
     }
 }
 
@@ -1458,6 +1469,7 @@ pub(crate) fn task_dto(r: tegg_core::TaskRow) -> TaskRowDto {
         modified: r.modified,
         version: version_dto(&r.version),
         read_only: r.read_only,
+        card: shellcards::card_dto(r.card),
     }
 }
 
@@ -1473,6 +1485,7 @@ fn attr_def(a: AttributeInputDto) -> AttrDef {
         multiple: a.multiple,
         description: a.description,
         built_in: false,
+        icon: None, // v1-cards §4.2: addAttribute never writes an icon
     }
 }
 
@@ -1525,6 +1538,8 @@ fn type_op(op: TypeOpDto) -> Result<TypeOp, IpcError> {
         TypeOpDto::MoveOption { attr, label, to } => TypeOp::MoveOption { attr, label, to: to as usize },
         TypeOpDto::RemoveOption { attr, label } => TypeOp::RemoveOption { attr, label },
         TypeOpDto::RenameOption { attr, from, to } => TypeOp::RenameOption { attr, from, to },
+        TypeOpDto::Card { keys } => TypeOp::SetCard(keys),
+        TypeOpDto::AttributeIcon { key, icon } => TypeOp::SetAttributeIcon { key, icon },
     })
 }
 
@@ -1924,6 +1939,7 @@ pub fn run() {
             shellg3::graph_presets_get, shellg3::graph_presets_apply,
             shellpin::pins_get, shellpin::pins_apply,
             shellrel::index_related,
+            shellcards::type_card_example,
             shellq::queries_list, shellq::query_get, shellq::query_run, shellq::query_apply, shellq::query_revert, shellq::query_create,
             shellq::query_duplicate, shellq::query_rename, shellq::query_trash, shellq::query_restore, shellq::query_usages, shellq::query_view_usages, shellq::task_views_restore,
             shellimport::import_pick_source, shellimport::import_scan, shellimport::import_cancel, shellimport::import_where,

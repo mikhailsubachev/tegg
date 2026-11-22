@@ -13,7 +13,7 @@ import type {
   LinkCreatePlanDto, LinkCreatedDto, DailyViewDto, DailyDraftDto, DailyCreatedDto, DailyContextDto, EmbedNoteDto,
   NoteRenameDto, JobIdDto, JobReportDto, JobProgressDto, RetryDto, InterruptedDto, TaskListDto, DailyTasksDto,
   InboxRowDto, VaultSettingsDto, ShellSettingsDto, HotkeyStateDto,
-  TrashEntryDto, MovedDto, TrashRemovalDto, MediaAddedDto, MediaAddResultDto, StagedMediaResultDto, RelatedDto,
+  TrashEntryDto, MovedDto, TrashRemovalDto, MediaAddedDto, MediaAddResultDto, StagedMediaResultDto, RelatedDto, CardExampleDto,
 } from './types';
 
 export const ipc = {
@@ -106,6 +106,8 @@ export const ipc = {
   backlinks: (path: string) => invoke<BacklinksPanelDto>('index_backlinks', { path }),
   /** Slice REL (v1-related §2): the Related list of the object at `path` (NFC); read-only. */
   related: (path: string, showLinked: boolean) => invoke<RelatedDto>('index_related', { path, showLinked }),
+  /** Slice OC (v1-cards §4.1): the type's example card (its most recently modified object, every candidate key). */
+  typeCardExample: (key: string) => invoke<CardExampleDto | null>('type_card_example', { key }),
   brokenLinks: () => invoke<BrokenLinksDto>('index_broken_links'),
   duplicateTitles: () => invoke<DuplicateGroupDto[]>('index_duplicate_titles'),
   linkCreatePlan: (from: string, target: string, relationTo: string[] | null) => invoke<LinkCreatePlanDto>('link_create_plan', { from, target, relationTo }),

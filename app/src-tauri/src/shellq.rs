@@ -231,6 +231,8 @@ pub struct QueryRowDto {
     pub tags: Vec<String>,
     /// Slice Q2-T (CP-24, D-1916): ms5-tasks §3's row for an object of type `task`; else null.
     pub task_row: Option<TaskRowDto>,
+    /// Slice OC (v1-cards §3.3): the card data on board runs; null on List and Table runs.
+    pub card: Option<crate::shellcards::CardDataDto>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -499,6 +501,7 @@ fn row_dto(r: QueryRow) -> QueryRowDto {
         read_only: r.read_only,
         tags: r.tags,
         task_row: r.task_row.map(crate::task_dto),
+        card: r.card.map(crate::shellcards::card_dto),
     }
 }
 
