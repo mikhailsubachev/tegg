@@ -19,10 +19,12 @@ import { useTagLook } from '../tags/store';
 export type TypeColumn = { key: string; label: string; attr: AttributeDto | null; userNamed: boolean };
 type Column = TypeColumn;
 
-export function TypeCell({ row, col, type, types, onOpen, onTag, typeKey, refs }: {
+export function TypeCell({ row, col, type, types, onOpen, onTag, typeKey, refs, inert = false }: {
   row: TypeRowDto; col: Column; type: TypeDto | undefined; types: TypeDto[]; onOpen: (p: string) => void; onTag: (k: string) => void; typeKey: string;
   /** A preview's strip (v1-previews §3.4): its relation chips are references like the body's links (D-932, D-1170). */
   refs?: boolean;
+  /** Slice AND-2 (android-phone §9.5): a phone table's cell: its chips are plain text (a tap opens the row). */
+  inert?: boolean;
 }) {
   const look = useTagLook();
   if (col.key === 'title') {
@@ -42,7 +44,9 @@ export function TypeCell({ row, col, type, types, onOpen, onTag, typeKey, refs }
     const list = (Array.isArray(row.values.tags) ? row.values.tags : isEmpty(row.values.tags) ? [] : [row.values.tags]).map(rawText);
     return (
       <span className="chips">
-        {list.map((x) => (
+        {list.map((x) => inert ? (
+          <span key={x} className="chip tag-chip" style={look(x).style}><span data-user-content>#{look(x).name}</span></span>
+        ) : (
           <TagRef data-command="typePage.a0" key={x} tagKey={nfc(x.replace(/^#/, '')).toLowerCase()} className="chip tag-chip" style={look(x).style} onTag={onTag}>
             <span data-user-content>#{look(x).name}</span>
           </TagRef>
@@ -76,7 +80,7 @@ export function TypeCell({ row, col, type, types, onOpen, onTag, typeKey, refs }
     return (
       <span className="linked-text">
         {v.split(TEXT_LINK).map((p, i) => (i % 2
-          ? <LinkCell key={i} value={p.replace(/^!/, '')} links={row.links} types={types} onOpen={onOpen} refs={refs} />
+          ? <LinkCell key={i} value={p.replace(/^!/, '')} links={row.links} types={types} onOpen={onOpen} refs={refs} inert={inert} />
           : p && <span key={i} data-user-content>{p}</span>))}
       </span>
     );
@@ -85,14 +89,14 @@ export function TypeCell({ row, col, type, types, onOpen, onTag, typeKey, refs }
     const list = Array.isArray(v) ? v : [v];
     return (
       <span className="chips">
-        {list.map((x, i) => <LinkCell key={i} value={x} links={row.links} types={types} onOpen={onOpen} refs={refs} />)}
+        {list.map((x, i) => <LinkCell key={i} value={x} links={row.links} types={types} onOpen={onOpen} refs={refs} inert={inert} />)}
       </span>
     );
   }
   return <span data-user-content>{rawText(v)}</span>;
 }
 
-function LinkCell({ value, links, types, onOpen, refs }: { value: unknown; links: LinkTargetDto[]; types: TypeDto[]; onOpen: (p: string) => void; refs?: boolean }) {
+function LinkCell({ value, links, types, onOpen, refs, inert = false }: { value: unknown; links: LinkTargetDto[]; types: TypeDto[]; onOpen: (p: string) => void; refs?: boolean; inert?: boolean }) {
   const w = wiki(value);
   if (!w) return <span data-user-content>{rawText(value)}</span>;
   const info = links.find((l) => [nfc(w.target), nfc(w.inner), nfc(String(value))].includes(nfc(l.target)));
@@ -106,6 +110,7 @@ function LinkCell({ value, links, types, onOpen, refs }: { value: unknown; links
       {parts?.suffix}
     </>
   );
+  if (inert) return <span className={`chip link-chip ${ok ? '' : 'kind-unresolved'}`} data-link-kind={ok ? info!.kind : 'unresolved'}>{inner}</span>;
   if (refs && ok && info!.kind !== 'trashed') {
     // D-1189: in a preview's strip a relation chip is a reference: a click replaces the content in click mode (D-932),
     // resting on it in hover mode does (D-1170), and the preview's click-to-open leaves it alone (R129).

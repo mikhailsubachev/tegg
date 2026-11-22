@@ -414,7 +414,7 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
                         }}>
                         {columns.map((c) => (
                           <td key={c.key} style={padTop || padBottom ? { paddingTop: 6 + padTop, paddingBottom: 6 + padBottom } : undefined}>
-                            <Cell row={r} col={c} type={type} types={types} onOpen={onOpen} onTag={onTag} typeKey={typeKey} />
+                            <Cell row={r} col={c} type={type} types={types} onOpen={onOpen} onTag={onTag} typeKey={typeKey} inert={phone} />
                           </td>
                         ))}
                       </RefElement>

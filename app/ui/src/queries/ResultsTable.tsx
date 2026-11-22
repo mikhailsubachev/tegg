@@ -183,7 +183,7 @@ function Cell({ row, col, type, types }: { row: QueryRowDto; col: Col; type: Typ
   if (empty) return <span className="query-empty">—</span>;
   const typeRow = { path: row.path, id: row.id, title: row.title, type: row.type, created: row.created, modified: row.modified, values: row.values, links: row.links } as unknown as TypeRowDto;
   return <TypeCell row={typeRow} col={{ key: col.key, label: col.label, attr: a, userNamed: col.userNamed }} type={type} types={types}
-    onOpen={(p) => queryNav()?.openNote(p)} onTag={(k) => queryNav()?.go({ id: 'tag/<key>', param: k })} typeKey={row.type} />;
+    onOpen={(p) => queryNav()?.openNote(p)} onTag={(k) => queryNav()?.go({ id: 'tag/<key>', param: k })} typeKey={row.type} inert={isPhone()} />;
 }
 
 /** The nearest ancestor that scrolls vertically, or null for the window. */

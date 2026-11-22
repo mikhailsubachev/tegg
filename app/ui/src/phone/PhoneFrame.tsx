@@ -70,10 +70,12 @@ export function PhoneFrame(props: {
   // The click that ends a long press is dropped too, so a long press on a row or card doesn't open it.
   useEffect(() => {
     let downAt = 0;
+    let held = false;
     let swallowUntil = 0;
-    const menu = (e: Event) => { e.preventDefault(); swallowUntil = performance.now() + 1500; };
-    const down = (e: PointerEvent) => { if (e.pointerType === 'touch') downAt = performance.now(); };
-    const up = (e: PointerEvent) => { if (e.pointerType === 'touch' && performance.now() - downAt >= 500) swallowUntil = performance.now() + 700; };
+    const menu = (e: Event) => { e.preventDefault(); held = true; };
+    // A new press starts over: only the click that ends a long press is dropped.
+    const down = (e: PointerEvent) => { downAt = performance.now(); held = false; swallowUntil = 0; void e; };
+    const up = (e: PointerEvent) => { if (held || (e.pointerType === 'touch' && performance.now() - downAt >= 500)) swallowUntil = performance.now() + 700; held = false; };
     const click = (e: MouseEvent) => {
       if (performance.now() >= swallowUntil) return;
       swallowUntil = 0;
