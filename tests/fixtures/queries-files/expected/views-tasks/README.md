@@ -10,8 +10,8 @@ the table says otherwise.
 
 **Clock.** `2026-10-14T12:00:00+02:00` (Wednesday), Europe/Prague, region `cs` (week Monday–Sunday) unless a name says
 otherwise: `-la` = America/Los_Angeles (`2026-10-14T03:00:00-07:00`, the same local date), `-en-us` = region `en-US`
-(week Sunday–Saturday). Every `modified:` written by an action is the clock; `created` / `modified` of R202's default
-files (`<stamp>`) are the clock too.
+(week Sunday–Saturday). Every `modified:` written by an action is the clock; R202's default
+files have no `created` / `modified` (the same bytes on every Mac, D-1936).
 
 **Byte rules.** UTF-8 without BOM, NFC, LF, one final `\n`, except: `-crlf` (CRLF on every line, final CRLF),
 `-no-newline` (LF, no final newline) and `tasks/nakup-later.md` (its `title` and `tags` entry keep the fixture's **NFD**
@@ -26,7 +26,7 @@ are each two commits at the same clock.
 
 | File | Input → action | Criteria |
 | --- | --- | --- |
-| `schedule-default.yml`, `kanban-default.yml` | R202's bytes, `<stamp>` the clock (the migration, `Restore default views`, `create_text(default_task_view(name), clock, None)`) | FR-QRY-07 AC-27, AC-28, FR-TYP-01 AC-11 |
+| `schedule-default.yml`, `kanban-default.yml` | R202's bytes, no time stamps (D-1936; the migration, `Restore default views`, `taskviews::default_task_view_text(name)` = `create_text_unstamped(default_task_view(name))`) | FR-QRY-07 AC-27, AC-28, FR-TYP-01 AC-11 |
 | `schedule-no-done-lane.yml` | overlay `Schedule.yml`; the editor's done-lane checkbox unchecked, `Done`: line 15 removed | FR-TSK-04 AC-26 |
 | `schedule-done-lane-again.yml` | then checked again: `done_lane: { within_days: 7, folded: true }` back after `lanes:` | FR-TSK-04 AC-26 |
 | `schedule-lanes-vertical.yml` (+ `-crlf`, `-no-newline`) | overlay `Schedule.yml` (or its CRLF / no-final-newline copy); `Switch lanes`: line 14 only | FR-FMT-07 AC-35 |
@@ -42,7 +42,7 @@ changed by the red tests: it is an existing fixture and changes with a `Fixture-
 | File | Input → action | Criteria |
 | --- | --- | --- |
 | `task-migrated.yml` | base `task.yml` (new-empty's) + line 11 `views: [Schedule, Kanban]` | FR-QRY-07 AC-27, AC-28 |
-| `task-builtin-migrated.yml` | no `task.yml`: the built-in file (= new-empty's, D-90) + the line; the same bytes as `task-migrated.yml` | AC-28 (a) |
+| `task-builtin-migrated.yml` | no `task.yml`: the built-in file (= new-empty's, D-90) + the line; the same bytes as `task-migrated.yml`. Since D-1936 the migration writes nothing without `task.yml` (AC-28 (a)); `Restore default views` still writes these bytes there | FR-TYP-01 AC-11 |
 | `task-overlay-without-kanban.yml` | overlay; `Move to trash` on the `Kanban` tab: line 11 `views: [Schedule, Čeká na ostatní]` | FR-TYP-01 AC-11 (input of the restore; the restore gives the overlay's `task.yml` back) |
 | `task-overlay-without-schedule.yml` | overlay; `Remove from Tasks page` on `Schedule`: line 11 `views: [Kanban, Čeká na ostatní]` | FR-TYP-01 AC-11 (the restore gives the overlay's `task.yml` back) |
 | `task-overlay-schedule-sort-title.yml` | overlay; `Schedule` tab sort replaced by one level `Title A → Z`: line 11 → the block list of R196 | FR-QRY-01 AC-19 |

@@ -344,12 +344,14 @@ test('fr_qry_07_ac28_an_existing_vault_is_migrated_once_reopen_writes_nothing', 
 });
 
 test('fr_qry_07_ac28_an_existing_vault_is_migrated_once_variants', async ({ page }) => {
-  // (a) No task.yml: the full built-in file plus the line.
+  // (a) No task.yml (D-1936, AC-Test-Change: the vault may not have synced yet): nothing is written, no default views.
   let v = baseVault((f) => { delete f[TASK_YML]; });
   let core = await startTasksViews(page, { vault: v, taskViews: true });
-  let files = await eventually(() => core.files(), (f) => f[TASK_YML] !== undefined, 5000);
-  assert.equal(files[TASK_YML], expectedTasks('types/task-builtin-migrated.yml'), '(a) the built-in file plus line 11');
-  assert.equal(files[qfile(SCHEDULE)], expectedTasks('queries/schedule-default.yml'), '(a) Schedule.yml created');
+  await sleep(1000);
+  let files = await core.files();
+  assert.equal(files[TASK_YML], undefined, '(a) no task.yml created');
+  assert.equal(files[qfile(SCHEDULE)], undefined, '(a) no Schedule.yml');
+  assert.equal(files[qfile(KANBAN)], undefined, '(a) no Kanban.yml');
   // (b) A user Schedule.yml (a Table of Pages): kept; Kanban.yml created; views written; the tab shows the user's query.
   for (const name of ['Schedule', 'schedule']) { // ('Schedule' has no letter NFD changes; the other case is the variant)
     const user = `version: 1\ntitle: ${name}\ntypes: [page]\nview: table\ncreated: 2026-10-01T09:00:00+02:00\nmodified: 2026-10-01T09:00:00+02:00\n`;

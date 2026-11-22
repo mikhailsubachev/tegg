@@ -24,7 +24,7 @@ use std::time::{Duration, Instant, SystemTime};
 use common::{fresh_dirs, repo_root, sandbox, snapshot, wait_until, Entry, Sandbox};
 use serde_json::{json, Value};
 use tegg_core::queries_q::{self, DoneLane, FilterItem, GroupKind, LaneKind, Lanes, Op, QueryDef, QueryResult, QuerySource};
-use tegg_core::taskviews::{default_task_view, TaskViewsMigration, TaskViewsRestore, TASK_VIEW_NAMES};
+use tegg_core::taskviews::{default_task_view, default_task_view_text, TaskViewsMigration, TaskViewsRestore, TASK_VIEW_NAMES};
 use tegg_core::{Core, CoreError, CoreOptions, FileVersion, VaultError};
 use tegg_schema::TypeOp;
 use views_setup::{copy_dir, disk_s, nfd, open, reread, run, stamp, swapped, write};
@@ -555,7 +555,9 @@ fn fr_qry_07_ac27_a_new_vault_gets_default_views() {
     assert_eq!(TASK_VIEW_NAMES, ["Schedule", "Kanban"], "the default names");
     for n in TASK_VIEW_NAMES {
         let d = some!(default_task_view(n), format!("default_task_view({n})"));
-        assert_eq!(queries_q::create_text(&d, NOW, None), exp(&format!("queries/{}-default.yml", n.to_lowercase())), "create_text(default_task_view({n})) gives R202's bytes");
+        // D-1936: no `created` / `modified`, the same bytes on every Mac.
+        assert_eq!(queries_q::create_text_unstamped(&d), exp(&format!("queries/{}-default.yml", n.to_lowercase())), "create_text_unstamped(default_task_view({n})) gives R202's bytes");
+        assert_eq!(default_task_view_text(n), Some(exp(&format!("queries/{}-default.yml", n.to_lowercase()))), "default_task_view_text({n})");
     }
     assert!(default_task_view("Čeká na ostatní").is_none(), "no default for other names");
     drop(core);
@@ -597,10 +599,22 @@ fn fr_qry_07_ac28_an_existing_vault_is_migrated_once() {
     assert_eq!(mig(&core.task_views_migrate(NOW)), "NotNeeded", "the migrated copy on a second Mac");
     assert_eq!(snapshot(&root), after, "they write nothing");
 
-    // (a) no task.yml: the built-in file plus the line, created.
+    // (a) no task.yml (not synced yet, D-1936): nothing written, no alert (Skipped).
     let (_sa, ra, ca) = migrate_case(|r| std::fs::remove_file(r.join(TASK_YML)).expect("setup: remove task.yml"));
-    assert!(mig(&ca.task_views_migrate(NOW)).starts_with("Done"), "(a) migrated");
-    assert_eq!(disk_s(&ra, TASK_YML), Some(exp("types/task-builtin-migrated.yml")), "(a) the full built-in file plus the line");
+    let ba = snapshot(&ra);
+    assert_eq!(mig(&ca.task_views_migrate(NOW)), "Skipped", "(a) without task.yml");
+    assert_eq!(snapshot(&ra), ba, "(a) nothing written (no task.yml, no query file)");
+
+    // (a′) online-only placeholders (an iCloud stub, FR-VLT-03): nothing written; the open without them migrates (D-1936).
+    let (sp, rp, cp) = migrate_case(|r| write(r, "Tasks/.Nový úkol.md.icloud", b"bplist00 stub"));
+    assert!(!cp.placeholders().is_empty(), "setup check: the stub is a placeholder");
+    let bp = snapshot(&rp);
+    assert_eq!(mig(&cp.task_views_migrate(NOW)), "Skipped", "(a′) with an online-only file");
+    assert_eq!(snapshot(&rp), bp, "(a′) nothing written");
+    drop(cp);
+    std::fs::remove_file(rp.join("Tasks/.Nový úkol.md.icloud")).expect("setup: the file arrived");
+    let cp = open(&rp, &sp.dirs, false);
+    assert!(mig(&cp.task_views_migrate(NOW)).starts_with("Done"), "(a′) the next open migrates");
 
     // (b) a user Schedule.yml (a Table of Pages): neither read for content nor written.
     let user = "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Schedule.\nversion: 1\ntitle: Schedule\ntypes: [page]\nmatch: all\nfilters: []\nsort: { by: title, order: asc }\nlimit: 50\nview: table\ncolumns: [modified]\ncreated: 2026-09-01T08:00:00+02:00\nmodified: 2026-09-01T08:00:00+02:00\n";

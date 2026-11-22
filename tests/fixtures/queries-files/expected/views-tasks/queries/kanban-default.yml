@@ -13,5 +13,3 @@ view: board
 group_by: status
 lanes: vertical
 done_lane: { within_days: 7, folded: false }
-created: 2026-10-14T12:00:00+02:00
-modified: 2026-10-14T12:00:00+02:00
