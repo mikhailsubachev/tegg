@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.218, for review                                            |
+| **Document status** | Draft v1.219, for review                                            |
 | **Date**            | 2026-11-19                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -228,6 +228,7 @@
 | v1.216  | 2026-11-20 | Slice Q2-T push gate: D-1932 (older Kanban tests get the default views), D-1933 (the Tasks page is not pinnable), D-1934 (`typeSort` is always a list) |
 | v1.217  | 2026-11-22 | QA review of slice Q2-T: D-1935 (FR-SYN-06 AC-22 checks the real Schedule grouping), D-1936 (the migration skips without `task.yml` or with online-only files; identical default bytes on every Mac), D-1937 (Undo of Restore writes `views: []` when there was no key) |
 | v1.218  | 2026-11-22 | D-1938 (FR-LNK-11 AC-1's L5 check is a 1,000 ms regression bound, not 2 animation frames; the flaky `fr_lnk_11_ac1`) |
+| v1.219  | 2026-11-22 | The flaky `nav_swipe` (FR-NAV-03 AC-11): D-1939 (busy time is never a pause in a swipe), D-1940 (AC-11's swipes are sent from inside the page); D-1941 (block links land below the note toolbar) |
 
 ---
 
@@ -1980,6 +1981,9 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-1936 | The migration skips when unsure (synced vaults) (owner, 2026-11-22; QA review of slice Q2-T, `qa/reviews/q2t-tasks-build.md`) | On vault open the task-views migration runs only when `.tegg/types/task.yml` exists and the vault has no online-only placeholders; without `task.yml` nothing is written (a new vault gets the views at `vault_create`, an old one through `Restore default views`). The default `Schedule.yml` and `Kanban.yml` have the same bytes on every Mac (no per-Mac time stamps), so two Macs migrating before they sync write identical files. Amends D-1901 and FR-QRY-07 AC-28 (a), whose test and expected bytes change (QA S1) (`AC-Test-Change`, `Fixture-Change`) |
 | D-1937 | Undo of `Restore default views` (owner, 2026-11-22; QA review of slice Q2-T, N2) | Undo puts back the previous `views:` source when the key existed; when it didn't (including a `task.yml` that Restore created), Undo writes `views: []`, so no tabs show and the on-open migration (D-1936) doesn't add them again |
 | D-1938 | FR-LNK-11 AC-1's L5 check is a regression bound, not a frame count (owner, 2026-11-22; flaky `fr_lnk_11_ac1`) | In the test app the preview is ready a steady ~40 ms after the pointer-up, which counted as 2 or 3 animation frames by frame phase alone, so "within 2 frames" failed about one run in six. A time bound flakes too under the gate's 6 parallel workers: the page's first layout when the popover mounts (~16 ms alone) stretches to 60–320 ms now and then (75 ms failed 4 of 24 runs, 200 ms 1 of 48). The L5 test asserts `preview-ready` ≤ 1,000 ms after the pointer-up (the preview waits for nothing slow) and is renamed `fr_lnk_11_ac1_preview_ready_without_waiting_after_the_click`; the 75 ms target stays the L6 benchmark's, enforced at the v1.0 release gate (`AC-Test-Change`) |
+| D-1939 | Busy time is never a pause in a swipe (owner, 2026-11-22; flaky `nav_swipe` `fr_nav_03_ac11`) | After a swipe goes Back or Forward, for 2 s, a gap of 200 ms between wheel events ends the gesture only if the app was idle for at least half of it (a 16 ms tick runs while the main thread is free). The new page's drawing and data loading kept the main thread busy 200–400 ms under load, which delayed the rest of the same swipe past the gap and made it go Back a second time. Amends D-1511's gesture end (FR-NAV-03 AC-11: one step per gesture); regression test `bug_d1939_fr_nav_03_render_time_is_not_a_pause` |
+| D-1940 | AC-11's swipes are sent from inside the page (owner, 2026-11-22; flaky `nav_swipe` `fr_nav_03_ac11`) | Under heavy load the test process itself sent a swipe's next `wheel` event more than 200 ms late while the page was idle, which no app rule can tell from a real pause (a trackpad never pauses mid-swipe). `nav_swipe.ac.test.ts`'s FR-NAV-03 AC-11 tests dispatch each swipe's 13 events in the page on the element under the pointer, at the AC's timing (12 × 40 px, then 400 px, 10 ms apart); AC-12 and AC-13, which need real scrolling, keep Playwright's wheel (`AC-Test-Change`) |
+| D-1941 | Block links land below the note toolbar (owner, 2026-11-22; flaky `bug_v094gp_fr_lnk_11_editor_block_open_scrolls_to_the_block`) | Opening `[[Note#^block]]` in the editor scrolled the block with `scrollIntoView` to the pane's very top, behind the sticky note toolbar, and a race with the toolbar's mount sometimes left it 48 px lower. As heading links (D-1673), a block link now lands at the viewport's top below the toolbar, as far as the pane scrolls, placed again on the next two frames. The bug test and previews.md FR-LNK-11 AC-17's editor step measure from the toolbar's bottom (`AC-Test-Change`) |
 
 ---
 

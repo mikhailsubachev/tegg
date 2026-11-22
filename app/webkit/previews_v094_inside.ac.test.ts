@@ -110,14 +110,17 @@ for (const view of ['editor', 'read'] as const) {
     // D-1195: the block is matched by its text start (the editor shows its id), and it is at the top as far as the pane
     // can scroll (it is near the note's end).
     const bl = await need(main(page).locator('p, li').filter({ hasText: /^\s*Kdo schvaluje nákup licencí\?/ }), 'the block in the note');
-    const atBlock = () => bl.first().evaluate((e) => {
+    // D-1941 (AC-Test-Change): in the editor the block lands below the sticky note toolbar (D-1673), as heading links do.
+    const atBlock = () => bl.first().evaluate((e, belowBar) => {
       let sc: HTMLElement | null = e.parentElement;
       while (sc && !(sc.scrollHeight > sc.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(sc).overflowY))) sc = sc.parentElement;
       const box = sc ?? document.documentElement;
-      const top = e.getBoundingClientRect().top - box.getBoundingClientRect().top;
+      const bar = belowBar ? box.querySelector('[data-sticky-top]') : null;
+      const vt = bar ? Math.max(box.getBoundingClientRect().top, bar.getBoundingClientRect().bottom) : box.getBoundingClientRect().top;
+      const top = e.getBoundingClientRect().top - vt;
       const atEnd = box.scrollTop >= box.scrollHeight - box.clientHeight - 1;
       return { top, ok: Math.abs(top) <= 8 || (atEnd && top > 0 && top < box.clientHeight) };
-    }).catch(() => ({ top: NaN, ok: false }));
+    }, view === 'editor').catch(() => ({ top: NaN, ok: false }));
     const bst = await eventually(atBlock, (x) => x.ok, 2000);
     assert.ok(bst.ok, `${view}: the note scrolled to ^otazka1, at the top as far as the pane scrolls (read-view FR-EDT-02 AC-7): ${bst.top}`);
     await back(page, 'Odkazy', `${view}: Back`);

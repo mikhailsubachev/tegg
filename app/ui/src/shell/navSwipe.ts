@@ -10,6 +10,12 @@ export const SWIPE_GESTURE_GAP_MS = 200;
 /** The net horizontal travel that navigates (px). */
 export const SWIPE_DISTANCE_PX = 120;
 
+/** D-1939: after a step, for this long, a gap counts as a pause only if the app was idle through it (ms). */
+export const SWIPE_BUSY_WATCH_MS = 2000;
+/** The idle check's tick (ms); a pause needs ticks spread over at least half the gesture gap. */
+const TICK_MS = 16;
+const IDLE_TICKS = Math.ceil(SWIPE_GESTURE_GAP_MS / 2 / TICK_MS);
+
 /** Line and page wheel deltas in pixels (a mouse may report lines). */
 const pixels = (d: number, mode: number) => (mode === 1 ? d * 16 : mode === 2 ? d * window.innerWidth : d);
 
@@ -35,11 +41,32 @@ export function installNavSwipe(o: Options): () => void {
   let last = -Infinity; // the previous wheel event's timeStamp
   let state: 'idle' | 'tracking' | 'done' = 'done';
   let net = 0;
+  // D-1939: the time the app spends busy (drawing the page a swipe went to, loading its data) is never a pause between
+  // that swipe's wheel events. After a step a timer ticks while the main thread is free; a gap ends the gesture only if
+  // the ticks show the app was idle for at least half of it. A busy main thread delays the ticks and the next events.
+  let stepAt = -Infinity;
+  let ticks: number[] = [];
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const tick = () => {
+    const now = performance.now();
+    ticks.push(now);
+    timer = now - stepAt < SWIPE_BUSY_WATCH_MS ? setTimeout(tick, TICK_MS) : null;
+  };
+  const watch = (from: number) => {
+    stepAt = from;
+    ticks = [];
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(tick, TICK_MS);
+  };
+  const idleThrough = (from: number, to: number) => ticks.filter((t) => t > from && t < to).length >= IDLE_TICKS;
   const onWheel = (e: WheelEvent) => {
-    const fresh = e.timeStamp - last >= SWIPE_GESTURE_GAP_MS;
+    const gap = e.timeStamp - last >= SWIPE_GESTURE_GAP_MS;
+    const watching = e.timeStamp - stepAt < SWIPE_BUSY_WATCH_MS;
+    const fresh = gap && (!watching || idleThrough(last, e.timeStamp));
     last = e.timeStamp;
     if (fresh) {
       net = 0;
+      stepAt = -Infinity;
       const horizontal = Math.abs(e.deltaY) <= Math.abs(e.deltaX);
       state = o.enabled() && !e.ctrlKey && !e.metaKey && horizontal && !scrollsOrPansSideways(e.target instanceof Element ? e.target : null) ? 'tracking' : 'idle';
     }
@@ -48,8 +75,9 @@ export function installNavSwipe(o: Options): () => void {
     if (Math.abs(net) < SWIPE_DISTANCE_PX) return;
     state = 'done'; // one step per gesture, its momentum included
     if (!o.enabled() || o.blocked()) return;
+    watch(e.timeStamp);
     o.step(net < 0 ? 'back' : 'forward');
   };
   window.addEventListener('wheel', onWheel, { passive: true, capture: true });
-  return () => window.removeEventListener('wheel', onWheel, { capture: true });
+  return () => { if (timer) clearTimeout(timer); window.removeEventListener('wheel', onWheel, { capture: true }); };
 }
