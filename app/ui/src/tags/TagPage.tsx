@@ -21,6 +21,7 @@ import { tagChipStyle } from './chip';
 import { DEFAULT_TAG_PAGE, summary, tagPageRows, typeOptions, type TagPageSort, type TagPageUi } from './model';
 import { ColourPopover, DeleteTagDialog, RenameTagDialog } from './TagDialogs';
 import { useTags, syncTags } from './store';
+import { PageHeading } from '../phone/PageHeading';
 
 export type TagPageProps = {
   tagKey: string;
@@ -225,7 +226,7 @@ export function TagPage(p: TagPageProps) {
       <header className="page-header tag-header">
         {/* The tile comes after the heading in the focus order and before it on screen (`order: -1`). */}
         <div className="type-header-text">
-          <h1 ref={p.heading} tabIndex={-1}><span data-user-content>{name}</span></h1>
+          <PageHeading ref={p.heading} tabIndex={-1}><span data-user-content>{name}</span></PageHeading>
           <p className="type-count">{t('tag.summary', { objects: s.objects, types: s.types })}</p>
         </div>
         {row ? (

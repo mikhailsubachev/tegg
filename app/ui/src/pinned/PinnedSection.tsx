@@ -37,8 +37,10 @@ export function useTagLookColour(): PinTagLook {
   };
 }
 
-export function PinnedSection({ route, types, onGo, collapsed, onCollapse }: {
+export function PinnedSection({ route, types, onGo, collapsed, onCollapse, readOnly = false }: {
   route: Route; types: TypeEntry[]; onGo: (r: Route) => void; collapsed: boolean; onCollapse: (c: boolean) => void;
+  /** Slice AND-2 (android-phone §9.8, FR-HOM-02 AC-32): rows open and the header folds; no menu, Unpin, grip or drop. */
+  readOnly?: boolean;
 }) {
   const { pins, alert, live } = usePins();
   const tagLook = useTagLookColour();

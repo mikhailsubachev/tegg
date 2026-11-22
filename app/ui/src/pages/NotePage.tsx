@@ -42,6 +42,7 @@ import { jumpTop, REFRESH_MS } from '../outline/model';
 import { startFlash } from '../outline/jump';
 import { getCurrent, getOutline, isHeld, publishOutline, type OutlineSource } from '../outline/store';
 import { rendered, trackCurrent, viewportTop } from '../outline/tracker';
+import { PageHeading } from '../phone/PageHeading';
 
 /** `review`: the raw value, `hasFrontmatter` for D-591's review toggle and commands. */
 export type NoteMeta = { title: string; type: string; review?: unknown; hasFrontmatter?: boolean };
@@ -1150,7 +1151,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     if (w.__TEGG_TEST__?.editor && edHook.current === w.__TEGG_TEST__.editor) delete w.__TEGG_TEST__.editor;
     return (
       <div className="note-column">
-        <h1 ref={heading} tabIndex={-1} className="note-title sr-only">{t('note.gone')}</h1>
+        <PageHeading ref={heading} tabIndex={-1} className="note-title sr-only">{t('note.gone')}</PageHeading>
         <p role="status" aria-label={t('note.gone')} className="note-gone">{t('note.gone')}</p>
       </div>
     );
@@ -1263,17 +1264,17 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
             onReview={(r) => setReviewedRef.current(r)} />
         )}
         {daily ? (
-          <h1 className="note-title">
+          <PageHeading className="note-title">
             <span ref={(el) => { (heading as React.MutableRefObject<HTMLElement | null>).current = el; }} id={titleId}
               role="textbox" aria-label={t('editor.title')} aria-readonly="true" aria-description={t('daily.titleReadonly')} aria-level={1}
               tabIndex={-1} className="title-field readonly" data-user-content
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); pane.current?.focus(); } else if (e.key.length === 1 || e.key === 'Backspace' || e.key === 'Delete') e.preventDefault(); }}>
               {daily.date}
             </span>
-          </h1>
+          </PageHeading>
         ) : editable && !showSource && !moving ? (
           <div className="note-title-row">
-          <h1 className="note-title" aria-label={title.trim() || undefined}>
+          <PageHeading className="note-title" aria-label={title.trim() || undefined}>
             <TitleField
               id={titleId}
               elRef={(el) => { (heading as React.MutableRefObject<HTMLElement | null>).current = el; }}
@@ -1284,12 +1285,12 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
               onDown={() => { onTitleBlur(); pane.current?.focus(); }}
               onTab={() => { onTitleBlur(); if (propertiesOpen) panelApi.current?.focusFirst(); else pane.current?.focus(); }}
             />
-          </h1>
+          </PageHeading>
           </div>
         ) : (
-          <h1 ref={heading} tabIndex={-1} className="note-title">
+          <PageHeading ref={heading} tabIndex={-1} className="note-title">
             <span data-user-content>{meta.title}</span>
-          </h1>
+          </PageHeading>
         )}
         {(chipKey === 'image' || chipKey === 'pdf') && !draft && (
           <MediaObjectView path={path} type={chipKey} title={meta.title} data={fmData as Record<string, unknown>} />

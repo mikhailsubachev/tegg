@@ -10,6 +10,7 @@ import { Excerpt } from './Excerpt';
 import { chipIcon } from './icons';
 import { requestOffer } from './offer';
 import { orderBroken } from './order';
+import { PageHeading } from '../phone/PageHeading';
 
 export function BrokenLinksPage({ heading, refresh, onOpen }: {
   heading: RefObject<HTMLHeadingElement | null>; refresh: number;
@@ -24,7 +25,7 @@ export function BrokenLinksPage({ heading, refresh, onOpen }: {
   const groups = data ? orderBroken(data.groups, collator()) : [];
   return (
     <div className="page-column vault-check">
-      <h1 ref={heading} tabIndex={-1}>{t('brokenLinks.title')}</h1>
+      <PageHeading ref={heading} tabIndex={-1}>{t('brokenLinks.title')}</PageHeading>
       {data && <p className="summary">{data.occurrences ? t('brokenLinks.summary', { count: data.occurrences, objects: data.objects }) : t('brokenLinks.none')}</p>}
       {groups.map((g) => (
         <section key={g.key} role="group" aria-label={`${g.label}, ${g.count}`} className="check-group">

@@ -13,6 +13,7 @@ import { tagChipStyle } from './chip';
 import { DEFAULT_TAGS_SORT, allTagsRows, type TagsSort } from './model';
 import { NewTagDialog } from './TagDialogs';
 import { useTags, syncTags } from './store';
+import { PageHeading } from '../phone/PageHeading';
 
 const COLUMNS: { key: TagsSort['column']; label: string; menu: string }[] = [
   { key: 'name', label: 'tags.col.tag', menu: 'tags.sort.name' },
@@ -60,7 +61,7 @@ export function AllTagsPage({ heading, sort: sort0, onSort, onOpen, commandRef }
       <header className="page-header tag-header">
         <span className="tag-tile" aria-hidden="true">#</span>
         <div className="type-header-text">
-          <h1 ref={heading} tabIndex={-1}>{t('tags.title')}</h1>
+          <PageHeading ref={heading} tabIndex={-1}>{t('tags.title')}</PageHeading>
           <p className="type-count">{t('tags.summary', { tags: tags.length, objects: objects ?? 0 })}</p>
         </div>
         <div className="page-actions">

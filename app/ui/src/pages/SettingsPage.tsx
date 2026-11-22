@@ -12,6 +12,7 @@ import { ROUTES, routeDef } from '../shell/registry';
 import type { DateTimeUiDto, TypeDefDto, VaultInfo } from '../ipc/types';
 import { DateTimeSettings, MenuBarSettings, ShortcutsSettings, VaultSettings } from './settings5b';
 import { BackupsSection } from './BackupsPage';
+import { PageHeading } from '../phone/PageHeading';
 
 
 const SECTIONS: [string, string][] = [
@@ -26,7 +27,9 @@ const SECTIONS: [string, string][] = [
 ];
 const CHOICES: [ThemeChoice, string][] = [['system', 'settings.theme.system'], ['light', 'settings.theme.light'], ['dark', 'settings.theme.dark']];
 
-export function SettingsPage({ id, theme, heading, onSection, onTheme, vault, types, refresh, dateTime, onDateTime, onStarter, onOpenFolder, commandTitle, outlineRail = true, onOutlineRail }: {
+export function SettingsPage({ id, theme, heading, onSection, onTheme, vault, types, refresh, dateTime, onDateTime, onStarter, onOpenFolder, commandTitle, outlineRail = true, onOutlineRail, phone = false }: {
+  /** Slice AND-2 (android-phone §9.10, D-2065): no section list; Appearance has Theme only. */
+  phone?: boolean;
   id: string;
   theme: ThemeChoice;
   /** Slice OL (FR-SET-02 AC-10, D-1601): `Show outline rail` (machine-local). */
@@ -48,8 +51,8 @@ export function SettingsPage({ id, theme, heading, onSection, onTheme, vault, ty
   const def = routeDef(id) ?? ROUTES.find((r) => r.id === 'settings/appearance')!;
   return (
     <div className="page-column settings">
-      <h1 ref={heading} tabIndex={-1}>{id === 'settings/backups' ? t('backups.title') : id === 'settings/previews' ? t('settings.previews') : t(def.name)}</h1>
-      <nav className="settings-sections" aria-label={t('frame.settingsSections')}>
+      <PageHeading ref={heading} tabIndex={-1}>{id === 'settings/backups' ? t('backups.title') : id === 'settings/previews' ? t('settings.previews') : t(def.name)}</PageHeading>
+      {!phone && <nav className="settings-sections" aria-label={t('frame.settingsSections')}>
         {SECTIONS.map(([sid, key]) => (
           <a
             key={sid}
@@ -62,7 +65,7 @@ export function SettingsPage({ id, theme, heading, onSection, onTheme, vault, ty
             {t(key)}
           </a>
         ))}
-      </nav>
+      </nav>}
       {id === 'settings/appearance' ? (
         <div className="settings-body">
           <div className="setting">
@@ -87,7 +90,7 @@ export function SettingsPage({ id, theme, heading, onSection, onTheme, vault, ty
               ))}
             </div>
           </div>
-          <div className="setting">
+          {!phone && <div className="setting">
             <button type="button" tabIndex={0} role="switch" aria-checked={outlineRail} aria-label={t('settings.appearance.outlineRail')}
               aria-description={t('settings.appearance.outlineRailNote')} className={`switch${outlineRail ? ' on' : ''}`} data-command="outline.toggleRail"
               onClick={() => onOutlineRail?.(!outlineRail)}>
@@ -95,12 +98,12 @@ export function SettingsPage({ id, theme, heading, onSection, onTheme, vault, ty
               <span>{t('settings.appearance.outlineRail')}</span>
             </button>
             <span className="muted setting-note">{t('settings.appearance.outlineRailNote')}</span>
-          </div>
-          <div className="setting-row">
+          </div>}
+          {!phone && <div className="setting-row">
             <Disabled control="ctl.font" />
             <Disabled control="ctl.fontSize" />
             <Disabled control="ctl.accentColor" />
-          </div>
+          </div>}
         </div>
       ) : id === 'settings/vault' && vault ? (
         <VaultSettings vault={vault} types={types} refresh={refresh} onStarter={onStarter} onOpenFolder={onOpenFolder} />

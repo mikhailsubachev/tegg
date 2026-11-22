@@ -1,6 +1,8 @@
 // Route, panel, disabled-control and shortcut registries (D-116, D-124, docs/contracts/ms3-shell.md §3.2).
 // Their content equals tables R1–R4 of docs/acceptance/app-shell.md; each later slice or milestone flips its
 // entries to built in the commit that builds them.
+import { isPhone } from '../phone/layout';
+import { PHONE_ROUTES } from '../phone/routes';
 import { en } from '../i18n/catalog';
 
 export type Milestone = 'MS3' | 'MS4' | 'MS5' | 'MS6' | 'MS7' | 'MS8' | 'v1.0' | 'v1.x';
@@ -207,7 +209,8 @@ export function showDue(due: Due): string {
 }
 
 export function routeDef(id: string): RouteDef | undefined {
-  return ROUTES.find((r) => r.id === id);
+  // Slice AND-2 (android-phone §7): the phone's own routes.
+  return ROUTES.find((r) => r.id === id) ?? (isPhone() ? PHONE_ROUTES.find((r) => r.id === id) : undefined);
 }
 
 /** Entries still TBD or disabled with a milestone at or before `milestone` (D-124), for the milestone gate. */

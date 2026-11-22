@@ -22,6 +22,7 @@ import { cardFooter, cardTags } from './card';
 import { useTagLook } from '../tags/store';
 import { moveNotes } from '../jobs/jobs';
 import { ChangeTypeDialog, type TypeMovePlanDto } from '../types/ChangeTypeDialog';
+import { PageHeading } from '../phone/PageHeading';
 
 const ORDER = ['page', 'task', 'quick-note', 'daily-note'];
 const GROUPS: [InboxGroup, string][] = [['today', 'inbox.group.today'], ['yesterday', 'inbox.group.yesterday'], ['week', 'inbox.group.week'], ['older', 'inbox.group.older']];
@@ -476,7 +477,7 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
           onCancel={() => { const x = mapping; setMapping(null); x.cancel?.(); }} onConfirm={(m) => { const x = mapping; setMapping(null); x.go(m); }} />
       )}
       <div className="inbox-header">
-        <h1 ref={heading} tabIndex={-1}>{t('inbox.title')}</h1>
+        <PageHeading ref={heading} tabIndex={-1}>{t('inbox.title')}</PageHeading>
         {rows && members.length + kept.size > 0 && (
           <>
             <p className="inbox-summary">{summary}</p>

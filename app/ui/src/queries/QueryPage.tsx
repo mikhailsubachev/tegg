@@ -18,6 +18,7 @@ import { queryNav, takePendingEdit } from './nav';
 import { dayText } from './QueriesPage';
 import { isQueryPath } from './store';
 import './pages.css';
+import { PageHeading } from '../phone/PageHeading';
 
 export type QueryPageCommand = 'edit' | 'rename' | 'trash';
 export type QueryPageProps = {
@@ -111,7 +112,7 @@ export function QueryPage({ name, heading, onAll, commandRef, statusRef, onRenam
       <header className="page-header query-page-header">
         <span className="query-tile" aria-hidden="true"><Icon name="query" size={22} /></span>
         <div className="type-header-text">
-          <h1 ref={heading} tabIndex={-1} data-user-content>{title}</h1>
+          <PageHeading ref={heading} tabIndex={-1} data-user-content>{title}</PageHeading>
           {q?.created && <p className="type-count">{t('query.created', { date: dayText(q.created) })}</p>}
         </div>
         <div className="page-actions">

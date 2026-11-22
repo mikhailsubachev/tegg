@@ -10,6 +10,7 @@ import { Icon, typeIconName } from '../shell/Icon';
 import { currentRegion } from '../tasks/useTasks';
 import { showAlert, showToast } from './toast';
 import { useTrash } from './useTrash';
+import { PageHeading } from '../phone/PageHeading';
 
 type Ask = { kind: 'delete'; row: TrashEntryDto } | { kind: 'empty'; count: number };
 
@@ -112,7 +113,7 @@ export function TrashPage({ heading, focus, onOpen, commandRef }: {
   if (!loading && entries.length === 0) {
     return (
       <div className="page-column trash-page">
-        <h1 ref={heading} tabIndex={-1}>{t('trash.title')}</h1>
+        <PageHeading ref={heading} tabIndex={-1}>{t('trash.title')}</PageHeading>
         <section role="region" aria-label={t('trash.zero')} className="trash-zero">
           <p className="trash-zero-title">{t('trash.zero')}</p>
           <p className="muted">{t('trash.zeroHint')}</p>
@@ -125,7 +126,7 @@ export function TrashPage({ heading, focus, onOpen, commandRef }: {
     <div className="page-column trash-page">
       <div className="trash-head">
         <div>
-          <h1 ref={heading} tabIndex={-1}>{t('trash.title')}</h1>
+          <PageHeading ref={heading} tabIndex={-1}>{t('trash.title')}</PageHeading>
           <p className="muted trash-summary">{t('trash.summary', { count: entries.length })}</p>
         </div>
         {entries.length > 0 && (

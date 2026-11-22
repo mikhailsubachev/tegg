@@ -3,6 +3,11 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { applyTheme, type ThemeChoice } from './theme/apply';
 import './styles.css';
+import './phone/phone.css';
+import { currentLayout } from './phone/layout';
+
+// Slice AND-2 (android-phone §8.1, D-2070): the layout is set before the first render.
+document.documentElement.setAttribute('data-layout', currentLayout());
 
 // No flash of the wrong theme (FR-UX-05 AC-6): the stored theme, set by the shell before the page runs, is applied
 // before the first render.

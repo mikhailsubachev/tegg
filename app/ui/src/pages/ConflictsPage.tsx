@@ -8,6 +8,7 @@ import { events, ipc } from '../ipc/client';
 import type { ConflictRowDto, VersionDto } from '../ipc/types';
 import { Compare } from '../edit/Compare';
 import { ulid } from '../newNote';
+import { PageHeading } from '../phone/PageHeading';
 
 type Open = { row: ConflictRowDto; other: string; left: { text: string; v: VersionDto }; right: { text: string; v: VersionDto } };
 type Confirm = { title: string; body: string; ok: string; run: () => Promise<void> } | null;
@@ -77,7 +78,7 @@ export function ConflictsPage({ heading, onCount }: { heading: React.RefObject<H
 
   return (
     <div className="page-column conflicts-page">
-      <h1 ref={heading} tabIndex={-1}>{t('route.conflicts')}</h1>
+      <PageHeading ref={heading} tabIndex={-1}>{t('route.conflicts')}</PageHeading>
       {rows !== null && rows.length === 0 && <p className="empty-state">{t('conflicts.empty')}</p>}
       {rows !== null && rows.length > 0 && (
         <ul aria-label={t('conflicts.list')} className="conflict-list">

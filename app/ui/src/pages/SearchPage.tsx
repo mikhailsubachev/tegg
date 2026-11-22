@@ -5,6 +5,7 @@ import { Search } from '../Search';
 import type { DateTimeUiDto, SwitcherItemDto, TypeDto } from '../ipc/types';
 import type { SearchState } from '../shell/history';
 import type { Prepared } from '../types/create';
+import { PageHeading } from '../phone/PageHeading';
 
 export function SearchPage({ refresh, heading, inputRef, onOpen, onCreate, onLeave, tag, types, dateTime, initial, onState }: {
   refresh: number;
@@ -28,7 +29,7 @@ export function SearchPage({ refresh, heading, inputRef, onOpen, onCreate, onLea
   }, []);
   return (
     <div className="page-column">
-      <h1 ref={heading} tabIndex={-1}>{t('route.search')}</h1>
+      <PageHeading ref={heading} tabIndex={-1}>{t('route.search')}</PageHeading>
       <Search onOpen={onOpen} onCreate={onCreate} onLeave={onLeave} refresh={refresh} inputRef={inputRef} tag={tag}
         types={types} dateTime={dateTime} initial={initial} onState={onState} />
     </div>

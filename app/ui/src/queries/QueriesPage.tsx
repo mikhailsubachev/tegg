@@ -17,6 +17,7 @@ import { chipTypes, onChipTypes } from '../links/icons';
 import type { TypeDto } from '../ipc/types';
 import { nameKey, pageMarks } from '../views/model';
 import './pages.css';
+import { PageHeading } from '../phone/PageHeading';
 
 export type QueriesPageProps = {
   heading: RefObject<HTMLHeadingElement | null>;
@@ -89,7 +90,7 @@ export function QueriesPage({ heading, sort: sort0, onSort, onOpen }: QueriesPag
       <header className="page-header query-page-header">
         <span className="query-tile" aria-hidden="true"><Icon name="query" size={22} /></span>
         <div className="type-header-text">
-          <h1 ref={heading} tabIndex={-1}>{t('queries.title')}</h1>
+          <PageHeading ref={heading} tabIndex={-1}>{t('queries.title')}</PageHeading>
           <p className="type-count">{t('queries.count', { count: all.length })}</p>
         </div>
       </header>

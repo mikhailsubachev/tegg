@@ -1,6 +1,8 @@
 // Read view: the formatted, read-only note body (FR-EDT-02 display, slice 3B; docs/contracts/ms3-shell.md §11.3).
 // Built from the `@tegg/doc` mdast with the dialect's extensions. Note HTML is never rendered as HTML (D-145):
 // it, math and footnotes are shown as source text. Query fences are query blocks (slice Q); a mindmap is drawn (slice MM).
+import { isPhone } from '../phone/layout';
+import { MapViewport } from '../mindmap/MapViewport';
 import { cloneElement, Fragment, isValidElement, useMemo, useState, type ReactNode } from 'react';
 import { chipIcon } from '../links/icons';
 import { chipParts, joinDescriptions } from '../links/ChipParts';
@@ -436,6 +438,18 @@ function mindmapParagraphs(raw: string): { body: string; paragraphs: Map<string,
   return { body, paragraphs };
 }
 
+/** Slice AND-2 (android-phone §9.4): the callout's list in the read view's list style; checkboxes disabled. */
+function MindmapList({ paragraphs, content }: { paragraphs: Map<string, Any | null>; content: (id: string) => ReactNode }) {
+  const ids = [...paragraphs.keys()];
+  const kids = (parent: string | null) => ids.filter((id) => (parent === null ? !id.includes('.') : id.startsWith(`${parent}.`) && !id.slice(parent.length + 1).includes('.')));
+  const walk = (parent: string | null): ReactNode => {
+    const list = kids(parent);
+    if (list.length === 0) return null;
+    return <ul>{list.map((id) => <li key={id}>{content(id)}{walk(id)}</li>)}</ul>;
+  };
+  return <div className="read-list">{walk(null)}</div>;
+}
+
 /** Slice MM (R91): the mindmap block of the read view: always the Map, nodes read-only, links clickable (D-684). */
 function MindmapFigure({ c, raw, line }: { c: Ctx; raw: string; line?: number }) {
   const tree = mindmapTree(raw, c.title)!;
@@ -465,7 +479,9 @@ function MindmapFigure({ c, raw, line }: { c: Ctx; raw: string; line?: number })
           </button>
         )}
       </div>
-      {open && <div className="mindmap-map" data-map-area="">{map}</div>}
+      {open && (isPhone()
+        ? <MapViewport title={title ?? t('mindmap.untitled')} map={map} list={<MindmapList paragraphs={paragraphs} content={content} />} />
+        : <div className="mindmap-map" data-map-area="">{map}</div>)}
     </figure>
   );
 }

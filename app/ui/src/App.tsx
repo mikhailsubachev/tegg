@@ -108,6 +108,16 @@ import { announce, closeCard, getCard, getOutline, openCard, requestFocus } from
 import { syncTracker } from './outline/tracker';
 import { setJumpHost } from './outline/jump';
 import { installMultiClickGuard, routeChanged } from './shell/multiClick';
+import { PageHeading } from './phone/PageHeading';
+import { isPhone } from './phone/layout';
+import { PhoneFrame } from './phone/PhoneFrame';
+import { Drawer } from './phone/Drawer';
+import { PhoneSettingsList, PhoneStorageSettings, PhoneVaultSettings } from './phone/PhoneSettings';
+import { installTestHooks, nativeState, onNative, syncWindow } from './phone/native';
+import { phoneRouteOffered } from './phone/routes';
+import { onResolved, setSystemDark, resolve as resolveTheme } from './theme/apply';
+import { VaultSwitcher } from './shell/Frame';
+import { PopupMenu } from './shell/Menu';
 
 const DAILY = 'daily/YYYY-MM-DD';
 /** The webview history mirror of the app's in-memory history (see the `popstate` effect in App). */
@@ -262,6 +272,11 @@ export function App() {
   metaRef.current = meta;
   const [sourceToggle, setSourceToggle] = useState(0);
   const [conflicts, setConflicts] = useState(0);
+  // Slice AND-2 (android-phone §8): the phone's drawer, its `More actions` menu and the notice.
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [phoneMore, setPhoneMore] = useState<HTMLElement | null>(null);
+  const [phoneNotice, setPhoneNotice] = useState<string | null>(null);
+  const phone = isPhone();
   const [quitAsk, setQuitAsk] = useState<'unsaved' | 'keepBoth' | null>(null);
   // The note page stays mounted through a rename (FR-SYN-03 AC-18): it is keyed by navigation, not by path.
   const [navKey, setNavKey] = useState(0);
@@ -889,6 +904,12 @@ export function App() {
   trashRequest.current = () => { void trashHere(); };
 
   const actions: ShellActions = useMemo(() => ({
+    // Slice AND-2 (android-phone §10): the phone's own commands run what their control does.
+    phone: (id: string) => {
+      if (id === 'phone.menu') { setDrawerOpen((o) => !o); return; }
+      const el = [...document.querySelectorAll<HTMLElement>(`[data-command="${CSS.escape(id)}"]`)].find((e) => e.getClientRects().length > 0);
+      el?.click();
+    },
     go: (r: Route) => { void go(r); },
     openPalette: () => setDialog('palette'),
     openSearch: () => {
@@ -1182,6 +1203,34 @@ export function App() {
     void c.run(ctx);
   }, [ctx]);
 
+  // Slice AND-2 (android-phone §8.7, §12.2): the theme follows Android's night mode; the bar icons follow the theme;
+  // `__TEGG_TEST__.run(id)` runs a command as its control does.
+  useEffect(() => {
+    if (!phone) return;
+    setSystemDark(nativeState().systemDark);
+    const offNative = onNative((n) => setSystemDark(n.systemDark));
+    const offTheme = onResolved((name) => { void syncWindow(name === 'dark'); });
+    void syncWindow(resolveTheme(ui.theme as ThemeChoice) === 'dark');
+    return () => { offNative(); offTheme(); };
+  }, [phone]); // eslint-disable-line react-hooks/exhaustive-deps
+  const listRef = useRef(list);
+  listRef.current = list;
+  const runRef = useRef(run);
+  runRef.current = run;
+  useEffect(() => {
+    if (!isAndroid()) return;
+    installTestHooks(async (id) => {
+      const c = listRef.current.find((x) => x.id === id);
+      if (!c) throw new Error(`not a command on the phone: ${id}`);
+      runRef.current(c);
+    });
+  }, []);
+  useEffect(() => {
+    if (!phoneNotice) return;
+    const h = setTimeout(() => setPhoneNotice(null), 4000);
+    return () => clearTimeout(h);
+  }, [phoneNotice]);
+
   // Test hook (ms3-shell §10): registered command ids and route ids.
   useEffect(() => {
     const w = window as { __TEGG_TEST__?: Record<string, unknown> };
@@ -1301,6 +1350,8 @@ export function App() {
   const swipeStep = useRef(step);
   swipeStep.current = step;
   useEffect(() => {
+    // Slice AND-2 (android-phone §8.5, D-2058): no touch gesture navigates on the phone.
+    if (isPhone()) return;
     let on = false;
     let asked = 0;
     const ask = () => {
@@ -1634,16 +1685,22 @@ export function App() {
       onLeave={() => { if (!history.current.canBack()) return false; void step('back'); return true; }}
       tag={route.param?.startsWith('tag:') ? route.param.slice(4) : undefined}
       types={types} dateTime={ui.dateTime} initial={history.current.current()?.search} onState={(st) => history.current.setSearch(st)} />;
+  } else if (phone && route?.id === 'settings') {
+    body = <PhoneSettingsList heading={heading} onGo={(id) => { void go({ id }); }} />;
+  } else if (phone && route?.id === 'settings/storage') {
+    body = <PhoneStorageSettings heading={heading} />;
+  } else if (phone && route?.id === 'settings/vault' && vault) {
+    body = <PhoneVaultSettings heading={heading} vault={vault} types={types} onSwitch={() => { setDrawerOpen(true); }} />;
   } else if (route?.id.startsWith('settings/') && def) {
     body = <SettingsPage id={route.id} theme={ui.theme as ThemeChoice} heading={heading} onSection={(id) => go({ id })} onTheme={actions.setTheme}
       outlineRail={ui.outlineRail !== false} onOutlineRail={(on) => updateUi((u) => ({ ...u, outlineRail: on }))}
       vault={vault} types={types} refresh={refresh} dateTime={ui.dateTime} onDateTime={(dt) => updateUi((u) => ({ ...u, dateTime: dt }))}
-      onStarter={() => actions.addStarterTypes?.()} onOpenFolder={actions.openFolder}
+      onStarter={() => actions.addStarterTypes?.()} onOpenFolder={actions.openFolder} phone={phone}
       commandTitle={(id) => { const c = list.find((x) => x.id === id); return c ? t(c.title, c.vars ?? {}) : null; }} />;
   } else if (def) {
     body = (
       <div className="page-column">
-        <h1 ref={heading} tabIndex={-1}>{t(def.name)}</h1>
+        <PageHeading ref={heading} tabIndex={-1}>{t(def.name)}</PageHeading>
         <Placeholder def={def} />
       </div>
     );
@@ -1651,6 +1708,79 @@ export function App() {
 
   const tabIcon = route?.id === 'note/<path>' ? typeIconName(meta?.type ?? 'page', types.find((x) => x.key === meta?.type)?.icon) : route?.id === 'type/<type>' ? typeIconName(route.param ?? '', typeEntry?.icon) : routeIcon(route?.id ?? '');
   const named = userNamed ? <span data-user-content>{pageName}</span> : pageName;
+
+  if (phone && vault) {
+    // Slice AND-2 (android-phone §8): the phone frame instead of the title bar, sidebar, panel and palette.
+    if (route && !phoneRouteOffered(route.id)) body = null;
+    const today = localDate(Date.now());
+    const hasFile = route?.id === 'note/<path>' || (isDaily && !!dailyFile);
+    const sourceShown = () => !!document.querySelector('main .source-view');
+    const closeDrawer = (navigated: boolean) => {
+      setDrawerOpen(false);
+      if (!navigated) setTimeout(() => document.querySelector<HTMLElement>('.phone-bottombar [data-command="phone.menu"]')?.focus(), 0);
+    };
+    return withImport(
+      <div className="app phone">
+        <PhoneFrame
+          canBack={history.current.canBack()}
+          onBack={actions.back}
+          more={hasFile}
+          moreOpen={!!phoneMore}
+          onMore={(a) => setPhoneMore((m) => (m ? null : a))}
+          progress={progress}
+          menuOpen={drawerOpen}
+          onMenu={() => setDrawerOpen((o) => !o)}
+          onSearch={actions.openSearch}
+          onToday={() => { void go({ id: 'today' }); }}
+          current={route?.id === 'search' ? 'search' : isDaily && route?.param === today ? 'today' : null}
+          fullScreen={false}
+          notice={phoneNotice}
+          mainName={(route?.id === 'note/<path>' || isDaily) && !noteShown ? undefined : pageName}
+          mainClass={route?.id === 'note/<path>' || isDaily ? 'note-main' : ''}
+          overlays={(
+            <>
+              <Drawer open={drawerOpen} onClose={closeDrawer}>
+                <VaultSwitcher vault={vault} onOpenPath={openVaultPath} onOpenFolder={actions.openFolder} onCreate={() => actions.openChooser(true)} onSettings={() => { void go({ id: 'settings/vault' }); }} />
+                <Sidebar
+                  variant="drawer"
+                  route={route ?? { id: 'inbox' }}
+                  types={typeEntries(types, counts).filter((e) => e.key !== 'task')}
+                  onGo={(r) => { setDrawerOpen(false); if (route && sameRoute(r, route)) heading.current?.focus(); else void go(r); }}
+                  onSearch={actions.openSearch}
+                  onNewObject={() => {}}
+                  onNewType={() => {}}
+                  onAbout={() => {}}
+                  conflicts={conflicts}
+                  taskCount={taskBadge}
+                  inboxCount={inboxCount}
+                  onTasks={() => { setDrawerOpen(false); const r: Route = { id: 'type/<type>', param: 'task' }; if (route && sameRoute(r, route)) heading.current?.focus(); else void go(r); }}
+                  onOpenPinned={(r) => { setDrawerOpen(false); if (route && sameRoute(r, route)) heading.current?.focus(); else void go(r, { heading: true }); }}
+                  pinnedCollapsed={!!(ui.vaults?.[vault.path.normalize('NFC')] as { sidebar?: { pinnedCollapsed?: boolean } } | undefined)?.sidebar?.pinnedCollapsed}
+                  onPinnedCollapse={(c) => { const vp = vault.path.normalize('NFC'); updateUi((u) => ({ ...u, vaults: { ...(u.vaults ?? {}), [vp]: { ...(u.vaults?.[vp] ?? {}), sidebar: { ...((u.vaults?.[vp] as { sidebar?: object } | undefined)?.sidebar ?? {}), pinnedCollapsed: c } } } })); }}
+                />
+              </Drawer>
+              {phoneMore && (
+                <PopupMenu label={t('phone.more')} anchor={phoneMore} onClose={() => setPhoneMore(null)} entries={[
+                  { kind: 'item', key: 'properties', content: <span className="menu-title" data-command="phone.properties">{t('phone.properties')}</span>,
+                    onChoose: () => { setPhoneMore(null); window.dispatchEvent(new CustomEvent('tegg:phone-properties')); } },
+                  { kind: 'item', key: 'source', content: <span className="menu-title" data-command="note.toggleSource">{t(sourceShown() ? 'phone.showFormatted' : 'phone.showSource')}</span>,
+                    onChoose: () => { setPhoneMore(null); actions.toggleSource(); } },
+                ]} />
+              )}
+              {calendar && <Calendar selected={calendar.selected} anchor={calendar.anchor} onChoose={calendar.onChoose}
+                onClose={() => { const a = calendar.anchor; setCalendar(null); if (a?.isConnected) a.focus(); }} />}
+            </>
+          )}>
+          {vault.placeholders > 0 && (
+            <div className="banner" role="region" aria-label={t('banner.offline')}>
+              {t('banner.placeholders', { count: vault.placeholders })}
+            </div>
+          )}
+          {body}
+        </PhoneFrame>
+      </div>,
+    );
+  }
 
   return withImport(
     <PreviewProvider>

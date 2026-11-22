@@ -46,6 +46,7 @@ import { TypeCell as Cell, type TypeColumn as Column } from '../types/cell';
 import { usePinMenuEntry } from '../pinned/PinMenu';
 import { pinDragSource } from '../pinned/drag';
 import { typeIconName as pinIconName } from '../shell/Icon';
+import { PageHeading } from '../phone/PageHeading';
 
 const fold = (s: string) => nfc(s).toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').normalize('NFC');
 const isEmpty = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
@@ -258,7 +259,7 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
   if (gone) {
     return (
       <div className="page-column">
-        <h1 ref={heading} tabIndex={-1}><span data-user-content>{plural}</span></h1>
+        <PageHeading ref={heading} tabIndex={-1}><span data-user-content>{plural}</span></PageHeading>
         <p role="status" className="empty">{t('typePage.gone')}</p>
       </div>
     );
@@ -314,7 +315,7 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
           <Icon name={typeIconName(typeKey, type?.icon)} size={20} />
         </span>
         <div className="type-header-text">
-          <h1 ref={heading} tabIndex={-1}><span data-user-content>{pluralName}</span></h1>
+          <PageHeading ref={heading} tabIndex={-1}><span data-user-content>{pluralName}</span></PageHeading>
           {type?.description && <p className="type-description" data-user-content>{type.description}</p>}
           {rows && typeKey.normalize('NFC') === 'task' && type ? <TasksSummary refresh={refresh} /> : rows && <p className="type-count">{t('typePage.countPlural', { count: rows.length, plural: '\u0000' }).split('\u0000')[0]}<span data-user-content>{pluralName}</span>{t('typePage.countPlural', { count: rows.length, plural: '\u0000' }).split('\u0000')[1]}</p>}
         </div>

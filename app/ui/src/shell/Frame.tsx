@@ -38,7 +38,7 @@ export type VaultSwitcherProps = {
   onSettings: () => void;
 };
 
-function VaultSwitcher({ vault, onOpenPath, onOpenFolder, onCreate, onSettings }: VaultSwitcherProps) {
+export function VaultSwitcher({ vault, onOpenPath, onOpenFolder, onCreate, onSettings }: VaultSwitcherProps) {
   const button = useRef<HTMLButtonElement>(null);
   const [recent, setRecent] = useState<RecentVaultDto[] | null>(null);
   const open = recent !== null;
@@ -198,7 +198,7 @@ function useToday(): string {
 }
 
 /** D-220, D-597: the version at the bottom left opens About and Settings (FR-UX-01 AC-5); no logo in the app. */
-function LogoMenu({ onAbout, onSettings }: { onAbout: () => void; onSettings: () => void }) {
+function LogoMenu({ onAbout, onSettings, drawer = false }: { onAbout: () => void; onSettings: () => void; drawer?: boolean }) {
   const button = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   return (
@@ -218,7 +218,10 @@ function LogoMenu({ onAbout, onSettings }: { onAbout: () => void; onSettings: ()
   );
 }
 
-export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, onAbout, conflicts = 0, taskCount = 0, inboxCount = 0, onTasks, pinnedCollapsed = false, onPinnedCollapse, onOpenPinned }: {
+export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, onAbout, conflicts = 0, taskCount = 0, inboxCount = 0, onTasks, pinnedCollapsed = false, onPinnedCollapse, onOpenPinned, variant }: {
+  /** Slice AND-2 (android-phone §8.3, RA10): inside the phone's drawer: no New object, Search, New type, Trash, type
+   *  menus or drags; Pinned is read-only; Settings after Queries. */
+  variant?: 'drawer';
   /** Slice PIN (FR-HOM-02 AC-3): opening a pinned row focuses the page heading (D-130). */
   onOpenPinned?: (r: Route) => void;
   /** Slice PIN (R132, D-1383): the Pinned section's collapsed state, stored per vault by the caller. */
@@ -241,6 +244,7 @@ export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, 
   /** Open conflicts; the entry shows only while there are some (FR-SYN-04 AC-6, D-177). */
   conflicts?: number;
 }) {
+  const drawer = variant === 'drawer';
   const scroller = useRef<HTMLDivElement>(null);
   // Slice PIN (R134): the Types entries' `<Type> actions` menu (D-1392).
   const [typeMenu, setTypeMenu] = useState<{ entry: TypeEntry; anchor: HTMLElement } | null>(null);
@@ -295,7 +299,7 @@ export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, 
     <nav className="sidebar" aria-label={t('frame.sidebar')}>
       <div className="sidebar-scroll" ref={scroller}>
         {/* D-759 (boards Main, TagsAll): a filled `New object` button and the `Search` icon button on one row. */}
-        <div className="sidebar-top">
+        {!drawer && <div className="sidebar-top">
           <button tabIndex={0} type="button" className="sidebar-new" aria-label={t('cmd.newObject')} data-command="object.new" onClick={(e) => { e.currentTarget.focus(); onNewObject(e.currentTarget); }}>
             <Icon name="plus" size={14} />
             <span className="entry-label">{t('cmd.newObject')}</span>
@@ -305,7 +309,7 @@ export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, 
             data-command="goto.search" onClick={onSearch}>
             <Icon name="search" size={15} />
           </button>
-        </div>
+        </div>}
         <div className="sidebar-group">
           {TOP.map(link)}
           {conflicts > 0 && (
@@ -318,13 +322,13 @@ export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, 
           )}
         </div>
         {/* Slice PIN (R132, D-1375): Pinned between the top group and Types. */}
-        <PinnedSection route={route} types={types} onGo={onOpenPinned ?? onGo} collapsed={pinnedCollapsed} onCollapse={(c) => onPinnedCollapse?.(c)} />
+        <PinnedSection route={route} types={types} onGo={onOpenPinned ?? onGo} collapsed={pinnedCollapsed} onCollapse={(c) => onPinnedCollapse?.(c)} readOnly={drawer} />
         <div className="section-head">
           <span>{t('frame.types')}</span>
-          <button tabIndex={0} type="button" className="icon-button small" aria-label={t('frame.newType')} title={t('frame.newType')} data-command="type.new"
+          {!drawer && <button tabIndex={0} type="button" className="icon-button small" aria-label={t('frame.newType')} title={t('frame.newType')} data-command="type.new"
             onClick={(e) => { e.currentTarget.focus(); onNewType(); }}>
             <Icon name="plus" size={14} />
-          </button>
+          </button>}
         </div>
         <ul className="types" aria-label={t('frame.types')}>
           {types.map((e) => {
@@ -341,9 +345,11 @@ export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, 
                   data-command={`goto.type:${e.key}`}
                   style={{ ['--type' as string]: `var(--type-${e.color || 'gray'})` }}
                   onClick={(ev) => { ev.preventDefault(); onGo({ id: 'type/<type>', param: e.key }); }}
-                  onContextMenu={(ev) => { ev.preventDefault(); setTypeMenu({ entry: e, anchor: ev.currentTarget }); }}
-                  onKeyDown={(ev) => { if (ev.key === 'F10' && ev.shiftKey) { ev.preventDefault(); setTypeMenu({ entry: e, anchor: ev.currentTarget }); } }}
-                  {...(typePinnable(e.key) ? pinDragSource({ request: { kind: 'type', key: e.key }, label: e.plural, icon: typeIconName(e.key, e.icon), color: e.color }) : {})}
+                  {...(drawer ? {} : {
+                    onContextMenu: (ev: React.MouseEvent<HTMLAnchorElement>) => { ev.preventDefault(); setTypeMenu({ entry: e, anchor: ev.currentTarget }); },
+                    onKeyDown: (ev: React.KeyboardEvent<HTMLAnchorElement>) => { if (ev.key === 'F10' && ev.shiftKey) { ev.preventDefault(); setTypeMenu({ entry: e, anchor: ev.currentTarget }); } },
+                    ...(typePinnable(e.key) ? pinDragSource({ request: { kind: 'type', key: e.key }, label: e.plural, icon: typeIconName(e.key, e.icon), color: e.color }) : {}),
+                  })}
                 >
                   <span className="type-icon"><Icon name={typeIconName(e.key, e.icon)} /></span>
                   <span className="entry-label" data-user-content title={e.plural}>
@@ -364,9 +370,18 @@ export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, 
         )}
         <SidebarTags route={route} onGo={onGo} />
         <SidebarQueries route={route} onGo={onGo} />
-        <div className="sidebar-group">{BOTTOM.map(link)}</div>
+        {drawer ? (
+          <div className="sidebar-group">
+            <a tabIndex={0} href="#" className={`entry ${route.id === 'settings' || route.id.startsWith('settings/') ? 'current' : ''}`}
+              aria-current={route.id === 'settings' ? 'page' : undefined} data-command="goto.settings"
+              onClick={(ev) => { ev.preventDefault(); onGo({ id: 'settings' }); }}>
+              <Icon name="gear" />
+              <span className="entry-label">{t('phone.settings')}</span>
+            </a>
+          </div>
+        ) : <div className="sidebar-group">{BOTTOM.map(link)}</div>}
       </div>
-      <LogoMenu onAbout={onAbout} onSettings={() => onGo({ id: 'settings/appearance' })} />
+      <LogoMenu onAbout={onAbout} onSettings={() => onGo({ id: drawer ? 'settings' : 'settings/appearance' })} drawer={drawer} />
     </nav>
   );
 }

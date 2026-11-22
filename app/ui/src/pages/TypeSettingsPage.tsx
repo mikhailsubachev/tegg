@@ -21,6 +21,7 @@ import { TextControl, type TextKind } from '../types/controls/TextControl';
 import { attrTypeLabel, colorName, nfc, typeErrorMessage } from '../types/util';
 import { refreshQueries, useQueries } from '../queries/store';
 import { restoreDefaultViews, restoreState } from '../views/defaultViews';
+import { PageHeading } from '../phone/PageHeading';
 
 type Save = 'saved' | 'saving' | 'failed';
 const BUILT_IN_ROWS = ['title', 'description', 'aliases', 'tags', 'source', 'review', 'created', 'modified'];
@@ -196,7 +197,7 @@ export function TypeSettingsPage({ typeKey, types, refresh, heading, onDeleted, 
     const undoId = del ? lastUndoable('type-delete') : null;
     return (
       <div className="page-column">
-        <h1 ref={heading} tabIndex={-1}><span data-user-content>{del?.name ?? typeKey}</span></h1>
+        <PageHeading ref={heading} tabIndex={-1}><span data-user-content>{del?.name ?? typeKey}</span></PageHeading>
         <p role="status" className="empty">{t('typePage.gone')}</p>
         {del && undoId === del.jobId && (
           <>
@@ -282,7 +283,7 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted, reload }
       <header className="ts-header">
         <span className="type-badge" aria-hidden="true" style={{ ['--type' as string]: `var(--type-${color})` }}><Icon name={typeIconName(type.key, type.icon)} size={20} /></span>
         <div>
-          <h1 ref={heading} tabIndex={-1}>{withUser('ts.heading', 'name', type.name)}</h1>
+          <PageHeading ref={heading} tabIndex={-1}>{withUser('ts.heading', 'name', type.name)}</PageHeading>
           <p className="ts-applies">{t('ts.applies', { count: objects, key: type.key })}</p>
         </div>
         <span className="spacer" />
