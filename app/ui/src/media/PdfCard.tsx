@@ -1,5 +1,6 @@
 // Slice 6A (docs/contracts/ms6-trash-media.md §6.2; R77, FR-ATT-02): the PDF link card (icon, title,
 // `<n> pages · <size>`); a click opens the PDF object (or, without one, the file in the default app).
+import { isPhone } from '../phone/layout';
 import { useEffect, useState } from 'react';
 import { parse } from '@tegg/doc';
 import { ipc } from '../ipc/client';
@@ -33,7 +34,7 @@ export function PdfCard({ path, title, object, onOpen, meta: given }: { path: st
   const text = pdfMeta(meta.pages, meta.size);
   return (
     <button type="button" tabIndex={0} className="media-pdf-card" data-media-path={path.normalize('NFC')}
-      onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (object && onOpen) onOpen(object); else void ipc.mediaOpen(path).catch(() => {}); }}>
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (object && onOpen) onOpen(object); else if (!isPhone()) void ipc.mediaOpen(path).catch(() => {}); }}>
       <Icon name="pdf" size={20} />
       <span className="media-pdf-text">
         <span className="media-pdf-title" data-user-content>{title}</span>

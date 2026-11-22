@@ -24,7 +24,7 @@ import { Compare } from '../edit/Compare';
 import { EditorPane, type EditAction, type EditorPaneApi } from '../edit/EditorPane';
 import { linkTargets, noteTitle, ReadView } from '../read/ReadView';
 import { clearAlerts, dismissAlert, usePageAlerts } from '../convert/alerts';
-import { Properties } from '../read/PropertiesStrip';
+import { PhoneProperties, Properties } from '../read/PropertiesStrip';
 import { SourceView, WarningBanner } from '../read/SourceView';
 import { frontmatterWarning } from '../read/warning';
 import { Icon } from '../shell/Icon';
@@ -43,6 +43,7 @@ import { startFlash } from '../outline/jump';
 import { getCurrent, getOutline, isHeld, publishOutline, type OutlineSource } from '../outline/store';
 import { rendered, trackCurrent, viewportTop } from '../outline/tracker';
 import { PageHeading } from '../phone/PageHeading';
+import { isPhone } from '../phone/layout';
 
 /** `review`: the raw value, `hasFrontmatter` for D-591's review toggle and commands. */
 export type NoteMeta = { title: string; type: string; review?: unknown; hasFrontmatter?: boolean };
@@ -295,7 +296,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       // D-215: a test-only switch shows the read view (the fallback view of D-117) instead of the editor.
       const readView = !!(window as { __TEGG_TEST__?: { readView?: boolean } }).__TEGG_TEST__?.readView;
       // 6A (FR-HIS-01 AC-6): an object in the trash is shown read-only, never edited.
-      const mode: Mode = !n.utf8 ? 'utf8' : frontmatterWarning(doc) ? 'invalidFrontmatter' : readView || path.startsWith('.trash/') ? 'readView' : 'edit';
+      const mode: Mode = !n.utf8 ? 'utf8' : frontmatterWarning(doc) ? 'invalidFrontmatter' : readView || isPhone() || path.startsWith('.trash/') ? 'readView' : 'edit';
       // The read-only views resolve their links here; the editor resolves its own chips.
       let links = new Map<string, LinkTargetDto>();
       if (mode !== 'edit') {
@@ -1217,14 +1218,14 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   // D-591, D-607: the review control at the right end of the type row (the daily header has its own, D-330).
   const reviewShown = !daily && !draft && editable && !showSource && !moving && reviewable({ path, type: chipKey, hasFrontmatter: !!fmDoc.frontmatter, review: (fmData as Record<string, unknown>).review, typeReview: (chipType as { review?: string } | undefined)?.review });
   const reviewed = reviewOf(fmData);
-  const reviewToggle = reviewShown ? (
+  const reviewToggle = reviewShown && !isPhone() ? (
     <ReviewCheck reviewed={reviewed} onToggle={(r) => setReviewedRef.current(r)} commands={['note.markReviewed', 'note.markUnreviewed']} />
   ) : null;
 
 
   return (
     <div ref={root} className="note-root" data-focus-target={focusTarget ?? undefined} onKeyDownCapture={onRenameKey}>
-      {!focusMode && (
+      {!focusMode && !isPhone() && (
         <div className="note-toolbar" data-sticky-top role="toolbar" aria-label={t('note.toolbar')}>
           <button tabIndex={0} type="button" className="icon-button source-toggle" aria-pressed={showSource} aria-label={t(showSource ? 'note.showFormatted' : 'note.showSource')} title={t(showSource ? 'note.showFormatted' : 'note.showSource')} data-command="note.toggleSource" disabled={moving} onMouseDown={(e) => e.preventDefault()} onClick={() => void toggle()}>
             <Icon name="source" />
@@ -1331,7 +1332,9 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         {!showSource && loaded.mode !== 'edit' && (
           <>
             {warning && <WarningBanner warning={warning} />}
-            <Properties text={loaded.text} links={loaded.links} open={propertiesOpen} onToggle={onToggleProperties} onOpen={(p: string) => onOpen(p)} onTag={onTag} />
+            {isPhone()
+              ? <PhoneProperties text={loaded.text} links={loaded.links} type={panelType} onOpen={(p: string) => onOpen(p)} onTag={onTag} />
+              : <Properties text={loaded.text} links={loaded.links} open={propertiesOpen} onToggle={onToggleProperties} onOpen={(p: string) => onOpen(p)} onTag={onTag} />}
             <ReadView text={loaded.text} path={path} links={loaded.links} onOpen={onOpen} onTag={onTag}
               onExternal={(url) => void ipc.openExternal(url).catch(() => {})} onScrollInNote={(f) => scrollToFragment(root.current, f)}
               renderEmbed={(value, line, inline) => {

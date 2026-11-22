@@ -251,7 +251,8 @@ export function App() {
   const panelShowsGraph = useRef(false);
   /** "G3 in the panel" (D-1145): the panel's day file isn't known yet (R115 pending), for AP-972's reasons. */
   const panelPending = useRef(false);
-  useEffect(() => { setOfferHandler((r) => setOffer(r)); return () => setOfferHandler(null); }, []);
+  // Slice AND-2 (android-phone §9.3, FR-EDT-10 AC-11): on the phone a broken link only says there is no such note.
+  useEffect(() => { setOfferHandler((r) => { if (isPhone()) setPhoneNotice(t('phone.noNote', { name: r.target })); else setOffer(r); }); return () => setOfferHandler(null); }, []);
   useEffect(() => { setChipTypes(types); }, [types]);
   const [refresh, setRefresh] = useState(0);
   /** Slice G2 (v1-graph §15.7): the note page's own saves, which the watcher doesn't report; the panel graph re-asks.
@@ -294,7 +295,8 @@ export function App() {
     document.addEventListener('visibilitychange', f);
     return () => document.removeEventListener('visibilitychange', f);
   }, [flushNote]);
-  useEffect(() => onUnsupported(() => setUnsupported((n) => n + 1)), []);
+  // Slice AND-2 (android-phone §8.2): on the phone the refusal is the notice, not AND-1's alert.
+  useEffect(() => onUnsupported(() => { if (isPhone()) setPhoneNotice(t('error.unsupported')); else setUnsupported((n) => n + 1); }), []);
   // Back/forward (FR-NAV-03, D-165): in memory, one per window; `histTick` re-renders the title-bar buttons.
   const history = useRef(createHistory());
   const [, setHistTick] = useState(0);
