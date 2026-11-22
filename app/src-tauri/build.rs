@@ -163,6 +163,9 @@ const COMMANDS: &[&str] = &[
     "vault_find",
     "storage_access",
     "storage_access_settings",
+    // android-phone §2.1 (D-2074, D-2086).
+    "android_open_url",
+    "android_window",
 ];
 
 fn main() {

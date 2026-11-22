@@ -408,6 +408,7 @@ pub(crate) fn open_vault(app: &AppHandle, path: PathBuf) -> Result<VaultInfo, Ip
             forward_events(app.clone(), &core);
             // v1-views §25.2 (R202, CP-27, D-1919): the default task views, once per newly opened core, before
             // `VaultInfo` is returned (`vault_create` comes through here too). Never alerts; the outcome is only logged.
+            #[cfg(desktop)]
             if task_views_enabled() {
                 let outcome = core.task_views_migrate(&now_iso());
                 if !matches!(outcome, tegg_core::taskviews::TaskViewsMigration::NotNeeded) {
@@ -443,7 +444,8 @@ pub(crate) fn open_vault(app: &AppHandle, path: PathBuf) -> Result<VaultInfo, Ip
 }
 
 /// v1-views §25.2 (D-1913, D-1919): the task-views migration runs unless `TEGG_TEST=1`, where it needs
-/// `TEGG_TEST_TASK_VIEWS=1`.
+/// `TEGG_TEST_TASK_VIEWS=1`. Desktop only: the phone never migrates (android-phone §3, D-2062).
+#[cfg(desktop)]
 fn task_views_enabled() -> bool {
     std::env::var("TEGG_TEST").as_deref() != Ok("1") || std::env::var("TEGG_TEST_TASK_VIEWS").as_deref() == Ok("1")
 }
@@ -1849,8 +1851,19 @@ pub(crate) fn init_script(dirs: &AppDirs) -> String {
         ),
         None => String::new(),
     };
+    // android-phone §6.1, §12.1 (D-2084, D-2088): the media URL base the WebView can reach, the native bridge, and the
+    // test APK's forced layout. Empty on macOS, so its script is byte-identical to before.
+    let android = if cfg!(target_os = "android") {
+        let layout = test_var("TEGG_LAYOUT").filter(|l| l == "phone" || l == "desktop");
+        format!(
+            " window.__TEGG_MEDIA_BASE__ = location.protocol + '//tegg-media.localhost/'; window.__TEGG_NATIVE__ = {{ state: {{ insets: {{ top: 0, bottom: 0, left: 0, right: 0 }}, keyboard: false, systemDark: null, fontScale: 1 }}, receive(kind, p) {{ if (kind === 'window' && p) {{ Object.assign(this.state, p); window.dispatchEvent(new CustomEvent('tegg:native', {{ detail: this.state }})); }} }}, back() {{ return false; }} }};{}",
+            layout.map(|l| format!(" window.__TEGG_LAYOUT__ = {};", serde_json::to_string(&l).unwrap_or_default())).unwrap_or_default()
+        )
+    } else {
+        String::new()
+    };
     format!(
-        "window.__TEGG_UI_STATE__ = {}; window.__TEGG_REGION__ = {}; window.__TEGG_ROUTE__ = {}; window.__TEGG_TEST_MODE__ = {}; window.__TEGG_TZ__ = {}; window.__TEGG_PLATFORM__ = {};{clock}",
+        "window.__TEGG_UI_STATE__ = {}; window.__TEGG_REGION__ = {}; window.__TEGG_ROUTE__ = {}; window.__TEGG_TEST_MODE__ = {}; window.__TEGG_TZ__ = {}; window.__TEGG_PLATFORM__ = {};{clock}{android}",
         serde_json::to_string(&ui).unwrap_or_else(|_| "null".into()),
         serde_json::to_string(&region_locale()).unwrap_or_else(|_| "null".into()),
         serde_json::to_string(&route).unwrap_or_else(|_| "null".into()),
@@ -2050,23 +2063,30 @@ fn mobile_run() {
             mobile::setup(app)?;
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            vault_current, vault_open, index_search, index_switcher, note_read, note_create, perf_mark, vault_create,
-            vault_last, vault_recent, vault_types, index_type_counts, index_list, nav_opened, nav_swipe_scroll,
-            ui_state_get, ui_state_set, link_resolve, embed_load, index_path_by_id, note_write, note_create_exact,
-            note_trash, note_discard, index_tags, index_conflicts, type_get, type_template, type_usage,
-            index_type_rows, starter_plan, index_backlinks, index_broken_links, index_duplicate_titles,
-            link_create_plan, link_create, daily_view, daily_dates, daily_draft, daily_create, daily_context,
-            daily_backlinks, job_cancel, job_confirm, job_report, job_retry, job_transform_result, job_interrupted,
-            job_resolve_interrupted, backups_list, editor_open, editor_close, task_list, daily_tasks,
-            shell5b::vault_settings, shell5b::vault_settings_patch, shell5b::inbox_list, shell5b::inbox_count,
-            shell5b::index_versions, shell6a::trash_list, shell6a::object_trash, shell6a::media_add,
-            shell6a::media_add_paths, shell4d::tag_objects, shell4d::index_tagged_objects, shell4d::tag_usage,
-            shell4d::tag_new_path, shell4e::jobs_ready, shell4d::job_plan, shellpin::pins_get, shellpin::pins_apply,
-            shellq::queries_list, shellq::query_get, shellq::query_run, shellq::query_usages,
-            shellq::query_view_usages, mobile::vault_start, mobile::vault_find, mobile::storage_access,
-            mobile::storage_access_settings
-        ])
+        // android-phone §12.1: the test APK logs each IPC call's name (`TEGG_IPC_LOG`); the release logs nothing.
+        .invoke_handler({
+            let handler: Box<dyn Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync> = Box::new(tauri::generate_handler![
+                vault_current, vault_open, index_search, index_switcher, note_read, note_create, perf_mark, vault_create,
+                vault_last, vault_recent, vault_types, index_type_counts, index_list, nav_opened, nav_swipe_scroll,
+                ui_state_get, ui_state_set, link_resolve, embed_load, index_path_by_id, note_write, note_create_exact,
+                note_trash, note_discard, index_tags, index_conflicts, type_get, type_template, type_usage,
+                index_type_rows, starter_plan, index_backlinks, index_broken_links, index_duplicate_titles,
+                link_create_plan, link_create, daily_view, daily_dates, daily_draft, daily_create, daily_context,
+                daily_backlinks, job_cancel, job_confirm, job_report, job_retry, job_transform_result, job_interrupted,
+                job_resolve_interrupted, backups_list, editor_open, editor_close, task_list, daily_tasks,
+                shell5b::vault_settings, shell5b::vault_settings_patch, shell5b::inbox_list, shell5b::inbox_count,
+                shell5b::index_versions, shell6a::trash_list, shell6a::object_trash, shell6a::media_add,
+                shell6a::media_add_paths, shell4d::tag_objects, shell4d::index_tagged_objects, shell4d::tag_usage,
+                shell4d::tag_new_path, shell4e::jobs_ready, shell4d::job_plan, shellpin::pins_get, shellpin::pins_apply,
+                shellq::queries_list, shellq::query_get, shellq::query_run, shellq::query_usages,
+                shellq::query_view_usages, mobile::vault_start, mobile::vault_find, mobile::storage_access,
+                mobile::storage_access_settings, mobile::android_open_url, mobile::android_window
+            ]);
+            move |invoke: tauri::ipc::Invoke<tauri::Wry>| -> bool {
+                mobile::ipc_log(invoke.message.command());
+                handler(invoke)
+            }
+        })
         .build(context())
         .expect("error while building Tegg")
         .run(|app, event| {

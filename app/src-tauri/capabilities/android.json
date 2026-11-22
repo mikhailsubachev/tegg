@@ -89,6 +89,8 @@
     "allow-vault-start",
     "allow-vault-find",
     "allow-storage-access",
-    "allow-storage-access-settings"
+    "allow-storage-access-settings",
+    "allow-android-open-url",
+    "allow-android-window"
   ]
 }

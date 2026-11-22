@@ -297,6 +297,8 @@ pub struct Core {
     watch: Mutex<Option<WatchGuard>>,
     /// ms4-jobs §4: the job engine of this vault (stub until slice 4C is built).
     jobs_engine: tegg_jobs::Jobs,
+    /// `OpenExtras::bulk_jobs` (false on Android): no task-views migration either (D-2062, D-2087).
+    bulk_jobs: bool,
 }
 
 /// docs/contracts/android-shell.md §3.3 (FR-SYN-06 AC-50, D-2025; CP-1 → D-2036): what `Core::open_ext` adds to
@@ -400,7 +402,7 @@ impl Core {
         } else if opts.watch {
             tidy4e::spawn(Arc::downgrade(&shared), jobs_engine.handle());
         }
-        Ok(Core { shared, worker: Some(worker), watch: Mutex::new(watch), jobs_engine })
+        Ok(Core { shared, worker: Some(worker), watch: Mutex::new(watch), jobs_engine, bulk_jobs: extras.bulk_jobs })
     }
 
     pub fn vault(&self) -> &Vault {

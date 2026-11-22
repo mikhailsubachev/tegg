@@ -8,7 +8,7 @@ use tauri::{App, AppHandle, Emitter, Manager, Wry};
 use tauri_plugin_tegg_android::TeggAndroid;
 use tegg_core::Vault;
 
-use crate::dto::{FoundVaultDto, IpcError, StartStateDto, StorageAccessDto, VaultInfo};
+use crate::dto::{FoundVaultDto, InsetsDto, IpcError, StartStateDto, StorageAccessDto, VaultInfo, WindowStateDto};
 use crate::start::{start_state, StartState};
 use crate::vaultfind::{find_vaults, resolve_typed_path, PathRefusal};
 use crate::{err, mark_repeat, test_var, AppState};
@@ -234,3 +234,39 @@ pub(crate) async fn storage_access(app: AppHandle) -> Result<StorageAccessDto, I
 pub(crate) async fn storage_access_settings(app: AppHandle) -> Result<(), IpcError> {
     plugin(&app).open_settings().map_err(|e| err("Io", e))
 }
+
+/// android-phone §2.2 (D-2074): an external link leaves through Android; Tegg opens no connection itself.
+#[tauri::command]
+pub(crate) async fn android_open_url(app: AppHandle, url: String) -> Result<(), IpcError> {
+    if !crate::phone::open_url_allowed(&url) {
+        return Err(err("Unsupported", "only http, https, mailto and tel links open in another app"));
+    }
+    plugin(&app).open_url(url.trim()).map_err(|e| if e == "NoHandler" { err("NoHandler", "no app opens this link") } else { err("Io", e) })
+}
+
+/// android-phone §2.2 (D-2086): the bar icons for the resolved theme, then the window state.
+#[tauri::command]
+pub(crate) async fn android_window(app: AppHandle, dark: bool) -> Result<WindowStateDto, IpcError> {
+    let w = plugin(&app).window(dark).map_err(|e| err("Io", e))?;
+    Ok(WindowStateDto {
+        insets: InsetsDto { top: w.insets.top, bottom: w.insets.bottom, left: w.insets.left, right: w.insets.right },
+        keyboard: w.keyboard,
+        system_dark: w.system_dark,
+        font_scale: w.font_scale,
+    })
+}
+
+// ---------------------------------------------------------------- the IPC log (android-phone §12.1, test APK only)
+
+/// One line `{"cmd":"<name>","ms":<since start>}` per IPC call to `TEGG_IPC_LOG`; no arguments (AR-08 AC-5).
+#[cfg(not(feature = "preview"))]
+pub(crate) fn ipc_log(cmd: &str) {
+    let Some(path) = test_env("TEGG_IPC_LOG") else { return };
+    use std::io::Write;
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+        let _ = f.write_all(format!("{}\n", serde_json::json!({ "cmd": cmd, "ms": crate::ms_since_process_start() })).as_bytes());
+    }
+}
+
+#[cfg(feature = "preview")]
+pub(crate) fn ipc_log(_cmd: &str) {}

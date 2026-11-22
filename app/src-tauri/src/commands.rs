@@ -44,8 +44,10 @@ pub const ANDROID: &[&str] = &[
     "inbox_count", "index_versions", "trash_list", "object_trash", "media_add", "media_add_paths", "tag_objects",
     "index_tagged_objects", "tag_usage", "tag_new_path", "jobs_ready", "job_plan", "pins_get", "pins_apply",
     "queries_list", "query_get", "query_run", "query_usages", "query_view_usages", "vault_start", "vault_find",
-    "storage_access", "storage_access_settings",
+    "storage_access", "storage_access_settings", "android_open_url", "android_window",
 ];
 
-/// The four Android-only commands (contract §2.2).
-pub const ANDROID_ONLY: &[&str] = &["vault_start", "vault_find", "storage_access", "storage_access_settings"];
+/// The Android-only commands: AND-1's four (android-shell §2.2) and AND-2's two (android-phone §2.1; D-2074, D-2086).
+pub const ANDROID_ONLY: &[&str] = &[
+    "vault_start", "vault_find", "storage_access", "storage_access_settings", "android_open_url", "android_window",
+];
