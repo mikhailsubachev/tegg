@@ -508,6 +508,10 @@ AC-17's L0 rule), `Embed.tsx`'s own strip helper, the `TaskCard` component. Cata
 - **Grouping key:** hidden as v1-views §29.5 says; a multi-value grouping key with ≥ 2 values on this card shows every
   value as pills, at the key's place when it is an effective key, else after the other pills (D-1769 kept).
 - **`Unreviewed`:** first item of the pill area when `card.unreviewed`; never hidden or counted (D-1977).
+- **Strip source:** the image strip's `src` is the media URL of the attachment, `tegg-media://…/_attachments/<file>` in
+  the app; under the fake core in WebKit, which can't route a custom scheme, it is the fake's media base
+  `http://localhost:<port>/__media/_attachments/<file>` (ms6-trash-media §3.6), and FR-TYP-11 AC-15 accepts either
+  (D-2017, as D-2001 for `file://`).
 
 ### 7.2 Two rows, then `+N more` (D-1949, D-1977)
 
