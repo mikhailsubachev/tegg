@@ -684,7 +684,9 @@ for the section at the top (an `IntersectionObserver` on the `h2`s).
 ### 8.4 Settings
 
 `div.settings-layout` > `nav.settings-sections` (links `a[aria-current="page"]`) + `div.settings-content`; rows
-`div.settings-row` > `.settings-label` + `.settings-control` (> control, `.settings-note`). Every `settings/*` route and
+`div.settings-row` > `.settings-label` + `.settings-control` (> control) + `.settings-note`: the row note is a
+sibling of `.settings-control`, drawn in the control column under the control, so the control's box ends above it
+(D-2045). Every `settings/*` route and
 `type-settings/<key>` use them (FR-UX-02 AC-22 measures these boxes). `tests/fixtures/settings/controls-0.5.json` (FR-UX-02
 AC-24) is recorded by `app/webkit/settings-helpers.ts` `settingsControls(page)` on the 0.5 UI and committed with the red
 tests, before the restyle.
