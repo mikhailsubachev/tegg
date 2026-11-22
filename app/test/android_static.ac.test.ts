@@ -8,7 +8,7 @@
 //   has none of `tauri-plugin-http`, `tauri-plugin-updater`, `reqwest`, `ureq`; the Android capability grants no `http:`
 //   or `shell:` permission.
 // - AR-03 AC-12 "The macOS app is unchanged", parts (a) and (b) (the L0 check; (c) is the gates, (d) the Rust
-//   fr_sto_07_ac12 test). Red-test readings (reported): (a) "the AND-1 branch" is the commits after `7ff0fc0b` that
+//   fr_sto_07_ac15 test). Red-test readings (reported): (a) "the AND-1 branch" is the commits after `7ff0fc0b` that
 //   name the Android track (`AND-` or a decision D-2000…D-2999), so later slices' approved AC-test changes don't count;
 //   (b) `capabilities/capture.json` may differ from main at the merge-base (D-2053) only by `platforms: ["macOS"]`, as `default.json` (AR-03
 //   AC-9 (c), (d) need it: a capability without `platforms` applies to Android too).

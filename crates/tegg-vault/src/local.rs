@@ -338,7 +338,7 @@ impl VaultFs for LocalFs {
     }
 }
 
-/// docs/contracts/android-shell.md §3.1 (FR-SYN-03 AC-32, D-2028): what one `notify` event means for the vault.
+/// docs/contracts/android-shell.md §3.1 (FR-SYN-03 AC-37, D-2028): what one `notify` event means for the vault.
 /// inotify (Linux, Android) also reports reads; the index's own reads would come back as changes and the index would
 /// never go idle (spike AND-0, F1). Every read event is dropped except a close after writing, which marks the end of
 /// another program's write. Other kinds are never trusted (`FsChange`'s doc): they all give the paths.
@@ -362,7 +362,7 @@ pub fn fs_change_of(ev: &notify::Event, base: &Path) -> Option<FsChange> {
     (!paths.is_empty()).then_some(FsChange::Paths(paths))
 }
 
-/// docs/contracts/android-shell.md §3.2 (FR-FMT-12 AC-14, D-2029): the on-disk entry of a folder listing for one NFC
+/// docs/contracts/android-shell.md §3.2 (FR-FMT-12 AC-15, D-2029): the on-disk entry of a folder listing for one NFC
 /// path component.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OnDiskName {
@@ -695,7 +695,7 @@ pub fn trash_import_leftover(dir: &Path, sink: &dyn SystemTrash) -> io::Result<(
     Ok(())
 }
 
-/// Spike AND-0 finding F1 (docs/acceptance/android-shell.md FR-SYN-03 AC-32, D-2028): on Linux-family systems
+/// Spike AND-0 finding F1 (docs/acceptance/android-shell.md FR-SYN-03 AC-37, D-2028): on Linux-family systems
 /// (Android) `notify` reports Tegg's own reads as `Access` events; treated as changes they re-index the read file,
 /// which is read again, so the index never settles. Regression test, committed red before the fix (D-61).
 #[cfg(test)]

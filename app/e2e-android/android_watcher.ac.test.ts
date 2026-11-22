@@ -1,9 +1,9 @@
 // Slice AND-1, LA (the test APK on the arm64 emulator; contract §12): docs/acceptance/android-shell.md
 // - FR-SYN-03 AC-33 "The index settles and still sees changes, on the device" (F1; T2);
-// - FR-SYN-06 AC-50, device part: the shell fixture plus the Stray, three notes opened, HOME and back, 60 s: the vault is
+// - FR-SYN-06 AC-53, device part: the shell fixture plus the Stray, three notes opened, HOME and back, 60 s: the vault is
 //   untouched (D-2007; T1). The tidy job is allowed in the test environment (`TEGG_TEST_TIDY=1`,
 //   `TEGG_TEST_QUIET_MS=200`), so a tidy run on the phone would show;
-// - FR-FMT-12 AC-14, device part: a note stored in NFD bytes on a file system that doesn't normalise names (AP-2029;
+// - FR-FMT-12 AC-15, device part: a note stored in NFD bytes on a file system that doesn't normalise names (AP-2029;
 //   T1, T2). Both forms beside each other can't exist on Android shared storage, which treats NFC and NFD as one name;
 //   that part stays on the host layers (D-2052).
 // Red-test reading (reported): notes are "opened" with the app's own IPC (`note_read`, as the page does) or with
@@ -101,9 +101,9 @@ test('fr_syn_03_ac33_index_settles_on_android', async () => {
   assert.deepEqual(changedFiles(before, after, [UVODNI, EVA, moved, 'Pages/Nová.md']), [], 'the vault\'s other files stay untouched');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-SYN-06 AC-50
+// ------------------------------------------------------------------------------------------------ FR-SYN-06 AC-53
 
-test('fr_syn_06_ac50_no_writes_and_no_jobs_on_android', async () => {
+test('fr_syn_06_ac53_no_writes_and_no_jobs_on_android', async () => {
   ready();
   const vault = pushShell();
   writeShared(`${vault}/${STRAY}`, STRAY_TEXT);
@@ -121,9 +121,9 @@ test('fr_syn_06_ac50_no_writes_and_no_jobs_on_android', async () => {
   assert.equal(sh(`ls ${quote(`${vault}/Tasks`)}`, false).includes('Zavolat Petrovi'), false, 'no tidy move to Tasks/');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-FMT-12 AC-14
+// ------------------------------------------------------------------------------------------------ FR-FMT-12 AC-15
 
-test('fr_fmt_12_ac14_nfd_names_on_android', async () => {
+test('fr_fmt_12_ac15_nfd_names_on_android', async () => {
   ready();
   const vault = pushShell();
   const nfc = 'Pages/Poznámka.md';

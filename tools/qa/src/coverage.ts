@@ -13,6 +13,8 @@ export type Ac = {
   /** D-382: a layer marker `*(…)*` on the criterion line names L6 (CONTRACT §9.5). */
   realApp: boolean;
   file: string; // repository-relative acceptance file
+  /** A table row taken as the requirement's AC-1 (performance.md targets), not a `- **AC-n**` entry. */
+  fromTable?: boolean;
 };
 
 /** A layer marker `*(L5; L6 once)*` naming L6 makes the AC a real-app AC (CONTRACT §9.5). */
@@ -76,7 +78,7 @@ export function parseAcs(root: string): Ac[] {
       // Table criterion: a row whose first cell is exactly a requirement ID (performance.md targets).
       const row = /^\|\s*([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+)\s*\|/.exec(line);
       if (row && !acs.some((a) => a.id === `${row[1]}/AC-1`)) {
-        acs.push({ id: `${row[1]}/AC-1`, aliases: [], manual: false, realApp: false, file });
+        acs.push({ id: `${row[1]}/AC-1`, aliases: [], manual: false, realApp: false, file, fromTable: true });
         continue;
       }
       // Explicit form used outside headings, e.g. `- **NFR-PERF-02/AC-2** …` in performance.md.
@@ -85,6 +87,26 @@ export function parseAcs(root: string): Ac[] {
     }
   }
   return acs;
+}
+
+/** D-2081: criterion IDs already defined twice before the check existed (older slices; renumbering them changes their
+ *  tests, which is the owner's call). They are reported only if they stop being duplicates, so the list shrinks. */
+export const KNOWN_DUPLICATE_AC_IDS: readonly string[] = [
+  'FR-DLY-08/AC-1', 'FR-DLY-08/AC-2', 'FR-DLY-08/AC-3', 'FR-FMT-08/AC-5', 'FR-FMT-08/AC-6', 'FR-SYN-06/AC-10',
+  'FR-TYP-01/AC-11', 'FR-TYP-09/AC-15', 'FR-TYP-15/AC-1', 'FR-UX-03/AC-13', 'FR-UX-03/AC-14', 'FR-UX-05/AC-8',
+  'NFR-POR-01/AC-2',
+];
+
+/** D-2081: every criterion ID defined more than once across docs/acceptance (a requirement's AC numbers continue
+ *  across files, so each number is defined once). One message per duplicate, naming the files; `known` IDs are
+ *  skipped, and a known ID that is no longer a duplicate is reported so it leaves the list. */
+export function duplicateAcIds(root: string, known: readonly string[] = KNOWN_DUPLICATE_AC_IDS): string[] {
+  const where = new Map<string, string[]>();
+  for (const ac of parseAcs(root).filter((a) => !a.fromTable)) where.set(ac.id, [...(where.get(ac.id) ?? []), ac.file]);
+  const dup = [...where].filter(([, files]) => files.length > 1);
+  const out = dup.filter(([id]) => !known.includes(id)).map(([id, files]) => `${id} is defined ${files.length} times: ${files.join(', ')}; give the newer one the next free number`);
+  for (const id of known) if (!dup.some(([d]) => d === id)) out.push(`${id} is no longer defined twice; remove it from KNOWN_DUPLICATE_AC_IDS (tools/qa/src/coverage.ts)`);
+  return out.sort();
 }
 
 export function acKey(id: string): string {
