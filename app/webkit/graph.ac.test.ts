@@ -870,14 +870,16 @@ test('fr_grp_07_ac2_three_steps_by_vault_degree', async ({ page, browser }) => {
     ['Pages/Hub/List 01-a-01.md', { [P.siroky]: 'large', 'Pages/Hub/Uzel 01-a.md': 'medium' }]] as const) {
     const p2 = await browser.newPage();
     await openGraph(p2, centre, { vault, uiState: { ...stored, vaults: { [VAULT_PATH]: { graph: { full: { depth: 1, sizeByLinks: true } } } } } as any });
-    const got = Object.fromEntries((await drawn(p2)).map((n) => [n.key, n.step]));
+    // D-1942 (AC-Test-Change): the heading shows before the nodes are drawn; wait for them, as the first part does.
+    const got = await eventually(async () => Object.fromEntries((await drawn(p2)).map((n) => [n.key, n.step])), (g) => Object.entries(want).every(([k, s]) => g[nfc(k)] === s), 2000);
     for (const [k, s] of Object.entries(want)) assert.equal(got[nfc(k)], s, `${centre}'s graph: ${k} ${s}`);
     await p2.close();
   }
   for (const [centre, d] of [[P.plan, 1], [P.plan, 3], [P.fUcty, 1]] as const) {
     const p3 = await browser.newPage();
     await openGraph(p3, centre, { graph: { depth: d, sizeByLinks: true } });
-    assert.equal((await drawn(p3)).find((n) => n.key === nfc(P.rozpocet))?.step, 'medium', `Rozpočet medium in ${centre} d${d}`);
+    const step = await eventually(async () => (await drawn(p3)).find((n) => n.key === nfc(P.rozpocet))?.step, (x) => x === 'medium', 2000); // D-1942
+    assert.equal(step, 'medium', `Rozpočet medium in ${centre} d${d}`);
     await p3.close();
   }
 });
