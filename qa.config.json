@@ -85,6 +85,8 @@
     { "dir": "app", "match": "^app/webkit/.*\\.ac\\.test\\.ts$",
       "run": "PLAYWRIGHT_JUNIT_OUTPUT_NAME={junit} npx playwright test --reporter=junit {files}" },
     { "dir": "app", "match": "^app/e2e/.*\\.ac\\.test\\.ts$",
+      "run": "node --test --test-reporter=junit --test-reporter-destination={junit} {files}" },
+    { "dir": "app", "match": "^app/e2e-android/.*\\.ac\\.test\\.ts$",
       "run": "node --test --test-reporter=junit --test-reporter-destination={junit} {files}" }
   ],
   "realAppTests": ["app/e2e/"],
