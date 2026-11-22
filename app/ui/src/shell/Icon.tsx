@@ -1,5 +1,89 @@
 // Line icons for the frame (stroke uses the current text colour, FR-UX-05 AC-2). Decorative: hidden from the
 // accessibility tree; the control around an icon carries the label.
+// Slice OC (v1-cards §5.4, D-1998): type icons are drawn from Lucide through the icons in use (`icons/inUse.ts`);
+// `typeIconName` names them `lucide:<fallback glyph>:<name as written>`, and the hand-drawn paths stay for app chrome
+// (and as the fallback before the vault's types are loaded).
+// The Lucide drawing and the icons in use live here so the capture window, which may import only this module of the
+// shell (NFR-SEC-03 AC-4), draws type icons too; `icons/LucideIcon.tsx` and `icons/inUse.ts` re-export them.
+import { createElement } from 'react';
+import type { ResolvedIconDto, TypeDto } from '../ipc/types';
+
+// ------------------------------------------------------------------------------------------------ icons in use (§5.4)
+
+let byName = new Map<string, ResolvedIconDto | null>();
+let byType = new Map<string, ResolvedIconDto | null>();
+
+const nfc = (s: string) => s.normalize('NFC');
+
+/** Called with the vault's types whenever they are (re)loaded. */
+export function setIconsInUse(types: readonly TypeDto[]): void {
+  const n = new Map<string, ResolvedIconDto | null>();
+  const t = new Map<string, ResolvedIconDto | null>();
+  for (const x of types) {
+    if (x.icon) n.set(x.icon, x.resolvedIcon ?? null);
+    t.set(nfc(x.key), x.resolvedIcon ?? null);
+    for (const a of x.attributes ?? []) if (a.icon) n.set(a.icon, a.resolvedIcon ?? null);
+  }
+  byName = n;
+  byType = t;
+}
+
+/** The drawing of a written icon name; `undefined` when no loaded definition uses it (null: used, unknown). */
+export function iconInUse(name: string): ResolvedIconDto | null | undefined {
+  return byName.get(name);
+}
+
+/** A type's resolved icon by key; `undefined` when the type isn't loaded. */
+export function typeIconInUse(key: string): ResolvedIconDto | null | undefined {
+  return byType.get(nfc(key));
+}
+
+// ------------------------------------------------------------------------------------------------ LucideIcon (§6.1)
+
+/** R14's generic type glyph (shell/Icon.tsx `type`). */
+export const GENERIC_TYPE = 'M5 5h14v4M12 5v14M9 19h6';
+
+const camel = (k: string) => (k.startsWith('data-') || k.startsWith('aria-') ? k : k.replace(/-([a-z])/g, (_m, c: string) => c.toUpperCase()));
+const attrsOf = (a: Record<string, string>) => Object.fromEntries(Object.entries(a).filter(([k]) => k !== 'key').map(([k, v]) => [camel(k), v]));
+
+export function LucideIcon({ icon, dataIcon, size = 16, className }: { icon: ResolvedIconDto | null | undefined; dataIcon?: string | null; size?: number; className?: string }) {
+  const di = dataIcon ?? icon?.name ?? 'type';
+  if (!icon) {
+    return (
+      <svg className={`icon${className ? ` ${className}` : ''}`} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}
+        strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" data-icon={di}>
+        <path d={GENERIC_TYPE} />
+      </svg>
+    );
+  }
+  return (
+    <svg className={`icon lucide${className ? ` ${className}` : ''}`} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" data-icon={di}>
+      {icon.node.map(([tag, attrs], i) => createElement(tag, { key: i, ...attrsOf(attrs) }))}
+    </svg>
+  );
+}
+
+/** The same drawing as a DOM element (editor chips and other non-React views). */
+export function lucideElement(icon: ResolvedIconDto | null | undefined, dataIcon: string | null | undefined, size = 13): SVGSVGElement {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  const attrs: Record<string, string> = {
+    class: icon ? 'icon lucide' : 'icon', width: String(size), height: String(size), viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': icon ? '2' : '1.8',
+    'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', 'data-icon': dataIcon ?? icon?.name ?? 'type',
+  };
+  for (const [k, v] of Object.entries(attrs)) svg.setAttribute(k, v);
+  const nodes: [string, Record<string, string>][] = icon ? icon.node : [['path', { d: GENERIC_TYPE }]];
+  for (const [tag, a] of nodes) {
+    const el = document.createElementNS(ns, tag);
+    for (const [k, v] of Object.entries(a)) if (k !== 'key') el.setAttribute(k, v);
+    svg.appendChild(el);
+  }
+  return svg;
+}
+
+// ------------------------------------------------------------------------------------------------ the hand-drawn icons
+
 const PATHS: Record<string, string> = {
   home: 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z',
   inbox: 'M3 13l3-8h12l3 8v6H3zM3 13h5l1 3h6l1-3h5',
@@ -95,8 +179,22 @@ const PATHS: Record<string, string> = {
 export const TYPE_ICONS = new Set(['file-text', 'check-square', 'zap', 'calendar', 'hash', 'image', 'file', 'book', 'book-open', 'lightbulb', 'users', 'user',
   'folder', 'map', 'star', 'flag', 'bookmark', 'briefcase', 'coffee', 'globe', 'graduation-cap', 'pen-line', 'utensils', 'plane']);
 
+/** A type icon name of `typeIconName`: its hand-drawn fallback glyph and the name as written. */
+function lucideName(name: string): { fallback: string; written: string } | null {
+  if (!name.startsWith('lucide:')) return null;
+  const rest = name.slice(7);
+  const i = rest.indexOf(':');
+  return { fallback: rest.slice(0, i), written: rest.slice(i + 1) };
+}
+
 /** `dataIcon`: the `data-icon` value when it differs from the glyph (link chips name the type's icon, FR-LNK-07). */
 export function Icon({ name, size = 16, dataIcon }: { name: string; size?: number; dataIcon?: string }) {
+  const l = lucideName(name);
+  if (l) {
+    const r = iconInUse(l.written);
+    if (r !== undefined && (r !== null || l.fallback === 'type')) return <LucideIcon icon={r} dataIcon={dataIcon ?? l.fallback} size={size} />;
+    name = l.fallback;
+  }
   return (
     <svg className="icon" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" data-icon={dataIcon ?? name}>
       <path d={PATHS[name] ?? PATHS.dot} />
@@ -114,15 +212,29 @@ export function routeIcon(id: string): string {
 /** The icon each system type's built-in definition names. */
 export const SYSTEM_DEFAULT: Record<string, string> = { page: 'file-text', task: 'check-square', 'quick-note': 'zap', 'daily-note': 'calendar', tag: 'hash', image: 'image', pdf: 'file' };
 
-export function typeIconName(key: string, icon?: string | null): string {
+function legacyGlyph(key: string, icon?: string | null): string {
   const sys = ({ page: 'file', task: 'task', 'quick-note': 'bolt', 'daily-note': 'calendar', image: 'image', pdf: 'pdf', tag: 'tag' } as Record<string, string>)[key];
   // FR-TYP-06 (D-237): a system type's icon can be changed; its default icon keeps the system glyph.
   if (sys && (!icon || icon === SYSTEM_DEFAULT[key] || !TYPE_ICONS.has(icon))) return sys;
   return icon && TYPE_ICONS.has(icon) ? icon : 'type';
 }
 
+/** A type's icon for `Icon` / `iconElement`: drawn from Lucide (D-1998) once the vault's types are loaded. */
+export function typeIconName(key: string, icon?: string | null): string {
+  const k = key.normalize('NFC');
+  const written = icon || SYSTEM_DEFAULT[k] || '';
+  const fallback = legacyGlyph(k, icon);
+  return written ? `lucide:${fallback}:${written}` : fallback;
+}
+
 /** The same icon as a DOM element, for views that aren't React (the editor's link chips). */
 export function iconElement(name: string, size = 13, dataIcon?: string): SVGSVGElement {
+  const l = lucideName(name);
+  if (l) {
+    const r = iconInUse(l.written);
+    if (r !== undefined && (r !== null || l.fallback === 'type')) return lucideElement(r, dataIcon ?? l.fallback, size);
+    name = l.fallback;
+  }
   const ns = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg');
   for (const [k, v] of Object.entries({ class: 'icon', width: String(size), height: String(size), viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', 'data-icon': dataIcon ?? name })) svg.setAttribute(k, v);
