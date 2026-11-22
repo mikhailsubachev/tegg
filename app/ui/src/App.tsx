@@ -1374,7 +1374,9 @@ export function App() {
   const def = route ? routeDef(route.id) : undefined;
   const typeEntry = route?.id === 'type/<type>' ? typeEntries(types, counts).find((e) => e.key === route.param) : undefined;
   const pageName: string =
-    route?.id === DAILY ? (route.param ?? '')
+    // Slice AND-2 (android-phone §9.10): on the phone the vault section is named `Vault`.
+    phone && route?.id === 'settings/vault' ? t('settings.vault')
+      : route?.id === DAILY ? (route.param ?? '')
       : route?.id === 'note/<path>' ? (meta?.title ?? (route.param ?? '').split('/').pop()!.replace(/\.md$/, ''))
       : route?.id === 'type/<type>' ? (typeEntry?.plural ?? route.param ?? '')
       : route?.id === 'tag/<key>' ? `#${tagList.find((x) => x.key === route.param)?.name ?? route.param ?? ''}`

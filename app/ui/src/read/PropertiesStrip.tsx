@@ -7,7 +7,8 @@ import { t } from '../i18n/catalog';
 import { region } from '../i18n/collate';
 import type { LinkTargetDto, TypeDto } from '../ipc/types';
 import { useEffect, useState } from 'react';
-import { panelRows } from '../types/panel';
+import { panelRows, UNIVERSAL_KEYS } from '../types/panel';
+const UNIVERSAL = new Set<string>(UNIVERSAL_KEYS);
 import { stripRows } from '../phone/strip';
 import { Sheet } from '../phone/Sheet';
 import { Icon, typeIconName } from '../shell/Icon';
@@ -193,7 +194,7 @@ export function PhoneProperties({ text, links, type, onOpen, onTag }: {
         <div role="group" aria-label={t('phone.properties')} className="phone-strip">
           {strip.map((r) => (
             <div key={r.key} className="phone-strip-row">
-              <span className="phone-strip-label" data-user-content={r.label === r.key ? '' : undefined}>{r.label}</span>
+              <span className="phone-strip-label" data-user-content={UNIVERSAL.has(r.key) ? undefined : ''}>{r.label}</span>
               <span className="phone-strip-value">{cell(r.key)}</span>
             </div>
           ))}
@@ -209,7 +210,7 @@ export function PhoneProperties({ text, links, type, onOpen, onTag }: {
           <div className="phone-properties">
             {model.rows.map((r) => (
               <div key={r.key} role="group" aria-label={r.label} className="property">
-                <span className="phone-prop-label" data-user-content={r.label === r.key ? '' : undefined}>{r.label}</span>
+                <span className="phone-prop-label" data-user-content={UNIVERSAL.has(r.key) ? undefined : ''}>{r.label}</span>
                 <span className="phone-prop-value">{cell(r.key)}</span>
               </div>
             ))}

@@ -179,13 +179,13 @@ html[data-layout="phone"] .phone-sheet-layer {
 html[data-layout="phone"] .phone-scrim {
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, var(--side) 75%, transparent);
+  background: var(--side);
   opacity: 0;
   transition: opacity 200ms ease;
 }
 html[data-layout="phone"] .phone-drawer-layer.open .phone-scrim,
 html[data-layout="phone"] .phone-sheet-layer .phone-scrim {
-  opacity: 1;
+  opacity: 0.75;
 }
 html[data-layout="phone"] .phone-drawer {
   position: absolute;
@@ -571,4 +571,9 @@ html[data-layout="phone"] .phone-title .search-field input {
 /* §9.1: the source view shows the file's bytes only (no line numbers on the phone). */
 html[data-layout="phone"] .source-gutter {
   display: none;
+}
+
+/* §9.4: the map's drawing keeps its own width inside the scaled box. */
+html[data-layout="phone"] .phone-map-inner .mindmap-canvas {
+  max-width: none !important;
 }

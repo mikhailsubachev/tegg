@@ -1,6 +1,7 @@
 // Source view: the file's text, read-only, with line numbers (FR-EDT-10, D-146, D-158; ms3-shell §11.3). Links,
 // tags and URLs are plain text here. A final newline gives no empty last line; the gutter is aria-hidden and
 // excluded from selection.
+import { isPhone } from '../phone/layout';
 import { t } from '../i18n/catalog';
 import type { FrontmatterWarning } from './warning';
 
@@ -30,7 +31,7 @@ export function SourceView({ text, warning }: { text: string; warning?: Frontmat
         {lines.map((l, i) => (
           <div key={i} className="source-row">
             <span className="source-gutter" aria-hidden="true">{i + 1}</span>
-            <div className="source-line" data-line={i + 1}><span className="source-text">{l}</span></div>
+            <div className="source-line" data-line={i + 1}><span className="source-text">{l === '' && isPhone() ? <br /> : l}</span></div>
           </div>
         ))}
       </section>
