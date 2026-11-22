@@ -1,0 +1,95 @@
+[
+ {
+  "value": null,
+  "empty": true
+ },
+ {
+  "value": "",
+  "empty": true
+ },
+ {
+  "value": [],
+  "empty": true
+ },
+ {
+  "value": "—",
+  "empty": true
+ },
+ {
+  "value": " — ",
+  "empty": true
+ },
+ {
+  "value": "—   ",
+  "empty": true
+ },
+ {
+  "value": "–",
+  "empty": false
+ },
+ {
+  "value": "-",
+  "empty": false
+ },
+ {
+  "value": "— nic",
+  "empty": false
+ },
+ {
+  "value": "nic —",
+  "empty": false
+ },
+ {
+  "value": [
+   "Mapa",
+   "—"
+  ],
+  "empty": false
+ },
+ {
+  "value": [
+   "—"
+  ],
+  "empty": true
+ },
+ {
+  "value": [
+   "—",
+   " — ",
+   ""
+  ],
+  "empty": true
+ },
+ {
+  "value": [
+   null
+  ],
+  "empty": true
+ },
+ {
+  "value": 0,
+  "empty": false
+ },
+ {
+  "value": 12,
+  "empty": false
+ },
+ {
+  "value": false,
+  "empty": false
+ },
+ {
+  "value": true,
+  "empty": false
+ },
+ {
+  "value": "Hotový",
+  "empty": false
+ },
+ {
+  "value": [
+   "Mapa"
+  ],
+  "empty": false
+ }
+]

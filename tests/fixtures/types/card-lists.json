@@ -1,0 +1,721 @@
+[
+ {
+  "name": "výlet: card as written, the unknown key kept in the list and ignored (AC-6, R209)",
+  "key": "výlet",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Výlet\nplural: Výlety\nsystem: false\nfolder: Výlety\nicon: map\ncolor: teal\ndescription: Výlety a túry, plánované i hotové.\nreview: false\npreview: [stav, kraj]\ncard: [tags, description, stav, náročnost, kraj, vybavení, délka, termín, odkaz, průvodce, neznámý-klíč, modified]\nviews: [Výlety podle stavu]\nattributes:\n  - key: stav\n    name: Stav\n    type: select\n    icon: circle-dot\n    default: Plánovaný\n    options:\n      - { label: Plánovaný, color: gray }\n      - { label: Hotový, color: green }\n  - key: náročnost\n    name: Náročnost\n    type: select\n    options:\n      - { label: Lehká, color: green }\n      - { label: Střední, color: yellow }\n      - { label: Těžká, color: red }\n  - key: kraj\n    name: Kraj\n    type: text\n    icon: map-pin\n  - key: vybavení\n    name: Vybavení\n    type: multi-select\n    icon: backpack\n    options:\n      - { label: Mapa, color: gray }\n      - { label: Čelovka, color: yellow }\n      - { label: Pláštěnka, color: blue }\n      - { label: Termoska, color: orange }\n      - { label: Lékárnička, color: red }\n      - { label: Hůlky, color: gray }\n      - { label: Rukavice, color: purple }\n      - { label: Čepice, color: teal }\n      - { label: Svačina, color: green }\n      - { label: Nabíječka, color: gray }\n  - key: délka\n    name: Délka v km\n    type: number\n    icon: ikona-ktera-neexistuje\n  - key: termín\n    name: Termín\n    type: date\n    icon: calendar\n  - key: odkaz\n    name: Odkaz\n    type: url\n    icon: link\n  - key: průvodce\n    name: Průvodce\n    type: relation\n    to: [autor]\n  - key: poznámka\n    name: Poznámka\n    type: long-text\n",
+  "expected": {
+   "list": [
+    "tags",
+    "description",
+    "stav",
+    "náročnost",
+    "kraj",
+    "vybavení",
+    "délka",
+    "termín",
+    "odkaz",
+    "průvodce",
+    "neznámý-klíč",
+    "modified"
+   ],
+   "default": false,
+   "keys": [
+    "tags",
+    "description",
+    "stav",
+    "náročnost",
+    "kraj",
+    "vybavení",
+    "délka",
+    "termín",
+    "odkaz",
+    "průvodce",
+    "modified"
+   ],
+   "ignored": [
+    "neznámý-klíč"
+   ],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "článek: card without preview (AC-6)",
+  "key": "článek",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Článek\nplural: Články\nsystem: false\nfolder: Články\nicon: newspaper\ncolor: orange\nreview: true\ncard: [body, rubrika, source, created]\nattributes:\n  - key: rubrika\n    name: Rubrika\n    type: select\n    options:\n      - { label: Cestování, color: blue }\n      - { label: Příroda, color: green }\n",
+  "expected": {
+   "list": [
+    "body",
+    "rubrika",
+    "source",
+    "created"
+   ],
+   "default": false,
+   "keys": [
+    "body",
+    "rubrika",
+    "source",
+    "created"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "kontrola: no card, no preview (AC-5)",
+  "key": "kontrola",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Kontrola\nplural: Kontroly\nsystem: false\nfolder: Kontroly\nicon: check-square\ncolor: green\nreview: false\nattributes:\n  - key: výsledek\n    name: Výsledek\n    type: checkbox\n",
+  "expected": {
+   "list": [
+    "tags",
+    "body",
+    "modified"
+   ],
+   "default": true,
+   "keys": [
+    "tags",
+    "body",
+    "modified"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "book: no card, preview [author, status] (AC-5)",
+  "key": "book",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Book\nplural: Books\nsystem: false\nfolder: Books\nicon: book\ncolor: purple\ndescription: Knihy, které jsem četl, čtu nebo chci číst.\nreview: false\npreview: [author, status]\ncolumns: [author, rating, status, modified]\nviews: [Rozečtené, Přečtené 2026, Výborné knihy]\nattributes:\n  - key: author\n    name: Author\n    type: relation\n    to: [autor]\n  - key: status\n    name: Status\n    type: select\n    default: To read\n    options:\n      - { label: To read, color: gray }\n      - { label: Reading, color: blue }\n      - { label: Read, color: green }\n  - key: rating\n    name: Rating\n    type: select\n    options:\n      - { label: Excellent, color: green }\n      - { label: Good, color: blue }\n      - { label: Bad, color: red }\n  - key: genres\n    name: Genres\n    type: multi-select\n    options:\n      - { label: Román, color: purple }\n      - { label: Detektivka, color: orange }\n      - { label: Poezie, color: teal }\n      - { label: Eseje, color: yellow }\n      - { label: Cestopis, color: blue }\n  - key: finished\n    name: Finished\n    type: date\n",
+  "expected": {
+   "list": [
+    "tags",
+    "body",
+    "author",
+    "status",
+    "modified"
+   ],
+   "default": true,
+   "keys": [
+    "tags",
+    "body",
+    "author",
+    "status",
+    "modified"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "autor: no card, preview [poznámka] (AC-5)",
+  "key": "autor",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Autor\nplural: Autoři\nsystem: false\nfolder: Autoři\nicon: user\ncolor: blue\nreview: false\npreview: [poznámka]\nattributes:\n  - key: poznámka\n    name: Poznámka\n    type: text\n",
+  "expected": {
+   "list": [
+    "tags",
+    "body",
+    "poznámka",
+    "modified"
+   ],
+   "default": true,
+   "keys": [
+    "tags",
+    "body",
+    "poznámka",
+    "modified"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "book: preview [tags, modified, neznámý, author] (AC-5)",
+  "key": "book",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Book\nplural: Books\nsystem: false\nfolder: Books\nicon: book\ncolor: purple\ndescription: Knihy, které jsem četl, čtu nebo chci číst.\nreview: false\npreview: [tags, modified, neznámý, author]\ncolumns: [author, rating, status, modified]\nviews: [Rozečtené, Přečtené 2026, Výborné knihy]\nattributes:\n  - key: author\n    name: Author\n    type: relation\n    to: [autor]\n  - key: status\n    name: Status\n    type: select\n    default: To read\n    options:\n      - { label: To read, color: gray }\n      - { label: Reading, color: blue }\n      - { label: Read, color: green }\n  - key: rating\n    name: Rating\n    type: select\n    options:\n      - { label: Excellent, color: green }\n      - { label: Good, color: blue }\n      - { label: Bad, color: red }\n  - key: genres\n    name: Genres\n    type: multi-select\n    options:\n      - { label: Román, color: purple }\n      - { label: Detektivka, color: orange }\n      - { label: Poezie, color: teal }\n      - { label: Eseje, color: yellow }\n      - { label: Cestopis, color: blue }\n  - key: finished\n    name: Finished\n    type: date\n",
+  "expected": {
+   "list": [
+    "tags",
+    "body",
+    "author",
+    "modified"
+   ],
+   "default": true,
+   "keys": [
+    "tags",
+    "body",
+    "author",
+    "modified"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "book: preview [] (AC-5)",
+  "key": "book",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Book\nplural: Books\nsystem: false\nfolder: Books\nicon: book\ncolor: purple\ndescription: Knihy, které jsem četl, čtu nebo chci číst.\nreview: false\npreview: []\ncolumns: [author, rating, status, modified]\nviews: [Rozečtené, Přečtené 2026, Výborné knihy]\nattributes:\n  - key: author\n    name: Author\n    type: relation\n    to: [autor]\n  - key: status\n    name: Status\n    type: select\n    default: To read\n    options:\n      - { label: To read, color: gray }\n      - { label: Reading, color: blue }\n      - { label: Read, color: green }\n  - key: rating\n    name: Rating\n    type: select\n    options:\n      - { label: Excellent, color: green }\n      - { label: Good, color: blue }\n      - { label: Bad, color: red }\n  - key: genres\n    name: Genres\n    type: multi-select\n    options:\n      - { label: Román, color: purple }\n      - { label: Detektivka, color: orange }\n      - { label: Poezie, color: teal }\n      - { label: Eseje, color: yellow }\n      - { label: Cestopis, color: blue }\n  - key: finished\n    name: Finished\n    type: date\n",
+  "expected": {
+   "list": [
+    "tags",
+    "body",
+    "modified"
+   ],
+   "default": true,
+   "keys": [
+    "tags",
+    "body",
+    "modified"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "book: no preview key (AC-5)",
+  "key": "book",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Book\nplural: Books\nsystem: false\nfolder: Books\nicon: book\ncolor: purple\ndescription: Knihy, které jsem četl, čtu nebo chci číst.\nreview: false\ncolumns: [author, rating, status, modified]\nviews: [Rozečtené, Přečtené 2026, Výborné knihy]\nattributes:\n  - key: author\n    name: Author\n    type: relation\n    to: [autor]\n  - key: status\n    name: Status\n    type: select\n    default: To read\n    options:\n      - { label: To read, color: gray }\n      - { label: Reading, color: blue }\n      - { label: Read, color: green }\n  - key: rating\n    name: Rating\n    type: select\n    options:\n      - { label: Excellent, color: green }\n      - { label: Good, color: blue }\n      - { label: Bad, color: red }\n  - key: genres\n    name: Genres\n    type: multi-select\n    options:\n      - { label: Román, color: purple }\n      - { label: Detektivka, color: orange }\n      - { label: Poezie, color: teal }\n      - { label: Eseje, color: yellow }\n      - { label: Cestopis, color: blue }\n  - key: finished\n    name: Finished\n    type: date\n",
+  "expected": {
+   "list": [
+    "tags",
+    "body",
+    "modified"
+   ],
+   "default": true,
+   "keys": [
+    "tags",
+    "body",
+    "modified"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "page (new-empty, R210)",
+  "key": "page",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Page\nplural: Pages\nsystem: true\nfolder: Pages\nicon: file-text\ncolor: gray\nreview: false\npreview: []\nattributes: []\n",
+  "expected": {
+   "list": [
+    "tags",
+    "body",
+    "modified"
+   ],
+   "default": true,
+   "keys": [
+    "tags",
+    "body",
+    "modified"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "task (new-empty, R210)",
+  "key": "task",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Task\nplural: Tasks\nsystem: true\nfolder: Tasks\nicon: check-square\ncolor: blue\nreview: false\npreview: [status, priority, due]\nattributes:\n  - key: status\n    name: Status\n    type: select\n    options:\n      - { label: To do, state: open, color: gray }\n      - { label: In progress, state: in-progress, color: blue }\n      - { label: Waiting, state: open, color: yellow }\n      - { label: Done, state: done, color: green }\n      - { label: Cancelled, state: cancelled, color: red }\n  - key: priority\n    name: Priority\n    type: select\n    options:\n      - { label: High, color: red }\n      - { label: Medium, color: orange }\n      - { label: Low, color: blue }\n      - { label: None, color: gray }\n  - key: due\n    name: Due date\n    type: date\n  - key: completed\n    name: Completed\n    type: date-time\n  - key: recurrence\n    name: Recurrence\n    type: recurrence\n",
+  "expected": {
+   "list": [
+    "tags",
+    "body",
+    "status",
+    "due",
+    "priority",
+    "recurrence",
+    "source"
+   ],
+   "default": true,
+   "keys": [
+    "tags",
+    "body",
+    "status",
+    "due",
+    "priority",
+    "recurrence",
+    "source"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "quick-note (new-empty, R210)",
+  "key": "quick-note",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Quick Note\nplural: Quick Notes\nsystem: true\nfolder: Quick Notes\nicon: zap\ncolor: yellow\nreview: locked\npreview: []\nattributes: []\n",
+  "expected": {
+   "list": [
+    "body",
+    "created"
+   ],
+   "default": true,
+   "keys": [
+    "body",
+    "created"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "daily-note (new-empty, R210; no Day summary, D-1951)",
+  "key": "daily-note",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Daily Note\nplural: Daily Notes\nsystem: true\nfolder: Daily\nicon: calendar\ncolor: purple\nreview: locked\npreview: [date]\nattributes:\n  - key: date\n    name: Date\n    type: date\n",
+  "expected": {
+   "list": [
+    "body",
+    "modified"
+   ],
+   "default": true,
+   "keys": [
+    "body",
+    "modified"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "image (new-empty, R210; AP-1575, AP-1576)",
+  "key": "image",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Image\nplural: Images\nsystem: true\nfolder: Images\nicon: image\ncolor: teal\nreview: false\npreview: [width, height]\nattributes:\n  - key: file\n    name: File\n    type: file\n  - key: media-type\n    name: Media type\n    type: text\n  - key: size\n    name: Size\n    type: number\n  - key: width\n    name: Width\n    type: number\n  - key: height\n    name: Height\n    type: number\n",
+  "expected": {
+   "list": [
+    "width",
+    "height",
+    "size",
+    "created"
+   ],
+   "default": true,
+   "keys": [
+    "width",
+    "height",
+    "size",
+    "created"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "pdf (new-empty, R210; AP-1575)",
+  "key": "pdf",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: PDF\nplural: PDFs\nsystem: true\nfolder: PDFs\nicon: file\ncolor: red\nreview: false\npreview: [pages]\nattributes:\n  - key: file\n    name: File\n    type: file\n  - key: media-type\n    name: Media type\n    type: text\n  - key: size\n    name: Size\n    type: number\n  - key: pages\n    name: Pages\n    type: number\n",
+  "expected": {
+   "list": [
+    "tags",
+    "pages",
+    "size",
+    "created"
+   ],
+   "default": true,
+   "keys": [
+    "tags",
+    "pages",
+    "size",
+    "created"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "tag (new-empty, R210: fixed)",
+  "key": "tag",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Tag\nplural: Tags\nsystem: true\nfolder: Tags\nicon: hash\ncolor: green\nreview: false\npreview: [color]\nattributes:\n  - key: color\n    name: Color\n    type: color\n",
+  "expected": {
+   "list": [
+    "body",
+    "modified"
+   ],
+   "default": true,
+   "keys": [
+    "body",
+    "modified"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "tag with a hand-written card: kept in the file, not read (contract §15 item 3)",
+  "key": "tag",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Tag\nplural: Tags\nsystem: true\nfolder: Tags\nicon: hash\ncolor: green\nreview: false\npreview: [color]\ncard: [color, tags]\nattributes:\n  - key: color\n    name: Color\n    type: color\n",
+  "expected": {
+   "list": [
+    "body",
+    "modified"
+   ],
+   "default": true,
+   "keys": [
+    "body",
+    "modified"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "an undefined type (D-121; type/recept)",
+  "key": "recept",
+  "state": "undefined",
+  "file": null,
+  "expected": {
+   "list": [
+    "tags",
+    "body",
+    "modified"
+   ],
+   "default": true,
+   "keys": [
+    "tags",
+    "body",
+    "modified"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "rozbitý: an invalid type file (AR-07 AC-4)",
+  "key": "rozbitý",
+  "state": "invalid",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Rozbitý\nplural: \"Rozbité\nfolder: Rozbité\nicon: file-text\ncolor: red\nreview: false\npreview: []\nattributes: []\n",
+  "expected": {
+   "list": [
+    "tags",
+    "body",
+    "modified"
+   ],
+   "default": true,
+   "keys": [
+    "tags",
+    "body",
+    "modified"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "výlet card: [] (AC-6)",
+  "key": "výlet",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Výlet\nplural: Výlety\nsystem: false\nfolder: Výlety\nicon: map\ncolor: teal\ndescription: Výlety a túry, plánované i hotové.\nreview: false\npreview: [stav, kraj]\ncard: []\nviews: [Výlety podle stavu]\nattributes:\n  - key: stav\n    name: Stav\n    type: select\n    icon: circle-dot\n    default: Plánovaný\n    options:\n      - { label: Plánovaný, color: gray }\n      - { label: Hotový, color: green }\n  - key: náročnost\n    name: Náročnost\n    type: select\n    options:\n      - { label: Lehká, color: green }\n      - { label: Střední, color: yellow }\n      - { label: Těžká, color: red }\n  - key: kraj\n    name: Kraj\n    type: text\n    icon: map-pin\n  - key: vybavení\n    name: Vybavení\n    type: multi-select\n    icon: backpack\n    options:\n      - { label: Mapa, color: gray }\n      - { label: Čelovka, color: yellow }\n      - { label: Pláštěnka, color: blue }\n      - { label: Termoska, color: orange }\n      - { label: Lékárnička, color: red }\n      - { label: Hůlky, color: gray }\n      - { label: Rukavice, color: purple }\n      - { label: Čepice, color: teal }\n      - { label: Svačina, color: green }\n      - { label: Nabíječka, color: gray }\n  - key: délka\n    name: Délka v km\n    type: number\n    icon: ikona-ktera-neexistuje\n  - key: termín\n    name: Termín\n    type: date\n    icon: calendar\n  - key: odkaz\n    name: Odkaz\n    type: url\n    icon: link\n  - key: průvodce\n    name: Průvodce\n    type: relation\n    to: [autor]\n  - key: poznámka\n    name: Poznámka\n    type: long-text\n",
+  "expected": {
+   "list": [],
+   "default": false,
+   "keys": [],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "výlet card: [title, kraj] (AC-6; title skipped silently)",
+  "key": "výlet",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Výlet\nplural: Výlety\nsystem: false\nfolder: Výlety\nicon: map\ncolor: teal\ndescription: Výlety a túry, plánované i hotové.\nreview: false\npreview: [stav, kraj]\ncard: [title, kraj]\nviews: [Výlety podle stavu]\nattributes:\n  - key: stav\n    name: Stav\n    type: select\n    icon: circle-dot\n    default: Plánovaný\n    options:\n      - { label: Plánovaný, color: gray }\n      - { label: Hotový, color: green }\n  - key: náročnost\n    name: Náročnost\n    type: select\n    options:\n      - { label: Lehká, color: green }\n      - { label: Střední, color: yellow }\n      - { label: Těžká, color: red }\n  - key: kraj\n    name: Kraj\n    type: text\n    icon: map-pin\n  - key: vybavení\n    name: Vybavení\n    type: multi-select\n    icon: backpack\n    options:\n      - { label: Mapa, color: gray }\n      - { label: Čelovka, color: yellow }\n      - { label: Pláštěnka, color: blue }\n      - { label: Termoska, color: orange }\n      - { label: Lékárnička, color: red }\n      - { label: Hůlky, color: gray }\n      - { label: Rukavice, color: purple }\n      - { label: Čepice, color: teal }\n      - { label: Svačina, color: green }\n      - { label: Nabíječka, color: gray }\n  - key: délka\n    name: Délka v km\n    type: number\n    icon: ikona-ktera-neexistuje\n  - key: termín\n    name: Termín\n    type: date\n    icon: calendar\n  - key: odkaz\n    name: Odkaz\n    type: url\n    icon: link\n  - key: průvodce\n    name: Průvodce\n    type: relation\n    to: [autor]\n  - key: poznámka\n    name: Poznámka\n    type: long-text\n",
+  "expected": {
+   "list": [
+    "title",
+    "kraj"
+   ],
+   "default": false,
+   "keys": [
+    "kraj"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "výlet card: [tags, tags, title, kraj] (AC-26 (a))",
+  "key": "výlet",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Výlet\nplural: Výlety\nsystem: false\nfolder: Výlety\nicon: map\ncolor: teal\ndescription: Výlety a túry, plánované i hotové.\nreview: false\npreview: [stav, kraj]\ncard: [tags, tags, title, kraj]\nviews: [Výlety podle stavu]\nattributes:\n  - key: stav\n    name: Stav\n    type: select\n    icon: circle-dot\n    default: Plánovaný\n    options:\n      - { label: Plánovaný, color: gray }\n      - { label: Hotový, color: green }\n  - key: náročnost\n    name: Náročnost\n    type: select\n    options:\n      - { label: Lehká, color: green }\n      - { label: Střední, color: yellow }\n      - { label: Těžká, color: red }\n  - key: kraj\n    name: Kraj\n    type: text\n    icon: map-pin\n  - key: vybavení\n    name: Vybavení\n    type: multi-select\n    icon: backpack\n    options:\n      - { label: Mapa, color: gray }\n      - { label: Čelovka, color: yellow }\n      - { label: Pláštěnka, color: blue }\n      - { label: Termoska, color: orange }\n      - { label: Lékárnička, color: red }\n      - { label: Hůlky, color: gray }\n      - { label: Rukavice, color: purple }\n      - { label: Čepice, color: teal }\n      - { label: Svačina, color: green }\n      - { label: Nabíječka, color: gray }\n  - key: délka\n    name: Délka v km\n    type: number\n    icon: ikona-ktera-neexistuje\n  - key: termín\n    name: Termín\n    type: date\n    icon: calendar\n  - key: odkaz\n    name: Odkaz\n    type: url\n    icon: link\n  - key: průvodce\n    name: Průvodce\n    type: relation\n    to: [autor]\n  - key: poznámka\n    name: Poznámka\n    type: long-text\n",
+  "expected": {
+   "list": [
+    "tags",
+    "tags",
+    "title",
+    "kraj"
+   ],
+   "default": false,
+   "keys": [
+    "tags",
+    "kraj"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "výlet card with an NFD kraj (AC-26 (b), FR-FMT-12 AC-15)",
+  "key": "výlet",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Výlet\nplural: Výlety\nsystem: false\nfolder: Výlety\nicon: map\ncolor: teal\ndescription: Výlety a túry, plánované i hotové.\nreview: false\npreview: [stav, kraj]\ncard: [kraj, náročnost]\nviews: [Výlety podle stavu]\nattributes:\n  - key: stav\n    name: Stav\n    type: select\n    icon: circle-dot\n    default: Plánovaný\n    options:\n      - { label: Plánovaný, color: gray }\n      - { label: Hotový, color: green }\n  - key: náročnost\n    name: Náročnost\n    type: select\n    options:\n      - { label: Lehká, color: green }\n      - { label: Střední, color: yellow }\n      - { label: Těžká, color: red }\n  - key: kraj\n    name: Kraj\n    type: text\n    icon: map-pin\n  - key: vybavení\n    name: Vybavení\n    type: multi-select\n    icon: backpack\n    options:\n      - { label: Mapa, color: gray }\n      - { label: Čelovka, color: yellow }\n      - { label: Pláštěnka, color: blue }\n      - { label: Termoska, color: orange }\n      - { label: Lékárnička, color: red }\n      - { label: Hůlky, color: gray }\n      - { label: Rukavice, color: purple }\n      - { label: Čepice, color: teal }\n      - { label: Svačina, color: green }\n      - { label: Nabíječka, color: gray }\n  - key: délka\n    name: Délka v km\n    type: number\n    icon: ikona-ktera-neexistuje\n  - key: termín\n    name: Termín\n    type: date\n    icon: calendar\n  - key: odkaz\n    name: Odkaz\n    type: url\n    icon: link\n  - key: průvodce\n    name: Průvodce\n    type: relation\n    to: [autor]\n  - key: poznámka\n    name: Poznámka\n    type: long-text\n",
+  "expected": {
+   "list": [
+    "kraj",
+    "náročnost"
+   ],
+   "default": false,
+   "keys": [
+    "kraj",
+    "náročnost"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "výlet card as a block list (AC-26 (c))",
+  "key": "výlet",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Výlet\nplural: Výlety\nsystem: false\nfolder: Výlety\nicon: map\ncolor: teal\ndescription: Výlety a túry, plánované i hotové.\nreview: false\npreview: [stav, kraj]\ncard:\n  - tags\n  - kraj\nviews: [Výlety podle stavu]\nattributes:\n  - key: stav\n    name: Stav\n    type: select\n    icon: circle-dot\n    default: Plánovaný\n    options:\n      - { label: Plánovaný, color: gray }\n      - { label: Hotový, color: green }\n  - key: náročnost\n    name: Náročnost\n    type: select\n    options:\n      - { label: Lehká, color: green }\n      - { label: Střední, color: yellow }\n      - { label: Těžká, color: red }\n  - key: kraj\n    name: Kraj\n    type: text\n    icon: map-pin\n  - key: vybavení\n    name: Vybavení\n    type: multi-select\n    icon: backpack\n    options:\n      - { label: Mapa, color: gray }\n      - { label: Čelovka, color: yellow }\n      - { label: Pláštěnka, color: blue }\n      - { label: Termoska, color: orange }\n      - { label: Lékárnička, color: red }\n      - { label: Hůlky, color: gray }\n      - { label: Rukavice, color: purple }\n      - { label: Čepice, color: teal }\n      - { label: Svačina, color: green }\n      - { label: Nabíječka, color: gray }\n  - key: délka\n    name: Délka v km\n    type: number\n    icon: ikona-ktera-neexistuje\n  - key: termín\n    name: Termín\n    type: date\n    icon: calendar\n  - key: odkaz\n    name: Odkaz\n    type: url\n    icon: link\n  - key: průvodce\n    name: Průvodce\n    type: relation\n    to: [autor]\n  - key: poznámka\n    name: Poznámka\n    type: long-text\n",
+  "expected": {
+   "list": [
+    "tags",
+    "kraj"
+   ],
+   "default": false,
+   "keys": [
+    "tags",
+    "kraj"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "výlet card: tags (a scalar: unreadable, the default from preview; AC-26 (d))",
+  "key": "výlet",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Výlet\nplural: Výlety\nsystem: false\nfolder: Výlety\nicon: map\ncolor: teal\ndescription: Výlety a túry, plánované i hotové.\nreview: false\npreview: [stav, kraj]\ncard: tags\nviews: [Výlety podle stavu]\nattributes:\n  - key: stav\n    name: Stav\n    type: select\n    icon: circle-dot\n    default: Plánovaný\n    options:\n      - { label: Plánovaný, color: gray }\n      - { label: Hotový, color: green }\n  - key: náročnost\n    name: Náročnost\n    type: select\n    options:\n      - { label: Lehká, color: green }\n      - { label: Střední, color: yellow }\n      - { label: Těžká, color: red }\n  - key: kraj\n    name: Kraj\n    type: text\n    icon: map-pin\n  - key: vybavení\n    name: Vybavení\n    type: multi-select\n    icon: backpack\n    options:\n      - { label: Mapa, color: gray }\n      - { label: Čelovka, color: yellow }\n      - { label: Pláštěnka, color: blue }\n      - { label: Termoska, color: orange }\n      - { label: Lékárnička, color: red }\n      - { label: Hůlky, color: gray }\n      - { label: Rukavice, color: purple }\n      - { label: Čepice, color: teal }\n      - { label: Svačina, color: green }\n      - { label: Nabíječka, color: gray }\n  - key: délka\n    name: Délka v km\n    type: number\n    icon: ikona-ktera-neexistuje\n  - key: termín\n    name: Termín\n    type: date\n    icon: calendar\n  - key: odkaz\n    name: Odkaz\n    type: url\n    icon: link\n  - key: průvodce\n    name: Průvodce\n    type: relation\n    to: [autor]\n  - key: poznámka\n    name: Poznámka\n    type: long-text\n",
+  "expected": {
+   "list": [
+    "tags",
+    "body",
+    "stav",
+    "kraj",
+    "modified"
+   ],
+   "default": true,
+   "keys": [
+    "tags",
+    "body",
+    "stav",
+    "kraj",
+    "modified"
+   ],
+   "ignored": [],
+   "unreadable": true
+  }
+ },
+ {
+  "name": "výlet card: { a: b } (a mapping: unreadable; AC-26 (d))",
+  "key": "výlet",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Výlet\nplural: Výlety\nsystem: false\nfolder: Výlety\nicon: map\ncolor: teal\ndescription: Výlety a túry, plánované i hotové.\nreview: false\npreview: [stav, kraj]\ncard: { a: b }\nviews: [Výlety podle stavu]\nattributes:\n  - key: stav\n    name: Stav\n    type: select\n    icon: circle-dot\n    default: Plánovaný\n    options:\n      - { label: Plánovaný, color: gray }\n      - { label: Hotový, color: green }\n  - key: náročnost\n    name: Náročnost\n    type: select\n    options:\n      - { label: Lehká, color: green }\n      - { label: Střední, color: yellow }\n      - { label: Těžká, color: red }\n  - key: kraj\n    name: Kraj\n    type: text\n    icon: map-pin\n  - key: vybavení\n    name: Vybavení\n    type: multi-select\n    icon: backpack\n    options:\n      - { label: Mapa, color: gray }\n      - { label: Čelovka, color: yellow }\n      - { label: Pláštěnka, color: blue }\n      - { label: Termoska, color: orange }\n      - { label: Lékárnička, color: red }\n      - { label: Hůlky, color: gray }\n      - { label: Rukavice, color: purple }\n      - { label: Čepice, color: teal }\n      - { label: Svačina, color: green }\n      - { label: Nabíječka, color: gray }\n  - key: délka\n    name: Délka v km\n    type: number\n    icon: ikona-ktera-neexistuje\n  - key: termín\n    name: Termín\n    type: date\n    icon: calendar\n  - key: odkaz\n    name: Odkaz\n    type: url\n    icon: link\n  - key: průvodce\n    name: Průvodce\n    type: relation\n    to: [autor]\n  - key: poznámka\n    name: Poznámka\n    type: long-text\n",
+  "expected": {
+   "list": [
+    "tags",
+    "body",
+    "stav",
+    "kraj",
+    "modified"
+   ],
+   "default": true,
+   "keys": [
+    "tags",
+    "body",
+    "stav",
+    "kraj",
+    "modified"
+   ],
+   "ignored": [],
+   "unreadable": true
+  }
+ },
+ {
+  "name": "výlet card: [tags, 3] (a list holding a non-string: unreadable; contract §2.1)",
+  "key": "výlet",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Výlet\nplural: Výlety\nsystem: false\nfolder: Výlety\nicon: map\ncolor: teal\ndescription: Výlety a túry, plánované i hotové.\nreview: false\npreview: [stav, kraj]\ncard: [tags, 3]\nviews: [Výlety podle stavu]\nattributes:\n  - key: stav\n    name: Stav\n    type: select\n    icon: circle-dot\n    default: Plánovaný\n    options:\n      - { label: Plánovaný, color: gray }\n      - { label: Hotový, color: green }\n  - key: náročnost\n    name: Náročnost\n    type: select\n    options:\n      - { label: Lehká, color: green }\n      - { label: Střední, color: yellow }\n      - { label: Těžká, color: red }\n  - key: kraj\n    name: Kraj\n    type: text\n    icon: map-pin\n  - key: vybavení\n    name: Vybavení\n    type: multi-select\n    icon: backpack\n    options:\n      - { label: Mapa, color: gray }\n      - { label: Čelovka, color: yellow }\n      - { label: Pláštěnka, color: blue }\n      - { label: Termoska, color: orange }\n      - { label: Lékárnička, color: red }\n      - { label: Hůlky, color: gray }\n      - { label: Rukavice, color: purple }\n      - { label: Čepice, color: teal }\n      - { label: Svačina, color: green }\n      - { label: Nabíječka, color: gray }\n  - key: délka\n    name: Délka v km\n    type: number\n    icon: ikona-ktera-neexistuje\n  - key: termín\n    name: Termín\n    type: date\n    icon: calendar\n  - key: odkaz\n    name: Odkaz\n    type: url\n    icon: link\n  - key: průvodce\n    name: Průvodce\n    type: relation\n    to: [autor]\n  - key: poznámka\n    name: Poznámka\n    type: long-text\n",
+  "expected": {
+   "list": [
+    "tags",
+    "body",
+    "stav",
+    "kraj",
+    "modified"
+   ],
+   "default": true,
+   "keys": [
+    "tags",
+    "body",
+    "stav",
+    "kraj",
+    "modified"
+   ],
+   "ignored": [],
+   "unreadable": true
+  }
+ },
+ {
+  "name": "výlet without card: the default from preview [stav, kraj] (AC-24)",
+  "key": "výlet",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Výlet\nplural: Výlety\nsystem: false\nfolder: Výlety\nicon: map\ncolor: teal\ndescription: Výlety a túry, plánované i hotové.\nreview: false\npreview: [stav, kraj]\nviews: [Výlety podle stavu]\nattributes:\n  - key: stav\n    name: Stav\n    type: select\n    icon: circle-dot\n    default: Plánovaný\n    options:\n      - { label: Plánovaný, color: gray }\n      - { label: Hotový, color: green }\n  - key: náročnost\n    name: Náročnost\n    type: select\n    options:\n      - { label: Lehká, color: green }\n      - { label: Střední, color: yellow }\n      - { label: Těžká, color: red }\n  - key: kraj\n    name: Kraj\n    type: text\n    icon: map-pin\n  - key: vybavení\n    name: Vybavení\n    type: multi-select\n    icon: backpack\n    options:\n      - { label: Mapa, color: gray }\n      - { label: Čelovka, color: yellow }\n      - { label: Pláštěnka, color: blue }\n      - { label: Termoska, color: orange }\n      - { label: Lékárnička, color: red }\n      - { label: Hůlky, color: gray }\n      - { label: Rukavice, color: purple }\n      - { label: Čepice, color: teal }\n      - { label: Svačina, color: green }\n      - { label: Nabíječka, color: gray }\n  - key: délka\n    name: Délka v km\n    type: number\n    icon: ikona-ktera-neexistuje\n  - key: termín\n    name: Termín\n    type: date\n    icon: calendar\n  - key: odkaz\n    name: Odkaz\n    type: url\n    icon: link\n  - key: průvodce\n    name: Průvodce\n    type: relation\n    to: [autor]\n  - key: poznámka\n    name: Poznámka\n    type: long-text\n",
+  "expected": {
+   "list": [
+    "tags",
+    "body",
+    "stav",
+    "kraj",
+    "modified"
+   ],
+   "default": true,
+   "keys": [
+    "tags",
+    "body",
+    "stav",
+    "kraj",
+    "modified"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "výlet card: [description, body, stav] (AC-9)",
+  "key": "výlet",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Výlet\nplural: Výlety\nsystem: false\nfolder: Výlety\nicon: map\ncolor: teal\ndescription: Výlety a túry, plánované i hotové.\nreview: false\npreview: [stav, kraj]\ncard: [description, body, stav]\nviews: [Výlety podle stavu]\nattributes:\n  - key: stav\n    name: Stav\n    type: select\n    icon: circle-dot\n    default: Plánovaný\n    options:\n      - { label: Plánovaný, color: gray }\n      - { label: Hotový, color: green }\n  - key: náročnost\n    name: Náročnost\n    type: select\n    options:\n      - { label: Lehká, color: green }\n      - { label: Střední, color: yellow }\n      - { label: Těžká, color: red }\n  - key: kraj\n    name: Kraj\n    type: text\n    icon: map-pin\n  - key: vybavení\n    name: Vybavení\n    type: multi-select\n    icon: backpack\n    options:\n      - { label: Mapa, color: gray }\n      - { label: Čelovka, color: yellow }\n      - { label: Pláštěnka, color: blue }\n      - { label: Termoska, color: orange }\n      - { label: Lékárnička, color: red }\n      - { label: Hůlky, color: gray }\n      - { label: Rukavice, color: purple }\n      - { label: Čepice, color: teal }\n      - { label: Svačina, color: green }\n      - { label: Nabíječka, color: gray }\n  - key: délka\n    name: Délka v km\n    type: number\n    icon: ikona-ktera-neexistuje\n  - key: termín\n    name: Termín\n    type: date\n    icon: calendar\n  - key: odkaz\n    name: Odkaz\n    type: url\n    icon: link\n  - key: průvodce\n    name: Průvodce\n    type: relation\n    to: [autor]\n  - key: poznámka\n    name: Poznámka\n    type: long-text\n",
+  "expected": {
+   "list": [
+    "description",
+    "body",
+    "stav"
+   ],
+   "default": false,
+   "keys": [
+    "description",
+    "body",
+    "stav"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "výlet card: [created, modified] (AC-12)",
+  "key": "výlet",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Výlet\nplural: Výlety\nsystem: false\nfolder: Výlety\nicon: map\ncolor: teal\ndescription: Výlety a túry, plánované i hotové.\nreview: false\npreview: [stav, kraj]\ncard: [created, modified]\nviews: [Výlety podle stavu]\nattributes:\n  - key: stav\n    name: Stav\n    type: select\n    icon: circle-dot\n    default: Plánovaný\n    options:\n      - { label: Plánovaný, color: gray }\n      - { label: Hotový, color: green }\n  - key: náročnost\n    name: Náročnost\n    type: select\n    options:\n      - { label: Lehká, color: green }\n      - { label: Střední, color: yellow }\n      - { label: Těžká, color: red }\n  - key: kraj\n    name: Kraj\n    type: text\n    icon: map-pin\n  - key: vybavení\n    name: Vybavení\n    type: multi-select\n    icon: backpack\n    options:\n      - { label: Mapa, color: gray }\n      - { label: Čelovka, color: yellow }\n      - { label: Pláštěnka, color: blue }\n      - { label: Termoska, color: orange }\n      - { label: Lékárnička, color: red }\n      - { label: Hůlky, color: gray }\n      - { label: Rukavice, color: purple }\n      - { label: Čepice, color: teal }\n      - { label: Svačina, color: green }\n      - { label: Nabíječka, color: gray }\n  - key: délka\n    name: Délka v km\n    type: number\n    icon: ikona-ktera-neexistuje\n  - key: termín\n    name: Termín\n    type: date\n    icon: calendar\n  - key: odkaz\n    name: Odkaz\n    type: url\n    icon: link\n  - key: průvodce\n    name: Průvodce\n    type: relation\n    to: [autor]\n  - key: poznámka\n    name: Poznámka\n    type: long-text\n",
+  "expected": {
+   "list": [
+    "created",
+    "modified"
+   ],
+   "default": false,
+   "keys": [
+    "created",
+    "modified"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "výlet card: [review, poznámka, Tags] (review skipped silently, Tags unknown: built-ins are lower case)",
+  "key": "výlet",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Výlet\nplural: Výlety\nsystem: false\nfolder: Výlety\nicon: map\ncolor: teal\ndescription: Výlety a túry, plánované i hotové.\nreview: false\npreview: [stav, kraj]\ncard: [review, poznámka, Tags]\nviews: [Výlety podle stavu]\nattributes:\n  - key: stav\n    name: Stav\n    type: select\n    icon: circle-dot\n    default: Plánovaný\n    options:\n      - { label: Plánovaný, color: gray }\n      - { label: Hotový, color: green }\n  - key: náročnost\n    name: Náročnost\n    type: select\n    options:\n      - { label: Lehká, color: green }\n      - { label: Střední, color: yellow }\n      - { label: Těžká, color: red }\n  - key: kraj\n    name: Kraj\n    type: text\n    icon: map-pin\n  - key: vybavení\n    name: Vybavení\n    type: multi-select\n    icon: backpack\n    options:\n      - { label: Mapa, color: gray }\n      - { label: Čelovka, color: yellow }\n      - { label: Pláštěnka, color: blue }\n      - { label: Termoska, color: orange }\n      - { label: Lékárnička, color: red }\n      - { label: Hůlky, color: gray }\n      - { label: Rukavice, color: purple }\n      - { label: Čepice, color: teal }\n      - { label: Svačina, color: green }\n      - { label: Nabíječka, color: gray }\n  - key: délka\n    name: Délka v km\n    type: number\n    icon: ikona-ktera-neexistuje\n  - key: termín\n    name: Termín\n    type: date\n    icon: calendar\n  - key: odkaz\n    name: Odkaz\n    type: url\n    icon: link\n  - key: průvodce\n    name: Průvodce\n    type: relation\n    to: [autor]\n  - key: poznámka\n    name: Poznámka\n    type: long-text\n",
+  "expected": {
+   "list": [
+    "review",
+    "poznámka",
+    "Tags"
+   ],
+   "default": false,
+   "keys": [
+    "poznámka"
+   ],
+   "ignored": [
+    "Tags"
+   ],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "výlet version 2 with card: read (AC-27 (d))",
+  "key": "výlet",
+  "state": "newer",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 2\nname: Výlet\nplural: Výlety\nsystem: false\nfolder: Výlety\nicon: map\ncolor: teal\ndescription: Výlety a túry, plánované i hotové.\nreview: false\npreview: [stav, kraj]\ncard: [kraj, stav]\nviews: [Výlety podle stavu]\nattributes:\n  - key: stav\n    name: Stav\n    type: select\n    icon: circle-dot\n    default: Plánovaný\n    options:\n      - { label: Plánovaný, color: gray }\n      - { label: Hotový, color: green }\n  - key: náročnost\n    name: Náročnost\n    type: select\n    options:\n      - { label: Lehká, color: green }\n      - { label: Střední, color: yellow }\n      - { label: Těžká, color: red }\n  - key: kraj\n    name: Kraj\n    type: text\n    icon: map-pin\n  - key: vybavení\n    name: Vybavení\n    type: multi-select\n    icon: backpack\n    options:\n      - { label: Mapa, color: gray }\n      - { label: Čelovka, color: yellow }\n      - { label: Pláštěnka, color: blue }\n      - { label: Termoska, color: orange }\n      - { label: Lékárnička, color: red }\n      - { label: Hůlky, color: gray }\n      - { label: Rukavice, color: purple }\n      - { label: Čepice, color: teal }\n      - { label: Svačina, color: green }\n      - { label: Nabíječka, color: gray }\n  - key: délka\n    name: Délka v km\n    type: number\n    icon: ikona-ktera-neexistuje\n  - key: termín\n    name: Termín\n    type: date\n    icon: calendar\n  - key: odkaz\n    name: Odkaz\n    type: url\n    icon: link\n  - key: průvodce\n    name: Průvodce\n    type: relation\n    to: [autor]\n  - key: poznámka\n    name: Poznámka\n    type: long-text\n",
+  "expected": {
+   "list": [
+    "kraj",
+    "stav"
+   ],
+   "default": false,
+   "keys": [
+    "kraj",
+    "stav"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "image card: [file, width, aliases] (a file-kind attribute is skipped silently; AP-1592)",
+  "key": "image",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Image\nplural: Images\nsystem: true\nfolder: Images\nicon: image\ncolor: teal\nreview: false\npreview: [width, height]\ncard: [file, width, aliases]\nattributes:\n  - key: file\n    name: File\n    type: file\n  - key: media-type\n    name: Media type\n    type: text\n  - key: size\n    name: Size\n    type: number\n  - key: width\n    name: Width\n    type: number\n  - key: height\n    name: Height\n    type: number\n",
+  "expected": {
+   "list": [
+    "file",
+    "width",
+    "aliases"
+   ],
+   "default": false,
+   "keys": [
+    "width",
+    "aliases"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ },
+ {
+  "name": "kontrola card: [výsledek] (AC-8)",
+  "key": "kontrola",
+  "state": "ok",
+  "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Kontrola\nplural: Kontroly\nsystem: false\nfolder: Kontroly\nicon: check-square\ncolor: green\nreview: false\ncard: [výsledek]\nattributes:\n  - key: výsledek\n    name: Výsledek\n    type: checkbox\n",
+  "expected": {
+   "list": [
+    "výsledek"
+   ],
+   "default": false,
+   "keys": [
+    "výsledek"
+   ],
+   "ignored": [],
+   "unreadable": false
+  }
+ }
+]
+
