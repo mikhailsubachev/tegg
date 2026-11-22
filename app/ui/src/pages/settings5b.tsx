@@ -13,6 +13,7 @@ import { CONTROL_COMMANDS } from '../shell/commands';
 import { Disabled } from '../shell/Disabled';
 import { SHORTCUTS } from '../shell/registry';
 import { appZone } from '../zone';
+import { SettingsRow } from '../settings/SettingsLayout';
 
 const nfc = (s: string) => s.normalize('NFC');
 
@@ -24,9 +25,9 @@ function Field({ label, value, note, example, error, onCommit, onDraft }: {
   const id = useId();
   useEffect(() => setText(value), [value]);
   const commit = () => { if (nfc(text.trim()) !== nfc(value) || error) onCommit(nfc(text.trim())); };
+  // R219: one row; the example, the error and the note under the field.
   return (
-    <div className="setting">
-      <label className="setting-label" htmlFor={`${id}-in`}>{label}</label>
+    <SettingsRow label={label} labelFor={`${id}-in`}>
       <input id={`${id}-in`} type="text" aria-label={label} value={text} spellCheck={false} autoComplete="off"
         aria-invalid={error ? true : undefined} aria-describedby={[error ? `${id}-err` : '', note ? `${id}-note` : ''].filter(Boolean).join(' ') || undefined}
         onChange={(e) => { setText(e.target.value); onDraft?.(e.target.value); }}
@@ -35,10 +36,10 @@ function Field({ label, value, note, example, error, onCommit, onDraft }: {
           else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setText(value); onDraft?.(value); }
         }}
         onBlur={commit} />
-      {example && <span className="muted setting-example" data-user-content>{example}</span>}
+      {example && <span className="settings-note setting-example" data-user-content>{example}</span>}
       {error && <span id={`${id}-err`} className="setting-error">{error}</span>}
-      {note && <span id={`${id}-note`} className="muted setting-note">{note}</span>}
-    </div>
+      {note && <span id={`${id}-note`} className="settings-note">{note}</span>}
+    </SettingsRow>
   );
 }
 
@@ -99,22 +100,23 @@ export function VaultSettings({ vault, types, refresh, onStarter, onOpenFolder }
           <button type="button" tabIndex={0} className="icon-button" aria-label={t('dialog.close')} onClick={() => setAlert(null)}>×</button>
         </div>
       )}
-      <div className="setting">
-        <span className="setting-label">{t('settings.vault.location')}</span>
+      {/* R219: the location in its row, its two buttons in the control column under it. */}
+      <SettingsRow label={t('settings.vault.location')}>
         <span className="setting-value" data-user-content>{nfc(vault.path)}</span>
+      </SettingsRow>
+      <SettingsRow>
         <div className="setting-row">
           <button type="button" tabIndex={0} data-command="settings.revealVault" onClick={() => void ipc.vaultReveal()}>{t('settings.vault.reveal')}</button>
           <button type="button" tabIndex={0} data-command="vault.openFolder" onClick={onOpenFolder}>{t('settings.vault.openOther')}</button>
         </div>
-      </div>
-      <div className="setting">
-        <label className="setting-label" aria-hidden="true" htmlFor="default-type">{t('settings.vault.defaultType')}</label>
+      </SettingsRow>
+      <SettingsRow label={t('settings.vault.defaultType')} labelFor="default-type" labelHidden>
         <select id="default-type" aria-label={t('settings.vault.defaultType')} value={s.defaultType.key}
           onChange={(e) => { if (e.target.value !== s.defaultType.key) void patch('default-type', e.target.value); }}>
           {options.map((x) => <option key={x.key} value={x.key}>{x.name}</option>)}
         </select>
         {!s.defaultType.valid && s.defaultType.raw !== null && <span role="status" className="setting-error">{t('settings.vault.badDefault', { value: s.defaultType.raw })}</span>}
-      </div>
+      </SettingsRow>
       <Field label={t('settings.vault.dailyFolder')} value={folder} note={t('settings.vault.dailyFolderNote')} error={errors.folder ?? null}
         onCommit={(v) => {
           const bad = folderOf(v);
@@ -128,17 +130,15 @@ export function VaultSettings({ vault, types, refresh, onStarter, onOpenFolder }
         onCommit={(v) => { if (v === '' || dailyFileStem(v, today) === null) { setErrors((e) => ({ ...e, 'daily-format': t('settings.vault.badFormat') })); return; } void patch('daily-format', v); }} />
       <Field label={t('settings.vault.attachments')} value={s.attachments} note={t('settings.vault.attachmentsNote')} error={errors.attachments ?? null}
         onCommit={(v) => { const bad = folderOf(v); if (bad) return setErrors((e) => ({ ...e, attachments: bad })); void patch('attachments', v); }} />
-      <div className="setting">
+      <SettingsRow>
         <button type="button" tabIndex={0} data-command="vault.addStarterTypes" onClick={onStarter}>{t('settings.vault.starter')}</button>
-      </div>
+      </SettingsRow>
       {/* Slice PW (page-width.md FR-SET-01 AC-11, AP-754): the vault default for notes without their own choice; below
           `Add starter types…` so R58's Tab order (FR-SET-01 AC-10) is unchanged. */}
-      <div className="setting">
-        <span className="setting-label">{t('settings.vault.pageWidth')}</span>
+      <SettingsRow label={t('settings.vault.pageWidth')} note={t('settings.vault.pageWidthNote')} noteId="page-width-note">
         <WidthSwitch value={pageWidthOf(s.pageWidth)} label={t('settings.vault.pageWidth')} commands="settings.pageWidth" describedBy="page-width-note"
           onChange={(w) => { if (w !== pageWidthOf(s.pageWidth)) void patch('page-width', w); }} />
-        <span id="page-width-note" className="setting-note">{t('settings.vault.pageWidthNote')}</span>
-      </div>
+      </SettingsRow>
     </div>
   );
 }
@@ -159,13 +159,11 @@ export function MenuBarSettings() {
     }
   };
   const sw = (label: string, on: boolean, flip: () => void, cmd: string, desc?: string) => (
-    <div className="setting">
-      <button type="button" tabIndex={0} role="switch" aria-checked={on} aria-label={label} aria-description={desc} className={`switch${on ? ' on' : ''}`} data-command={cmd} onClick={flip}>
+    <SettingsRow label={label} labelId={`${cmd}-label`} note={desc}>
+      <button type="button" tabIndex={0} role="switch" aria-checked={on} aria-label={label} aria-labelledby={`${cmd}-label`} aria-description={desc} className={`switch${on ? ' on' : ''}`} data-command={cmd} onClick={flip}>
         <span className="switch-knob" aria-hidden="true" />
-        <span>{label}</span>
       </button>
-      {desc && <span className="muted setting-note">{desc}</span>}
-    </div>
+    </SettingsRow>
   );
   return (
     <div className="settings-body">
@@ -193,8 +191,10 @@ export function ShortcutsSettings({ commandTitle }: { commandTitle: (id: string)
   const rows: [string, string, string][] = [['quick-capture', t('settings.shortcuts.quickCapture'), '⌃⌥Space'], ['new-task', t('settings.shortcuts.newTask'), '⌃⌥T']];
   return (
     <div className="settings-body">
+      {/* R219 "Groups": each group an h3 with its table in the control column. */}
+      <SettingsRow>
+      <h3 className="settings-group">{t('settings.shortcuts.global')}</h3>
       <table aria-label={t('settings.shortcuts.global')} className="settings-table">
-        <caption>{t('settings.shortcuts.global')}</caption>
         <thead><tr><th>{t('settings.shortcuts.action')}</th><th>{t('settings.shortcuts.shortcut')}</th><th>{t('settings.shortcuts.status')}</th><th /></tr></thead>
         <tbody>
           {rows.map(([id, name, keys]) => {
@@ -217,8 +217,10 @@ export function ShortcutsSettings({ commandTitle }: { commandTitle: (id: string)
           })}
         </tbody>
       </table>
+      </SettingsRow>
+      <SettingsRow>
+      <h3 className="settings-group">{t('settings.shortcuts.app')}</h3>
       <table aria-label={t('settings.shortcuts.app')} className="settings-table">
-        <caption>{t('settings.shortcuts.app')}</caption>
         <thead><tr><th>{t('settings.shortcuts.action')}</th><th>{t('settings.shortcuts.shortcut')}</th></tr></thead>
         <tbody>
           {SHORTCUTS.filter((s) => !Object.values(CONTROL_COMMANDS).includes(s.command) && commandTitle(s.command) !== null).map((s) => (
@@ -226,6 +228,7 @@ export function ShortcutsSettings({ commandTitle }: { commandTitle: (id: string)
           ))}
         </tbody>
       </table>
+      </SettingsRow>
     </div>
   );
 }
@@ -238,9 +241,8 @@ export function DateTimeSettings({ value, onChange }: { value: DateTimeUiDto | u
   const sample = new Date(now).toISOString();
   const region = regionOf() ?? navigator.language;
   const sel = (label: string, key: keyof DateTimeUiDto, opts: [string, string][], example: string) => (
-    <div className="setting">
-      {/* The select carries the name; the visible label stays out of the accessibility tree (one element per name). */}
-      <label className="setting-label" aria-hidden="true" htmlFor={`dt-${key}`}>{label}</label>
+    // The select carries the name; the visible label stays out of the accessibility tree (one element per name).
+    <SettingsRow label={label} labelFor={`dt-${key}`} labelHidden>
       <select id={`dt-${key}`} aria-label={label} value={v[key]} onChange={(e) => onChange({ ...v, [key]: e.target.value })}
         onKeyDown={(e) => {
           // FR-SET-03 AC-5: ↑/↓ change the choice (WebKit opens the menu on a closed select instead).
@@ -252,8 +254,8 @@ export function DateTimeSettings({ value, onChange }: { value: DateTimeUiDto | u
         }}>
         {opts.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
       </select>
-      <span className="muted setting-example"><span>{t('settings.dt.exampleLabel')}</span> <span data-user-content>{example}</span></span>
-    </div>
+      <span className="settings-note setting-example"><span>{t('settings.dt.exampleLabel')}</span> <span data-user-content>{example}</span></span>
+    </SettingsRow>
   );
   const firstIso = v.week === 'monday' ? 1 : v.week === 'sunday' ? 7 : undefined;
   return (

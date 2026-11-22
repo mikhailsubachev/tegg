@@ -15,17 +15,21 @@ export function SettingsLayout({ nav, children, className }: { nav: ReactNode; c
   );
 }
 
-/** One labelled control: `<label for>` (or `id`, read by the control's `aria-labelledby`), the control, the note. */
-export function SettingsRow({ label, labelFor, labelId, note, noteId, children, className }: {
-  label: ReactNode; labelFor?: string; labelId?: string; note?: ReactNode; noteId?: string; children: ReactNode; className?: string;
+/** One labelled control: `<label for>` (or `id`, read by the control's `aria-labelledby`), the control, the note. Without
+ *  a `label` the row has only the control column (a group such as Shortcuts' tables, R219 "Groups"); `labelHidden`
+ *  keeps a visible label out of the accessibility tree where the control carries the same name (one element per name). */
+export function SettingsRow({ label, labelFor, labelId, labelHidden, note, noteId, children, className }: {
+  label?: ReactNode; labelFor?: string; labelId?: string; labelHidden?: boolean; note?: ReactNode; noteId?: string; children: ReactNode; className?: string;
 }) {
+  const hide = labelHidden ? true : undefined;
   return (
     <div className={`settings-row${className ? ` ${className}` : ''}`}>
-      {labelFor ? <label className="settings-label" htmlFor={labelFor} id={labelId}>{label}</label> : <span className="settings-label" id={labelId}>{label}</span>}
-      <div className="settings-control">
-        {children}
-        {note && <p className="settings-note" id={noteId}>{note}</p>}
-      </div>
+      {label === undefined ? null : labelFor
+        ? <label className="settings-label" htmlFor={labelFor} id={labelId} aria-hidden={hide}>{label}</label>
+        : <span className="settings-label" id={labelId} aria-hidden={hide}>{label}</span>}
+      <div className="settings-control">{children}</div>
+      {/* The note in the control column, under the control (a sibling, so the control's box ends above it). */}
+      {note && <p className="settings-note" id={noteId}>{note}</p>}
     </div>
   );
 }
