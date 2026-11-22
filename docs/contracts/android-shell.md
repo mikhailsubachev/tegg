@@ -9,7 +9,7 @@ report: `spikes/android/FINDINGS.md` (F1…F11). Precedents: [ms2-shell.md](ms2-
 
 The desktop app does not change (AR-03 AC-12): every item below is either Android-only, a pure function both platforms
 share with unchanged desktop results, or a core change whose desktop behaviour is the old one. §11 lists the points for
-the owner (CP-1…CP-6).
+the owner (CP-1…CP-6 → D-2036…D-2041, decided 2026-11-22: the proposals; BRD v1.232).
 
 ## 1. Files
 
@@ -326,7 +326,7 @@ unit-tested on given facts; the CLI exits 1 with one failure per line. Rules: RA
 AC-1), backup (FR-STO-07 AC-14), version (RA7), ABIs, debuggable, signer not `CN=Android Debug` (release), and
 `test-env.json` in `lib/arm64-v8a/libtegg_app_lib.so` only for `test`.
 
-## 11. Points for the owner (CP-1…CP-6)
+## 11. Points for the owner (CP-1…CP-6, accepted as D-2036…D-2041)
 
 | CP | Point | Proposal | Alternative | Affects |
 | --- | --- | --- | --- | --- |
