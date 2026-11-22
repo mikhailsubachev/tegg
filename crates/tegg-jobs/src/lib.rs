@@ -463,6 +463,9 @@ pub enum JobError {
     NotCancellable,
     NotFound,
     NotImplemented,
+    /// docs/contracts/android-shell.md §3.3 (D-2007, D-2025): bulk jobs are off for this vault (the Android app); nothing
+    /// is planned or written.
+    Unsupported,
     BackupFailed(String),
     /// ms4-tags §4.1: a refused tag name (§2); `error` is `empty`, `space`, `digits` or `char`.
     InvalidName { error: String, char: Option<String> },

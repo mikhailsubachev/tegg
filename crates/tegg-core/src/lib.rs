@@ -300,7 +300,7 @@ pub struct Core {
 }
 
 /// docs/contracts/android-shell.md §3.3 (FR-SYN-06 AC-50, D-2025; CP-1 → D-2036): what `Core::open_ext` adds to
-/// `CoreOptions`. Red-commit stub (compile only): `bulk_jobs` isn't honoured yet.
+/// `CoreOptions`. `bulk_jobs: false` (the Android app) starts no tidy job and refuses every bulk job (D-2007).
 #[derive(Clone, Copy, Debug)]
 pub struct OpenExtras {
     pub bulk_jobs: bool,
@@ -313,9 +313,10 @@ impl Default for OpenExtras {
 }
 
 impl Core {
-    /// docs/contracts/android-shell.md §3.3: `Core::open` with `OpenExtras`. Red-commit stub: the extras are ignored.
-    pub fn open_ext(root: &Path, dirs: &AppDirs, opts: CoreOptions, _extras: OpenExtras) -> Result<Core, CoreError> {
-        Core::open(root, dirs, opts)
+    /// docs/contracts/android-shell.md §3.3: `Core::open` with `OpenExtras`.
+    pub fn open_ext(root: &Path, dirs: &AppDirs, opts: CoreOptions, extras: OpenExtras) -> Result<Core, CoreError> {
+        let vault = Vault::open(root, dirs).map_err(|e| CoreError::Vault(VaultError::Io(std::io::Error::other(format!("{e:?}")))))?;
+        Core::start(vault, opts, extras)
     }
 }
 
@@ -323,15 +324,15 @@ impl Core {
     /// §5.1: opens the vault (zero writes), opens or rebuilds the index in the background, starts the watcher.
     pub fn open(root: &Path, dirs: &AppDirs, opts: CoreOptions) -> Result<Core, CoreError> {
         let vault = Vault::open(root, dirs).map_err(|e| CoreError::Vault(VaultError::Io(std::io::Error::other(format!("{e:?}")))))?;
-        Core::start(vault, opts)
+        Core::start(vault, opts, OpenExtras::default())
     }
 
     pub fn open_with(fs: Arc<dyn VaultFs>, dirs: &AppDirs, opts: CoreOptions) -> Result<Core, CoreError> {
         let vault = Vault::open_with(Box::new(fs), dirs).map_err(|e| CoreError::Vault(VaultError::Io(std::io::Error::other(format!("{e:?}")))))?;
-        Core::start(vault, opts)
+        Core::start(vault, opts, OpenExtras::default())
     }
 
-    fn start(vault: Vault, opts: CoreOptions) -> Result<Core, CoreError> {
+    fn start(vault: Vault, opts: CoreOptions, extras: OpenExtras) -> Result<Core, CoreError> {
         let local = vault.local_dir();
         let index = Index::open(&local.join(INDEX_FILE))?;
         let graph_ready = AtomicBool::new(!index.is_empty());
@@ -394,7 +395,9 @@ impl Core {
         let s = shared.clone();
         adapter.start(Box::new(move |paths| s.enqueue(Job::Paths(paths))));
         let jobs_engine = tegg_jobs::Jobs::with_host(Arc::new(jobs4c::CoreHost { shared: shared.clone() }));
-        if opts.watch {
+        if !extras.bulk_jobs {
+            jobs_engine.disable_bulk();
+        } else if opts.watch {
             tidy4e::spawn(Arc::downgrade(&shared), jobs_engine.handle());
         }
         Ok(Core { shared, worker: Some(worker), watch: Mutex::new(watch), jobs_engine })

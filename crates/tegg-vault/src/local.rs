@@ -21,8 +21,16 @@ impl LocalFs {
         LocalFs { root: root.to_path_buf() }
     }
 
-    fn abs(&self, path: &str) -> PathBuf {
-        self.root.join(path)
+    /// The file's path on disk (D-2029): as given when it exists or on APFS (which finds every spelling); else each
+    /// component as listed, so a name stored in NFD on Android's storage is read and replaced in place, never written
+    /// a second time under its NFC name. A new file keeps the NFC name.
+    fn abs(&self, path: &str) -> io::Result<PathBuf> {
+        let p = self.root.join(path);
+        if cfg!(target_os = "macos") || path.is_ascii() || fs::symlink_metadata(&p).is_ok() {
+            return Ok(p);
+        }
+        let rel = on_disk_path_under(&self.root, path)?;
+        Ok(self.root.join(rel))
     }
 
     fn version_at(&self, abs: &Path, bytes: &[u8]) -> io::Result<FileVersion> {
@@ -112,7 +120,7 @@ impl VaultFs for LocalFs {
 
     fn list_dir(&self, dir: &str) -> io::Result<Vec<FsEntry>> {
         let dir = dir.trim_matches('/');
-        let rd = match fs::read_dir(self.abs(dir)) {
+        let rd = match fs::read_dir(self.abs(dir)?) {
             Ok(rd) => rd,
             Err(e) if e.kind() == io::ErrorKind::NotFound || e.kind() == io::ErrorKind::NotADirectory => return Ok(Vec::new()),
             Err(e) => return Err(e),
@@ -127,7 +135,7 @@ impl VaultFs for LocalFs {
     }
 
     fn read(&self, path: &str) -> io::Result<(Vec<u8>, FileVersion)> {
-        let abs = self.abs(path);
+        let abs = self.abs(path)?;
         let bytes = fs::read(&abs)?;
         let v = self.version_at(&abs, &bytes)?;
         Ok((bytes, v))
@@ -142,7 +150,7 @@ impl VaultFs for LocalFs {
     }
 
     fn replace(&self, path: &str, bytes: &[u8]) -> io::Result<FileVersion> {
-        let abs = self.abs(path);
+        let abs = self.abs(path)?;
         let tmp = Self::write_temp(&abs, bytes)?;
         if let Some(hook) = BEFORE_RENAME.get() {
             hook(path);
@@ -156,7 +164,7 @@ impl VaultFs for LocalFs {
     }
 
     fn create_new(&self, path: &str, bytes: &[u8]) -> io::Result<FileVersion> {
-        let abs = self.abs(path);
+        let abs = self.abs(path)?;
         let tmp = Self::write_temp(&abs, bytes)?;
         if let Err(e) = rename_no_clobber(&tmp, &abs) {
             let _ = fs::remove_file(&tmp);
@@ -167,15 +175,15 @@ impl VaultFs for LocalFs {
     }
 
     fn rename_no_replace(&self, from: &str, to: &str) -> io::Result<()> {
-        let to_abs = self.abs(to);
-        rename_no_clobber(&self.abs(from), &to_abs)?;
+        let to_abs = self.abs(to)?;
+        rename_no_clobber(&self.abs(from)?, &to_abs)?;
         Self::sync_dir(&to_abs);
         Ok(())
     }
 
     /// APFS is case-insensitive: renaming a file to another spelling of its own name is a plain rename of that file.
     fn rename_case(&self, from: &str, to: &str) -> io::Result<()> {
-        let (f, t) = (self.abs(from), self.abs(to));
+        let (f, t) = (self.abs(from)?, self.abs(to)?);
         use std::os::unix::fs::MetadataExt;
         let ino = fs::metadata(&f)?.ino();
         if fs::metadata(&t).map(|m| m.ino()).unwrap_or(ino) != ino {
@@ -187,17 +195,17 @@ impl VaultFs for LocalFs {
     }
 
     fn create_dir_all(&self, path: &str) -> io::Result<()> {
-        fs::create_dir_all(self.abs(path))
+        fs::create_dir_all(self.abs(path)?)
     }
 
     fn write_temp_new(&self, path: &str, tag: &str, src: &mut dyn io::Read) -> io::Result<(String, FileVersion, u64)> {
         let temp = crate::temp_path(path, Some(tag))?;
-        let (v, id) = Self::stream_new(&self.abs(&temp), src)?;
+        let (v, id) = Self::stream_new(&self.abs(&temp)?, src)?;
         Ok((temp, v, id))
     }
 
     fn file_id(&self, path: &str) -> io::Result<Option<u64>> {
-        match fs::symlink_metadata(self.abs(path)) {
+        match fs::symlink_metadata(self.abs(path)?) {
             Ok(md) => Ok(Some(inode(&md))),
             Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
             Err(e) => Err(e),
@@ -206,7 +214,7 @@ impl VaultFs for LocalFs {
 
     /// As `replace`, with the caller's hook between the temp file and the rename; `BEFORE_RENAME` is not called.
     fn replace_with(&self, path: &str, bytes: &[u8], before_rename: &dyn Fn() -> io::Result<()>) -> io::Result<FileVersion> {
-        let abs = self.abs(path);
+        let abs = self.abs(path)?;
         let tmp = Self::write_temp(&abs, bytes)?;
         if let Err(e) = before_rename().and_then(|_| fs::rename(&tmp, &abs)) {
             let _ = fs::remove_file(&tmp);
@@ -217,14 +225,14 @@ impl VaultFs for LocalFs {
     }
 
     fn create_dir_new(&self, path: &str) -> io::Result<()> {
-        let abs = self.abs(path);
+        let abs = self.abs(path)?;
         fs::create_dir(&abs)?;
         Self::sync_dir(&abs);
         Ok(())
     }
 
     fn is_dir(&self, path: &str) -> io::Result<bool> {
-        match fs::symlink_metadata(self.abs(path)) {
+        match fs::symlink_metadata(self.abs(path)?) {
             Ok(md) => Ok(md.is_dir()),
             Err(e) if e.kind() == io::ErrorKind::NotFound || e.kind() == io::ErrorKind::NotADirectory => Ok(false),
             Err(e) => Err(e),
@@ -232,17 +240,17 @@ impl VaultFs for LocalFs {
     }
 
     fn remove_file(&self, path: &str) -> io::Result<()> {
-        fs::remove_file(self.abs(path))
+        fs::remove_file(self.abs(path)?)
     }
 
     fn remove_empty_dir(&self, path: &str) -> io::Result<()> {
-        fs::remove_dir(self.abs(path))
+        fs::remove_dir(self.abs(path)?)
     }
 
     /// ms6-trash-media §1.1: `st_ctime` (a rename sets it on APFS).
     fn changed_ns(&self, path: &str) -> io::Result<Option<i128>> {
         use std::os::unix::fs::MetadataExt;
-        match fs::symlink_metadata(self.abs(path)) {
+        match fs::symlink_metadata(self.abs(path)?) {
             Ok(md) => Ok(Some(md.ctime() as i128 * 1_000_000_000 + md.ctime_nsec() as i128)),
             Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
             Err(e) => Err(e),
@@ -250,7 +258,7 @@ impl VaultFs for LocalFs {
     }
 
     fn stat(&self, path: &str) -> io::Result<Option<(i128, u64)>> {
-        match fs::metadata(self.abs(path)) {
+        match fs::metadata(self.abs(path)?) {
             Ok(md) if md.is_dir() => Err(io::Error::other(format!("{path}: is a directory"))),
             Ok(md) => Ok(Some((mtime_ns(&md), md.len()))),
             Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
@@ -259,26 +267,18 @@ impl VaultFs for LocalFs {
     }
 
     fn is_placeholder(&self, path: &str) -> io::Result<bool> {
-        is_dataless(&fs::symlink_metadata(self.abs(path))?)
+        is_dataless(&fs::symlink_metadata(self.abs(path)?)?)
     }
 
-    /// FSEvents through `notify` (spike S4): every reported path, made vault-relative and NFC.
+    /// FSEvents (macOS) or inotify (Linux, Android) through `notify` (spike S4): `fs_change_of` decides each event.
     fn watch(&self, sink: ChangeSink) -> io::Result<Option<WatchGuard>> {
         use notify::{RecursiveMode, Watcher};
         let root = self.root.canonicalize()?;
         let base = root.clone();
         let mut w = notify::recommended_watcher(move |res: notify::Result<notify::Event>| match res {
-            Ok(ev) if ev.need_rescan() => sink(FsChange::Rescan),
             Ok(ev) => {
-                let paths: Vec<String> = ev
-                    .paths
-                    .iter()
-                    .filter_map(|p| p.strip_prefix(&base).ok())
-                    .map(|r| tegg_format::nfc(&r.to_string_lossy()))
-                    .filter(|r| !r.is_empty())
-                    .collect();
-                if !paths.is_empty() {
-                    sink(FsChange::Paths(paths));
+                if let Some(change) = fs_change_of(&ev, &base) {
+                    sink(change);
                 }
             }
             Err(_) => sink(FsChange::Rescan),
@@ -290,10 +290,18 @@ impl VaultFs for LocalFs {
 }
 
 /// docs/contracts/android-shell.md §3.1 (FR-SYN-03 AC-32, D-2028): what one `notify` event means for the vault.
-/// Red-commit stub with today's behaviour: every event is a change (read events included).
+/// inotify (Linux, Android) also reports reads; the index's own reads would come back as changes and the index would
+/// never go idle (spike AND-0, F1). Every read event is dropped except a close after writing, which marks the end of
+/// another program's write. Other kinds are never trusted (`FsChange`'s doc): they all give the paths.
 pub fn fs_change_of(ev: &notify::Event, base: &Path) -> Option<FsChange> {
+    use notify::event::{AccessKind, AccessMode, EventKind};
     if ev.need_rescan() {
         return Some(FsChange::Rescan);
+    }
+    if let EventKind::Access(kind) = ev.kind {
+        if kind != AccessKind::Close(AccessMode::Write) {
+            return None;
+        }
     }
     let paths: Vec<String> = ev
         .paths
@@ -314,9 +322,94 @@ pub enum OnDiskName {
     Ambiguous,
 }
 
-/// docs/contracts/android-shell.md §3.2. Red-commit stub: finds nothing.
-pub fn on_disk_name(_listing: &[String], _nfc_name: &str) -> OnDiskName {
-    OnDiskName::Missing
+/// docs/contracts/android-shell.md §3.2: the one listed entry whose NFC form is `nfc_name`. APFS treats the spellings
+/// as one name; Android's storage keeps them apart, so an NFD name from a Mac or a sync app must be found by its NFC
+/// form. Two entries with one NFC form are a name conflict (FR-FMT-12 AC-3): `Ambiguous`.
+pub fn on_disk_name(listing: &[String], nfc_name: &str) -> OnDiskName {
+    let target = tegg_format::nfc(nfc_name);
+    let mut found: Option<&String> = None;
+    for entry in listing {
+        if tegg_format::nfc(entry) == target {
+            if found.is_some() {
+                return OnDiskName::Ambiguous;
+            }
+            found = Some(entry);
+        }
+    }
+    found.map_or(OnDiskName::Missing, |e| OnDiskName::Found(e.clone()))
+}
+
+/// One folder's entry names, as stored on disk.
+fn listing_of(dir: &Path) -> io::Result<Vec<String>> {
+    let mut out = Vec::new();
+    for e in fs::read_dir(dir)? {
+        if let Ok(name) = e?.file_name().into_string() {
+            out.push(name);
+        }
+    }
+    Ok(out)
+}
+
+/// `path` with each existing component spelled as on disk (D-2029). An exact match of the whole path is taken as it
+/// is (APFS, or a name already in its on-disk form), so the desktop does no extra listing. A missing component and
+/// everything after it stay as given (NFC); `Ambiguous` is `InvalidData`.
+pub fn on_disk_path(path: &Path) -> io::Result<PathBuf> {
+    use std::path::Component;
+    if fs::symlink_metadata(path).is_ok() && !needs_listing(path) {
+        return Ok(path.to_path_buf());
+    }
+    let mut out = PathBuf::new();
+    let mut found = true;
+    for c in path.components() {
+        match c {
+            Component::Normal(name) if found => {
+                let name = name.to_string_lossy();
+                let exact = out.join(name.as_ref());
+                match on_disk_name(&listing_of(&out).unwrap_or_default(), &name) {
+                    OnDiskName::Found(n) => out.push(n),
+                    OnDiskName::Missing => {
+                        found = fs::symlink_metadata(&exact).is_ok();
+                        out = exact;
+                    }
+                    // Two spellings in one folder: the exact one if it is listed, else a name conflict.
+                    OnDiskName::Ambiguous if listing_of(&out).unwrap_or_default().iter().any(|e| e.as_str() == name) => out = exact,
+                    OnDiskName::Ambiguous => {
+                        return Err(io::Error::new(io::ErrorKind::InvalidData, format!("{}: two names with one NFC form", exact.display())));
+                    }
+                }
+            }
+            other => out.push(other.as_os_str()),
+        }
+    }
+    Ok(out)
+}
+
+/// `rel` below `root`, each existing component as on disk (`root` itself is taken as given).
+fn on_disk_path_under(root: &Path, rel: &str) -> io::Result<PathBuf> {
+    let mut dir = root.to_path_buf();
+    let mut out = PathBuf::new();
+    let mut parts = rel.split('/').filter(|c| !c.is_empty()).peekable();
+    while let Some(c) = parts.next() {
+        let name = match on_disk_name(&listing_of(&dir).unwrap_or_default(), c) {
+            OnDiskName::Found(n) => n,
+            OnDiskName::Missing => {
+                out.push(c);
+                parts.for_each(|r| out.push(r));
+                return Ok(out);
+            }
+            OnDiskName::Ambiguous if listing_of(&dir).unwrap_or_default().iter().any(|e| e == c) => c.to_string(),
+            OnDiskName::Ambiguous => return Err(io::Error::new(io::ErrorKind::InvalidData, format!("{rel}: two names with one NFC form"))),
+        };
+        dir.push(&name);
+        out.push(&name);
+    }
+    Ok(out)
+}
+
+/// APFS finds every spelling of a name, so an exact hit there is the on-disk path only if that path's bytes are the
+/// stored ones; elsewhere (Linux, Android) an exact hit is always the stored name.
+fn needs_listing(path: &Path) -> bool {
+    cfg!(target_os = "macos") && path.to_string_lossy().chars().any(|c| !c.is_ascii())
 }
 
 /// The file id of an entry on its volume (v1-import §12.2): the inode.
