@@ -9,9 +9,10 @@
 // Red-test readings (reported): user content in the pseudo-locale check is what carries `data-user-content` (or sits in
 // a note body, a code block or a map), as in the desktop's pseudo-locale tests; the registered commands are
 // `__TEGG_TEST__.commands()` (ms3-shell §3.7); RA2's excluded commands are the AND-1 table (android-shell.md RA2).
-// Not testable as written (reported): FR-UX-03 AC-54's third part, "every command a phone control carries runs from the
-// registry with the same effect as the tap", needs a hook that runs a command by id on the phone; §12.2 has none, and the
-// phone has no palette to run it from. The L1 test runs the phone list's `run`s for AR-03 AC-13 instead.
+// FR-UX-03 AC-54's third part (D-2101, AC-Test-Change): `__TEGG_TEST__.run(id)` (§12.2) runs a registered command by
+// id as a phone control does; for each control's command, a fresh page tapped and a fresh page run by id end with the
+// same route, the same open dialogs and menus, and the same IPC commands (perf marks aside). `run` rejects for an id the
+// phone doesn't list.
 // Written from the ACs and the contract only (D-61).
 import { test, type Browser, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
@@ -114,7 +115,7 @@ test('nfr_oth_02_ac24_phone_strings', async ({ browser }) => {
 // ------------------------------------------------------------------------------------------------ FR-UX-03 AC-54
 
 test('fr_ux_03_ac54_commands_without_a_palette', async ({ browser }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(1_800_000);
   await eachSurface(browser, async (page, how) => {
     for (const keys of ['Meta+k', 'Control+k', 'Meta+Shift+p']) {
       await page.keyboard.press(keys);
@@ -128,6 +129,61 @@ test('fr_ux_03_ac54_commands_without_a_palette', async ({ browser }) => {
     const missing = ctl.filter((c) => !c.command || !registered.has(c.command.split(':')[0]) && !registered.has(c.command)).map((c) => `${c.role} "${c.name.slice(0, 30)}" → ${c.command ?? '(none)'}`);
     assert.deepEqual(missing, [], `${how}: every control carries the data-command of a registered command`);
   });
+
+  // every command a phone control carries runs from the registry with the same effect as the tap (D-2101)
+  type Effect = { route: string | null; open: string[]; ipc: string[] };
+  const effect = async (page: Page, core: Awaited<ReturnType<typeof startPhone>>, from: number): Promise<Effect> => {
+    await sleep(500);
+    const open = await page.evaluate(() => [...document.querySelectorAll('[role="dialog"], [role="menu"]')].filter((e) => e.getClientRects().length > 0).map((e) => e.getAttribute('aria-label') ?? '').sort());
+    const ipc = [...new Set((await core.calls()).slice(from).map((c) => c.cmd).filter((c) => c !== 'perf_mark' && !c.startsWith('plugin:')))].sort();
+    return { route: await mainName(page), open, ipc };
+  };
+  const done = new Set<string>();
+  for (const route of RA9_ROUTES) {
+    for (const inDrawer of [false, true]) {
+      const probe = await phonePage(browser);
+      await startPhone(probe, { route });
+      await eventually(() => mainName(probe), (n) => !!n, 5000);
+      if (inDrawer) await openDrawer(probe);
+      const scope = inDrawer ? drawer(probe) : undefined;
+      const cmds = [...new Set((await controls(probe, scope)).filter((c) => !c.inert && !c.text && !c.row && c.command && c.command !== 'phone.menu').map((c) => c.command!))];
+      await probe.close();
+      for (const id of cmds) {
+        const key = `${inDrawer ? 'drawer' : 'page'}|${id}`;
+        if (done.has(key)) continue;
+        done.add(key);
+        const how = `${route}${inDrawer ? ', drawer' : ''}: ${id}`;
+        // the tap
+        const tapPage = await phonePage(browser);
+        const c1 = await startPhone(tapPage, { route });
+        await eventually(() => mainName(tapPage), (n) => !!n, 5000);
+        if (inDrawer) await openDrawer(tapPage);
+        const n1 = (await c1.calls()).length;
+        await (inDrawer ? drawer(tapPage) : tapPage.locator('body')).locator(`[data-command="${id.replace(/"/g, '\\"')}"]`).first().click({ force: true });
+        const byTap = await effect(tapPage, c1, n1);
+        await tapPage.close();
+        // the command by id
+        const runPage = await phonePage(browser);
+        const c2 = await startPhone(runPage, { route });
+        await eventually(() => mainName(runPage), (n) => !!n, 5000);
+        if (inDrawer) await openDrawer(runPage);
+        const hasRun = await runPage.evaluate(() => typeof (window as any).__TEGG_TEST__?.run === 'function');
+        assert.ok(hasRun, `${how}: window.__TEGG_TEST__.run(id) exists (contract §12.2, D-2101)`);
+        const n2 = (await c2.calls()).length;
+        const ran = await runPage.evaluate((cmd) => (window as any).__TEGG_TEST__.run(cmd).then(() => 'ok', (e: unknown) => `rejected: ${String((e as Error)?.message ?? e)}`), id);
+        assert.equal(ran, 'ok', `${how}: run(id) resolves for a command a phone control carries`);
+        const byRun = await effect(runPage, c2, n2);
+        await runPage.close();
+        assert.deepEqual(byRun, byTap, `${how}: running the command by id has the tap's effect (route, open dialogs and menus, IPC calls)`);
+      }
+    }
+  }
+  assert.ok(done.size > 0, 'the phone controls carry commands');
+  const page = await phonePage(browser);
+  await startPhone(page, { route: 'inbox' });
+  const hidden = await page.evaluate(() => Promise.resolve((window as any).__TEGG_TEST__?.run?.('app.palette')).then(() => 'resolved', () => 'rejected'));
+  assert.equal(hidden, 'rejected', 'run rejects for an id the phone doesn\'t list (app.palette)');
+  await page.close();
 });
 
 // ------------------------------------------------------------------------------------------------ AR-03 AC-13 (L5p)
