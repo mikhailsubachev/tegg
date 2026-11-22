@@ -331,3 +331,40 @@ html[data-layout="phone"] .phone-sort-line {
   font-size: 13px;
   color: var(--muted);
 }
+
+/* ---------------------------------------------------------------- the note (§9.1; FR-UX-04 AC-2: the text column is the
+   viewport minus 16 px on each side) */
+html[data-layout="phone"] .note-column,
+html[data-layout="phone"] .note-column[data-width="wide"],
+html[data-layout="phone"] .note-root .note-column {
+  max-width: none;
+  margin: 0;
+  padding: 8px calc(16px + var(--inset-right)) 32px calc(16px + var(--inset-left));
+}
+html[data-layout="phone"] .phone-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0 12px;
+  font-size: 14px;
+}
+html[data-layout="phone"] .phone-strip-row {
+  display: flex;
+  gap: 8px;
+}
+html[data-layout="phone"] .phone-strip-label,
+html[data-layout="phone"] .phone-prop-label {
+  color: var(--muted);
+  min-width: 96px;
+}
+html[data-layout="phone"] .phone-more-properties {
+  align-self: flex-start;
+  min-height: 48px;
+}
+html[data-layout="phone"] .phone-properties .property {
+  display: flex;
+  gap: 12px;
+  min-height: 48px;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
