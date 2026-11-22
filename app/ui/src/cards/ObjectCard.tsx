@@ -13,6 +13,7 @@ import { LucideIcon } from '../icons/LucideIcon';
 import { PdfCard } from '../media/PdfCard';
 import { startPinDrag } from '../pinned/drag';
 import { RefElement } from '../preview/useReference';
+import { useTagLook } from '../tags/store';
 import { Icon } from '../shell/Icon';
 import { Checkbox, SourceChip, type TaskNav } from '../tasks/TaskCard';
 import { CardItems, CardLinkChip, type LinkOpts } from './CardPill';
@@ -88,6 +89,7 @@ export function ObjectCard(p: ObjectCardProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [card, type, task, p.hideKey, p.groupValues, env.region, env.zone, env.dateSetting, Math.floor(env.now / 60_000)],
   );
+  const look = useTagLook();
   const pills = useRef<HTMLDivElement | null>(null);
   useTwoRows(pills, [parts]);
   const example = p.surface === 'example';
@@ -160,7 +162,8 @@ export function ObjectCard(p: ObjectCardProps) {
       </div>
       {(parts.tags.shown.length > 0) && (
         <div className="card-tags">
-          {parts.tags.shown.map((x) => <span key={x} className="card-tag" data-tag={nfc(x).toLowerCase()} data-user-content>#{x}</span>)}
+          {/* FR-TAG-05 AC-6 (D-707): a tag with a colour shows it on every surface. */}
+          {parts.tags.shown.map((x) => <span key={x} className="card-tag" data-tag={nfc(x).toLowerCase()} style={look(x).style} data-user-content>#{x}</span>)}
           {parts.tags.more > 0 && <span className="card-tag-more">+{parts.tags.more}</span>}
         </div>
       )}

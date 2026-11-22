@@ -8,6 +8,8 @@
 .object-card > .card-lead { grid-column: 1; display: inline-flex; align-items: center; justify-content: center; min-height: 20px; color: var(--muted); }
 .object-card > .card-title { grid-column: 2; display: flex; align-items: flex-start; gap: 6px; min-width: 0; }
 .object-card:focus-visible { outline: 2px solid var(--focus); outline-offset: -1px; }
+/* R43 (D-594): a focused Task card is tinted with the hover token too. */
+.object-task-card:focus-visible { background: var(--hover); }
 .object-card.dragging { outline: 2px dashed var(--focus); outline-offset: -2px; box-shadow: none; }
 .object-card[data-example] { pointer-events: none; }
 
