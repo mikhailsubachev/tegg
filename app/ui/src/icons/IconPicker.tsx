@@ -98,6 +98,8 @@ function IconPicker({ anchor, title, current, allowNone, onChoose, onDone }: Ico
   const typed = useRef(false);
   const naturalH = useRef<number | null>(null);
   const pendingResults = useRef(false);
+  /** ⏎ pressed before the set has loaded (the first open of a window): chosen once the results are there. */
+  const pendingEnter = useRef(false);
   const base = useMemo(() => `iconpick-${openSeq}`, []);
   const recent = useMemo(() => recentIcons(), []);
 
@@ -149,6 +151,12 @@ function IconPicker({ anchor, title, current, allowNone, onChoose, onDone }: Ico
     }
     setSel(i);
     scrollTo(i, true);
+    // §7.7: ⏎ chooses the selected option; one pressed while the set was loading chooses it now.
+    if (set && pendingEnter.current) {
+      pendingEnter.current = false;
+      const x = flat[i];
+      if (x) choose(x.r.name);
+    }
   }, [set, query]);
 
   // Placement (v1-views §20's rule), after the first layout.
@@ -243,6 +251,7 @@ function IconPicker({ anchor, title, current, allowNone, onChoose, onDone }: Ico
     if (e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
+      if (!set) { if (!failed) pendingEnter.current = true; return; }
       const x = flat[sel];
       if (x) choose(x.r.name);
     }
@@ -281,7 +290,7 @@ function IconPicker({ anchor, title, current, allowNone, onChoose, onDone }: Ico
       onKeyDown={onKey}>
       <input ref={input} type="text" role="combobox" className="icon-picker-search" aria-label={t('iconPicker.search')} placeholder={t('iconPicker.search')}
         aria-controls={`${base}-grid`} aria-expanded="true" aria-autocomplete="list" aria-activedescendant={selId} value={query} spellCheck={false} autoComplete="off"
-        onChange={(e) => { typed.current = true; pendingResults.current = true; mark('icon-picker-input'); setQuery(e.target.value); }}
+        onChange={(e) => { typed.current = true; pendingEnter.current = false; pendingResults.current = true; mark('icon-picker-input'); setQuery(e.target.value); }}
         onKeyDown={onInputKey} />
       <div ref={grid} id={`${base}-grid`} role="listbox" aria-label={t('iconPicker.title', { name: title })} data-columns={String(ICON_COLUMNS)} className="icon-picker-grid" tabIndex={-1}
         onScroll={(e) => { const g = e.currentTarget; setScroll({ top: g.scrollTop, height: g.clientHeight }); }}>
