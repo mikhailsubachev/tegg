@@ -204,7 +204,7 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
   - `tauri_plugin_dialog`, `pick_folder`, `UnixListener`, `single_instance`;
   - `install_hotkey_handler`, `register_hotkey`, `watch_mouse_buttons`, `launched_at_login`, `RunEvent::Reopen`, `/usr/bin/open`, `objc2`.
 
-  Each may appear only inside an item, or a module, marked `#[cfg(desktop)]` or `#[cfg(target_os = "macos")]`. In `Cargo.toml`, `tauri-plugin-dialog` and the `tray-icon` and `macos-private-api` features are desktop-target dependencies only. The rule's own test proves it fires on a sample file with an unguarded `TrayIconBuilder::new`. *(L0)* Test: `ar_03_ac7_desktop_only_code_is_gated`
+  Each may appear only inside an item, or a module, marked `#[cfg(desktop)]` or `#[cfg(target_os = "macos")]`. In `Cargo.toml`, `tauri-plugin-dialog` and the `tray-icon` feature are desktop-target dependencies only; `macos-private-api` stays on the shared `tauri` entry, which tauri-build checks against `tauri.conf.json` (D-2044). The rule's own test proves it fires on a sample file with an unguarded `TrayIconBuilder::new`. *(L0)* Test: `ar_03_ac7_desktop_only_code_is_gated`
 - **AC-8** **The mobile entry point starts the app.** The library's `run` carries `tauri::mobile_entry_point` on mobile. On the emulator, `adb shell am start -W` of the test APK, with access granted and no vault remembered, has these results:
   - the chooser (RA4) shows within 15 s;
   - the perf log has `ui-ready`;
@@ -242,7 +242,7 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
   With `'macos'`, the palette registry, the chooser and the logo menu are the same as on `main` at `7ff0fc0b` (snapshot). *(L5; L1 for the client's refusal list, which equals RA2)* Test: `ar_03_ac11_ui_skips_missing_commands_on_android`
 - **AC-12** **The macOS app is unchanged.**
   - (a) An L0 check over the AND-1 branch: no existing `*.ac.test.ts` or `tests/ac_*.rs` is changed or deleted, and no commit has an `AC-Test-Change` trailer.
-  - (b) `tauri.conf.json` (except a `bundle.android` block), `tauri.preview.conf.json`, `capabilities/capture.json` and the permission list of `capabilities/default.json` are equal to `7ff0fc0b`. The only change in `default.json` is its `platforms` field.
+  - (b) `tauri.conf.json` (except a `bundle.android` block), `tauri.preview.conf.json`, `capabilities/capture.json` and the permission list of `capabilities/default.json` are equal to `7ff0fc0b`. The only change in `default.json` and `capture.json` is their `platforms` field (D-2050).
   - (c) `./verify push` passes, and the `app-e2e` and `app-shell-test` steps pass on the built `Tegg.app`.
   - (d) FR-STO-07 AC-12's macOS cases pass.
 
@@ -290,7 +290,7 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
     - (b) the event after it;
     - (c) `vault_start` answering `open` at once.
 
-    In each, a `MutationObserver` records that the chooser (`main[aria-label="Choose a vault"]`) was never in the DOM. The page ends on the landing of FR-UX-02 AC-16 with exactly one `link_resolve` and one `note_read` for the landing (NFR-PERF-05 AC-3).
+    In each, a `MutationObserver` records that the chooser (`main[aria-label="Choose a vault"]`) was never in the DOM. The page ends on the landing of FR-UX-02 AC-16 with at most one `link_resolve` (none for a landing without links) and one `note_read` for the landing (NFR-PERF-05 AC-3; D-2051).
   - **LA.** The test APK has the shell fixture remembered and access granted. Five cold starts (`am force-stop`, then `am start -W`) each reach the landing, and no UiAutomator dump taken every 250 ms contains `Choose a vault`.
 
   *(L5; LA)* Test: `fr_vlt_01_ac18_remembered_vault_never_shows_chooser`
@@ -395,7 +395,7 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
     - (a) Pages lists Poznámka once;
     - (b) `index_search("zahradu")` finds it;
     - (c) opening it writes nothing;
-    - (d) typing `x` at the end of its body and waiting 2 s changes that same file (same inode; its name still NFD bytes), with no second `Poznámka.md` in either form;
+    - (d) typing `x` at the end of its body and waiting 2 s writes nothing until AND-3 (D-2048): the file is unchanged, its name still NFD bytes, and there is no second `Poznámka.md` in either form;
     - (e) `[[Poznámka]]` in Úvodní resolves to it (AC-1).
   - **Both forms (LA).** An NFC `Pages/Poznámka.md` with a different `id` is added beside the NFD one. Both are listed as a name conflict (AC-3), and opening either writes nothing.
 
@@ -419,7 +419,7 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
   `android.permission.INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_WIFI_STATE` and `CHANGE_NETWORK_STATE` are named in the test's failure message when present. *(APK)* Test: `nfr_sec_01_ac1_apk_has_no_network_permission`
 - **AC-2** **The sources ask for none.** These are checked:
   - The committed `app/src-tauri/gen/android/app/src/main/AndroidManifest.xml` and every other manifest outside a `debug` source set hold no `INTERNET` permission. A `tools:node="remove"` entry for it is allowed.
-  - `cargo tree --target aarch64-linux-android` for `app/src-tauri` contains none of `tauri-plugin-http`, `tauri-plugin-updater`, `reqwest` and `ureq`.
+  - `cargo tree --target aarch64-linux-android` for `app/src-tauri` contains none of `tauri-plugin-http`, `tauri-plugin-updater` and `ureq`, and `reqwest` only as Tauri's own dependency (D-2046).
   - The Android capability grants no `http:` or `shell:` permission.
 
   *(L0)* Test: `nfr_sec_01_ac2_android_sources_ask_for_no_network`
@@ -434,7 +434,7 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
   - it leaves `Tegg-0.5.0.dmg`, `Tegg-0.5.0.zip` and `Tegg-0.5.0.apk` in `app/src-tauri/target/release/bundle/release/`;
   - it installs `~/Applications/Tegg.app` only after both builds and AC-6's check have passed.
 
-  `--no-apk` builds only the Mac app, as today. A failed APK build exits non-zero, installs nothing and leaves no `.apk` in the release folder. *(L1 for the script's plan, with its build calls stubbed: the steps, their order, `--target aarch64`, `--features preview`, the preview config and `TEGG_VERSION`; APK for the artifact)* Test: `ar_08_ac1_release_builds_the_apk`
+  `--no-apk` builds only the Mac app, as today. A failed APK build exits non-zero, installs nothing and leaves no `.apk` in the release folder. *(L1 for the script's plan, with its build calls stubbed: the steps, their order, `--target aarch64`, `--features preview`, `TEGG_ANDROID_APP_ID=app.tegg.preview` (not the preview config, D-2045) and `TEGG_VERSION`; APK for the artifact)* Test: `ar_08_ac1_release_builds_the_apk`
 - **AC-2** **The version (RA7; F9).** The APK built for `0.5.0` has `versionName` `0.5.0` and `versionCode` `5000` (`aapt2 dump badging`). `version_code()` gives RA7's three examples. `0.1000.0` and `0.1.1000` exit with code 2 before any build, with the usage message. `app/src-tauri/tauri.conf.json` still says `0.0.0` after the release. *(L1; APK)* Test: `ar_08_ac2_apk_version`
 - **AC-3** **Signed with the owner's key, never unsigned (AP-2021).**
   - **Signature.** `apksigner verify --print-certs` passes with signature scheme v2 or later. The signer's SHA-256 equals the certificate of the key named by the signing config, and its subject is not `CN=Android Debug`.
@@ -456,7 +456,7 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
 
 ### FR-UX-01 The version label on the phone (adds to AC-5)
 
-- **AC-7** **`v<version>` in the release APK, `dev` elsewhere (D-1512; RA1).** The release APK built for `0.5.0` shows `v0.5.0` on the sidebar's bottom-left button, and the test APK shows `dev`. Both are checked on the emulator; the release APK is installed with access granted and the shell fixture typed in as a path. The label comes from the same `versionLabel(TEGG_VERSION)` as on the desktop (AC-5's L1 cases unchanged). *(LA)* Test: `fr_ux_01_ac7_version_label_on_android`
+- **AC-7** **`v<version>` in the release APK, `dev` elsewhere (D-1512; RA1).** The release APK built for `0.5.0` shows `v0.5.0` on the sidebar's bottom-left button, and the test APK shows `dev`. Both are checked on the emulator; the release-variant APK (built like the release and signed with the test key, made debuggable for this check, D-2051) is installed with access granted and the shell fixture typed in as a path, and the label is read through DevTools. The label comes from the same `versionLabel(TEGG_VERSION)` as on the desktop (AC-5's L1 cases unchanged). *(LA)* Test: `fr_ux_01_ac7_version_label_on_android`
 
 ---
 

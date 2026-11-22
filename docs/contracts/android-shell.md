@@ -103,15 +103,19 @@ otherwise component by component with `on_disk_name` over `read_dir`. `Ambiguous
 (the note is listed once as a name conflict through the existing FR-FMT-12 AC-3 path and never written). A new file is
 created under its NFC name. On APFS the first lookup always succeeds, so the desktop does no extra work.
 
+**Read-only until AND-3 (D-2048).** A write, rename or removal whose path resolves to an on-disk name other than its
+NFC form fails with `io::ErrorKind::PermissionDenied` and changes nothing; reads go through. On APFS the path never
+resolves to another spelling, so the desktop is unchanged.
+
 **Shared storage, checked on the emulator (Android 15, AND-1 build; D-2029 asked for it).**
 - Names are **case-insensitive** and case-preserving, as on APFS: `CASE-A.TXT` finds `case-a.txt`, and writing it
   writes that file. `rename_case` and the ` (2)` suffixes need no change.
 - Names are **not** normalization-insensitive: an NFD name is found only by its own bytes (hence §3.2).
 - **No hard links** (`ENOSYS` for the shell user, `EACCES` for an app) and **no `renameat2(RENAME_NOREPLACE)`**
   (`EINVAL`). A create of a new file therefore checks the target and renames (regression `bug_and1la`); the window
-  between the check and the rename is open for the owner's decision.
+  between the check and the rename is accepted for AND-1 (D-2047).
 - After Tegg replaces a file whose name is NFD bytes, other processes reading through FUSE see the old file until the
-  kernel cache drops (an NFC name is fine). Open for the owner's decision.
+  kernel cache drops (an NFC name is fine). Until AND-3 such a file is never written (D-2048, §3.2).
 
 ### 3.3 No bulk jobs (FR-SYN-06 AC-50, D-2025; CP-1)
 
