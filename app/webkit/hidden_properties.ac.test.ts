@@ -255,8 +255,9 @@ test('fr_typ_17_ac3_type_page_columns_and_preview_are_unaffected', async ({ page
   await toggle(page, 'Účastníci');
   const t = await fileWhen(core, typeFile('schůzka'), (x) => !!x?.includes('hidden: [datum, účastníci]\n'));
   assert.equal(t, swap(schuzka(), 'preview: [datum, účastníci]\n', 'preview: [datum, účastníci]\nhidden: [datum, účastníci]\n'), 'hidden written; the preview line unchanged');
-  const chips = section(page, 'Preview properties').getByRole('list', { name: 'Preview properties' }).getByRole('listitem');
-  assert.deepEqual((await chips.allInnerTexts()).map((x) => x.replace(/\s+/g, ' ').trim().replace(/ Remove.*$/, '')), ['Datum', 'Účastníci'], 'preview properties unchanged');
+  // Slice OC (D-2011): the Card section replaced Preview properties; hiding leaves the card list (R210's default) as it is.
+  const rows = section(page, 'Card').getByRole('list', { name: 'Card properties' }).locator('li[data-card-key]');
+  assert.deepEqual(await rows.evaluateAll((ls) => ls.map((l) => (l.getAttribute('data-card-key') ?? '').normalize('NFC'))), ['title', 'tags', 'body', 'datum', 'účastníci', 'modified'], 'the card list unchanged');
   await gotoTypePage(page, 'Schůzky');
   const headers = (await typeTable(page, 'Schůzky').getByRole('columnheader').allInnerTexts()).map((x) => x.trim());
   assert.deepEqual(headers, ['Title', 'Datum', 'Účastníci', 'Modified'], 'the Type page columns still show the hidden preview properties');

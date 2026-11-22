@@ -919,7 +919,8 @@ function OptionsEditor({ attr: a, type, usage, off: offAttr, locked, w, update }
       <FieldError id={errId} text={error} />
       <button data-command="typeSettings.button21" type="button" className="text-button small" disabled={off} onClick={() => setDraft({ state: 'open', color: null })}><Icon name="plus" size={12} />{t('ts.addOption')}</button>
       {colorFor && createPortal(
-        <PopupMenu fit label={t('ts.optionColors', { label: colorFor.label ?? '' })} anchor={colorFor.anchor}
+        <PopupMenu label={t('ts.optionColors', { label: colorFor.label ?? '' })} anchor={colorFor.anchor}
+          placement={colorFor.anchor.getBoundingClientRect().top > window.innerHeight / 2 ? 'above' : 'below'}
           entries={COLORS.map((c) => ({
             kind: 'radio' as const, key: c, label: t(`color.${c}`), checked: colorName(colorFor.label === null ? draft?.color : a.options.find((o) => o.label === colorFor.label)?.color) === c,
             content: <><span className="option-dot" aria-hidden="true" style={{ background: `var(--type-${c})` }} />{t(`color.${c}`)}</>,

@@ -506,7 +506,10 @@ test('fr_qry_07_ac17_view_placeholders_removed', async ({ page }) => {
   assert.equal(await main(page).getByText('Coming in v1.0').count(), 0, 'no `Coming in v1.0`');
   await click(main(page).getByRole('button', { name: 'Type settings', exact: true }), 'Type settings');
   await must(page.getByRole('heading', { level: 1, name: 'Book type settings', exact: true }), 'Book type settings', 5000);
-  assert.equal(await main(page).getByRole('region', { name: 'Views', exact: true }).count(), 0, 'Type settings has no Views section');
+  // Slice OC (D-1959, types.md FR-TYP-01 AC-25): the Views section lists the real views, nothing says `Coming in`.
+  const views = main(page).getByRole('region', { name: 'Views', exact: true });
+  assert.equal(await views.count(), 1, 'Type settings has the Views section');
+  assert.equal(await views.getByText(/Coming in/).count(), 0, 'no `Coming in` control in it');
 });
 
 test('fr_qry_07_ac18_columns_reorder_by_header_drag', async ({ page }) => {
