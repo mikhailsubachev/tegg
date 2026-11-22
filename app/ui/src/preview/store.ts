@@ -88,6 +88,18 @@ export function updatePrefs(f: (d: PreviewUiDto) => PreviewUiDto | undefined): v
 }
 
 let inside: ((target: PreviewTarget) => void) | null = null;
+/** How many entries the open preview's history holds (1: its own content; more: a link inside replaced it, D-932). */
+let depth = 1;
+/** The open preview reports its history's length (PreviewPopover). */
+export function setInsideDepth(n: number): void {
+  depth = n;
+}
+/** Whether the open preview still shows its own target, not a link followed inside it (D-932, D-1170). A hover
+ *  controller asks this before it keeps a preview: back on the reference, the reference's own content shows again
+ *  (graph.md FR-GRP-06 AC-12). */
+export function showsOwnTarget(): boolean {
+  return depth <= 1;
+}
 let lastInside: { target: PreviewTarget; at: number } | null = null;
 const DOUBLE_CLICK_MS = 500;
 /** The reference whose click just replaced the preview's content, when a double-click now belongs to it (its first
@@ -118,6 +130,7 @@ export function show(target: PreviewTarget, anchor: PreviewAnchor, origin: Previ
   }
   prefetch?.(target);
   const lines = extraLines === undefined ? [] : typeof extraLines === 'string' ? [extraLines] : extraLines.filter((l) => l !== '');
+  depth = 1;
   current = { target, origin, anchor, host: h ?? { placement: 'popover' }, extraLines: lines, extraAction: extraAction ?? null, opts, seq: ++seq };
   emit();
 }

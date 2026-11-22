@@ -9,7 +9,7 @@ import { t } from '../i18n/catalog';
 import { events, ipc } from '../ipc/client';
 import { chipIcon, chipTypes, typeNameOf } from '../links/icons';
 import { usePreview } from '../preview/PreviewProvider';
-import { getCurrent } from '../preview/store';
+import { getCurrent, showsOwnTarget } from '../preview/store';
 import type { GraphCommandId, GraphStatus } from '../shell/commands';
 import { Icon } from '../shell/Icon';
 import { GraphCanvas, nodeBox, shapeHalf, type View } from './GraphCanvas';
@@ -344,7 +344,8 @@ export function GraphPage(p: GraphPageProps) {
     showing: (k) => {
       const c = getCurrent();
       const n = modelRef.current?.nodes.find((x) => x.key === k);
-      return !!c && !!n && c.origin === 'hover' && 'el' in c.anchor && c.anchor.el === elementOf(k);
+      // A link inside the preview replaced its content (D-1170): back on the node, its own preview shows again.
+      return !!c && !!n && c.origin === 'hover' && 'el' in c.anchor && c.anchor.el === elementOf(k) && showsOwnTarget();
     },
     ring: (k) => {
       if (k === null) { setRing(null); return; }

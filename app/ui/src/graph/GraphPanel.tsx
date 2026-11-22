@@ -12,7 +12,7 @@ import { events, ipc } from '../ipc/client';
 import type { TypeDefDto } from '../ipc/types';
 import { typeNameOf } from '../links/icons';
 import { usePreview } from '../preview/PreviewProvider';
-import { close as closePreview, getCurrent as currentPreview } from '../preview/store';
+import { close as closePreview, getCurrent as currentPreview, showsOwnTarget } from '../preview/store';
 import type { PreviewTarget } from '../preview/types';
 import type { GraphCommandId, GraphStatus } from '../shell/commands';
 import { Icon } from '../shell/Icon';
@@ -462,7 +462,8 @@ export function GraphPanel(p: GraphPanelProps) {
     hide: () => { if (currentPreview()?.origin === 'hover') closePreview('outside'); },
     showing: (k) => {
       const c = currentPreview();
-      return !!c && c.origin === 'hover' && 'el' in c.anchor && c.anchor.el === elementOf(k);
+      // A link inside the popover replaced its content (D-1170): back on the node, its own preview shows again.
+      return !!c && c.origin === 'hover' && 'el' in c.anchor && c.anchor.el === elementOf(k) && showsOwnTarget();
     },
     ring: (k) => {
       if (k === null) { setRing(null); return; }
