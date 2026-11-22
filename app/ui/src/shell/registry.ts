@@ -67,16 +67,16 @@ export const ROUTES: RouteDef[] = [
   { id: 'duplicate-titles', name: 'route.duplicateTitles', purpose: 'purpose.duplicateTitles', status: { built: true, due: { milestone: 'MS4', slice: '4A' } }, reqs: ['FR-LNK-14'], design: null },
   { id: 'conflicts', name: 'route.conflicts', purpose: 'purpose.conflicts', status: built, reqs: ['FR-SYN-04', 'FR-SYN-05'], design: null },
   // 5B R62 (D-563): `capture` is a window, not a route.
-  { id: 'settings/appearance', name: 'route.settings.appearance', purpose: 'purpose.settings.appearance', status: built, reqs: ['FR-SET-02'], design: null },
-  { id: 'settings/date-time', name: 'route.settings.dateTime', purpose: 'purpose.settings.dateTime', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-03'], design: null },
-  { id: 'settings/vault', name: 'route.settings.vault', purpose: 'purpose.settings.vault', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-01'], design: null },
-  { id: 'settings/shortcuts', name: 'route.settings.shortcuts', purpose: 'purpose.settings.shortcuts', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-04'], design: null },
-  { id: 'settings/menu-bar', name: 'route.settings.menuBar', purpose: 'purpose.settings.menuBar', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-05'], design: null },
-  { id: 'settings/backups', name: 'route.settings.backups', purpose: 'purpose.settings.backups', status: { built: true, due: { milestone: 'MS4' } }, reqs: ['FR-HIS-04', 'NFR-REL-04'], design: null },
-  { id: 'settings/trash-history', name: 'route.settings.trashHistory', purpose: 'purpose.settings.trashHistory', status: tbd('v1.0'), reqs: ['FR-SET-06'], design: null },
+  { id: 'settings/appearance', name: 'route.settings.appearance', purpose: 'purpose.settings.appearance', status: built, reqs: ['FR-SET-02'], design: 'Settings' },
+  { id: 'settings/date-time', name: 'route.settings.dateTime', purpose: 'purpose.settings.dateTime', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-03'], design: 'Settings' },
+  { id: 'settings/vault', name: 'route.settings.vault', purpose: 'purpose.settings.vault', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-01'], design: 'Settings' },
+  { id: 'settings/shortcuts', name: 'route.settings.shortcuts', purpose: 'purpose.settings.shortcuts', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-04'], design: 'Settings' },
+  { id: 'settings/menu-bar', name: 'route.settings.menuBar', purpose: 'purpose.settings.menuBar', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-05'], design: 'Settings' },
+  { id: 'settings/backups', name: 'route.settings.backups', purpose: 'purpose.settings.backups', status: { built: true, due: { milestone: 'MS4' } }, reqs: ['FR-HIS-04', 'NFR-REL-04'], design: null }, // D-1994 says `Settings`; registry_4d still asserts null (open point for the owner)
+  { id: 'settings/trash-history', name: 'route.settings.trashHistory', purpose: 'purpose.settings.trashHistory', status: tbd('v1.0'), reqs: ['FR-SET-06'], design: 'Settings' },
   // D-608: Help › Keyboard Shortcuts (FR-UX-03 AC-14).
   { id: 'help/shortcuts', name: 'route.help.shortcuts', purpose: 'purpose.help.shortcuts', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-UX-03'], design: null },
-  { id: 'settings/previews', name: 'route.settings.previews', purpose: 'purpose.settings.previews', status: built, reqs: ['FR-SET-07'], design: null },
+  { id: 'settings/previews', name: 'route.settings.previews', purpose: 'purpose.settings.previews', status: built, reqs: ['FR-SET-07'], design: 'Settings' },
 ];
 
 export const PANEL_TABS: TabDef[] = [
