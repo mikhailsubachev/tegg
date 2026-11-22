@@ -427,6 +427,8 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
 
 ### AR-08 The Android release (AP-2023: AR-08 gains the APK)
 
+**Moved to AND-3's gate (D-2043).** The first APK is released after AND-3 (D-2042). Until then `npm run app:release -- <v>` builds the Mac app only and `--apk` opts in to the APK; where AC-1 says the APK is built by default and `--no-apk` skips it, read `--apk` adds it. The machinery stays built and its L1 and APK tests stay in the gates.
+
 - **AC-1** **One command (D-2011; AP-2022).** `cd app && npm run app:release -- 0.5.0`, on a clean checkout of `main` with the signing config present (AC-3), does the following:
   - it builds `Tegg.app` as today (D-1512, D-1514) and a release APK (RA1);
   - it leaves `Tegg-0.5.0.dmg`, `Tegg-0.5.0.zip` and `Tegg-0.5.0.apk` in `app/src-tauri/target/release/bundle/release/`;

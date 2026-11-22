@@ -1,7 +1,7 @@
-// D-1514, D-1512, D-2011, D-2022: build a Tegg release. `npm run app:release -- <MAJOR.MINOR.PATCH> [--no-apk]` (run
+// D-1514, D-1512, D-2011, D-2022: build a Tegg release. `npm run app:release -- <MAJOR.MINOR.PATCH> [--apk]` (run
 // from `app/`, in a clean checkout of main) builds Tegg.app and its DMG with the release identity (feature `preview`,
 // tauri.preview.conf.json: bundle id `app.tegg.preview`, Application Support `Tegg Preview`) and, unless `--no-apk`, the
-// signed release APK (`app.tegg.preview`, the owner's key, D-2021). It sets the version and the sidebar label
+// signed release APK with `--apk` (`app.tegg.preview`, the owner's key, D-2021; Mac only by default until AND-3, D-2043). It sets the version and the sidebar label
 // (`TEGG_VERSION`), checks the APK (tools/qa apk-check), then installs `~/Applications/Tegg.app` (removing the old
 // `Tegg Preview.app`) and leaves `Tegg-<v>.dmg`, `Tegg-<v>.zip` and `Tegg-<v>.apk` in
 // `src-tauri/target/release/bundle/release/`. The steps are planned in release-plan.mjs.
@@ -13,8 +13,9 @@ import { defaultSigningPath, releasePlan, signingConfig, versionCode } from './r
 
 const args = process.argv.slice(2);
 const version = args.find((a) => !a.startsWith('--')) ?? '';
-const apk = !args.includes('--no-apk');
-const usage = () => { console.error('usage: npm run app:release -- <MAJOR.MINOR.PATCH> [--no-apk]   (e.g. 0.1.0; MINOR and PATCH at most 999)'); process.exit(2); };
+// D-2043: Mac only until AND-3 releases the first APK (D-2042); `--apk` opts in.
+const apk = args.includes('--apk');
+const usage = () => { console.error('usage: npm run app:release -- <MAJOR.MINOR.PATCH> [--apk]   (e.g. 0.1.0; MINOR and PATCH at most 999)'); process.exit(2); };
 try { versionCode(version); } catch { usage(); }
 
 const app = resolve(import.meta.dirname, '..');
