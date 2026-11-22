@@ -8,7 +8,11 @@
 //   that part stays on the host layers (D-2052).
 // Red-test reading (reported): notes are "opened" with the app's own IPC (`note_read`, as the page does) or with
 // `TEGG_ROUTE`, as the LA harness has no navigation driver. Every test starts with `ready()` (requireDevice: fails,
-// never skips, without an emulator). Written from the ACs and the contract only (D-61).
+// never skips, without an emulator).
+// Slice AND-2 (docs/contracts/android-phone.md CP-6 → D-2088; AC-Test-Change approved by the owner): "the vault opens"
+// is the phone frame's bottom bar `nav[aria-label="Main"]`; FR-FMT-12 AC-15's edit types into the editor, so its second
+// start sets `TEGG_LAYOUT=desktop` (contract §12.1), as the phone layout has no editor in AND-2 (D-2069).
+// Written from the ACs and the contract only (D-61).
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -21,7 +25,8 @@ const EVA = 'Tasks/Zavolat Evě.md';
 const EVA_ID_RE = /^id:\s*(\S+)/m;
 const STRAY = 'Pages/Zavolat Petrovi.md';
 const STRAY_TEXT = '---\nid: 01JAND1STRAY00000000000000\ntype: task\ntitle: Zavolat Petrovi\nstatus: todo\n---\nZavolat Petrovi kvůli chalupě.\n';
-const SIDEBAR = 'nav[aria-label="Sidebar"]';
+/** AND-2 (CP-6): the phone frame's bottom bar, shown once a vault is open on the phone layout. */
+const FRAME = 'nav[aria-label="Main"]';
 
 let installed = false;
 const views: WebView[] = [];
@@ -42,7 +47,7 @@ async function launch(vault: string, env: Record<string, string> = {}): Promise<
   const pid = start(TEST_ID);
   const v = await webview(TEST_ID);
   views.push(v);
-  assert.ok(await v.waitFor(SIDEBAR, 30_000), 'the vault opens');
+  assert.ok(await v.waitFor(FRAME, 30_000), 'the vault opens');
   return { pid, v };
 }
 const idleMarks = () => perfMarks(TEST_ID).filter((m) => m.mark === 'index-idle');
@@ -149,7 +154,7 @@ test('fr_fmt_12_ac15_nfd_names_on_android', async () => {
 
   // (d) an edit changes that same file.
   forceStop(TEST_ID);
-  writeTestEnv(TEST_ID, { TEGG_VAULT: vault, TEGG_ROUTE: `note/${nfc}` });
+  writeTestEnv(TEST_ID, { TEGG_VAULT: vault, TEGG_ROUTE: `note/${nfc}`, TEGG_LAYOUT: 'desktop' });
   start(TEST_ID);
   const w = await webview(TEST_ID);
   views.push(w);

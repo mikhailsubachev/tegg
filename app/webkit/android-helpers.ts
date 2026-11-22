@@ -11,6 +11,11 @@
 // `vault_current` answers `null` until the start state is `open` (the Android shell has no vault before that; the page
 // must not ask it at all on Android). A `MutationObserver` installed before the app records whether the chooser
 // (`main[aria-label="Choose a vault"]`) or the permission screen ever entered the DOM.
+//
+// Slice AND-2 (docs/contracts/android-phone.md CP-6 → D-2088): `'android'` gets the phone layout (D-2070), so these
+// AND-1 tests of the client and the start flow force the desktop layout with `window.__TEGG_LAYOUT__ = 'desktop'`
+// (§4.1, §12.2), the default of `layout`. The phone harness (./phone-helpers.ts, §14.1) passes `layout: null` (unset)
+// and adds its own fake-core handlers through `beforeGoto`.
 import type { Page } from '@playwright/test';
 import { installFakeCore, shellVault, type FakeCoreHandle, type FakeOptions, type FakeVault } from '../ui/test/fake-core';
 
@@ -37,6 +42,10 @@ export type AndroidOptions = FakeOptions & {
   found?: FoundVaultDto[];
   findHoldMs?: number;
   granted?: boolean;
+  /** `window.__TEGG_LAYOUT__` before the app's scripts (CP-6): `desktop` by default; `null` leaves it unset. */
+  layout?: 'desktop' | 'phone' | null;
+  /** Runs after the fake core's init scripts and before `page.goto('/')` (more init scripts, e.g. the phone harness). */
+  beforeGoto?: () => Promise<void>;
 };
 
 /** The shell fixture named `shell` at `SHELL_PATH`, landing on Eva (FR-UX-02 AC-16 (a)). */
@@ -63,6 +72,7 @@ export async function startAndroid(page: Page, o: AndroidOptions = {}): Promise<
   await page.addInitScript((cfg) => {
     const w = window as any;
     w.__TEGG_PLATFORM__ = cfg.platform;
+    if (cfg.layout) w.__TEGG_LAYOUT__ = cfg.layout;
     w.__teggSeen = { chooser: false, access: false };
     const check = () => {
       if (document.querySelector('main[aria-label="Choose a vault"]')) w.__teggSeen.chooser = true;
@@ -94,7 +104,8 @@ export async function startAndroid(page: Page, o: AndroidOptions = {}): Promise<
     };
     h.storage_access = () => ({ granted: !!cfg.granted, sharedRoot: '/storage/emulated/0' });
     h.storage_access_settings = () => { a.settings++; return null; };
-  }, { platform: o.platform ?? 'android', start, holdStartMs: o.holdStartMs ?? 0, found: o.found ?? [], findHoldMs: o.findHoldMs ?? 0, granted: o.granted ?? true });
+  }, { platform: o.platform ?? 'android', start, holdStartMs: o.holdStartMs ?? 0, found: o.found ?? [], findHoldMs: o.findHoldMs ?? 0, granted: o.granted ?? true, layout: o.layout === undefined ? 'desktop' : o.layout });
+  if (o.beforeGoto) await o.beforeGoto();
   await page.goto('/');
   return Object.assign(core, {
     setStart: (dto: StartDto) => page.evaluate((d) => (window as any).__teggAndroidSet(d), dto),

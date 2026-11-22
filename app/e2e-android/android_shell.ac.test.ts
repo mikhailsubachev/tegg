@@ -15,6 +15,11 @@
 //   written with `adb root` (google_apis image), as it isn't debuggable.
 // - "The private files dir's listing is the same" (FR-VLT-01 AC-20) leaves out the perf log, which the test itself asks
 //   the app to write there (contract §7.1).
+// - Slice AND-2 (docs/contracts/android-phone.md CP-6 → D-2088; AC-Test-Change approved by the owner): the phone
+//   layout replaces the sidebar on Android (D-2070), so "the vault is open" is the bottom bar `nav[aria-label="Main"]`,
+//   the version label and the vault switcher are read in the drawer (FR-UX-01 AC-8, FR-VLT-01 AC-29), and the tests that
+//   type into the editor (FR-VLT-01 AC-22, FR-EDT-08 AC-14) start with `TEGG_LAYOUT=desktop` (contract §12.1), as the
+//   phone layout has no editor in AND-2 (D-2069).
 // Written from the ACs and the contract only (D-61).
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -34,6 +39,10 @@ const EVA = 'Tasks/Zavolat Evě.md';
 const CHOOSER = 'main[aria-label="Choose a vault"]';
 const ACCESS = 'main[aria-label="Allow access to your notes"]';
 const SIDEBAR = 'nav[aria-label="Sidebar"]';
+/** AND-2 (CP-6): the phone frame's bottom bar, shown once a vault is open on the phone layout. */
+const FRAME = 'nav[aria-label="Main"]';
+/** AND-2 (§12.1, CP-6): `test-env.json`'s switch to the desktop layout, for the tests that type into the editor. */
+const DESKTOP_LAYOUT = { TEGG_LAYOUT: 'desktop' };
 const S = {
   accessTitle: 'Allow access to your notes',
   openSettings: 'Open settings',
@@ -80,7 +89,13 @@ async function launch(o: { vault?: string; access?: 'allow' | 'deny'; env?: Reco
 }
 const text = (v: WebView, selector: string) => v.eval<string>(`(document.querySelector(${JSON.stringify(selector)})?.innerText ?? '')`);
 const hasText = (v: WebView, t: string) => v.eval<boolean>(`document.body.innerText.includes(${JSON.stringify(t)})`);
-const vaultOpen = (v: WebView, ms = 30_000) => v.waitFor(SIDEBAR, ms);
+const vaultOpen = (v: WebView, ms = 30_000, frame = FRAME) => v.waitFor(frame, ms);
+/** AND-2 (RA10, CP-6): opens the drawer with the bottom bar's `Menu`. */
+async function openDrawer(v: WebView) {
+  await v.click('nav[aria-label="Main"] [data-command="phone.menu"]');
+  assert.ok(await v.waitFor('[role="dialog"][aria-label="Navigation"]', 3000), 'the drawer (dialog "Navigation") opens');
+}
+const DRAWER = '[role="dialog"][aria-label="Navigation"]';
 const privateFiles = () => runAs(TEST_ID, 'cd files && find . -type f -exec stat -c "%n %s" {} \\;', false).split('\n').filter(Boolean).sort();
 const ok = <T>(r: { ok: boolean; v?: T; e?: unknown }, what: string): T => { assert.ok(r.ok, `${what}: ${JSON.stringify(r.e)}`); return r.v as T; };
 
@@ -194,13 +209,13 @@ test('fr_vlt_01_ac20_no_vault_without_all_files_access', async () => {
   const v = await webview(TEST_ID);
   views.push(v);
   const chooser = await v.observeNever(CHOOSER);
-  const side = await v.observeNever(SIDEBAR);
+  const side = await v.observeNever(FRAME);
   assert.ok(await v.waitFor(ACCESS, 30_000), `the permission screen "${S.accessTitle}"`);
   assert.ok(await hasText(v, `Vault: ${vault}`), `it names the vault: "Vault: ${vault}"`);
   assert.equal((await text(v, `${ACCESS} [data-command="android.openSettings"]`)).trim(), S.openSettings, 'the button Open settings');
   await sleep(3000);
   assert.equal(await chooser(), false, 'no chooser');
-  assert.equal(await side(), false, 'no sidebar, so no type count');
+  assert.equal(await side(), false, 'no vault frame (bottom bar), so no type count');
   assert.ok(!perfMarks(TEST_ID).some((m) => m.mark === 'vault-opened'), 'no vault-opened mark');
   const without = (l: string[]) => l.filter((f) => !/perf\.jsonl/.test(f));
   assert.deepEqual(without(privateFiles()), without(filesBefore), 'the private files dir is the same (no index for the vault)');
@@ -242,8 +257,8 @@ test('fr_vlt_01_ac21_open_settings_and_recheck', async () => {
 test('fr_vlt_01_ac22_access_revoked_while_open', async () => {
   ready();
   const vault = pushShell();
-  const { v } = await launch({ vault, env: { TEGG_ROUTE: `note/${UVODNI}` } });
-  assert.ok(await vaultOpen(v), 'the vault opens on Úvodní');
+  const { v } = await launch({ vault, env: { TEGG_ROUTE: `note/${UVODNI}`, ...DESKTOP_LAYOUT } });
+  assert.ok(await vaultOpen(v, 30_000, SIDEBAR), 'the vault opens on Úvodní');
   const counts = await typeCounts(v);
   const eva = await searchPaths(v, 'Evě');
   await typeAtEnd(v, 'x');
@@ -298,7 +313,7 @@ test('fr_vlt_01_ac25_typed_path', async () => {
     assert.ok(await v.waitFor(CHOOSER, 30_000), 'the chooser');
     await openTyped(v, typed);
     for (const m of messages) assert.ok(await eventually(() => hasText(v, m), (x) => x, 3000), `${typed}: "${m}"`);
-    assert.equal(await v.waitFor(SIDEBAR, 300), false, `${typed}: no vault opens`);
+    assert.equal(await v.waitFor(FRAME, 300), false, `${typed}: no vault opens`);
   }
   assert.equal(sh(`ls -laR ${SHARED}/Documents/tegg-la-x`, false), docsBefore, 'no refused path created or changed anything');
 });
@@ -405,11 +420,14 @@ test('fr_vlt_01_ac28_vault_rules_on_android', async () => {
   const index = privateFiles().filter((f) => !filesBefore.includes(f) && !/perf\.jsonl|test-env\.json|ui-state\.json|recent|last-vault/.test(f));
   assert.ok(index.length > 0, `its index lives in the private files dir (FR-STO-07 AC-13): ${index.join(', ')}`);
   assert.equal(sh(`find ${quote(vault)} -newer ${quote(`${vault}/.tegg/vault.yml`)} -type f`, false).trim(), '', 'no file in the vault is newer than before');
-  await v.click('button[aria-label$=". Switch vault"]');
+  await openDrawer(v);
+  await v.click(`${DRAWER} button[aria-label$=". Switch vault"]`);
   assert.ok(await v.waitFor('[role="menu"][aria-label="Vaults"]', 3000), 'the switcher menu');
   await v.eval(`(() => { const i = [...document.querySelectorAll('[role="menu"][aria-label="Vaults"] [role="menuitem"]')].find((e) => e.textContent.trim().startsWith('Open folder as vault')); i.click(); return true; })()`);
   await openTyped(v, second);
-  assert.ok(await v.waitFor('button[aria-label="Vault: Můj trezor. Switch vault"]', 10_000), 'the second vault opens from the switcher');
+  assert.ok(await v.waitFor(FRAME, 10_000), 'a vault is open after the switch');
+  if (!(await v.waitFor(DRAWER, 300))) await openDrawer(v);
+  assert.ok(await v.waitFor(`${DRAWER} button[aria-label="Vault: Můj trezor. Switch vault"]`, 10_000), 'the second vault opens from the switcher');
   assert.deepEqual(fileState(vault), before, 'the first vault is closed untouched (AC-8)');
   const recent = ok(await v.invoke('vault_recent'), 'vault_recent') as { path: string; exists: boolean }[];
   for (const p of [vault, second]) {
@@ -453,8 +471,8 @@ test('fr_sto_07_ac13_machine_local_in_private_storage', async () => {
 test('fr_edt_08_ac14_flush_when_backgrounded', async () => {
   ready();
   const vault = pushShell();
-  const { v } = await launch({ vault, env: { TEGG_ROUTE: `note/${UVODNI}` } });
-  assert.ok(await vaultOpen(v), 'Úvodní is open');
+  const { v } = await launch({ vault, env: { TEGG_ROUTE: `note/${UVODNI}`, ...DESKTOP_LAYOUT } });
+  assert.ok(await vaultOpen(v, 30_000, SIDEBAR), 'Úvodní is open');
   await typeAtEnd(v, 'Ahoj');
   home();
   await sleep(2000);
@@ -493,7 +511,8 @@ test('fr_ux_01_ac7_version_label_on_android', async () => {
   const vault = pushShell();
   const { v } = await launch({ vault });
   assert.ok(await vaultOpen(v), 'the test APK opens the vault');
-  assert.equal((await text(v, `${SIDEBAR} button[aria-label="Tegg: About and Settings"]`)).trim(), 'dev', 'the test APK shows dev');
+  await openDrawer(v);
+  assert.equal((await text(v, `${DRAWER} button[aria-label="Tegg: About and Settings"]`)).trim(), 'dev', 'the test APK shows dev (in the drawer, FR-UX-01 AC-8)');
 
   install(releaseApk());
   adb(['shell', `pm clear ${RELEASE_ID}`]);
@@ -506,8 +525,9 @@ test('fr_ux_01_ac7_version_label_on_android', async () => {
   // D-2051: the label is read through DevTools (the LA's release-variant APK is debuggable; the real release is not).
   const rv = await webview(RELEASE_ID);
   views.push(rv);
-  assert.ok(await rv.waitFor(SIDEBAR, 30_000), 'the release-variant APK opens the vault');
-  assert.equal((await text(rv, `${SIDEBAR} button[aria-label="Tegg: About and Settings"]`)).trim(), 'v0.5.0', 'the release APK built for 0.5.0 shows v0.5.0 on the sidebar\'s bottom-left button');
+  assert.ok(await rv.waitFor(FRAME, 30_000), 'the release-variant APK opens the vault');
+  await openDrawer(rv);
+  assert.equal((await text(rv, `${DRAWER} button[aria-label="Tegg: About and Settings"]`)).trim(), 'v0.5.0', 'the release APK built for 0.5.0 shows v0.5.0 on the drawer\'s version button (FR-UX-01 AC-8)');
 });
 
 // ------------------------------------------------------------------------------------------------ NFR-SEC-01 AC-3
