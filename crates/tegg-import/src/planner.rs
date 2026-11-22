@@ -408,7 +408,7 @@ fn new_def(name: &str, folder: &str) -> TypeFile {
 }
 
 fn attr_def(key: &str, name: &str, kind: AttrType) -> AttrDef {
-    AttrDef { key: key.to_string(), name: name.to_string(), r#type: kind, default: None, required: false, options: Vec::new(), to: None, multiple: false, description: None, built_in: false }
+    AttrDef { key: key.to_string(), name: name.to_string(), r#type: kind, default: None, required: false, options: Vec::new(), to: None, multiple: false, description: None, built_in: false, icon: None }
 }
 
 /// §4.1 "Key of a new attribute": the final key of a default name, with the reason when it differs.

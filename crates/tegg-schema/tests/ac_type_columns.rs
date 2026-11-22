@@ -354,6 +354,7 @@ fn ar_07_ac8_every_other_op_leaves_the_columns_lines_byte_identical() {
             multiple: false,
             description: None,
             built_in: false,
+            icon: None,
         };
         let ops: Vec<(&str, TypeOp)> = vec![
             ("colour", TypeOp::SetColor("red".into())),

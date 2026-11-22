@@ -34,7 +34,10 @@
       "minimumSystemVersion": "14.0",
       "signingIdentity": "-",
       "hardenedRuntime": true,
-      "entitlements": "entitlements.plist"
+      "entitlements": "entitlements.plist",
+      "files": {
+        "Resources/Credits.rtf": "./Credits.rtf"
+      }
     }
   }
 }
