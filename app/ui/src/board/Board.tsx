@@ -27,6 +27,14 @@ export type BoardLaneView = {
   grip: boolean;
   /** `New <Type> in <lane>`; null: no new control. */
   newLabel: string | null;
+  /** Q2-T (§28.2): the `period:week` lane's day groups (`id` = `day:<date>`, the drop and keyboard target). */
+  days?: { id: string; date: string; label: string; cards: string[]; dropTarget: boolean; countLabel?: string }[];
+  /** Q2-T: the hint under the heading (`p.lane-hint`: the done lane's window). */
+  hint?: string;
+  /** Q2-T: the heading's tone (`data-tone`). */
+  tone?: 'danger' | 'muted' | null;
+  /** Q2-T: the count part of the lane's accessible name (`board.laneCountOf`); `board.laneCount` by default. */
+  countLabel?: string;
 };
 
 export type CardSlotProps = {
@@ -64,13 +72,23 @@ export type BoardProps = {
   /** Called when a card element is focused or blurred (the palette's card commands). */
   onCardFocus?: (key: string | null, laneId: string | null) => void;
   /** The card to focus once it is in the DOM (Back to the board, a moved card). */
-  focusRequest?: { key: string; laneId: string | null; n: number } | null;
+  focusRequest?: { key: string; laneId: string | null; n: number; keepScroll?: boolean } | null;
 };
 
 /** At most this many card elements in the DOM (NFR-PERF-07 AC-3). */
 const MAX_DOM_CARDS = 150;
 const BUFFER = 4;
 const CARD_GAP = 8;
+
+/** A lane or a day group by id (`day:<date>`). */
+function targetOf(data: BoardLaneView[], id: string): { dropTarget: boolean; lane: BoardLaneView } | null {
+  for (const l of data) {
+    if (l.id === id) return { dropTarget: l.dropTarget, lane: l };
+    const d = l.days?.find((x) => x.id === id);
+    if (d) return { dropTarget: d.dropTarget, lane: l };
+  }
+  return null;
+}
 
 const cssId = (id: string) => Array.from(id.normalize('NFC')).map((ch) => (/[A-Za-z0-9_-]/.test(ch) ? ch : `_${ch.codePointAt(0)!.toString(16)}`)).join('');
 
@@ -97,10 +115,10 @@ export function Board(p: BoardProps) {
   const firstCard = (() => { for (const l of p.data) if (l.cards.length && !(folded.has(l.id) && !vertical)) return { key: l.cards[0], lane: l.id }; return null; })();
   const current = active && p.data.some((l) => l.id === active.lane && l.cards.includes(active.key)) ? active : firstCard;
   const cardEl = (key: string, lane: string) => root.current?.querySelector<HTMLElement>(`article[data-board-card="${CSS.escape(key)}"][data-lane="${CSS.escape(lane)}"]`) ?? null;
-  const focusCard = (key: string, lane: string) => {
+  const focusCard = (key: string, lane: string, keepScroll = false) => {
     setActive({ key, lane });
-    const go = (n: number) => { const el = cardEl(key, lane); if (el) el.focus(); else if (n < 10) requestAnimationFrame(() => go(n + 1)); };
-    reveal(key, lane);
+    const go = (n: number) => { const el = cardEl(key, lane); if (el) el.focus(keepScroll ? { preventScroll: true } : undefined); else if (n < 10) requestAnimationFrame(() => go(n + 1)); };
+    if (!keepScroll) reveal(key, lane);
     go(0);
   };
   // Each request is handled once, as soon as its card is on the board.
@@ -111,7 +129,7 @@ export function Board(p: BoardProps) {
     const lane = r.laneId && p.data.some((l) => l.id === r.laneId && l.cards.includes(r.key)) ? r.laneId : p.data.find((l) => l.cards.includes(r.key))?.id;
     if (!lane) return;
     handled.current = r.n;
-    focusCard(r.key, lane);
+    focusCard(r.key, lane, !!r.keepScroll);
   }, [p.focusRequest?.n, p.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // A focused card that is drawn again (it moved lanes, or an answer redrew it) keeps the focus on its new element.
@@ -129,6 +147,8 @@ export function Board(p: BoardProps) {
     const li = lanes.findIndex((l) => l.id === lane);
     if (li < 0) return;
     const ci = lanes[li].cards.indexOf(key);
+    // D-1905: ⌥←/⌥→ (and other modified arrows) do nothing on boards.
+    if ((e.altKey || e.metaKey || e.ctrlKey) && e.key.startsWith('Arrow')) return;
     const within = vertical ? ['ArrowUp', 'ArrowDown'] : ['ArrowLeft', 'ArrowRight'];
     const across = vertical ? ['ArrowLeft', 'ArrowRight'] : ['ArrowUp', 'ArrowDown'];
     if (within.includes(e.key)) {
@@ -189,7 +209,12 @@ export function Board(p: BoardProps) {
   const cardDrag = (key: string, from: string, x0: number, y0: number) => {
     let started = false;
     let cancelled = false;
-    const overAt = (x: number, y: number) => laneAt(x, y)?.getAttribute('data-lane') ?? null;
+    const overAt = (x: number, y: number) => {
+      const sec = laneAt(x, y);
+      if (!sec) return null;
+      const day = [...sec.querySelectorAll<HTMLElement>('div[data-day]')].find((d) => inBox(d, x, y));
+      return day ? `day:${day.getAttribute('data-day')}` : sec.getAttribute('data-lane');
+    };
     const esc = (k: KeyboardEvent) => {
       if (k.key !== 'Escape' || !started) return;
       k.preventDefault(); k.stopPropagation();
@@ -217,8 +242,8 @@ export function Board(p: BoardProps) {
       setDrag(null);
       if (cancelled) return;
       const to = overAt(u.clientX, u.clientY);
-      const lane = live.current.data.find((l) => l.id === to);
-      if (lane && lane.dropTarget && lane.id !== from && live.current.dropLabel(key, from, lane.id, u.altKey) !== null) live.current.onCardDrop(key, from, lane.id, u.altKey);
+      const target = to ? targetOf(live.current.data, to) : null;
+      if (to && target && target.dropTarget && to !== from && live.current.dropLabel(key, from, to, u.altKey) !== null) live.current.onCardDrop(key, from, to, u.altKey);
     };
     window.addEventListener('mousemove', moveH, true);
     window.addEventListener('mouseup', up, true);
@@ -333,6 +358,17 @@ export function Board(p: BoardProps) {
     setTick((n) => n + 1);
   };
 
+  const slotFor = (key: string, laneId: string): CardSlotProps => ({
+    tabIndex: current && current.key === key && current.lane === laneId ? 0 : -1,
+    'data-lane': laneId,
+    onFocus: (e?: React.FocusEvent<HTMLElement>) => { setActive({ key, lane: laneId }); if (e?.currentTarget) focused.current = { el: e.currentTarget, key }; p.onCardFocus?.(key, laneId); },
+    onKeyDown: (e) => { if (e.target === e.currentTarget) move(key, laneId, e); },
+    onMouseDown: startCardDrag(key, laneId),
+    onDragStart: (e) => e.preventDefault(),
+    draggable: false,
+    dragging: !!drag && drag.key === key && drag.from === laneId,
+  });
+
   return (
     <div ref={root} role="group" aria-label={p.label} data-user-content="" data-board="" data-lanes={p.lanes} data-group-by={p.groupBy}
       data-board-name={p.name ?? undefined} className={`board board-${p.lanes}${drag ? ' dragging' : ''}`}>
@@ -340,21 +376,22 @@ export function Board(p: BoardProps) {
         {p.data.map((l) => {
           const isFolded = !vertical && folded.has(l.id);
           const headingId = `lane-${cssId(p.name ?? 'inline')}-${cssId(l.id)}`;
-          const over = drag && drag.over === l.id && l.id !== drag.from ? p.dropLabel(drag.key, drag.from, l.id, drag.alt) : null;
+          const overDay = drag && drag.over && drag.over !== drag.from && l.days?.some((d) => d.id === drag.over) ? drag.over : null;
+          const over = drag && drag.over && drag.over !== drag.from && (drag.over === l.id || overDay) ? p.dropLabel(drag.key, drag.from, drag.over, drag.alt) : null;
           const laneOver = laneDrag?.over?.id === l.id && laneDrag.id !== l.id ? (laneDrag.over.before ? 'before' : 'after') : null;
-          const win = isFolded ? { from: 0, to: 0, perRow: 1 } : windowOf(l.id, l.cards.length);
+          const win = isFolded ? { from: 0, to: 0, perRow: 1 } : l.days?.length ? { from: 0, to: l.cards.length, perRow: 1 } : windowOf(l.id, l.cards.length);
           const h = (cardH.current || 96) + CARD_GAP;
           const padTop = Math.ceil(win.from / win.perRow) * h;
           const padBottom = Math.ceil((l.cards.length - win.to) / win.perRow) * h;
           return (
-            <section key={l.id} role="region" aria-label={t('a11y.nameCount', { name: l.label, count: t('board.laneCount', { count: l.cards.length }) })}
+            <section key={l.id} role="region" aria-label={t('a11y.nameCount', { name: l.label, count: l.countLabel ?? t('board.laneCount', { count: l.cards.length }) })}
               aria-description={l.excluded ? t('board.excluded') : undefined}
               data-lane={l.id} data-lane-kind={l.kind} data-excluded={l.excluded ? '' : undefined} data-drop-target={l.dropTarget ? 'true' : 'false'}
-              data-folded={isFolded ? '' : undefined}
+              data-folded={isFolded ? '' : undefined} data-color={l.kind === 'done' && l.color ? l.color : undefined}
               className={['board-lane', l.excluded ? 'excluded' : '', over !== null ? 'drop-over' : '', laneOver ? `lane-drop-${laneOver}` : '', laneDrag?.id === l.id ? 'lane-dragging' : ''].filter(Boolean).join(' ')}>
               <header className="board-lane-head">
                 {!vertical && (
-                  <button type="button" tabIndex={0} className="icon-button small lane-fold" aria-expanded={!isFolded}
+                  <button type="button" tabIndex={0} className="icon-button small lane-fold" aria-expanded={!isFolded} data-command="board.toggleLane"
                     aria-label={t(isFolded ? 'board.expand' : 'board.collapse', { lane: l.label })}
                     onClick={(e) => p.onFold(l.id, e.altKey)}>
                     <Icon name={isFolded ? 'chevron-right' : 'chevron-down'} size={13} />
@@ -367,27 +404,40 @@ export function Board(p: BoardProps) {
                     <Icon name="grip" size={13} />
                   </span>
                 )}
-                <h2 id={headingId} data-color={l.kind === 'option' && l.color ? l.color : undefined}
-                  style={l.kind === 'option' && l.color ? { color: `var(--type-${l.color})` } : undefined}>
+                <h2 id={headingId} data-color={(l.kind === 'option' || l.kind === 'done') && l.color ? l.color : undefined} data-tone={l.tone ?? undefined}
+                  style={(l.kind === 'option' || l.kind === 'done') && l.color ? { color: `var(--type-${l.color})` } : undefined}>
                   <span data-user-content={l.userLabel ? '' : undefined}>{l.label}</span>
                 </h2>
                 <span className="count" aria-hidden="true">{l.cards.length}</span>
               </header>
+              {l.hint && <p className="lane-hint">{l.hint}</p>}
               {l.excluded && <p className="lane-excluded">{l.excludedText}</p>}
-              {over !== null && <div className="board-drop" role="presentation">{over}</div>}
-              {!isFolded && (
+              {over !== null && !overDay && <div className="board-drop" role="presentation">{over}</div>}
+              {!isFolded && l.days && l.days.length > 0 && (
+                <div className="board-days">
+                  {l.days.map((d) => (
+                    <div key={d.id} role="group" aria-label={t('a11y.nameCount', { name: d.label, count: d.countLabel ?? t('board.laneCount', { count: d.cards.length }) })}
+                      data-day={d.date} data-drop-target={d.dropTarget ? 'true' : 'false'} className={`board-day${overDay === d.id ? ' drop-over' : ''}`}>
+                      <h3 className="day-heading">{d.label}</h3>
+                      {overDay === d.id && over !== null && <div className="board-drop" role="presentation">{over}</div>}
+                      {d.cards.length > 0 && (
+                        <div className="board-cards">
+                          {d.cards.map((key) => p.renderCard(key, l.id, slotFor(key, l.id)))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {!vertical && l.newLabel && !p.readOnly && (
+                    <button type="button" tabIndex={0} className="board-new-tile" data-command="board.newIn" aria-label={l.newLabel} onClick={() => p.onNew(l.id)}>
+                      <Icon name="plus" size={13} />{p.newTile}
+                    </button>
+                  )}
+                </div>
+              )}
+              {!isFolded && !(l.days && l.days.length > 0) && (
                 <div className="board-cards">
                   {padTop > 0 && <div className="board-spacer" aria-hidden="true" style={{ height: padTop, gridColumn: '1 / -1' }} />}
-                  {l.cards.slice(win.from, win.to).map((key) => p.renderCard(key, l.id, {
-                    tabIndex: current && current.key === key && current.lane === l.id ? 0 : -1,
-                    'data-lane': l.id,
-                    onFocus: (e?: React.FocusEvent<HTMLElement>) => { setActive({ key, lane: l.id }); if (e?.currentTarget) focused.current = { el: e.currentTarget, key }; p.onCardFocus?.(key, l.id); },
-                    onKeyDown: (e) => { if (e.target === e.currentTarget) move(key, l.id, e); },
-                    onMouseDown: startCardDrag(key, l.id),
-                    onDragStart: (e) => e.preventDefault(),
-                    draggable: false,
-                    dragging: !!drag && drag.key === key && drag.from === l.id,
-                  }))}
+                  {l.cards.slice(win.from, win.to).map((key) => p.renderCard(key, l.id, slotFor(key, l.id)))}
                   {padBottom > 0 && <div className="board-spacer" aria-hidden="true" style={{ height: padBottom, gridColumn: '1 / -1' }} />}
                   {!vertical && l.newLabel && !p.readOnly && (
                     <button type="button" tabIndex={0} className="board-new-tile" data-command="board.newIn" aria-label={l.newLabel} onClick={() => p.onNew(l.id)}>

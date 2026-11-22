@@ -1,15 +1,17 @@
 // 5B preview feedback F5 (docs/feedback/ms5-5b.md): a Kanban column is a drop target over its whole height, also
 // below its last card (tasks.md R42, FR-TSK-05 AC-2).
+// Slice Q2-T (AC-Test-Change, D-1912; views.md part three, row FR-TSK-05 AC-1, AC-3, AC-7, AC-11, AC-12, AC-14): the
+// Kanban tab of `type/task`; its lanes are `section[data-lane]` inside the board.
 import { test } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { T, column, eventually, gotoKanban, main, must, original, sleep, startTasks, swap, touched, writesOf } from './tasks-helpers';
+import { T, column, eventually, gotoKanban, main, must, viewsOriginal as original, sleep, startTasksPage as startTasks, swap, touched, writesOf } from './tasks-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
 
 test('bug_ms5b_fr_tsk_05_drop_below_the_last_card', async ({ page }) => {
   const core = await startTasks(page);
   await gotoKanban(page, 'Status');
-  const board = await must(main(page).locator('[data-column]').first().locator('xpath=..'), 'the board');
+  const board = await must(main(page).locator('section[data-lane]').first().locator('xpath=..'), 'the board');
   const boardBox = (await board.boundingBox())!;
   const target = (await (await must(column(page, 'In progress'), 'column In progress')).boundingBox())!;
   const from = await must(column(page, 'To do').getByRole('article', { name: 'Task: Zalít květiny', exact: true }), 'T03 in To do');

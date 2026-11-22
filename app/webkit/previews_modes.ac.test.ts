@@ -5,6 +5,7 @@
 // D-1164's test rule).
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
+import { withTaskViews } from './tasks-helpers'; // D-1924 (AC-Test-Change, slice Q2-T): route only, plus the default task views in the vault (migrations are off in tests, D-1913).
 import {
   PV, ZONE, back, backlinksPanel, chipNamed, description, editorBody, eventually, focusInfo, linkEmbed, main, mainName, mapNode, mark, mindmapFigure,
   mustBeOn, navsSince, need, needClosed, needNoPreview, needOdkazyLink, needPreview, nfc, previewCount, previewPath, previews, previewsVault, props,
@@ -49,8 +50,8 @@ const ROWS: Row[] = [
   { n: 3, name: 'link_mode_embed', kind: 'chip', start: { at: PV.vlozeni }, ref: (p) => need(linkEmbed(editorBody(p), 'Petr Dvořák'), 'link-mode embed Petr'), title: 'Petr Dvořák', path: PV.petr, opened: onNote('Petr Dvořák'), home: 'Vložení' },
   { n: 4, name: 'attribute_relation_chip', kind: 'chip', start: { at: PV.alfa }, ref: (p) => need(chipNamed(props(p), 'Jana Nováková'), 'relation chip Jana'), title: 'Jana Nováková', path: PV.jana, opened: onNote('Jana Nováková'), home: 'Projekt Alfa' },
   { n: 5, name: 'backlinks_chip', kind: 'chip', start: { at: PV.rozpocet, panel: true }, ref: (p) => need(chipNamed(backlinksPanel(p), 'Odkazy'), 'backlinks chip Odkazy'), title: 'Odkazy', path: PV.odkazy, opened: onNote('Odkazy'), home: 'Rozpočet 2027' },
-  { n: 6, name: 'task_source_chip', kind: 'chip', start: { route: 'tasks' }, ref: (p) => need(taskCard(p, 'Zavolat Janě').locator('[data-link-kind]').filter({ hasText: 'Porada 2026-10-27' }), 'source chip'), title: 'Porada 2026-10-27', path: PV.porada, opened: onNote('Porada 2026-10-27'), home: 'Tasks' },
-  { n: 7, name: 'task_card_title', kind: 'card', start: { route: 'tasks' }, ref: (p) => need(taskCard(p, 'Zavolat Janě').getByRole('link', { name: 'Zavolat Janě', exact: true }), 'card title'), title: 'Zavolat Janě', path: PV.ukol, opened: onNote('Zavolat Janě'), home: 'Tasks' },
+  { n: 6, name: 'task_source_chip', kind: 'chip', start: { route: 'tasks', vault: withTaskViews(previewsVault()) }, ref: (p) => need(taskCard(p, 'Zavolat Janě').locator('[data-link-kind]').filter({ hasText: 'Porada 2026-10-27' }), 'source chip'), title: 'Porada 2026-10-27', path: PV.porada, opened: onNote('Porada 2026-10-27'), home: 'Tasks' },
+  { n: 7, name: 'task_card_title', kind: 'card', start: { route: 'tasks', vault: withTaskViews(previewsVault()) }, ref: (p) => need(taskCard(p, 'Zavolat Janě').getByRole('link', { name: 'Zavolat Janě', exact: true }), 'card title'), title: 'Zavolat Janě', path: PV.ukol, opened: onNote('Zavolat Janě'), home: 'Tasks' },
   { n: 8, name: 'search_result_row', kind: 'row', start: { at: PV.odkazy }, go: async (p) => { await searchFor(p, 'rozpočet', 'Rozpočet 2027'); }, ref: (p) => need(p.getByRole('list', { name: 'Search results', exact: true }).getByRole('listitem').filter({ hasText: 'Rozpočet 2027' }), 'result row'), title: 'Rozpočet 2027', path: PV.rozpocet, opened: onNote('Rozpočet 2027'), home: 'Search', focus: async (_p, ref) => { await (await need(ref.getByRole('link').first(), 'the result row\'s link')).focus(); } },
   { n: 9, name: 'type_page_row', kind: 'row', start: { route: 'type/osoba' }, ref: (p) => need(typeTable(p, 'Osoby').getByRole('row').filter({ hasText: 'Petr Dvořák' }), 'row Petr'), title: 'Petr Dvořák', path: PV.petr, opened: onNote('Petr Dvořák'), home: 'Osoby' },
   { n: 10, name: 'inbox_card_title', kind: 'card', start: { route: 'inbox' }, ref: (p) => need(main(p).getByRole('link', { name: 'Nápad na podcast', exact: true }), 'Inbox card title'), title: 'Nápad na podcast', path: PV.napad, opened: onNote('Nápad na podcast'), home: 'Inbox' },

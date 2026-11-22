@@ -2,7 +2,8 @@
 //! `.tegg/queries/`, the query block's runs and the `query-rename` job. The DTOs are the contract's, hand-written in
 //! `app/ui/src/ipc/queries.ts` (as pins). Errors: `Conflict` (payload `disk`: the query as on disk now), `Gone`,
 //! `NewerVersion`, `Unreadable`, `NameTaken`, `EmptyName`, `NotFound`, `Limit`, `NothingToDo`, `Io`, `NoVault`.
-//! `query_run` never fails for a file state (they are `lookup` / `form`).
+//! `query_run` never fails for a file state (they are `lookup` / `form`). Slice Q2-T (v1-views §27): period groupings,
+//! the done lane, state operators, task rows and `task_views_restore`.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -12,10 +13,11 @@ use tegg_core::queries_q::{
     Broken, BrokenReason, FilterItem, Form, GroupKind, Grouping, Lane, LaneKind, Lanes, Lookup, Match, Op, Order, QueryCreate, QueryDef, QueryEnv,
     QueryError, QueryRead, QueryResult, QueryRow, QuerySource, QuerySummary, QueryUsage, RunState, Sort, UsageKind, UsageRun, View, ViewUsage,
 };
+use tegg_core::queries_q::{DayGroup, DoneLane};
 use tegg_core::tegg_jobs::{JobError, JobOp};
 use tegg_core::{Core, CoreError, VaultError};
 
-use crate::dto::{LinkTargetDto, VersionDto};
+use crate::dto::{LinkTargetDto, TaskDefsDto, TaskRowDto, TypeDto, VersionDto};
 use crate::{core, core_err, err, version_dto, version_from, AppState, IpcError};
 
 // ------------------------------------------------------------------------------------------------ DTOs (§2)
@@ -51,6 +53,28 @@ pub struct QueryDefDto {
     pub lanes: String,
     pub lane_order: Option<Vec<String>>,
     pub columns: Vec<String>,
+    /// Slice Q2-T (v1-views §27.2, CP-23): `groupBy` is a period mapping `{ <key>: period }`. Missing reads as false.
+    #[serde(default)]
+    pub group_period: bool,
+    /// Slice Q2-T (R201): null = no `done_lane` (a commit with null removes the key, §24.3). Missing reads as null.
+    #[serde(default)]
+    pub done_lane: Option<DoneLaneDto>,
+}
+
+/// Slice Q2-T (v1-views §27.2, R201).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DoneLaneDto {
+    pub within_days: u32,
+    pub folded: bool,
+}
+
+/// Slice Q2-T (v1-views §27.2, R203): one day of the `period:week` lane.
+#[derive(Debug, Clone, Serialize)]
+pub struct DayGroupDto {
+    /// `YYYY-MM-DD`.
+    pub date: String,
+    pub cards: Vec<LaneCardDto>,
 }
 
 /// v1-views §2 (R187): one card of a lane: `row` indexes `QueryResultDto.rows`.
@@ -64,7 +88,7 @@ pub struct LaneCardDto {
 #[serde(rename_all = "camelCase")]
 pub struct LaneDto {
     pub id: String,
-    /// `option`, `unknown`, `tag`, `relation`, `unresolved` or `none`.
+    /// `option`, `unknown`, `tag`, `relation`, `unresolved`, `none`, `period` or `done`.
     pub kind: String,
     pub value: Option<String>,
     pub label: String,
@@ -73,17 +97,24 @@ pub struct LaneDto {
     pub excluded: bool,
     pub drop_target: bool,
     pub cards: Vec<LaneCardDto>,
+    /// Slice Q2-T: the `period:week` lane's day groups; [] otherwise.
+    pub days: Vec<DayGroupDto>,
+    /// Slice Q2-T: the done lane's and the limited Done-state option lanes' `within_days`; else null.
+    pub done_within: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GroupingDto {
     pub key: String,
-    /// `select`, `multiSelect`, `tags` or `relation`.
+    /// `select`, `multiSelect`, `tags`, `relation` or `period`.
     pub kind: String,
     /// A relation's `multiple`; false for the other kinds.
     pub multiple: bool,
     pub name: String,
     pub lanes: Vec<LaneDto>,
+    /// Slice Q2-T: a period grouping by a Date-time attribute, `created` or `modified` (no drops, D-1917).
+    pub date_time: bool,
 }
 
 /// v1-views §2 (D-1804): a type file whose `views:` lists a query.
@@ -196,6 +227,10 @@ pub struct QueryRowDto {
     pub version: VersionDto,
     pub excerpt: String,
     pub read_only: bool,
+    /// Slice Q2-T (v1-views §24.1): the tag keys (NFC, case-folded), sorted, unique.
+    pub tags: Vec<String>,
+    /// Slice Q2-T (CP-24, D-1916): ms5-tasks §3's row for an object of type `task`; else null.
+    pub task_row: Option<TaskRowDto>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -218,6 +253,17 @@ pub struct QueryResultDto {
     pub group: Option<GroupingDto>,
     /// v1-views §17.3 (D-1854): a tab's or a reference block's usage; null otherwise.
     pub usage: Option<UsageRunDto>,
+    /// Slice Q2-T (CP-24, D-1916): the Task definitions when any row has `taskRow`; else null.
+    pub task_defs: Option<TaskDefsDto>,
+}
+
+/// Slice Q2-T (v1-views §25.3, §27.2): what `task_views_restore` did; `type` is the Task type after the write.
+#[derive(Debug, Clone, Serialize)]
+pub struct TaskViewsRestoreDto {
+    pub created: Vec<String>,
+    pub names: Option<Vec<String>>,
+    pub before: Option<String>,
+    pub r#type: TypeDto,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -290,6 +336,8 @@ pub(crate) fn def_dto(d: QueryDef) -> QueryDefDto {
         lanes: if d.lanes == Lanes::Horizontal { "horizontal" } else { "vertical" }.into(),
         lane_order: d.lane_order,
         columns: d.columns,
+        group_period: d.group_period,
+        done_lane: d.done_lane.map(|x| DoneLaneDto { within_days: x.within_days, folded: x.folded }),
     }
 }
 
@@ -322,6 +370,9 @@ pub(crate) fn def_from(d: QueryDefDto) -> Result<QueryDef, IpcError> {
         lanes: if d.lanes == "horizontal" { Lanes::Horizontal } else { Lanes::Vertical },
         lane_order: d.lane_order,
         columns: d.columns,
+        // v1-views §24.3: `groupPeriod` with `groupBy`; a null `doneLane` removes the key when the file has one.
+        group_period: d.group_period,
+        done_lane: d.done_lane.map(|x| DoneLane { within_days: x.within_days, folded: x.folded }),
     })
 }
 
@@ -341,6 +392,8 @@ fn lane_dto(l: Lane) -> LaneDto {
         LaneKind::Relation => "relation",
         LaneKind::Unresolved => "unresolved",
         LaneKind::None => "none",
+        LaneKind::Period => "period",
+        LaneKind::Done => "done",
     };
     LaneDto {
         id: l.id,
@@ -351,18 +404,25 @@ fn lane_dto(l: Lane) -> LaneDto {
         target: l.target,
         excluded: l.excluded,
         drop_target: l.drop_target,
-        cards: l.cards.into_iter().map(|c| LaneCardDto { row: c.row, raw: c.raw }).collect(),
+        cards: l.cards.into_iter().map(card_dto).collect(),
+        days: l.days.into_iter().map(|d: DayGroup| DayGroupDto { date: d.date.format("%Y-%m-%d").to_string(), cards: d.cards.into_iter().map(card_dto).collect() }).collect(),
+        done_within: l.done_within,
     }
 }
 
+fn card_dto(c: tegg_core::queries_q::LaneCard) -> LaneCardDto {
+    LaneCardDto { row: c.row, raw: c.raw }
+}
+
 fn grouping_dto(g: Grouping) -> GroupingDto {
-    let (kind, multiple) = match g.kind {
-        GroupKind::Select => ("select", false),
-        GroupKind::MultiSelect => ("multiSelect", false),
-        GroupKind::Tags => ("tags", false),
-        GroupKind::Relation { multiple } => ("relation", multiple),
+    let (kind, multiple, date_time) = match g.kind {
+        GroupKind::Select => ("select", false, false),
+        GroupKind::MultiSelect => ("multiSelect", false, false),
+        GroupKind::Tags => ("tags", false, false),
+        GroupKind::Relation { multiple } => ("relation", multiple, false),
+        GroupKind::Period { date_time } => ("period", false, date_time),
     };
-    GroupingDto { key: g.key, kind: kind.into(), multiple, name: g.name, lanes: g.lanes.into_iter().map(lane_dto).collect() }
+    GroupingDto { key: g.key, kind: kind.into(), multiple, name: g.name, lanes: g.lanes.into_iter().map(lane_dto).collect(), date_time }
 }
 
 fn broken_dto(b: Broken) -> BrokenDto {
@@ -432,11 +492,13 @@ fn row_dto(r: QueryRow) -> QueryRowDto {
         created: r.created,
         modified: r.modified,
         values: r.values,
-        links: Vec::new(),
+        links: r.links.into_iter().map(crate::link_dto).collect(),
         task: r.task.map(|t| QueryTaskDto { status: t.status, state: t.state.as_str().into(), due: t.due.map(|d| d.format("%Y-%m-%d").to_string()) }),
         version: version_dto(&r.version),
         excerpt: r.excerpt,
         read_only: r.read_only,
+        tags: r.tags,
+        task_row: r.task_row.map(crate::task_dto),
     }
 }
 
@@ -470,6 +532,7 @@ fn result_dto(r: QueryResult) -> QueryResultDto {
         index_ready: r.index_ready,
         group: r.group.map(grouping_dto),
         usage: r.usage.map(usage_run_dto),
+        task_defs: r.task_defs.map(crate::task_defs_dto),
     }
 }
 
@@ -640,6 +703,19 @@ pub async fn query_usages(state: State<'_, AppState>, name: String) -> Result<Ve
 #[tauri::command]
 pub async fn query_view_usages(state: State<'_, AppState>, name: String) -> Result<Vec<ViewUsageDto>, IpcError> {
     Ok(core(&state)?.query_view_usages(&name).into_iter().map(|u: ViewUsage| ViewUsageDto { r#type: u.type_key, path: u.path }).collect())
+}
+
+/// Slice Q2-T (v1-views §25.3, §27.1; CP-26, D-1918): `Restore default views`. Errors as `type_patch` (`Conflict` with
+/// `disk`, `NewerVersion`, `Invalid`, `Rule` `viewsUnreadable`, `Io`) plus `NothingToDo` when nothing is missing.
+#[tauri::command]
+pub async fn task_views_restore(state: State<'_, AppState>, base: Option<VersionDto>, now: String) -> Result<TaskViewsRestoreDto, IpcError> {
+    let core = core(&state)?;
+    let base = base.as_ref().map(version_from).transpose()?;
+    match core.task_views_restore(base.as_ref(), &now) {
+        Ok(r) => Ok(TaskViewsRestoreDto { created: r.created, names: r.names, before: r.before, r#type: crate::type_dto(r.info) }),
+        Err(CoreError::Query(QueryError::NothingToDo)) => Err(err("NothingToDo", "the default views are there")),
+        Err(e) => Err(crate::type_err(&core, "task", e)),
+    }
 }
 
 #[cfg(test)]

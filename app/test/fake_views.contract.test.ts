@@ -59,7 +59,9 @@ test('the twin reads every query file as expected-views.json', () => {
   for (const [path, want] of Object.entries(ex.reads as Record<string, any>)) {
     assert.ok(files[path] !== undefined, `${path} is a fixture file`);
     const r = queryRead(files[path], true, stem(path), cols);
-    const got = { state: r.state, line: r.line, def: r.state === 'unreadable' ? null : r.def, broken: r.broken, usesThis: r.usesThis };
+    // Q2-T's def keys (`groupPeriod`, `doneLane`, v1-views §24.1) aren't part of Q2's corpus: only its keys compare.
+    const def = r.state === 'unreadable' || !want.def ? null : Object.fromEntries(Object.keys(want.def).map((k) => [k, (r.def as any)[k]]));
+    const got = { state: r.state, line: r.line, def, broken: r.broken, usesThis: r.usesThis };
     if (JSON.stringify(got) !== JSON.stringify(want)) bad.push(`${path}\n  want ${JSON.stringify(want)}\n  got  ${JSON.stringify(got)}`);
   }
   assert.deepEqual(bad, []);
@@ -150,7 +152,7 @@ test('editor and column writes give the expected files', () => {
 test('New view gives new-view-*.yml', () => {
   const base = { types: [], match: 'all' as const, filters: [], sort: S(['modified', 'desc']), limit: 50, groupBy: null, lanes: 'vertical' as const, laneOrder: null };
   assert.equal(queryCreateText({ ...base, title: 'New view', types: ['autor'], view: 'table', columns: ['poznámka', 'modified'] }, NOW), expected('new-view-autor.yml'));
-  assert.equal(queryCreateText({ ...base, title: 'New view', types: ['book'], view: 'board', groupBy: 'status', columns: ['author'] }, NOW), expected('new-view-board-book.yml'));
+  assert.equal(queryCreateText({ ...base, title: 'New view', types: ['book'], view: 'board', groupBy: 'status', columns: [] }, NOW), expected('new-view-board-book.yml'), 'a new Board writes no columns (D-1910)');
 });
 
 test('the 4C link patch rewrites lane_order links', async () => {

@@ -145,6 +145,8 @@ const COMMANDS: &[&str] = &[
     "query_usages",
     // Slice Q2 (v1-views §2, D-1804).
     "query_view_usages",
+    // Slice Q2-T (v1-views §27.1, D-1918).
+    "task_views_restore",
     // Slice I2 (v1-import-window §2.1).
     "import_pick_source",
     "import_scan",

@@ -9,7 +9,7 @@
 // (AC-10's L4 part) has no public interface for a `tests/ac_*.rs` test: see the red-test report.
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { gotoKanban, main as tMain, startTasks } from './tasks-helpers';
+import { gotoKanban, main as tMain, startTasksPage as startTasks } from './tasks-helpers'; // D-1924 (AC-Test-Change, slice Q2-T): route only, plus the default task views in the vault (migrations are off in tests, D-1913).
 import { P, eventually, mainName, must, mustBeOn, openNote, paletteDialog, runCommand, sidebar, sleep, start, typesList, type FakeCoreHandle } from './helpers';
 
 const PORADA = '2026-10-07 Porada';
@@ -113,7 +113,7 @@ test.describe(() => {
     await gotoKanban(page, 'Status');
     const name = await mainName(page);
     assert.notEqual((await backBtn(page).getAttribute('aria-disabled')), 'true', 'setup: Back has an entry (one navigation)');
-    const board = await must(tMain(page).locator('[data-column]').first().locator('xpath=..'), 'the board (parent of the Kanban columns)');
+    const board = await must(tMain(page).locator('section[data-lane]').first().locator('xpath=..'), 'the board (parent of the Kanban columns)');
     const m = () => board.evaluate((e) => ({ left: (e as HTMLElement).scrollLeft, max: (e as HTMLElement).scrollWidth - (e as HTMLElement).clientWidth }));
     const m0 = await m();
     assert.ok(m0.max > 0, `the board is wider than the pane (${JSON.stringify(m0)})`);

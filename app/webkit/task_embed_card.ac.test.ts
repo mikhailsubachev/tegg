@@ -7,6 +7,7 @@
 // the contracts only (D-61). Test clock 2026-10-14T12:00:00+02:00, Europe/Prague, region cs.
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
+import { withTaskViews } from './tasks-helpers';
 import { shortDate } from './tasks-helpers';
 import {
   C, NOW, alertWith, cardCheckbox, caretAfter, caretAt, convertVault, description, displayAsButton, dueButton, embedBody, eventually, fileText,
@@ -86,7 +87,8 @@ test('fr_cnv_05_ac1_full_and_link_keep_the_4f_frames', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ AC-2
 
 test('fr_cnv_05_ac2_checkbox_writes_only_the_task', async ({ page }) => {
-  const { core, card } = await poradaCard(page, { tasksUi: { view: 'schedule', groupBy: 'status', dateFilter: 'all', tags: [], doneExpanded: true } });
+  // D-1924 (AC-Test-Change, slice Q2-T): route only, plus the default task views in the vault (migrations are off in tests, D-1913).
+  const { core, card } = await poradaCard(page, { tasksUi: { view: 'schedule', groupBy: 'status', dateFilter: 'all', tags: [], doneExpanded: true }, vault: withTaskViews(convertVault()) });
   await (await must(cardCheckbox(card, J), 'checkbox')).click();
   assert.equal(await fileWhen(core, T01, (t) => t !== T01_0, 2000), T01_DONE, 'status: Done, completed, modified (FR-TSK-02 AC-10)');
   assert.equal(await eventually(() => nameOf(statusButton(card)), (n) => n === 'Status: Done', 1000), 'Status: Done', 'within 1 s: Status: Done');
@@ -96,9 +98,9 @@ test('fr_cnv_05_ac2_checkbox_writes_only_the_task', async ({ page }) => {
   assert.deepEqual(await writesOf(core, C.porada), [], 'Porada isn\'t written');
   assert.deepEqual([...new Set(await writeLog(core))], [`note_write ${T01}`], 'only Tasks/Zavolat Janě.md');
   await runCommand(page, 'Go to Tasks');
-  const done = main(page).locator('[data-section="done"]');
-  await must(done, 'the Done section', 5000);
-  assert.ok(await seen(done.locator(`[data-path="${nfc(T01)}"]`), 3000), 'the Tasks page shows T01 in Done');
+  const done = main(page).locator('section[data-lane="done"]');
+  await must(done, 'the done lane', 5000);
+  assert.ok(await seen(done.locator(`article[data-board-card="${nfc(T01)}"]`), 3000), 'the Tasks page shows T01 in Done');
 });
 
 // ------------------------------------------------------------------------------------------------ AC-3

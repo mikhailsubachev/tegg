@@ -242,7 +242,7 @@ function CardStrip({ node, onOpen, onTag }: { node: EmbedNode; onOpen: EmbedProp
   const shown = cols.filter((c) => (c.attr?.type === 'date-range' ? !empty(data[`${c.key}-start`]) : !empty(data[c.key])));
   if (shown.length === 0) return null;
   const links: LinkTargetDto[] = node.note?.links ?? [];
-  const row = { path: node.note!.path, id: null, title: titleOf(node), created: null, modified: null, values: data, links, typeSingle: true };
+  const row = { path: node.note!.path, id: null, title: titleOf(node), created: null, modified: null, values: data, links, typeSingle: true, tags: [] };
   return (
     <ul className="embed-props" aria-label={t('embed.properties')}>
       {shown.map((c) => (

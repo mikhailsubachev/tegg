@@ -15,6 +15,10 @@ problems of §10 fixed in `docs/acceptance/views.md` as D-1812.
 Where Q2.1 supersedes a rule of part one, the place is marked **(changed by Q2.1, D-…)** and points to the part-two
 section that now holds; the rest of part one stands.
 
+**Part three** (§23…§32, at the end) is slice Q2-T, Tasks on saved queries (D-1776…D-1780, D-1890…D-1913; ACs
+`docs/acceptance/views.md` part three, R201…R208). §23.3 lists every place of parts one and two, and of
+`docs/contracts/ms5-tasks.md`, that it supersedes; those places aren't marked inline.
+
 This contract **extends** [v1-queries.md](v1-queries.md) (slice Q): every rule there holds unless a section here
 changes it, and section numbers here mirror it. Precedents followed where the ACs leave room: type columns
 ([type-columns.md](type-columns.md): `columns` in the type file, widths, the resize handle), the Tasks Kanban
@@ -1386,3 +1390,854 @@ Each point was decided as proposed; the alternatives are kept for the record.
 | RT-19 → D-1872 | Choosing Number is the combobox `Type`, option `Number`, then the button `Add` |
 | RT-20 → D-1873 | A query block in a note has no `Query actions` menu; contract §20's placed popups for blocks are the sort popover and Columns |
 | RT-21 → D-1874 | Its bytes are Q2's `query_apply` bytes, already covered; L5 checks the query page |
+
+---
+
+# Part three: slice Q2-T, Tasks on saved queries (D-1890…D-1913)
+
+Public interfaces of slice **Q2-T** (plan `docs/plans/q2-views-plan.md` §7; feedback `docs/feedback/q2-v041.md`; released
+as 0.5.0), for the test author (D-61) and the build. ACs: `docs/acceptance/views.md` **part three** (R201…R208;
+FR-TSK-04 AC-22…AC-29, FR-TSK-05 AC-19…AC-22, FR-TSK-10 AC-13, FR-QRY-07 AC-27…AC-31, FR-TYP-01 AC-11, FR-QRY-01
+AC-17…AC-20, FR-QRY-02 AC-9, FR-QRY-05 AC-28, AC-29, FR-QRY-08 AC-3, FR-TYP-09 AC-36, FR-FMT-07 AC-35, FR-FMT-12 AC-14,
+FR-SYN-02 AC-13, FR-SYN-03 AC-32, FR-SYN-06 AC-50, FR-STO-07 AC-12, NFR-PERF-07 AC-5, FR-UX-03 AC-53, FR-UX-05 AC-25,
+FR-UX-08 AC-25, NFR-OTH-02 AC-23; the F3 bug test) and the table "Existing criteria this slice changes (part three)".
+Decisions D-1776…D-1780 (plan), D-1890…D-1895 (feedback) and AP-1533…AP-1550 = D-1896…D-1913 (BRD v1.212). Fixtures: the
+base `tests/fixtures/vaults/tasks/` (+ `new-empty/.tegg/`), the overlay `tests/fixtures/vaults/views-tasks/` (README
+there), `tests/fixtures/vaults/views/` and `views-usage/` for the Book criteria. Boards `TasksQSpec` (A, B, C),
+`TasksQSchedule`, `TasksQKanban` and their Dark variants.
+
+**Status: approved, 2026-11-20.** Contract points CP-22…CP-31 decided by the owner as proposed (option (a) each):
+D-1914…D-1923 (§32.2); each place they settle is marked **(CP-n, D-19xx)**. The AC fixes of D-1922 (and the AC text of
+D-1917, D-1920, D-1923) are made in `docs/acceptance/views.md` part three. Where this part and the ACs disagree, the ACs
+win and this contract is corrected before the red tests.
+
+Parts one and two hold unless a section below changes them. This part also **supersedes parts of**
+[ms5-tasks.md](ms5-tasks.md) (§23.3): the Tasks page stops being its own page and becomes `type/task` with view tabs.
+
+## 23. What Q2-T changes
+
+### 23.1 Words
+
+- A **period board** is a board whose `group_by` is a period mapping `{ <key>: period }` (R201). Its lanes are the
+  **period lanes** `today`, `week`, `later`, the **no-value lane** `none`, and with a valid `done_lane` the **done lane**
+  `done`. The `week` lane holds one **day group** per day from tomorrow to the week's last day (R203).
+- A **date key** of a period board is the grouping key when it is an attribute of kind Date; a **date-time key** is an
+  attribute of kind Date-time, or `created` / `modified`. Only date keys write on a drop (CP-25, D-1917).
+- **States**: an attribute **carries states** when it is a Select and at least one of its options has a `state` of
+  `open`, `in-progress`, `done` or `cancelled` (`OptionDef.extra`, ms5-tasks §2.2); an object's **state** for such an
+  attribute is tasks.md R44's (missing value, unknown value or an option without a known state → `open`).
+- The **default task views** are the saved queries `Schedule` and `Kanban` with R202's bytes. The **migration** writes
+  them and `task.yml`'s `views:` once (R202); **Restore default views** brings back a missing one (R202, AP-1539).
+- **Bounds** of a run: `today` = `QueryEnv.today`; the week's first day = `today` minus `(today − week_start) mod 7` days;
+  its last day = first + 6; **after the week** = last + 1 (D-329; `QueryEnv.week_start`).
+
+### 23.2 What Q2-T writes
+
+| Action | Writes | Through |
+| --- | --- | --- |
+| Migration (vault open, vault create) | `.tegg/queries/Schedule.yml`, `Kanban.yml` (exclusive creates, each only when the name is free), then `task.yml`'s `views:` | `Core::task_views_migrate` (§25.2) |
+| `Restore default views` | the missing default files (exclusive), then `views:` | `task_views_restore` (§25.3) |
+| its Undo | `views:` back to its exact bytes, then the created files to the trash | `type_patch` `viewsSource`, `query_trash` |
+| Period drag, `Move to ›`, `Move card to next / previous lane` on a period board | one object: the date key's line (set, replace or remove) and `modified:` | `applyPeriodMove` + `note_write` (§26) |
+| Drop onto / out of the done lane | one object: `status`, `completed` (set or removed) and, out of it, the date key; `modified:` | §26 |
+| Status move on a board grouped by a `status` that carries states | one object: `status`, `completed` per D-472, `modified:` | `applyTaskChange` + `note_write` (§26) |
+| Task checkbox, status / priority / due from a Task card's menu on a board | one object, tasks.md bytes | §26 |
+| Editor: `Group by` period choice, done-lane checkbox, state operators | the query file (shared keys) | `query_apply` (§24.3) |
+| Sort on a tab (Tasks views included) | the `views:` item (part two, unchanged) | `type_patch` `viewSort` |
+| Sort on `All <plural>` | `ui-state.json` `typeSort[<type>]` (a list) | `ui_state_set` (§30.3) |
+| Tag filter on a tab or `All <plural>` | `ui-state.json` `tagFilter[<key>]` | `ui_state_set` |
+| Lane drag, `Reset lane order` on Kanban | `Kanban.yml` `lane_order` (never `task.yml`) | `query_apply` (part one) |
+| `New Task`, ⌘N › Task, palette `New Task`, a lane's tile | nothing until the draft's first change (D-520, D-522) | the draft route `new/task` |
+
+Nothing else: opening `type/task`, switching tabs, folding, filtering, opening menus and popovers, following a card and
+Back, visiting `type-settings/task` and relaunching write no vault file (FR-SYN-06 AC-50). Q2-T adds no job and no
+restore point (R202).
+
+### 23.3 What this part supersedes
+
+| Place | Now |
+| --- | --- |
+| ms5-tasks §4 (`schedule`, `kanban`, `counts`, `ViewInput`) | removed: the core's `group` (§24.4) draws Schedule and Kanban. `isOverdue`, `dueLabel`, `shortDate`, `weekOf`, `completedDate`, `matches` stay (used by Daily, embeds, tags, chips); `summaryWeek` is added (§28) |
+| ms5-tasks §6.1 (routes `tasks`, `tasks/kanban` built; R45 commands; `tasks.sort` placeholder; `route-ready:tasks*` marks) | the routes are aliases of `type/task` (§29.1); commands per §30.4; the R3 placeholder `tasks.sort` goes; the board marks of part one §4.8 replace `route-ready:tasks*` (NFR-PERF-07 AC-5) |
+| ms5-tasks §6.2 (`TasksPage`, `Schedule`, `Kanban`, `QuickAddRow`) | removed (§28.3); `TaskCard`, `CardMenu`, `TagFilter`, `write.ts`, `useTasks`, `sourceNav`, `header.ts`, `quickAdd.ts` stay |
+| ms5-tasks §6.3 (`UiStateDto.tasks`) | read once by `adoptTasksUi` (§30.3), never written again; kept in `UiStateDto` |
+| ms5-tasks §5 last bullet (quick-add create with `values`) | `newObject` `values` stay (the capture window uses them); the quick-add row goes |
+| ms5-tasks §6.4 (`parseQuickAdd`) | unchanged; its only user is the capture window (D-1906) |
+| ms5-tasks §10a.4 ("Schedule stays put") | gone: a board re-runs and moves the card (FR-TSK-04 AC-24) |
+| ms5-tasks §10a.5, §12.1 (`AllTasks`, `TasksHeader`, `Task views` tablist, `TasksUiDto.view`) | `type/task` is `TypePage` with `TypeViews` like every type (§29.1) |
+| ms5-tasks §12.2 (the Task exception: `New Task` → quick add) | gone: Task opens `new/task` (D-1906) |
+| ms5-tasks §13 first three bullets (search on `tasks` / `tasks/kanban`) | the view tabs' `Filter Tasks…` (part one §4.4 per-tab text); `tasks.search` kept (§30.4). The date picker bullets stay |
+| ms5-tasks §14 (Kanban column moves write `task.yml` `moveOption`) | superseded: lane drags write `Kanban.yml` `lane_order` (part one §4.4); `moveOption` stays for Type settings |
+| Part one §1.1 `QueryDef`, `Lane`, `LaneKind`, `GroupKind`, `QueryRow`, `QueryResult` | additions §24.1 |
+| Part one §1.4 create (`columns` always written) | a Board with empty `columns` writes none (§24.3, D-1910) |
+| Part one §1.6 sort (a Date attribute's key from any instant) | a Date attribute sorts by its valid `YYYY-MM-DD` only (§24.4, CP-31, D-1923) |
+| Part one §4.2 `hasViews` (Task excluded, D-1787) | Task has views (§28.2) |
+| Part one §4.2 `newViewDef` Board `columns` = `preview` minus the grouping key | Board `columns: []` (D-1910) |
+| Part one §4.3 card pills "in `columns` order"; §4.3 editor `On cards`; part two §16.1 `On cards` › `Change…`, §19.4 `columns.useQuery` on a board | cards follow the card's type's `preview` (D-1891, §29.5); no `On cards` row; `columns.useQuery` not listed for a board usage |
+| Part one §4.4 per-tab filter text and tags "leaving the route clears it" | the text still clears; the **tags** are machine-local per tab (D-1893, §30.3) |
+| Part one §4.4 "On `All <plural>` ⇧-click is a plain click" | `All <plural>` has multi-level sort (D-1892, §29.7) |
+| Part one §4.4 wide pages (`max-width: none`) | at most 1,600 px content, centred (D-1890, §29.8) |
+| Part one §4.7 `typeSort` "stays the `All` tab's" (one value) | a list of levels (§30.3) |
+| Part two §15 (trash from a view menu) | unchanged; `SetViewsSource` gains "empty source removes the key" (§25.3) |
+
+## 24. Query files (`tegg-core::queries_q`, R201; AR-03)
+
+### 24.1 Types (additions to part one §1.1)
+
+```rust
+pub enum Op { /* … */ StateIs, StateIsNot }            // YAML `state_is`, `state_is_not`; OPS gains both (23)
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DoneLane { pub within_days: u32, pub folded: bool }   // R201: 1…366; `folded` missing = false
+
+pub struct QueryDef {
+    // …part one, part two…
+    /// The grouping key (NFC, trimmed). For `group_by: { due: period }` it is `due` with `group_period: true`.
+    pub group_by: Option<String>,
+    /// Q2-T (CP-23, D-1915): `group_by` was the mapping `{ <key>: period }`. Always false when `group_by` is None.
+    pub group_period: bool,
+    /// Q2-T: None = key absent, or present and broken (then in `broken`). A commit with None removes the key (§24.3).
+    pub done_lane: Option<DoneLane>,
+}
+
+pub enum LaneKind { Option, Unknown, Tag, Relation, Unresolved, None, /* Q2-T */ Period, Done }
+pub struct DayGroup { pub date: NaiveDate, pub cards: Vec<LaneCard> }
+pub struct Lane {
+    // …part one…
+    /// Q2-T: the `week` lane's day groups, every day from tomorrow to the week's last day (empty ones included);
+    /// empty for every other lane. The `week` lane's `cards` are its rows in `rows` (sort) order (D-1931).
+    pub days: Vec<DayGroup>,
+    /// Q2-T: Some(n) on the done lane and on each Done-state option lane that `done_lane` limits (R201); else None.
+    pub done_within: Option<u32>,
+}
+pub enum GroupKind { Select, MultiSelect, Tags, Relation { multiple: bool }, /* Q2-T */ Period { date_time: bool } }
+
+pub struct QueryRow {
+    // …part one…
+    /// Q2-T: the object's tag keys (frontmatter and inline, tags.md R79: NFC, case-folded), sorted, unique. The tag
+    /// filter's options and matching (FR-QRY-07 AC-30; T18's inline `#rodina` counts).
+    pub tags: Vec<String>,
+    /// Q2-T (CP-24, D-1916): for an object of type `task`, ms5-tasks §2.1's `TaskRow`, from the same index read.
+    pub task_row: Option<TaskRow>,
+}
+pub struct QueryResult {
+    // …part one, part two…
+    /// Q2-T (CP-24, D-1916): `Core::task_defs()` when any row has `task_row`; else None.
+    pub task_defs: Option<TaskDefs>,
+}
+```
+
+- **Lane ids and values** (part one §1.1's list grows): period lanes `period:today`, `period:week`, `period:later`
+  (`value` `today` / `week` / `later`, the `lane_order` ids, AP-1536); the no-value lane `none` (`value` None); the done
+  lane `done` (`value` None). Day groups are keyed `day:<YYYY-MM-DD>` in the DOM and in drops (§29.3). `label` is empty
+  for `period:*`, `none` and `done` (the UI names them, §30.2).
+- `color`: the done lane takes the colour of the first type's first Done-state `status` option (FR-UX-05 AC-25); period
+  lanes and `none` have None.
+- `drop_target`: period lanes, `none` and `done` are drop targets on a period board whose key is a **date key**; with a
+  date-time key only `done` is (CP-25, D-1917). `excluded` is always false on a period board (never hatched, R203).
+- `QueryRow.task` (`TaskBits`, slice Q) stays as it is.
+
+### 24.2 Read rules (R201; additions to part one §1.2)
+
+- **`group_by`**: a non-blank string → as Q2 (`group_period: false`). A YAML mapping with **exactly one** entry whose
+  key is a non-blank string and whose value is the string `period` → `group_by = Some(nfc(trim(key)))`,
+  `group_period: true`. Every other value (two entries, a value other than `period`, a non-string key, a sequence) →
+  `BadValue` for `group_by` (None, false). A plain `group_by: due` stays the Q2 grouping by `due` (a Date, so broken at
+  run time, D-1770).
+- **`done_lane`**: a mapping with `within_days` an integer 1…366 and an optional `folded` boolean, no other entry →
+  `Some(DoneLane)`; anything else (a scalar, `within_days: 0` / `tři`, a non-boolean `folded`, an unknown entry) →
+  `BadValue` for `done_lane`, None. Read with every `view`; used only with `view: board` (kept and ignored with `list` /
+  `table`, no notice, AP-1535).
+- **`lane_order`**: unchanged shape rule. On a period board only the exact strings `today`, `week`, `later` match a
+  lane; other entries are kept in the file and ignored (`[Later, zítra]` orders nothing, FR-QRY-01 AC-18).
+- **State operators** in `filters`: `{ <key>: { state_is: <s> } }` / `state_is_not`, `<s>` a scalar string. Shape as
+  every operator item (v1-queries §1.2).
+- **`columns` absent** (D-1927, RT-5): reads as `[]` with `view: board` (a board never uses it, D-1891) and as part one's create default for `list` / `table` (the single type's effective columns, else `[type, modified]`); no notice, the file isn't rewritten. The L3 corpus lists `columns` only for files that have the key.
+- `version` stays 1. The `Layout` learns `done_lane` (one line, or a block mapping replaced by one line on write).
+
+### 24.3 Write rules (additions to part one §1.4)
+
+- `ORDER` (create order, R201): `version, title, types, match, filters, sort, limit, view, group_by, lanes, lane_order,
+  done_lane, columns, created, modified`. `COMMIT_KEYS` gains `done_lane`.
+- **`group_by`**: `group_period: false` → the scalar line as Q2; `true` → one flow mapping `group_by: { <key>: period }`
+  (the key D-230 quoted in flow context). Effective value = `(group_by, group_period)`; `group_by: None` in a commit
+  still means "unchanged". A replaced line keeps its trailing comment (`group_by: { created: period }   # podle
+  termínu`, FR-QRY-01 AC-17, D-1457).
+- **`done_lane`**: one flow line, both keys always written: `done_lane: { within_days: 7, folded: true }`. Compared as
+  read: a commit whose `done_lane` equals the file's read value (a broken key reads None) writes nothing there. A commit
+  with **None while the file read Some** removes the key's line or block (its range per v1-queries §1.4): the second
+  explicit exception to "keys are never removed", after `lane_order` (D-1898 (e)). A missing key is inserted at its
+  `ORDER` place (right after `lane_order`, else `lanes`).
+- **State filters** are written as every operator item: `  - status: { state_is_not: cancelled }`.
+- **`columns` on create** (D-1910): `create_text` omits `columns` when `view == Board` **and** `columns` is empty;
+  otherwise as part one (an inline board fence saved with its own `columns` keeps them). `New view` › Board passes
+  `columns: []` (§28.2), so it writes none. Commits never add, remove or rewrite `columns` on a board unless the def
+  changes it (the editor's commit carries the file's, D-1842).
+- `create_text` writes `done_lane` when Some (any `view`).
+- `patch_job_text`: period `lane_order` ids aren't links and are never patched.
+- Read-back check (D-1458) compares the new keys too. Expected bytes: §31.4.
+
+### 24.4 The evaluator (additions to part one §1.6)
+
+- **State operators** (AP-1533, FR-QRY-02 AC-9). Valid when `key` is, in **every** chosen type, a Select that carries
+  states (§23.1) and the value is one of `open`, `in-progress`, `done`, `cancelled`. Otherwise broken: a key that isn't
+  such an attribute → `Broken { reason: OperatorKind, … }` (R139's red row and notice); a bad value →
+  `Broken { reason: Value, … }`. `state_is s` holds when the object's state for `key` is `s`; `state_is_not s` when it
+  isn't. Option labels match NFC-exact (D-1808); a renamed option keeps its state, so `Cancelled` → `Zrušeno` changes no
+  result.
+- **Hidden lanes** (AP-1533). Under `match: all`, a top-level valid `state_is` / `state_is_not` filter on the grouping
+  key **removes** the option lanes whose option state it excludes (they are not in `lanes`, not hatched, not offered by
+  `laneOrderAfterDrop`, not counted). Unknown-value lanes count as state `open`. Part one's hatching of `is` / `is_not`
+  filters stays for those operators.
+- **Strict dates in sorts** (CP-31, D-1923; R208's orders need it). A sort level on an attribute of kind **Date** keys
+  each object by its valid `YYYY-MM-DD` value only (`tegg_format::date::parse_date`, quoted or not; tasks.md AP-414); an
+  impossible date, a date-time or text is an **empty** value (last in both orders). Date-time, `created`, `modified`
+  keep the instant rule. This holds in every view, not only boards. Filters are unchanged.
+- **Period grouping** (D-1776, AP-1536). Only when `view == Board` and `group_period`:
+  - Valid when the key is `created` or `modified`, or an attribute of kind Date or Date-time of **every** chosen type
+    with the same kind (D-1807's rule). Otherwise `Broken { BadValue, key: "group_by" }` and `group: None` (drawn as a
+    List with `query.block.brokenKey`, FR-QRY-01 AC-18).
+  - A value's **date**: Date: `parse_date` of the scalar (else none); Date-time, `created`, `modified`: the instant
+    (`instant_ms`) as a local date in `QueryEnv.tz` (D-104). No valid date → `none`. A missing or unreadable
+    `created` / `modified` value has no date (never the file's birth or change time; D-1927, RT-11).
+  - Lanes: `today` (date ≤ today), `week` (today < date ≤ the week's last day; absent when today **is** the week's last
+    day), `later` (date > the week's last day), `none`. Order: `lane_order` (ids above) moves its listed period lanes
+    to the front in its order, the others follow in `today, week, later` order; then `none`, then `done`. All shown,
+    empty ones too; `none` is always present on a period board (an exception to part one's "only when it has a card").
+  - Cards: each row once, in `rows` order (the effective sort, D-1895); in `week`, in its day's group.
+  - `GroupKind::Period { date_time }`, `Grouping.name` = the attribute's Name (`Due date`, `Created`, `Modified`).
+- **The done lane** (D-1898; R201). When `view == Board` and `done_lane` is Some:
+  - Valid when every chosen type's `status` attribute carries states and has at least one option of state `done`;
+    otherwise `Broken { BadValue, key: "done_lane" }` and no done-lane behaviour (Projekt, Book).
+  - A row is **done** when its `status` state is `done`. Its **completed day** is the local date (in `tz`) of
+    `completed`, else of `modified` (tasks.md R44). It is **within** when `today − (within_days − 1) ≤ day ≤ today`.
+  - Done rows that aren't within are **removed from `rows`** before grouping (not shown, not counted, not offered by the
+    tag filter).
+  - Period board: done rows leave the period lanes and form the lane `done` (last, `done_within: Some(n)`), present
+    even with no card. Board grouped by `status`: no extra lane; each Done-state option lane gets `done_within`. Any
+    other grouping: done rows within stay in their lanes.
+- **Re-runs**: `uses_relative` is true for a valid period grouping or a valid done lane (the UI's 30 s date check then
+  re-runs at midnight and on a zone change, R203 Live; §27.6).
+- **Task rows** (CP-24, D-1916): a row whose type is `task` gets `task_row` from the `tasks5a` row builder over the
+  same index entry; `task_defs` is filled once per result. No file read.
+- `query_run` still takes one index lock; nothing in a run writes.
+
+## 25. Default task views (R202; D-1777, D-1897, D-1901, D-1902, D-1913, D-1936)
+
+### 25.1 The default files
+
+```rust
+// crates/tegg-core/src/taskviews.rs (new, `pub mod taskviews`, re-exported; AR-03)
+pub const TASK_VIEW_NAMES: [&str; 2] = ["Schedule", "Kanban"];
+/// R202's def of `Schedule` or `Kanban` (None for any other name).
+pub fn default_task_view(name: &str) -> Option<QueryDef>;
+/// R202's bytes: `queries_q::create_text_unstamped(&default_task_view(name)?)` (D-1936).
+pub fn default_task_view_text(name: &str) -> Option<String>;
+// queries_q: `create_text` without the `created` / `modified` lines (both optional when read, R138).
+pub fn create_text_unstamped(def: &QueryDef) -> String;
+```
+
+- `Schedule`: `types [task]`, `match all`, `filters [status state_is_not cancelled]`, `sort [due asc, priority asc]`,
+  `limit 50`, `view Board`, `group_by due` with `group_period: true`, `lanes Horizontal`, `lane_order None`,
+  `done_lane { 7, folded: true }`, `columns []`. `Kanban`: the same with `group_by status` (`group_period: false`),
+  `lanes Vertical`, `done_lane { 7, folded: false }`. Titles and names are English (D-1897).
+- **No time stamps (D-1936):** the default files have no `created` / `modified`, so every Mac writes the same bytes
+  and two Macs migrating before they sync make no conflict copy. A later commit inserts `modified:` at its R138 place.
+  The `now` parameters of `task_views_migrate` / `task_views_restore` are kept and unused.
+
+### 25.2 The migration (AP-1538, AP-1550)
+
+```rust
+pub enum TaskViewsMigration {
+    NotNeeded,                                              // Task has a `views` key, any value (`views: []` included)
+    Skipped,                                                // no task.yml, placeholders, task.yml Newer, invalid, or `views` unreadable: nothing written
+    Done { created: Vec<String>, views: Vec<String> },      // created: vault paths; views: the names written
+    Stopped { created: Vec<String>, reason: String },       // a create or the views write failed; `reason` = the error kind
+}
+impl Core {
+    /// R202. Never alerts; the caller ignores the outcome except for logging.
+    pub fn task_views_migrate(&self, now: &str) -> TaskViewsMigration;
+}
+```
+
+1. Read the Task type: `.tegg/types/task.yml` absent, or `Core::placeholders()` not empty (online-only files,
+   FR-VLT-03) → `Skipped`, nothing written (D-1936: a Mac that opens a synced vault before `task.yml` arrives must not
+   write a built-in one). Present: `Newer`, invalid, or `views_unreadable` → `Skipped`; `views` Some (any list) →
+   `NotNeeded`; None → go on, base = its version.
+2. For `Schedule`, then `Kanban`: when a **live** query resolves to the name (D-1434: NFC, case-insensitive; `.trash/`
+   copies don't count; `QCore::taken`) it is left alone, neither read for content nor written. Otherwise
+   `create_query_file(name, default_task_view_text(name))` (exclusive `create_exact`, `free: false`).
+   `NameTaken` from the create (a race) counts as taken. Any other error → `Stopped` (files already created stay).
+3. `type_patch("task", base, [TypeOp::SetViews(["Schedule", "Kanban"])])`: one minimal write inserting the line at R184's
+   place (line 11 of new-empty's file). `Conflict` (the file changed since step 1, FR-QRY-07 AC-29) or any error →
+   `Stopped`; the next open retries on the new bytes.
+4. `Done`. No restore point. The writes emit `VaultChanged` as every core write.
+
+**Where it runs (CP-27, D-1919).** `app/src-tauri/src/lib.rs` `open_vault`, right after a **new** `Core` is opened and
+before `VaultInfo` is returned (not on a reattach of a held core, so it runs at most once per session per vault), when
+`task_views_enabled()`: `TEGG_TEST` isn't `1`, or `TEGG_TEST_TASK_VIEWS=1` (D-1913). `vault_create` reaches it through
+`open_vault`, so a new vault (whose `task.yml` `Vault::create` writes) gets the same files and line (FR-QRY-07 AC-27). `Core::open` stays zero-write. L4 tests call
+`Core::task_views_migrate` directly ("migrations on").
+
+**Old UI state** (AP-1538): `adoptTasksUi` (§30.3), in the UI, independent of the vault migration.
+
+### 25.3 Restore default views (AP-1539, CP-26, D-1918)
+
+```rust
+pub struct TaskViewsRestore {
+    pub created: Vec<String>,          // vault paths of the default files created, in R202 order
+    pub names: Option<Vec<String>>,    // the `views` names written; None when `views:` was already complete
+    pub before: Option<String>,        // TypeInfo.views_source before the write (None: no `views` key)
+    pub info: TypeInfo,                // after
+}
+impl Core {
+    /// R202 `Restore default views`. `Err(Query(NothingToDo))` when both names are listed and resolve to live queries.
+    pub fn task_views_restore(&self, base: Option<&FileVersion>, now: &str) -> Result<TaskViewsRestore, CoreError>;
+}
+```
+
+- Refusals before any write: a `Newer` or invalid `task.yml` and `views_unreadable` → the same errors `type_patch` gives
+  for them (part one §1.3, `Rule(ViewsUnreadable)` included); nothing to restore → `Query(NothingToDo)`. Without
+  `task.yml` the restore still writes the built-in file plus the line, created exclusively (an explicit user action,
+  D-1936).
+- Then, for `Schedule` then `Kanban`, step 2 of §25.2 (a changed existing file is never touched; a trashed copy stays in
+  `.trash/.tegg/queries/`). Then the names: `views` (names) with `Schedule` inserted first when missing and `Kanban`
+  inserted right after `Schedule` (first when `Schedule` isn't listed); other names keep their order; a name is
+  "missing" when no entry has its name key. Written with `type_patch("task", base, [SetViews(names)])` only when the
+  list changed. A refused type write (`Conflict`, FR-SYN-03 AC-32) returns that error; files already created stay and are
+  listed on Queries.
+- **Undo** (UI, `views/defaultViews.ts`, 8 s toast, one action): (1) `type_patch("task", info.version, [{ op:
+  'viewsSource', source: before ?? '' }])`; (2) then `query_trash(name)` for each created file (`Kanban (2).yml` in the
+  trash when a copy is there, v1-queries trash naming). A refused step 1 → alert `views.changedOutside`, nothing
+  trashed. A failed `query_trash` → alert `trash.removeFailed`.
+- `TypeOp::SetViewsSource(source)` (part two §14.2) gains: an **empty** `source` removes the `views` key's lines
+  (no-op when absent). Used only by this Undo when Task had no `views` key before.
+- IPC `task_views_restore` (§27.1). Disabled state is the UI's (§29.10).
+
+## 26. Board writes of Q2-T (`@tegg/doc`, D-82; FR-TSK-04 AC-25, FR-TSK-05 AC-20, FR-QRY-01 AC-17)
+
+```ts
+// packages/doc/src/board.ts (additions), exported from index.ts
+export type PeriodMove =
+  | { kind: 'set'; key: string; date: string | null }                       // a period lane / day group / the no-value lane
+  | { kind: 'done'; status: string; now: string }                           // onto the done lane
+  | { kind: 'reopen'; status: string; key: string; date: string | null };   // out of the done lane onto a period / no-value lane
+/** null: nothing to write. Never touches `modified:` (the caller's `touchModified`, as part one §1.9). */
+export function applyPeriodMove(text: string, move: PeriodMove): string | null;
+```
+
+- `set` with a date: the key's value token (any form: quoted, NFD, an impossible date, a date-time, a block value) is
+  replaced by `YYYY-MM-DD` unquoted, the line's other bytes kept; a missing key is appended after the last frontmatter
+  entry (D-230; T08's `due: 2026-10-16`). `set` with `null` removes the key's line (and its block lines); a missing key →
+  null. The same valid date already there → null.
+- `done` = `completeTask`'s check bytes (ms5-tasks §5; FR-TSK-02 AC-10): `status: <status>` (the card's type's first
+  Done-state option), `completed: <now>` appended unless present; the date key untouched.
+- `reopen` = `applyTaskChange({ kind: 'status', to: <first Open-state option>, toState: 'open', fromState: 'done', … })`
+  (removes `completed`) then `set` on the result: one text, one write (T12: `status: To do`, `due: 2026-10-14` appended).
+- A **status move** on a board whose grouping key is `status` and whose card's type's `status` carries states uses
+  `applyTaskChange({ kind: 'status', … })` instead of `applyBoardMove` (D-472: into a Done state appends `completed`, out
+  of it removes it; FR-TSK-05 AC-20). Other status boards (Book) keep `applyBoardMove`.
+- Dates are `YYYY-MM-DD` from the bounds of the result the board shows (§29.3); never shifted by a zone (FR-FMT-11).
+- **Write path** (`app/ui/src/queries/board/write.ts`): `writeCardChange(row, change: (text: string) => { text: string;
+  inlineKept: boolean } | null)` is part one's `doWrite` with the change as a parameter (note_read, version check,
+  change, `touchModified`, `note_write(path, text, row.version)`, one write per object in flight, `readOnly` never
+  written). `writeCardMove(row, move)` and the new `writePeriodMove(row, move)` call it. On a board, the Task card's
+  checkbox and its menu's status, priority and due actions also go through `writeCardChange` with ms5-tasks §5's
+  functions, so every write to one object from a board shares one queue. Outcomes and alerts as part one §1.9
+  (`board.changedOutside`, `query.saveFailed`).
+
+## 27. IPC
+
+### 27.1 Commands
+
+| Command | Change |
+| --- | --- |
+| `query_run`, `query_get`, `query_apply`, `query_create` | `QueryDefDto` gains `groupPeriod`, `doneLane`; filter ops gain `state_is`, `state_is_not`; `GroupingDto`, `LaneDto`, `QueryRowDto`, `QueryResultDto` additions below |
+| `task_views_restore` (new) | `base: VersionDto \| null`, `now: string` → `TaskViewsRestoreDto` (`Core::task_views_restore`); errors as `type_patch` plus `NothingToDo` (`Query`) |
+| `type_patch` | `{ op: 'viewsSource'; source: '' }` removes the key (§25.3) |
+| `index_type_rows` | `TypeRowDto` gains `tags: string[]` (tag keys, frontmatter and inline, as §24.1) |
+| `ui_state_get` / `ui_state_set` | `UiStateDto` gains `tagFilter`; `typeSort` values become a list (§30.3) |
+| `task_list`, `daily_tasks`, `note_read`, `note_write`, `note_create`, `query_trash`, `query_restore` | unchanged (`task_list` still feeds the Daily Note, Task embeds, the sidebar count and the Tasks summary) |
+
+No IPC is removed. No command runs the migration (§25.2).
+
+### 27.2 DTOs
+
+```ts
+type DoneLaneDto = { withinDays: number; folded: boolean };
+type QueryDefDto = { /* Q, Q2 */ groupPeriod: boolean; doneLane: DoneLaneDto | null };
+type FilterOp = /* … */ | 'state_is' | 'state_is_not';
+type DayGroupDto = { date: string /* YYYY-MM-DD */; cards: LaneCardDto[] };
+type LaneDto = {
+  /* Q2 */
+  kind: 'option' | 'unknown' | 'tag' | 'relation' | 'unresolved' | 'none' | 'period' | 'done';
+  days: DayGroupDto[];                 // `period:week` only; [] otherwise
+  doneWithin: number | null;
+};
+type GroupingDto = { /* Q2 */ kind: 'select' | 'multiSelect' | 'tags' | 'relation' | 'period'; dateTime: boolean };
+type QueryRowDto = { /* Q, Q2 */ tags: string[]; taskRow: TaskRowDto | null };
+type QueryResultDto = { /* Q, Q2, Q2.1 */ taskDefs: TaskDefsDto | null };
+type TypeRowDto = { /* 3D */ tags: string[] };
+type TaskViewsRestoreDto = { created: string[]; names: string[] | null; before: string | null; type: TypeDto /* `info` */ };
+```
+
+`TaskRowDto`, `TaskDefsDto`: ms5-tasks §3, unchanged.
+
+### 27.3 Rust and TS files
+
+`app/src-tauri/src/shellq.rs` (`QueryDefDto`, `DoneLaneDto`, `LaneDto.days` / `doneWithin`, `DayGroupDto`,
+`GroupingDto.dateTime`, `QueryRowDto.tags` / `taskRow` (the existing `task_row_dto`), `QueryResultDto.taskDefs`,
+`task_views_restore`), `dto.rs` (`TypeRowDto.tags`, `UiStateDto.tag_filter`, `TypeSortValue`), `lib.rs` (`open_vault`'s
+migration call, `task_views_enabled()`, `clock::now_iso()` honouring `TEGG_NOW`; the command in `invoke_handler`),
+`build.rs` (`"task_views_restore"` in the command list), `capabilities/default.json` (`"allow-task-views-restore"`), the
+generated `permissions/autogenerated/task_views_restore.toml`. TS: `app/ui/src/ipc/queries.ts` (the DTOs,
+`taskViewsRestore(base, now)`), `ipc/types.ts` (ts-rs bindings regenerated).
+
+### 27.4 UI error handling
+
+- `task_views_restore`: `Conflict` / version mismatch → the types store reloads, alert `views.changedOutside` (`"Tasks"
+  changed outside Tegg. The views weren't changed.`); created files stay. `NothingToDo` → nothing (the button was
+  already disabled). `Io` → `query.saveFailed`.
+- Period, done-lane and status writes: part one §1.9 (the card goes back to its disk state's lane on the re-run; alert
+  `board.changedOutside` names the object, FR-SYN-03 AC-32).
+- `Kanban.yml` lane drags: part one §2.1 (`query.editor.changedOutside`).
+
+### 27.5 Who calls what
+
+| Surface | Calls |
+| --- | --- |
+| `type/task` (every tab) | types store, `queries_list`, one `query_run({ kind: 'view', type: 'task', name })` for the selected view tab (part two), `task_list` for the header summary (§29.1); `All Tasks`: `index_type_rows('task')` |
+| Period drag, done-lane drop, status drag, Task checkbox and card menu on a board | `note_read`, `note_write` (§26) |
+| Kanban lane drag, `Reset lane order` | `query_apply` on `Kanban.yml` (part one) |
+| Editor `Group by` period, done-lane checkbox, state operators | `query_apply` |
+| `Restore default views` / Undo | `task_views_restore`; Undo `type_patch` (`viewsSource`), `query_trash` |
+| Tag filter, `All` sort, folds, last tab | `ui_state_set` |
+| `New Task` (header, ⌘N, palette), a lane's tile | the draft route `new/task` (`Route.prefill` for tiles) |
+
+### 27.6 Live results
+
+Part one §2.3 and part two §17.4 hold. The UI's 30 s date check (`useQueryRun`) compares `{ today, zone }` and re-runs a
+result with `usesRelative` when either changed (R203 Live, FR-TSK-04 AC-27: within 60 s, no write). A board keeps an
+optimistically moved card in its target lane or day group until the next answer.
+
+## 28. UI modules
+
+### 28.1 New
+
+| Module | Owns |
+| --- | --- |
+| `app/ui/src/queries/board/period.ts` (pure, L1; CP-22, D-1914) | `bounds(env: { today: string; weekStart: number })` → `{ today; weekFirst; weekLast; afterWeek; days: string[] /* tomorrow…weekLast */ }`; `periodOf(value: unknown, kind: 'date' \| 'dateTime', b, zone?)` → `{ lane: 'today' \| 'week' \| 'later' \| 'none'; day: string \| null }` (R203's table; the fake core and L1 use it); `completedWithin(row: { completed; modified }, today, n, zone?)`; `weekStart` uses `Date.getDay` numbering (0 = Sunday, 1 = Monday, D-1927); `dropFor(laneId, day: string \| null, b)` → the date a drop writes (`period:today` → today, a day group → its date, `period:later` → `afterWeek`, `none` → null); `prefillFor(laneId, b)` → today, `weekLast`, `afterWeek`, null (`none`), and no tile for `done`; `laneLabelKey(laneId, isTaskDue: boolean)` → the §30.2 key; `dayHeading(date, region)` (`Intl.DateTimeFormat(region, { weekday: 'long', day: 'numeric' })`: `středa 15.`, `Thursday 15`); `targets(group)` → the drop targets as `{ lane: string; day: string \| null }` (D-1927) in keyboard order (`period:today`, each day group, `period:later`, `none`, `done`); `neighbourTarget(group, at: { lane: string; day: string \| null }, dir: 1 \| -1)` |
+| `app/ui/src/views/tagFilter.ts` (pure, L1) | `tagFilterKey(scope: { kind: 'tab'; typeKey; name } \| { kind: 'all'; typeKey })` (`tab:<type>/<name key>`, `all:<type>`, NFC); `tagOptions(rows: { tags: string[] }[], selected: string[], spelling: (key) => string, collator)` → `{ key; label; count }[]` (AP-1545: tags of the rows the tab shows before the tag and text filters, done lane included; count = rows that would remain with it added to the selection; most first, then collation, then key bytes; every selected key listed, `0` when absent, D-1927); `selected` keys are NFC-normalised and case-folded inside `tagOptions` and `keepRow` (so `práce` typed in NFD is one chip, FR-FMT-12 AC-14); `keepRow(row, selected)` (all-of, D-518) |
+| `app/ui/src/views/allSort.ts` (pure, L1) | `sortTypeRows(rows: TypeRowDto[], levels: SortDto[], type: TypeDto, collator)`: part one §1.6's per-kind comparison (option order then unknown values, empty last at every level, strict Date per §24.4), ties by title, then path; `levelsOf(stored: SortDto[] \| TypeSortDto \| undefined)` (0.4.x single value → one level; absent → the page's default) |
+| `app/ui/src/views/defaultViews.ts` | `restoreState(type: TypeDto \| null, summaries)` → `{ enabled: boolean; reason: string \| null }` (R202: disabled with `typeSettings.restoreViewsNone` when both names are listed and live; with FR-QRY-07 AC-12 (e)'s reason for a Newer / invalid `task.yml` or an unreadable `views`); `restoreDefaultViews(type)`: `task_views_restore`, the toast `typeSettings.restoredViews` (`{names}` joined by `Intl.ListFormat` conjunction) with `Undo` 8 s, the live region, §25.3's Undo |
+| `app/ui/src/views/TasksSummary.tsx` | the header line of `type/task` (§29.1) from `useTasks` and `summaryWeek` |
+
+### 28.2 Changed
+
+| Module | Change |
+| --- | --- |
+| `views/model.ts` | `hasViews`: every defined type except `tag` (Task included). `newViewDef` Board: `columns: []`, `groupPeriod: false`, `doneLane: null`. New: `periodChoices(type)` → date keys (Date and Date-time attributes in schema order, then `created`, `modified`); `carriesStates(type, key)`; `doneLaneOffered(types: TypeDto[])` (every type's `status` carries states with a Done option); `stateOps(type, key)` → `['state_is', 'state_is_not']` or `[]`. `groupByChoices` unchanged (D-1818) |
+| `views/uiState.ts` | `tagFilterOf(key)`, `setTagFilter(key, tags)` (one `ui_state_set` per change; `[]` deletes the key); `foldedOf` / `setFolded` keep `!<lane id>` entries (§30.3); `moveQueryState` also moves `tagFilter` tab keys (R206, D-1797); `adoptTasksUi(ui)` (§30.3) |
+| `views/TypeViews.tsx` | Task's first-open rule and `Route.tab` (§29.1); the tag selection per tab from `tagFilterOf` (the text stays in memory, D-1796); `Restore default views` in `View actions` is not added (Type settings and the palette only) |
+| `views/ViewPanel.tsx` | `Filter by tag` options from `tagOptions` over the run's rows (board: the rows of every lane card, done lane included); the selection persisted; boards through `QueryBoard` with period lanes and the done lane |
+| `pages/TypePage.tsx` | `All <plural>`: `Filter by tag` after `Filter <plural>…` (options from `TypeRowDto.tags`, key `all:<type>`); multi-level sort with `HeaderCell` in `levels` mode (click / ⇧-click / keys, part one §4.4) and the sort button + `SortPopover` with scope `thisMac`, writing `typeSort[<type>]` as a list; on `task` the header shows `TasksSummary` instead of the count; the width of §29.8 |
+| `queries/SortPopover.tsx` | `scope: 'tab' \| 'block' \| 'default' \| 'thisMac'`; with `thisMac` no `Use the query's sort` |
+| `queries/board/QueryBoard.tsx` | period lanes, day groups, the done lane, `done_within` hints, drops through `period.ts` and §26, the Task card (§29.5), `Move to ›` with day groups, `New <Type> in <lane>` with `period.prefillFor` |
+| `queries/board/BoardCard.tsx` | pills and chips from the card's own type's `preview` (D-1891, at most 4, D-1240), not from `columns`; a Task row renders `tasks/TaskCard.tsx` (§29.5); relation chips resolve from `row.links` for every value whatever the lane (F3) |
+| `queries/board/model.ts` | `cardMove` returns null for a period grouping (period moves are `period.ts`); `laneOrderAfterDrop` lists only `option` / `unknown` / `tag` / `relation` / `unresolved` / `period` lanes (never `none`, `done`, nor a hidden lane); `prefillFor` delegates period lanes to `period.prefillFor` (date keys only, CP-25) |
+| `queries/board/write.ts` | `writeCardChange`, `writePeriodMove` (§26) |
+| `board/Board.tsx` | `BoardLaneView` gains `days?: { id: string; date: string; label: string; cards: string[] }[]`, `hint?: string`, `tone?: 'danger' \| 'muted' \| null`, `initiallyFolded?: boolean`; drops report `to` = a lane id or a day id; folds of initially-folded lanes use `!<id>` (§30.3); the done lane has no grip |
+| `queries/QueryEditor.tsx` | `Group by` lists `periodChoices` after `groupByChoices` (`query.editor.groupByPeriod`, hint `query.editor.groupByPeriodHint`); a done-lane checkbox when `View` is Board and `doneLaneOffered` (checked = the def has `doneLane`; checking sets `{ withinDays: 7, folded: true }`, unchecking `null`; the label's count is the def's `withinDays`, else 7); filter rows offer `stateOps` with values `state.open`, `state.inProgress`, `state.done`, `state.cancelled` (written `open`, `in-progress`, `done`, `cancelled`); no `On cards` row (D-1891) |
+| `tasks/TaskCard.tsx` | props gain `preview?: string[]` (default `['status', 'priority', 'due']`, so Daily and embeds are unchanged), `hideKey?: string \| null` (the grouping key), `pills?: ReactNode` (other `preview` keys, BoardCard's pills), `slot?: CardSlotProps` (the board's focus and drag props); R43's chip rules per key (AP-1541) |
+| `tasks/CardMenu.tsx` | `columns: KanbanColumn[]` → `moveTo?: { id: string; label: string }[]`, `alsoAddTo?: …` (from the board's targets); R43's other items unchanged |
+| `tasks/views.ts` | removes `schedule`, `kanban`, `counts`, `tagSpellings` and the types `ViewInput`, `Schedule`, `KanbanColumn`, `Counts`; adds `summaryWeek(tasks, today, firstWeekday, zone?)` → `{ open; overdue; doneWeek }` (R204: open and overdue as R44; doneWeek = Done-state tasks whose completed day is in the current week, Monday…Sunday in `cs`; filters ignored) |
+| `pages/TypeSettingsPage.tsx` | for `task` only, a section `Default views` (§30.1) |
+| `App.tsx` | the alias routes (§29.1); `newObjectOfType('task')` opens `new/task` (D-1906); `adoptTasksUi` once at UI-state load; the Task routes' `TasksPage` / `AllTasks` / `TasksHeader` mounting goes |
+| `shell/commands.ts`, `shell/registry.ts` | §30.4; R1 rows `tasks`, `tasks/kanban` get `status: { built: true, alias: 'type/task' }` (no page of their own; app-shell tables follow); the R3 control `tasks.sort` goes |
+| `views/views.css` | §29.8 |
+| `Search.tsx`, `daily/*`, `embeds/*`, `tags/TagPage.tsx`, `links/chip.ts`, `inbox/*`, `trash/*` | unchanged (they import only kept modules) |
+
+### 28.3 Removed (the 5A Tasks page)
+
+`app/ui/src/tasks/TasksPage.tsx`, `Schedule.tsx`, `Kanban.tsx`, `QuickAddRow.tsx`, `TasksHeader.tsx`, `AllTasks.tsx`,
+their CSS (`.tasks-page` and the `tasks-*` page rules not used by `TaskCard`, `CardMenu`, `TagFilter`), and the
+command plumbing `ShellActions.taskCommand` / `taskCommandState` for the removed commands. `UiStateDto.tasks` /
+`TasksUiDto` stay in the DTO (read by `adoptTasksUi`, kept in the file by `ui_state_set`). In Rust nothing is removed:
+`tasks5a.rs` (`tasks`, `task_defs`, `daily_tasks`) stays.
+
+## 29. Behaviour the contract fixes
+
+### 29.1 The Tasks page (R204; D-1903)
+
+- **Route**: `type/task` (TypePage + TypeViews). `tasks` and `tasks/kanban` are **aliases**: resolving one replaces
+  the history entry by `type/task` (`history.replace`, no extra entry) with `Route.tab` = `Kanban` for `tasks/kanban`
+  when a `views` name has its name key, else the remembered tab. Restored window tabs, pins and the route test hook
+  resolve the same way. `route-ready:type/task` replaces `route-ready:tasks*`.
+- **`Route.tab?: string`** (new route option, any `type/<key>`): TypeViews selects that view tab when listed (name
+  key), and remembers it (`setLastTab`); not listed → the normal rule.
+- **First open** (Task only, D-1903): `typeViews.lastTab` has **no** `task` key → the first view tab (`Schedule` on the
+  overlay), else `All Tasks`. `lastTab.task === null` means `All Tasks` was chosen. Other types keep D-1765.
+- **Header**: heading = the plural; under it `TasksSummary` (`tasks.summaryWeek`, CP-29) instead of
+  `typePage.countPlural`; `Type settings` and `New Task` as every type page. The summary ignores the filters and follows
+  `vault:changed` and the 30 s day check.
+- **Sidebar**: `Tasks` opens `type/task` (the remembered tab) and is `aria-current="page"` there; its count is
+  unchanged (`useTaskBadge`).
+- **Back** from a card returns to `type/task` on the same tab with its folds, tag selection, the page's `scrollTop` and
+  each `div.board-scroll`'s `scrollLeft` (kept in the history entry's state).
+
+### 29.2 Tabs, toolbar, `New Task`
+
+- Tabs and toolbar as part one §4.3 / R186: `Filter Tasks…`, `Filter by tag` (every tab and `All Tasks`), on boards the
+  `Lanes` radiogroup, the sort button, `View actions`; on `All Tasks` `Columns`. Gone: `textbox` `Add a task…`, the
+  date-filter `group`, the `Group by` and `Task views` tablists, the disabled `Sort`, `Show <n> more`.
+- `New Task` (header, ⌘N › Task, palette `task.new`) navigates to `new/task` with no prefill; `status` comes from
+  `newObject` (the first Open-state option, D-503). A lane's tile: `new/task` with `Route.prefill` (§29.3, part one
+  §4.5). Nothing is written before the draft's first change.
+
+### 29.3 Period boards (R203; D-1899, D-1900)
+
+- **Labels** (AP-1536): `isTaskDue` = the grouping key is `due` and every type of the query is `task`. `period:today` →
+  `board.period.today` (`Today & overdue`) when `isTaskDue`, else `board.period.todayEarlier`; `period:week` →
+  `board.period.week`; `period:later` → `board.period.later`; `none` → `board.period.none` (`Not scheduled`) when
+  `isTaskDue`, else part one's `board.none` with the attribute Name (`No Due date`); `done` → `board.done`, hint
+  `board.doneHint` (`Completed in the last {count} days`). Day groups: `dayHeading`.
+- **Drops**: on a period board with a date key, a drop target is a lane or a day group; a drop on the `week` lane outside
+  its day groups (its heading) targets its first day group. The write is §26 with `dropFor` computed from the **bounds of
+  the result the board shows** (the env sent with that run), so a drop just after midnight writes what the shown lanes
+  say until the re-run. Same lane or day group, outside every target, Esc → nothing. Alt acts as a plain drag. Drop
+  labels: `board.period.dropDate` (`Drop to set Due date: Fri 16 Oct`, the date via `shortDate`), `board.period.dropClear`,
+  `board.dropDone`; out of the done lane onto a period target, `board.period.dropDate`.
+- **Keyboard**: `Move card to next / previous lane` moves to `neighbourTarget` (`today` → each day group → `later` →
+  `none` → `done`); horizontal ↑/↓ move between rows (lanes), ←/→ inside a row (part one §4.4).
+- **`Move to ›`** on a period board lists `targets(group)` minus the card's own, day groups by their heading.
+- **Date-time keys** (`created`, `modified`, a Date-time attribute; CP-25, D-1917): lanes and day groups aren't drop
+  targets, tiles pre-fill nothing; the done lane still takes drops (status only).
+- **Live region**: `board.moved` with the lane label or the day heading.
+- **The card keeps its date** on a period board (the grouping key isn't hidden; R203 "The card").
+
+### 29.4 The done lane and folds (R201, R206)
+
+- On a horizontal board the done lane's initial fold is `doneLane.folded`; on a board grouped by `status`, `folded`
+  applies to the Done-state option lanes. Folding stays horizontal-only (part one §4.4); in vertical mode those lanes
+  show unfolded.
+- `usageFolded[<usage key>]` holds the ids the user folded; for a lane whose initial fold is folded, `!<id>` records
+  that the user unfolded it (`!done`, `!option:Done`). No entry → the initial fold.
+- Expanding or folding writes only `ui-state.json` (one `ui_state_set`).
+
+### 29.5 Cards (R205; D-1891, D-1904, D-1910)
+
+- **Every card** shows its own type's `preview` keys in order (at most 4); a type without `preview` shows none. Pills,
+  relation footer chips, `#tags`, two body lines, empty `No <Name>` pills as part one §4.3 (D-1793 layout). The grouping
+  key is hidden except a multi-value one with ≥ 2 values (D-1769) and a period key (R203). `columns` on a board is never
+  read, written or noticed; the board toolbar has no `Columns`; switching the view to Table uses `columns` again.
+- **A Task card** (any board: tabs, blocks, `query/<name>`): `TaskCard` with `row.taskRow`, `result.taskDefs`,
+  `preview` = Task's `preview`, `hideKey` = the grouping key (except a period key), the source chip always (FR-TSK-08),
+  tags, two body lines (not on Done), `More actions` with R43's items plus `Move to ›` (and `Also add to ›` on a
+  multi-value board). Task `preview` keys other than `status`, `priority`, `due` are pills (`pills`). The board's
+  `article` attributes (part one §4.3) are on its root. Reading `taskRow` null (a Task row the core couldn't build) falls
+  back to the generic card.
+
+### 29.6 The tag filter (D-1892…D-1894, D-1908)
+
+On every view tab and `All <plural>` of a type page with views; never on a query block (D-1894), the Queries page,
+`query/<name>` or a Tag page. Options and counts by `tagOptions`; rows kept by `keepRow` together with the text filter and
+the view's own filters (AND). The selection is stored per `tagFilterKey` (one `ui_state_set` per change), restored on every
+mount; the text filter isn't stored. A selected tag no longer on any row stays a chip with `0`. Lanes and day groups
+never disappear because of these filters (counts show the narrowed numbers); with nothing left, the `status`
+`typePage.noMatch`.
+
+### 29.7 Sort (D-1892, D-1895, D-1907)
+
+- Tabs, Tasks views included: part two unchanged (sort popover, header click / ⇧-click, the usage write). On a board the
+  effective sort orders every lane and day group alike, the done lane included (rows order, §24.4).
+- `All <plural>`: `levelsOf(typeSort[<type>])`; header click / ⇧-click / ⏎ / ⇧⏎ by `sort.headerClick`; the sort button
+  and popover (scope `sort.scope.thisMac`; `Clear` deletes the key → the page's default); each change one `ui_state_set`
+  writing the whole list; `aria-sort` on the first level only, `aria-description` `sort.level` on the others; no vault
+  write.
+
+### 29.8 Width (D-1890, D-1909)
+
+`.page-column.page-wide` (type pages on every tab, `queries`, `query/<name>`): `box-sizing: border-box; max-width:
+1680px; margin-left: auto; margin-right: auto; padding-left: 40px; padding-right: 40px` (content box ≤ 1,600 px, equal
+space on both sides). Boards and tables wider than it scroll inside their own scrollers; the page never scrolls
+sideways. Notes unchanged.
+
+### 29.9 The editor (R189 changes)
+
+From `Schedule`: `Show` fixed to `Task`; the filter row `Status` `state is not` `Cancelled`; `View` Board; `Group by`
+`Due date · by period`; the checkbox `Done in its own lane, last 7 days` checked; `Lanes` `Horizontal`; no `On cards`.
+`Done` commits the shared keys through `query_apply` (§24.3). The done-lane checkbox isn't offered for Projekt / Book.
+
+### 29.10 Type settings › Default views (FR-TYP-01 AC-11)
+
+`type-settings/task` only: a section after the existing ones with the `button` `Restore default views`
+(`restoreState`), description `typeSettings.restoreViewsHint` or, when disabled, the reason. Activating it (or the
+palette) runs `restoreDefaultViews`. Restored tabs appear through the types store.
+
+## 30. DOM, strings, UI state, commands
+
+### 30.1 DOM (additions to part one §4.3 and part two §19.1)
+
+| Part | Element | Name and attributes |
+| --- | --- | --- |
+| Period lane | `section[role=region]` | `aria-label` `<label>, <count>` (CP-28); `data-lane="period:today\|period:week\|period:later"`, `data-lane-kind="period"`, `data-drop-target`; header `h2` with `data-tone="danger"` on `period:today` when `isTaskDue`, `data-tone="muted"` on `none` |
+| Day group | `div[role=group]` inside `period:week` | `aria-label` `<heading>, <count>`; `data-day="<YYYY-MM-DD>"`, `data-drop-target="true\|false"`; heading `h3.day-heading` (region-formatted, not `data-user-content`); an empty day shows only its heading |
+| No-value lane | `section[role=region]` | `data-lane="none"`, `data-lane-kind="none"`, `data-drop-target="true"` on a date-key period board |
+| Done lane | `section[role=region]` | `data-lane="done"`, `data-lane-kind="done"`, `data-color` (the Done option's colour), `data-folded` when folded; hint `p.lane-hint` (`board.doneHint`); fold `button` `board.expand` / `board.collapse` (`Expand Done`) with `aria-expanded`; no grip, no tile |
+| Done-state option lane | `section[role=region]` | `p.lane-hint` `board.doneStatusHint` (`Last 7 days`) |
+| Drop label | `div.board-drop` | `board.period.dropDate`, `board.period.dropClear`, `board.dropDone` |
+| Board card | `article[data-board-card]` | pills `span.card-pill[data-attribute]` in `preview` order; never one from `columns` |
+| Task card on a board | `article[data-board-card][data-task-card]` | `aria-label` `board.card` (`Task: <title>`); ms5-tasks D-509 hooks (`data-status`, `data-priority`, due chip `data-due` / `data-tone`), checkbox `task.complete`, source chip, `button` `task.more` |
+| Tasks summary | `p.type-page-count[data-tasks-summary]` | `tasks.summaryWeek` |
+| Tag filter | toolbar `button` `tasks.tagFilter` | on `All <plural>` too (`data-command="views.tagFilter"`); chips and options `data-tag="<key>"` (ms5-tasks §12.1) |
+| `All` sort | `button` `sort.button` in the `All <plural>` toolbar | part one's sort button; popover `p.sort-scope[data-scope="thisMac"]` |
+| Wide page | `div.page-column.page-wide` | §29.8 |
+| Editor | `combobox` `query.editor.groupBy` | period `option`s `query.editor.groupByPeriod` with `data-group-by="<key>"` and `data-period`; done-lane `input[type=checkbox][data-done-lane]` named `query.editor.doneLane`; operator options `query.op.state_is`, `query.op.state_is_not` |
+| Default views | `section[aria-labelledby]` in `type-settings/task` | heading `h2` `typeSettings.defaultViews`; `button` `typeSettings.restoreViews`, `data-command="types.restoreDefaultViews"`, `aria-description` hint or reason, `aria-disabled` when disabled |
+| Live region | `div.sr-live` | `board.moved`, `board.added`, `typeSettings.restoredViews`, once each |
+
+### 30.2 Strings (R207; NFR-OTH-02 AC-23)
+
+New keys in `app/ui/src/i18n/catalog.ts`, R207's English texts unless a CP says otherwise:
+
+`tasks.summaryWeek` `{open} · {overdue} · {done}` with the plural messages `tasks.summary.open`, `tasks.summary.overdue`
+(kept) and new `tasks.summary.doneWeek` `{ one: '{count} done this week', other: '{count} done this week' }` (CP-29,
+D-1921) · `board.period.today` · `board.period.todayEarlier` · `board.period.week` · `board.period.later` ·
+`board.period.none` · `board.period.dropDate` · `board.period.dropClear` · `board.done` · `board.doneHint` (plural) ·
+`board.doneStatusHint` (plural) · `board.dropDone` · `board.laneCountOf` `{ one: '{count} {name}', other: '{count}
+{plural}' }` (CP-28, D-1920) · `query.editor.groupByPeriod` · `query.editor.groupByPeriodHint` ·
+`query.editor.doneLane` (plural) · `query.op.state_is` `state is`, `query.op.state_is_not` `state is not` (CP-30,
+D-1922) · `sort.scope.thisMac` · `typeSettings.defaultViews` · `typeSettings.restoreViews` ·
+`typeSettings.restoreViewsHint` · `typeSettings.restoreViewsNone` · `typeSettings.restoredViews` ·
+`cmd.restoreDefaultViews`.
+
+**Removed** (CP-30, D-1922: R207's list made exact): `tasks.title`, `tasks.summary`, `tasks.summary.today`,
+`tasks.views`, `tasks.view.schedule`, `tasks.view.kanban`, `tasks.view.all`, `tasks.groupBy`, `tasks.group.status`,
+`tasks.group.tag`, `tasks.group.overdue`, `tasks.group.today`, `tasks.filter`, `tasks.filter.all`, `tasks.filter.today`,
+`tasks.filter.week`, `tasks.section.today`, `tasks.section.week`, `tasks.section.later`, `tasks.section.none`,
+`tasks.section.done`, `tasks.hint.today`, `tasks.hint.week`, `tasks.hint.later`, `tasks.hint.none`, every `tasks.add`
+key (`tasks.add`, `.example`, `.due`, `.noDue`, `.priority`, `.noPriority`, `.clearDue`, `.clearPriority`, `.hotkey`,
+`.noTitle`, `.today`, `.week`, `.none`, `.dueToday`; the capture window uses none of them), `tasks.column.add`,
+`tasks.column.noTag`, `tasks.column.noStatus`, `tasks.column.empty`, `tasks.column.drag`, `tasks.column.moved`,
+`tasks.column.cantMove`, `tasks.drop.status`, `tasks.drop.tag`, `tasks.board.hintStatus`, `tasks.board.hintTag`,
+`tasks.moved`, `tasks.created`, `tasks.sort`, `tasks.sort.schedule`, `tasks.sort.kanban`, `tasks.doneMore`,
+`tasks.newIn`, `cmd.tasks.groupStatus`, `cmd.tasks.groupTag`, `cmd.tasks.filterAll`, `cmd.tasks.filterToday`,
+`cmd.tasks.filterWeek`, `cmd.tasks.add`, `cmd.tasks.columnLeft`, `cmd.tasks.columnRight`, `cmd.task.moveNext`,
+`cmd.task.movePrevious`, `query.editor.onCards`, `query.editor.onCardsChange`.
+
+**Kept and reused**: `tasks.tagFilter` and the other `tasks.tag*` keys of D-518, `tasks.summary.open`,
+`tasks.summary.overdue`, `cmd.goto.tasks`, `cmd.tasks.schedule`, `cmd.tasks.kanban`, `cmd.tasks.search`,
+`cmd.task.complete`, `cmd.task.setStatus`, every `task.*` key, `state.*`, `board.*`, `views.*`, `sort.*`,
+`typePage.filter`, `typePage.noMatch`, `queries.trashed`, `views.changedOutside`, `trash.removeFailed`, the route
+names. Plurals per D-133 (`Intl.PluralRules`).
+
+### 30.3 UI state (R206; D-1893, D-1907; FR-STO-07 AC-12)
+
+`UiStateDto` (Rust `#[serde(default, skip_serializing_if = …)]`, `version` stays 1):
+
+```ts
+tagFilter?: Record<string /* `tab:<type key>/<name key>` | `all:<type key>` */, string[] /* tag keys, NFC, lower case */>;
+typeSort: Record<string /* type key */, SortDto[] | TypeSortDto /* 0.4.x: { column, dir }, read as one level */>;
+usageFolded?: Record<string, string[]>;   // part two; entries may be `!<lane id>` (§29.4)
+```
+
+- Rust: `type_sort: BTreeMap<String, TypeSortValue>` with `#[serde(untagged)] enum TypeSortValue { Levels(Vec<SortDto>),
+  One(TypeSortDto) }`; the UI always writes `Levels`. (A 0.4.x build reading a list fails on that key; downgrades are
+  out of scope.)
+- `tagFilter` keys use part two's usage-key rule for tabs (`tab:task/schedule`, `tab:book/rozečtené`) plus `all:<type>`;
+  `moveQueryState(from, to)` renames tab keys whose name key is `from`'s (after the rename job's `done` and its Undo).
+- **`adoptTasksUi(ui)`** (pure, `views/uiState.ts`), applied once at UI-state load when `ui.tasks` exists and
+  `ui.typeViews?.lastTab` has no `task` key: `lastTab.task` = `Schedule` / `Kanban` / `null` for `tasks.view`
+  `schedule` / `kanban` / `all`; `tasks.doneExpanded` true → `!done` in `usageFolded["tab:task/schedule"]`; the grouping,
+  date filter and tag selection are dropped; `ui.tasks` stays in the file unchanged. One `ui_state_set`.
+- Nothing of this is in the vault (FR-STO-07).
+
+### 30.4 Commands (R207; D-1771, D-1905)
+
+Palette only, no shortcut, `needsVault: true`:
+
+| Id | Title key | Listed when | Does |
+| --- | --- | --- | --- |
+| `tasks.go` (kept) | `cmd.goto.tasks` | anywhere | `go({ id: 'type/task' })` |
+| `tasks.schedule`, `tasks.kanban` (kept ids; CP-30) | `cmd.tasks.schedule`, `cmd.tasks.kanban` | `task.yml`'s `views` has that name key | `go({ id: 'type/task', tab })` |
+| `tasks.search` (kept id; CP-30) | `cmd.tasks.search` | anywhere | `type/task` (opened when elsewhere), focus the current tab's `Filter Tasks…` |
+| `task.complete`, `task.setStatus` (kept) | `cmd.task.complete`, `cmd.task.setStatus` | a Task card focused on any board | as tasks.md R45, through §26's queue |
+| `types.restoreDefaultViews` (new) | `cmd.restoreDefaultViews` | `type/task`, `type-settings/task` | `restoreDefaultViews`; `disabled` = `restoreState().reason` |
+| removed | — | — | `tasks.groupStatus`, `tasks.groupTag`, `tasks.filterAll`, `tasks.filterToday`, `tasks.filterWeek`, `tasks.add`, `task.moveNext`, `task.movePrevious`, `tasks.columnLeft`, `tasks.columnRight` (part one's `board.cardNext` / `board.cardPrevious` / `board.lane*` do their work) |
+
+`ViewsStatus.board` (part one §4.7) gains `taskFocused: boolean`. ⌥←/⌥→ do nothing on boards (D-1905).
+
+### 30.5 Performance marks
+
+Part one §4.8 unchanged: `board-request` / `board-ready` per Schedule and Kanban selection, `board-card-moved` when a
+period-dragged card is in its target lane's or day group's DOM (NFR-PERF-07 AC-5). `route-ready:tasks*` are no longer
+written.
+
+## 31. Fake core, test hooks, tests and expected bytes
+
+### 31.1 Fake core and hooks
+
+- `app/ui/test/fake-queries.ts`: §24 (the group mapping and `done_lane` reads and writes, `ORDER`, removal, `columns` on
+  create, state operators, hidden lanes, strict Date sort, period lanes with day groups using `queries/board/period.ts`,
+  the done lane, `uses_relative`), `QueryRowDto.tags`, `taskRow` (from `fake-tasks.ts`'s row builder),
+  `QueryResultDto.taskDefs`. Checked against Rust on `expected-views-tasks.json` (L3,
+  `app/test/fake_views_tasks.contract.test.ts`, not an AC test).
+- `fake-schema.ts`: `viewsSource` with `''` removes the key. `index_type_rows` rows gain `tags`.
+- `task_views_restore` over the fake's files (§25.3 rules, `default_task_view` bytes from the fake's `create_text`).
+- **Migration**: `FakeOptions.taskViews?: boolean` (default false, D-1913): when true the fake runs §25.2 on the launch
+  vault before the first command answers, and in `vault_open` / `vault_create`. `FakeVault` copies without it never
+  change.
+- `ui_state_set` stores `tagFilter` and list `typeSort`, keeps `tasks`.
+- Handle: the existing `calls()`, `writes()`, `writesTo()`, `typeCalls()`, `queryRuns()`, `moves()`, `setFile(…, {
+  silent: true })`, `writeControl({ path })`, `delayCommand`, `perfMarks()` cover Q2-T. No new clock hook: the clock and
+  the zone come from `__TEGG_NOW__` / `__TEGG_TZ__` (D-504, D-509), as in 5A (midnight and zone changes included).
+- `window.__TEGG_TEST__.board()`: lanes gain `days: { date: string; cards: string[] }[]` and `folded: boolean`.
+- **Rust hooks**: `TEGG_TEST_TASK_VIEWS=1` (with `TEGG_TEST=1`) turns the migration on in the app (D-1913). The L4 kill
+  harnesses re-run the test binary as a child (as `ac_views_writes.rs`): `TEGG_TASKS_KILL_CHILD`, `TEGG_TASKS_KILL_READY`,
+  `TEGG_TASKS_KILL_KIND` = `migrate` (FR-QRY-07 AC-29: `Core::task_views_migrate` on the base fixture, 200 runs; the "`task.yml` changed
+  between the creates and the `views:` write" part is 40 trials with a concurrent writer: never a lost update, the next run
+  writes the line on top, D-1927),
+  `period` (FR-SYN-02 AC-13: alternating `Core::note_write` of Zalít květiny's fixture bytes and
+  `expected/views-tasks/tasks/zalit-kvetiny-no-due.md`), `restore` (alternating `Core::task_views_restore` and its Undo
+  through `Core::type_patch` + `Core::query_trash` on the overlay after trashing `Kanban`).
+- L6: `TEGG_TEST=1`, `TEGG_NOW`, `TZ`, a temporary Application Support, `TEGG_TEST_TASK_VIEWS=1` only in the migration
+  tests; keys only to Tegg (D-799).
+
+### 31.2 Test files per criterion
+
+| Criterion | L1 | L2 / L3 | L4 | L5 | L6 |
+| --- | --- | --- | --- | --- | --- |
+| FR-TSK-04 AC-22 | | | | `app/webkit/views_tasks_page.ac.test.ts` | `app/e2e/views_tasks.ac.test.ts` |
+| AC-23 | `app/test/views_tasks_model.ac.test.ts` (`period.ts` table, both regions and zones) | L3 | `crates/tegg-core/tests/ac_views_tasks.rs` | `app/webkit/views_tasks_schedule.ac.test.ts` | |
+| AC-24 | | | `ac_views_tasks.rs` | `views_tasks_schedule` | `views_tasks.ac.test.ts` |
+| AC-25 | `packages/doc/test/task_period_move.ac.test.ts` | | `ac_views_tasks.rs` (`note_write` base) | `views_tasks_schedule` | `views_tasks.ac.test.ts` |
+| AC-26 | | | `ac_views_tasks.rs` | `app/webkit/views_tasks_queries.ac.test.ts` | |
+| AC-27 | | | `ac_views_tasks.rs` (watcher) | `views_tasks_schedule` | |
+| AC-28 | `views_tasks_model` (`tagOptions`) | | | `views_tasks_schedule` | `views_tasks.ac.test.ts` |
+| AC-29 | | | | `views_tasks_page` | |
+| FR-TSK-05 AC-19 | | | `ac_views_tasks.rs` | `app/webkit/views_tasks_kanban.ac.test.ts` | |
+| AC-20 | `task_period_move` (status bytes) | | `ac_views_tasks.rs` (`Kanban.yml`) | `views_tasks_kanban` | |
+| AC-21, AC-22 | (AC-21 bytes: part one's `board_move`) | | | `views_tasks_kanban` | |
+| FR-TSK-10 AC-13 | `app/test/quick_add.ac.test.ts` (unchanged) | | `ac_views_tasks.rs` (first write) | `views_tasks_page` | |
+| FR-QRY-07 AC-27, AC-28 | | | `ac_views_tasks.rs` | `views_tasks_page` (fake `taskViews`) | AC-28: `views_tasks.ac.test.ts` |
+| AC-29 | | | `ac_views_tasks.rs` (harness `migrate`) | | |
+| AC-30 | `views_tasks_model` | | | `app/webkit/views_tag_filter.ac.test.ts` | `views_tasks.ac.test.ts` |
+| FR-TYP-01 AC-11 | | | `ac_views_tasks.rs` (`SetViews`, `SetViewsSource('')` bytes through `Core::type_patch`; no `tegg-schema` file, D-1925) | `views_tasks_queries` | |
+| FR-QRY-01 AC-17 | `views_tasks_model` (`periodChoices`) | | `ac_views_tasks.rs` | `views_tasks_queries` | |
+| AC-18 | | `crates/tegg-core/tests/ac_views_tasks_props.rs` (oracle); L3 | `ac_views_tasks.rs` | | |
+| AC-19 | | | (none: the `views:` item bytes are Q2.1's, already green; D-1925) | `views_tasks_queries` | |
+| AC-20 | `views_tasks_model` (`allSort`) | | | `views_tag_filter` | |
+| FR-QRY-02 AC-9 | `views_tasks_model` (`stateOps`) | | `ac_views_tasks.rs` | | |
+| FR-QRY-05 AC-28 | | | `ac_views_tasks.rs` (bytes kept, create) | `app/webkit/views_cards.ac.test.ts` | |
+| AC-29 | (none, D-1927) | | | `views_cards` | |
+| FR-QRY-08 AC-3 | `views_tasks_model` (`prefillFor`) | | `ac_views_tasks.rs` (first write) | `views_tasks_schedule` | |
+| FR-TYP-09 AC-36 | | | | `app/webkit/views_width.ac.test.ts` | |
+| FR-FMT-07 AC-35 | | `ac_views_tasks_props.rs` | `ac_views_tasks.rs` | | |
+| FR-FMT-12 AC-14 | `task_period_move` | | `ac_views_tasks.rs` | `app/webkit/views_tasks_writes.ac.test.ts` | |
+| FR-SYN-02 AC-13 | | | `ac_views_tasks.rs` (harness `period`, `restore`) | | |
+| FR-SYN-03 AC-32 | | | `ac_views_tasks.rs` | `views_tasks_writes` | |
+| FR-SYN-06 AC-50 | | | | `views_tasks_writes` (counts) | `views_tasks.ac.test.ts` |
+| FR-STO-07 AC-12 | `views_tasks_model` (`adoptTasksUi`) | | | `views_tag_filter` | `views_tasks.ac.test.ts` |
+| NFR-PERF-07 AC-5 | | | `crates/tegg-core/tests/ac_views_tasks_perf.rs` (`nfr_perf_07_ac5_tasks_boards`, skipped at push; nightly `core-perf-ac`, D-1927) | | `app/e2e/nfr_perf_07_tasks_board.ac.test.ts` (nightly) |
+| FR-UX-03 AC-53 | `app/test/views_tasks_registry.ac.test.ts` | | | `app/webkit/views_tasks_a11y.ac.test.ts` | |
+| FR-UX-05 AC-25, FR-UX-08 AC-25 | | | | `views_tasks_a11y` | AC-25 (UX-08): `views_tasks.ac.test.ts` |
+| NFR-OTH-02 AC-23 | `views_tasks_registry` (catalog) | | | `views_tasks_a11y` (pseudo-locale) | |
+| F3 bug | | | | `app/webkit/views_board.ac.test.ts` `bug_q2t_fr_qry_07_multi_lane_card_links_resolve` (red first) | |
+| FR-QRY-07 AC-31 | manual (`qa/manual/`) | | | | |
+
+Test names are the ACs' (`fr_tsk_04_ac22_header_tabs_and_toolbar`, …), the same name in each layer's file. Helpers:
+`app/webkit/views-tasks-helpers.ts` (base / overlay copies, the clock, regions, zones). No new `qa.config.json` step; the
+nightly `core-perf-ac` step gains `ac_views_perf.rs` and `ac_views_tasks_perf.rs` (D-1927). The Rust tests compile against
+a compile-only stubs commit made before the red commit (D-1926). The tests of the change table change in a commit right
+after the red commit, not in the build commit (D-1928, amends D-1912).
+
+### 31.3 L3 corpus (`tests/fixtures/queries-files/expected-views-tasks.json`)
+
+`reads`: the §2 `QueryDefDto` of the overlay's four query files and of FR-QRY-01 AC-18's runtime variants (each given
+as `{ name, text, def, broken }`); `groups`: `[{ query, env: { today, zone, weekStart, locale }, kind, lanes: [{ id,
+dropTarget, doneWithin, paths, days: [{ date, paths }] }] }]` for R208's Schedule, Kanban and Projekty boards (`cs` and
+`en-US`, Prague and Los Angeles, the Sunday clock of AC-23); `filters`: FR-QRY-02 AC-9's results. Read by
+`ac_views_tasks.rs`, `app/test/views_tasks_model.ac.test.ts` (the `period.ts` part) and
+`app/test/fake_views_tasks.contract.test.ts`.
+
+### 31.4 Expected bytes (`tests/fixtures/queries-files/expected/views-tasks/`, README there)
+
+Written with the red tests by the test author. Clock `2026-10-14T12:00:00+02:00` (Europe/Prague, `cs`) unless named;
+inputs the base fixture (`base`) or the overlay. Byte rules as `expected/` (LF, final newline; `-crlf`, `-no-newline`
+variants). `tasks/` hold whole files after the write, `modified:` per the clock.
+
+| File | Input → action | Criteria |
+| --- | --- | --- |
+| `queries/schedule-default.yml`, `queries/kanban-default.yml` | R202's bytes, no time stamps (D-1936) | FR-QRY-07 AC-27, AC-28, FR-TYP-01 AC-11 |
+| `types/task-migrated.yml` | base `task.yml` + line 11 `views: [Schedule, Kanban]` | FR-QRY-07 AC-27, AC-28 |
+| `types/task-builtin-migrated.yml` | no `task.yml`: the built-in file + the line (`Restore default views`; the migration writes nothing there since D-1936) | FR-TYP-01 AC-11 |
+| `types/task-overlay-without-kanban.yml`, `types/task-overlay-without-schedule.yml` | overlay; `Move to trash` on `Kanban`; `Remove from Tasks page` on `Schedule` | FR-TYP-01 AC-11 (the restore of either gives the overlay's `task.yml`) |
+| `types/task-overlay-schedule-sort-title.yml` | overlay; `Schedule` one level `Title A → Z` | FR-QRY-01 AC-19 |
+| `types/task-overlay-kanban-add-title.yml` | overlay; `+ Add sort` on `Kanban` | AC-19 |
+| `queries/schedule-no-done-lane.yml`, `queries/schedule-done-lane-again.yml` | overlay; uncheck, then check the done lane | FR-TSK-04 AC-26 |
+| `queries/schedule-lanes-vertical.yml` (+ `-crlf`, `-no-newline`) | `Switch lanes` | FR-FMT-07 AC-35 |
+| `queries/kanban-lane-order-waiting.yml`, `queries/kanban-lane-order-reset.yml` | `Waiting` before `To do`; then `Reset lane order` | FR-TSK-05 AC-20 |
+| `queries/projekty-group-created.yml` | `Created · by period`, `Done` (comment kept) | FR-QRY-01 AC-17 |
+| `../views/new-view-board-book.yml` (part one's file) | its `columns:` line goes (D-1910); changed in the build commit with a `Fixture-Change:` trailer (D-1927; not by the red tests) | FR-QRY-05 AC-28 |
+| `tasks/precist-knihu-due-16.md` | T08 onto `pátek 16.` | FR-TSK-04 AC-25 (a) |
+| `tasks/obnovit-pas-due-14.md`, `tasks/obnovit-pas-due-14-la.md` | T07 onto `Today & overdue` (Prague; Los Angeles `modified …T03:00:00-07:00`) | (b) |
+| `tasks/zalit-kvetiny-due-19.md`, `tasks/zalit-kvetiny-due-18-en-us.md` | T03 onto `Later` | (c) |
+| `tasks/koupit-darek-no-due.md` | T04 onto `Not scheduled` | (d) |
+| `tasks/poslat-rozpocet-done.md` | T02 onto `Done` | (e) |
+| `tasks/vratit-knihy-reopened.md` | T12 from `Done` onto `Today & overdue` | (f) |
+| `tasks/spatne-datum-due-15.md` | T16 onto `čtvrtek 15.` | (g) |
+| `tasks/zalit-kvetiny-no-due.md` | T03 onto `Not scheduled` (the kill harness's second text) | FR-SYN-02 AC-13 |
+| `tasks/nakup-later.md` | T19 (NFD title) onto `Later` | FR-FMT-12 AC-14 |
+| `tasks/zavolat-do-servisu-new.md` | `New Task`, title, ⏎: the whole file without its generated `id:` line (tests remove that line and compare; D-1927, RT-6) | FR-TSK-10 AC-13 (a) |
+| `projekty/zahrada-later.md`, `projekty/web-no-due.md` | Zahrada onto `Later`; Web onto `No Due date` | FR-QRY-01 AC-17 |
+
+Status-drag bytes on Kanban are tasks.md FR-TSK-05 AC-2's (existing L1 texts); tag-drag bytes part one's `board_move`.
+
+## 32. Owner decisions
+
+### 32.1 Contract choices (no owner decision needed; follow the ACs and precedents)
+
+1. The query model is extended in place again (`group_period`, `done_lane`, `Op::StateIs` / `StateIsNot`, lane kinds
+   `Period`, `Done`, `DayGroup`); no Tasks-specific query type.
+2. "Carries states" = a Select with at least one option of a known state; the done lane also needs a Done-state option
+   (otherwise there is nothing for it to hold and nothing a drop could write).
+3. Done rows outside `within_days` leave `rows` in the core, so lanes, counts and tag options agree.
+4. Period lanes keep part one's id scheme (`period:<id>`, `none`, `done`; days `day:<date>`); `lane_order` stores the bare
+   ids `today`, `week`, `later`.
+5. A drop computes its date from the bounds of the result on screen, never from a later clock.
+6. A Task card on a board is `tasks/TaskCard.tsx` driven by `preview`; all writes from a board go through one per-object
+   queue (`writeCardChange`).
+7. Status moves on a `status` that carries states use the D-472 status change (completed set / removed), as the 5A
+   Kanban did; other boards keep `applyBoardMove`.
+8. The tag filter counts **rows** (objects), not lane cards: a book in two lanes counts once (D-518 counted tasks).
+9. Folding stays horizontal-only; an initially folded lane is unfolded by a `!<id>` entry.
+10. `typeSort` values become a list (R206, FR-QRY-01 AC-20) through an untagged enum that still reads 0.4.x values.
+11. `Route.tab` is a general route option, so commands, aliases and pins open a type page on a named tab.
+12. `SetViewsSource('')` removes the `views` key: the only way an Undo can return to "no key".
+
+### 32.2 Contract decisions (CP-22…CP-31 → D-1914…D-1923, decided 2026-11-20)
+
+Each point was decided as recommended (option (a)); the alternatives are kept for the record.
+
+| # | Question | Options | Decision |
+| --- | --- | --- | --- |
+| CP-22 → D-1914 | **Where period lanes are computed.** Part one groups in the core ("the UI never re-groups"), but FR-TSK-04 AC-23 asks for an L1 test of "the bucketing table", and drops, tiles and day headings need the bounds in the UI. | (a) The core groups (`group` with `QueryEnv`); a pure TS twin `queries/board/period.ts` gives bounds, `periodOf`, drop dates, prefills, headings and keyboard targets; the fake core groups with it; L3 ties both to one corpus. (b) Core only; the UI asks nothing of dates; AC-23's L1 layer becomes the drop / prefill table only. (c) The UI buckets (as 5A's `views.ts`); the core returns rows (query blocks and `query/<name>` would need the UI too). | **(a)**, as recommended |
+| CP-23 → D-1915 | **How a period grouping is stored in `QueryDef` / `QueryDefDto`.** Every new field changes struct literals in Q / Q2 tests (type-only, D-1912), but the type of `group_by` itself needn't change. | (a) Flat: `group_by` stays the key, new `group_period: bool` (`groupPeriod`). (b) `group_by: Option<GroupBy>` enum (`Key` / `Period`), DTO `groupBy: string \| { key; period: true }` (every `group_by` literal and `groupBy` reader changes). (c) A string encoding `due:period`. | **(a)**, as recommended |
+| CP-24 → D-1916 | **Where a board's Task card gets R43's data** (checkbox state, `statusKnown`, priority rank, due label, source chip, `completed`). `QueryRow` has only `TaskBits { status, state, due }`. | (a) `QueryRowDto.taskRow: TaskRowDto \| null` and `QueryResultDto.taskDefs` from the core's 5A row builder (one index read). (b) The board joins `task_list` by path (a second request and a second source that can disagree for a moment). (c) Grow `TaskBits` to a full row (changes slice Q's tests). | **(a)**, as recommended |
+| CP-25 → D-1917 | **Drops on a period board grouped by a Date-time attribute, `created` or `modified`.** R203 says a drop writes `<key>: <date>`; a Date-time needs a time and offset (FR-FMT-11), `modified` is rewritten by every write, and `created` is an identity date. ACs only drag `due` (Date). | (a) Only Date keys accept drops and pre-fill tiles; Date-time keys draw read-only period lanes (no drop target, tiles without pre-fill); the done lane still takes drops. (b) Date-time writes the local midnight with offset (or keeps the old time of day); `created` writable, `modified` not. | **(a)**, as recommended |
+| CP-26 → D-1918 | **Who runs `Restore default views`.** R202 needs the default bytes (the migration's, in Rust), exclusive creates, the `views:` insert rule and one Undo. | (a) A core command `task_views_restore(base, now)` (creates, then `views:`), returning what it did; the UI's Undo uses `type_patch` `viewsSource` then `query_trash`. (b) The UI only, through `query_create` + `type_patch`, with a TS copy of the default defs. (c) Core restore and a core undo command. | **(a)**, as recommended |
+| CP-27 → D-1919 | **Where the migration runs.** `Core::open` is zero-write today; D-1913 gates it in tests. | (a) `Core::task_views_migrate(now)`, called by the app's `open_vault` for a newly opened core before it returns (so `vault_create` gets it too), gated by `TEGG_TEST` / `TEGG_TEST_TASK_VIEWS`; L4 calls it directly. (b) Inside `Core::open` (every L4 test opening a core would need a gate). (c) The UI calls an IPC after `vault_open` (the page can render before the views exist). | **(a)**, as recommended |
+| CP-28 → D-1920 | **Lane counts on Task boards.** FR-UX-08 AC-25 reads `<label>, <n> tasks` "the Task plural as written"; part one's lanes read `Reading, 3 cards` (`board.laneCount`). The plural as written has no singular and is capitalised (`Tasks`). | (a) New `board.laneCountOf` `{ one: '{count} {name}', other: '{count} {plural}' }` with the type's Name / plural as written on single-type boards (`Today & overdue, 4 Tasks`, `1 Task`), `board.laneCount` (`cards`) with several types; day groups the same; AC text reads `Tasks`. (b) `cards` everywhere; AC-25 amended. (c) A Task-only catalog text `{count} tasks` (not user content). | **(a)**, as recommended |
+| CP-29 → D-1921 | **The summary string.** R207 gives `tasks.summaryWeek` as one text with three plural counts; one catalog message can't carry three plural forms, and D-505 solved the same for `tasks.summary`. | (a) `tasks.summaryWeek` `{open} · {overdue} · {done}` built from `tasks.summary.open`, `tasks.summary.overdue` (kept) and new `tasks.summary.doneWeek`; NFR-OTH-02 AC-23 checks the composed English. (b) One key with R207's literal text and ICU-style plurals (a new message format in the catalog). | **(a)**, as recommended |
+| CP-30 → D-1922 | **R207 / R208 names that don't match the code** (AC fixes). (1) Operator keys: the editor renders `query.op.<yaml op>` (`query.op.is_not`), R207 says `query.op.stateIs`. (2) Command ids "kept" in R207 are `tasks.showSchedule`, `tasks.showKanban`, `tasks.filter`; the existing ids are `tasks.schedule`, `tasks.kanban`, `tasks.search` (D-1284). (3) R207's removed list misses keys that lose their last user (`tasks.title`, `tasks.summary`, `tasks.summary.today`, `tasks.add.dueToday`, `tasks.column.cantMove`, `tasks.sort*`, `tasks.doneMore`, `tasks.newIn`, the removed commands' `cmd.*`). (4) R208 / FR-TSK-04 AC-22 show the sort button as `Due ↑`; the button uses the attribute Name (`Due date ↑`, as AC-19's popover). | (a) Fix the ACs to the code: `query.op.state_is` / `query.op.state_is_not`; keep the three ids; §30.2's explicit removed list; `Due date ↑`. (b) Rename the code to R207's names (catalog op keys stop following the YAML names; three command ids and their tests change). | **(a)**, as recommended |
+| CP-31 → D-1923 | **Invalid dates in sorts.** R203 says "an invalid date sorts with the empty values" inside a lane, but R208 also needs it on the Kanban (T17's date-time `due` sorts after T08 in `To do`), which isn't a period board. Today a Date attribute sorts any instant. | (a) A Date attribute's sort key is its valid `YYYY-MM-DD` only, in every query view; filters unchanged. (b) Only on boards. (c) Also make Date filters strict (a wider slice Q change). | **(a)**, as recommended |
+
+### 32.3 Red-test decisions (RT points → D-1924…D-1928, decided by the owner 2026-11-20)
+
+| Decision | |
+| --- | --- |
+| D-1924 | The change table (views.md part three) also covers the tests that open the Tasks page on a vault without views (route only, the default views added to the vault, `withTaskViews()`), `tasks_type_settings` AC-2…AC-4, `focus_indicator`'s old-blue test, and the L1 tests of removed 5A functions (deleted; their ACs keep their L5 tests) |
+| D-1925 (RT-2) | No `crates/tegg-schema/tests/ac_views_tasks_type_file.rs`: its bytes were already right (Q2.1), so it couldn't be red; `ac_views_tasks.rs` `fr_typ_01_ac11_restore_default_views` checks them through `Core::type_patch`. FR-QRY-01 AC-19's item bytes stay checked at L5 |
+| D-1926 (RT-1) | The Rust red tests compile against a compile-only stubs commit of §24.1 and §25 (`Op::StateIs` / `StateIsNot`, `DoneLane`, `QueryDef.group_period` / `done_lane`, `LaneKind::Period` / `Done`, `DayGroup`, `Lane.days` / `done_within`, `GroupKind::Period`, `QueryRow.tags` / `task_row`, `QueryResult.task_defs`, `taskviews`, `Core::task_views_migrate` / `task_views_restore`), made before the red commit as D-1813; stubs return wrong values or `NotImplemented`, never panic The stubs' type-only edits of slice Q tests (`crates/tegg-core/tests/queries_setup/mod.rs`, `ac_queries_props.rs`) go with the stubs commit |
+| D-1927 (RT-3…RT-11) | NFR-PERF-07 AC-5's L4 benchmark is the new `ac_views_tasks_perf.rs`; it and `ac_views_perf.rs` run in the nightly `core-perf-ac` step. FR-QRY-05 AC-29 has no L1. A missing `columns` reads as §24.2 says. The new task's expected file is the whole file without `id:`. `new-view-board-book.yml` changes in the build commit. `weekStart` is `getDay` numbering; `targets()` / `neighbourTarget()` use `{ lane, day }`. `tagOptions` / `keepRow` NFC-normalise the selection; selected tags with 0 rows stay listed. The migration race is 40 trials with a concurrent writer. A missing `created` / `modified` has no date. Part B's assumptions hold: T15 shows no status chip in its unknown-value lane; "no history entry" is checked by `history.length`; day headings come from `Intl`; tag lanes are named by the tag; the done lane's heading uses `--type-green`; Preview and option changes are made by external `setFile` edits; the fake `vault_create` gives `task-migrated.yml`; alias rows keep the boards `Tasks`, `TasksBoard` |
+| D-1928 | The existing tests of the change table (views.md part three) change in a commit right after the red commit, not in the build commit (amends D-1912 and §31.2) |

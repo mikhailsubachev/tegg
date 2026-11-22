@@ -504,6 +504,8 @@ pub struct TypeRowDto {
     pub values: serde_json::Map<String, serde_json::Value>,
     pub links: Vec<LinkTargetDto>,
     pub type_single: bool,
+    /// Slice Q2-T (v1-views §27.1): the tag keys (frontmatter and inline; NFC, case-folded), sorted, unique.
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -582,7 +584,7 @@ pub struct UiStateDto {
     pub properties_open: bool,
     /// Type page sort per type key (FR-TYP-09 AC-3, D-233, ms3-shell §14.7.1); missing reads as empty.
     #[serde(default)]
-    pub type_sort: std::collections::BTreeMap<String, TypeSortDto>,
+    pub type_sort: std::collections::BTreeMap<String, TypeSortValue>,
     /// "Other properties" in the attribute panel expanded (D-229); missing reads as collapsed.
     #[serde(default)]
     pub other_properties_open: bool,
@@ -663,6 +665,11 @@ pub struct UiStateDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub usage_folded: Option<std::collections::BTreeMap<String, Vec<String>>>,
+    /// Slice Q2-T (v1-views §30.3, D-1893): the tag filter per view tab (`tab:<type>/<name key>`) or `All <plural>`
+    /// (`all:<type>`); tag keys, NFC, lower case.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub tag_filter: Option<std::collections::BTreeMap<String, Vec<String>>>,
 }
 
 /// Slice Q2 (v1-views §4.7): `typeViews` of `ui-state.json`.
@@ -790,6 +797,14 @@ pub struct TasksUiDto {
     pub date_filter: String,
     pub tags: Vec<String>,
     pub done_expanded: bool,
+}
+
+/// Slice Q2-T (v1-views §30.3): a list of sort levels; a 0.4.x value (`{ column, dir }`) reads as one level.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(untagged)]
+pub enum TypeSortValue {
+    Levels(Vec<UsageSortDto>),
+    Single(TypeSortDto),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -1227,7 +1242,7 @@ fn yes() -> bool {
 
 impl Default for UiStateDto {
     fn default() -> Self {
-        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None, type_column_widths: None, vaults: None, queries: None, outline_rail: None, related: None, type_views: None, query_column_widths: None, board_folded: None, usage_column_widths: None, usage_folded: None }
+        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None, type_column_widths: None, vaults: None, queries: None, outline_rail: None, related: None, type_views: None, query_column_widths: None, board_folded: None, usage_column_widths: None, usage_folded: None, tag_filter: None }
     }
 }
 
@@ -1648,6 +1663,7 @@ pub fn typescript() -> String {
         LastOpenedDto::decl(),
         RecentVaultDto::decl(),
         RightPanelDto::decl(),
+        TypeSortValue::decl(),
         TypeSortDto::decl(),
         QueriesUiDto::decl(),
         UiStateDto::decl(),

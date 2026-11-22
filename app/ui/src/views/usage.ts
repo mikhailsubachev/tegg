@@ -113,7 +113,7 @@ export function canUseQuery(result: RunLike, key: 'sort' | 'columns'): boolean {
   return u.own[key] !== null || u.broken.some((b) => b.key === key);
 }
 
-type UsageUi = Pick<UiStateDto, 'typeViews' | 'usageColumnWidths' | 'usageFolded'>;
+type UsageUi = Pick<UiStateDto, 'typeViews' | 'usageColumnWidths' | 'usageFolded' | 'tagFilter'>;
 
 /** R198 rename (§19.3): every usage key whose name key is `from`'s gets `to`'s name key, in `usageColumnWidths` and
  *  `usageFolded`, and every remembered tab `from` becomes `to`; the 0.4.0 keys stay untouched. The same object when
@@ -137,6 +137,8 @@ export function movedUsageState<U extends UsageUi>(ui: U, from: string, to: stri
   };
   const widths = rekey(ui.usageColumnWidths);
   const folded = rekey(ui.usageFolded);
+  // Slice Q2-T (v1-views §30.3, R206): the tab keys of the tag filter move too (`all:<type>` keys never name a query).
+  const tagFilter = rekey(ui.tagFilter);
   let typeViews = ui.typeViews;
   const tabs = ui.typeViews?.lastTab;
   if (tabs && Object.values(tabs).some((v) => typeof v === 'string' && nameKey(v) === f)) {
@@ -147,5 +149,6 @@ export function movedUsageState<U extends UsageUi>(ui: U, from: string, to: stri
   const out = { ...ui, typeViews } as U;
   if (widths !== undefined) out.usageColumnWidths = widths;
   if (folded !== undefined) out.usageFolded = folded;
+  if (tagFilter !== undefined) out.tagFilter = tagFilter;
   return out;
 }

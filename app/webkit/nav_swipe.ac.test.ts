@@ -10,7 +10,7 @@
 // (names). Written from the ACs and the contracts only (D-61); every lookup goes through `must` and node:assert (TS-I1).
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { gotoKanban, main as tMain, startTasks } from './tasks-helpers';
+import { gotoKanban, main as tMain, startTasksPage as startTasks } from './tasks-helpers'; // D-1924 (AC-Test-Change, slice Q2-T): route only, plus the default task views in the vault (migrations are off in tests, D-1913).
 import { gotoTypePage, openTypes, swap, typeFile, typeTable, typesVault } from './types-helpers';
 import { P as G, canvas, graphHeading, positions, startGraph, waitDrawn } from './graph-helpers';
 import { GP, VIEWPORT, openPanel, pCanvas } from './graph-panel-helpers';
@@ -42,12 +42,26 @@ async function gesture(page: Page, events: (readonly [number, number])[]) {
 const times = (n: number, dx: number, dy = 0) => Array.from({ length: n }, () => [dx, dy] as const);
 /** The AC's swipe: 12 events of ∓40 and one of ∓400, without a pause (one gesture). `right` = fingers move right. */
 const swipe = (page: Page, dir: 'right' | 'left') => gesture(page, [...times(12, dir === 'right' ? -40 : 40), [dir === 'right' ? -400 : 400, 0]]);
+/** Where the pointer was put last (`pointAt`), for `swipeInPage`. */
+let pointer = { x: 0, y: 0 };
 /** Puts the pointer on a point of `loc` (as AC-8's scroll: 120 px, 40 px into it, or its middle). */
 async function pointAt(page: Page, loc: Locator, what: string) {
   const b = await (await must(loc, what, 5000)).boundingBox();
   assert.ok(b, `${what} has a box`);
-  await page.mouse.move(b!.x + Math.min(120, b!.width / 2), b!.y + Math.min(40, b!.height / 2));
+  pointer = { x: b!.x + Math.min(120, b!.width / 2), y: b!.y + Math.min(40, b!.height / 2) };
+  await page.mouse.move(pointer.x, pointer.y);
 }
+/** D-1940 (AC-Test-Change): AC-11's swipe sent from inside the page, `wheel` events on the element under the pointer at
+ *  the AC's timing (12 × 40 px and one of 400 px, 10 ms apart), so the test process, delayed under the gate's load, can't
+ *  split one swipe into two gestures (a real trackpad never pauses mid-swipe). Used where nothing needs to scroll. */
+const swipeInPage = (page: Page, dir: 'right' | 'left') => page.evaluate(async ({ x, y, d }) => {
+  const el = document.elementFromPoint(x, y) ?? document.body;
+  const deltas = [...Array.from({ length: 12 }, () => d * 40), d * 400];
+  for (let i = 0; i < deltas.length; i++) {
+    if (i) await new Promise((r) => setTimeout(r, 10));
+    el.dispatchEvent(new WheelEvent('wheel', { deltaX: deltas[i], deltaY: 0, deltaMode: 0, clientX: x, clientY: y, bubbles: true, cancelable: true }));
+  }
+}, { x: pointer.x, y: pointer.y, d: dir === 'right' ? -1 : 1 });
 
 type Seen = { name: string | null; navs: number; marks: number };
 const see = async (page: Page, core: FakeCoreHandle): Promise<Seen> => ({ name: await mainName(page), navs: await navs(core), marks: await routeMarks(core) });
@@ -147,10 +161,10 @@ for (const s of SURFACES) {
     if (s.again && !(await s.at(page).count())) await s.again(page);
     await pointAt(page, s.at(page), `${s.name}: the element under the pointer`);
 
-    const right = await step(page, core, () => swipe(page, 'right'));
+    const right = await step(page, core, () => swipeInPage(page, 'right'));
     assert.deepEqual(right, byBack, `${s.name}: a swipe right goes Back exactly one step, as the Back button does (route, nav_opened, one route shown, the buttons)`);
     await sleep(300);
-    const left = await step(page, core, () => swipe(page, 'left'));
+    const left = await step(page, core, () => swipeInPage(page, 'left'));
     assert.deepEqual(left, byFwd, `${s.name}: 300 ms later a swipe left goes Forward one step, as the Forward button does`);
   });
 }
@@ -160,17 +174,17 @@ test('fr_nav_03_ac11_no_entry_that_way_the_swipe_does_nothing', async ({ page })
   await mustBeOn(page, 'Inbox', 'the fixture opens on the Inbox (D-614)');
   assert.deepEqual(await buttons(page), { backDisabled: true, forwardDisabled: true }, 'setup: no history yet');
   await pointAt(page, page.getByRole('main'), 'the Inbox');
-  await staysPut(page, core, () => swipe(page, 'right'), 'no Back entry, a swipe right');
-  await staysPut(page, core, () => swipe(page, 'left'), 'no Forward entry, a swipe left');
+  await staysPut(page, core, () => swipeInPage(page, 'right'), 'no Back entry, a swipe right');
+  await staysPut(page, core, () => swipeInPage(page, 'left'), 'no Forward entry, a swipe left');
   await viaTypes(page);
   await pointAt(page, titleBar(page), 'the title bar');
   assert.deepEqual(await buttons(page), { backDisabled: false, forwardDisabled: true }, 'setup: one Back entry, no Forward entry');
-  await staysPut(page, core, () => swipe(page, 'left'), 'no Forward entry, a swipe left');
-  const back = await step(page, core, () => swipe(page, 'right'));
+  await staysPut(page, core, () => swipeInPage(page, 'left'), 'no Forward entry, a swipe left');
+  const back = await step(page, core, () => swipeInPage(page, 'right'));
   assert.deepEqual([back.to, back.marks, back.buttons], ['Inbox', 1, { backDisabled: true, forwardDisabled: false }], 'a swipe right goes Back to the Inbox, one step');
   await sleep(300);
-  await staysPut(page, core, () => swipe(page, 'right'), 'on the first entry, a swipe right');
-  const fwd = await step(page, core, () => swipe(page, 'left'));
+  await staysPut(page, core, () => swipeInPage(page, 'right'), 'on the first entry, a swipe right');
+  const fwd = await step(page, core, () => swipeInPage(page, 'left'));
   assert.deepEqual([fwd.to, fwd.marks, fwd.buttons], ['Schůzky', 1, { backDisabled: false, forwardDisabled: true }], 'a swipe left goes Forward to Schůzky, one step');
 });
 
@@ -180,10 +194,10 @@ test('fr_nav_03_ac11_two_gestures_300_ms_apart_are_two_steps', async ({ page }) 
   await viaTypes(page);
   await toTasks(page);
   await pointAt(page, titleBar(page), 'the title bar');
-  const one = await step(page, core, () => swipe(page, 'right'));
+  const one = await step(page, core, () => swipeInPage(page, 'right'));
   assert.deepEqual([one.to, one.marks], ['Schůzky', 1], 'the 12 events and the −400 one without a pause are one gesture: one step, to Schůzky');
   await sleep(300);
-  const two = await step(page, core, () => swipe(page, 'right'));
+  const two = await step(page, core, () => swipeInPage(page, 'right'));
   assert.deepEqual([two.to, two.marks], ['Inbox', 1], 'a new gesture 300 ms later is the next step, to the Inbox');
 });
 
@@ -231,7 +245,7 @@ test.describe(() => {
     const core = await startTasks(page, { install: true });
     await gotoKanban(page, 'Status');
     const name = await mainName(page);
-    const board = () => tMain(page).locator('[data-column]').first().locator('xpath=..');
+    const board = () => tMain(page).locator('section[data-lane]').first().locator('xpath=..');
     await must(board(), 'the board (parent of the Kanban columns)');
     // Another route and one Back: the Kanban (kept by Back, 5B feedback) has a Back and a Forward entry.
     await runCommand(page, 'Go to Inbox');

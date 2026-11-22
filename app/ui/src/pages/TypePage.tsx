@@ -12,7 +12,15 @@ import { parse as parseDoc } from '@tegg/doc';
 import { t } from '../i18n/catalog';
 import { collator } from '../i18n/collate';
 import { ipc } from '../ipc/client';
-import type { AttributeDto, LinkTargetDto, TypeDto, TypeRowDto } from '../ipc/types';
+import type { AttributeDto, LinkTargetDto, TypeDto, TypeRowDto, TypeSortValue } from '../ipc/types';
+import type { SortDto } from '../ipc/queries';
+import { headerClick, markers, buttonText } from '../queries/sort';
+import { SortPopover, sortKeyName } from '../queries/SortPopover';
+import { levelsOf, sortTypeRows } from '../views/allSort';
+import { keepRow, tagFilterKey } from '../views/tagFilter';
+import { setTagFilter, tagFilterOf } from '../views/uiState';
+import { TagFilterControl } from '../views/TagFilterControl';
+import { TasksSummary } from '../views/TasksSummary';
 import { Icon, typeIconName } from '../shell/Icon';
 import { TypeSettingsButton } from '../shell/TypeSettingsButton';
 import { NewPropertyDialog } from './TypeSettingsPage';
@@ -60,7 +68,7 @@ function sortValue(row: TypeRowDto, col: Column): number | string | null {
   }
 }
 
-export function TypePage({ typeKey, type, types, plural, refresh, heading, sort, onSort, widths, onWidths, onOpen, onSettings, onNew, onTag, onDefine, header }: {
+export function TypePage({ typeKey, type, types, plural, refresh, heading, sort, onSort, widths, onWidths, onOpen, onSettings, onNew, onTag, onDefine, header, tab, tabNonce }: {
   typeKey: string;
   /** The definition, or undefined for a `type` value without one (D-121). */
   type: TypeDto | undefined;
@@ -68,8 +76,14 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
   plural: string;
   refresh: number;
   heading: React.RefObject<HTMLHeadingElement | null>;
-  sort: TypeSort | undefined;
-  onSort: (s: TypeSort) => void;
+  /** Q2-T (§30.3): the stored levels (a 0.4.x single value reads as one level). */
+  sort: TypeSortValue | TypeSort | undefined;
+  /** One `ui_state_set` writing the whole list; null deletes the key (the page's default, §29.7). */
+  onSort: (s: SortDto[] | null) => void;
+  /** Q2-T (§29.1): the view tab the route asks for. */
+  tab?: string;
+  /** Changes with each navigation (a repeated request for `tab`). */
+  tabNonce?: number;
   /** This type's stored column widths, and their replacement (D-1241: machine-local UI state). */
   widths?: ColumnWidths;
   onWidths?: (w: ColumnWidths) => void;
@@ -84,6 +98,12 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
 }) {
   const [rows, setRows] = useState<TypeRowDto[] | null>(null);
   const [filter, setFilter] = useState('');
+  // Q2-T (§29.6): `All <plural>`'s tag selection, machine-local under `all:<type>`.
+  const allTagKey = tagFilterKey({ kind: 'all', typeKey });
+  const [tagSel, setTagSel] = useState<string[]>(() => tagFilterOf(allTagKey));
+  const chooseTags = (tags: string[]) => { setTagSel(tags); setTagFilter(allTagKey, tags); };
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortBtn = useRef<HTMLButtonElement | null>(null);
   const [adding, setAdding] = useState(false);
   const [rowMenu, setRowMenu] = useState<HTMLElement | null>(null);
   const pinEntry = usePinMenuEntry();
@@ -140,23 +160,19 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
     ...effectiveColumns(cur).map((k) => columnOf(cur, k)),
   ], [cur]);
 
-  // D-1246: a remembered sort on a column that isn't shown is set aside (kept in the UI state).
-  const current = sort && columns.some((c) => c.key === sort.column) ? sort : defaultSort(columns.slice(1).map((c) => c.key));
+  // D-1246: a remembered sort on a column that isn't shown is set aside (kept in the UI state). Q2-T (D-1892, D-1907):
+  // several levels, a 0.4.x single value read as one.
+  const storedLevels = levelsOf(sort as SortDto[] | undefined).filter((l: SortDto) => columns.some((c) => c.key === l.by));
+  const fallback = defaultSort(columns.slice(1).map((c) => c.key));
+  const levels: SortDto[] = storedLevels.length ? storedLevels : [{ by: fallback.column, order: fallback.dir }];
+  const current = { column: levels[0].by, dir: levels[0].order };
+  void sortValue;
   const shown = useMemo(() => {
     if (!rows) return [];
     const q = fold(filter.trim());
-    const list = q ? rows.filter((r) => fold(r.title).includes(q)) : [...rows];
-    const col = columns.find((c) => c.key === current.column) ?? columns[columns.length - 1];
-    const c = collator();
-    const dir = current.dir === 'asc' ? 1 : -1;
-    const byTitle = (a: TypeRowDto, b: TypeRowDto) => c.compare(a.title, b.title);
-    return list.sort((a, b) => {
-      const va = sortValue(a, col), vb = sortValue(b, col);
-      if (va === null || vb === null) return va === vb ? byTitle(a, b) : va === null ? 1 : -1;
-      const d = typeof va === 'number' && typeof vb === 'number' ? va - vb : c.compare(String(va), String(vb));
-      return d !== 0 ? d * dir : byTitle(a, b);
-    });
-  }, [rows, filter, current.column, current.dir, columns]);
+    const list = rows.filter((r) => (!q || fold(r.title).includes(q)) && keepRow({ tags: r.tags ?? [] }, tagSel));
+    return sortTypeRows(list, levels, type ?? ({ attributes: [] } as unknown as TypeDto), collator()) as TypeRowDto[];
+  }, [rows, filter, tagSel, JSON.stringify(levels), columns, type]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- widths (D-1241, D-1248): stored per column; Title without one fills what the others leave (≥ 240 px).
   const scrollBox = useRef<HTMLDivElement | null>(null);
@@ -205,7 +221,8 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
     }
   });
 
-  const activate = (key: string) => onSort(current.column === key ? { column: key, dir: current.dir === 'asc' ? 'desc' : 'asc' } : { column: key, dir: 'asc' });
+  const activate = (key: string, shift = false) => onSort(headerClick(levels, key, shift));
+  const marks = markers(levels);
   const focusRow = (i: number) => {
     const n = Math.max(0, Math.min(shown.length - 1, i));
     setCursor(n);
@@ -299,7 +316,7 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
         <div className="type-header-text">
           <h1 ref={heading} tabIndex={-1}><span data-user-content>{pluralName}</span></h1>
           {type?.description && <p className="type-description" data-user-content>{type.description}</p>}
-          {rows && <p className="type-count">{t('typePage.countPlural', { count: rows.length, plural: '\u0000' }).split('\u0000')[0]}<span data-user-content>{pluralName}</span>{t('typePage.countPlural', { count: rows.length, plural: '\u0000' }).split('\u0000')[1]}</p>}
+          {rows && typeKey.normalize('NFC') === 'task' && type ? <TasksSummary refresh={refresh} /> : rows && <p className="type-count">{t('typePage.countPlural', { count: rows.length, plural: '\u0000' }).split('\u0000')[0]}<span data-user-content>{pluralName}</span>{t('typePage.countPlural', { count: rows.length, plural: '\u0000' }).split('\u0000')[1]}</p>}
         </div>
         {type && (
           <div className="page-actions">
@@ -329,9 +346,9 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
       {(() => {
         const views = !header && !!type && hasViews(typeKey, type);
         // Slice Q2 (D-1767, AP-1500): with view tabs the All tab's sorted header shows its arrow as text too, as the views do.
-        const marks = views && !!type?.views?.length;
+        const marked = views && !!type?.views?.length;
         const filterField = (
-          <input type="search" role="searchbox" className="type-filter" aria-label={t('typePage.filter', { plural: pluralName })} placeholder={t('typePage.filter', { plural: pluralName })}
+          <input type="search" role="searchbox" className="type-filter" data-command={typeKey.normalize('NFC') === 'task' ? 'tasks.search' : undefined} aria-label={t('typePage.filter', { plural: pluralName })} placeholder={t('typePage.filter', { plural: pluralName })}
             value={filter} spellCheck={false} autoComplete="off" onChange={(e) => setFilter(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setFilter(''); } else if (e.key === 'ArrowDown') { e.preventDefault(); focusRow(0); } }} />
         );
@@ -344,19 +361,23 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
         );
         const body = (
           <>
-            {rows && filter.trim() && shown.length === 0 && <p role="status" className="empty">{t('typePage.noMatch', { plural: pluralName, text: filter.trim() })}</p>}
+            {rows && (filter.trim() || tagSel.length > 0) && shown.length === 0 && <p role="status" className="empty">{t('typePage.noMatch', { plural: pluralName, text: filter.trim() })}</p>}
             <div className="table-scroll" ref={scrollBox}>
-              <table className={`type-table${marks ? ' marked-sort' : ''}`} aria-label={pluralName} style={{ width: tableWidth }}>
+              <table className={`type-table${marked ? ' marked-sort' : ''}`} aria-label={pluralName} style={{ width: tableWidth }}>
                 <colgroup>{columns.map((c) => <col key={c.key} style={{ width: widthOf(c.key) }} />)}</colgroup>
                 <thead>
                   <tr>
                     {columns.map((c, i) => {
-                      const sorted = current.column === c.key ? current.dir : null;
+                      const level = levels.findIndex((l) => l.by === c.key);
+                      const order = level >= 0 ? levels[level].order : null;
+                      const m = marks.get(c.key) ?? null;
                       return (
-                        <HeaderCell key={c.key} col={c} first={i === 0} width={widthOf(c.key)} ariaSort={sorted ? (sorted === 'asc' ? 'ascending' : 'descending') : 'none'}
-                          marker={marks && sorted ? { arrow: sorted === 'asc' ? '↑' : '↓', n: null } : null}
+                        <HeaderCell key={c.key} col={c} first={i === 0} width={widthOf(c.key)}
+                          ariaSort={level === 0 ? (order === 'asc' ? 'ascending' : 'descending') : level > 0 ? undefined : 'none'}
+                          description={level > 0 ? t('sort.level', { n: level + 1, order: t(order === 'asc' ? 'sort.ascending' : 'sort.descending') }) : undefined}
+                          marker={(marked || levels.length > 1) && m ? m : null}
                           movable={i > 0 && writable && !cur?.columnsUnreadable} keys scroller={scrollBox} titleWidth={widthOf('title')}
-                          onSort={() => activate(c.key)}
+                          onSort={(shift) => activate(c.key, shift)}
                           onMove={(delta) => writeColumns((x) => moveColumn(x, c.key, delta))}
                           onDrop={(before) => writeColumns((x) => dropColumn(x, c.key, before))}
                           onWidth={(px, save) => setWidth(c.key, px, save)}
@@ -399,8 +420,18 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
           </>
         );
         if (views && type) {
-          return <TypeViews typeKey={typeKey} type={type} types={types} plural={pluralName}
-            all={{ toolbar: <div className="view-toolbar">{filterField}{columnsButton}</div>, body }} />;
+          const st = buttonText(levels, (k) => sortKeyName(k, type).label);
+          const tagControl = <TagFilterControl rows={(rows ?? []).map((r) => ({ tags: r.tags ?? [] }))} selected={tagSel} onChange={chooseTags} allHint={typeKey.normalize('NFC') === 'task' ? t('tasks.tagAll') : null} />;
+          const sortButton = (
+            <button ref={sortBtn} type="button" tabIndex={0} className="text-button view-sort" aria-label={t('sort.button')} aria-haspopup="dialog" aria-expanded={sortOpen}
+              data-command="sort.open" onClick={() => setSortOpen((o) => !o)}>
+              <Icon name="sort" size={13} />
+              <span className="sort-first">{st.text}</span>
+              {st.more > 0 && <span className="sort-more">{t('sort.more', { count: st.more })}</span>}
+            </button>
+          );
+          return <TypeViews typeKey={typeKey} type={type} types={types} plural={pluralName} tab={tab} tabNonce={tabNonce}
+            all={{ toolbar: <div className="view-toolbar">{filterField}{tagControl}{sortButton}{columnsButton}</div>, body }} />;
         }
         return (
           <>
@@ -425,6 +456,11 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
             { kind: 'separator' },
             { kind: 'item', key: 'trash', label: t('cmd.trash'), content: t('cmd.trash'),
             onChoose: () => { const el = rowMenu; setRowMenu(null); el.focus(); trashRequest.current?.(); } }]} />
+      )}
+      {sortOpen && type && (
+        <SortPopover sort={levels} type={type} anchor={sortBtn.current} scope="thisMac" onUseQuery={null}
+          onChange={(next) => onSort(next)} onClear={() => onSort(null)}
+          onClose={() => { setSortOpen(false); sortBtn.current?.focus(); }} />
       )}
       {columnsOpen && cur && (
         <PopupMenu label={t('typePage.columns')} anchor={addBtn.current} onClose={() => setColumnsOpen(false)} disabledFocusable scrollable

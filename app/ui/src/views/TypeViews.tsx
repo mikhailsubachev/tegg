@@ -22,7 +22,8 @@ import { trashView } from './trashView';
 import type { TypePatch } from './useUsageWrite';
 import { refreshQueries, useQueries } from '../queries/store';
 import { defaultGroupBy, hasViews, nameKey, newViewDef, savedOffers, viewTabs, viewsAfterDrop, viewsAfterInsert, viewsAfterMove, viewsAfterRemove, type OfferReason } from './model';
-import { lastTab, setLastTab } from './uiState';
+import { lastTab, lastTabOf, setLastTab, setTagFilter, tagFilterOf } from './uiState';
+import { tagFilterKey } from './tagFilter';
 import { lastFocused, useViewsHandler } from './actions';
 import { ViewPanel, type PanelApi, type TabFilter, type ViewState } from './ViewPanel';
 import './views.css';
@@ -35,8 +36,12 @@ export { hasViews };
 
 export type AllTab = { toolbar: ReactNode; body: ReactNode };
 
-export function TypeViews({ typeKey, type, types, plural, all }: {
+export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce }: {
   typeKey: string;
+  /** Q2-T (§29.1): the view tab the route asks for (selected and remembered when listed). */
+  tab?: string;
+  /** Changes with each navigation that asks for `tab`. */
+  tabNonce?: number;
   type: TypeDto;
   types: TypeDto[];
   plural: string;
@@ -57,7 +62,22 @@ export function TypeViews({ typeKey, type, types, plural, all }: {
     : cur.state === 'newer' ? t('ts.newer') : cur.state !== 'ok' ? t('typePage.columnsInvalid') : null;
 
   // ---- the selected tab (D-1765, D-1790): the remembered one when it is still listed; a switch adds no history entry.
-  const [selected, setSelected] = useState<string | null>(() => lastTab(typeKey));
+  const [selected, setSelected] = useState<string | null>(() => {
+    // Route.tab (§29.1): that tab when listed, remembered.
+    const asked = tab ? tabs.find((x) => x.key === nameKey(tab)) : undefined;
+    if (asked) { setLastTab(typeKey, asked.name); return asked.name; }
+    // D-1903: Task's first open shows its first view tab; `lastTab.task === null` means All Tasks was chosen.
+    if (nfc(typeKey) === 'task' && lastTabOf(typeKey) === undefined) return tabs[0]?.name ?? null;
+    return lastTab(typeKey);
+  });
+  // A later navigation to this page asking for a tab (a command, an alias) selects it.
+  const askedAt = useRef(tabNonce);
+  useEffect(() => {
+    if (askedAt.current === tabNonce) return;
+    askedAt.current = tabNonce;
+    const asked = tab ? tabs.find((x) => x.key === nameKey(tab)) : undefined;
+    if (asked) { setSelected(asked.name); setLastTab(typeKey, asked.name); }
+  }, [tab, tabNonce]); // eslint-disable-line react-hooks/exhaustive-deps
   const [draft, setDraft] = useState<{ kind: 'table' | 'list' | 'board'; def: QueryDefDto } | null>(null);
   const [live, setLive] = useState<QueryResultDto | null>(null);
   const shownName = selected === DRAFT ? (draft ? DRAFT : null) : selected !== null && tabs.some((x) => x.key === nameKey(selected)) ? tabs.find((x) => x.key === nameKey(selected))!.name : null;
@@ -435,7 +455,9 @@ export function TypeViews({ typeKey, type, types, plural, all }: {
         <div role="tabpanel" id="view-panel" aria-labelledby={tabId(null)} data-view-panel="" className="view-panel">{all.body}</div>
       ) : selectedItem && (
         <ViewPanel key={selectedItem.name} name={selectedItem.draft ? t('views.newName') : selectedItem.name} typeKey={typeKey} type={cur} types={types} plural={plural} slot={slot}
-          filter={filters[selectedItem.name] ?? EMPTY} onFilter={(f) => setFilters((m) => ({ ...m, [selectedItem.name]: f }))}
+          filter={filters[selectedItem.name] ?? (selectedItem.draft ? EMPTY : { text: '', tags: tagFilterOf(tagFilterKey({ kind: 'tab', typeKey, name: selectedItem.name })) })}
+          onFilter={(f) => setFilters((m) => ({ ...m, [selectedItem.name]: f }))}
+          onTags={selectedItem.draft ? undefined : (tags) => setTagFilter(tagFilterKey({ kind: 'tab', typeKey, name: selectedItem.name }), tags)}
           onState={(s) => setStates((m) => (m[selectedItem.name] === s ? m : { ...m, [selectedItem.name]: s }))}
           onMenu={(anchor) => setMenu({ name: selectedItem.name, anchor, toolbar: true })}
           onRemove={() => remove(selectedItem.name)} apiRef={panel} live={live} draft={selectedItem.draft} labelledBy={tabId(selectedItem.name)}

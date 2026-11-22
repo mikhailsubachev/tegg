@@ -14,6 +14,13 @@
 // fixture or are computed from Date.now() in the zone given to the app as `TZ`.
 //
 // Prerequisites as in ms3_shell.ac.test.ts: `npm run app:build`, `npm run e2e:setup`, Accessibility permission.
+//
+// Slice Q2-T (AC-Test-Change, D-1912; docs/acceptance/views.md part three, rows FR-TSK-04 AC-1, AC-13, FR-SYN-06 AC-20,
+// AC-21, FR-TSK-05 AC-13, FR-TSK-10 AC-8): the Tasks page is `type/task` (`tasks`, `tasks/kanban` are aliases, AP-1540;
+// the mark is `route-ready:type/task`), on a copy that holds the views-tasks overlay (its two default views and
+// `Čeká na ostatní`; migrations stay off, D-1913) plus the runtime view `Podle štítků` (Kanban by tags, FR-TSK-05 AC-21) as
+// a tab. R204's header, tabs and toolbar (no quick-add, no date filter, no `Group by`); the tour of FR-SYN-06 AC-50; the
+// quick-add test (FR-TSK-10 AC-8) is superseded (D-1780) and removed; a period drag is one write.
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -42,17 +49,25 @@ const TASK_YML = '.tegg/types/task.yml';
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const tmp = (name: string) => mkdtempSync(join(tmpdir(), `tegg-ms5-5a-${name}-`));
 
-/** A temp copy of tests/fixtures/vaults/tasks (without its README.md) plus new-empty/.tegg. */
+/** A temp copy of tests/fixtures/vaults/tasks (without its README.md) plus new-empty/.tegg, then the views-tasks overlay
+ *  (Q2-T) and the runtime view `Podle štítků` listed as a fourth tab. */
 function tasksCopy(base: string): string {
   const v = join(base, 'Úkoly');
   cpSync(join(FX, 'tasks'), v, { recursive: true, filter: (src) => relative(join(FX, 'tasks'), src) !== 'README.md' });
   cpSync(join(FX, 'new-empty/.tegg'), join(v, '.tegg'), { recursive: true });
+  cpSync(join(FX, 'views-tasks'), v, { recursive: true, filter: (src) => relative(join(FX, 'views-tasks'), src) !== 'README.md' });
+  const kanban = readFileSync(join(v, '.tegg/queries/Kanban.yml'), 'utf8');
+  writeFileSync(join(v, '.tegg/queries/Podle štítků.yml'), kanban.replace('Queries › Kanban.', 'Queries › Podle štítků.').replace('title: Kanban\n', 'title: Podle štítků\n').replace('group_by: status\n', 'group_by: tags\n'));
+  const yml = join(v, TASK_YML);
+  writeFileSync(yml, readFileSync(yml, 'utf8').replace('views: [Schedule, Kanban, Čeká na ostatní]\n', 'views: [Schedule, Kanban, Čeká na ostatní, Podle štítků]\n'));
   return v;
 }
-function support(base: string, tasks?: Record<string, unknown>): string {
+const fxv = (rel: string) => readFileSync(join(FX, 'views-tasks', rel), 'utf8');
+void fxv;
+function support(base: string, extra?: Record<string, unknown>): string {
   const s = join(base, 'support');
   mkdirSync(s, { recursive: true });
-  writeFileSync(join(s, 'ui-state.json'), JSON.stringify({ version: 1, theme: 'light', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' }, ...(tasks ? { tasks } : {}) }));
+  writeFileSync(join(s, 'ui-state.json'), JSON.stringify({ version: 1, theme: 'light', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' }, ...(extra ?? {}) }));
   return s;
 }
 const fx = (rel: string) => readFileSync(join(FX, 'tasks', rel), 'utf8');
@@ -302,46 +317,14 @@ test('fr_tsk_04_ac1_the_tasks_page_in_the_built_app', { timeout: 300_000 }, asyn
     d = await session(testEnv(support(base), log, { TEGG_VAULT: vault, TEGG_ROUTE: 'note/Pages/Porada.md' }));
     assert.ok(await waitMark(log, 'route-ready:note/Pages/Porada.md'), 'Porada shown');
     palette('Go to Tasks');
-    assert.ok(await waitMark(log, 'route-ready:tasks', 5000), 'Go to Tasks opens tasks');
-    for (const l of ['Tasks', 'Schedule', 'Kanban', 'Add a task…']) assert.ok(await shown(d, l, 3000), `"${l}" shown (R40)`);
-    for (const l of ['All', 'Today', 'This week']) assert.ok(await needIn(d, 'Filter', l), `"${l}" shown in the Filter group (R40)`);
+    assert.ok(await waitMark(log, 'route-ready:type/task', 5000), 'Go to Tasks opens type/task');
+    for (const l of ['Tasks', 'Views', 'All Tasks', 'Schedule', 'Kanban', 'Filter Tasks…', 'Filter by tag', '15 open · 2 overdue · 1 done this week']) assert.ok(await shown(d, l, 3000), `"${l}" shown (R204)`);
+    for (const l of ['Add a task…', 'Group by', 'Task views']) assert.equal(await shown(d, l, 500), false, `no "${l}" (R204 "Gone")`);
     assert.ok(await shown(d, 'Task: Zavolat Janě', 3000), 'T01 card');
   } finally {
     await end(d);
   }
   assert.deepEqual(changedPaths(before, tree(vault)), [], 'opening writes nothing (bytes, mtime, inode)');
-  rmSync(base, { recursive: true, force: true });
-});
-
-test('fr_tsk_10_ac8_quick_add_in_the_built_app', { timeout: 300_000 }, async () => {
-  await ready();
-  const base = tmp('tsk10ac8');
-  const vault = tasksCopy(base);
-  const log = join(base, 'perf.jsonl');
-  const before = tree(vault);
-  const tomorrow = todayIn(TZ, 1);
-  const path = join(vault, 'Tasks/Zavolat do servisu.md');
-  let d: Driver | undefined;
-  let t: string | null = null;
-  let took = Infinity;
-  try {
-    d = await session(testEnv(support(base), log, { TEGG_VAULT: vault, TEGG_ROUTE: 'tasks' }));
-    assert.ok(await waitMark(log, 'route-ready:tasks'), 'tasks shown');
-    await (await need(d, 'Add a task…')).click();
-    paste('Zavolat do servisu tomorrow #auto !high');
-    await sleep(200);
-    const t0 = Date.now();
-    press('enter');
-    t = await waitFile(path, (x) => x !== null, 5000);
-    took = Date.now() - t0;
-  } finally {
-    await end(d);
-  }
-  assert.ok(t !== null, 'Tasks/Zavolat do servisu.md created');
-  assert.ok(took <= 1200, `within 1.2 s: ${took} ms`);
-  assert.equal(masked(t, ['id', 'created', 'modified']),
-    `---\nid: <x>\ntype: task\ntitle: Zavolat do servisu\nstatus: To do\npriority: High\ndue: ${tomorrow}\ntags: [auto]\ncreated: <x>\nmodified: <x>\n---\n`, 'the FR-TSK-10 AC-1 bytes');
-  assert.deepEqual(changedPaths(before, tree(vault)), ['Tasks/Zavolat do servisu.md'], 'no other vault file changes bytes, mtime or inode');
   rmSync(base, { recursive: true, force: true });
 });
 
@@ -353,13 +336,13 @@ test('fr_tsk_05_ac13_two_drags_write_exactly_two_files', { timeout: 300_000 }, a
   const before = tree(vault);
   let d: Driver | undefined;
   try {
-    d = await session(testEnv(support(base, { view: 'kanban', groupBy: 'status', dateFilter: 'all', tags: [], doneExpanded: false }), log, { TEGG_VAULT: vault, TEGG_ROUTE: 'tasks/kanban' }));
-    assert.ok(await waitMark(log, 'route-ready:tasks/kanban'), 'tasks/kanban shown');
-    await dragTo(d, await need(d, 'Task: Zalít květiny'), await need(d, 'In progress'));
+    d = await session(testEnv(support(base), log, { TEGG_VAULT: vault, TEGG_ROUTE: 'tasks/kanban' }));
+    assert.ok(await waitMark(log, 'route-ready:type/task'), 'tasks/kanban shows type/task on Kanban');
+    await dragTo(d, await need(d, 'Task: Zalít květiny'), await needColumn(d, 'In progress, 2 Tasks'));
     assert.ok(await waitFile(join(vault, T03), (x) => !!x?.includes('status: In progress'), 3000), 'T03 written');
-    await (await need(d, 'Tag')).click();
+    await (await need(d, 'Podle štítků')).click();
     await sleep(500);
-    await dragTo(d, await need(d, 'Task: Koupit dárek'), await needColumn(d, '#práce'));
+    await dragTo(d, await need(d, 'Task: Koupit dárek'), await needColumn(d, 'práce, 4 Tasks'));
     assert.ok(await waitFile(join(vault, T04), (x) => !!x?.includes('tags: [práce]'), 3000), 'T04 written');
     await sleep(500);
   } finally {
@@ -386,7 +369,7 @@ test('fr_tsk_02_ac11_a_real_external_writer_is_never_overwritten', { timeout: 30
   let alerted = false;
   try {
     d = await session(testEnv(support(base), log, { TEGG_VAULT: vault, TEGG_ROUTE: 'tasks' }));
-    assert.ok(await waitMark(log, 'route-ready:tasks'), 'tasks shown');
+    assert.ok(await waitMark(log, 'route-ready:type/task'), 'tasks shows type/task');
     const box = await need(d, 'Complete "Zalít květiny"');
     writeFileSync(join(vault, T03), external); // another program writes the file
     await box.click();
@@ -436,13 +419,10 @@ test('fr_tsk_04_ac13_switching_views_filters_and_menus_writes_nothing_in_the_bui
   let d: Driver | undefined;
   try {
     d = await session(testEnv(support(base), log, { TEGG_VAULT: vault, TEGG_ROUTE: 'tasks' }));
-    assert.ok(await waitMark(log, 'route-ready:tasks'), 'tasks shown');
-    await (await need(d, 'Kanban')).click();
-    assert.ok(await waitMark(log, 'route-ready:tasks/kanban', 5000), 'tasks/kanban');
-    await (await need(d, 'Tag')).click();
-    await (await need(d, 'Status')).click();
-    await (await need(d, 'Schedule')).click();
-    for (const f of ['Today', 'This week', 'All']) { await (await needIn(d, 'Filter', f)).click(); await sleep(150); }
+    assert.ok(await waitMark(log, 'route-ready:type/task'), 'type/task shown');
+    for (const t of ['Kanban', 'Podle štítků', 'Čeká na ostatní', 'All Tasks', 'Schedule']) { await (await need(d, t)).click(); await sleep(300); }
+    await (await need(d, 'Expand Done')).click(); await sleep(150);
+    await (await need(d, 'Collapse Done')).click(); await sleep(150);
     await (await need(d, 'More actions for "Zavolat Janě"')).click();
     await sleep(200);
     press('escape');
@@ -463,18 +443,19 @@ test('fr_syn_06_ac20_a_browsing_tour_writes_nothing', { timeout: 600_000 }, asyn
   let d: Driver | undefined;
   try {
     d = await session(testEnv(support(base), log, { TEGG_VAULT: vault, TEGG_ROUTE: 'tasks' }));
-    assert.ok(await waitMark(log, 'route-ready:tasks'), 'tasks shown');
-    for (const c of ['Show tasks for today', 'Show tasks for this week', 'Show all tasks', 'Show Kanban', 'Group Kanban by tag', 'Group Kanban by status', 'Show Schedule']) {
+    assert.ok(await waitMark(log, 'route-ready:type/task'), 'type/task shown');
+    for (const c of ['Show Kanban', 'Show Schedule', 'Filter tasks']) {
       palette(c);
       await sleep(400);
     }
+    press('escape');
     // D-518: the tag filter is a combobox; each tag is added from its list, then removed by its chip.
     for (const tag of ['#čtení', '#doma', '#finance', '#práce', '#rodina']) {
       await (await need(d, 'Filter by tag')).click(); await sleep(150);
       await (await need(d, tag)).click(); await sleep(150);
       await (await need(d, `Remove ${tag}`)).click(); await sleep(150);
     }
-    await (await need(d, 'Done')).click(); await sleep(200); await (await need(d, 'Done')).click();
+    await (await need(d, 'Expand Done')).click(); await sleep(200); await (await need(d, 'Collapse Done')).click();
     for (const t of ['Zavolat Janě', 'Zalít květiny', 'Koupit dárek']) {
       await (await need(d, `More actions for "${t}"`)).click();
       await sleep(200);
@@ -482,7 +463,7 @@ test('fr_syn_06_ac20_a_browsing_tour_writes_nothing', { timeout: 600_000 }, asyn
       await (await need(d, t)).click();
       await sleep(500);
       press('lbracket', ['command']);
-      assert.ok(await shown(d, 'Add a task…', 3000), `back on tasks after ${t}`);
+      assert.ok(await shown(d, 'Filter Tasks…', 3000), `back on type/task after ${t}`);
     }
     await (await need(d, 'Porada')).click();
     await sleep(500);
@@ -510,7 +491,7 @@ test('fr_syn_06_ac21_each_action_writes_one_file', { timeout: 600_000 }, async (
   const results: [string, string[]][] = [];
   try {
     d = await session(testEnv(support(base), log, { TEGG_VAULT: vault, TEGG_ROUTE: 'tasks' }));
-    assert.ok(await waitMark(log, 'route-ready:tasks'), 'tasks shown');
+    assert.ok(await waitMark(log, 'route-ready:type/task'), 'type/task shown');
     const step = async (what: string, wait: string, act: () => Promise<void>) => {
       const b = tree(vault);
       await act();
@@ -519,15 +500,13 @@ test('fr_syn_06_ac21_each_action_writes_one_file', { timeout: 600_000 }, async (
       results.push([what, changedPaths(b, tree(vault))]);
     };
     await step('checkbox', T03, async () => { await (await need(d!, 'Complete "Zalít květiny"')).click(); });
+    await step('period drag', 'Tasks/Obnovit pas.md', async () => { await dragTo(d!, await need(d!, 'Task: Obnovit pas'), await needColumn(d!, 'Today & overdue, 3 Tasks')); });
     palette('Show Kanban');
     await sleep(600);
-    await step('status drag', T04, async () => { await dragTo(d!, await need(d!, 'Task: Koupit dárek'), await need(d!, 'In progress')); });
-    palette('Group Kanban by tag');
+    await step('status drag', T04, async () => { await dragTo(d!, await need(d!, 'Task: Koupit dárek'), await needColumn(d!, 'In progress, 2 Tasks')); });
+    await (await need(d!, 'Podle štítků')).click();
     await sleep(600);
-    await step('tag drag', 'Tasks/Přečíst knihu.md', async () => { await dragTo(d!, await need(d!, 'Task: Přečíst knihu'), await needColumn(d!, '#doma')); });
-    palette('Show Schedule');
-    await sleep(600);
-    await step('quick-add', 'Tasks/Nový úkol.md', async () => { await (await need(d!, 'Add a task…')).click(); paste('Nový úkol'); press('enter'); });
+    await step('tag drag', 'Tasks/Přečíst knihu.md', async () => { await dragTo(d!, await need(d!, 'Task: Přečíst knihu'), await needColumn(d!, 'doma, 4 Tasks')); });
     palette('Go to type: Tasks');
     await sleep(600);
     await (await need(d, 'Type settings')).click();
@@ -542,7 +521,7 @@ test('fr_syn_06_ac21_each_action_writes_one_file', { timeout: 600_000 }, async (
     await end(d);
   }
   assert.deepEqual(results, [
-    ['checkbox', [T03]], ['status drag', [T04]], ['tag drag', ['Tasks/Přečíst knihu.md']], ['quick-add', ['Tasks/Nový úkol.md']], ['status colour', [TASK_YML]], ['daily checkbox', [T01]],
+    ['checkbox', [T03]], ['period drag', ['Tasks/Obnovit pas.md']], ['status drag', [T04]], ['tag drag', ['Tasks/Přečíst knihu.md']], ['status colour', [TASK_YML]], ['daily checkbox', [T01]],
   ], 'each action writes exactly one file: no second file, no Tag file, no Daily Note, no index inside the vault');
   rmSync(base, { recursive: true, force: true });
 });

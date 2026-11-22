@@ -14,14 +14,14 @@ import { announceQuery, editorClosed, queryAlert, useEditorRequest, type EditorR
 import { queryEnv, nowIso } from './env';
 import { FLAG_OPS, UNIVERSAL, attributeGroups, attributeOf, columnsAfterTypes, defEquals, isValidRow, operatorsFor, parseLimit, type AttrItem } from './model';
 import { Chooser, type ListOption } from './Listbox';
-import { defaultGroupBy, groupByChoices } from '../views/model';
-import { ColumnsMenu } from './QueryBlock';
+import { defaultGroupBy, doneLaneOffered, groupByChoices, periodChoices, stateOps } from '../views/model';
+import { sortKeyName } from './SortPopover';
 import './editor.css';
 
 type Filter = Extract<FilterItemDto, { kind: 'filter' }>;
 const nfc = (s: string) => s.normalize('NFC');
 const stem = (p: string) => nfc((p.split('/').pop() ?? p).replace(/\.md$/i, ''));
-const DEFAULT_DEF = (): QueryDefDto => ({ title: t('query.editor.untitled'), types: [], match: 'all', filters: [], sort: [{ by: 'modified', order: 'desc' }], limit: 50, view: 'list', groupBy: null, lanes: 'vertical', laneOrder: null, columns: ['type', 'modified'] });
+const DEFAULT_DEF = (): QueryDefDto => ({ title: t('query.editor.untitled'), types: [], match: 'all', filters: [], sort: [{ by: 'modified', order: 'desc' }], limit: 50, view: 'list', groupBy: null, lanes: 'vertical', laneOrder: null, columns: ['type', 'modified'], groupPeriod: false, doneLane: null });
 
 /** Rows without an attribute and groups without rows are left out of runs and commits. */
 function clean(d: QueryDefDto): QueryDefDto {
@@ -47,10 +47,8 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
   const [usages, setUsages] = useState(0);
   // Slice Q2 (R189, D-1795): the type pages listing the query (`Used on the <plural> page and <n> notes.`).
   const [pages, setPages] = useState<string[]>([]);
-  const [cardsOpen, setCardsOpen] = useState(false);
-  // Slice Q2.1 (D-1844, D-1860): a usage's own `On cards`, written at once by `Change…`.
-  const [usageCols, setUsageCols] = useState<string[] | null>(req.usage ? req.usage.columns : null);
-  const cardsBtn = useRef<HTMLButtonElement | null>(null);
+  // Slice Q2.1 (D-1844): a usage's own columns shown in the preview (Q2-T: no `On cards` row, D-1891).
+  const usageCols: string[] | null = req.usage ? req.usage.columns : null;
   const [result, setResult] = useState<QueryResultDto | null>(null);
   const [limitText, setLimitText] = useState(orig ? String(orig.limit) : '');
   const [source, setSource] = useState(false);
@@ -195,18 +193,13 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
   const typeName = (k: string) => types.find((x) => nfc(x.key) === nfc(k))?.name ?? k;
   const update = (f: (d: QueryDefDto) => QueryDefDto) => setDef((d) => (d ? f(d) : d));
   const oneType = def.types.length === 1 ? (types.find((x) => nfc(x.key) === nfc(def.types[0])) as never as TypeDto | undefined) : undefined;
+  /** `<Name> · by period` (R201): the attribute's Name, `Created`, `Modified`. */
+  const periodLabel = (k: string) => t('query.editor.groupByPeriod', { attribute: sortKeyName(k, oneType).label });
   const groupLabel = (k: string | null): { label: string; user: boolean } => {
     if (k === null) return { label: '', user: false };
     if (nfc(k) === 'tags') return { label: t('attr.tags'), user: false };
     const a = oneType?.attributes.find((x) => nfc(x.key) === nfc(k));
     return a ? { label: a.name, user: true } : { label: k, user: true };
-  };
-  const columnLabel = (k: string): string => {
-    const a = oneType?.attributes.find((x) => nfc(x.key) === nfc(k));
-    if (a) return a.name;
-    if (nfc(k) === 'modified') return t('typePage.modified');
-    const u = UNIVERSAL.find((x) => x.key === nfc(k));
-    return u ? t(u.label) : k;
   };
   const setTypes = (next: string[]) => update((d) => ({ ...d, types: next, columns: columnsAfterTypes(d.columns, d.types, next, types) }));
 
@@ -246,7 +239,6 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
   const count = result ? (result.total ?? result.rows.length) : null;
   // R197 (D-1842): sort and columns are per usage; said when the query has two or more usages.
   const perUsage = req.name !== null && pages.length + usages >= 2;
-  const cardColumns = usageCols ?? def.columns;
 
   // The attribute choices of the filter rows (no Sort row: sorting is on the view, D-1795).
   const groups = attributeGroups(types, def.types);
@@ -279,7 +271,9 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
         : reason === 'value' ? t('query.editor.ignored.value') : reason === 'nestedGroup' ? t('query.editor.ignored.nestedGroup') : undefined;
     const isLinks = key === 'links_to' || key === 'linked_from';
     const kind = attr?.kind ?? 'text';
-    const ops = operatorsFor(kind);
+    // Q2-T (§28.2, CP-30): a Select that carries states also offers `state is` / `state is not`.
+    const sOps = key && oneType ? stateOps(oneType, key) : [];
+    const ops = [...operatorsFor(kind), ...sOps.map((op) => ({ op: op as QueryOp, label: `query.op.${op}` }))];
     const opId = (o: { op: QueryOp; arg?: boolean }) => (o.arg === undefined ? o.op : `${o.op}:${o.arg}`);
     const curOp = isLinks ? 'links_to' : kind === 'checkbox' ? `is:${f.value === true}` : f.op;
     const opLabel = ops.find((o) => opId(o) === curOp)?.label ?? (key && !isLinks && kind !== 'checkbox' ? `query.op.${f.op}` : undefined);
@@ -299,7 +293,8 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
         if (x.kind !== 'filter') return x;
         if (isLinks) return { ...x, op: 'is' };
         if (kind === 'checkbox') return { ...x, op: 'is', value: arg === 'true' };
-        const value = FLAG_OPS.has(op) ? true : FLAG_OPS.has(x.op) ? '' : x.value;
+        const stateOp = (o: string) => o === 'state_is' || o === 'state_is_not';
+        const value = FLAG_OPS.has(op) ? true : FLAG_OPS.has(x.op) || stateOp(op) !== stateOp(x.op) ? '' : x.value;
         return { ...x, op, value: op === 'between' && !Array.isArray(value) ? ['', ''] : op !== 'between' && Array.isArray(value) && !['is_any_of', 'has_any_of', 'has_all_of', 'has_none_of'].includes(op) ? '' : value };
       });
     };
@@ -416,9 +411,16 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
         <>
           <div className="qe-section">
             <div className="qe-label">{t('query.editor.groupBy')}</div>
-            <Chooser label={t('query.editor.groupBy')} display={<span data-user-content={groupLabel(def.groupBy).user ? '' : undefined}>{groupLabel(def.groupBy).label}</span>}
-              options={groupByChoices(oneType).map((k) => ({ id: k, label: groupLabel(k).label, userNamed: groupLabel(k).user }))} current={def.groupBy}
-              onPick={(k) => update((d) => ({ ...d, groupBy: k }))} className="qe-groupby" describedBy="qe-groupby-hint" />
+            <Chooser label={t('query.editor.groupBy')}
+              display={def.groupPeriod && def.groupBy !== null ? periodLabel(def.groupBy) : <span data-user-content={groupLabel(def.groupBy).user ? '' : undefined}>{groupLabel(def.groupBy).label}</span>}
+              options={[
+                ...groupByChoices(oneType).map((k) => ({ id: k, label: groupLabel(k).label, userNamed: groupLabel(k).user, attrs: { 'data-group-by': k } })),
+                // Q2-T (§28.2, R201): every date key by period, after R189's choices.
+                ...periodChoices(oneType).map((k) => ({ id: `period:${k}`, label: periodLabel(k), description: t('query.editor.groupByPeriodHint'), attrs: { 'data-group-by': k, 'data-period': '' } })),
+              ]}
+              current={def.groupPeriod && def.groupBy !== null ? `period:${def.groupBy}` : def.groupBy}
+              onPick={(k) => update((d) => (k.startsWith('period:') ? { ...d, groupBy: k.slice(7), groupPeriod: true } : { ...d, groupBy: k, groupPeriod: false }))}
+              className="qe-groupby" describedBy="qe-groupby-hint" />
             <span id="qe-groupby-hint" className="qe-hint">{t('query.editor.groupByHint')}</span>
           </div>
           <div className="qe-section">
@@ -430,26 +432,18 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
               ))}
             </div>
           </div>
-          <div className="qe-section" role="group" aria-label={t('query.editor.onCards')}>
-            <div className="qe-label">{t('query.editor.onCards')}</div>
-            <span className="qe-cards" data-user-content>{cardColumns.map((k) => columnLabel(k)).join(', ')}</span>
-            <button ref={cardsBtn} tabIndex={0} type="button" className="qe-add" aria-haspopup="menu" aria-expanded={cardsOpen}
-              aria-disabled={req.usage?.disabled ? 'true' : undefined} aria-description={req.usage?.disabled ?? undefined}
-              onClick={() => { if (!req.usage?.disabled) setCardsOpen((o) => !o); }}>{t('query.editor.onCardsChange')}</button>
-          </div>
+          {doneLaneOffered(typeDtos as never) && (
+            // Q2-T (§28.2, R201): checked = the def has `done_lane`; checking sets 7 days, folded.
+            <div className="qe-section">
+              <label className="qe-check">
+                <input type="checkbox" data-done-lane="" checked={def.doneLane !== null}
+                  aria-label={t('query.editor.doneLane', { count: def.doneLane?.withinDays ?? 7 })}
+                  onChange={(e) => { const on = e.currentTarget.checked; update((d) => ({ ...d, doneLane: on ? { withinDays: 7, folded: true } : null })); }} />
+                <span>{t('query.editor.doneLane', { count: def.doneLane?.withinDays ?? 7 })}</span>
+              </label>
+            </div>
+          )}
         </>
-      )}
-      {cardsOpen && (
-        <ColumnsMenu def={def} types={types as never} anchor={cardsBtn.current} columns={cardColumns}
-          scope={req.usage ? (req.fixedType ? 'tab' : 'block') : undefined}
-          onToggle={(key, on) => {
-            const toggled = (cols: string[]) => (on ? [...cols.filter((c) => nfc(c) !== nfc(key)), nfc(key)] : cols.filter((c) => nfc(c) !== nfc(key)));
-            // D-1860: a usage's `Change…` writes its own columns at once; `Done` never writes `columns`.
-            if (req.usage) { const next = toggled(cardColumns); setUsageCols(next); void req.usage.setColumns(next); return; }
-            update((d) => ({ ...d, columns: toggled(d.columns) }));
-          }}
-          onNewProperty={() => setCardsOpen(false)}
-          onClose={() => { setCardsOpen(false); cardsBtn.current?.focus(); }} />
       )}
       <div className="qe-foot">
         <p className="qe-results">{count === null ? '' : t('query.editor.results', { count })}</p>
@@ -483,6 +477,13 @@ function ValueControl({ f, kind, isLinks, attr, hostTitle, onValue }: {
 }) {
   const label = t('query.editor.value');
   if (FLAG_OPS.has(f.op) || kind === 'checkbox') return null;
+  if (f.op === 'state_is' || f.op === 'state_is_not') {
+    // Q2-T (§28.2): the four states, written `open`, `in-progress`, `done`, `cancelled`.
+    const states: [string, string][] = [['open', 'state.open'], ['in-progress', 'state.inProgress'], ['done', 'state.done'], ['cancelled', 'state.cancelled']];
+    const v = typeof f.value === 'string' ? f.value : '';
+    const shown = states.find(([id]) => id === v);
+    return <Chooser label={label} display={shown ? t(shown[1]) : label} faint={!shown} options={states.map(([id, k]) => ({ id, label: t(k) }))} current={v || null} onPick={(x) => onValue(x)} className="qe-value-combo" />;
+  }
   if (isLinks || f.op === 'links_to') return <ObjectPicker value={f.value} hostTitle={hostTitle} onValue={onValue} />;
   if (LIST_OPS.has(f.op)) {
     const tags = kind === 'tags';

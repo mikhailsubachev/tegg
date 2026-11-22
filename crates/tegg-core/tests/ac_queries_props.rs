@@ -525,6 +525,8 @@ fn evaluator_seed(seed: u64, runs: usize) -> Vec<String> {
                 lanes: Lanes::Vertical,
                 lane_order: None,
                 columns: vec!["type".into(), "modified".into()],
+                group_period: false,
+                done_lane: None,
             };
             let today = format!("2026-11-{:02}", 5 + rng.below(11));
             let ws = if rng.chance(50) { Weekday::Mon } else { Weekday::Sun };
@@ -658,7 +660,7 @@ fn gen_query_file(rng: &mut Rng) -> (Vec<Line>, QueryDef) {
     if rng.chance(30) {
         push(&mut lines, "", "# konec".into());
     }
-    let d = QueryDef { title: nfc(&title), types, r#match: m, filters, sort: vec![Sort { by, order }], limit, view, group_by: None, lanes: Lanes::Vertical, lane_order: None, columns: vec!["stav".into(), "modified".into()] };
+    let d = QueryDef { title: nfc(&title), types, r#match: m, filters, sort: vec![Sort { by, order }], limit, view, group_by: None, lanes: Lanes::Vertical, lane_order: None, columns: vec!["stav".into(), "modified".into()], group_period: false, done_lane: None };
     (lines, d)
 }
 

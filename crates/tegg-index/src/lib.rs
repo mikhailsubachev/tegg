@@ -956,6 +956,13 @@ impl Index {
 
     /// 5A-1 (ms5-tasks §2.1): the version the note was indexed at, whether it is UTF-8, and the start of its body as
     /// plain text (`text::excerpt`). None for a path the index doesn't hold.
+    /// Slice Q2-T (v1-views §24.4): `note_state` without the excerpt (no note text read); for rows no card draws.
+    pub fn note_version(&self, path: &str) -> Option<NoteState> {
+        let m = self.meta(path)?;
+        let version = FileVersion { mtime_ns: m.mtime_ns as i128, size: m.size as u64, hash: m.s.hash.unwrap_or([0; 32]) };
+        Some(NoteState { version, utf8: m.s.utf8, excerpt: String::new() })
+    }
+
     pub fn note_state(&self, path: &str) -> Option<NoteState> {
         let m = self.meta(path)?;
         let excerpt = self.raw_of(m).ok().flatten().map(|raw| text::excerpt(raw.get(m.s.body_start..).unwrap_or(""))).unwrap_or_default();

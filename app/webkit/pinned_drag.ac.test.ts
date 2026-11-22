@@ -4,11 +4,12 @@
 // `data-drop-over`, `data-pin-drop-line`, `data-pin-placeholder`, `data-pin-lifted`, `data-pin-drag-chip`). Written from
 // the ACs and the contract only (D-61). Every lookup goes through `must` (TS-I1).
 import { test, type Page } from '@playwright/test';
+import { withTaskViews } from './tasks-helpers';
 import assert from 'node:assert/strict';
 import {
   ID, P, QUERY_PIN, VALID_ROWS, backlinkEntry, box, chip, click, drag, dragChip, dropLine, editorBody, eventually, gapAfter, inboxEntry, kanbanCard, lifted,
   main, must, mustBeOn, openPinned, otherWrites, pinsFx, pinsText, placeholder, rowAt, rows, rowsAre, runCommand, searchRow, section, seen, sleep,
-  tagRow, tagsEntry, typeRow, typesEntry, typesList,
+  tagRow, tagsEntry, typeRow, typesEntry, typesList, pinnedVault,
 } from './pinned-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
@@ -85,7 +86,8 @@ test('fr_hom_02_ac12_drag_in_from_search_at_the_line', async ({ page }) => {
 });
 
 test('fr_hom_02_ac12_every_source_pins_in_one_write', async ({ page }) => {
-  const core = await openPinned(page, { pins: 'valid.yml', route: `note/${P.rozpocet}` });
+  // D-1932 (AC-Test-Change, slice Q2-T): the vault gets the default task views, so the Kanban source exists.
+  const core = await openPinned(page, { pins: 'valid.yml', route: `note/${P.rozpocet}`, vault: withTaskViews(pinnedVault({ pins: 'valid.yml' })) });
   await rowsAre(page, VALID_ROWS);
   const pinsBy = async (what: string, from: () => ReturnType<typeof rowAt>, want: string) => {
     const n = (await core.pinCalls()).length;
@@ -100,6 +102,8 @@ test('fr_hom_02_ac12_every_source_pins_in_one_write', async ({ page }) => {
   await pinsBy('Backlinks entry Odkazy', () => backlinkEntry(page, 'Odkazy'), `path: ${P.odkazy}`);
   await pinsBy('Types entry Schůzky', () => typesEntry(page, 'Schůzky'), 'type: schůzka');
   await runCommand(page, 'Go to type: Tasks');
+  // D-1932: with the default views Tasks first opens on Schedule (D-1903); the type-page rows are on `All Tasks`.
+  await click(main(page).getByRole('tab', { name: 'All Tasks', exact: true }), 'All Tasks');
   await pinsBy('type-page row Úkol', () => typeRow(page, 'Poslat návrh rozpočtu'), `path: ${P.ukol}`);
   await runCommand(page, 'Go to Tags');
   await pinsBy('All tags row #účty', () => tagRow(page, 'účty'), 'tag: účty');

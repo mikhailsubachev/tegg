@@ -25,6 +25,7 @@ import type { TypeEntry } from './types';
 import { PinnedSection } from '../pinned/PinnedSection';
 import { PinContextMenu } from '../pinned/PinMenu';
 import { pinDragSource } from '../pinned/drag';
+import { typePinnable } from '../pinned/model';
 import { useTags } from '../tags/store';
 import { useQueries } from '../queries/store';
 
@@ -342,7 +343,7 @@ export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, 
                   onClick={(ev) => { ev.preventDefault(); onGo({ id: 'type/<type>', param: e.key }); }}
                   onContextMenu={(ev) => { ev.preventDefault(); setTypeMenu({ entry: e, anchor: ev.currentTarget }); }}
                   onKeyDown={(ev) => { if (ev.key === 'F10' && ev.shiftKey) { ev.preventDefault(); setTypeMenu({ entry: e, anchor: ev.currentTarget }); } }}
-                  {...pinDragSource({ request: { kind: 'type', key: e.key }, label: e.plural, icon: typeIconName(e.key, e.icon), color: e.color })}
+                  {...(typePinnable(e.key) ? pinDragSource({ request: { kind: 'type', key: e.key }, label: e.plural, icon: typeIconName(e.key, e.icon), color: e.color }) : {})}
                 >
                   <span className="type-icon"><Icon name={typeIconName(e.key, e.icon)} /></span>
                   <span className="entry-label" data-user-content title={e.plural}>
@@ -357,7 +358,7 @@ export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, 
         </ul>
         {typeMenu && (
           <PinContextMenu label={t('typeEntry.menu', { name: typeMenu.entry.name })} anchor={typeMenu.anchor}
-            target={{ request: { kind: 'type', key: typeMenu.entry.key }, label: typeMenu.entry.plural }}
+            target={typePinnable(typeMenu.entry.key) ? { request: { kind: 'type', key: typeMenu.entry.key }, label: typeMenu.entry.plural } : null}
             onOpen={() => onGo({ id: 'type/<type>', param: typeMenu.entry.key })}
             onClose={() => { const a = typeMenu.anchor; setTypeMenu(null); if (a.isConnected) a.focus(); }} />
         )}

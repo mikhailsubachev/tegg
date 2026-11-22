@@ -712,31 +712,11 @@ textarea.pfield { width: 100%; min-width: 320px; height: auto; padding: 4px 6px;
 .embed-picker .option.selected { background: var(--sel); }
 .embed-picker .option .meta { color: var(--muted); font-size: 12px; }
 
-/* 5A-1: the Tasks page (tasks.md R40…R43; Tasks and TasksBoard boards). */
-.tasks-page { max-width: none; }
-.tasks-header { align-items: flex-end; flex-wrap: wrap; margin-bottom: 16px; }
-.tasks-header h1 { margin: 0; }
-.tasks-header .page-actions { margin-left: auto; }
-.tasks-header .tabs { margin: 0; }
-.tasks-summary { color: var(--muted); margin: 2px 0 0; font-size: 13px; }
+/* 5A-1: the Task card (tasks.md R43), the tag filter (D-518); the 5A Tasks page went with slice Q2-T (v1-views §28.3). */
 /* D-519: Type settings, an icon button in page headers. */
 .type-settings-button { width: 36px; height: 36px; box-sizing: border-box; flex: none; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 1px solid var(--border); border-radius: 8px; background: none; color: var(--muted); cursor: pointer; }
 .type-settings-button:hover { background: var(--hover); color: var(--text); }
 .type-settings-button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.tabs { display: inline-flex; gap: 2px; padding: 2px; border-radius: 7px; background: var(--hover); margin: 0 12px 12px 0; }
-.tabs [role="tab"] { border: none; background: none; color: var(--muted); font: inherit; padding: 4px 10px; border-radius: 5px; cursor: pointer; }
-.tabs [role="tab"][aria-selected="true"] { background: var(--bg); color: var(--text); font-weight: 600; }
-.quick-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
-.quick-add.inline { margin: 8px 0; }
-.quick-add-input { flex: 1 1 240px; min-width: 0; font: inherit; color: var(--text); background: none; border: none; border-radius: 4px; }
-.quick-add-input:focus { outline: none; }
-.quick-chip { display: inline-flex; align-items: center; gap: 2px; font-size: 12px; color: var(--muted); background: var(--hover); border-radius: 5px; padding: 1px 6px; }
-.quick-chip .icon-button { width: 18px; height: 18px; }
-.quick-hint { font-size: 12px; color: var(--muted); }
-.quick-error { flex-basis: 100%; margin: 0; font-size: 12px; color: var(--danger); }
-.tasks-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
-.tasks-toolbar .tabs { margin: 0; }
-.tasks-sort { margin-left: auto; }
 /* D-518: the searchable tag filter. */
 .tag-filter { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-left: 10px; border-left: 1px solid var(--border); }
 .tag-filter .label { color: var(--muted); font-size: 13px; }
@@ -757,28 +737,21 @@ textarea.pfield { width: 100%; min-width: 320px; height: auto; padding: 4px 6px;
 .tf-option .tick { width: 14px; font-weight: 700; color: var(--focus); }
 .tf-option .tf-name { flex: 1; }
 .tf-option .count { font-size: 12px; color: var(--muted); }
+/* Q2-T (§29.6): the tag filter in a view toolbar. */
+.view-toolbar .tag-filter { padding-left: 0; border-left: none; }
+.tf-open { flex: none; color: var(--muted); }
 .tf-menu-keys { border-top: 1px solid var(--border); margin-top: 4px; padding: 6px 8px 2px; font-size: 11px; color: var(--muted); }
-.tasks-filter { display: inline-flex; gap: 4px; }
 button.toggle { font: inherit; font-size: 13px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
 button.toggle[aria-pressed="true"] { background: var(--sel); border-color: var(--focus); }
 button.toggle[aria-disabled="true"] { color: var(--muted); cursor: default; }
 button.toggle .count { margin-left: 0; }
+button.toggle[aria-pressed="true"] .count { color: var(--text); }
 .task-alerts { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
 .task-alert { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 6px; background: var(--danger-bg); color: var(--danger); }
 .task-alert button { font: inherit; color: inherit; background: none; border: 1px solid currentColor; border-radius: 5px; padding: 0 6px; cursor: pointer; }
 .task-alert .icon-button { border: none; margin-left: auto; }
 .sr-live { position: absolute; top: 0; left: 0; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.task-note { margin: 6px 0; color: var(--muted); font-size: 13px; }
-.task-section { margin: 20px 0 8px; }
-.task-section-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
-.task-section-head h2, .task-done-head { font-size: 15px; margin: 0; }
-.task-section-head h2 .count, .task-done-head .count { margin-left: 4px; }
-.task-section-head .hint { margin: 0; font-size: 12px; }
-.task-section-head .text-button { margin-left: auto; font-size: 12px; }
-.task-done-head button { font: inherit; font-weight: 600; color: var(--text); background: none; border: none; padding: 0; cursor: pointer; }
-.task-group h3 { font-size: 12px; font-weight: 600; color: var(--muted); margin: 12px 0 6px; text-transform: none; }
-.task-group h3.danger { color: var(--danger); }
-.task-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.board-cards .task-card, .board-days .task-card { width: auto; }
 .task-card { box-sizing: border-box; width: 272px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); display: flex; flex-direction: column; gap: 6px; cursor: default; }
 .task-card:focus-visible { outline: none; background: var(--hover); }
 .task-card-head { display: flex; align-items: flex-start; gap: 8px; }
@@ -792,37 +765,11 @@ button.toggle .count { margin-left: 0; }
 .task-body { margin: 0; color: var(--muted); font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .task-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; border-radius: 5px; padding: 0 5px; color: var(--muted); background: var(--hover); }
 .task-chip.tag { background: var(--hover); }
-.task-chip .dot, .task-column-head .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+.task-chip .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
 .task-chip.due { font-weight: 400; color: var(--muted); background: var(--hover); }
 .task-chip.due.tone-overdue { font-weight: 600; color: var(--danger); background: var(--danger-bg); }
 .task-chip.due.tone-today { font-weight: 600; color: var(--link); background: var(--link-bg); }
 .task-also { margin: 0; font-size: 12px; color: var(--muted); }
-/* Columns stretch to the board, which fills the page: a column is a drop target over its whole height (5B feedback F5). */
-.task-board { display: flex; gap: 12px; overflow-x: hidden; overflow-y: hidden; padding-bottom: 12px; align-items: stretch; min-height: calc(100vh - 260px); }
-/* D-593: the board scrolls sideways, but its scrollbar takes no space and isn't drawn until the pointer is over the
-   board or a card is dragged (with a mouse macOS always shows scrollbars, and this one sits below the fold). WebKit
-   doesn't restyle a scrollbar on :hover, so the overflow itself switches; the padding keeps the height the same. */
-.task-board:hover, .task-board.dragging { overflow-x: auto; padding-bottom: 4px; }
-.task-board::-webkit-scrollbar { height: 8px; background: transparent; }
-.task-board::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-.task-column { flex: none; width: 288px; padding: 8px; border-radius: 10px; background: var(--side); }
-.task-column.drop-over { outline: 2px dashed var(--focus); }
-.task-column-head { display: flex; align-items: center; gap: 6px; }
-.task-column-head h2 { font-size: 14px; margin: 0; display: flex; align-items: center; gap: 6px; flex: 1; }
-.task-column-head h2 .count { margin-left: 2px; }
-/* D-1357: the column handle and where a dragged column lands. */
-.column-handle { cursor: grab; color: var(--muted); font-size: 11px; letter-spacing: -2px; padding: 2px 4px; border-radius: 4px; user-select: none; }
-.column-handle:hover, .column-handle:focus-visible { color: var(--text); background: var(--hover); }
-.task-column.column-dragging { opacity: 0.6; }
-.task-column.column-drop-before { box-shadow: inset 3px 0 0 var(--focus); }
-.task-column.column-drop-after { box-shadow: inset -3px 0 0 var(--focus); }
-.task-column .task-list { flex-direction: column; margin-top: 8px; }
-.task-column .empty, .drop-label { color: var(--muted); font-size: 12px; margin: 6px 0; }
-.task-board.dragging, .task-board.dragging * { cursor: grabbing; user-select: none; }
-.task-due-pop { padding: 6px; display: flex; align-items: center; gap: 4px; }
-.task-due-pop input { font: inherit; padding: 4px 6px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text); }
-.task-due-pop input[aria-invalid="true"] { border-color: var(--danger); }
-button.toggle[aria-pressed="true"] .count { color: var(--text); }
 .attr-value[data-overdue="true"] { color: var(--danger); }
 .attr-value[data-overdue="true"] input { color: var(--danger); font-weight: 600; }
 

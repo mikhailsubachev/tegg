@@ -1234,5 +1234,7 @@ pub mod graph_presets;
 pub mod pinned;
 // docs/contracts/v1-queries.md §1: saved queries in `.tegg/queries/` and the evaluator (`queries_q.rs`).
 pub mod queries_q;
+/// v1-views §25 (Q2-T, R202): the default task views, their migration and `Restore default views`.
+pub mod taskviews;
 mod yaml_text;
 pub use graph_presets::{GraphPreset, GraphPresets, PresetError, PresetOp, PresetsState, GRAPH_YML, PRESETS_VERSION};

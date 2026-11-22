@@ -4,6 +4,7 @@
 // docs/contracts/v1-previews.md §1, §3.3, §8. Written from the ACs and the contract only (D-61).
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
+import { withTaskViews } from './tasks-helpers';
 import {
   PV, ZONE, anyBack, anyContent, back, backBtn, backlinksPanel, callsSince, chipNamed, clickToPreview, closeBtn, content, createOffer, description,
   editorBody, embedLoadsSince, eventually, fileText, flat, focusInfo, focusInside, frame, header, isDisabled, linkEmbed, main, mainName, mainScrollTop,
@@ -35,18 +36,20 @@ async function caretAfterChip(page: Page, start: string) {
 
 // ------------------------------------------------------------------------------------------------ AC-1
 
-test('fr_lnk_11_ac1_preview_ready_within_two_animation_frames_of_the_click', async ({ page }) => {
+test('fr_lnk_11_ac1_preview_ready_without_waiting_after_the_click', async ({ page }) => {
   const core = await startPreviews(page, { at: PV.odkazy });
   const chip = await rozpocetChip(page);
+  // D-1938 (AC-Test-Change): the time from pointer-up to the `preview-ready` mark, at most 1,000 ms: a regression bound
+  // (the preview waits for nothing slow, e.g. a second read). ~40 ms alone; with the gate's 6 parallel workers the page's
+  // first layout stretches it to 60–320 ms now and then. A frame count depended on where the click fell in the frame cycle.
+  // The 75 ms target is the L6 benchmark's (`e2e/nfr_perf_12_previews`), on the reference machine.
   await page.evaluate(() => {
     const w = window as any;
-    w.__pvFrames = 0; w.__pvUp = -1; w.__pvReady = -1;
-    const tick = () => { w.__pvFrames++; requestAnimationFrame(tick); };
-    requestAnimationFrame(tick);
-    document.addEventListener('pointerup', () => { if (w.__pvUp < 0) w.__pvUp = w.__pvFrames; }, true);
+    w.__pvUp = -1; w.__pvReady = -1;
+    document.addEventListener('pointerup', () => { if (w.__pvUp < 0) w.__pvUp = performance.now(); }, true);
     const inv = w.__TAURI_INTERNALS__.invoke;
     w.__TAURI_INTERNALS__.invoke = (cmd: string, args: any, o: unknown) => {
-      if (cmd === 'perf_mark' && args?.name === 'preview-ready' && w.__pvReady < 0) w.__pvReady = w.__pvFrames;
+      if (cmd === 'perf_mark' && args?.name === 'preview-ready' && w.__pvReady < 0) w.__pvReady = performance.now();
       return inv(cmd, args, o);
     };
   });
@@ -56,8 +59,9 @@ test('fr_lnk_11_ac1_preview_ready_within_two_animation_frames_of_the_click', asy
   const marks = await eventually(async () => (await callsSince(core, n0, 'perf_mark')).map((c) => (c.args as any)?.name), (m) => m.includes('preview-ready'), 2000);
   assert.ok(marks.includes('preview-click'), `perf_mark preview-click on pointerup (v1-previews §8): ${JSON.stringify(marks)}`);
   assert.ok(marks.includes('preview-ready'), 'perf_mark preview-ready');
-  const f = await page.evaluate(() => ({ up: (window as any).__pvUp, ready: (window as any).__pvReady }));
-  assert.ok(f.up >= 0 && f.ready >= 0 && f.ready - f.up <= 2, `preview-ready within 2 animation frames of the click (frames ${JSON.stringify(f)})`);
+  const t = await page.evaluate(() => ({ up: (window as any).__pvUp, ready: (window as any).__pvReady }));
+  assert.ok(t.up >= 0 && t.ready >= t.up, `both moments recorded (${JSON.stringify(t)})`);
+  assert.ok(t.ready - t.up <= 1000, `preview-ready within 1,000 ms of the click (${(t.ready - t.up).toFixed(1)} ms)`);
 });
 
 // ------------------------------------------------------------------------------------------------ AC-2
@@ -661,7 +665,8 @@ test('nfr_oth_02_ac11_popover_strings_are_catalog_strings_in_the_pseudo_locale',
 // ------------------------------------------------------------------------------------------------ FR-SYN-06 AC-37
 
 test('fr_syn_06_ac37_a_preview_tour_writes_nothing_then_remove_link_writes_one_note', async ({ page }) => {
-  const core = await startPreviews(page, { at: PV.odkazy, panel: true });
+  // D-1924 (AC-Test-Change, slice Q2-T): route only, plus the default task views in the vault (migrations are off in tests, D-1913).
+  const core = await startPreviews(page, { at: PV.odkazy, panel: true, vault: withTaskViews(previewsVault()) });
   const files0 = await snapshot(core);
   for (const [start, n] of [['Hlavní', 0], ['S popisem', 0], ['Sekce', 0], ['Blok', 0], ['Osoby', 0], ['Osoby', 1], ['Projekt', 0], ['Úkol', 0], ['Dny', 0], ['Dny', 1], ['Štítky', 0], ['Štítky', 1], ['Štítky', 2], ['Média', 0], ['Média', 1], ['Média', 2], ['Dvojníci', 0], ['Dvojníci', 1], ['Prázdná', 0], ['Prázdná', 1], ['Kruh', 0], ['Markdown', 0], ['Nápad', 0], ['Mapa', 0]] as const) {
     await (await needOdkazyLink(page, start, n)).click();

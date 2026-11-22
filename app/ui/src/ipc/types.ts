@@ -251,7 +251,11 @@ export type AttributeInputDto = { key: string, name: string, type: string, defau
 export type AttributeChangeDto = { name?: string, type?: string, default?: unknown | null, required?: boolean, options?: Array<OptionDto>, to?: string[] | null, multiple?: boolean, description?: string | null, };
 export type TypeOpDto = { "op": "set", field: string, value: string | null, } | { "op": "review", on: boolean, } | { "op": "preview", keys: Array<string>, } | { "op": "columns", keys: Array<string>, } | { "op": "hidden", keys: Array<string>, } | { "op": "embed", mode: string, } | { "op": "addAttribute", attribute: AttributeInputDto, } | { "op": "updateAttribute", key: string, change: AttributeChangeDto, } | { "op": "removeAttribute", key: string, } | { "op": "moveAttribute", key: string, to: number, } | { "op": "setOptionState", attr: string, label: string, state: string, } | { "op": "addOption", attr: string, option: OptionDto, } | { "op": "setOptionColor", attr: string, label: string, color: string, } | { "op": "moveOption", attr: string, label: string, to: number, } | { "op": "removeOption", attr: string, label: string, } | { "op": "renameOption", attr: string, from: string, to: string, } | { "op": "views", names: Array<string>, } | { "op": "viewSort", name: string, sort: Array<UsageSortDto> | null, } | { "op": "viewColumns", name: string, columns: Array<string> | null, } | { "op": "viewsSource", source: string, };
 export type TypeUsageDto = { objects: number, values: { [key in string]?: number }, options: { [key in string]?: { [key in string]?: number } }, };
-export type TypeRowDto = { path: string, id: string | null, title: string, created: string | null, modified: string | null, values: Record<string, unknown>, links: Array<LinkTargetDto>, typeSingle: boolean, };
+export type TypeRowDto = { path: string, id: string | null, title: string, created: string | null, modified: string | null, values: Record<string, unknown>, links: Array<LinkTargetDto>, typeSingle: boolean, 
+/**
+ * Slice Q2-T (v1-views §27.1): the tag keys (frontmatter and inline; NFC, case-folded), sorted, unique.
+ */
+tags: Array<string>, };
 export type TypeTemplateDto = { path: string, text: string, };
 export type StarterSkipDto = { key: string, 
 /**
@@ -271,6 +275,7 @@ tab: string,
  * D-634: the panel's width in px (240…480); absent until the user resizes it, read as 288.
  */
 width?: number, };
+export type TypeSortValue = Array<UsageSortDto> | TypeSortDto;
 export type TypeSortDto = { column: string, 
 /**
  * `asc` or `desc`.
@@ -289,7 +294,7 @@ propertiesOpen: boolean,
 /**
  * Type page sort per type key (FR-TYP-09 AC-3, D-233, ms3-shell §14.7.1); missing reads as empty.
  */
-typeSort: { [key in string]?: TypeSortDto }, 
+typeSort: { [key in string]?: TypeSortValue }, 
 /**
  * "Other properties" in the attribute panel expanded (D-229); missing reads as collapsed.
  */
@@ -370,7 +375,12 @@ usageColumnWidths?: { [key in string]?: { [key in string]?: number } },
 /**
  * Slice Q2.1 (v1-views §19.3, R198): the folded lane ids of a horizontal board per usage key.
  */
-usageFolded?: { [key in string]?: Array<string> }, };
+usageFolded?: { [key in string]?: Array<string> }, 
+/**
+ * Slice Q2-T (v1-views §30.3, D-1893): the tag filter per view tab (`tab:<type>/<name key>`) or `All <plural>`
+ * (`all:<type>`); tag keys, NFC, lower case.
+ */
+tagFilter?: { [key in string]?: Array<string> }, };
 export type LinkTargetDto = { target: string, 
 /**
  * `note`, `daily`, `date-missing` or `unresolved`.

@@ -7,6 +7,7 @@
 // assertion (TS-I1).
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
+import { withTaskViews } from './tasks-helpers';
 import {
   NOW, absent, callsOf, capStatus, capText, capValue, chips, chooseType, click, creates, description, discardBtn, dropZone, dueBtn, eventually,
   flat, focusName, gotoInbox, groupRegion, inboxVault, isDisabled, must, nfc, prioBtn, saveBtn, seen, sidebarCount, sleep, startCapture,
@@ -531,7 +532,8 @@ test('fr_tsk_10_ac12_the_task_shows_on_tasks_and_in_the_inbox', async ({ browser
   const ctx = await browser.newContext({ timezoneId: 'Europe/Prague' });
   const mainPage = await ctx.newPage();
   const capPage = await ctx.newPage();
-  const v = inboxVault();
+  // D-1924 (AC-Test-Change, slice Q2-T): route only, plus the default task views in the vault (migrations are off in tests, D-1913).
+  const v = withTaskViews(inboxVault());
   await startMain(mainPage, { vault: v });
   const cap = await startCapture(capPage, { vault: v, kind: 'task' });
   await taskCapture(capPage, { title: 'Zavolat kominíkovi', due: '15. 10. 2026', priority: 'High', tag: 'doma' });
@@ -544,8 +546,8 @@ test('fr_tsk_10_ac12_the_task_shows_on_tasks_and_in_the_inbox', async ({ browser
   await mainPage.keyboard.press('Meta+k');
   await mainPage.getByRole('combobox', { name: 'Command query' }).fill('Go to Tasks');
   await mainPage.keyboard.press('Enter');
-  const week = mainPage.getByRole('main').locator('[data-section="week"]');
-  await must(week.locator('[data-path="Tasks/Zavolat kominíkovi.md"]'), 'the task in This week');
+  const week = mainPage.getByRole('main').locator('section[data-lane="period:week"]');
+  await must(week.locator('article[data-board-card="Tasks/Zavolat kominíkovi.md"]'), 'the task in This week');
   const card = await must(mainPage.getByRole('main').getByRole('article', { name: 'Task: Zavolat kominíkovi', exact: true }), 'its card');
   assert.ok(flat(await card.innerText()).includes('High'), 'the priority chip High');
   await ctx.close();

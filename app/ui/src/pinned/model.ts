@@ -107,6 +107,9 @@ export function findPin(pins: PinsDto | null, target: PinRequestDto | null, tagO
   return null;
 }
 
+/** D-1933: a type page that can be pinned; `type/task` can't (the Tasks page has its fixed sidebar entry, like Inbox). */
+export const typePinnable = (key: string | undefined | null): boolean => !!key && nfc(key) !== 'task';
+
 /** What the route can pin (D-1382): an object with a file, a tag, a type page; `unsaved` for `new/<type>` and a virtual
  *  daily note; null where nothing can be pinned. */
 export function targetOfRoute(route: (Route & { path?: string | null; date?: string }) | null | undefined): PinRequestDto | 'unsaved' | null {
@@ -115,7 +118,7 @@ export function targetOfRoute(route: (Route & { path?: string | null; date?: str
     case 'note/<path>': { const p = route.path ?? route.param; return p ? { kind: 'object', path: nfc(p) } : null; }
     case 'daily/YYYY-MM-DD': return route.path ? { kind: 'object', path: nfc(route.path) } : 'unsaved';
     case 'tag/<key>': return route.param ? { kind: 'tag', key: route.param } : null;
-    case 'type/<type>': return route.param ? { kind: 'type', key: route.param } : null;
+    case 'type/<type>': return typePinnable(route.param) ? { kind: 'type', key: route.param! } : null;
     case 'new/<type>': return 'unsaved';
     case 'query/<name>': return route.param ? { kind: 'query', name: nfc(route.param) } : null;
     default: return null;

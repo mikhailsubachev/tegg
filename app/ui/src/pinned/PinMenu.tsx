@@ -40,12 +40,13 @@ export function usePinMenuEntry(): (target: PinTargetOf | null, done: () => void
 
 /** R134: `Open`, then `Pin to sidebar` / `Unpin from sidebar`, then `extra` after a separator. */
 export function PinContextMenu({ label, anchor, target, onOpen, onClose, extra = [] }: {
-  label: string; anchor: HTMLElement | null; target: PinTargetOf; onOpen: () => void; onClose: () => void; extra?: MenuEntry[];
+  /** null: nothing to pin here (D-1933: `type/task`), the menu has `Open` only. */
+  label: string; anchor: HTMLElement | null; target: PinTargetOf | null; onOpen: () => void; onClose: () => void; extra?: MenuEntry[];
 }) {
   const { pins } = usePins();
   const entries: MenuEntry[] = [
     { kind: 'item', key: 'open', label: t('pinned.open'), content: <span className="menu-title">{t('pinned.open')}</span>, onChoose: () => { onClose(); onOpen(); } },
-    pinMenuEntry(target, pins, onClose),
+    ...(target ? [pinMenuEntry(target, pins, onClose)] : []),
     ...(extra.length ? [{ kind: 'separator' } as MenuEntry, ...extra] : []),
   ];
   return <PopupMenu label={label} anchor={anchor} onClose={onClose} disabledFocusable entries={entries} />;

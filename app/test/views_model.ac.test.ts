@@ -36,7 +36,9 @@ test('fr_qry_07_ac1_tabs_come_from_views', async () => {
   // AP-1503 (D-1787): defined types except Task and Tag have views; an undefined type has none.
   for (const ty of [BOOK, AUTOR, PAGE]) assert.equal(m.hasViews(ty.key, ty), true, `type/${ty.key} has views`);
   for (const k of ['quick-note', 'daily-note', 'image', 'pdf']) assert.equal(m.hasViews(k, { ...PAGE, key: k, exists: false }), true, `type/${k} has views (built-in definition, D-90)`);
-  assert.equal(m.hasViews('task', TASK), false, 'the Tasks page has no views until Q2-T');
+  // Slice Q2-T (AC-Test-Change, D-1912; views.md part three, row part one FR-QRY-07 AC-14): Task has views (D-1787's
+  // exception ends, v1-views §28.2).
+  assert.equal(m.hasViews('task', TASK), true, 'the Tasks page has views');
   assert.equal(m.hasViews('tag', TAG), false, 'Tag has no views');
   assert.equal(m.hasViews('recept', null), false, 'an undefined type has no views');
   assert.ok(TYPES.length === 5, 'data');
@@ -50,8 +52,8 @@ test('fr_qry_07_ac4_new_view_creates_a_query_and_a_tab', async () => {
     groupBy: null, lanes: 'vertical', laneOrder: null, columns: ['poznámka', 'modified'],
   }, 'Table on Autor: R130 effective columns, no board keys');
   const board = m.newViewDef(BOOK, 'board', TYPES);
-  assert.deepEqual([board.types, board.view, board.groupBy, board.lanes, board.laneOrder, board.columns], [['book'], 'board', 'status', 'vertical', null, ['author']],
-    'Board on Book: group_by status (the first Select), lanes vertical, columns = preview minus the grouping key');
+  assert.deepEqual([board.types, board.view, board.groupBy, board.lanes, board.laneOrder, board.columns], [['book'], 'board', 'status', 'vertical', null, []],
+    'Board on Book: group_by status (the first Select), lanes vertical, no columns (slice Q2-T AC-Test-Change, D-1912; D-1910: cards follow the type\'s preview)');
   assert.deepEqual(m.newViewDef(BOOK, 'list', TYPES).columns, ['author', 'rating', 'status', 'modified'], 'List on Book: the effective columns (`columns:` of book.yml)');
   assert.equal(m.defaultGroupBy(BOOK), 'status', 'defaultGroupBy(Book) = the first Select in schema order');
   const noSelect = { ...BOOK, attributes: BOOK.attributes.filter((a: any) => a.type !== 'select') };

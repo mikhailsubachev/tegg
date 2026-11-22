@@ -245,6 +245,8 @@ pub fn def(types: &[&str], filters: Vec<FilterItem>) -> QueryDef {
         lanes: Lanes::Vertical,
         lane_order: None,
         columns: vec!["type".into(), "modified".into()],
+        group_period: false,
+        done_lane: None,
     }
 }
 pub fn sorted(mut d: QueryDef, by: &str, order: Order) -> QueryDef {
@@ -305,6 +307,8 @@ pub fn op_name(op: Op) -> &'static str {
         Op::Lt => "lt",
         Op::Gt => "gt",
         Op::LinksTo => "links_to",
+        Op::StateIs => "state_is",
+        Op::StateIsNot => "state_is_not",
     }
 }
 pub fn item_dto(i: &FilterItem) -> Value {

@@ -9,6 +9,5 @@ limit: 50
 view: board
 group_by: status
 lanes: vertical
-columns: [author]
 created: 2026-11-19T10:00:00+01:00
 modified: 2026-11-19T10:00:00+01:00

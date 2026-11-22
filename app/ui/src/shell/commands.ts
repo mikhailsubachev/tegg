@@ -52,13 +52,11 @@ export type ShellActions = {
   /** 4B (R17): the calendar of the open daily route (or of today), and the review toggle. */
   pickDate?: () => void;
   setReviewed?: (reviewed: boolean) => void;
-  /** 5A-1 (tasks.md R45): open the Tasks page at its last view (D-481); run a Tasks page or card command. */
-  goTasks?: () => void;
-  /** D-1284: `Filter tasks`. */
+  /** D-1284, Q2-T §30.4: `Filter tasks` (opens `type/task` when elsewhere, focuses the current tab's `Filter Tasks…`). */
   filterTasks?: () => void;
-  taskCommand?: (id: string) => void;
-  /** D-1357: why a Tasks page command can't run now (null: it can; undefined: no Tasks page). */
-  taskCommandState?: (id: string) => string | null | undefined;
+  /** Slice Q2-T (v1-views §30.4, R202): `Restore default views`, and why it can't run now (null: it can). */
+  restoreDefaultViews?: () => void;
+  restoreDefaultViewsState?: () => string | null;
   /** 4C (ms4-jobs §10): undo the last rename; open the "Links not updated" list. */
   undoRename?: () => void;
   /** 4E-1 (R100, D-830): undo the last undoable job of `kind`, if it is the last undoable job. */
@@ -131,7 +129,8 @@ export type ViewsStatus = {
   /** `writable`: the type file can be written (tab changes); `viewWritable`: the shown query can be (sort, lanes);
    *  missing = `writable`. */
   typeKey: string | null; tab: string | null; writable: boolean; viewWritable?: boolean;
-  board: { lanes: 'vertical' | 'horizontal'; laneOrder: boolean; cardFocused: boolean; laneFocused: boolean } | null;
+  /** Q2-T (§30.4): `taskFocused` = the focused card is a Task card (`task.complete`, `task.setStatus`). */
+  board: { lanes: 'vertical' | 'horizontal'; laneOrder: boolean; cardFocused: boolean; laneFocused: boolean; taskFocused?: boolean } | null;
   sortable: boolean;
   /** Slice Q2.1 (v1-views §19.4): the shown tab's or selected block's usage (null or absent: `query/<name>`,
    *  `All <plural>`, inline blocks); `ownSort` / `ownColumns`: the usage has the key, valid or broken (D-1856). */
@@ -193,7 +192,6 @@ export const CONTROL_COMMANDS: Record<string, string> = {
   'ctl.fontSize': 'settings.fontSize',
   'ctl.accentColor': 'settings.accentColor',
   'settings.shortcuts.change': 'settings.changeShortcut',
-  'tasks.sort': 'tasks.sort',
 };
 
 const NO_GOTO = new Set(['queries', 'query/<name>', 'tags', 'tag/<key>', 'settings/backups', 'help/shortcuts', 'tasks', 'tasks/kanban', 'chooser', 'type/<type>', 'type-settings/<type>', 'note/<path>', 'new/<type>', 'broken-links', 'duplicate-titles', 'today', 'daily/YYYY-MM-DD', 'graph/<path>']);
@@ -250,28 +248,32 @@ export function commands(ctx: ShellContext): Command[] {
     { id: 'job.undo.valueRemove', title: 'cmd.undoValueRemove', section: 'edit', needsVault: true, run: (c) => a(c)?.undoJob?.('value-remove') },
     { id: 'job.undo.typeDelete', title: 'cmd.undoTypeDelete', section: 'edit', needsVault: true, run: (c) => a(c)?.undoJob?.('type-delete') },
   );
-  // R45 (tasks.md, D-234): no shortcuts. Page and card commands run on the Tasks page only; elsewhere they do nothing.
-  const tc = (id: string) => (c: ShellContext) => a(c)?.taskCommand?.(id);
+  // R207 (Q2-T, v1-views §30.4; D-1771, D-1905, D-1922): palette only, no shortcut. The Tasks page is `type/task`;
+  // the card commands run on the focused Task card of any board through the shown views (one write queue, §26).
+  const taskType = ctx.types.find((x) => x.key.normalize('NFC') === 'task') as (typeof ctx.types)[number] & { views?: string[] | null } | undefined;
+  const taskViews = (taskType?.views ?? []).map((n) => n.normalize('NFC').trim().toLowerCase());
+  const goTask = (tab?: string) => (c: ShellContext) => a(c)?.go(tab === undefined ? { id: 'type/task' } : { id: 'type/task', tab });
   list.push(
-    { id: 'tasks.go', title: 'cmd.goto.tasks', section: 'navigate', needsVault: true, run: (c) => a(c)?.go({ id: 'tasks' }) },
-    { id: 'tasks.schedule', title: 'cmd.tasks.schedule', section: 'view', needsVault: true, run: (c) => a(c)?.go({ id: 'tasks' }) },
-    { id: 'tasks.kanban', title: 'cmd.tasks.kanban', section: 'view', needsVault: true, run: (c) => a(c)?.go({ id: 'tasks/kanban' }) },
+    { id: 'tasks.go', title: 'cmd.goto.tasks', section: 'navigate', needsVault: true, run: goTask() },
+    ...(taskViews.includes('schedule') ? [{ id: 'tasks.schedule', title: 'cmd.tasks.schedule', section: 'view', needsVault: true, run: goTask('Schedule') } as Command] : []),
+    ...(taskViews.includes('kanban') ? [{ id: 'tasks.kanban', title: 'cmd.tasks.kanban', section: 'view', needsVault: true, run: goTask('Kanban') } as Command] : []),
     { id: 'tasks.search', title: 'cmd.tasks.search', section: 'navigate', needsVault: true, run: (c) => a(c)?.filterTasks?.() },
-    ...([
-      ['tasks.groupStatus', 'cmd.tasks.groupStatus'], ['tasks.groupTag', 'cmd.tasks.groupTag'], ['tasks.filterAll', 'cmd.tasks.filterAll'],
-      ['tasks.filterToday', 'cmd.tasks.filterToday'], ['tasks.filterWeek', 'cmd.tasks.filterWeek'], ['tasks.add', 'cmd.tasks.add'],
-      ['task.complete', 'cmd.task.complete'], ['task.setStatus', 'cmd.task.setStatus'], ['task.moveNext', 'cmd.task.moveNext'], ['task.movePrevious', 'cmd.task.movePrevious'],
-    ] as const).map(([id, title]): Command => ({ id, title, section: id.startsWith('tasks.add') ? 'create' : 'edit', needsVault: true, run: tc(id) })),
-
   );
-  // D-1357 (FR-TSK-05 AC-18): on the Kanban only, disabled unless a status column (its handle or a card in it) is
-  // focused and the move is possible.
-  if (ctx.route?.id === 'tasks/kanban') {
+  const tv = a(ctx)?.views;
+  if (typeof tv?.status === 'function' && tv.status()?.board?.taskFocused) {
     list.push(
-      ...([['tasks.columnLeft', 'cmd.tasks.columnLeft'], ['tasks.columnRight', 'cmd.tasks.columnRight']] as const).map(([id, title]): Command => ({
-        id, title, section: 'edit', needsVault: true, disabled: () => { const r = a(ctx)?.taskCommandState?.(id); return r === undefined ? t('tasks.column.cantMove') : r; }, run: tc(id),
-      })),
+      { id: 'task.complete', title: 'cmd.task.complete', section: 'edit', needsVault: true, run: (c) => a(c)?.views?.run('task.complete') },
+      { id: 'task.setStatus', title: 'cmd.task.setStatus', section: 'edit', needsVault: true, run: (c) => a(c)?.views?.run('task.setStatus') },
     );
+  }
+  {
+    const r = ctx.route ?? null;
+    const k = r ? (r.param ?? r.key ?? r.type ?? '').normalize('NFC') : '';
+    const onTask = r?.id === 'type/task' || r?.id === 'type-settings/task' || ((r?.id === 'type/<type>' || r?.id === 'type-settings/<type>') && k === 'task');
+    if (onTask) {
+      list.push({ id: 'types.restoreDefaultViews', title: 'cmd.restoreDefaultViews', section: 'edit', needsVault: true,
+        disabled: () => a(ctx)?.restoreDefaultViewsState?.() ?? null, run: (c) => a(c)?.restoreDefaultViews?.() });
+    }
   }
   // Slice PIN (R136): `Pin to sidebar` / `Unpin from sidebar` on a pinnable route (one of the two); ⌥⌘↑ / ⌥⌘↓ only while
   // a pinned row has the focus (D-1386, D-1395).
@@ -472,8 +474,8 @@ export function commands(ctx: ShellContext): Command[] {
   if (definedType || onNote) {
     list.push({ id: 'type.openSettings', title: 'cmd.openTypeSettings', section: 'navigate', needsVault: true, run: (c) => a(c)?.openTypeSettings?.() });
   }
-  // FR-TSK-04 AC-17 (D-520): `New Task` from anywhere opens the Tasks page's quick-add row (on `type/task` the type's
-  // own `New Task` is that command).
+  // FR-TSK-04 AC-17, Q2-T (D-1906): `New Task` from anywhere opens the `new/task` draft (on `type/task` the type's own
+  // `New Task` is that command).
   if (!(definedType && definedType.key === 'task') && ctx.types.some((x) => x.key === 'task')) {
     list.push({ id: 'task.new', title: 'cmd.newOfType', vars: { name: ctx.types.find((x) => x.key === 'task')!.name }, section: 'create', needsVault: true, run: (c) => a(c)?.newObjectOfType?.('task') });
   }

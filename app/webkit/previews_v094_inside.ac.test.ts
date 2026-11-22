@@ -7,6 +7,7 @@
 // from the ACs and the contracts only (D-61); every lookup goes through `need` and node:assert (TS-I1).
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
+import { withTaskViews } from './tasks-helpers'; // D-1924 (AC-Test-Change, slice Q2-T): route only, plus the default task views in the vault (migrations are off in tests, D-1913).
 import { wordPoint } from './previews-editor-helpers';
 import {
   PV, ZONE, anyBack, anyContent, back, backBtn, backlinksPanel, chipNamed, closeBtn, content, createOffer, editorBody, embedLoadsSince, eventually,
@@ -109,14 +110,17 @@ for (const view of ['editor', 'read'] as const) {
     // D-1195: the block is matched by its text start (the editor shows its id), and it is at the top as far as the pane
     // can scroll (it is near the note's end).
     const bl = await need(main(page).locator('p, li').filter({ hasText: /^\s*Kdo schvaluje nákup licencí\?/ }), 'the block in the note');
-    const atBlock = () => bl.first().evaluate((e) => {
+    // D-1941 (AC-Test-Change): in the editor the block lands below the sticky note toolbar (D-1673), as heading links do.
+    const atBlock = () => bl.first().evaluate((e, belowBar) => {
       let sc: HTMLElement | null = e.parentElement;
       while (sc && !(sc.scrollHeight > sc.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(sc).overflowY))) sc = sc.parentElement;
       const box = sc ?? document.documentElement;
-      const top = e.getBoundingClientRect().top - box.getBoundingClientRect().top;
+      const bar = belowBar ? box.querySelector('[data-sticky-top]') : null;
+      const vt = bar ? Math.max(box.getBoundingClientRect().top, bar.getBoundingClientRect().bottom) : box.getBoundingClientRect().top;
+      const top = e.getBoundingClientRect().top - vt;
       const atEnd = box.scrollTop >= box.scrollHeight - box.clientHeight - 1;
       return { top, ok: Math.abs(top) <= 8 || (atEnd && top > 0 && top < box.clientHeight) };
-    }).catch(() => ({ top: NaN, ok: false }));
+    }, view === 'editor').catch(() => ({ top: NaN, ok: false }));
     const bst = await eventually(atBlock, (x) => x.ok, 2000);
     assert.ok(bst.ok, `${view}: the note scrolled to ^otazka1, at the top as far as the pane scrolls (read-view FR-EDT-02 AC-7): ${bst.top}`);
     await back(page, 'Odkazy', `${view}: Back`);
@@ -390,7 +394,7 @@ const SURFACES: Surface[] = [
   { name: 'backlinks_chip', start: { at: PV.rozpocet, panel: true }, ref: (p) => need(chipNamed(backlinksPanel(p), 'Odkazy'), 'the Backlinks chip Odkazy'), title: 'Odkazy', word: 'Hlavní', opens: 'Odkazy', path: PV.odkazy },
   { name: 'search_result_row', start: { at: PV.odkazy }, go: async (p) => { await searchFor(p, 'rozpočet', 'Rozpočet 2027'); }, ref: (p) => need(p.getByRole('list', { name: 'Search results', exact: true }).getByRole('listitem').filter({ hasText: 'Rozpočet 2027' }), 'the result row Rozpočet 2027'), title: 'Rozpočet 2027', word: 'Návrh', opens: 'Rozpočet 2027', path: PV.rozpocet },
   { name: 'type_page_row', start: { route: 'type/osoba' }, ref: (p) => need(typeTable(p, 'Osoby').getByRole('row').filter({ hasText: 'Petr Dvořák' }), 'the type/osoba row Petr Dvořák'), title: 'Petr Dvořák', word: 'Vede', opens: 'Petr Dvořák', path: PV.petr },
-  { name: 'task_card_title', start: { route: 'tasks' }, ref: (p) => need(taskCard(p, 'Zavolat Janě').getByRole('link', { name: 'Zavolat Janě', exact: true }), 'the task card title'), title: 'Zavolat Janě', word: 'Domluvit', opens: 'Zavolat Janě', path: PV.ukol },
+  { name: 'task_card_title', start: { route: 'tasks', vault: withTaskViews(previewsVault()) }, ref: (p) => need(taskCard(p, 'Zavolat Janě').getByRole('link', { name: 'Zavolat Janě', exact: true }), 'the task card title'), title: 'Zavolat Janě', word: 'Domluvit', opens: 'Zavolat Janě', path: PV.ukol },
 ];
 
 for (const s of SURFACES) {
@@ -408,7 +412,7 @@ for (const s of SURFACES) {
 }
 
 test('fr_lnk_11_ac20_click_mode_a_click_on_the_source_previews_body_opens_porada_at_the_embed', async ({ page }) => {
-  const core = await startPreviews(page, { route: 'tasks', mode: 'click' });
+  const core = await startPreviews(page, { route: 'tasks', mode: 'click', vault: withTaskViews(previewsVault()) });
   const src = () => need(taskCard(page, 'Zavolat Janě').locator('[data-link-kind]').filter({ hasText: 'Porada 2026-10-27' }), 'the source chip Porada 2026-10-27');
   // The comparison: Open on the source preview (FR-TSK-08 AC-5).
   await (await src()).click();

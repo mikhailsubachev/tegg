@@ -13,7 +13,11 @@ type Tag = { key: string; label: string; count: number };
 const MAX_OPTIONS = 12;
 const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
-export function TagFilter({ tags, selected, onChange, colors, allHint }: {
+export function TagFilter({ tags, selected, onChange, colors, allHint, alwaysOpen = false, button }: {
+  /** Q2-T (§30.1): a toolbar's `Filter by tag` button (this label) that opens the list. */
+  button?: { label: string; command: string };
+  /** Q2-T: in the toolbar's popover the list stays shown (a choice doesn't close it; Esc closes the popover). */
+  alwaysOpen?: boolean;
   /** D-709: chip colours by key (Search, the Tasks page). */
   colors?: Record<string, string | null>;
   /** The hint under two or more chips; the Tasks text by default. */
@@ -25,7 +29,8 @@ export function TagFilter({ tags, selected, onChange, colors, allHint }: {
   onChange: (keys: string[]) => void;
 }) {
   const id = useId();
-  const [open, setOpen] = useState(false);
+  const [openState, setOpen] = useState(alwaysOpen);
+  const open = alwaysOpen || openState;
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
   const input = useRef<HTMLInputElement>(null);
@@ -38,7 +43,7 @@ export function TagFilter({ tags, selected, onChange, colors, allHint }: {
   const labelOf = (key: string) => tags.find((x) => x.key === key)?.label ?? key;
 
   const show = (i = 0) => { setOpen(true); setActive(i); };
-  const close = () => { setOpen(false); setQuery(''); setActive(0); };
+  const close = () => { if (!alwaysOpen) setOpen(false); setQuery(''); setActive(0); };
   const toggle = (key: string) => {
     onChange(selected.includes(key) ? selected.filter((k) => k !== key) : [...selected, key]);
     close();
@@ -55,7 +60,7 @@ export function TagFilter({ tags, selected, onChange, colors, allHint }: {
       e.preventDefault();
       toggle(options[at].key);
     } else if (e.key === 'Escape') {
-      if (!open) return;
+      if (!open || alwaysOpen) return;
       e.preventDefault();
       e.stopPropagation();
       close();
@@ -68,7 +73,7 @@ export function TagFilter({ tags, selected, onChange, colors, allHint }: {
   const listId = `${id}-tags`;
   const optionId = (i: number) => `${id}-o${i}`;
   return (
-    <div className="tag-filter" ref={wrap} onBlur={(e) => { if (!wrap.current?.contains(e.relatedTarget as Node | null)) close(); }}>
+    <div className={`tag-filter${alwaysOpen ? ' tag-filter-open' : ''}`} ref={wrap} onBlur={(e) => { if (!wrap.current?.contains(e.relatedTarget as Node | null)) close(); }}>
       <span className="label">{t('tasks.tags')}</span>
       <div className={`tf-box ${open ? 'open' : ''}`} onMouseDown={(e) => { if (e.target === e.currentTarget) { e.preventDefault(); input.current?.focus(); if (open) close(); else show(); } }}>
         <Icon name="search" size={13} />
@@ -84,6 +89,13 @@ export function TagFilter({ tags, selected, onChange, colors, allHint }: {
           placeholder={selected.length ? t('tasks.tagAdd') : t('tasks.tagSearch', { count: tags.length })}
           spellCheck={false} autoComplete="off" autoCorrect="off" autoCapitalize="off" value={query}
           onChange={(e) => { setQuery(e.target.value); show(); }} onClick={() => { if (!open) show(); }} onKeyDown={onKey} />
+        {button && (
+          <button type="button" tabIndex={0} className="icon-button small tf-open" aria-label={button.label} aria-haspopup="listbox" aria-expanded={open}
+            data-command={button.command} onMouseDown={(e) => e.preventDefault()}
+            onClick={() => { input.current?.focus(); if (open) close(); else show(); }}>
+            <Icon name="chevron-down" size={11} />
+          </button>
+        )}
         {selected.length > 0 && (
           <button type="button" className="tf-clear" data-command="tasks.tagClear" aria-label={t('tasks.tagClear')} title={t('tasks.tagClear')}
             onClick={() => { onChange([]); close(); input.current?.focus(); }}>×</button>
@@ -110,7 +122,7 @@ export function TagFilter({ tags, selected, onChange, colors, allHint }: {
           <div className="tf-menu-keys">{t('tasks.tagKeys')}</div>
         </div>
       )}
-      {selected.length > 1 && <span className="hint">{allHint ?? t('tasks.tagAll')}</span>}
+      {selected.length > 1 && allHint !== '' && <span className="hint">{allHint ?? t('tasks.tagAll')}</span>}
     </div>
   );
 }

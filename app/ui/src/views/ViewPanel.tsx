@@ -11,7 +11,8 @@ import { ipc } from '../ipc/client';
 import type { QueryDefDto, QueryResultDto, QueryRowDto, SortDto } from '../ipc/queries';
 import type { TypeDto } from '../ipc/types';
 import { Icon } from '../shell/Icon';
-import { TagFilter } from '../tasks/TagFilter';
+import { TagFilterControl } from './TagFilterControl';
+import { keepRow } from './tagFilter';
 import { LanesSwitch, QueryBoard, type BoardControl } from '../queries/board/QueryBoard';
 import { ColumnsMenu, ResultChip, noticeOf } from '../queries/QueryBlock';
 import { ResultsTable } from '../queries/ResultsTable';
@@ -63,7 +64,7 @@ export function viewStateOf(r: QueryResultDto | null, typeKey: string, draft: bo
   return 'ok';
 }
 
-export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, onFilter, onState, onMenu, onRemove, apiRef, live, draft, labelledBy, patch }: {
+export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, onFilter, onState, onMenu, onRemove, apiRef, live, draft, labelledBy, patch, onTags }: {
   /** The saved query's name (a tab of `views:`). */
   name: string;
   typeKey: string;
@@ -86,6 +87,8 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
   labelledBy: string;
   /** Slice Q2.1: the type page's queued `type_patch` (the tab's `views:` item, R197). */
   patch?: TypePatch;
+  /** Q2-T (§29.6): the tag selection changed (kept per tab on this Mac). */
+  onTags?: (tags: string[]) => void;
 }) {
   // Slice Q2.1 (CP-11, D-1853): the tab runs as a usage, its own sort and columns read from its `views:` item.
   const run = useQueryRun(draft ? null : { kind: 'view', type: typeKey, name }, null);
@@ -119,11 +122,9 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
   const board = useRef<BoardControl | null>(null);
   const [sortOpen, setSortOpen] = useState<{ add: boolean } | null>(null);
   const [columnsOpen, setColumnsOpen] = useState(false);
-  const [tagsOpen, setTagsOpen] = useState(false);
   const [shown, setShown] = useState<number | null>(null);
   const sortBtn = useRef<HTMLButtonElement | null>(null);
   const columnsBtn = useRef<HTMLButtonElement | null>(null);
-  const tagsBtn = useRef<HTMLButtonElement | null>(null);
   const isBoard = def?.view === 'board' && !!result?.group;
   useImperativeHandle(apiRef, () => ({
     def: () => writer.current() ?? def,
@@ -149,19 +150,17 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
 
   // ---- the toolbar's narrowing (D-1796): folded title text, every chosen tag.
   const q = fold(filter.text.trim());
-  const rowTags = (r: QueryRowDto) => (Array.isArray(r.values.tags) ? r.values.tags : []).map((x) => nfc(String(x)).replace(/^#/, '').toLowerCase());
-  const keep = (r: QueryRowDto) => (!q || fold(r.title).includes(q)) && filter.tags.every((k) => rowTags(r).includes(k));
+  // Q2-T (§24.1, §29.6): a row's tag keys (frontmatter and inline); all of the selected tags (D-518).
+  const rowTags = (r: QueryRowDto) => r.tags ?? (Array.isArray(r.values.tags) ? r.values.tags : []).map((x) => nfc(String(x)).replace(/^#/, '').toLowerCase());
+  const keep = (r: QueryRowDto) => (!q || fold(r.title).includes(q)) && keepRow({ tags: rowTags(r) }, filter.tags);
   const all = result?.rows ?? [];
   const narrowed = all.filter(keep);
   const limit = Math.max(1, def?.limit ?? 50);
   const count = Math.min(shown ?? limit, narrowed.length);
   const rows = narrowed.slice(0, count);
   const more = Math.min(limit, narrowed.length - count);
-  const tagCounts = (() => {
-    const m = new Map<string, number>();
-    for (const r of all) for (const k of new Set(rowTags(r))) m.set(k, (m.get(k) ?? 0) + 1);
-    return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([key, n]) => ({ key, label: key, count: n }));
-  })();
+  const tagRows = all.map((r) => ({ tags: rowTags(r) }));
+  const setTags = (tags: string[]) => { onFilter({ ...filter, tags }); onTags?.(tags); };
 
   const listFormat = (xs: string[]) => { try { return new Intl.ListFormat(catalogLocale(), { type: 'conjunction' }).format(xs); } catch { return xs.join(', '); } };
   const sortText = def ? buttonText(effSort, (k) => sortKeyName(k, type).label) : { text: '', more: 0 };
@@ -171,19 +170,29 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
   const toolbar = (
     <div className="view-toolbar">
       <input type="search" className="type-filter view-filter" aria-label={t('typePage.filter', { plural })} placeholder={t('typePage.filter', { plural })}
+        data-command={nfc(typeKey) === 'task' ? 'tasks.search' : undefined}
         value={filter.text} spellCheck={false} autoComplete="off" onChange={(e) => onFilter({ ...filter, text: e.target.value })}
-        onKeyDown={(e) => { if (e.key === 'Escape' && filter.text) { e.preventDefault(); e.stopPropagation(); onFilter({ ...filter, text: '' }); } }} />
-      <button ref={tagsBtn} type="button" tabIndex={0} className="text-button view-tags" aria-label={t('tasks.tagFilter')} aria-haspopup="dialog" aria-expanded={tagsOpen}
-        data-command="view.tagFilter" onClick={() => setTagsOpen((o) => !o)}>
-        <span aria-hidden="true">#</span>{filter.tags.length > 0 && <span className="view-tags-count" aria-hidden="true">{filter.tags.length}</span>}
-        <Icon name="chevron-down" size={11} />
-      </button>
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' && filter.text) { e.preventDefault(); e.stopPropagation(); onFilter({ ...filter, text: '' }); }
+          else if (e.key === 'ArrowDown') {
+            // ↓ moves to the first shown card or row (FR-TSK-04 AC-21, D-1284).
+            const el = panelEl.current?.querySelector<HTMLElement>('article[data-board-card][tabindex="0"], article[data-board-card], tr[data-path], li a');
+            if (el) { e.preventDefault(); el.focus(); }
+          }
+        }} />
+      <TagFilterControl rows={tagRows} selected={filter.tags} onChange={setTags} command="view.tagFilter" allHint={nfc(typeKey) === 'task' ? t('tasks.tagAll') : null} />
+      {def && isBoard && <LanesSwitch lanes={def.lanes} disabled={readOnly} onSwitch={(l) => apply({ lanes: l })} />}
       {def && (
         <button ref={sortBtn} type="button" tabIndex={0} className="text-button view-sort" aria-label={t('sort.button')} aria-haspopup="dialog" aria-expanded={!!sortOpen}
           data-command="sort.open" aria-disabled={disabled ? 'true' : undefined} aria-description={disabled ?? undefined}
           onClick={() => { if (!disabled) setSortOpen((o) => (o ? null : { add: false })); }}>
           <Icon name="sort" size={13} />
-          <span className="sort-first">{sortText.text}</span>
+          <span className="sort-first">{(() => {
+            const first = effSort[0];
+            if (!first) return sortText.text;
+            const n = sortKeyName(first.by, type);
+            return <><span data-user-content={n.user ? '' : undefined}>{n.label}</span>{` ${first.order === 'asc' ? '↑' : '↓'}`}</>;
+          })()}</span>
           {sortText.more > 0 && <span className="sort-more">{t('sort.more', { count: sortText.more })}</span>}
         </button>
       )}
@@ -194,7 +203,6 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
           <Icon name="columns" size={13} />{t('typePage.columns')}
         </button>
       )}
-      {def && isBoard && <LanesSwitch lanes={def.lanes} disabled={readOnly} onSwitch={(l) => apply({ lanes: l })} />}
       <button type="button" tabIndex={0} className="icon-button view-more" aria-label={t('views.menu')} title={t('views.menu')} aria-haspopup="menu" data-command="views.menu"
         onClick={(e) => onMenu(e.currentTarget)}>
         <Icon name="more-horizontal" size={15} />
@@ -235,8 +243,11 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
   const body = (() => {
     if (!showResults || !def || !result) return null;
     if (isBoard && result.group) {
-      return <QueryBoard result={{ ...result, group: result.group, def }} name={draft ? null : name} title={def.title} readOnly={readOnly} types={types}
-        filter={filter} apply={(p) => apply(p)} rerun={() => run.rerun()} controlRef={board} foldKey={uKey} columns={effColumns} />;
+      // §29.6: lanes stay when the filters leave nothing; the status says so.
+      const none = (filter.text.trim() || filter.tags.length) && narrowed.length === 0
+        ? <p role="status" className="query-message">{t('typePage.noMatch', { plural, text: filter.text.trim() })}</p> : null;
+      return <>{none}<QueryBoard result={{ ...result, group: result.group, def }} name={draft ? null : name} title={def.title} readOnly={readOnly} types={types}
+        filter={filter} apply={(p) => apply(p)} rerun={() => run.rerun()} controlRef={board} foldKey={uKey} env={live ? null : run.env} /></>;
     }
     if (narrowed.length === 0) {
       return <p className="query-message">{filter.text.trim() || filter.tags.length ? t('typePage.noMatch', { plural, text: filter.text.trim() }) : t('query.block.noResults')}</p>;
@@ -301,30 +312,6 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
             void patch([{ op: 'viewColumns', name: nfc(name), columns: [...cur.map(nfc), k] }], added.type).then(() => run.rerun(), () => run.rerun());
           }} />
       )}
-      {tagsOpen && (
-        <TagPopover anchor={tagsBtn.current} onClose={() => { setTagsOpen(false); tagsBtn.current?.focus(); }}>
-          <TagFilter tags={tagCounts} selected={filter.tags} onChange={(tags) => onFilter({ ...filter, tags })} />
-        </TagPopover>
-      )}
     </>
   );
 }
-
-/** The `Filter by tag` popover: the Tasks tag filter under its button; Esc or a click outside closes it. */
-function TagPopover({ anchor, onClose, children }: { anchor: HTMLElement | null; onClose: () => void; children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const r = anchor?.getBoundingClientRect();
-  useEffect(() => {
-    ref.current?.querySelector<HTMLElement>('input')?.focus();
-    const outside = (e: MouseEvent) => { const tg = e.target as Node; if (ref.current?.contains(tg) || anchor?.contains(tg)) return; onClose(); };
-    document.addEventListener('mousedown', outside, true);
-    return () => document.removeEventListener('mousedown', outside, true);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  return (
-    <div ref={ref} role="dialog" aria-label={t('tasks.tagFilter')} className="popover view-tag-popover" style={{ left: r ? Math.max(8, r.left) : 0, top: r ? r.bottom + 6 : 0 }}
-      onKeyDown={(e) => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); e.stopPropagation(); onClose(); } }}>
-      {children}
-    </div>
-  );
-}
-

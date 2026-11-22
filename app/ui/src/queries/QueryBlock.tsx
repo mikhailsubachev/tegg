@@ -77,7 +77,7 @@ const nfc = (s: string) => s.normalize('NFC');
 /** `New property…` (§4.4) loads the type settings' dialog only when used (it pulls in the editor package). */
 const NewPropertyDialog = lazy(() => import('../pages/TypeSettingsPage').then((m) => ({ default: m.NewPropertyDialog })));
 const DRAFT_DEF = (): QueryDefDto => ({
-  title: t('query.editor.untitled'), types: [], match: 'all', filters: [], sort: [{ by: 'modified', order: 'desc' }], limit: 50, view: 'list', groupBy: null, lanes: 'vertical', laneOrder: null, columns: ['type', 'modified'],
+  title: t('query.editor.untitled'), types: [], match: 'all', filters: [], sort: [{ by: 'modified', order: 'desc' }], limit: 50, view: 'list', groupBy: null, lanes: 'vertical', laneOrder: null, columns: ['type', 'modified'], groupPeriod: false, doneLane: null,
 });
 
 type BlockState = 'loading' | 'ok' | 'noResults' | 'draft' | 'notFound' | 'trashed' | 'unreadable' | 'needsContext' | 'needsHost' | 'noType';

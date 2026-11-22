@@ -18,6 +18,7 @@ import { join, relative, resolve } from 'node:path';
 import {
   FX, MARK_TIMEOUT, NetMonitor, appiumDown, changedPaths, clickable, end, firstShown, marks, need, osa, palette, paste, press, read, ready,
   session, shown, sleep, support, testEnv, textContains, tmp, tree, waitFile, waitMark, type Driver, type Env,
+  addTaskViews,
 } from './helpers/capture.ts';
 
 after(appiumDown);
@@ -223,6 +224,8 @@ test('fr_nav_08_ac2_previews_in_the_built_app_write_nothing_and_open_no_socket',
 test('fr_syn_06_ac37_a_preview_tour_writes_nothing_then_remove_link_writes_odkazy_atomically', { timeout: 900_000 }, async () => {
   await ready();
   const c = fresh('syn06ac37');
+  // D-1924 (AC-Test-Change, slice Q2-T): route only, plus the default task views in the vault (D-1913); `tasks` is an alias of type/task.
+  addTaskViews(c.vault);
   const before = tree(c.vault);
   try {
     const d = await launch(c, `note/${P.odkazy}`);
@@ -311,7 +314,7 @@ test('fr_syn_06_ac37_a_preview_tour_writes_nothing_then_remove_link_writes_odkaz
     press('escape');
     // The source chip of Úkol on `tasks`.
     palette('Go to Tasks');
-    assert.ok(await waitMark(c.log, 'route-ready:tasks', 5000), 'tasks shown');
+    assert.ok(await waitMark(c.log, 'route-ready:type/task', 5000), 'tasks shown');
     await previewAndClose(d, await need(d, 'Porada 2026-10-27', 5000), 'Porada 2026-10-27', 'the source chip');
     // The backlinks of Rozpočet.
     await openNote('Rozpočet 2027');

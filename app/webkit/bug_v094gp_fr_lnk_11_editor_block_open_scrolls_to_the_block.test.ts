@@ -8,12 +8,16 @@ import { PV, ZONE, eventually, main, mark, mustBeOn, navsSince, need, needOdkazy
 
 test.use({ timezoneId: ZONE });
 
-/** The block's top relative to its scroller, and whether that is the top as far as the scroller can go. */
+/** The block's top below the viewport's top, and whether that is the top as far as the scroller can go. D-1941: a block
+ *  link lands below the sticky note toolbar (`data-sticky-top`, D-1673), as heading links do (`topBelowToolbar`); it
+ *  used to land behind the toolbar, and a race sometimes put it 48 px lower, which made this test flaky. */
 const atBlock = (bl: Locator) => bl.first().evaluate((e) => {
   let sc: HTMLElement | null = e.parentElement;
   while (sc && !(sc.scrollHeight > sc.clientHeight + 1 && /(auto|scroll)/.test(getComputedStyle(sc).overflowY))) sc = sc.parentElement;
   const box = sc ?? document.documentElement;
-  const top = e.getBoundingClientRect().top - box.getBoundingClientRect().top;
+  const bar = box.querySelector('[data-sticky-top]');
+  const vt = bar ? Math.max(box.getBoundingClientRect().top, bar.getBoundingClientRect().bottom) : box.getBoundingClientRect().top;
+  const top = e.getBoundingClientRect().top - vt;
   const atEnd = box.scrollTop >= box.scrollHeight - box.clientHeight - 1;
   return { top, ok: Math.abs(top) <= 8 || (atEnd && top > 0 && top < box.clientHeight) };
 }).catch(() => ({ top: NaN, ok: false }));

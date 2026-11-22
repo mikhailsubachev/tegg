@@ -262,15 +262,24 @@ async function centre(loc: Locator, what: string): Promise<{ x: number; y: numbe
 /** A pointer drag from `from`'s centre to `to`'s centre (or an offset), in steps; `alt` holds ⌥ during the drag;
  *  `beforeUp` runs over the target before release; `esc` presses Escape instead of releasing over the target. */
 export async function drag(page: Page, from: Locator, to: Locator | { dx: number; dy: number }, o: { alt?: boolean; beforeUp?: () => Promise<void>; esc?: boolean; at?: 'left' | 'centre' } = {}) {
+  // D-1929 (harness): the source is scrolled into view before the press (a press under the title bar or below the
+  // window presses something else), and the target while the button is held, as a user scrolls during a drag.
+  await (await must(from, 'drag source')).evaluate((e) => e.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
   const a = await centre(from, 'drag source');
-  let b: { x: number; y: number };
-  if ('dx' in to) b = { x: a.x + to.dx, y: a.y + to.dy };
-  else if (o.at === 'left') { const bx = await (await must(to, 'drop target')).boundingBox(); b = { x: bx!.x + 4, y: bx!.y + bx!.height / 2 }; }
-  else b = await centre(to, 'drop target');
   await page.mouse.move(a.x, a.y);
   await page.mouse.down();
   if (o.alt) await page.keyboard.down('Alt');
-  for (let i = 1; i <= 12; i++) await page.mouse.move(a.x + ((b.x - a.x) * i) / 12, a.y + ((b.y - a.y) * i) / 12);
+  let b: { x: number; y: number };
+  if ('dx' in to) b = { x: a.x + to.dx, y: a.y + to.dy };
+  else {
+    await page.mouse.move(a.x + 3, a.y + 3);
+    await page.mouse.move(a.x + 6, a.y + 6);
+    await (await must(to, 'drop target')).evaluate((e) => e.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
+    if (o.at === 'left') { const bx = await (await must(to, 'drop target')).boundingBox(); b = { x: bx!.x + 4, y: bx!.y + bx!.height / 2 }; }
+    else b = await centre(to, 'drop target');
+  }
+  const s = 'dx' in to ? a : { x: a.x + 6, y: a.y + 6 };
+  for (let i = 1; i <= 12; i++) await page.mouse.move(s.x + ((b.x - s.x) * i) / 12, s.y + ((b.y - s.y) * i) / 12);
   await o.beforeUp?.();
   if (o.esc) await page.keyboard.press('Escape');
   await page.mouse.up();

@@ -2,7 +2,7 @@
    sort popover and the Add view menu. Colours only from the theme tokens (FR-UX-05). */
 
 /* D-1772: type pages, Queries and query pages fill the centre pane, 40 px side padding. */
-.page-column.page-wide { max-width: none; margin: 0; padding-left: 40px; padding-right: 40px; }
+.page-column.page-wide { box-sizing: border-box; max-width: 1680px; margin-left: auto; margin-right: auto; padding-left: 40px; padding-right: 40px; } /* Q2-T §29.8: ≤ 1,600 px content, centred (D-1890, D-1909) */
 
 .view-bar { display: flex; align-items: flex-end; gap: 10px; border-bottom: 1px solid var(--border); margin: 16px 0 12px; min-width: 0; flex-wrap: wrap; }
 .view-tabs-wrap { display: flex; align-items: flex-end; flex: 1 1 auto; min-width: 0; }

@@ -64,6 +64,36 @@ export function tasksVault(edit?: (files: Record<string, string>) => void): Fake
   return v;
 }
 export const original = (path: string) => tasksVault().files[nfc(path)];
+/** Slice Q2-T (D-1912, AC-Test-Change): the Tasks page is `type/task` with the views of the `views-tasks` overlay
+ *  (tests/fixtures/vaults/views-tasks/README.md: base, then new-empty/.tegg, then the overlay), plus the runtime view
+ *  `Podle štítků` (Kanban.yml grouped by tags, FR-TSK-05 AC-21) as a fourth tab, which takes the place of the 5A
+ *  `Group by: Tag`. The base `tasksVault()` stays for every test that doesn't open the Tasks page. */
+export function tasksViewsVault(edit?: (files: Record<string, string>) => void): FakeVault {
+  const ov = loadFixtureVault('tests/fixtures/vaults/views-tasks');
+  return tasksVault((files) => {
+    for (const [k, v] of Object.entries(ov.files)) if (k !== 'README.md') files[k] = v;
+    const kanban = files['.tegg/queries/Kanban.yml'];
+    files['.tegg/queries/Podle štítků.yml'] = kanban.replace('Queries › Kanban.', 'Queries › Podle štítků.').replace('title: Kanban\n', 'title: Podle štítků\n').replace('group_by: status\n', 'group_by: tags\n');
+    files['.tegg/types/task.yml'] = files['.tegg/types/task.yml'].replace('views: [Schedule, Kanban, Čeká na ostatní]\n', 'views: [Schedule, Kanban, Čeká na ostatní, Podle štítků]\n');
+    edit?.(files);
+  });
+}
+/** D-1924 (route visitors): adds the two default task views of the views-tasks overlay (`Schedule.yml`, `Kanban.yml`)
+ *  and `views: [Schedule, Kanban]` after `preview:` in `task.yml` (new-empty's when the vault has none). Migrations are
+ *  off in tests (D-1913), so a test that shows the Tasks page's boards puts them in its vault. Mutates `files`. */
+export function addTaskViews(files: Record<string, string>): Record<string, string> {
+  const q = loadFixtureVault('tests/fixtures/vaults/views-tasks/.tegg').files;
+  for (const n of ['Schedule', 'Kanban']) files[`.tegg/queries/${n}.yml`] = q[`.tegg/queries/${n}.yml`];
+  const yml = files['.tegg/types/task.yml'] ?? loadFixtureVault('tests/fixtures/vaults/new-empty/.tegg').files['.tegg/types/task.yml'];
+  files['.tegg/types/task.yml'] = /^views:/m.test(yml) ? yml : yml.replace(/^(preview: .*\n)/m, '$1views: [Schedule, Kanban]\n');
+  return files;
+}
+/** D-1924: a copy of `vault` with `addTaskViews`. */
+export const withTaskViews = (vault: FakeVault): FakeVault => ({ ...vault, files: addTaskViews({ ...vault.files }) });
+/** Q2-T: the 5A lane ids on the period board (R203) and the Kanban (part one's ids). */
+export const LANE: Record<'today' | 'week' | 'later' | 'none' | 'done', string> = { today: 'period:today', week: 'period:week', later: 'period:later', none: 'none', done: 'done' };
+/** Q2-T: a 5A column id (`To do`, `#práce`, `no-tag`, `no-status`) as a lane id (`option:To do`, `tag:práce`, `none`). */
+export const laneId = (id: string) => (id === 'no-tag' || id === 'no-status' || id === 'none' ? 'none' : id.startsWith('#') ? `tag:${nfc(id.slice(1))}` : id.includes(':') ? nfc(id) : `option:${nfc(id)}`);
 export function swap(text: string | undefined, from: string, to: string): string {
   assert.ok(text !== undefined && text.includes(from), `fixture text contains ${JSON.stringify(from)}`);
   return text!.replace(from, to);
@@ -100,13 +130,21 @@ export async function startTasks(page: Page, o: TasksStart = {}): Promise<FakeCo
   const last = o.at ? { path: nfc(o.at), id: /^id: (\S+)$/m.exec(vault.files[nfc(o.at)] ?? '')?.[1] ?? null } : null;
   return start(page, { vault, last, uiState: ui({ theme: o.theme, tasks: o.tasksUi }), ...o });
 }
+/** Q2-T (D-1912): `startTasks` on `tasksViewsVault()` unless a vault is given, for the tests of the Tasks page. */
+export async function startTasksPage(page: Page, o: TasksStart = {}): Promise<FakeCoreHandle> {
+  return startTasks(page, { ...o, vault: o.vault ?? tasksViewsVault() });
+}
+/** The overlay's original bytes of a file (task.yml there has line 11 `views:`). */
+export const viewsOriginal = (path: string) => tasksViewsVault().files[nfc(path)];
 
 // ------------------------------------------------------------------------------------------------ locators (R40, R43)
 
 export const main = (page: Page) => page.getByRole('main');
 export const heading = (page: Page) => main(page).getByRole('heading', { level: 1, name: /^⟦?Tasks⟧?$/ });
-export const views = (page: Page) => main(page).getByRole('tablist', { name: 'Task views', exact: true });
-export const viewTab = (page: Page, name: 'Schedule' | 'Kanban' | 'All tasks') => views(page).getByRole('tab', { name, exact: true });
+/** Q2-T (R204, AP-1540): the type page's tablist `Views`; `All tasks` is now `All Tasks` (the plural as written). */
+export const views = (page: Page) => main(page).getByRole('tablist', { name: 'Views', exact: true });
+export const viewTab = (page: Page, name: 'Schedule' | 'Kanban' | 'All tasks' | 'All Tasks' | 'Podle štítků' | 'Čeká na ostatní') =>
+  views(page).getByRole('tab', { name: name === 'All tasks' ? 'All Tasks' : name, exact: true });
 export const groupBy = (page: Page) => main(page).getByRole('tablist', { name: 'Group by', exact: true });
 export const quickAdd = (page: Page) => main(page).getByRole('textbox', { name: 'Add a task…', exact: true });
 export const dateFilter = (page: Page) => main(page).getByRole('group', { name: 'Filter', exact: true });
@@ -120,10 +158,13 @@ export const tagOption = (page: Page, tag: string) => tagList(page).locator(`[ro
 export const removeTagBtn = (page: Page, tag: string) => main(page).getByRole('button', { name: `Remove #${tag}`, exact: true });
 export const clearTagsBtn = (page: Page) => main(page).getByRole('button', { name: 'Clear tags', exact: true });
 export const sortBtn = (page: Page, name: string) => main(page).getByRole('button', { name, exact: true });
-export const sectionOf = (page: Page, id: 'today' | 'week' | 'later' | 'none' | 'done') => main(page).locator(`[data-section="${id}"]`);
-export const column = (page: Page, id: string) => main(page).locator(`[data-column="${id}"]`);
+/** Q2-T (R203): the 5A sections are the period board's lanes (`section[data-lane]`). */
+export const sectionOf = (page: Page, id: 'today' | 'week' | 'later' | 'none' | 'done') => main(page).locator(`section[role="region"][data-lane="${LANE[id]}"]`);
+/** Q2-T: a Kanban column is a board lane (`laneId` maps the 5A ids). */
+export const column = (page: Page, id: string) => main(page).locator(`section[role="region"][data-lane="${laneId(id)}"]`);
 export const card = (page: Page, title: string) => main(page).getByRole('article', { name: `Task: ${title}`, exact: true });
-export const cardOf = (page: Page, path: string) => main(page).locator(`[data-path="${nfc(path)}"]`).and(page.getByRole('article'));
+/** Q2-T (§30.1): a card on a board is `article[data-board-card="<path>"]`. */
+export const cardOf = (page: Page, path: string) => main(page).locator(`article[data-board-card="${nfc(path)}"], article[data-path="${nfc(path)}"]`);
 export const checkbox = (scope: Locator, title: string) => scope.getByRole('checkbox', { name: new RegExp(`^(Complete|Mark) "${esc(title)}"( not done)?$`) });
 export const moreBtn = (scope: Locator, title: string) => scope.getByRole('button', { name: `More actions for "${title}"`, exact: true });
 export const cardMenu = (page: Page) => page.getByRole('menu').last();
@@ -162,30 +203,33 @@ export async function click(loc: Locator, what: string, ms = 3000) {
 /** `data-path` of every card inside `scope`, in DOM (reading) order, NFC. */
 export async function cardPaths(scope: Locator): Promise<string[]> {
   if ((await scope.count()) === 0) return [];
+  // Q2-T (§30.1): board cards carry `data-board-card="<path>"`; other task cards (Daily, embeds) keep `data-path`.
   return scope.first().evaluate((root) =>
-    ([...root.querySelectorAll('[data-path]')] as HTMLElement[])
+    ([...root.querySelectorAll('[data-board-card], [data-path]')] as HTMLElement[])
       .filter((e) => e.getAttribute('role') === 'article' || e.tagName === 'ARTICLE')
-      .map((e) => (e.getAttribute('data-path') ?? '').normalize('NFC')));
+      .map((e) => (e.getAttribute('data-board-card') ?? e.getAttribute('data-path') ?? '').normalize('NFC')));
 }
 /** Day and group headings (level 3) of a section with the card paths under each, in order. */
 export async function groupsOf(scope: Locator): Promise<{ heading: string; paths: string[] }[]> {
   if ((await scope.count()) === 0) return [];
   return scope.first().evaluate((root) => {
     const out: { heading: string; paths: string[] }[] = [];
-    for (const e of root.querySelectorAll('h3, [role="heading"][aria-level="3"], article[data-path], [role="article"][data-path]') as NodeListOf<HTMLElement>) {
+    for (const e of root.querySelectorAll('h3, [role="heading"][aria-level="3"], article[data-path], [role="article"][data-path], article[data-board-card]') as NodeListOf<HTMLElement>) {
       if (/^h3$/i.test(e.tagName) || e.getAttribute('aria-level') === '3') out.push({ heading: (e.textContent ?? '').replace(/\s+/g, ' ').trim().normalize('NFC'), paths: [] });
-      else if (out.length) out[out.length - 1].paths.push((e.getAttribute('data-path') ?? '').normalize('NFC'));
+      else if (out.length) out[out.length - 1].paths.push((e.getAttribute('data-board-card') ?? e.getAttribute('data-path') ?? '').normalize('NFC'));
     }
     return out;
   });
 }
-/** Sections shown on Schedule, in order (`data-section`). */
+/** Lanes shown on Schedule, in order, by their 5A names (`today`, `week`, `later`, `none`, `done`; Q2-T R203). */
 export async function sectionIds(page: Page): Promise<string[]> {
-  return main(page).evaluate((m) => ([...m.querySelectorAll('[data-section]')] as HTMLElement[]).map((e) => e.getAttribute('data-section') ?? ''));
+  const back: Record<string, string> = { 'period:today': 'today', 'period:week': 'week', 'period:later': 'later', none: 'none', done: 'done' };
+  return main(page).evaluate((m) => ([...m.querySelectorAll('section[role="region"][data-lane]')] as HTMLElement[]).map((e) => e.getAttribute('data-lane') ?? ''))
+    .then((ids) => ids.map((i) => back[i] ?? i));
 }
-/** Kanban columns shown, in order (`data-column`). */
+/** Lanes shown on a Kanban board, in order (part one's lane ids: `option:<label>`, `unknown:<value>`, `tag:<key>`, `none`). */
 export async function columnIds(page: Page): Promise<string[]> {
-  return main(page).evaluate((m) => ([...m.querySelectorAll('[data-column]')] as HTMLElement[]).map((e) => (e.getAttribute('data-column') ?? '').normalize('NFC')));
+  return main(page).evaluate((m) => ([...m.querySelectorAll('section[role="region"][data-lane]')] as HTMLElement[]).map((e) => (e.getAttribute('data-lane') ?? '').normalize('NFC')));
 }
 export async function columns(page: Page): Promise<Record<string, string[]>> {
   const out: Record<string, string[]> = {};
@@ -271,11 +315,13 @@ export async function gotoTasks(page: Page, how: 'palette' | 'sidebar' = 'palett
   else await runCommand(page, 'Go to Tasks');
   await must(heading(page), 'heading "Tasks" (R40)', 5000);
 }
+/** Q2-T (AP-1542): no `Group by` tablist; Kanban by status is the `Kanban` tab, by tag the runtime view `Podle štítků`
+ *  (FR-TSK-05 AC-21; in `tasksViewsVault()`). */
 export async function gotoKanban(page: Page, group: 'Status' | 'Tag' = 'Status') {
   await gotoTasks(page);
-  await (await must(viewTab(page, 'Kanban'), 'tab Kanban')).click();
-  await must(groupBy(page), 'tablist "Group by" (Kanban)', 3000);
-  await (await must(groupBy(page).getByRole('tab', { name: group, exact: true }), `tab ${group}`)).click();
+  const name = group === 'Status' ? 'Kanban' : 'Podle štítků';
+  await (await must(viewTab(page, name), `tab ${name}`)).click();
+  await must(main(page).locator(`div[role="group"][data-board][data-board-name="${name}"]`), `the board ${name}`, 3000);
   await sleep(100);
 }
 /** Waits until a section (or column) holds exactly `want`; returns the last value. */
