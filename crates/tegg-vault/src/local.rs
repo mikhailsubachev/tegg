@@ -43,6 +43,18 @@ impl LocalFs {
         Ok(self.root.join(rel))
     }
 
+    /// `abs` for a write, rename or removal. A path that resolves to an on-disk spelling other than its NFC form is
+    /// refused (`PermissionDenied`) and nothing changes: until AND-3, Tegg doesn't write a file stored under an NFD
+    /// name, because Android's FUSE layer would show other apps the old file after the replace (D-2048). On APFS a path
+    /// never resolves to another spelling, so the desktop is unchanged.
+    fn abs_write(&self, path: &str) -> io::Result<PathBuf> {
+        let p = self.abs(path)?;
+        if p != self.root.join(path) {
+            return Err(io::Error::new(io::ErrorKind::PermissionDenied, format!("{path}: stored under another spelling; read-only on this device (D-2048)")));
+        }
+        Ok(p)
+    }
+
     fn version_at(&self, abs: &Path, bytes: &[u8]) -> io::Result<FileVersion> {
         Ok(version_of(bytes, mtime_ns(&fs::metadata(abs)?)))
     }
@@ -160,7 +172,7 @@ impl VaultFs for LocalFs {
     }
 
     fn replace(&self, path: &str, bytes: &[u8]) -> io::Result<FileVersion> {
-        let abs = self.abs(path)?;
+        let abs = self.abs_write(path)?;
         let tmp = Self::write_temp(&abs, bytes)?;
         if let Some(hook) = BEFORE_RENAME.get() {
             hook(path);
@@ -174,7 +186,7 @@ impl VaultFs for LocalFs {
     }
 
     fn create_new(&self, path: &str, bytes: &[u8]) -> io::Result<FileVersion> {
-        let abs = self.abs(path)?;
+        let abs = self.abs_write(path)?;
         let tmp = Self::write_temp(&abs, bytes)?;
         if let Err(e) = rename_no_clobber(&tmp, &abs) {
             let _ = fs::remove_file(&tmp);
@@ -185,15 +197,15 @@ impl VaultFs for LocalFs {
     }
 
     fn rename_no_replace(&self, from: &str, to: &str) -> io::Result<()> {
-        let to_abs = self.abs(to)?;
-        rename_no_clobber(&self.abs(from)?, &to_abs)?;
+        let to_abs = self.abs_write(to)?;
+        rename_no_clobber(&self.abs_write(from)?, &to_abs)?;
         Self::sync_dir(&to_abs);
         Ok(())
     }
 
     /// APFS is case-insensitive: renaming a file to another spelling of its own name is a plain rename of that file.
     fn rename_case(&self, from: &str, to: &str) -> io::Result<()> {
-        let (f, t) = (self.abs(from)?, self.abs(to)?);
+        let (f, t) = (self.abs_write(from)?, self.abs_write(to)?);
         use std::os::unix::fs::MetadataExt;
         let ino = fs::metadata(&f)?.ino();
         if fs::metadata(&t).map(|m| m.ino()).unwrap_or(ino) != ino {
@@ -205,12 +217,12 @@ impl VaultFs for LocalFs {
     }
 
     fn create_dir_all(&self, path: &str) -> io::Result<()> {
-        fs::create_dir_all(self.abs(path)?)
+        fs::create_dir_all(self.abs_write(path)?)
     }
 
     fn write_temp_new(&self, path: &str, tag: &str, src: &mut dyn io::Read) -> io::Result<(String, FileVersion, u64)> {
         let temp = crate::temp_path(path, Some(tag))?;
-        let (v, id) = Self::stream_new(&self.abs(&temp)?, src)?;
+        let (v, id) = Self::stream_new(&self.abs_write(&temp)?, src)?;
         Ok((temp, v, id))
     }
 
@@ -224,7 +236,7 @@ impl VaultFs for LocalFs {
 
     /// As `replace`, with the caller's hook between the temp file and the rename; `BEFORE_RENAME` is not called.
     fn replace_with(&self, path: &str, bytes: &[u8], before_rename: &dyn Fn() -> io::Result<()>) -> io::Result<FileVersion> {
-        let abs = self.abs(path)?;
+        let abs = self.abs_write(path)?;
         let tmp = Self::write_temp(&abs, bytes)?;
         if let Err(e) = before_rename().and_then(|_| fs::rename(&tmp, &abs)) {
             let _ = fs::remove_file(&tmp);
@@ -235,7 +247,7 @@ impl VaultFs for LocalFs {
     }
 
     fn create_dir_new(&self, path: &str) -> io::Result<()> {
-        let abs = self.abs(path)?;
+        let abs = self.abs_write(path)?;
         fs::create_dir(&abs)?;
         Self::sync_dir(&abs);
         Ok(())
@@ -250,11 +262,11 @@ impl VaultFs for LocalFs {
     }
 
     fn remove_file(&self, path: &str) -> io::Result<()> {
-        fs::remove_file(self.abs(path)?)
+        fs::remove_file(self.abs_write(path)?)
     }
 
     fn remove_empty_dir(&self, path: &str) -> io::Result<()> {
-        fs::remove_dir(self.abs(path)?)
+        fs::remove_dir(self.abs_write(path)?)
     }
 
     /// ms6-trash-media §1.1: `st_ctime` (a rename sets it on APFS).
@@ -478,7 +490,7 @@ fn rename_no_clobber(from: &Path, to: &Path) -> io::Result<()> {
 /// `EOPNOTSUPP`, `EXDEV`; bug_and1la), the target is
 /// checked and the file renamed: an existing `to` is `AlreadyExists`. A file another program creates between the check
 /// and the rename would be replaced: Android's FUSE layer rejects `renameat2(RENAME_NOREPLACE)` (EINVAL, checked on the
-/// emulator), so this window is open for the owner's decision (AND-1 QA review), not covered by D-84.
+/// emulator); the window is accepted for AND-1 and revisited in AND-3 (D-2047).
 #[cfg_attr(target_os = "macos", allow(dead_code))]
 pub(crate) fn no_clobber_via(from: &Path, to: &Path, primitive: &dyn Fn(&Path, &Path) -> io::Result<()>) -> io::Result<()> {
     match primitive(from, to) {
