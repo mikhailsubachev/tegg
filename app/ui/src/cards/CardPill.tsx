@@ -7,7 +7,7 @@ import { chipReference, RefAnchor } from '../links/ChipParts';
 import { chipIcon } from '../links/icons';
 import { LucideIcon } from '../icons/LucideIcon';
 import { Icon } from '../shell/Icon';
-import type { CardItem, CardLink, PillItem } from './model';
+import { linkLabel, type CardItem, type CardLink, type PillItem } from './model';
 
 const nfc = (s: string) => s.normalize('NFC');
 
@@ -70,7 +70,8 @@ function TaskChip({ item, valueIndex }: { item: PillItem; valueIndex?: number })
 }
 
 export function CardLinkChip({ link, opts, footer, extra }: { link: CardLink; opts: LinkOpts; footer?: boolean; extra?: ReactNode }) {
-  const common = { 'data-attribute': link.key, 'data-footer-link': footer ? '' : undefined, tabIndex: opts.tabIndex ?? 0 } as const;
+  // D-2027: the chip is named `<Property>: <target title>` as a pill is (`card.pill`); its visible text is the target's.
+  const common = { 'data-attribute': link.key, 'data-footer-link': footer ? '' : undefined, tabIndex: opts.tabIndex ?? 0, 'aria-label': link.name ? linkLabel(link) : undefined } as const;
   const more = link.more.length > 0
     ? <span className="card-link-more" title={listText(link.more)}>+{link.more.length}</span>
     : null;

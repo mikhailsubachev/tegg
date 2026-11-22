@@ -12,11 +12,21 @@ const nfc = (s: string) => s.normalize('NFC');
 /** Built-ins with a Name from the catalog (R214). */
 const BUILT_IN_NAMES: Record<string, string> = { tags: 'attr.tags', body: 'attr.body', description: 'attr.description', source: 'attr.source', aliases: 'attr.aliases', created: 'attr.created', modified: 'attr.modified' };
 
-export type CardLink =
+export type CardLink = (
   | { kind: 'note'; key: string; target: string; text: string; info: LinkTargetDto; more: string[] }
   | { kind: 'broken'; key: string; target: string; text: string; info: LinkTargetDto | null; more: string[] }
   | { kind: 'external'; key: string; url: string; text: string; more: string[] }
-  | { kind: 'local'; key: string; url: string; text: string; path: string; more: string[] };
+  | { kind: 'local'; key: string; url: string; text: string; path: string; more: string[] }
+) & {
+  /** D-2027: the property's Name; the chip's accessible name is `card.pill` (`Vlastník: Jana Nováková`), its visible
+   *  text stays the target's. */
+  name?: string;
+};
+
+/** D-2027: a link chip's accessible name, `<Property>: <target title>` as a pill's (its visible text alone without a Name). */
+export function linkLabel(l: CardLink): string {
+  return l.name ? t('card.pill', { name: l.name, value: l.text }) : l.text;
+}
 
 export type PillItem = {
   kind: 'pill'; key: string; name: string; icon: ResolvedIconDto | null; dataIcon: string | null; value: string; dot: string | null; invalid: boolean;
@@ -155,10 +165,10 @@ const listText = (xs: string[]) => {
   try { return new Intl.ListFormat(catalogLocale(), { type: 'unit', style: 'short' }).format(xs); } catch { return xs.join(', '); }
 };
 
-/** The accessible text of an item (`card.pill` for pills; the shown text for links and local items). */
+/** The accessible text of an item (`card.pill` for pills and link chips, D-2027; the shown text for local items). */
 export function itemLabel(i: CardItem): string | null {
   if (i.kind === 'pill') return i.label;
-  if (i.kind === 'link') return i.link.text;
+  if (i.kind === 'link') return linkLabel(i.link);
   if (i.kind === 'local') return i.text;
   return null;
 }
@@ -266,7 +276,8 @@ export function cardParts(input: CardInput): CardParts {
         if (!showGroup || kindOf(type, k) !== 'relation') continue;
         const ls = group.filter((x): x is string => typeof x === 'string').map((x) => wikiLink(k, x, card.links ?? [])).filter((x): x is CardLink => !!x);
         if (ls.length === 0) continue;
-        [footerLink, footerMore, footerKey] = [ls[0], ls.slice(1), k];
+        const gname = nameOf(type, k);
+        [footerLink, footerMore, footerKey] = [{ ...ls[0], name: gname }, ls.slice(1).map((x) => ({ ...x, name: gname })), k];
         break;
       }
       const kind = kindOf(type, k);
@@ -275,7 +286,7 @@ export function cardParts(input: CardInput): CardParts {
       const vs = (Array.isArray(values.get(k)) ? (values.get(k) as unknown[]) : [values.get(k)]).filter((x): x is string => typeof x === 'string' && !isEmpty(x));
       const ls = vs.map((x) => linkValue(k, x, card.links ?? [], true)).filter((x): x is CardLink => !!x);
       if (ls.length === 0) continue;
-      footerLink = { ...ls[0], more: ls.slice(1).map((x) => x.text) };
+      footerLink = { ...ls[0], more: ls.slice(1).map((x) => x.text), name: kind === 'source' ? t('card.source') : nameOf(type, k) };
       footerKey = k;
       break;
     }
@@ -355,7 +366,7 @@ export function cardParts(input: CardInput): CardParts {
         const s = typeof v === 'string' ? v.trim() : '';
         const l = s ? linkValue(k, s, [], false) : null;
         if (l?.kind === 'local') items.push({ kind: 'local', key: k, text: l.text, path: l.path, url: l.url, index: index++ });
-        else if (l) items.push({ kind: 'link', key: k, link: l, index: index++ });
+        else if (l) items.push({ kind: 'link', key: k, link: { ...l, name }, index: index++ });
         else items.push(pill(raw(v), { invalid: true }));
         return;
       }
@@ -366,7 +377,7 @@ export function cardParts(input: CardInput): CardParts {
           const s = typeof x === 'string' ? x : raw(x);
           const l = linkValue(k, s, card.links ?? [], true);
           if (l?.kind === 'local') items.push({ kind: 'local', key: k, text: l.text, path: l.path, url: l.url, index: index++ });
-          else if (l) items.push({ kind: 'link', key: k, link: l, index: index++ });
+          else if (l) items.push({ kind: 'link', key: k, link: { ...l, name }, index: index++ });
           else items.push(pill(s, { invalid: kind === 'relation' }));
         }
         return;
