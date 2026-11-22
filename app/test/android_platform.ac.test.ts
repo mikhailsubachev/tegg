@@ -25,7 +25,7 @@ const RA2: Record<string, string[]> = {
   P4: ['vault_pick_dir', 'media_pick'],
   P5: ['vault_reveal', 'media_reveal', 'backup_reveal', 'media_open', 'open_external', 'app_about', 'app_quit'],
   J: ['note_rename', 'tag_rename', 'tag_delete', 'merge_start', 'type_move_plan', 'type_move', 'folder_move_preview', 'tidy_now', 'value_remove_start', 'type_delete_start', 'inbox_bulk', 'starter_add', 'backup_restore', 'job_undo', 'job_redo', 'type_create', 'type_patch', 'type_delete'],
-  V: ['query_apply', 'query_revert', 'query_create', 'query_duplicate', 'query_rename', 'query_trash', 'query_restore'],
+  V: ['query_apply', 'query_revert', 'query_create', 'query_duplicate', 'query_rename', 'query_trash', 'query_restore', 'task_views_restore'],
   O: ['graph_neighbourhood', 'graph_presets_get', 'graph_presets_apply', 'index_related', 'trash_restore', 'trash_delete', 'trash_empty'],
 };
 const ONLY = ['vault_start', 'vault_find', 'storage_access', 'storage_access_settings'];

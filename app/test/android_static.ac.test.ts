@@ -10,7 +10,7 @@
 // - AR-03 AC-12 "The macOS app is unchanged", parts (a) and (b) (the L0 check; (c) is the gates, (d) the Rust
 //   fr_sto_07_ac12 test). Red-test readings (reported): (a) "the AND-1 branch" is the commits after `7ff0fc0b` that
 //   name the Android track (`AND-` or a decision D-2000…D-2999), so later slices' approved AC-test changes don't count;
-//   (b) `capabilities/capture.json` may differ from `7ff0fc0b` only by `platforms: ["macOS"]`, as `default.json` (AR-03
+//   (b) `capabilities/capture.json` may differ from main at the merge-base (D-2053) only by `platforms: ["macOS"]`, as `default.json` (AR-03
 //   AC-9 (c), (d) need it: a capability without `platforms` applies to Android too).
 // Written from the ACs and the contract only (D-61).
 import { test } from 'vitest';
@@ -23,6 +23,15 @@ import { moduleGated, rustFiles, unguarded } from './android-rules';
 const REPO = resolve(import.meta.dirname, '../..');
 const SHELL = join(REPO, 'app/src-tauri');
 const BASE = '7ff0fc0b';
+/** D-2053: (b) compares the desktop config with main where this branch last met it (the merge-base with `origin/main`,
+ *  else `main`; HEAD itself when neither exists, so on main it holds by construction). */
+function desktopBase(): string {
+  for (const main of ['origin/main', 'main']) {
+    const r = git(['merge-base', 'HEAD', main]);
+    if (r.ok && r.out.trim()) return r.out.trim();
+  }
+  return 'HEAD';
+}
 
 function git(args: string[]): { ok: boolean; out: string } {
   const r = spawnSync('git', args, { cwd: REPO, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
@@ -140,20 +149,26 @@ const AC_TEST = [/\.ac\.test\.tsx?$/, /(^|\/)tests\/ac_[^/]+\.rs$/];
 
 test('ar_03_ac12_desktop_build_unchanged', () => {
   // (b) the desktop config and capabilities.
-  const atBase = (p: string) => { const r = git(['show', `${BASE}:${p}`]); assert.ok(r.ok, `git show ${BASE}:${p}`); return JSON.parse(r.out); };
+  // D-2053: the base is main at the merge-base; AND-1's own additions (`platforms`, `bundle.android`) are left out on
+  // both sides, so the check also holds once AND-1 is on main.
+  const MAIN = desktopBase();
+  const atBase = (p: string) => { const r = git(['show', `${MAIN}:${p}`]); assert.ok(r.ok, `git show ${MAIN}:${p}`); return JSON.parse(r.out); };
+  const noPlatforms = (o: Record<string, unknown>) => { const { platforms: _x, ...rest } = o; return rest; };
   const now = (p: string) => JSON.parse(readFileSync(join(REPO, p), 'utf8'));
   const def = now('app/src-tauri/capabilities/default.json');
   assert.deepEqual(def.platforms, ['macOS'], '(b) default.json gains platforms ["macOS"] (contract §1)');
   const { platforms: _p, ...defRest } = def;
-  assert.deepEqual(defRest, atBase('app/src-tauri/capabilities/default.json'), '(b) default.json: the permission list and every other field equal 7ff0fc0b');
+  assert.deepEqual(defRest, noPlatforms(atBase('app/src-tauri/capabilities/default.json')), '(b) default.json: the permission list and every other field equal main at the merge-base');
   const cap = now('app/src-tauri/capabilities/capture.json');
   const { platforms: capPlatforms, ...capRest } = cap;
   assert.ok(capPlatforms === undefined || JSON.stringify(capPlatforms) === '["macOS"]', `(b) capture.json: at most platforms ["macOS"] added, got ${JSON.stringify(capPlatforms)}`);
-  assert.deepEqual(capRest, atBase('app/src-tauri/capabilities/capture.json'), '(b) capture.json equals 7ff0fc0b');
+  assert.deepEqual(capRest, noPlatforms(atBase('app/src-tauri/capabilities/capture.json')), '(b) capture.json equals main at the merge-base');
   const conf = now('app/src-tauri/tauri.conf.json');
   if (conf.bundle) delete conf.bundle.android;
-  assert.deepEqual(conf, atBase('app/src-tauri/tauri.conf.json'), '(b) tauri.conf.json equals 7ff0fc0b apart from bundle.android');
-  assert.deepEqual(now('app/src-tauri/tauri.preview.conf.json'), atBase('app/src-tauri/tauri.preview.conf.json'), '(b) tauri.preview.conf.json equals 7ff0fc0b');
+  const baseConf = atBase('app/src-tauri/tauri.conf.json');
+  if (baseConf.bundle) delete baseConf.bundle.android;
+  assert.deepEqual(conf, baseConf, '(b) tauri.conf.json equals main at the merge-base apart from bundle.android');
+  assert.deepEqual(now('app/src-tauri/tauri.preview.conf.json'), atBase('app/src-tauri/tauri.preview.conf.json'), '(b) tauri.preview.conf.json equals main at the merge-base');
 
   // (a) no existing AC test changed or deleted by the AND-1 commits, except by a commit carrying an owner-approved
   // AC-Test-Change trailer (CLAUDE.md; D-2052).

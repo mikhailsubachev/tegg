@@ -89,7 +89,7 @@ Both APKs:
 
 ### RA2. IPC commands per platform (plan §3.2, §8; D-2006, D-2007; AP-2024)
 
-**Desktop:** the commands registered at commit `7ff0fc0b`, unchanged. `type_misfits` is in `build.rs` and `capabilities/default.json` but not registered there (D-808); that also stays as it is.
+**Desktop:** the commands registered on main, unchanged by AND-1 (compared at the merge-base with main, D-2053; `7ff0fc0b` when AND-1 started). Every desktop command is classified for Android: in the Android list or in an excluded group below; slice Q2-T's `task_views_restore` is in V (D-2053). `type_misfits` is in `build.rs` and `capabilities/default.json` but not registered there (D-808); that also stays as it is.
 
 **Android:** the desktop set minus the groups below, plus the four Android-only commands. On Android, an excluded command's function is not compiled, it isn't in the invoke handler, and no capability that applies to Android allows it.
 
@@ -101,7 +101,7 @@ Both APKs:
 | P4 dialogs | `vault_pick_dir`, `media_pick` | no folder dialog (F4); media picking comes with AND-3 if at all |
 | P5 macOS system | `vault_reveal`, `media_reveal`, `backup_reveal`, `media_open`, `open_external`, `app_about`, `app_quit` | Finder, `/usr/bin/open`, the About panel and the quit flow (D-196) don't exist (AP-2027) |
 | J bulk jobs, schema | `note_rename`, `tag_rename`, `tag_delete`, `merge_start`, `type_move_plan`, `type_move`, `folder_move_preview`, `tidy_now`, `value_remove_start`, `type_delete_start`, `inbox_bulk`, `starter_add`, `backup_restore`, `job_undo`, `job_redo`, `type_create`, `type_patch`, `type_delete` | D-2007, from AND-1 on (AP-2024) |
-| V views, queries | `query_apply`, `query_revert`, `query_create`, `query_duplicate`, `query_rename`, `query_trash`, `query_restore` | D-2006 |
+| V views, queries | `query_apply`, `query_revert`, `query_create`, `query_duplicate`, `query_rename`, `query_trash`, `query_restore`, `task_views_restore` | D-2006, D-2053 |
 | O not in this version | `graph_neighbourhood`, `graph_presets_get`, `graph_presets_apply`, `index_related`, `trash_restore`, `trash_delete`, `trash_empty` | plan §8 |
 
 **Android-only** (in `build.rs`'s manifest, allowed only by the Android capability, registered only on Android): `vault_start`, `vault_find`, `storage_access`, `storage_access_settings`.
@@ -219,7 +219,7 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
   - every file in `capabilities/`.
 
   It checks:
-  - (a) `DESKTOP` equals the names in the desktop `generate_handler!` and equals the registered set at `7ff0fc0b`;
+  - (a) `DESKTOP` equals the names in the desktop `generate_handler!` and equals the desktop set on main at the merge-base (D-2053); every desktop command is in `ANDROID` or an excluded group;
   - (b) `ANDROID` = `DESKTOP` − RA2's groups + RA2's four Android-only commands;
   - (c) every RA2-excluded command's `allow-…` permission is only in capability files whose `platforms` is `["macOS"]`;
   - (d) the capability for the `main` window on Android allows exactly `ANDROID`, and no capability on Android names the `capture` or `saved` windows;
@@ -242,7 +242,7 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
   With `'macos'`, the palette registry, the chooser and the logo menu are the same as on `main` at `7ff0fc0b` (snapshot). *(L5; L1 for the client's refusal list, which equals RA2)* Test: `ar_03_ac11_ui_skips_missing_commands_on_android`
 - **AC-12** **The macOS app is unchanged.**
   - (a) An L0 check over the AND-1 branch: no existing `*.ac.test.ts` or `tests/ac_*.rs` is changed or deleted, and none is changed except by a commit with an owner-approved `AC-Test-Change: <reason>; approved-by: owner` trailer (D-2052).
-  - (b) `tauri.conf.json` (except a `bundle.android` block), `tauri.preview.conf.json`, `capabilities/capture.json` and the permission list of `capabilities/default.json` are equal to `7ff0fc0b`. The only change in `default.json` and `capture.json` is their `platforms` field (D-2050).
+  - (b) `tauri.conf.json` (except a `bundle.android` block), `tauri.preview.conf.json`, `capabilities/capture.json` and the permission list of `capabilities/default.json` are equal to main at the merge-base (D-2053; AND-1's own `platforms` and `bundle.android` left out on both sides). The only change in `default.json` and `capture.json` is their `platforms` field (D-2050).
   - (c) `./verify push` passes, and the `app-e2e` and `app-shell-test` steps pass on the built `Tegg.app`.
   - (d) FR-STO-07 AC-12's macOS cases pass.
 

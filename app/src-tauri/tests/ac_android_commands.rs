@@ -1,7 +1,7 @@
 //! Slice AND-1, L1 (Mac host): docs/acceptance/android-shell.md AR-03 AC-9 "The command sets are data and match RA2"
 //! (AP-2024 → D-2024), through docs/contracts/android-shell.md §2.1: the shell's `commands::DESKTOP`, `ANDROID` and
 //! `ANDROID_ONLY`, the two `generate_handler!` calls in `src/lib.rs`'s source text (under `#[cfg(desktop)]` and
-//! `#[cfg(mobile)]`), the desktop handler at commit `7ff0fc0b` (`git show`), `build.rs`'s manifest and every file in
+//! `#[cfg(mobile)]`), the desktop handler on main at the merge-base (`git show`; D-2053), `build.rs`'s manifest and every file in
 //! `capabilities/`. The XC half (an Android handler naming a desktop-only function fails `cargo check --target
 //! aarch64-linux-android`) is the `android-check` step (AR-03 AC-6).
 //!
@@ -36,7 +36,7 @@ const J: &[&str] = &[
     "note_rename", "tag_rename", "tag_delete", "merge_start", "type_move_plan", "type_move", "folder_move_preview", "tidy_now", "value_remove_start",
     "type_delete_start", "inbox_bulk", "starter_add", "backup_restore", "job_undo", "job_redo", "type_create", "type_patch", "type_delete",
 ];
-const V: &[&str] = &["query_apply", "query_revert", "query_create", "query_duplicate", "query_rename", "query_trash", "query_restore"];
+const V: &[&str] = &["query_apply", "query_revert", "query_create", "query_duplicate", "query_rename", "query_trash", "query_restore", "task_views_restore"];
 const O: &[&str] = &["graph_neighbourhood", "graph_presets_get", "graph_presets_apply", "index_related", "trash_restore", "trash_delete", "trash_empty"];
 const ONLY: &[&str] = &["vault_start", "vault_find", "storage_access", "storage_access_settings"];
 
@@ -89,6 +89,18 @@ fn cfg_before(src: &str, at: usize) -> Option<String> {
 fn git_show(rev_path: &str) -> Option<String> {
     let out = Command::new("git").arg("show").arg(rev_path).current_dir(manifest_dir()).output().ok()?;
     out.status.success().then(|| String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+/// D-2053: the commit the desktop is compared with: the merge-base of HEAD and main (`origin/main`, else `main`);
+/// HEAD itself when neither exists. On main that is HEAD, so the comparison holds there by construction.
+fn desktop_base() -> String {
+    let run = |args: &[&str]| Command::new("git").args(args).current_dir(manifest_dir()).output().ok().filter(|o| o.status.success()).map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string());
+    for main in ["origin/main", "main"] {
+        if let Some(b) = run(&["merge-base", "HEAD", main]) {
+            return b;
+        }
+    }
+    "HEAD".to_string()
 }
 
 fn quoted_strings(src: &str) -> Vec<String> {
@@ -144,16 +156,20 @@ fn ar_03_ac9_command_sets_per_platform() {
     let _ = std::fs::write(target.join("commands.json"), serde_json::to_string_pretty(&json).unwrap_or_default());
 
     let lib = std::fs::read_to_string(manifest_dir().join("src/lib.rs")).unwrap_or_default();
-    let old_lib = git_show("7ff0fc0b:app/src-tauri/src/lib.rs");
-    assert!(old_lib.is_some(), "git show 7ff0fc0b:app/src-tauri/src/lib.rs (the desktop set of RA2)");
+    // D-2053: the desktop set is the one on main where this branch last met it (the merge-base), not a fixed commit.
+    let base = desktop_base();
+    let old_lib = git_show(&format!("{base}:app/src-tauri/src/lib.rs"));
+    assert!(old_lib.is_some(), "git show {base}:app/src-tauri/src/lib.rs (the desktop set of RA2)");
     let old = handlers(&old_lib.unwrap());
-    assert_eq!(old.len(), 1, "setup: one generate_handler! at 7ff0fc0b");
-    let old_set: BTreeSet<String> = old[0].1.iter().cloned().collect();
+    // Before AND-1 there is one handler; once AND-1 is on main, the desktop one (the one not naming vault_start).
+    let old_desk: Vec<_> = old.iter().filter(|(_, n)| !n.iter().any(|c| c == "vault_start")).collect();
+    assert_eq!(old_desk.len(), 1, "setup: one desktop generate_handler! at {base}");
+    let old_set: BTreeSet<String> = old_desk[0].1.iter().cloned().collect();
 
     assert_eq!(ANDROID_ONLY, ONLY, "ANDROID_ONLY lists RA2's four Android-only commands in order");
     assert!(!DESKTOP.is_empty(), "commands::DESKTOP lists the desktop commands");
 
-    // (a) DESKTOP = the desktop generate_handler! (source order) = the registered set at 7ff0fc0b.
+    // (a) DESKTOP = the desktop generate_handler! (source order) = the desktop set on main at the merge-base (D-2053).
     let now = handlers(&lib);
     assert_eq!(now.len(), 2, "lib.rs has two generate_handler! calls, one per platform (contract §2.1)");
     let stripped = strip_comments(&lib);
@@ -168,11 +184,15 @@ fn ar_03_ac9_command_sets_per_platform() {
     let desktop: Vec<String> = DESKTOP.iter().map(|s| s.to_string()).collect();
     assert_eq!(&desktop, desk_names, "(a) DESKTOP equals the desktop generate_handler!, in source order");
     let desktop_set: BTreeSet<String> = desktop.iter().cloned().collect();
-    assert_eq!(desktop_set, old_set, "(a) DESKTOP equals the set registered at 7ff0fc0b");
+    assert_eq!(desktop_set, old_set, "(a) DESKTOP equals the desktop set on main at {base} (AND-1 changes none)");
     assert!(!desktop_set.contains("type_misfits"), "(a) type_misfits stays unregistered (D-808)");
 
     // (b) ANDROID = DESKTOP − RA2's groups + the four Android-only commands.
     let ex = excluded();
+    // D-2053: every desktop command is classified for Android: in ANDROID or in one of RA2's excluded groups.
+    for c in &desktop {
+        assert!(ANDROID.contains(&c.as_str()) || ex.contains(c.as_str()), "classify the desktop command {c} for Android: add it to commands::ANDROID or to an excluded group (RA2, D-2053)");
+    }
     for c in &ex {
         assert!(desktop_set.contains(*c), "setup: RA2's excluded {c} is a desktop command");
     }

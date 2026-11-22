@@ -2,7 +2,7 @@
 //! desktop `generate_handler!`. Compiled on every target; `tests/ac_android_commands.rs` ties them to the two handlers,
 //! `build.rs` and the capability files.
 
-/// Every command the desktop registers (unchanged from `7ff0fc0b`).
+/// Every command the desktop registers (AND-1 changes none; D-2053). Each is in `ANDROID` or excluded on Android.
 pub const DESKTOP: &[&str] = &[
     "vault_current", "vault_open", "index_search", "index_switcher", "note_read", "note_create", "perf_mark",
     "vault_create", "vault_pick_dir", "vault_last", "vault_recent", "app_about", "vault_types", "index_type_counts",
@@ -25,7 +25,7 @@ pub const DESKTOP: &[&str] = &[
     "job_plan", "backup_reveal", "graph_neighbourhood", "graph_presets_get", "graph_presets_apply", "pins_get",
     "pins_apply", "index_related", "queries_list", "query_get", "query_run", "query_apply", "query_revert",
     "query_create", "query_duplicate", "query_rename", "query_trash", "query_restore", "query_usages",
-    "query_view_usages", "import_pick_source", "import_scan", "import_cancel", "import_where", "import_check_target",
+    "query_view_usages", "task_views_restore", "import_pick_source", "import_scan", "import_cancel", "import_where", "import_check_target",
     "import_plan", "import_start", "import_status", "import_discard", "import_transform_result",
 ];
 
