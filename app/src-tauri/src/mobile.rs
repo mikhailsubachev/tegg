@@ -130,14 +130,16 @@ fn check(app: &AppHandle) {
         return;
     }
     let remembered = remembered(app);
+    // The guard is dropped here: `open_vault` below locks the same mutex.
+    let current_vault = app.state::<AppState>().vault.lock().unwrap_or_else(|p| p.into_inner()).clone();
     if !granted(app) {
-        let open = app.state::<AppState>().vault.lock().unwrap_or_else(|p| p.into_inner()).as_ref().map(|v| v.path.clone());
+        let open = current_vault.as_ref().map(|v| v.path.clone());
         if open.is_some() {
             close_vault(app);
         }
         let path = open.map(PathBuf::from).or(remembered);
         set_state(app, dto(start_state(false, path.as_deref(), None)));
-    } else if let Some(v) = app.state::<AppState>().vault.lock().unwrap_or_else(|p| p.into_inner()).clone() {
+    } else if let Some(v) = current_vault {
         if !matches!(current(app), StartStateDto::Open { .. }) {
             set_state(app, StartStateDto::Open { vault: v });
         }

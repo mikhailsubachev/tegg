@@ -113,18 +113,21 @@ pub(crate) fn ms_since_process_start() -> f64 {
 }
 
 /// Android and Linux (android-shell §7.2): the process start (`/proc/self/stat` field 22, clock ticks since boot)
-/// against `/proc/uptime`.
+/// against `CLOCK_BOOTTIME` (apps may not read `/proc/uptime` on Android).
 #[cfg(not(target_os = "macos"))]
 pub(crate) fn ms_since_process_start() -> f64 {
     let start = std::fs::read_to_string("/proc/self/stat").ok().and_then(|s| {
         let rest = &s[s.rfind(')')? + 2..];
         rest.split_whitespace().nth(19)?.parse::<f64>().ok()
     });
-    let uptime = std::fs::read_to_string("/proc/uptime").ok().and_then(|s| s.split_whitespace().next()?.parse::<f64>().ok());
-    // SAFETY: sysconf has no preconditions.
-    let hz = unsafe { libc::sysconf(libc::_SC_CLK_TCK) } as f64;
-    match (start, uptime) {
-        (Some(start), Some(up)) if hz > 0.0 => (up - start / hz) * 1e3,
+    // SAFETY: `ts` is a plain C struct the call fills in; sysconf has no preconditions.
+    let (now, hz) = unsafe {
+        let mut ts: libc::timespec = std::mem::zeroed();
+        let ok = libc::clock_gettime(libc::CLOCK_BOOTTIME, &mut ts) == 0;
+        (ok.then(|| ts.tv_sec as f64 + ts.tv_nsec as f64 / 1e9), libc::sysconf(libc::_SC_CLK_TCK) as f64)
+    };
+    match (start, now) {
+        (Some(start), Some(now)) if hz > 0.0 => (now - start / hz) * 1e3,
         _ => f64::NAN,
     }
 }
