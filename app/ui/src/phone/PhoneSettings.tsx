@@ -36,15 +36,17 @@ export function PhoneSettingsList({ heading, onGo }: { heading: React.RefObject<
   );
 }
 
-export function PhoneVaultSettings({ heading, vault, types, onSwitch }: {
-  heading: React.RefObject<HTMLHeadingElement | null>; vault: VaultInfo; types: TypeDefDto[]; onSwitch: (anchor: HTMLElement) => void;
+export function PhoneVaultSettings({ heading, vault, types, switcher }: {
+  heading: React.RefObject<HTMLHeadingElement | null>; vault: VaultInfo; types: TypeDefDto[];
+  /** `Switch vault…`: the vault switcher with this label, opening the menu `Vaults` (§9.10). */
+  switcher: React.ReactNode;
 }) {
   const [s, setS] = useState<VaultSettingsDto | null>(null);
   useEffect(() => { ipc.vaultSettings().then(setS, () => setS(null)); }, [vault.path]);
   const def = s ? types.find((x) => x.key.normalize('NFC') === s.defaultType.key.normalize('NFC')) : undefined;
   return (
     <div className="page-column phone-settings">
-      <PageHeading ref={heading} tabIndex={-1}>{t('route.settings.vault')}</PageHeading>
+      <PageHeading ref={heading} tabIndex={-1}>{t('settings.vault')}</PageHeading>
       <dl className="phone-facts">
         <dt>{t('settings.vault')}</dt>
         <dd data-user-content>{vault.name}</dd>
@@ -53,9 +55,7 @@ export function PhoneVaultSettings({ heading, vault, types, onSwitch }: {
         <dt>{t('settings.vault.defaultType')}</dt>
         <dd data-user-content>{def ? def.name : s?.defaultType.key ?? ''}</dd>
       </dl>
-      <button type="button" className="phone-button" data-command="vault.switch" onClick={(e) => onSwitch(e.currentTarget)}>
-        {t('phone.settings.switchVault')}
-      </button>
+      {switcher}
     </div>
   );
 }

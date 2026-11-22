@@ -52,7 +52,8 @@ export function Drawer({ open, onClose, children }: { open: boolean; onClose: (n
     else if (!e.shiftKey && i === all.length - 1) { e.preventDefault(); all[0].focus(); }
   };
   return (
-    <div className={`phone-drawer-layer ${shown && open ? 'open' : ''}`}>
+    // A closing drawer (its 200 ms transition) is already gone for touch and assistive tech.
+    <div className={`phone-drawer-layer ${shown && open ? 'open' : ''}${open ? '' : ' closing'}`} aria-hidden={open ? undefined : 'true'}>
       <div className="phone-scrim" onClick={() => onClose(false)} />
       <div ref={box} role="dialog" aria-modal="true" aria-label={t('phone.drawer')} className="phone-drawer" onKeyDown={onKeyDown}
         onClick={(e) => { if ((e.target as HTMLElement).closest('a[href]')) onClose(true); }}>

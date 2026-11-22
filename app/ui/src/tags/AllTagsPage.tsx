@@ -14,6 +14,7 @@ import { DEFAULT_TAGS_SORT, allTagsRows, type TagsSort } from './model';
 import { NewTagDialog } from './TagDialogs';
 import { useTags, syncTags } from './store';
 import { PageHeading } from '../phone/PageHeading';
+import { isPhone } from '../phone/layout';
 
 const COLUMNS: { key: TagsSort['column']; label: string; menu: string }[] = [
   { key: 'name', label: 'tags.col.tag', menu: 'tags.sort.name' },
@@ -55,6 +56,9 @@ export function AllTagsPage({ heading, sort: sort0, onSort, onOpen, commandRef }
     const dir = sort.column === column ? (sort.dir === 'asc' ? 'desc' : 'asc') : 'asc';
     onSort({ column, dir });
   };
+  // Slice AND-2 (android-phone §9.8, RA11; FR-TAG-07 AC-7): on the phone the list is read-only: no New tag, find field,
+  // row menu or drag.
+  const phone = isPhone();
   const sortName = t(COLUMNS.find((c) => c.key === sort.column)!.menu);
   return (
     <div className="page-column tags-page">
@@ -64,14 +68,14 @@ export function AllTagsPage({ heading, sort: sort0, onSort, onOpen, commandRef }
           <PageHeading ref={heading} tabIndex={-1}>{t('tags.title')}</PageHeading>
           <p className="type-count">{t('tags.summary', { tags: tags.length, objects: objects ?? 0 })}</p>
         </div>
-        <div className="page-actions">
+        {!phone && <div className="page-actions">
           <button tabIndex={0} type="button" className="text-button primary" data-command="tags.new" onClick={() => setDialog(true)}>{t('tags.new')}</button>
-        </div>
+        </div>}
       </header>
       <div className="page-toolbar type-toolbar">
-        <input data-command="tagsPage.c5" type="text" className="type-filter" aria-label={t('tags.find')} placeholder={t('tags.findPlaceholder')} value={find} spellCheck={false} autoComplete="off"
+        {!phone && <input data-command="tagsPage.c5" type="text" className="type-filter" aria-label={t('tags.find')} placeholder={t('tags.findPlaceholder')} value={find} spellCheck={false} autoComplete="off"
           onChange={(e) => setFind(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setFind(''); } }} />
+          onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setFind(''); } }} />}
         <span className="spacer" />
         <button data-command="tagsPage.c4" ref={sortBtn} tabIndex={0} type="button" className="text-button" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)}>
           {`${sortName} ${sort.dir === 'asc' ? '↑' : '↓'}`}
@@ -101,10 +105,10 @@ export function AllTagsPage({ heading, sort: sort0, onSort, onOpen, commandRef }
               <RefElement as="tr" reference={{ target: { path: '', fragment: null, kind: 'tag', key: r.key }, kind: 'row', open: () => onOpen(r.key) }}
                 key={r.key} className="type-row" data-tag={r.key} tabIndex={i === 0 ? 0 : -1}
                 // Slice PIN (R134, R135): `Tag` menu (right-click, ⇧F10) and a drag source of the tag.
-                onContextMenu={(e) => { e.preventDefault(); setRowMenu({ key: r.key, name: r.name, anchor: e.currentTarget }); }}
-                {...pinDragSource({ request: { kind: 'tag', key: r.key }, label: `#${r.name}`, icon: 'hash', color: r.color })}
+                onContextMenu={(e) => { e.preventDefault(); if (!phone) setRowMenu({ key: r.key, name: r.name, anchor: e.currentTarget }); }}
+                {...(phone ? {} : pinDragSource({ request: { kind: 'tag', key: r.key }, label: `#${r.name}`, icon: 'hash', color: r.color }))}
                 onKeyDown={(e) => {
-                  if (e.key === 'F10' && e.shiftKey) { e.preventDefault(); setRowMenu({ key: r.key, name: r.name, anchor: e.currentTarget }); return; }
+                  if (e.key === 'F10' && e.shiftKey && !phone) { e.preventDefault(); setRowMenu({ key: r.key, name: r.name, anchor: e.currentTarget }); return; }
                   const list = [...((e.currentTarget.parentElement?.querySelectorAll<HTMLElement>('tr[data-tag]')) ?? [])];
                   const at = list.indexOf(e.currentTarget);
                   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); list[Math.max(0, Math.min(list.length - 1, at + (e.key === 'ArrowDown' ? 1 : -1)))]?.focus(); }

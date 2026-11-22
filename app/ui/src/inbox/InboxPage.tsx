@@ -23,6 +23,7 @@ import { useTagLook } from '../tags/store';
 import { moveNotes } from '../jobs/jobs';
 import { ChangeTypeDialog, type TypeMovePlanDto } from '../types/ChangeTypeDialog';
 import { PageHeading } from '../phone/PageHeading';
+import { isPhone } from '../phone/layout';
 
 const ORDER = ['page', 'task', 'quick-note', 'daily-note'];
 const GROUPS: [InboxGroup, string][] = [['today', 'inbox.group.today'], ['yesterday', 'inbox.group.yesterday'], ['week', 'inbox.group.week'], ['older', 'inbox.group.older']];
@@ -139,7 +140,7 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
   useLayoutEffect(() => {
     // The real sizes of a rendered card, the gap and a group heading (fixed by styles.css).
     const list = listRef.current;
-    const art = list?.querySelector<HTMLElement>('article.inbox-card');
+    const art = list?.querySelector<HTMLElement>('article.inbox-card, li.inbox-row');
     const sec = art?.closest<HTMLElement>('.inbox-group');
     const grid = art?.parentElement;
     if (art && sec && grid) {
@@ -153,10 +154,15 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
       if (el) { pendingFocus.current = null; el.focus({ preventScroll: true }); el.scrollIntoView({ block: 'nearest' }); }
     }
   });
-  const cols = columns(view.width, metrics);
+  // Slice AND-2 (android-phone §9.7): the phone's Inbox is one column of rows.
+  const phone = isPhone();
+  const cols = phone ? 1 : columns(view.width, metrics);
   const slices = windowOf(sizes, cols, metrics, view.top, view.height);
 
-  const cardEl = (p: string) => listRef.current?.querySelector<HTMLElement>(`article[data-path="${CSS.escape(nfc(p))}"]`) ?? null;
+  const cardEl = (p: string) => {
+    const el = listRef.current?.querySelector<HTMLElement>(`article[data-path="${CSS.escape(nfc(p))}"], li.inbox-row[data-path="${CSS.escape(nfc(p))}"]`) ?? null;
+    return el?.tagName === 'LI' ? el.querySelector<HTMLElement>('a') : el;
+  };
   /** Focuses the card of `p`, first scrolling it into the window when it isn't rendered (D-586). */
   const focusPath = (p: string) => {
     const el = cardEl(p);
@@ -470,6 +476,26 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
     );
   };
 
+  /** Slice AND-2 (android-phone §9.7, RA11; FR-INB-01 AC-14): a phone row: the type icon, the title and one date line
+   *  (the Date & time setting, never relative); a tap opens it. No triage, selection, Reviewed box, swipe or long press. */
+  const phoneRow = (r: InboxRowDto, index: number) => {
+    const p = nfc(r.path);
+    const footer = cardFooter(r, z, dateTime);
+    return (
+      <li key={p} className="inbox-row" data-path={p} data-review={isReviewed(r) ? 'reviewed' : 'unreviewed'}>
+        <RefElement as="a" reference={{ target: { path: p, fragment: null, kind: 'note' }, kind: 'card', open: () => open(r) }}
+          href="#" className="phone-row inbox-row-link" data-command="inbox.open" aria-setsize={flat.length} aria-posinset={index + 1}
+          aria-description={typeName(r.type)} onFocus={() => { focused.current = p; }}>
+          <Icon name={typeIconName(r.type, typeOf(r.type)?.icon)} size={18} />
+          <span className="inbox-row-text">
+            <span className="inbox-row-title" data-user-content>{r.title}</span>
+            {footer && <span className="inbox-row-date">{footer}</span>}
+          </span>
+        </RefElement>
+      </li>
+    );
+  };
+
   return (
     <div className="page-column inbox-page">
       {mapping && (
@@ -481,7 +507,7 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
         {rows && members.length + kept.size > 0 && (
           <>
             <p className="inbox-summary">{summary}</p>
-            <button type="button" tabIndex={0} className="inbox-mark-all" data-command="inbox.markAll" onClick={() => setConfirmAll(true)}>{t('inbox.markAll')}</button>
+            {!phone && <button type="button" tabIndex={0} className="inbox-mark-all" data-command="inbox.markAll" onClick={() => setConfirmAll(true)}>{t('inbox.markAll')}</button>}
           </>
         )}
       </div>
@@ -490,13 +516,13 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
           <h2>{t('inbox.zero')}</h2>
           <p>{t('inbox.zeroText')}</p>
           <div className="inbox-zero-actions">
-            <button type="button" tabIndex={0} data-command="capture.quick" aria-label={t('inbox.zeroCapture')} aria-keyshortcuts="Control+Alt+Space" onClick={() => nav.capture('default')}>{t('inbox.zeroCapture')} <kbd aria-hidden="true">{t('shortcut.keys', { keys: '⌃⌥Space' })}</kbd></button>
-            <button type="button" tabIndex={0} data-command="daily.today" aria-label={t('inbox.zeroToday')} aria-keyshortcuts="Meta+D" onClick={nav.today}>{t('inbox.zeroToday')} <kbd aria-hidden="true">{t('shortcut.keys', { keys: '⌘D' })}</kbd></button>
+            {!phone && <button type="button" tabIndex={0} data-command="capture.quick" aria-label={t('inbox.zeroCapture')} aria-keyshortcuts="Control+Alt+Space" onClick={() => nav.capture('default')}>{t('inbox.zeroCapture')} <kbd aria-hidden="true">{t('shortcut.keys', { keys: '⌃⌥Space' })}</kbd></button>}
+            <button type="button" tabIndex={0} data-command="daily.today" aria-label={t('inbox.zeroToday')} aria-keyshortcuts="Meta+D" onClick={nav.today}>{t('inbox.zeroToday')}{!phone && <>{' '}<kbd aria-hidden="true">{t('shortcut.keys', { keys: '⌘D' })}</kbd></>}</button>
           </div>
         </section>
       ) : rows && (
         <>
-          <div className="inbox-toolbar">
+          {!phone && <div className="inbox-toolbar">
             <div role="group" aria-label={t('inbox.filter')} className="inbox-filter">
               {['all', ...filterKeys].map((k) => (
                 <button key={k} type="button" tabIndex={0} data-type={k} aria-pressed={active === k} data-command="inbox.filter" className={`toggle${active === k ? ' on' : ''}`}
@@ -507,7 +533,7 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
               ))}
             </div>
             <span className="muted inbox-order">{t('inbox.order')}</span>
-          </div>
+          </div>}
           {alerts.length > 0 && (
             <div className="task-alerts">
               {alerts.map((a) => (
@@ -519,7 +545,7 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
               ))}
             </div>
           )}
-          {selection.length > 0 && (
+          {selection.length > 0 && !phone && (
             <div role="toolbar" aria-label={t('inbox.selected', { count: selection.length })} className="inbox-selection">
               <button type="button" tabIndex={0} data-command="inbox.markReviewed" onClick={() => bulkReview(selection, 'reviewed')}>{t('inbox.markReviewed')}</button>
               <button type="button" tabIndex={0} data-command="inbox.markUnreviewed" onClick={() => bulkReview(selection, 'unreviewed')}>{t('inbox.markUnreviewed')}</button>
@@ -560,15 +586,21 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
                 return (
                   <section key={g} role="region" aria-labelledby={`inbox-group-${g}`} data-group={g} className="inbox-group">
                     <h2 id={`inbox-group-${g}`}>{t(label)}</h2>
-                    <div className="inbox-cards" style={{ paddingTop: sl.top, paddingBottom: sl.bottom }}>
-                      {items.slice(from, sl.toRow * cols).map((r, k) => card(r, offset + from + k))}
-                    </div>
+                    {phone ? (
+                      <ul className="inbox-rows" style={{ paddingTop: sl.top, paddingBottom: sl.bottom }}>
+                        {items.slice(from, sl.toRow * cols).map((r, k) => phoneRow(r, offset + from + k))}
+                      </ul>
+                    ) : (
+                      <div className="inbox-cards" style={{ paddingTop: sl.top, paddingBottom: sl.bottom }}>
+                        {items.slice(from, sl.toRow * cols).map((r, k) => card(r, offset + from + k))}
+                      </div>
+                    )}
                   </section>
                 );
               })}
             </div>
           )}
-          <p className="muted inbox-keys">{t('inbox.keys')}</p>
+          {!phone && <p className="muted inbox-keys">{t('inbox.keys')}</p>}
         </>
       )}
       <div role="status" className="sr-live" aria-live="polite">{live}</div>

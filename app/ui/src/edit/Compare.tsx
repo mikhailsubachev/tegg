@@ -1,6 +1,7 @@
 // Side-by-side compare of two versions of a note (FR-SYN-03 AC-15, FR-SYN-04 AC-7): read-only, lines that differ are
 // marked `data-diff="changed"` on both sides. The diff is a longest-common-subsequence over lines.
 import { t } from '../i18n/catalog';
+import { isPhone } from '../phone/layout';
 
 function lines(text: string): string[] {
   const l = text.replace(/^﻿/, '').replace(/\r\n/g, '\n').split('\n');
@@ -26,12 +27,14 @@ export function changedLines(a: string[], b: string[]): [boolean[], boolean[]] {
 export function Compare({ left, right, leftLabel, rightLabel }: { left: string; right: string; leftLabel: string; rightLabel: string }) {
   const a = lines(left), b = lines(right);
   const [ca, cb] = changedLines(a, b);
+  // Slice AND-2 (android-phone §9.8): on the phone the versions stack; a changed line is also `data-changed`.
+  const phone = isPhone();
   const col = (ls: string[], ch: boolean[], label: string) => (
     <div className="compare-col">
       <div className="compare-head" data-user-content>{label}</div>
       <div className="compare-lines" data-user-content>
         {ls.map((l, i) => (
-          <div key={i} className={`compare-line ${ch[i] ? 'changed' : ''}`} {...(ch[i] ? { 'data-diff': 'changed' } : {})}>{l || ' '}</div>
+          <div key={i} className={`compare-line ${ch[i] ? 'changed' : ''}`} {...(ch[i] ? { 'data-diff': 'changed', ...(phone ? { 'data-changed': '' } : {}) } : {})}>{l || ' '}</div>
         ))}
       </div>
     </div>

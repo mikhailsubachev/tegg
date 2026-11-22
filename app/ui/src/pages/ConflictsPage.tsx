@@ -9,6 +9,7 @@ import type { ConflictRowDto, VersionDto } from '../ipc/types';
 import { Compare } from '../edit/Compare';
 import { ulid } from '../newNote';
 import { PageHeading } from '../phone/PageHeading';
+import { isPhone } from '../phone/layout';
 
 type Open = { row: ConflictRowDto; other: string; left: { text: string; v: VersionDto }; right: { text: string; v: VersionDto } };
 type Confirm = { title: string; body: string; ok: string; run: () => Promise<void> } | null;
@@ -98,15 +99,16 @@ export function ConflictsPage({ heading, onCount }: { heading: React.RefObject<H
       {open && draft === null && (
         <div className="conflict-detail">
           <Compare left={open.left.text} right={open.right.text} leftLabel={open.row.primary} rightLabel={open.other} />
-          <div className="dialog-buttons">
+          {/* Slice AND-2 (android-phone §9.8, RA11; FR-SYN-04 AC-13): read-only on the phone: no resolve action or merge draft. */}
+          {!isPhone() && <div className="dialog-buttons">
             <button type="button" onClick={() => keepLeft(open)}>{t('conflicts.keepLeft')}</button>
             <button type="button" onClick={() => keepRight(open)}>{t('conflicts.keepRight')}</button>
             <button type="button" onClick={() => setDraft(open.left.text)}>{t('conflicts.merge')}</button>
             {open.row.kind === 'duplicateId' && <button type="button" onClick={() => newId(open)}>{t('conflicts.newId')}</button>}
-          </div>
+          </div>}
         </div>
       )}
-      {open && draft !== null && (
+      {open && draft !== null && !isPhone() && (
         <div className="conflict-detail">
           <MergeDraft initial={draft} onChange={setDraft} />
           <div className="dialog-buttons">

@@ -1692,7 +1692,8 @@ export function App() {
   } else if (phone && route?.id === 'settings/storage') {
     body = <PhoneStorageSettings heading={heading} />;
   } else if (phone && route?.id === 'settings/vault' && vault) {
-    body = <PhoneVaultSettings heading={heading} vault={vault} types={types} onSwitch={() => { setDrawerOpen(true); }} />;
+    body = <PhoneVaultSettings heading={heading} vault={vault} types={types}
+      switcher={<VaultSwitcher label={t('phone.settings.switchVault')} vault={vault} onOpenPath={openVaultPath} onOpenFolder={actions.openFolder} onCreate={() => actions.openChooser(true)} onSettings={() => { void go({ id: 'settings/vault' }); }} />} />;
   } else if (route?.id.startsWith('settings/') && def) {
     body = <SettingsPage id={route.id} theme={ui.theme as ThemeChoice} heading={heading} onSection={(id) => go({ id })} onTheme={actions.setTheme}
       outlineRail={ui.outlineRail !== false} onOutlineRail={(on) => updateUi((u) => ({ ...u, outlineRail: on }))}

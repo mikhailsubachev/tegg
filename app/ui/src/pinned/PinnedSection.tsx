@@ -113,7 +113,7 @@ export function PinnedSection({ route, types, onGo, collapsed, onCollapse, readO
   const itemOf = (i: number): DragItem => ({ request: { kind: 'tag', key: '' }, label: views[i].label, icon: glyph(rows[i], views[i]), color: views[i].color });
 
   return (
-    <div className="sidebar-pinned" ref={sectionRef} data-pinned-drop="" {...(over ? { 'data-drop-over': '' } : {})}>
+    <div className="sidebar-pinned" ref={sectionRef} {...(readOnly ? { 'data-read-only': '' } : { 'data-pinned-drop': '' })} {...(over && !readOnly ? { 'data-drop-over': '' } : {})}>
       <button tabIndex={0} type="button" className="section-head pinned-head" aria-label={t('pinned.section')} aria-expanded={!shut}
         aria-controls="pinned-list" {...(n > 0 ? { 'aria-description': t('pinned.countA11y', { count: n }) } : {})} data-command="sidebar.pinned.toggle"
         onClick={() => (isEmpty ? setEmptyOpen(!emptyOpen) : onCollapse(!collapsed))}>
@@ -133,25 +133,25 @@ export function PinnedSection({ route, types, onGo, collapsed, onCollapse, readO
             const desc = v.description;
             return (
               <li key={`${i}:${v.label}`} className="pinned-li" data-pin-li="">
-                <span className="pin-grip" aria-hidden="true" title={t('pinned.grip')}>⋮⋮</span>
+                {!readOnly && <span className="pin-grip" aria-hidden="true" title={t('pinned.grip')}>⋮⋮</span>}
                 <a href="#" tabIndex={0} className={`entry pinned-row ${current ? 'current' : ''} ${v.muted ? 'muted' : ''}`} data-pinned-row={i} data-pin-state={r.state}
                   data-command="sidebar.pinned.open" aria-current={current ? 'page' : undefined} title={v.tooltip} aria-description={desc || undefined}
                   draggable={false}
                   onDragStart={(e) => e.preventDefault()}
-                  onMouseDown={(e) => { if (!locked) startRowDrag(e, i, itemOf(i)); }}
+                  onMouseDown={readOnly ? undefined : (e) => { if (!locked) startRowDrag(e, i, itemOf(i)); }}
                   onClick={(e) => { e.preventDefault(); open(i); }}
-                  onContextMenu={(e) => { e.preventDefault(); setMenu({ index: i, anchor: e.currentTarget, base: pins?.version ?? null }); }}
-                  onKeyDown={(e) => { if (e.key === 'F10' && e.shiftKey) { e.preventDefault(); setMenu({ index: i, anchor: e.currentTarget, base: pins?.version ?? null }); } }}>
+                  onContextMenu={(e) => { e.preventDefault(); if (!readOnly) setMenu({ index: i, anchor: e.currentTarget, base: pins?.version ?? null }); }}
+                  onKeyDown={(e) => { if (e.key === 'F10' && e.shiftKey && !readOnly) { e.preventDefault(); setMenu({ index: i, anchor: e.currentTarget, base: pins?.version ?? null }); } }}>
                   <span className="type-icon" style={{ ['--type' as string]: v.muted ? 'var(--muted)' : v.colorVar ? v.colorVar : v.color ? `var(--type-${v.color})` : r.target.kind === 'tag' ? 'var(--tag-default, var(--muted))' : 'var(--muted)' }}>
                     <Icon name={glyph(r, v)} dataIcon={v.icon} />
                   </span>
                   <span className="entry-label" data-label="" data-user-content>{v.label}</span>
                   {desc && <span className="sr-only">{desc}</span>}
                 </a>
-                <button type="button" tabIndex={0} className="icon-button small pin-unpin" aria-label={t('pinned.unpinNamed', { label: v.label })} title={t('pinned.unpin')}
+                {!readOnly && <button type="button" tabIndex={0} className="icon-button small pin-unpin" aria-label={t('pinned.unpinNamed', { label: v.label })} title={t('pinned.unpin')}
                   data-command="sidebar.unpin" aria-disabled={locked ? true : undefined} onClick={() => { if (!locked) doUnpin(i); }}>
                   <Icon name="x" size={12} />
-                </button>
+                </button>}
               </li>
             );
           })}
@@ -168,17 +168,17 @@ export function PinnedSection({ route, types, onGo, collapsed, onCollapse, readO
           })()}
         </div>
       )}
-      {lineTop !== null && <div className="pin-drop-line" data-pin-drop-line={drag?.at ?? 0} aria-hidden="true" style={{ top: lineTop }} />}
+      {lineTop !== null && !readOnly && <div className="pin-drop-line" data-pin-drop-line={drag?.at ?? 0} aria-hidden="true" style={{ top: lineTop }} />}
       {alert && (!shut || isEmpty) && (
         <div role="alert" className="pinned-alert">
           <span>{alert.text}</span>
-          {alert.unpin !== null && rows[alert.unpin] && (
+          {alert.unpin !== null && rows[alert.unpin] && !readOnly && (
             <button type="button" className="text-button" onClick={() => { const i = alert.unpin!; const base = alert.base ?? null; setPinsAlert(null); doUnpin(i, { base }); }}>{t('pinned.unpin')}</button>
           )}
         </div>
       )}
       <div className="sr-live" role="status" aria-live="polite">{live ? <Fragment key={live.seq}>{live.text}</Fragment> : null}</div>
-      {menu && rows[menu.index] && (
+      {menu && rows[menu.index] && !readOnly && (
         <PopupMenu label={t('pinned.menu')} anchor={menu.anchor} onClose={() => { const a = menu.anchor; setMenu(null); a.focus(); }} disabledFocusable entries={[
           { kind: 'item', key: 'open', content: <span className="menu-title">{t('pinned.open')}</span>, onChoose: () => { const i = menu.index; setMenu(null); open(i); } },
           { kind: 'item', key: 'unpin', content: <span className="menu-title">{t('cmd.unpin')}</span>, disabled: !!locked, description: locked ? t(locked) : undefined,
@@ -190,7 +190,7 @@ export function PinnedSection({ route, types, onGo, collapsed, onCollapse, readO
             onChoose: () => { const i = menu.index; const base = menu.base; setMenu(null); doMove(i, 1, { base }); } },
         ]} />
       )}
-      <DragLayer />
+      {!readOnly && <DragLayer />}
     </div>
   );
 }

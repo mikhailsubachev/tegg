@@ -17,6 +17,11 @@ export function setHeadingSlot(el: HTMLElement | null): void {
 const subscribe = (f: () => void) => { listeners.add(f); return () => { listeners.delete(f); }; };
 const getSlot = () => slot;
 
+/** The app bar's title slot on the phone (null on the desktop): `search` portals its field there (§8.2). */
+export function useHeadingSlot(): HTMLElement | null {
+  return useSyncExternalStore(subscribe, getSlot, getSlot);
+}
+
 export const PageHeading = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadingElement>>(function PageHeading(props, ref) {
   const target = useSyncExternalStore(subscribe, getSlot, getSlot);
   const h = <h1 ref={ref} {...props} />;

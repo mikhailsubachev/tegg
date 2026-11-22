@@ -36,9 +36,11 @@ export type VaultSwitcherProps = {
   onOpenFolder: () => void;
   onCreate: () => void;
   onSettings: () => void;
+  /** Slice AND-2 (android-phone §9.10): the phone's `Switch vault…` button on settings/vault opens the same menu. */
+  label?: string;
 };
 
-export function VaultSwitcher({ vault, onOpenPath, onOpenFolder, onCreate, onSettings }: VaultSwitcherProps) {
+export function VaultSwitcher({ vault, onOpenPath, onOpenFolder, onCreate, onSettings, label }: VaultSwitcherProps) {
   const button = useRef<HTMLButtonElement>(null);
   const [recent, setRecent] = useState<RecentVaultDto[] | null>(null);
   const open = recent !== null;
@@ -78,11 +80,13 @@ export function VaultSwitcher({ vault, onOpenPath, onOpenFolder, onCreate, onSet
   );
   return (
     <>
-      <button ref={button} tabIndex={0} type="button" className="vault-switcher" aria-label={t('vault.switch', { name: vault.name })}
+      {label ? (
+        <button ref={button} tabIndex={0} type="button" className="phone-button" aria-haspopup="menu" aria-expanded={open} data-command="vault.switch" onClick={toggle}>{label}</button>
+      ) : <button ref={button} tabIndex={0} type="button" className="vault-switcher" aria-label={t('vault.switch', { name: vault.name })}
         aria-haspopup="menu" aria-expanded={open} data-command="vault.switch" onClick={toggle}>
         <span className="vault-dot" aria-hidden="true" style={{ background: `var(--type-${vaultColor(vault.path)})` }} />
         <span className="vault-name" data-user-content>{vault.name}</span>
-      </button>
+      </button>}
       {open && <PopupMenu label={t('vault.menu')} anchor={button.current} entries={entries} onClose={close} />}
     </>
   );

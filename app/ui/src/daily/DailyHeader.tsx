@@ -6,6 +6,7 @@ import { localDate } from '../zone';
 import { t } from '../i18n/catalog';
 import { Icon } from '../shell/Icon';
 import { longDate } from './Calendar';
+import { isPhone } from '../phone/layout';
 
 export type DailyInfo = {
   date: string;
@@ -37,7 +38,8 @@ export function DailyHeader({ info, review, written, onReview }: { info: DailyIn
           <Icon name="calendar" size={14} /><span>{t('daily.pickDate')}</span>
         </button>
         <span className="spacer" />
-        {written && (
+        {/* Slice AND-2 (android-phone §9.8, RA11): no review toggle on the phone. */}
+        {written && !isPhone() && (
           <ReviewCheck reviewed={review} onToggle={onReview} commands={['daily.markReviewed', 'daily.markUnreviewed']} />
         )}
       </div>

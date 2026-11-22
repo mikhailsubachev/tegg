@@ -450,7 +450,105 @@ html[data-layout="phone"] .lane-fold {
   min-width: 48px;
   min-height: 48px;
 }
-html[data-layout="phone"] .type-table td:not(:first-child) *,
+html[data-layout="phone"] .type-page .type-table td:not(:first-child) *,
 html[data-layout="phone"] .query-table td:not(:first-child) * {
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------- the Inbox (§9.7) */
+html[data-layout="phone"] .inbox-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  box-sizing: content-box;
+}
+html[data-layout="phone"] .inbox-row {
+  box-sizing: border-box;
+  height: 64px;
+  overflow: hidden;
+}
+html[data-layout="phone"] .inbox-row-link {
+  box-sizing: border-box;
+  justify-content: flex-start;
+  gap: 12px;
+  height: 100%;
+  min-height: 56px;
+  padding: 0 4px;
+  color: var(--text);
+  text-decoration: none;
+}
+html[data-layout="phone"] .inbox-row-link > svg {
+  flex: none;
+  color: var(--muted);
+}
+html[data-layout="phone"] .inbox-row-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+html[data-layout="phone"] .inbox-row-title {
+  display: block;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html[data-layout="phone"] .inbox-row-date {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html[data-layout="phone"] .inbox-row[data-review="reviewed"] {
+  opacity: 0.6;
+}
+html[data-layout="phone"] .inbox-zero-actions button {
+  min-height: 48px;
+}
+
+/* ---------------------------------------------------------------- daily (§9.8) */
+html[data-layout="phone"] .daily-nav {
+  flex-wrap: wrap;
+}
+html[data-layout="phone"] .daily-nav button {
+  min-width: 48px;
+  min-height: 48px;
+}
+html[data-layout="phone"] .pick-date.phone-calendar {
+  position: fixed !important;
+  left: calc(16px + var(--inset-left)) !important;
+  right: calc(16px + var(--inset-right)) !important;
+  top: calc(var(--inset-top) + 72px) !important;
+  width: auto !important;
+  max-width: none;
+  max-height: calc(100% - var(--inset-top) - var(--inset-bottom) - 88px);
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+html[data-layout="phone"] .phone-calendar .cal-grid {
+  width: 100%;
+}
+html[data-layout="phone"] .phone-calendar .cal-day {
+  min-width: 36px;
+  min-height: 40px;
+}
+
+/* ---------------------------------------------------------------- conflicts (§9.8) */
+html[data-layout="phone"] .compare {
+  grid-template-columns: minmax(0, 1fr);
+}
+html[data-layout="phone"] .conflict-list a {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-height: 48px;
+}
+html[data-layout="phone"] .phone-drawer-layer.closing {
   pointer-events: none;
 }
