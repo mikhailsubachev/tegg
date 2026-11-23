@@ -1,5 +1,5 @@
 // Slice OC, L5: property icons and the icon picker (docs/acceptance/cards.md FR-TYP-01 AC-12, AC-14…AC-20 (b),
-// FR-STO-07 AC-13, FR-SYN-03 AC-33; R215, R216) on `type-settings/výlet` and `type-settings/kontrola`, through the fake
+// FR-STO-07 AC-15, FR-SYN-03 AC-35; R215, R216) on `type-settings/výlet` and `type-settings/kontrola`, through the fake
 // core with the cards fixture (docs/contracts/v1-cards.md §7.7, §7.8, §8.3, §10, §13; the request log of serve-built.ts
 // through Playwright's request events). Written from the ACs and the contract only (D-61).
 import type { Page } from '@playwright/test';
@@ -166,7 +166,7 @@ test('fr_typ_01_ac17_choosing_writes_one_line', async ({ page }) => {
   assert.ok(!(await fileText(core, VYLET_YML))?.includes('icon: flag'), 'nothing written');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-TYP-01 AC-18, FR-STO-07 AC-13
+// ------------------------------------------------------------------------------------------------ FR-TYP-01 AC-18, FR-STO-07 AC-15
 
 async function choose(page: Page, prop: string, name: string) {
   await openPicker(page, prop);
@@ -205,7 +205,7 @@ test('fr_typ_01_ac18_recent_icons', async ({ page }) => {
   assert.deepEqual((await pickerGroups(fresh.page)).map((g) => g.group).includes('recent'), false, 'a fresh Application Support: no Recent group');
 });
 
-test('fr_sto_07_ac13_recent_icons_are_machine_local', async ({ page }) => {
+test('fr_sto_07_ac15_recent_icons_are_machine_local', async ({ page }) => {
   const old = { version: 1, theme: 'light', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' }, propertiesOpen: true, preview: { mode: 'click' }, dateTime: { date: 'region', time: 'region', week: 'region' }, typeViews: { lastTab: { book: 'Rozečtené' } } } as any;
   const core = await openVylet(page, { uiState: old });
   await openPicker(page, 'Náročnost');
@@ -266,9 +266,9 @@ test('fr_typ_01_ac20_bundled_offline_credited', async ({ page }) => {
   void cardList;
 });
 
-// ------------------------------------------------------------------------------------------------ FR-SYN-03 AC-33
+// ------------------------------------------------------------------------------------------------ FR-SYN-03 AC-35
 
-test('fr_syn_03_ac33_card_and_icon_writes_check_the_base', async ({ page }) => {
+test('fr_syn_03_ac35_card_and_icon_writes_check_the_base', async ({ page }) => {
   const changed = swap(original(VYLET_YML), 'color: teal', 'color: red');
   const actions: [string, (p: Page) => Promise<void>, RegExp][] = [
     ['a Card remove', async (p) => { await click(p.getByRole('button', { name: /^⟦?Remove Kraj from the card⟧?$/ }), 'Remove Kraj'); }, /Card/],

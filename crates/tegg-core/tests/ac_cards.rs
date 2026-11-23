@@ -2,7 +2,7 @@
 //! `TypeInfo.card` (FR-TYP-11 AC-5, AC-6), card data on board runs, Task rows and embeds against
 //! tests/fixtures/vaults/cards/expected-card-data.json (AC-7…AC-17, AC-18, FR-EMB-02 AC-21), the live update of a card
 //! list (AC-19), the type-file writes of `Core::type_patch` with `TypeOp::SetCard` / `SetAttributeIcon` (AC-21, AC-27,
-//! AC-28's no-value path, FR-TYP-01 AC-12, AC-17, AC-19, FR-SYN-03 AC-33), `Core::type_card_example` (AC-25), the
+//! AC-28's no-value path, FR-TYP-01 AC-12, AC-17, AC-19, FR-SYN-03 AC-35), `Core::type_card_example` (AC-25), the
 //! duplicate details line (FR-LNK-14 AC-15), NFC (FR-FMT-12 AC-15), the kill harness (FR-SYN-02 AC-14) and NFR-POR-01
 //! AC-7 (the written type files parse with the `yaml` npm package). The test clock is `2026-11-19T10:00:00+01:00`,
 //! Europe/Prague, `en-US`. Compiles against the compile-only stubs of slice OC and uses only the contract's public
@@ -422,10 +422,10 @@ fn fr_fmt_12_ac15_card_keys_and_icon_names_are_nfc() {
     assert!(disk_s(&root, VYLET).is_some_and(|t| t.contains("card: [náročnost, kraj]\n")), "written NFC");
 }
 
-// ------------------------------------------------------------------------------------------------ FR-SYN-03 AC-33
+// ------------------------------------------------------------------------------------------------ FR-SYN-03 AC-35
 
 #[test]
-fn fr_syn_03_ac33_card_and_icon_writes_check_the_base() {
+fn fr_syn_03_ac35_card_and_icon_writes_check_the_base() {
     let sb = sandbox();
     let root = vault(&sb);
     let core = open(&root, &sb.dirs, false);

@@ -1,7 +1,7 @@
 // Slice OC real-app tests (L6, Appium mac2 on the built test app, D-382): docs/acceptance/cards.md "Real-app tests":
 // FR-SYN-06 AC-51 (the upgrade and the tour: bytes, mtime and inode), FR-TYP-11 AC-21 (a real Card change: one write
 // through a temporary file, new inode), FR-TYP-01 AC-17 (a real icon choice), AC-18 (Recent after a relaunch), AC-20 (c)
-// the socket monitor and (d) the licence in the built bundle, FR-STO-07 AC-13 (ui-state.json in Application Support),
+// the socket monitor and (d) the licence in the built bundle, FR-STO-07 AC-15 (ui-state.json in Application Support),
 // FR-UX-08 AC-26 (the macOS accessibility tree); app-shell.md FR-UX-02 AC-24 (the settings' storage as it was). Always
 // TEGG_TEST=1 with the cards clock (TEGG_NOW `2026-11-19T10:00:00+01:00`, TZ Europe/Prague), a temporary Application
 // Support and a temporary copy of tests/fixtures/vaults/views + new-empty/.tegg + the cards/ overlay with its README's
@@ -146,7 +146,7 @@ test('fr_typ_01_ac17_choosing_writes_one_line', { timeout: 300_000 }, async () =
   } finally { await cleanup(c); }
 });
 
-// ------------------------------------------------------------------------------------------------ FR-TYP-01 AC-18, FR-STO-07 AC-13
+// ------------------------------------------------------------------------------------------------ FR-TYP-01 AC-18, FR-STO-07 AC-15
 
 test('fr_typ_01_ac18_recent_icons', { timeout: 300_000 }, async () => {
   await ready();
@@ -163,9 +163,9 @@ test('fr_typ_01_ac18_recent_icons', { timeout: 300_000 }, async () => {
   } finally { await cleanup(c); }
 });
 
-test('fr_sto_07_ac13_recent_icons_are_machine_local', { timeout: 300_000 }, async () => {
+test('fr_sto_07_ac15_recent_icons_are_machine_local', { timeout: 300_000 }, async () => {
   await ready();
-  const c = fresh('sto07ac13', { typeViews: { lastTab: { book: 'Rozečtené' } } });
+  const c = fresh('sto07ac15', { typeViews: { lastTab: { book: 'Rozečtené' } } });
   try {
     const d = await launch(c, 'type-settings/výlet');
     const before = tree(c.vault);
