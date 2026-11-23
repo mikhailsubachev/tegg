@@ -10,7 +10,6 @@ import { newQueryFence, referenceFence, savedName, withSavedName } from '@tegg/d
 import { t } from '../i18n/catalog';
 import { events, ipc } from '../ipc/client';
 import type { BrokenDto, FilterItemDto, QueryDefDto, QueryDto, QueryResultDto, QueryRowDto, QuerySourceDto, SortDto } from '../ipc/queries';
-import { lanesDir, lanesOf } from '../ipc/queries';
 import { buttonText, headerClick, levels, sameSort } from './sort';
 import type { TypeDto, VersionDto } from '../ipc/types';
 import { chipIcon, chipTypes, onChipTypes, typeNameOf } from '../links/icons';
@@ -22,7 +21,10 @@ import { useViewsHandler } from '../views/actions';
 import { canUseQuery, usageKey, type Usage } from '../views/usage';
 import { registerUsage } from '../views/usageHook';
 import { useUsageWrite } from '../views/useUsageWrite';
-import { LanesSwitch, QueryBoard, type BoardControl } from './board/QueryBoard';
+import { QueryWall, type BoardControl } from './board/QueryWall';
+import { DisplayControls, type DisplayControlsApi } from './GroupMenu';
+import { effectiveDisplay, effectiveGrouping, groupChoices, isGrouped, limitApplies, noticeKeys, ownKeys, resetLaneOrderChange, type Display } from '../views/display';
+import type { WidthScope } from '../tables/widths';
 import { ResultsTable } from './ResultsTable';
 import { SortPopover, sortKeyName } from './SortPopover';
 import { useQueryApply } from './useQueryApply';
@@ -284,7 +286,9 @@ export function QueryBlock(p: QueryBlockProps) {
   // query page shows and sets the defaults (the query file, as above).
   const usage = p.usage ?? null;
   const isBlockUsage = !!usage && usage.kind === 'block' && form === 'reference' && !draft;
-  const uw = useUsageWrite(isBlockUsage ? usage : null, run.result, { type: null, ctl: p.ctl ?? null, fenceSource: p.fenceSource ?? null, rerun: () => run.rerun() });
+  const isPage = usage?.kind === 'page' && form === 'reference' && !draft && !inline;
+  const uw = useUsageWrite(isBlockUsage || isPage ? usage : null, run.result, { type: null, ctl: p.ctl ?? null, fenceSource: p.fenceSource ?? null, rerun: () => run.rerun(),
+    apply: (patch) => apply(patch) });
   const usageRun = !live ? run.result?.usage ?? null : null;
   const effSort = def ? (isBlockUsage && !live ? uw.current().sort : (usage?.kind === 'page' ? writer.current()?.sort ?? def.sort : def.sort)) : [];
   const effColumns = def ? (isBlockUsage && !live ? uw.current().columns : def.columns) : [];
@@ -301,18 +305,40 @@ export function QueryBlock(p: QueryBlockProps) {
     if (isBlockUsage) { undo.current = null; void uw.columns(next); return; }
     if (next) apply({ columns: next });
   };
-  const usageInfo = useRef({ uKey, usage, ownSort, ownColumns, editable: !usageDisabled });
-  usageInfo.current = { uKey, usage, ownSort, ownColumns, editable: !usageDisabled };
+  // ---- Slice Q3 (R220, §33.2, §41): display and grouping. A block's own values over the query's (written to its fence);
+  // the query page shows and sets the defaults (the query file); inline fences have neither switch nor Group (D-2194 (e)).
+  const hasControls = (isBlockUsage || isPage) && !!def;
+  const pageDef = isPage ? (writer.current() ?? def) : null;
+  const cur = uw.current();
+  const fromUsage = isBlockUsage && !live && !!run.result;
+  const display: Display = fromUsage ? cur.view : pageDef ? (pageDef.view === ('board' as string) ? 'wall' : pageDef.view) : result ? effectiveDisplay(result) : 'list';
+  const grouping = fromUsage ? cur.group : (() => { const d = pageDef ?? def; return d?.groupBy ? { key: nfc(d.groupBy), period: !!d.groupPeriod } : null; })();
+  const grouped = !!result?.group && grouping !== null && (!fromUsage || isGrouped(run.result!));
+  // A grouping just written shows on `Group` before the next run draws it (the pending own value or default).
+  const runGrouping = result ? effectiveGrouping(result) : null;
+  const groupPending = !!grouping && (runGrouping?.key !== grouping.key || runGrouping?.period !== grouping.period);
+  const lanes = fromUsage ? cur.lanes : ((pageDef ?? def)?.lanes ?? 'columns');
+  const laneOrder = fromUsage ? cur.laneOrder : ((pageDef ?? def)?.laneOrder ?? null);
+  const own = fromUsage ? ownKeys(run.result!) : { view: null, group: null, lanes: null, laneOrder: null, widths: null };
+  const ownAttr = (v: 'own' | 'broken' | null) => (v === null ? undefined : v === 'broken' ? 'broken' : '');
+  const controls = useRef<DisplayControlsApi | null>(null);
+  const displayDisabled = isBlockUsage ? uw.disabled : readOnly ? t('query.block.readOnly') : null;
+  const resetLaneOrder = () => { if (isBlockUsage && run.result) void uw.laneOrder(resetLaneOrderChange(run.result)); else void uw.laneOrder(null); };
+  const groupWith = (c: { key: string | null; period: boolean }) => { undo.current = null; void uw.group(c.key === null ? { none: true } : { none: false, key: c.key, period: c.period }); };
+  const usageInfo = useRef({ uKey, usage, ownSort, ownColumns, editable: !usageDisabled, display, grouped, own });
+  usageInfo.current = { uKey, usage, ownSort, ownColumns, editable: !usageDisabled, display, grouped, own };
   useEffect(() => registerUsage(() => (usageInfo.current.uKey ? figure.current : null), () => {
     const i = usageInfo.current;
-    return { key: i.uKey ?? '', kind: i.usage?.kind ?? 'block', name: (i.usage?.name ?? '').normalize('NFC'), ownSort: i.ownSort, ownColumns: i.ownColumns, editable: i.editable };
+    const b = (v: 'own' | 'broken' | null) => (v === 'broken' ? 'broken' as const : v === 'own');
+    return { key: i.uKey ?? '', kind: i.usage?.kind ?? 'block', name: (i.usage?.name ?? '').normalize('NFC'), ownSort: i.ownSort, ownColumns: i.ownColumns, editable: i.editable,
+      display: i.display, grouped: i.grouped, ownView: b(i.own.view), ownGroup: b(i.own.group), ownLanes: b(i.own.lanes), ownLaneOrder: b(i.own.laneOrder), ownWidths: b(i.own.widths) };
   }), []);
   const [sortOpen, setSortOpen] = useState<{ add: boolean } | null>(null);
   const sortBtn = useRef<HTMLButtonElement | null>(null);
   const board = useRef<BoardControl | null>(null);
 
-  // Show more: pages of `limit`, in memory (D-1443).
-  const limit = Math.max(1, def?.limit ?? 50);
+  // Show more: pages of `limit`, in memory (D-1443); `limit` applies to an ungrouped List or Table only (D-2189).
+  const limit = limitApplies(display, grouped) ? Math.max(1, def?.limit ?? 50) : Math.max(1, result?.rows.length ?? 1);
   const total = result?.total ?? result?.rows.length ?? 0;
   const count = Math.min(shown ?? limit, result?.rows.length ?? 0);
   const rows = result?.rows.slice(0, count) ?? [];
@@ -321,9 +347,9 @@ export function QueryBlock(p: QueryBlockProps) {
   const broken = result?.broken ?? [];
   const firstBroken = broken[0] ?? null;
   const showResults = state === 'ok' || state === 'noResults';
-  const view = def?.view ?? 'list';
-  // D-1773: a board query draws its board (a broken `group_by` draws a List with its notice, R185).
-  const isBoard = view === 'wall' && !!result?.group;
+  const view = display;
+  // Slice Q3 (R224): a grouped wall draws its board; a wall without a valid grouping is the ungrouped wall.
+  const isBoard = view === 'wall' && grouped;
   const sortTitle = def ? (() => { const b = buttonText(effSort, (k) => sortKeyName(k, def.types.length === 1 ? types.find((x) => nfc(x.key) === nfc(def.types[0])) : undefined).label); return b.text + (b.more ? ` ${t('sort.more', { count: b.more })}` : ''); })() : undefined;
   // The palette (v1-views §4.7): a selected block, or the query page's block.
   useViewsHandler(!!(p.selected || p.onPage) && !!name && !inline, {
@@ -331,11 +357,27 @@ export function QueryBlock(p: QueryBlockProps) {
       typeKey: null, tab: null, writable: !readOnly && !!def, viewWritable: !readOnly && !!def,
       board: isBoard ? board.current?.status() ?? null : null, sortable: !!def && !usageDisabled,
       usage: isBlockUsage && !usageDisabled && run.result ? { kind: 'block' as const, ownSort: canUseQuery(run.result, 'sort'), ownColumns: canUseQuery(run.result, 'columns') } : null,
+      display: hasControls ? {
+        value: display, grouped, wall: display === 'wall', writable: !displayDisabled, ownView: own.view !== null, ownGroup: own.group !== null || own.lanes !== null || own.laneOrder !== null,
+        laneOrder: grouped && laneOrder !== null, groupFocused: false, all: false,
+      } : null,
     }),
     run: (id) => {
       if (id === 'sort.addLevel') { if (!usageDisabled && def) setSortOpen({ add: true }); return; }
       if (id === 'sort.useQuery') { sortTo(null); return; }
       if (id === 'columns.useQuery') { columnsTo(null); return; }
+      if (hasControls && !displayDisabled) {
+        switch (id) {
+          case 'display.list': case 'display.table': case 'display.wall': undo.current = null; void uw.display(id.slice(8) as Display); return;
+          case 'group.open': controls.current?.openGroup(); return;
+          case 'group.remove': groupWith({ key: null, period: false }); return;
+          case 'display.useQuery': void uw.display(null); return;
+          case 'group.useQuery': void uw.group(null); return;
+          case 'board.switchLanes': if (isBoard) void uw.lanes(lanes === 'rows' ? 'columns' : 'rows'); return;
+          case 'board.resetLaneOrder': if (grouped && laneOrder !== null) resetLaneOrder(); return;
+          default: break;
+        }
+      }
       board.current?.run(id);
     },
   });
@@ -429,6 +471,7 @@ export function QueryBlock(p: QueryBlockProps) {
     });
   };
 
+  const oneType = def && def.types.length === 1 ? types.find((x) => nfc(x.key) === nfc(def.types[0]!)) ?? null : null;
   const header = (
     <div className="query-header">
       <span className="query-icon" aria-hidden="true"><Icon name="query" size={14} dataIcon="query" /></span>
@@ -441,6 +484,15 @@ export function QueryBlock(p: QueryBlockProps) {
         p.ctl && showResults && <button type="button" tabIndex={0} className="query-head-button" data-command="query.saveAs" onClick={saveAs}>{t('query.block.saveAs')}</button>
       ) : (
         <>
+          {showResults && hasControls && def && (
+            // Slice Q3 (R223, board G): the display switch and `Group` before the sort icon (saved-query blocks only).
+            <DisplayControls display={display} grouping={grouped || groupPending ? grouping : null} groupedWall={display === 'wall' && grouped} lanes={lanes}
+              choices={groupChoices(oneType, def.types)} type={oneType}
+              scope={isPage ? 'default' : 'block'} disabled={displayDisabled} apiRef={controls}
+              offerUseQuery={{ grouping: fromUsage && canUseQuery(run.result!, 'grouping'), display: fromUsage && canUseQuery(run.result!, 'view') }}
+              onDisplay={(d) => { undo.current = null; void uw.display(d); }} onGroup={groupWith} onLanes={(l) => { undo.current = null; void uw.lanes(l); }}
+              onUseQuery={(w) => { undo.current = null; void (w === 'display' ? uw.display(null) : uw.group(null)); }} />
+          )}
           {showResults && def && name && (
             // R188 (board G): the sort button, an icon with the number of levels.
             <button ref={sortBtn} type="button" tabIndex={0} className="query-head-button query-sort" data-command="sort.open" aria-label={t('sort.button')}
@@ -449,9 +501,6 @@ export function QueryBlock(p: QueryBlockProps) {
               onClick={() => { if (!usageDisabled) setSortOpen((o) => (o ? null : { add: false })); }}>
               <Icon name="sort" size={13} /><span className="sort-count" aria-hidden="true">{levels(effSort).length}</span>
             </button>
-          )}
-          {showResults && isBoard && def && (
-            <LanesSwitch lanes={lanesDir(def.lanes)} disabled={readOnly ? t('query.block.readOnly') : null} onSwitch={(l) => apply({ lanes: lanesOf(l) })} />
           )}
           {showResults && view === 'table' && (
             <button ref={columnsBtn} type="button" tabIndex={0} className="query-head-button" data-command="query.columns" aria-haspopup="menu" aria-expanded={columnsOpen}
@@ -481,13 +530,24 @@ export function QueryBlock(p: QueryBlockProps) {
       return <div className="query-skeleton" aria-hidden="true"><span /><span /><span /></div>;
     }
     if (state !== 'ok') return null;
-    if (isBoard && result?.group && def) {
-      return <QueryBoard result={{ ...result, group: result.group, def }} name={name} title={title} readOnly={readOnly ? t('query.block.readOnly') : null} types={types}
-        apply={(patch) => apply(patch)} rerun={() => run.rerun()} controlRef={board} foldKey={uKey} columns={effColumns} />;
+    if (view === 'wall' && result && def) {
+      // Slice Q3 (§33.2): a lane drag, `Switch lanes` and `Reset lane order` write the usage (the fence, the query file).
+      const wallApply = (patch: Partial<QueryDefDto>) => {
+        if (inline) return;
+        undo.current = null;
+        if (patch.lanes !== undefined) void uw.lanes(patch.lanes);
+        if (patch.laneOrder !== undefined) { if (patch.laneOrder === null) resetLaneOrder(); else void uw.laneOrder(patch.laneOrder); }
+      };
+      const wallDef = { ...def, view: 'wall' as const, lanes, laneOrder };
+      return <QueryWall result={{ ...result, group: isBoard ? result.group : null, def: wallDef }} name={name} title={title}
+        readOnly={readOnly ? t('query.block.readOnly') : inline ? null : displayDisabled} types={types}
+        apply={inline ? (patch) => apply(patch) : wallApply} rerun={() => run.rerun()} controlRef={board} foldKey={uKey} />;
     }
     if (view === 'table' && def) {
+      const widthScope: WidthScope | null = isBlockUsage && !live && uKey ? { kind: 'usage', key: uKey, own: run.result?.usage?.own.widths ?? null, order: effColumns, write: (next) => { undo.current = null; return uw.widths(next); }, disabled: uw.disabled }
+        : isPage && uKey ? { kind: 'page', key: uKey } : null;
       return <ResultsTable def={def} rows={rows} types={types} typeOf={typeOf} typeName={typeName} title={title} onOpen={openRow}
-        name={inline ? null : name} readOnly={usageDisabled} plain sort={effSort} columns={effColumns} widthKey={uKey}
+        name={inline ? null : name} readOnly={usageDisabled} plain sort={effSort} columns={effColumns} widthKey={uKey} widthScope={widthScope}
         onSort={(by, shift) => {
           // D-1784: a click makes the column the only level (a click on the only level flips it); ⇧-click adds or flips.
           if (isBlockUsage) { const cur = uw.current().sort; sortTo(headerClick(cur, by, shift)); return; }
@@ -511,6 +571,8 @@ export function QueryBlock(p: QueryBlockProps) {
       data-usage-key={uKey ?? undefined} data-usage-kind={uKey ? usage!.kind : undefined}
       data-own-sort={uKey && ownSort ? (ownSort === 'broken' ? 'broken' : '') : undefined}
       data-own-columns={uKey && ownColumns ? (ownColumns === 'broken' ? 'broken' : '') : undefined}
+      data-display={hasControls || def ? display : undefined} data-group={grouped && grouping ? grouping.key : undefined} data-group-period={grouped && grouping?.period ? '' : undefined}
+      data-own-view={ownAttr(own.view)} data-own-group={ownAttr(own.group)} data-own-lanes={ownAttr(own.lanes)} data-own-lane-order={ownAttr(own.laneOrder)} data-own-widths={ownAttr(own.widths)}
       onKeyDown={(e) => {
         // ⌘↩ with the focus in the block (its `Edit query`, a result) opens the editor (R144).
         if (e.key === 'Enter' && e.metaKey && !e.shiftKey && !e.altKey) { e.preventDefault(); e.stopPropagation(); edit(); }
@@ -524,8 +586,8 @@ export function QueryBlock(p: QueryBlockProps) {
           )}
         </p>
       )}
-      {showResults && usageRun && usageRun.broken.filter((b, i, a) => a.findIndex((x) => x.key === b.key) === i).map((b) => (
-        <p key={`usage-${b.key}`} className="query-notice" data-usage-broken={b.key}><Icon name="warning" size={13} />{t('query.block.brokenKey', { key: b.key })}</p>
+      {showResults && usageRun && run.result && noticeKeys(run.result).map((k) => (
+        <p key={`usage-${k}`} className="query-notice" data-usage-broken={k}><Icon name="warning" size={13} />{t('query.block.brokenKey', { key: k })}</p>
       ))}
       {state === 'noType' && firstBroken && <p className="query-notice"><Icon name="warning" size={13} />{noticeOf(firstBroken, types)}</p>}
       {message}

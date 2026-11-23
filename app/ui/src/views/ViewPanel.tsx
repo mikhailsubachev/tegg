@@ -5,16 +5,16 @@
 // tab while the page is open, D-1796), the sort button (R188), `Columns` (Table) or the `Lanes` radiogroup (Board) and
 // `View actions`. Viewing writes nothing; sort, columns, lanes, lane order and card moves write their one file.
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
-import { createPortal } from 'react-dom';
 import { t, catalogLocale } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
 import type { QueryDefDto, QueryResultDto, QueryRowDto, SortDto } from '../ipc/queries';
-import { lanesDir, lanesOf } from '../ipc/queries';
 import type { TypeDto } from '../ipc/types';
 import { Icon } from '../shell/Icon';
 import { TagFilterControl } from './TagFilterControl';
 import { keepRow } from './tagFilter';
-import { LanesSwitch, QueryBoard, type BoardControl } from '../queries/board/QueryBoard';
+import { QueryWall, type BoardControl } from '../queries/board/QueryWall';
+import { DisplayControls, type DisplayControlsApi } from '../queries/GroupMenu';
+import { effectiveDisplay, effectiveGrouping, groupChoices, isGrouped, limitApplies, noticeKeys, ownKeys, resetLaneOrderChange, type Display } from './display';
 import { ColumnsMenu, ResultChip, noticeOf } from '../queries/QueryBlock';
 import { ResultsTable } from '../queries/ResultsTable';
 import { SortPopover, sortKeyName } from '../queries/SortPopover';
@@ -26,11 +26,12 @@ import { toggleColumn } from '../queries/model';
 import { useQueryApply } from '../queries/useQueryApply';
 import { useQueryRun } from '../queries/useQueryRun';
 import { columnsRequest } from '../types/columns';
-import { resetWidths } from '../tables/widths';
+import { resetWidths, type WidthScope } from '../tables/widths';
 import { canUseQuery, usageKey, type Usage } from './usage';
 import { registerUsage } from './usageHook';
 import { useUsageWrite, type TypePatch } from './useUsageWrite';
 import { NewPropertyDialog } from '../pages/TypeSettingsPage';
+import type { ViewsStatus } from '../shell/commands';
 
 const nfc = (s: string) => s.normalize('NFC');
 const fold = (s: string) => nfc(s).toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').normalize('NFC');
@@ -51,6 +52,10 @@ export type PanelApi = {
   useQuery: (key: 'sort' | 'columns') => void;
   /** What the editor opened from this tab works with (D-1844, D-1859). */
   editorUsage: () => { sort: SortDto[]; columns: string[]; setColumns: (next: string[]) => Promise<boolean>; disabled: string | null } | null;
+  /** Slice Q3 (§42.4): the tab's display for the palette and the view menu (`Reset lane order` when it has one). */
+  display: () => (NonNullable<ViewsStatus['display']> & { resetLaneOrder: boolean }) | null;
+  /** Slice Q3: the palette's display, grouping and board commands on this tab. */
+  run: (id: string) => void;
 };
 
 export function viewStateOf(r: QueryResultDto | null, typeKey: string, draft: boolean): ViewState {
@@ -65,15 +70,13 @@ export function viewStateOf(r: QueryResultDto | null, typeKey: string, draft: bo
   return 'ok';
 }
 
-export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, onFilter, onState, onMenu, onRemove, apiRef, live, draft, labelledBy, patch, onTags }: {
+export function ViewPanel({ name, typeKey, type, types, plural, filter, onFilter, onState, onMenu, onRemove, apiRef, live, draft, labelledBy, patch, onTags }: {
   /** The saved query's name (a tab of `views:`). */
   name: string;
   typeKey: string;
   type: TypeDto;
   types: TypeDto[];
   plural: string;
-  /** Where the toolbar goes (next to the tabs). */
-  slot: HTMLElement | null;
   filter: TabFilter;
   onFilter: (f: TabFilter) => void;
   onState: (s: ViewState) => void;
@@ -110,12 +113,31 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
   const disabled = draft ? null : uw.disabled;
   const ownSort: boolean | 'broken' = usageRun ? (usageRun.broken.some((b) => b.key === 'sort') ? 'broken' : usageRun.own.sort !== null) : false;
   const ownColumns: boolean | 'broken' = usageRun ? (usageRun.broken.some((b) => b.key === 'columns') ? 'broken' : usageRun.own.columns !== null) : false;
+  // ---- Slice Q3 (R220, §33.2, §41): the tab's own display and grouping over the query's; the editor's live preview
+  // (and a `New view` draft) shows the query's.
+  const cur = uw.current();
+  const plainRun = !!live || draft || !run.result;
+  const display: Display = plainRun ? (result ? effectiveDisplay(result) : 'list') : cur.view;
+  const grouping = plainRun ? (def?.groupBy ? { key: nfc(def.groupBy), period: !!def.groupPeriod } : null) : cur.group;
+  const grouped = !!result?.group && grouping !== null && (plainRun || isGrouped(run.result!));
+  // A grouping just written shows on `Group` before the next run draws it (the pending own value).
+  const runGrouping = !plainRun ? effectiveGrouping(run.result!) : null;
+  const groupPending = !plainRun && !!grouping && (runGrouping?.key !== grouping.key || runGrouping?.period !== grouping.period);
+  const lanes = plainRun ? (def?.lanes ?? 'columns') : cur.lanes;
+  const laneOrder = plainRun ? (def?.laneOrder ?? null) : cur.laneOrder;
+  const own = usageRun && !plainRun ? ownKeys(run.result!) : { view: null, group: null, lanes: null, laneOrder: null, widths: null };
+  const ownAttr = (v: 'own' | 'broken' | null) => (v === null ? undefined : v === 'broken' ? 'broken' : '');
+  const controls = useRef<DisplayControlsApi | null>(null);
+  const groupWith = (c: { key: string | null; period: boolean }) => uw.group(c.key === null ? { none: true } : { none: false, key: c.key, period: c.period });
+  const resetLaneOrder = () => { if (run.result) void uw.laneOrder(resetLaneOrderChange(run.result)); };
   const panelEl = useRef<HTMLDivElement | null>(null);
-  const info = useRef({ uKey, name, ownSort, ownColumns, editable: !disabled });
-  info.current = { uKey, name, ownSort, ownColumns, editable: !disabled };
+  const info = useRef({ uKey, name, ownSort, ownColumns, editable: !disabled, display, grouped, own });
+  info.current = { uKey, name, ownSort, ownColumns, editable: !disabled, display, grouped, own };
   useEffect(() => registerUsage(() => (info.current.uKey ? panelEl.current : null), () => {
     const i = info.current;
-    return { key: i.uKey ?? '', kind: 'tab', name: i.name.normalize('NFC'), ownSort: i.ownSort, ownColumns: i.ownColumns, editable: i.editable };
+    const b = (v: 'own' | 'broken' | null) => (v === 'broken' ? 'broken' as const : v === 'own');
+    return { key: i.uKey ?? '', kind: 'tab', name: i.name.normalize('NFC'), ownSort: i.ownSort, ownColumns: i.ownColumns, editable: i.editable,
+      display: i.display, grouped: i.grouped, ownView: b(i.own.view), ownGroup: b(i.own.group), ownLanes: b(i.own.lanes), ownLaneOrder: b(i.own.laneOrder), ownWidths: b(i.own.widths) };
   }), []);
   const [newProp, setNewProp] = useState(false);
   const typeOf = (k: string) => types.find((x) => nfc(x.key) === nfc(k));
@@ -126,7 +148,7 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
   const [shown, setShown] = useState<number | null>(null);
   const sortBtn = useRef<HTMLButtonElement | null>(null);
   const columnsBtn = useRef<HTMLButtonElement | null>(null);
-  const isBoard = def?.view === 'wall' && !!result?.group;
+  const isBoard = display === 'wall' && grouped;
   useImperativeHandle(apiRef, () => ({
     def: () => writer.current() ?? def,
     readOnly: () => readOnly,
@@ -136,15 +158,38 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
     usage: () => (!disabled && run.result?.usage ? { kind: 'tab', ownSort: canUseQuery(run.result, 'sort'), ownColumns: canUseQuery(run.result, 'columns') } : null),
     useQuery: (key) => { if (!disabled) void (key === 'sort' ? uw.sort(null) : uw.columns(null)); },
     editorUsage: () => (usage ? { sort: uw.current().sort, columns: uw.current().columns, setColumns: (c) => uw.columns(c), disabled: uw.disabled } : null),
+    display: () => (def && !draft ? {
+      value: display, grouped, wall: display === 'wall', writable: !disabled, ownView: own.view !== null, ownGroup: own.group !== null || own.lanes !== null || own.laneOrder !== null,
+      laneOrder: grouped && laneOrder !== null, groupFocused: false, all: false, resetLaneOrder: grouped && laneOrder !== null,
+    } : null),
+    run: (id) => {
+      if (disabled && (id.startsWith('display.') || id.startsWith('group.') || id === 'board.switchLanes' || id === 'board.resetLaneOrder')) return;
+      switch (id) {
+        case 'display.list': case 'display.table': case 'display.wall': void uw.display(id.slice(8) as Display); return;
+        case 'group.open': controls.current?.openGroup(); return;
+        case 'group.remove': void uw.group({ none: true }); return;
+        case 'display.useQuery': void uw.display(null); return;
+        case 'group.useQuery': void uw.group(null); return;
+        case 'board.switchLanes': if (grouped && display === 'wall') void uw.lanes(lanes === 'rows' ? 'columns' : 'rows'); return;
+        case 'board.resetLaneOrder': if (grouped && laneOrder !== null) resetLaneOrder(); return;
+        default: board.current?.run(id);
+      }
+    },
   }));
 
   // ---- §4.7: on a view tab's table the palette's `Choose columns…` opens its Columns, `Reset column widths` resets the
   // query's widths (`queryColumnWidths[name]`), not the type's.
-  const isTable = def?.view === 'table' && !draft;
+  const isTable = display === 'table' && !draft;
+  // §41.6: the tab's widths are its item's `widths` (D-2177), read from the 0.6.0 entry until it has its own (D-2190).
+  const widthScope: WidthScope | null = uKey && !draft && !live ? {
+    kind: 'usage', key: uKey, own: run.result?.usage?.own.widths ?? null, order: effColumns, write: (next) => uw.widths(next), disabled,
+  } : null;
+  const scopeRef = useRef(widthScope);
+  scopeRef.current = widthScope;
   useEffect(() => {
     if (!isTable) return;
     const prev = columnsRequest.current;
-    const h = (what: 'choose' | 'reset') => { if (what === 'reset') { if (uKey) resetWidths({ kind: 'usage', key: uKey }); } else if (!disabled) setColumnsOpen(true); };
+    const h = (what: 'choose' | 'reset') => { if (what === 'reset') { if (scopeRef.current) resetWidths(scopeRef.current); } else if (!disabled) setColumnsOpen(true); };
     columnsRequest.current = h;
     return () => { if (columnsRequest.current === h) columnsRequest.current = prev; };
   }, [isTable, name, disabled, uKey]);
@@ -156,7 +201,8 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
   const keep = (r: QueryRowDto) => (!q || fold(r.title).includes(q)) && keepRow({ tags: rowTags(r) }, filter.tags);
   const all = result?.rows ?? [];
   const narrowed = all.filter(keep);
-  const limit = Math.max(1, def?.limit ?? 50);
+  // D-2189: `limit` applies to an ungrouped List or Table only.
+  const limit = limitApplies(display, grouped) ? Math.max(1, def?.limit ?? 50) : Math.max(1, narrowed.length);
   const count = Math.min(shown ?? limit, narrowed.length);
   const rows = narrowed.slice(0, count);
   const more = Math.min(limit, narrowed.length - count);
@@ -170,7 +216,7 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
 
   const toolbar = (
     <div className="view-toolbar">
-      <input type="search" className="type-filter view-filter" aria-label={t('typePage.filter', { plural })} placeholder={t('typePage.filter', { plural })}
+      <input type="search" role="searchbox" className="type-filter view-filter" aria-label={t('typePage.filter', { plural })} placeholder={t('typePage.filter', { plural })}
         data-command={nfc(typeKey) === 'task' ? 'tasks.search' : undefined}
         value={filter.text} spellCheck={false} autoComplete="off" onChange={(e) => onFilter({ ...filter, text: e.target.value })}
         onKeyDown={(e) => {
@@ -182,7 +228,14 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
           }
         }} />
       <TagFilterControl rows={tagRows} selected={filter.tags} onChange={setTags} command="view.tagFilter" allHint={nfc(typeKey) === 'task' ? t('tasks.tagAll') : null} />
-      {def && isBoard && <LanesSwitch lanes={lanesDir(def.lanes)} disabled={readOnly} onSwitch={(l) => apply({ lanes: lanesOf(l) })} />}
+      {def && (
+        <DisplayControls display={display} grouping={grouped || groupPending ? grouping : null} groupedWall={display === 'wall' && grouped} lanes={lanes}
+          choices={groupChoices(def.types.length === 1 ? typeOf(def.types[0]!) ?? type : null, def.types)} type={def.types.length === 1 ? typeOf(def.types[0]!) ?? type : null}
+          scope="tab" disabled={draft ? t('query.block.usageNotEditable') : disabled} apiRef={controls}
+          offerUseQuery={{ grouping: !plainRun && canUseQuery(run.result!, 'grouping'), display: !plainRun && canUseQuery(run.result!, 'view') }}
+          onDisplay={(d) => { void uw.display(d); }} onGroup={(c) => { void groupWith(c); }} onLanes={(l) => { void uw.lanes(l); }}
+          onUseQuery={(w) => { void (w === 'display' ? uw.display(null) : uw.group(null)); }} />
+      )}
       {def && (
         <button ref={sortBtn} type="button" tabIndex={0} className="text-button view-sort" aria-label={t('sort.button')} aria-haspopup="dialog" aria-expanded={!!sortOpen}
           data-command="sort.open" aria-disabled={disabled ? 'true' : undefined} aria-description={disabled ?? undefined}
@@ -197,7 +250,7 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
           {sortText.more > 0 && <span className="sort-more">{t('sort.more', { count: sortText.more })}</span>}
         </button>
       )}
-      {def && def.view === 'table' && (
+      {def && display === 'table' && (
         <button ref={columnsBtn} type="button" tabIndex={0} className="text-button view-columns" data-command="view.columns" aria-haspopup="menu" aria-expanded={columnsOpen}
           aria-disabled={disabled ? 'true' : undefined} aria-description={disabled ?? undefined}
           onClick={() => { if (!disabled) setColumnsOpen((o) => !o); }}>
@@ -241,51 +294,66 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
     ? t('views.brokenAllTypes', { thisType: type.name })
     : t('views.brokenTypes', { types: listFormat(def.types.map(typeName)), thisType: type.name })) : null;
 
+  /** A wall's lane drag, `Move lane …`, `Switch lanes` and `Reset lane order` write the tab's item (§33.2). */
+  const wallApply = (p: Partial<QueryDefDto>) => {
+    if (readOnly || draft || live) return;
+    if (p.lanes !== undefined) void uw.lanes(p.lanes);
+    if (p.laneOrder !== undefined) { if (p.laneOrder === null) resetLaneOrder(); else void uw.laneOrder(p.laneOrder); }
+  };
   const body = (() => {
     if (!showResults || !def || !result) return null;
-    if (isBoard && result.group) {
+    if (display === 'wall' && isBoard && result.group) {
       // §29.6: lanes stay when the filters leave nothing; the status says so.
       const none = (filter.text.trim() || filter.tags.length) && narrowed.length === 0
         ? <p role="status" className="query-message">{t('typePage.noMatch', { plural, text: filter.text.trim() })}</p> : null;
-      return <>{none}<QueryBoard result={{ ...result, group: result.group, def }} name={draft ? null : name} title={def.title} readOnly={readOnly} types={types}
-        filter={filter} apply={(p) => apply(p)} rerun={() => run.rerun()} controlRef={board} foldKey={uKey} env={live ? null : run.env} /></>;
+      return <>{none}<QueryWall result={{ ...result, def: { ...def, view: 'wall', lanes, laneOrder } }} name={draft ? null : name} title={def.title} readOnly={readOnly ?? disabled} types={types}
+        filter={filter} apply={wallApply} rerun={() => run.rerun()} controlRef={board} foldKey={uKey} env={live ? null : run.env} /></>;
     }
     if (narrowed.length === 0) {
       return <p className="query-message">{filter.text.trim() || filter.tags.length ? t('typePage.noMatch', { plural, text: filter.text.trim() }) : t('query.block.noResults')}</p>;
     }
-    if (def.view === 'table') {
+    if (display === 'wall') {
+      return <QueryWall result={{ ...result, group: null, def }} rows={narrowed} name={draft ? null : name} title={def.title} readOnly={readOnly ?? disabled} types={types}
+        apply={wallApply} rerun={() => run.rerun()} controlRef={board} env={live ? null : run.env} />;
+    }
+    if (display === 'table') {
       return <ResultsTable def={def} rows={rows} types={types} typeOf={typeOf} typeName={typeName} title={def.title} name={draft ? null : name} readOnly={disabled}
-        sort={effSort} columns={effColumns} widthKey={uKey}
+        sort={effSort} columns={effColumns} widthKey={uKey} widthScope={widthScope}
         onOpen={(p) => queryNav()?.openNote(p)}
         onSort={(by, shift) => { const cur = uw.current().sort; const next = headerClick(cur, by, shift); if (!sameSort(next, cur) || !ownSort) void uw.sort(next); }}
         onColumns={(columns) => { void uw.columns(columns); }} />;
     }
     return (
       <ul className="query-list view-list" aria-label={def.title}>
-        {rows.map((r) => <li key={r.path}><ResultChip row={r} onOpen={(p) => queryNav()?.openNote(p)} /></li>)}
+        {rows.map((r) => <li key={r.path} data-query-result={nfc(r.path)}><ResultChip row={r} onOpen={(p) => queryNav()?.openNote(p)} /></li>)}
       </ul>
     );
   })();
+  const notices = showResults && usageRun && run.result ? noticeKeys(run.result) : [];
 
   return (
     <>
-      {slot && createPortal(toolbar, slot)}
       <div ref={panelEl} role="tabpanel" aria-labelledby={labelledBy} data-view-panel={nfc(name)} className="view-panel" data-view-state={state}
         data-usage-key={uKey ?? undefined} data-usage-kind={uKey ? 'tab' : undefined}
         data-own-sort={uKey && ownSort ? (ownSort === 'broken' ? 'broken' : '') : undefined}
-        data-own-columns={uKey && ownColumns ? (ownColumns === 'broken' ? 'broken' : '') : undefined}>
-        {typesNotice && <p className="query-notice view-notice"><Icon name="warning" size={13} />{typesNotice}</p>}
-        {firstBroken && <p className="query-notice view-notice"><Icon name="warning" size={13} />{noticeOf(firstBroken, types)}</p>}
-        {showResults && usageRun && usageRun.broken.filter((b, i, a) => a.findIndex((x) => x.key === b.key) === i).map((b) => (
-          <p key={`usage-${b.key}`} className="query-notice view-notice" data-usage-broken={b.key}><Icon name="warning" size={13} />{t('query.block.brokenKey', { key: b.key })}</p>
-        ))}
-        {message}
-        {body}
-        {showResults && !isBoard && more > 0 && (
-          <button type="button" tabIndex={0} className="query-more" data-command="query.showMore" onClick={() => setShown(count + limit)}>
-            {t('query.block.showMore', { count: more, total: narrowed.length })}
-          </button>
-        )}
+        data-own-columns={uKey && ownColumns ? (ownColumns === 'broken' ? 'broken' : '') : undefined}
+        data-display={def ? display : undefined} data-group={grouped && grouping ? grouping.key : undefined} data-group-period={grouped && grouping?.period ? '' : undefined}
+        data-own-view={ownAttr(own.view)} data-own-group={ownAttr(own.group)} data-own-lanes={ownAttr(own.lanes)} data-own-lane-order={ownAttr(own.laneOrder)} data-own-widths={ownAttr(own.widths)}>
+        <div className="view-toolbar-cell">{toolbar}</div>
+        <div className="view-body">
+          {typesNotice && <p className="query-notice view-notice"><Icon name="warning" size={13} />{typesNotice}</p>}
+          {firstBroken && <p className="query-notice view-notice"><Icon name="warning" size={13} />{noticeOf(firstBroken, types)}</p>}
+          {notices.map((k) => (
+            <p key={`usage-${k}`} className="query-notice view-notice" data-usage-broken={k}><Icon name="warning" size={13} />{t('query.block.brokenKey', { key: k })}</p>
+          ))}
+          {message}
+          {body}
+          {showResults && display !== 'wall' && more > 0 && (
+            <button type="button" tabIndex={0} className="query-more" data-command="query.showMore" onClick={() => setShown(count + limit)}>
+              {t('query.block.showMore', { count: more, total: narrowed.length })}
+            </button>
+          )}
+        </div>
       </div>
       {sortOpen && def && (
         <SortPopover sort={effSort} type={type} anchor={sortBtn.current} addOnOpen={sortOpen.add} disabled={disabled} scope="tab"

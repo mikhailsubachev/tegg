@@ -12,7 +12,7 @@ import { chipIcon } from '../links/icons';
 import { RefElement } from '../preview/useReference';
 import { Icon, typeIconName } from '../shell/Icon';
 import { HeaderCell } from '../tables/HeaderCell';
-import { WIDTH, useColumnWidths } from '../tables/widths';
+import { WIDTH, useColumnWidths, type WidthScope } from '../tables/widths';
 import { TypeCell } from '../types/cell';
 import { columnChoices, UNIVERSAL } from './model';
 import { queryNav } from './nav';
@@ -34,7 +34,7 @@ export function columnsAfterDrop(columns: string[], key: string, before: string 
   return out.every((c, i) => nfc(c) === nfc(columns[i])) ? null : out;
 }
 
-export function ResultsTable({ def: fileDef, rows, types, typeOf, typeName, title, name, readOnly, plain = false, onOpen, onSort, onColumns, sort, columns, widthKey }: {
+export function ResultsTable({ def: fileDef, rows, types, typeOf, typeName, title, name, readOnly, plain = false, onOpen, onSort, onColumns, sort, columns, widthKey, widthScope = null }: {
   def: QueryDefDto; rows: QueryRowDto[]; types: TypeDto[]; typeOf: (k: string) => TypeDto | undefined; typeName: (k: string) => string;
   title: string; onOpen: (path: string) => void;
   /** The saved query (widths, levels, drags); null for an inline fence (slice Q's behaviour, D-1810). */
@@ -50,6 +50,9 @@ export function ResultsTable({ def: fileDef, rows, types, typeOf, typeName, titl
   columns?: string[];
   /** Slice Q2.1 (R198): the usage key its widths are kept under (machine-local). */
   widthKey?: string | null;
+  /** Slice Q3 (§41.6; D-2177, D-2190): where the widths are kept: a usage's own `widths` in the vault, `query/<name>`'s
+   *  `page:` key or, without one, `widthKey` on this Mac. */
+  widthScope?: WidthScope | null;
 }) {
   const def = useMemo(() => ({ ...fileDef, sort: sort ?? fileDef.sort, columns: columns ?? fileDef.columns }), [fileDef, sort, columns]);
   const one = def.types.length === 1 ? typeOf(def.types[0]) : undefined;
@@ -78,7 +81,10 @@ export function ResultsTable({ def: fileDef, rows, types, typeOf, typeName, titl
   const shown = rows.slice(win.from, win.to);
 
   // ---- widths per usage (R198, D-1845): stored per column; Title without one fills what the others leave.
-  const { widths, set } = useColumnWidths({ kind: 'usage', key: saved && widthKey ? widthKey : '\u0000inline' });
+  const scope: WidthScope = widthScope && saved ? widthScope : { kind: 'usage', key: saved && widthKey ? widthKey : '\u0000inline' };
+  const { widths, set, remove, flush, vault } = useColumnWidths(scope);
+  const canWidth = saved && (!!widthKey || !!widthScope);
+  const resizeDisabled = scope.kind === 'usage' && scope.disabled ? scope.disabled : null;
   const [boxWidth, setBoxWidth] = useState(0);
   useLayoutEffect(() => {
     const el = box.current;
@@ -88,7 +94,7 @@ export function ResultsTable({ def: fileDef, rows, types, typeOf, typeName, titl
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const stored = saved && widthKey ? widths : {};
+  const stored = canWidth ? widths : {};
   const others = cols.slice(1).reduce((n, c) => n + (stored[c.key] ?? WIDTH.default), 0);
   const widthOf = (key: string) => stored[key] ?? (key === 'title' ? Math.max(WIDTH.titleFill, boxWidth - others) : WIDTH.default);
   const fixed = saved && boxWidth > 0;
@@ -115,13 +121,15 @@ export function ResultsTable({ def: fileDef, rows, types, typeOf, typeName, titl
                   ariaSort={level === 0 ? (order === 'asc' ? 'ascending' : 'descending') : undefined}
                   marker={m} description={level > 0 ? t('sort.level', { n: level + 1, order: t(order === 'asc' ? 'sort.ascending' : 'sort.descending') }) : readOnly ?? undefined}
                   disabled={!!readOnly} movable={saved && i > 0} resizable={saved} plain={plain} scroller={box} titleWidth={widthOf('title')}
+                  resizeDisabled={resizeDisabled} onWidthBlur={flush}
                   onSort={(shift) => onSort(c.key, shift)}
                   onDrop={(before) => { const next = columnsAfterDrop(def.columns, c.key, before); if (next) onColumns(next); }}
                   onWidth={(px, save) => {
-                    if (!saved || !widthKey) return;
-                    if (px === null) { set(c.key, c.key === 'title' ? WIDTH.titleFill : WIDTH.default, true); return; }
-                    // Resizing one column never changes another's width: a filling Title keeps the width it has now.
-                    if (c.key !== 'title' && stored.title === undefined) set('title', widthOf('title'), false);
+                    if (!canWidth || resizeDisabled) return;
+                    if (px === null) { if (vault) remove(c.key); else set(c.key, c.key === 'title' ? WIDTH.titleFill : WIDTH.default, true); return; }
+                    // Resizing one column never changes another's width: a filling Title keeps the width it has now
+                    // (on this Mac; a usage's vault widths write only the changed column, D-2190).
+                    if (!vault && c.key !== 'title' && stored.title === undefined) set('title', widthOf('title'), false);
                     set(c.key, px, save === 'now' ? true : save === 'later' ? 'later' : false);
                   }} />
               );

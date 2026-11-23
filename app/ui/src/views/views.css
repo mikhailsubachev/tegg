@@ -23,7 +23,18 @@
 .view-chevron:hover { background: var(--hover); color: var(--text); }
 .view-add { width: 32px; height: 40px; color: var(--muted); border-radius: 6px; }
 .view-add[aria-disabled="true"] { color: var(--faint); }
-.view-toolbar-slot { display: flex; align-items: center; padding-bottom: 6px; margin-left: auto; }
+/* Slice Q3 (§42.1): each tab panel holds its toolbar; a grid with a subgrid panel draws the toolbar on the tab row. */
+.view-area { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto auto; min-width: 0; }
+.view-area > .view-bar { grid-row: 1; grid-column: 1; position: relative; z-index: 1; margin-right: 0; }
+.view-area > .view-panel { grid-row: 1 / span 3; grid-column: 1 / span 2; display: grid; grid-template-columns: subgrid; grid-template-rows: subgrid; min-width: 0; }
+.view-toolbar-cell { grid-row: 1; grid-column: 2; display: flex; align-items: flex-end; justify-content: flex-end; border-bottom: 1px solid var(--border);
+  margin: 16px 0 12px; padding: 0 0 6px 10px; min-width: 0; }
+.view-area:not(.stacked) .view-toolbar { flex-wrap: nowrap; }
+.view-body { grid-row: 3; grid-column: 1 / span 2; min-width: 0; }
+/* Tabs and toolbar don't fit on one row: the toolbar goes on its own row below the tabs, right-aligned. */
+.view-area.stacked > .view-bar { grid-column: 1 / span 2; }
+.view-area.stacked .view-toolbar-cell { grid-row: 2; grid-column: 1 / span 2; border-bottom: none; margin: 0 0 12px; padding: 0; }
+
 .view-toolbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .view-toolbar .type-filter { width: 160px; }
 .view-toolbar .text-button { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); white-space: nowrap; }

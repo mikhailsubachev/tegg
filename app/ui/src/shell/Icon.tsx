@@ -171,6 +171,8 @@ const PATHS: Record<string, string> = {
   table: 'M4 5h16v14H4zM4 10h16M10 5v14',
   list: 'M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01',
   board: 'M4 5h4v14H4zM10 5h4v9h-4zM16 5h4v11h-4z',
+  // Slice Q3 (board A): the Wall display, a grid of cards.
+  wall: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
   sort: 'M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4',
   columns: 'M4 5h16v14H4zM10 5v14M16 5v14',
 };

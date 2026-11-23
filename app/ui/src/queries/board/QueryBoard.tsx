@@ -50,41 +50,24 @@ export type BoardFilter = { text: string; tags: string[] };
 /** The card a board should focus when it shows again (Back after ⏎ on a card, R191). */
 let returnTo: { name: string | null; key: string; lane: string } | null = null;
 
-// ------------------------------------------------------------------ `__TEGG_TEST__.board()` (contract §5)
+// ------------------------------------------------------------------ `__TEGG_TEST__.board()` (contract §5, v1-views §43.1)
 
-type Snapshot = { name: string | null; lanes: { id: string; cards: string[]; days: { date: string; cards: string[] }[]; folded: boolean }[]; domCards: number };
-const mounted = new Set<() => Snapshot>();
+type Snapshot = { name: string | null; display?: 'wall'; grouped?: boolean; lanes: { id: string; cards: string[]; days: { date: string; cards: string[] }[]; folded: boolean }[]; domCards: number };
+const mounted = new Set<() => unknown>();
 function installHook() {
   if (typeof window === 'undefined') return;
   const w = window as { __TEGG_TEST__?: Record<string, unknown> };
   if (typeof w.__TEGG_TEST__?.board === 'function') return;
   w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), board: () => [...mounted].map((f) => f()) };
 }
-
-/** The `Lanes` radiogroup (R187, §4.3): one `query_apply` with `lanes` flipped; the checked radio writes nothing. */
-export function LanesSwitch({ lanes, disabled, onSwitch }: { lanes: 'vertical' | 'horizontal'; disabled: string | null; onSwitch: (l: 'vertical' | 'horizontal') => void }) {
-  return (
-    <div role="radiogroup" aria-label={t('board.lanes')} data-command="board.switchLanes" className="segmented lanes-switch">
-      {(['vertical', 'horizontal'] as const).map((l) => (
-        <button key={l} type="button" role="radio" aria-checked={lanes === l} tabIndex={lanes === l ? 0 : -1} data-command="board.switchLanes"
-          title={t(l === 'vertical' ? 'board.verticalTitle' : 'board.horizontalTitle')}
-          aria-disabled={disabled ? 'true' : undefined} aria-description={disabled ?? undefined}
-          className={lanes === l ? 'on' : ''}
-          onClick={() => { if (!disabled && lanes !== l) onSwitch(l); }}
-          onKeyDown={(e) => {
-            if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-            e.preventDefault();
-            const next = lanes === 'vertical' ? 'horizontal' : 'vertical';
-            (e.currentTarget.parentElement?.querySelector<HTMLElement>(`[role="radio"]:nth-child(${next === 'vertical' ? 1 : 2})`))?.focus();
-            if (!disabled) onSwitch(next);
-          }}>
-          {t(l === 'vertical' ? 'board.vertical' : 'board.horizontal')}
-        </button>
-      ))}
-    </div>
-  );
+/** Slice Q3: a wall (grouped or not) adds its entry to `__TEGG_TEST__.board()` while mounted. */
+export function registerBoardSnapshot(f: () => unknown): () => void {
+  installHook();
+  mounted.add(f);
+  return () => { mounted.delete(f); };
 }
 
+/** Slice Q2's board, the grouped wall of slice Q3 (`QueryWall` draws it when the run has a grouping, v1-views §41.4). */
 export function QueryBoard({ result, name, title, readOnly, types, filter, apply, rerun, controlRef, foldKey = null, env: runEnv }: {
   result: QueryResultDto & { group: GroupingDto; def: QueryDefDto };
   /** The saved query's name (folds, the hook); null for an inline fence. */
@@ -226,14 +209,11 @@ export function QueryBoard({ result, name, title, readOnly, types, filter, apply
 
   // ---- the test hook (contract §5).
   const snap = useRef<() => Snapshot>(() => ({ name, lanes: [], domCards: 0 }));
-  snap.current = () => ({ name, lanes: lanesShown.map((l) => ({ id: l.id, cards: l.cards, days: (l.days ?? []).map((d) => ({ date: d.date, cards: d.cards })), folded: folded.includes(l.id) && def.lanes === 'rows' })),
+  snap.current = () => ({ name, display: 'wall', grouped: true, lanes: lanesShown.map((l) => ({ id: l.id, cards: l.cards, days: (l.days ?? []).map((d) => ({ date: d.date, cards: d.cards })), folded: folded.includes(l.id) && def.lanes === 'rows' })),
     domCards: root.current?.querySelectorAll('article[data-board-card]').length ?? 0 });
   useEffect(() => {
     ensureViewsLive();
-    installHook();
-    const f = () => snap.current();
-    mounted.add(f);
-    return () => { mounted.delete(f); };
+    return registerBoardSnapshot(() => snap.current());
   }, []);
 
   // ---- the focus to restore (Back, a moved card) and the one the palette's commands act on.
@@ -515,7 +495,7 @@ export function QueryBoard({ result, name, title, readOnly, types, filter, apply
   const row = (key: string) => rowsByPath.get(key);
   return (
     <div ref={root} className="query-board">
-      <Board label={title} name={name} groupBy={nfc(group.key)} lanes={lanesDir(def.lanes)} data={lanesShown} folded={folded} onFold={onFold}
+      <Board wall label={title} name={name} groupBy={nfc(group.key)} lanes={lanesDir(def.lanes)} data={lanesShown} folded={folded} onFold={onFold}
         readOnly={readOnly}
         canDragCard={(key) => !!row(key) && !row(key)!.readOnly}
         dropLabel={dropLabel}

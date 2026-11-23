@@ -33,6 +33,7 @@ import { attrTypeLabel, colorName, dateText, dateTimeText, nfc, rawText, wiki } 
 import { WIDTH, clampWidth, columnChoices, columnsRequest, defaultSort, dropColumn, effectiveColumns, moveColumn, toggleColumn } from '../types/columns';
 import { HeaderCell } from '../tables/HeaderCell';
 import { TypeViews, hasViews } from '../views/TypeViews';
+import { useAllDisplay } from '../views/AllDisplay';
 import { useCardsHandler } from '../cards/actions';
 import { openIconPicker } from '../icons/IconPicker';
 
@@ -242,6 +243,9 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
   const name = type?.name ?? typeKey;
   const pluralName = type?.plural ?? plural;
   const writable = !!type && type.state === 'ok';
+  // Slice Q3 (§41.10; D-2178, CP-34): `All <plural>`'s display and grouping on this Mac.
+  const allOn = !header && !!type && hasViews(typeKey, type);
+  const allDisplay = useAllDisplay({ type, typeKey, plural: pluralName, sort: levels, filterText: filter, tags: tagSel, types, on: allOn });
   // D-1245: a `columns` value that isn't a list disables the menu until it is fixed in the file.
   const menuOk = writable && !type.columnsUnreadable;
   const columnsReason = !type ? undefined : type.state === 'newer' ? t('ts.newer') : type.state !== 'ok' ? t('typePage.columnsInvalid')
@@ -452,8 +456,10 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
               {st.more > 0 && <span className="sort-more">{t('sort.more', { count: st.more })}</span>}
             </button>
           );
+          const ad = allDisplay;
           return <TypeViews typeKey={typeKey} type={type} types={types} plural={pluralName} tab={tab} tabNonce={tabNonce} openAdd={openAddView}
-            all={{ toolbar: <div className="view-toolbar">{filterField}{tagControl}{sortButton}{columnsButton}</div>, body }} />;
+            all={{ toolbar: <div className="view-toolbar">{filterField}{tagControl}{ad.controls}{sortButton}{ad.view.view !== 'wall' && columnsButton}</div>,
+              body: ad.body ?? body, attrs: ad.attrs, status: ad.status, run: ad.run }} />;
         }
         return (
           <>
