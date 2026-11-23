@@ -2078,7 +2078,7 @@ fn mobile_run() {
             shell5b::index_versions, shell6a::trash_list, shell6a::object_trash, shell6a::media_add,
             shell6a::media_add_paths, shell4d::tag_objects, shell4d::index_tagged_objects, shell4d::tag_usage,
             shell4d::tag_new_path, shell4e::jobs_ready, shell4d::job_plan, shellpin::pins_get, shellpin::pins_apply,
-            shellq::queries_list, shellq::query_get, shellq::query_run, shellq::query_usages,
+            shellcards::type_card_example, shellq::queries_list, shellq::query_get, shellq::query_run, shellq::query_usages,
             shellq::query_view_usages, mobile::vault_start, mobile::vault_find, mobile::storage_access,
             mobile::storage_access_settings
         ])
