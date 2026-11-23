@@ -434,17 +434,15 @@ html[data-layout="phone"] .query-list li {
   border-bottom: 1px solid var(--border);
 }
 
-/* Boards (§9.5): vertical lanes 300 px that snap; horizontal rows with 300 px card columns. */
+/* Boards (§9.5): vertical lanes 300 px that scroll freely (D-2103); horizontal rows with 300 px card columns. */
 html[data-layout="phone"] .board-vertical .board-scroll,
 html[data-layout="phone"] .board-vertical .board-scroll:hover {
   overflow-x: auto;
-  scroll-snap-type: x mandatory;
   touch-action: pan-x pan-y;
   padding-bottom: 4px;
 }
 html[data-layout="phone"] .board-vertical .board-lane {
   width: 300px;
-  scroll-snap-align: start;
 }
 html[data-layout="phone"] .board-horizontal .board-cards,
 html[data-layout="phone"] .board-horizontal .board-days {

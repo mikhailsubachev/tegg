@@ -143,8 +143,16 @@ async function underBars(page: Page, insets = INSETS): Promise<string[]> {
       const role = e.getAttribute('role') ?? ({ BUTTON: 'button', A: 'link', H1: 'heading', H2: 'heading', H3: 'heading', INPUT: 'textbox', TEXTAREA: 'textbox' } as Record<string, string>)[e.tagName] ?? '';
       const ownText = [...e.childNodes].some((c) => c.nodeType === 3 && (c.textContent ?? '').trim());
       if (!ownText && !ROLE.test(role)) continue;
-      const r = e.getBoundingClientRect();
-      if (r.width === 0 || r.height === 0 || r.bottom <= 0 || r.top >= h) continue;
+      // D-2104: only the part not clipped by a scrolling or clipping ancestor (the drawer's own list) counts.
+      const b = e.getBoundingClientRect();
+      const r = { top: b.top, bottom: b.bottom, width: b.width, height: b.height };
+      for (let a = e.parentElement; a && a !== document.body; a = a.parentElement) {
+        if (getComputedStyle(a).overflowY === 'visible') continue;
+        const c = a.getBoundingClientRect();
+        r.top = Math.max(r.top, c.top); r.bottom = Math.min(r.bottom, c.bottom);
+      }
+      r.height = r.bottom - r.top;
+      if (r.width === 0 || r.height <= 0 || r.bottom <= 0 || r.top >= h) continue;
       if (r.top < i.top - 0.5 || r.bottom > h - i.bottom + 0.5) out.push(`${e.tagName.toLowerCase()}${role ? `[${role}]` : ''} "${(e.getAttribute('aria-label') ?? e.innerText ?? '').trim().slice(0, 30)}" ${Math.round(r.top)}…${Math.round(r.bottom)}`);
     }
     return out.slice(0, 10);

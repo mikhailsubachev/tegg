@@ -225,10 +225,11 @@ test('fr_qry_05_ac32_vertical_board_on_the_phone', async ({ page }) => {
     const all = [e, ...e.querySelectorAll('*')] as HTMLElement[];
     const row = all.find((x) => /(auto|scroll)/.test(getComputedStyle(x).overflowX) && x.scrollWidth > x.clientWidth + 1);
     const ln = e.querySelector('section[role="region"][data-lane]') as HTMLElement | null;
-    return { type: row ? getComputedStyle(row).scrollSnapType : '', align: ln ? getComputedStyle(ln).scrollSnapAlign : '' };
+    return { row: !!row, type: row ? getComputedStyle(row).scrollSnapType : '', align: ln ? getComputedStyle(ln).scrollSnapAlign : '' };
   });
-  assert.match(snap.type, /x mandatory/, 'the lane row snaps (scroll-snap-type: x mandatory)');
-  assert.match(snap.align, /start/, 'to a lane\'s start');
+  // D-2103: the lane row scrolls sideways freely, without snapping.
+  assert.ok(snap.row, 'the lane row scrolls sideways');
+  assert.doesNotMatch(snap.type, /mandatory|proximity/, `the lane row doesn't snap (scroll-snap-type: ${snap.type})`);
   assert.equal(await b.locator('[data-command="board.laneDrag"], [data-command="board.newIn"]').count(), 0, 'no grips or +');
   assert.equal(await b.getByRole('button', { name: /^More actions for / }).count(), 0, 'no card More actions');
   // a touch drag of Noční vlak 320 px to the right scrolls the lanes and moves no card

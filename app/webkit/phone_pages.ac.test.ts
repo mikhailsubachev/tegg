@@ -91,7 +91,7 @@ test('fr_inb_01_ac14_inbox_read_only_on_the_phone', async ({ browser }) => {
   // A tap on D1 opens daily/2026-10-13; Back returns with the scroll and the focus on that row.
   await main(page).evaluate((m) => { const s = [...document.querySelectorAll('main')].find((e) => e.getClientRects().length > 0) as HTMLElement; s.scrollTop = 200; void m; });
   const scroll = await main(page).first().evaluate(() => ([...document.querySelectorAll('main')].find((e) => e.getClientRects().length > 0) as HTMLElement).scrollTop);
-  await (await must(main(page).locator('li').filter({ hasText: '2026-10-13' }).first(), 'the row D1')).click();
+  await (await must(main(page).locator('li').filter({ has: page.getByText('2026-10-13', { exact: true }) }).first(), 'the row D1')).click();
   assert.equal(await h1Is(page, '2026-10-13'), '2026-10-13', 'D1 opens daily/2026-10-13');
   await systemBack(page);
   assert.equal(await h1Is(page, 'Inbox'), 'Inbox', 'Back returns to inbox');
@@ -413,8 +413,7 @@ test('fr_set_01_ac14_settings_on_the_phone', async ({ page }) => {
   await systemBack(page);
   await main(page).getByRole('link', { name: 'Date & time', exact: true }).click();
   const combo = await must(main(page).getByRole('combobox', { name: 'Date format' }), 'Date format');
-  await combo.click();
-  await (await must(page.getByRole('option', { name: /^Long/ }), 'option Long')).click();
+  await combo.selectOption('long'); // D-2104: the Mac's native select, as contract §9.10 keeps it
   await drawerEntry(page, 'Inbox');
   const line = await eventually(async () => flat(await main(page).locator('li').first().innerText().catch(() => '')), (t) => /November 2026|listopadu 2026/.test(t), 1000);
   assert.match(line, /November 2026|listopadu 2026/, `the Inbox's dates follow Long within 1 s: "${line}"`);
@@ -469,7 +468,7 @@ test('fr_ux_06_ac1_empty_states_on_the_phone', async ({ browser }) => {
   page = await phonePage(browser);
   core = await startPhone(page, { vault: tagsVault(), route: `tag/${encodeURIComponent('čtení')}`, now: TAGS_NOW });
   before = await fileStateOf(core);
-  for (const [p, t] of Object.entries(before.files)) if (/#čtení\b|\bčtení\b/.test(t) && !p.startsWith('Tags/') && !p.startsWith('.tegg/')) await core.setFile(p, null);
+  for (const [p, t] of Object.entries(before.files)) if (/(^|[^\p{L}\p{N}_])#?čtení(?![\p{L}\p{N}_])/u.test(t) && !p.startsWith('Tags/') && !p.startsWith('.tegg/')) await core.setFile(p, null);
   await sleep(2000);
   assert.equal(await main(page).locator('[data-path]').count(), 0, 'no rows left');
   assert.ok(flat(await main(page).innerText()).length > 0, 'the empty text is shown');

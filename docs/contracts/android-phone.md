@@ -418,7 +418,7 @@ or the vault. Hidden: `Mindmap layout`, `Edit node`; `MindmapMap` is `readOnly` 
   `typeViews.lastTab` (`ui_state_set`) and adds no history entry. A tab state (R186) shows its text only.
 - Table: no resize separators, header cells are not buttons (`th` without `role="button"`, no sort on tap); the table
   container scrolls sideways; the Title column is `position: sticky; left: 0`.
-- Board: vertical lanes 300 px wide, `scroll-snap-type: x mandatory`, lanes `scroll-snap-align: start`; no grips, `+`,
+- Board: vertical lanes 300 px wide that scroll freely sideways, without snapping (D-2103); no grips, `+`,
   `New <Type>` tile, card `More actions`, card or lane drags (no drag handlers are attached). Horizontal rows keep
   `Collapse <lane>` / `Expand <lane>` (`usageFolded`, R206, `ui_state_set`); cards in `grid-template-columns:
   repeat(auto-fill, minmax(300px, 1fr))` (one column at 360, two at 915).

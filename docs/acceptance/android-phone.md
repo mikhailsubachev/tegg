@@ -350,7 +350,7 @@ Proposals for the contract:
 - **AC-31** **List.** `query/Seskupeno podle data` shows its 17 books by title (R193), each a row of at least 56 px, below the notice `The setting group_by can't be read, so its default is used.` A tap opens the book. *(L5p)* Test: `fr_qry_05_ac31_list_on_the_phone`
 - **AC-32** **Vertical board: lanes scroll, cards don't move (AP-2061; T2).** `Rozečtené` shows:
   - the lanes `Reading` 3, `To read` 2, `Read` 0 (hatched, `Not in this view`), R193's cards with R205's content, and no `No Status` lane;
-  - lanes 300 px wide, so at 412 px the next lane shows at least 24 px; the lane row scrolls sideways and snaps to a lane's start.
+  - lanes 300 px wide, so at 412 px the next lane shows at least 24 px; the lane row scrolls sideways freely, without snapping (D-2103).
 
   A touch drag of Noční vlak 320 px to the right scrolls the lanes and moves no card: zero writes, the card is still in `Reading`. There are no grips, `+` or `More actions`. A tap on a card opens it. *(L5p; LA once for the drag)* Test: `fr_qry_05_ac32_vertical_board_on_the_phone`
 - **AC-33** **Horizontal board and folds (AP-2060).** `query/Podle žánru` shows R193's rows stacked, each row's cards in a grid of one column at 360 px and two at 915 px, with no dashed `New Book` tile.
