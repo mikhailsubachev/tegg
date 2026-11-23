@@ -39,6 +39,20 @@
 - Coverage: every automated AC in `docs/acceptance/android-phone.md` has a test named after it; FR-UX-01 AC-9 is manual
   and not yet recorded.
 
-## Resolution
+## Resolution (2026-11-23)
 
-_To be filled in when the findings are fixed or decided._
+1. Fixed: the phone registers `mindmap.showMap` / `mindmap.showList` itself (D-2127, `b7a74c13`); FR-UX-03 AC-55 also
+   checks the Map/List switch's in-page effect.
+2. Fixed: `PhoneStartInsets` gives the start screens the insets and the §8.6 keyboard rule (D-2127, `b7a74c13`).
+3. Decided and built: owner's "Hide edit, add commands" (D-2128) and the card and checkbox rules (D-2129); new
+   criterion FR-UX-03 AC-55 with overlay `phone-content/`, red test `214a4d2c` (`check-red` pass), build `e3c23559`.
+4. Approved by the owner: D-2118, D-2121, D-2122 ("Approve all three"); RA10 names the left inset.
+5. Open: update `main` and run `./verify merge` before merging (needs the owner's word to merge).
+6. Fixed: the rotation anchor's walk runs at most once per frame (D-2127).
+7. Fixed: D-2123 recorded as not used.
+8. CLAUDE.md names D-2099…D-2130 (`be84a943`); `qa/manual/and-2.md` (FR-UX-01 AC-9) is the owner's manual review, open.
+
+Open after the fixes: two L5p load races flagged by the push gate's flaky reporter, both seen before the review:
+FR-NAV-04 AC-14 ("Menu again" taps where Menu is, which the open drawer covers, so it closes only while the drawer is
+still sliding in) and FR-INB-01 AC-14 (Back restores the Inbox scroll 200 → 0 in about 1 of 12 runs at 6 workers; the
+arrival routine finds no pending scroll; the cause isn't found yet).
