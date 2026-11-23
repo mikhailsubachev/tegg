@@ -63,6 +63,13 @@ function own(ctx: ShellContext): Command[] {
     { id: 'mindmap.fit', title: 'cmd.mindmap.fit', section: 'view', needsVault: true, run: p('mindmap.fit') },
     { id: 'mindmap.fullScreen', title: 'cmd.mindmap.fullScreen', section: 'view', needsVault: true, run: p('mindmap.fullScreen') },
     { id: 'mindmap.closeFullScreen', title: 'cmd.mindmap.closeFullScreen', section: 'view', needsVault: true, run: p('mindmap.closeFullScreen') },
+    // Kept page controls (§10, FR-UX-03 AC-54): All tags' sort, the tag page's breadcrumb, sort and grouping, Search's
+    // Type filter; each runs the control it is on.
+    { id: 'tagsPage.c4', title: 'tag.sortMenu', section: 'view', needsVault: true, run: p('tagsPage.c4') },
+    { id: 'tagPage.c12', title: 'tag.breadcrumbAll', section: 'navigate', needsVault: true, run: p('tagPage.c12') },
+    { id: 'tagPage.c6', title: 'tag.sortMenu', section: 'view', needsVault: true, run: p('tagPage.c6') },
+    { id: 'tagPage.c5', title: 'tag.noGrouping', section: 'view', needsVault: true, run: p('tagPage.c5') },
+    { id: 'search.type', title: 'search.typeLabel', section: 'view', needsVault: true, run: p('search.type') },
   ];
   if (route === 'note/<path>' || route === 'daily/YYYY-MM-DD' || route === 'today') {
     list.push(

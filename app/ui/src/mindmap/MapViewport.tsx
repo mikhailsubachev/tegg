@@ -31,36 +31,40 @@ function Area({ map, scale, onScale, size, onSize, fill }: {
     const m = measure(inner.current);
     if (m && (!size || m.width !== size.width || m.height !== size.height)) onSize(m);
   });
-  // A pinch (two pointers) scales around its centre.
+  // A pinch (two fingers) scales around its centre. Touch events, not pointer events: the browser would take two
+  // pointers for a pan and cancel them; a two-finger move is kept from it (preventDefault).
+  const live = useRef({ scale, onScale });
+  live.current = { scale, onScale };
   useEffect(() => {
     const el = area.current;
     if (!el) return;
-    const pts = new Map<number, { x: number; y: number }>();
     let from = 0;
-    const dist = () => { const [a, b] = [...pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
-    const down = (e: PointerEvent) => { if (e.pointerType !== 'touch') return; pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (pts.size === 2) from = dist(); };
-    const move = (e: PointerEvent) => {
-      if (!pts.has(e.pointerId)) return;
-      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (pts.size !== 2 || from <= 0 || scale === null) return;
-      const to = dist();
-      const [a, b] = [...pts.values()];
+    const two = (e: TouchEvent) => (e.touches.length === 2 ? [e.touches[0], e.touches[1]] as const : null);
+    const start = (e: TouchEvent) => { const t = two(e); from = t ? Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY) : 0; };
+    const move = (e: TouchEvent) => {
+      const t = two(e);
+      const { scale: s0, onScale: on } = live.current;
+      if (!t || from <= 0 || s0 === null) return;
+      e.preventDefault();
+      const to = Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
       const r = el.getBoundingClientRect();
-      onScale(pinchScale(scale, from, to), { x: (a.x + b.x) / 2 - r.left, y: (a.y + b.y) / 2 - r.top });
+      const next = pinchScale(s0, from, to);
+      live.current.scale = next;
+      on(next, { x: (t[0].clientX + t[1].clientX) / 2 - r.left, y: (t[0].clientY + t[1].clientY) / 2 - r.top });
       from = to;
     };
-    const up = (e: PointerEvent) => { pts.delete(e.pointerId); if (pts.size < 2) from = 0; };
-    el.addEventListener('pointerdown', down);
-    el.addEventListener('pointermove', move);
-    el.addEventListener('pointerup', up);
-    el.addEventListener('pointercancel', up);
+    const end = (e: TouchEvent) => { if (e.touches.length < 2) from = 0; };
+    el.addEventListener('touchstart', start, { passive: true });
+    el.addEventListener('touchmove', move, { passive: false });
+    el.addEventListener('touchend', end);
+    el.addEventListener('touchcancel', end);
     return () => {
-      el.removeEventListener('pointerdown', down);
-      el.removeEventListener('pointermove', move);
-      el.removeEventListener('pointerup', up);
-      el.removeEventListener('pointercancel', up);
+      el.removeEventListener('touchstart', start);
+      el.removeEventListener('touchmove', move);
+      el.removeEventListener('touchend', end);
+      el.removeEventListener('touchcancel', end);
     };
-  }, [scale, onScale]);
+  }, []);
   const s = scale ?? 1;
   const w = size ? size.width * s : undefined;
   const h = size ? blockHeight(size.height, s) : undefined;
@@ -84,6 +88,7 @@ export function MapViewport({ title, map, list }: { title: string; map: ReactNod
   const [full, setFull] = useState(false);
   const block = useRef<HTMLElement>(null);
   const savedScroll = useRef<number>(0);
+  const target = useRef<{ left: number; top: number } | null>(null);
   const areaWidth = useCallback(() => {
     const a = block.current?.querySelector<HTMLElement>('[data-map-area]');
     return a?.clientWidth ?? block.current?.clientWidth ?? 0;
@@ -95,10 +100,22 @@ export function MapViewport({ title, map, list }: { title: string; map: ReactNod
   const apply = useCallback((next: number, centre?: { x: number; y: number }) => {
     setScale((prev) => {
       const p = prev ?? 1;
-      const a = document.querySelector<HTMLElement>(full ? '.phone-map-full [data-map-area]' : '[data-map-area]');
+      const a = full ? document.querySelector<HTMLElement>('.phone-map-full [data-map-area]') : block.current?.querySelector<HTMLElement>('[data-map-area]') ?? null;
       if (a && centre) {
-        const sc = scrollAfterZoom({ left: a.scrollLeft, top: a.scrollTop }, centre, p, next);
-        requestAnimationFrame(() => { a.scrollLeft = sc.left; a.scrollTop = sc.top; });
+        // Steps of one pinch build on the scroll the last step asked for, not the one painted yet. The inline map
+        // doesn't scroll vertically: its vertical part goes to the page.
+        const base = target.current ?? { left: a.scrollLeft, top: full ? a.scrollTop : 0 };
+        const sc = scrollAfterZoom(base, centre, p, next);
+        target.current = sc;
+        const m = full ? null : a.closest('main');
+        const dy = sc.top - base.top;
+        requestAnimationFrame(() => {
+          a.scrollLeft = sc.left;
+          if (full) a.scrollTop = sc.top;
+          else if (m && dy) m.scrollTop += dy;
+          if (!full) target.current = { left: sc.left, top: 0 };
+          requestAnimationFrame(() => { target.current = null; });
+        });
       }
       return next;
     });
@@ -108,12 +125,22 @@ export function MapViewport({ title, map, list }: { title: string; map: ReactNod
   }, [full]);
   const s = scale ?? 1;
   const openFull = () => {
-    savedScroll.current = document.querySelector('main')?.scrollTop ?? 0;
+    savedScroll.current = block.current?.closest('main')?.scrollTop ?? 0;
     setFull(true);
   };
   const closeFull = useCallback(() => {
     setFull(false);
-    requestAnimationFrame(() => { const m = document.querySelector('main'); if (m) m.scrollTop = savedScroll.current; });
+    // The frame brings the bottom bar back after this render, which shortens the page: set the scroll again for a few
+    // frames until it holds.
+    let n = 0;
+    const put = () => {
+      const m = block.current?.closest('main');
+      if (!m) return;
+      m.scrollTop = savedScroll.current;
+      if (n++ < 10 && Math.abs(m.scrollTop - savedScroll.current) > 1) requestAnimationFrame(put);
+      else if (n < 3) requestAnimationFrame(put);
+    };
+    requestAnimationFrame(put);
   }, []);
   useEffect(() => (full ? pushLayer(closeFull) : undefined), [full, closeFull]);
   useEffect(() => {
@@ -151,7 +178,8 @@ export function MapViewport({ title, map, list }: { title: string; map: ReactNod
           </button>
         )}
       </div>
-      {view === 'map' && !full && <Area map={map} scale={scale} onScale={apply} size={size} onSize={setSize} fill={false} />}
+      {/* Kept (hidden) while full screen is open, so the note keeps its height and its scroll position. */}
+      {view === 'map' && <div style={full ? { visibility: 'hidden' } : undefined}><Area map={map} scale={scale} onScale={apply} size={size} onSize={setSize} fill={false} /></div>}
       {view === 'list' && <div className="phone-map-list">{list}</div>}
       {full && createPortal(
         <div role="dialog" aria-modal="true" aria-label={t('mindmap.figure', { title })} className="phone-map-full"
