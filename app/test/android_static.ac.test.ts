@@ -192,7 +192,15 @@ test('ar_03_ac12_desktop_build_unchanged', () => {
   if (conf.bundle) delete conf.bundle.android;
   const baseConf = atBase('app/src-tauri/tauri.conf.json');
   if (baseConf.bundle) delete baseConf.bundle.android;
-  assert.deepEqual(conf, baseConf, '(b) tauri.conf.json equals main at the merge-base apart from bundle.android');
+  // D-2169 (extends D-2168): a branch may add entries under bundle.macOS (only the Mac bundle reads them); every entry
+  // main has there stays as it is.
+  const mac = conf.bundle?.macOS as Record<string, unknown> | undefined;
+  const baseMac = baseConf.bundle?.macOS as Record<string, unknown> | undefined;
+  if (mac && typeof mac === 'object') {
+    for (const k of Object.keys(mac)) if (!baseMac || !(k in baseMac)) delete mac[k];
+    if (!baseMac && Object.keys(mac).length === 0) delete conf.bundle.macOS;
+  }
+  assert.deepEqual(conf, baseConf, '(b) tauri.conf.json equals main at the merge-base apart from bundle.android and bundle.macOS entries the branch adds (D-2169)');
   assert.deepEqual(now('app/src-tauri/tauri.preview.conf.json'), atBase('app/src-tauri/tauri.preview.conf.json'), '(b) tauri.preview.conf.json equals main at the merge-base');
 
   // (a) no existing AC test changed or deleted by the AND-1 commits, except by a commit carrying an owner-approved
