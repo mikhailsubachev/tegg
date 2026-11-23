@@ -19,6 +19,10 @@ section that now holds; the rest of part one stands.
 `docs/acceptance/views.md` part three, R201…R208). §23.3 lists every place of parts one and two, and of
 `docs/contracts/ms5-tasks.md`, that it supersedes; those places aren't marked inline.
 
+**Part four** (§33…§47, at the end) is slice Q3, display and grouping per usage (D-2172…D-2196; ACs
+`docs/acceptance/views.md` part five, R220…R228). Where it supersedes a rule of parts one to three, the place is marked
+**(changed by Q3, D-…)** and §33.3 lists them all.
+
 This contract **extends** [v1-queries.md](v1-queries.md) (slice Q): every rule there holds unless a section here
 changes it, and section numbers here mirror it. Precedents followed where the ACs leave room: type columns
 ([type-columns.md](type-columns.md): `columns` in the type file, widths, the resize handle), the Tasks Kanban
@@ -35,7 +39,9 @@ lanes switch, lane drag, Reset lane order, Columns, header drag, the editor), `q
 folding, resizing, switching tabs and opening menus write no vault file (FR-SYN-06 AC-48). **(changed by Q2.1, D-1836,
 D-1835)**: a tab's sort and columns write its `views:` item, a block's its fence in the note, only `query/<name>` writes
 the query file's `sort` and `columns`; `Move to trash` from a view menu also writes `views:`; widths and folds are per
-usage (`usageColumnWidths`, `usageFolded`). See §12 (what Q2.1 writes) and §16 (R197's routing).
+usage (`usageColumnWidths`, `usageFolded`). See §12 (what Q2.1 writes) and §16 (R197's routing). **(changed by Q3,
+D-2174, D-2177)**: `view`, `group_by`, `lanes`, `lane_order` and column widths are per usage too (a tab's item, a
+block's fence; widths in the vault), `query/<name>` writes the defaults; §33.2.
 
 ## 1. The queries module (`tegg-core::queries_q`, AR-03) and the type file (`tegg-schema`)
 
@@ -45,8 +51,8 @@ lane or card state is stored in the index (AR-01).
 ### 1.1 Types (changes to v1-queries §1.1)
 
 ```rust
-pub enum View { List, Table, Board }                          // `board` is valid now (R185; was BadValue)
-pub enum Lanes { Vertical, Horizontal }                       // R185; missing = Vertical
+pub enum View { List, Table, Board }                          // `board` is valid now (R185; was BadValue) — (changed by Q3, D-2172: `Wall`, §34.1)
+pub enum Lanes { Vertical, Horizontal }                       // R185; missing = Vertical — (changed by Q3, D-2179: `Columns` / `Rows`, §34.1)
 pub enum Order { Asc, Desc }
 pub struct Sort { pub by: String, pub order: Order }          // one level
 
@@ -110,7 +116,8 @@ pub struct QueryRow {                   // v1-queries §1.1 plus:
 pub struct QueryResult {                // v1-queries §1.1 plus:
     // …existing fields…
     /// Some only when `def.view == Board` and `group_by` is valid (§1.6); None otherwise (a broken `group_by` is in
-    /// `broken` and the UI draws a List, R185).
+    /// `broken` and the UI draws a List, R185). (changed by Q3, D-2173, D-2179: in every display; a broken one on a
+    /// wall draws the ungrouped wall, §34.4)
     pub group: Option<Grouping>,
 }
 
@@ -128,7 +135,8 @@ pub struct ViewUsage { pub type_key: String, pub path: String }
 
 ### 1.2 Read rules (R185; changes to v1-queries §1.2)
 
-- **`view`**: `list`, `table`, `board`; other values `BadValue` (default `list`).
+- **`view`**: `list`, `table`, `board`; other values `BadValue` (default `list`). **(changed by Q3, D-2172, D-2179)**:
+  `wall`, and `board` read as `wall`; `group_by` is used with every display, `lanes` reads `columns` / `rows` (§34.2).
 - **`sort`** (D-1768, amends D-1462): (a) R138's single mapping `{ by, order }` → one level; (b) a YAML sequence whose
   every item is a mapping with a non-blank string `by` and an `order` of `asc` / `desc` / missing (= `asc`) → one level
   per item, in order. Any other shape (a scalar item, a mapping without `by`, an `order` other than `asc` / `desc`) →
@@ -195,7 +203,8 @@ pub struct ViewUsage { pub type_key: String, pub path: String }
   nearest later one): `lanes: horizontal` right after `group_by: author` (FR-QRY-05 AC-17), `lane_order:` right after
   `lanes:` (AC-19).
 - **Create** (`create_text`, D-1783): `HEADER` + title + `.`, then every `ORDER` key with these rules: `group_by` and
-  `lanes` are written only when `view == Board` (`lanes: vertical`), `lane_order` only when `Some`; `sort` in the one- or
+  `lanes` are written only when `view == Board` (`lanes: vertical`) **(changed by Q3: §34.3, new words, `group_by` with
+  any display)**, `lane_order` only when `Some`; `sort` in the one- or
   multi-level style above. Defaults of a new view are the UI's (§4.4 `newViewDef`).
 - `retitle_text`, `duplicate_text`: unchanged (they touch only `title:`, `created:`, `modified:`).
 - `patch_job_text` (§1.10): also patches `lane_order` entries.
@@ -226,7 +235,8 @@ impl Core {
   option order then unknown values by collation after the last option, checkbox false < true, the rest by collation of
   the first value), **empty values last at every level in both orders**; `Desc` reverses only the non-empty comparison of
   that level. Ties after the last level: title by collation, then path (NFC bytes). The sort is stable.
-- **Grouping** (`group`, D-1769, D-1770, D-1791). Only when `def.view == Board`:
+- **Grouping** (`group`, D-1769, D-1770, D-1791). Only when `def.view == Board` **(changed by Q3, D-2173: in every
+  display, from the usage's effective grouping; a broken one on a wall draws the ungrouped wall, §34.4)**:
   - `group_by` resolves when it is `tags`, or an attribute key of **every** chosen type with the same groupable kind:
     Select (incl. `status`), multi-select, relation (single or multiple). Anything else (missing key, an unknown key,
     another kind such as Date or Text, a relation with differing `multiple`, no types) → `Broken { BadValue, key:
@@ -251,7 +261,7 @@ impl Core {
     filter on another key, nothing is excluded. Excluded lanes keep `drop_target: true` and have no cards.
   - Cards: each matching row once per lane it belongs to (FR-QRY-05 AC-11: 20 cards for 17 books), in `rows` order.
 - **No paging on a board** (plan §3): `rows` already holds every result (D-1451); the UI applies `limit` to List and
-  Table only.
+  Table only. **(changed by Q3, D-2189: only to an ungrouped List or Table, §34.4)**
 - `query_run` takes one index lock for evaluation and grouping (unchanged rule).
 
 ### 1.7 Watcher and events
@@ -341,8 +351,8 @@ type SortDto = { by: string; order: 'asc' | 'desc' };
 type QueryDefDto = {
   title: string; types: string[]; match: 'all' | 'any'; filters: FilterItemDto[];
   sort: SortDto[];                                   // was one mapping (type-only AC-test change, D-1802 / D-1812)
-  limit: number; view: 'list' | 'table' | 'board';
-  groupBy: string | null; lanes: 'vertical' | 'horizontal'; laneOrder: string[] | null;
+  limit: number; view: 'list' | 'table' | 'board';           // (changed by Q3: 'wall', §39.2)
+  groupBy: string | null; lanes: 'vertical' | 'horizontal'; laneOrder: string[] | null;   // (changed by Q3: 'columns' | 'rows', `groupNone`)
   columns: string[];
 };
 type LaneCardDto = { row: number; raw: string[] };
@@ -378,7 +388,7 @@ type ViewUsageDto = { type: string; path: string };
 | New view | `query_run({ kind: 'def' })` while the editor is open; on Done `query_create({ title: 'New view', def, free: true })`, then `type_patch` |
 | Duplicate | `query_duplicate(name)`, then `type_patch` (the copy after the original) |
 | Rename… / Move to trash / Restore | `query_rename` / `query_trash` / `query_restore` (v1-queries). **(changed by Q2.1, D-1847)**: `Move to trash` from a view menu is `type_patch` then `query_trash` (§15) |
-| Sort popover, header click, lanes switch, lane drag, Reset lane order, Columns, header drag | one `query_apply` with only that key changed. **(changed by Q2.1, D-1836)**: sort popover, header click / ⇧-click, Columns and header drag write the usage (tab: `type_patch` `viewSort` / `viewColumns`; block: the fence through `QueryCtl.setSource`; `query/<name>`: `query_apply`), §16; lanes switch, lane drag and Reset lane order stay `query_apply` |
+| Sort popover, header click, lanes switch, lane drag, Reset lane order, Columns, header drag | one `query_apply` with only that key changed. **(changed by Q2.1, D-1836)**: sort popover, header click / ⇧-click, Columns and header drag write the usage (tab: `type_patch` `viewSort` / `viewColumns`; block: the fence through `QueryCtl.setSource`; `query/<name>`: `query_apply`), §16; lanes switch, lane drag and Reset lane order stay `query_apply`. **(changed by Q3, D-2174)**: lanes, lane drag and Reset lane order write the usage too (§33.2) |
 | Card drag, Move to, Also add to, Move card to next / previous lane | `note_read`, `note_write` (§1.9) |
 | `New <Type> in <lane>` | the draft route `new/<type>` with `Route.prefill` (§4.5); the draft's first write as slice Q |
 | `query/<name>` `Used on` | `query_usages` and `query_view_usages` |
@@ -417,13 +427,13 @@ change, no history entry). A pinned type page opens its remembered tab. `query/<
 | `app/ui/src/queries/SortPopover.tsx` | `dialog` `Sort` (R188), one `query_apply` per change; used by `ViewPanel`, `QueryBlock`, `QueryPage`. **(changed by Q2.1, D-1836, D-1841)**: one write of the usage per change (§16), a scope line, `Use the query's sort` (§19.1) |
 | `app/ui/src/queries/board/model.ts` | Pure, L1: `cardMove(group, row, fromLaneId, toLaneId, alt)` → `BoardMove \| null` (D-1769 rules: Select / single relation set; list kinds remove `raw`, add unless the row is already in the target lane; Alt: `remove: []`; onto a non-drop-target or the same lane: null); `laneOrderAfterDrop(group, laneId, beforeId \| null)` → `string[] \| null` (every lane's `value` except `none`, in the new order); `neighbourDropLane(group, laneId, dir: 1 | -1)` (+1 next, −1 previous, D-1817; skips non-drop-targets, excluded lanes included as targets; null at the ends); `prefillFor(def, group, laneId, type)` (§4.5); `excludedValues(group)` (labels of the non-excluded option lanes, for `board.excludedLong`) |
 | `app/ui/src/board/Board.tsx` | The generic board (lanes vertical or horizontal, pointer drag of cards and lanes, folds, sideways scroll, lane virtualisation ≤ 150 card elements, the drop label, keyboard focus moves), no data access; extracted so Q2-T reuses it. `tasks/Kanban.tsx` is **not** moved onto it in Q2: the Tasks page's DOM and tests stay as they are (plan §6) |
-| `app/ui/src/queries/board/QueryBoard.tsx` | `Board` bound to a `QueryResultDto` with `group`: the universal card (`BoardCard.tsx`), the lanes switch, lane drag → `query_apply({ laneOrder })`, card move → `writeCardMove`, folds (§4.7), `New <Type> in <lane>`; used by `ViewPanel`, `QueryBlock`, `QueryPage` |
+| `app/ui/src/queries/board/QueryBoard.tsx` **(changed by Q3: `QueryWall.tsx`, no lanes switch, §40)** | `Board` bound to a `QueryResultDto` with `group`: the universal card (`BoardCard.tsx`), the lanes switch, lane drag → `query_apply({ laneOrder })`, card move → `writeCardMove`, folds (§4.7), `New <Type> in <lane>`; used by `ViewPanel`, `QueryBlock`, `QueryPage` |
 | `app/ui/src/queries/board/BoardCard.tsx` | the card (R187, D-1793), generalised from `tasks/TaskCard.tsx` (no checkbox); `CardMenu` items `Open`, `Move to ›`, `Also add to ›` |
 | `app/ui/src/queries/board/write.ts` | `writeCardMove(row, move)` (§1.9) |
 | `app/ui/src/tables/widths.ts` | The shared width helper (D-1767): `WIDTH`, `clampWidth` move here from `types/columns.ts` (which re-exports them unchanged); `useColumnWidths(scope: { kind: 'type'; key: string } \| { kind: 'query'; name: string })` → `{ widths, set(key, px, save), reset() }` reading and writing `typeColumnWidths[key]` or `queryColumnWidths[name]` (one `ui_state_set` on release, debounced ≤ 1 s after keys); every mounted table of the same scope updates at once. **(changed by Q2.1, D-1845)**: the `query` scope is replaced by `{ kind: 'usage'; key: string }` reading and writing `usageColumnWidths[key]` (§19.3) |
 | `app/ui/src/tables/HeaderCell.tsx` | The header cell with its resize handle (type-columns §4), extracted from `TypePage.tsx`; props select the sort behaviour (`single`: the type page's machine-local sort; `levels`: R188 click / ⇧-click) and the reorder behaviour (`keys: true` only on `All <plural>`, D-1798) |
 | `app/ui/src/queries/QueryBlock.tsx` | gains the header sort button (icon + level count), header click / ⇧-click, resize handles, header drag (writes `columns`), the board body (`QueryBoard`) when `group` is set |
-| `app/ui/src/queries/QueryEditor.tsx` | R189: `fixedType?: { key: string; plural: string }` (opened from a tab), `View` gains `Board`, rows `Group by`, `Lanes`, `On cards`, no `Sort` row (D-1795), `Limit` hidden with Board, the usage notice counting type pages (`query_view_usages`) |
+| `app/ui/src/queries/QueryEditor.tsx` | **(changed by Q3, D-2175: no `View`, `Group by`, `Lanes` rows, §41.9)** R189: `fixedType?: { key: string; plural: string }` (opened from a tab), `View` gains `Board`, rows `Group by`, `Lanes`, `On cards`, no `Sort` row (D-1795), `Limit` hidden with Board, the usage notice counting type pages (`query_view_usages`) |
 | `app/ui/src/queries/QueriesPage.tsx` | the `<plural> page` mark per row (`pageMarks`) |
 | `app/ui/src/queries/QueryPage.tsx` | `Used on`: `ViewUsageDto` chips first (`views.pageMark`, open `type/<key>` on that tab), then notes |
 | `app/ui/src/pages/TypePage.tsx` | renders `TypeViews` (tab 0 is today's table, unchanged), the wide layout, loses `Filter`, `Group`, `Add view` placeholders (D-1801) |
@@ -440,13 +450,13 @@ change, no history entry). A pinned type page opens its remembered tab. `query/<
 | View rows | Table `tr` / List item | each result row of a view tab's Table or List (and of `All <plural>`) carries `data-query-result="<path NFC>"`, as the query block's rows (D-1819) |
 | Type page count | text below the header | `typePage.countPlural` `{count} {plural}` with the plural as written (`17 Books`), the same on every tab (D-1816) |
 | Add view | `button` | `aria-label` `views.add`, `aria-haspopup="menu"`, `data-command="views.new"`; `aria-disabled` + `aria-description` (`views.unreadableSetting`, AR-07 AC-3's newer reason) when it can't write |
-| Add view menu | `[role=menu]` | `aria-label` `views.addMenu`; `[role=group]` `views.newGroup` with `menuitem`s `views.kind.table`, `views.kind.list`, `views.kind.board` (the last with `aria-description` `views.kind.boardBy`); separator; `[role=group]` `views.savedGroup` with one `menuitem` per query (`data-query="<name>"`, `data-user-content`), greyed ones `aria-disabled="true"` with `aria-description` = the reason text |
+| Add view menu | `[role=menu]` | **(changed by Q3: `views.kind.wall`, no hint, §41.8)** `aria-label` `views.addMenu`; `[role=group]` `views.newGroup` with `menuitem`s `views.kind.table`, `views.kind.list`, `views.kind.board` (the last with `aria-description` `views.kind.boardBy`); separator; `[role=group]` `views.savedGroup` with one `menuitem` per query (`data-query="<name>"`, `data-user-content`), greyed ones `aria-disabled="true"` with `aria-description` = the reason text |
 | View menu | `[role=menu]` | `aria-label` `views.menu`; `menuitem`s `views.edit`, `views.rename`, `views.duplicate`, `views.openAsQuery` (`aria-description` `views.openAsQueryHint`), separator, `views.remove` (`aria-description` `views.removeHint`), `views.trash`; from the toolbar also `board.resetOrder` when the board has `lane_order` |
 | View toolbar | `div.view-toolbar` | `input[type=search]` `aria-label` `typePage.filter`; the tag filter of `tasks/TagFilter.tsx` (button `tasks.tagFilter`); sort button; `Columns` (Table: `button` `typePage.columns`, `data-command="view.columns"`, `aria-haspopup="menu"`) or the lanes `radiogroup` (Board); `button` `aria-label` `views.menu`, visible `⋯`, `aria-haspopup="menu"`, `data-command="views.menu"` |
 | Sort button | `button` | `aria-label` `sort.button` (`Sort`), `aria-haspopup="dialog"`, `aria-expanded`, `data-command="sort.open"`; visible `span.sort-first` (`Finished ↓`, from `sort.buttonText`) and `span.sort-more` (`sort.more`, `+2`) when > 1 level; in a block header: an icon and `span.sort-count` (`3`), same name |
 | Sort popover | `div[role=dialog]` | `aria-label` `sort.dialog`, not modal; one `div[role=group][data-sort-level="<i>"]` per level with `aria-label` `<sort.by \| sort.then> <column>, <order label>`; inside: grip `span[role=button][tabIndex=0]` `sort.drag`; `combobox` (`aria-label` `sort.by` / `sort.then`) whose `option`s are `sortChoices` minus keys used at other levels; `combobox` `aria-label` `sort.orderLabel` (R192) with two `option`s from `orderLabels`; `button` `sort.remove`; then `button` `sort.add`, `button` `sort.clear` |
 | Sorted header | `[role=columnheader]` | `tabIndex=0`; `aria-sort` on the first level only (`ascending` / `descending`); other levels `aria-description` `sort.level` (`Sort level 2, ascending`); visible marker `span.sort-marker[aria-hidden=true]` (`↑`, `↓`, with `sup` `1`, `2`, `3` when ≥ 2 levels); `draggable` except Title (D-1798); then the resize `separator` of type-columns §4 (`typePage.resize`) |
-| Lanes switch | `div[role=radiogroup]` | `aria-label` `board.lanes`; `[role=radio]` `board.vertical` / `board.horizontal` (`title` `board.verticalTitle` / `board.horizontalTitle`), `aria-checked`; `data-command="board.switchLanes"` |
+| Lanes switch **(removed by Q3, D-2173: the Group menu's `Lanes`, §42.1)** | `div[role=radiogroup]` | `aria-label` `board.lanes`; `[role=radio]` `board.vertical` / `board.horizontal` (`title` `board.verticalTitle` / `board.horizontalTitle`), `aria-checked`; `data-command="board.switchLanes"` |
 | Board | `div[role=group]` | `aria-label` = the query's title (`data-user-content`); `data-board`; `data-lanes="vertical\|horizontal"`; `data-group-by="<key>"`; `data-board-name="<name>"` (null for inline); the sideways scroller is `div.board-scroll` (its own `scrollLeft`) |
 | Lane | `section[role=region]` | `aria-label` `<label>, <board.laneCount>` (`Reading, 3 cards`; `none`: `No Status, 1 card`); excluded: `aria-description` `board.excluded`; `data-lane="<id>"`, `data-lane-kind`, `data-excluded` (present when excluded), `data-drop-target="true\|false"`, `data-folded` (horizontal, when folded) |
 | Lane header | `h2` | the label (`data-user-content`; Select option lanes carry `data-color="<colour>"` and use `var(--type-<colour>)`, others `--muted`); count `span.count[aria-hidden=true]`; excluded text `p.lane-excluded` (`board.excluded` vertical, `board.excludedLong` horizontal) |
@@ -493,6 +503,8 @@ change, no history entry). A pinned type page opens its remembered tab. `query/<
   Q2.1, D-1836: one write of the usage, §16)**; Esc closes and writes nothing more. `Add sort level` opens it with a new level appended and its column combobox focused (the level
   is written when added).
 - **Lanes switch** (`radiogroup` or `Switch lanes`): one `query_apply` with `lanes` flipped; the checked radio writes nothing.
+  **(changed by Q3, D-2173, D-2174: the Group menu's `Lanes` and `Switch lanes` write the usage; lane drags and `Reset
+  lane order` too, §33.2, §41.4)**
 - **Lane drag**: grip pointer drag or `Move lane left/right/up/down`; `laneOrderAfterDrop` → `query_apply({ laneOrder })`;
   `none` can't move and nothing drops after it. `Reset lane order`: `query_apply({ laneOrder: null })`.
 - **Card drag**: pointer down on a card, > 4 px starts the drag; Alt at drop time (and while hovering, for the label)
@@ -550,7 +562,7 @@ Commands (R191, D-1771, D-1789; `needsVault: true`, no shortcut, section `view` 
 | `views.edit` | `cmd.editView` | a view tab selected (not `All`) |
 | `views.next` / `views.previous` | `cmd.nextView` / `cmd.previousView` | `type/<key>` with `hasViews` (no-op at the ends) |
 | `views.moveLeft` / `views.moveRight` | `cmd.moveViewLeft` / `cmd.moveViewRight` | a view tab selected and the type file writable |
-| `board.switchLanes` | `cmd.switchLanes` | a board tab, a board `query/<name>`, a selected board block (writable) |
+| `board.switchLanes` | `cmd.switchLanes` | a board tab, a board `query/<name>`, a selected board block (writable) **(changed by Q3: a grouped wall, writing the usage, §42.4)** |
 | `sort.addLevel` | `cmd.addSortLevel` | a view tab, `query/<name>`, a selected saved-query block (writable) |
 | `board.resetLaneOrder` | `cmd.resetLaneOrder` | a board whose def has `laneOrder` |
 | `board.cardNext` / `board.cardPrevious` | `cmd.cardNext` / `cmd.cardPrevious` | a card focused |
@@ -783,7 +795,7 @@ D-…)**.
 - A usage's **own** `sort` / `columns` are the values stored in its item or fence; its **effective** value is its own
   valid value, else the query file's effective value (R138, R185). An own value replaces the query's whole value.
 - **Shared** by every usage (D-1836, D-1849): `title`, `types`, `match`, `filters`, `limit`, `view`, `group_by`,
-  `lanes`, `lane_order`.
+  `lanes`, `lane_order`. **(changed by Q3, D-2174: `view`, `group_by`, `lanes`, `lane_order` are per usage; §33.1)**
 
 ### 12.2 What Q2.1 writes (replaces part one's "What Q2 writes" for these actions)
 
@@ -792,9 +804,9 @@ D-…)**.
 | sort (header click, ⇧-click, keys, popover, `Clear`, `Use the query's sort`) | the type file's `views:` item (`type_patch` `viewSort`) | the note's fence (`QueryCtl.setSource`) | the query file (`query_apply`, as Q2) |
 | columns (`Columns`, header drag, `On cards` › `Change…`, `Use the query's columns`) | the item (`type_patch` `viewColumns`) | the fence | the query file |
 | `New property…` in `Columns` | the type file (attribute), then the item: two `type_patch` | the type file, then the fence | the type file, then the query file |
-| widths, folds | `ui-state.json` `usageColumnWidths`, `usageFolded` (§19.3) | same | same |
+| widths, folds | `ui-state.json` `usageColumnWidths`, `usageFolded` (§19.3) **(changed by Q3, D-2177: widths of tabs and blocks in the vault, §33.2)** | same | same |
 | `Move to trash` from a view menu | the type file's `views:`, then `query_trash` (§15) | — | — (as Q2) |
-| editor `Done`, lanes switch, lane drag, `Reset lane order` | the query file (shared) | the query file | the query file |
+| editor `Done`, lanes switch, lane drag, `Reset lane order` | the query file (shared) **(changed by Q3, D-2174: only editor `Done`; the rest write the usage, §33.2)** | the query file | the query file |
 
 Every write is one minimal write of one file, base-checked (FR-SYN-03), and none when the result equals the disk
 (R197). Showing, running, opening menus, resizing and folding write no vault file (FR-SYN-06 AC-49).
@@ -808,7 +820,7 @@ export type UsageSort = { by: string; order: 'asc' | 'desc' };
 /** A reference body's own values (R195 with R185's read rules, NFC). `'broken'`: the key is present but its value has
  *  a shape R185 calls broken (a non-list `columns`, a non-mapping `sort` item, an `order` other than asc/desc, …).
  *  `null`: the key is absent. Both null for a non-reference body (inline, empty, unreadable). */
-export type FenceUsage = { sort: UsageSort[] | 'broken' | null; columns: string[] | 'broken' | null };
+export type FenceUsage = { sort: UsageSort[] | 'broken' | null; columns: string[] | 'broken' | null };   // (changed by Q3: five more keys, §37)
 export function fenceUsage(body: string): FenceUsage;
 
 /** `undefined`: leave the key; `null`: remove it (`Use the query's …`); a value: set it. */
@@ -846,7 +858,7 @@ export function applyFenceUsage(text: string, range: [number, number], change: U
 pub enum UsageOrder { Asc, Desc }
 pub struct UsageSort { pub by: String, pub order: UsageOrder }          // `by` NFC, trimmed
 pub enum UsageValue<T> { Absent, Set(T), Broken }
-pub struct UsageRaw { pub sort: UsageValue<Vec<UsageSort>>, pub columns: UsageValue<Vec<String>> }
+pub struct UsageRaw { pub sort: UsageValue<Vec<UsageSort>>, pub columns: UsageValue<Vec<String>> }   // (changed by Q3: five more keys, §35)
 /// `sort` / `columns` of a YAML mapping (a fence body or a `views:` item); other keys ignored.
 pub fn usage_of(map: &yaml_rust2::yaml::Hash) -> UsageRaw;
 
@@ -873,7 +885,8 @@ pub fn fence_usage(body: &str) -> UsageRaw;
 - **No editor** (D-1839): a `QueryBlock` without `ctl` (the read view `ReadView.tsx`, a note in the Trash view, a block
   inside an embedded note) is a usage that **can't be written**: its sort button, header click / ⇧-click / keys, header
   drag, `Columns` and `On cards` › `Change…` are `aria-disabled` with `query.block.usageNotEditable`; resizing and
-  folding work (machine-local). `Choose a query…` / `Save as query…` stay absent there (v1-queries §3.3).
+  folding work (machine-local). **(changed by Q3, D-2177: resizing writes the fence, so it is disabled there; folding
+  works, §41.12)** `Choose a query…` / `Save as query…` stay absent there (v1-queries §3.3).
 - A draft block (`ctl.draft`) and an inline fence have no usage (D-1810, unchanged).
 - **Fence-only patch** (D-1885; `packages/editor/src/sourceDoc.ts` `queryBodyPatch`): when the save's `reconcile`
   finds a top-level container (a callout, a quote, a list) whose only change from the opened file is the text of nested
@@ -902,7 +915,7 @@ pub struct ViewItem {
     pub sort: UsageValue<Vec<UsageSort>>,       // the item's own `sort` (Absent for a plain name)
     pub columns: UsageValue<Vec<String>>,       // the item's own `columns`, keys NFC as written
     pub plain: bool,                            // a string item, or a mapping with only `name`
-}
+}   // (changed by Q3: `view`, `group_by`, `lanes`, `lane_order`, `widths`, §36.1)
 pub struct Parsed { /* … */ pub view_items: Option<Vec<ViewItem>> }   // same order and length as `def.views`, repeats kept
 ```
 
@@ -941,7 +954,8 @@ Rules of every views op (R196):
   `  - name: <name>`, `    sort: …` (one level) or `    sort:` + `      - { by: …, order: … }` lines, `    columns: […]`,
   in that order, then the item's unknown-key lines as written. Names, `by` values and column keys NFC, D-230 quoting
   (`  - name: "Čtu, až bude čas"`).
-- **Minimal rewrite.** The key's range is replaced. In a block list, an item whose value (name, own values, unknown keys)
+- **Minimal rewrite.** **(changed by Q3, CP-35, D-2200: inside a changed item the keys the op doesn't change keep their
+  lines, §36.2)** The key's range is replaced. In a block list, an item whose value (name, own values, unknown keys)
   didn't change keeps its own lines byte for byte (comments inside it included); a changed item is re-emitted (its
   unknown-key lines kept after the known ones, its inside comments dropped); full-line comments between items go
   (D-1840). A flow-style `views` that holds a mapping item is re-emitted in block style on any write.
@@ -965,7 +979,8 @@ a fence's `sort:` / `columns:` lines keep their bytes. The UI moves R198's keys 
 
 ### 14.4 Duplicate, Remove, Show a saved query (D-1843)
 
-- **Duplicate** on a tab: `query_duplicate(name)` → the copy's name; then one `type_patch(key, version, [views(names
+- **Duplicate** on a tab **(changed by Q3, CP-35, D-2200: `copyViewSettings` carries every own key, §36.3)**:
+  `query_duplicate(name)` → the copy's name; then one `type_patch(key, version, [views(names
   with the copy right after the original), viewSort(copy, own) if the original has an own sort, viewColumns(copy, own)
   if it has own columns])`: one write; widths aren't copied; unknown item keys aren't copied (CP-21, D-1863). On the overlay the
   copy's lines equal lines 15…19 with the new name (AC-26 (b)).
@@ -1072,7 +1087,7 @@ pub enum QuerySource {
 }
 pub enum UsageKind { Tab, Block }
 /// A usage's own values as read (R194): None = absent, or present with a broken shape (then in `UsageRun.broken`).
-pub struct UsageSettings { pub sort: Option<Vec<Sort>>, pub columns: Option<Vec<String>> }
+pub struct UsageSettings { pub sort: Option<Vec<Sort>>, pub columns: Option<Vec<String>> }   // (changed by Q3: §34.1)
 pub struct UsageRun {
     pub kind: UsageKind,
     pub own: UsageSettings,
@@ -1096,7 +1111,8 @@ pub struct QueryResult { /* … */ pub usage: Option<UsageRun> }
   gives a `broken` entry and the query's effective value. An own `columns` keeps unknown keys (the UI shows only real
   columns, as R138); `sort: []` is valid (D-1806).
 - `rows` are ordered by `usage.sort` (when Some) and `group` cards inside lanes follow that order; `limit` and grouping
-  stay the query's. `result.def` stays the **query file's** def, unchanged (CP-12, D-1854): the editor, the page and every
+  stay the query's. **(changed by Q3, D-2174: display, grouping, lanes and lane order are the usage's effective values,
+  §34.4)** `result.def` stays the **query file's** def, unchanged (CP-12, D-1854): the editor, the page and every
   query-file writer read it; rendering reads `usage` first (`effectiveSort` / `effectiveColumns`, §18).
 - Nothing in the run writes; one index lock as part one.
 
@@ -1144,7 +1160,7 @@ an external note change while open follows the editor's reload rule, then the bl
 | `app/ui/src/views/trashView.ts` (new) | §15 |
 | `app/ui/src/views/model.ts` | `viewTabs` gains `item: ViewItemDto \| null` per tab (the first item) |
 | `app/ui/src/views/uiState.ts` | `foldedOf(usageKey)`, `setFolded(usageKey, ids)` (`usageFolded`); `moveQueryState(from, to)` moves R198's keys and `typeViews.lastTab` (§19.3); `queryColumnWidths` / `boardFolded` untouched |
-| `app/ui/src/tables/widths.ts` | `WidthScope = { kind: 'type'; key } \| { kind: 'usage'; key: string }` (`usageColumnWidths[key]`); the `query` scope goes |
+| `app/ui/src/tables/widths.ts` | `WidthScope = { kind: 'type'; key } \| { kind: 'usage'; key: string }` (`usageColumnWidths[key]`); the `query` scope goes **(changed by Q3, D-2177: §40.2, §41.6)** |
 | `app/ui/src/views/ViewPanel.tsx` | `useQueryRun({ kind: 'view', type, name })`; `Usage` tab; `useUsageWrite`; the usage's broken notices; widths and folds by its usage key; `trashView` from the toolbar `⋯` |
 | `app/ui/src/views/TypeViews.tsx` | the view menu's `views.trash` → `trashView`; Duplicate per §14.4; the menus through §20's placement |
 | `app/ui/src/queries/QueryBlock.tsx` | `usage?: Usage \| null` prop (block from the mount and `ReadView`, page from `QueryPage`); rendering from `effectiveSort` / `effectiveColumns`; writes through `useUsageWrite`; the usage's broken notices |
@@ -1196,6 +1212,8 @@ usageFolded?: Record<string /* usage key */, string[] /* lane ids */>;
   `path:<vault path>`; `page:<name key>`. `parseUsageKey` reads a block key's name key between the last `/` and the
   final `#<digits>`.
 - Widths: one `ui_state_set` on release (keys: debounced, as part one); `Reset column widths` deletes only that key.
+  **(changed by Q3, D-2177, D-2190: only `page:` keys are written; `tab:` / `block:` keys are read until the usage has
+  own widths and removed after its first width write, §41.6, §42.3)**
   Folds: one `ui_state_set` per toggle; an empty list deletes the key.
 - `queryColumnWidths` and `boardFolded` stay in `UiStateDto` and in the file untouched; nothing reads them (AC-11).
 - **Rename** (`moveQueryState(from, to)`, after the job's `done` and after its Undo): every usage key whose name key is
@@ -1442,11 +1460,11 @@ Parts one and two hold unless a section below changes them. This part also **sup
 | Drop onto / out of the done lane | one object: `status`, `completed` (set or removed) and, out of it, the date key; `modified:` | §26 |
 | Status move on a board grouped by a `status` that carries states | one object: `status`, `completed` per D-472, `modified:` | `applyTaskChange` + `note_write` (§26) |
 | Task checkbox, status / priority / due from a Task card's menu on a board | one object, tasks.md bytes | §26 |
-| Editor: `Group by` period choice, done-lane checkbox, state operators | the query file (shared keys) | `query_apply` (§24.3) |
+| Editor: `Group by` period choice, done-lane checkbox, state operators | the query file (shared keys) | `query_apply` (§24.3) **(changed by Q3, D-2175: no `Group by` row; the Group menu writes the usage, §33.2)** |
 | Sort on a tab (Tasks views included) | the `views:` item (part two, unchanged) | `type_patch` `viewSort` |
 | Sort on `All <plural>` | `ui-state.json` `typeSort[<type>]` (a list) | `ui_state_set` (§30.3) |
 | Tag filter on a tab or `All <plural>` | `ui-state.json` `tagFilter[<key>]` | `ui_state_set` |
-| Lane drag, `Reset lane order` on Kanban | `Kanban.yml` `lane_order` (never `task.yml`) | `query_apply` (part one) |
+| Lane drag, `Reset lane order` on Kanban | `Kanban.yml` `lane_order` (never `task.yml`) **(changed by Q3, D-2174: the `Kanban` tab writes its `task.yml` item; `query/Kanban` writes `Kanban.yml`, FR-TSK-05 AC-23)** | `query_apply` (part one) |
 | `New Task`, ⌘N › Task, palette `New Task`, a lane's tile | nothing until the draft's first change (D-520, D-522) | the draft route `new/task` |
 
 Nothing else: opening `type/task`, switching tabs, folding, filtering, opening menus and popovers, following a card and
@@ -1547,7 +1565,7 @@ pub struct QueryResult {
 - **`done_lane`**: a mapping with `within_days` an integer 1…366 and an optional `folded` boolean, no other entry →
   `Some(DoneLane)`; anything else (a scalar, `within_days: 0` / `tři`, a non-boolean `folded`, an unknown entry) →
   `BadValue` for `done_lane`, None. Read with every `view`; used only with `view: board` (kept and ignored with `list` /
-  `table`, no notice, AP-1535).
+  `table`, no notice, AP-1535). **(changed by Q3, D-2188: used whenever the usage is grouped, §34.4)**
 - **`lane_order`**: unchanged shape rule. On a period board only the exact strings `today`, `week`, `later` match a
   lane; other entries are kept in the file and ignored (`[Later, zítra]` orders nothing, FR-QRY-01 AC-18).
 - **State operators** in `filters`: `{ <key>: { state_is: <s> } }` / `state_is_not`, `<s>` a scalar string. Shape as
@@ -1593,7 +1611,8 @@ pub struct QueryResult {
   each object by its valid `YYYY-MM-DD` value only (`tegg_format::date::parse_date`, quoted or not; tasks.md AP-414); an
   impossible date, a date-time or text is an **empty** value (last in both orders). Date-time, `created`, `modified`
   keep the instant rule. This holds in every view, not only boards. Filters are unchanged.
-- **Period grouping** (D-1776, AP-1536). Only when `view == Board` and `group_period`:
+- **Period grouping** (D-1776, AP-1536). Only when `view == Board` and `group_period` **(changed by Q3, D-2173,
+  D-2181: in every display; flat in a Table or List, §34.4)**:
   - Valid when the key is `created` or `modified`, or an attribute of kind Date or Date-time of **every** chosen type
     with the same kind (D-1807's rule). Otherwise `Broken { BadValue, key: "group_by" }` and `group: None` (drawn as a
     List with `query.block.brokenKey`, FR-QRY-01 AC-18).
@@ -1606,7 +1625,8 @@ pub struct QueryResult {
     empty ones too; `none` is always present on a period board (an exception to part one's "only when it has a card").
   - Cards: each row once, in `rows` order (the effective sort, D-1895); in `week`, in its day's group.
   - `GroupKind::Period { date_time }`, `Grouping.name` = the attribute's Name (`Due date`, `Created`, `Modified`).
-- **The done lane** (D-1898; R201). When `view == Board` and `done_lane` is Some:
+- **The done lane** (D-1898; R201). When `view == Board` and `done_lane` is Some **(changed by Q3, D-2188: whenever the
+  effective grouping resolves, §34.4)**:
   - Valid when every chosen type's `status` attribute carries states and has at least one option of state `done`;
     otherwise `Broken { BadValue, key: "done_lane" }` and no done-lane behaviour (Projekt, Book).
   - A row is **done** when its `status` state is `done`. Its **completed day** is the local date (in `tz`) of
@@ -1632,7 +1652,7 @@ pub const TASK_VIEW_NAMES: [&str; 2] = ["Schedule", "Kanban"];
 /// R202's def of `Schedule` or `Kanban` (None for any other name).
 pub fn default_task_view(name: &str) -> Option<QueryDef>;
 /// R202's bytes: `queries_q::create_text_unstamped(&default_task_view(name)?)` (D-1936).
-pub fn default_task_view_text(name: &str) -> Option<String>;
+pub fn default_task_view_text(name: &str) -> Option<String>;   // (changed by Q3, D-2195: R202 constants, §34.3)
 // queries_q: `create_text` without the `created` / `modified` lines (both optional when read, R138).
 pub fn create_text_unstamped(def: &QueryDef) -> String;
 ```
@@ -1887,9 +1907,9 @@ command plumbing `ShellActions.taskCommand` / `taskCommandState` for the removed
 
 ### 29.2 Tabs, toolbar, `New Task`
 
-- Tabs and toolbar as part one §4.3 / R186: `Filter Tasks…`, `Filter by tag` (every tab and `All Tasks`), on boards the
-  `Lanes` radiogroup, the sort button, `View actions`; on `All Tasks` `Columns`. Gone: `textbox` `Add a task…`, the
-  date-filter `group`, the `Group by` and `Task views` tablists, the disabled `Sort`, `Show <n> more`.
+- Tabs and toolbar as part one §4.3 / R186 **(changed by Q3, D-2173: R223's toolbar, no `Lanes` radiogroup, §41.8)**:
+  `Filter Tasks…`, `Filter by tag` (every tab and `All Tasks`), on boards the `Lanes` radiogroup, the sort button,
+  `View actions`; on `All Tasks` `Columns`. Gone: `textbox` `Add a task…`, the date-filter `group`, the `Group by` and `Task views` tablists, the disabled `Sort`, `Show <n> more`.
 - `New Task` (header, ⌘N › Task, palette `task.new`) navigates to `new/task` with no prefill; `status` comes from
   `newObject` (the first Open-state option, D-503). A lane's tile: `new/task` with `Route.prefill` (§29.3, part one
   §4.5). Nothing is written before the draft's first change.
@@ -1963,6 +1983,8 @@ space on both sides). Boards and tables wider than it scroll inside their own sc
 sideways. Notes unchanged.
 
 ### 29.9 The editor (R189 changes)
+
+**(changed by Q3, D-2175: no `View`, `Group by`, `Lanes` rows; the done-lane checkbox stays, §41.9)**
 
 From `Schedule`: `Show` fixed to `Task`; the filter row `Status` `state is not` `Cancelled`; `View` Board; `Group by`
 `Due date · by period`; the checkbox `Done in its own lane, last 7 days` checked; `Lanes` `Horizontal`; no `On cards`.
@@ -2241,3 +2263,928 @@ Each point was decided as recommended (option (a)); the alternatives are kept fo
 | D-1926 (RT-1) | The Rust red tests compile against a compile-only stubs commit of §24.1 and §25 (`Op::StateIs` / `StateIsNot`, `DoneLane`, `QueryDef.group_period` / `done_lane`, `LaneKind::Period` / `Done`, `DayGroup`, `Lane.days` / `done_within`, `GroupKind::Period`, `QueryRow.tags` / `task_row`, `QueryResult.task_defs`, `taskviews`, `Core::task_views_migrate` / `task_views_restore`), made before the red commit as D-1813; stubs return wrong values or `NotImplemented`, never panic The stubs' type-only edits of slice Q tests (`crates/tegg-core/tests/queries_setup/mod.rs`, `ac_queries_props.rs`) go with the stubs commit |
 | D-1927 (RT-3…RT-11) | NFR-PERF-07 AC-5's L4 benchmark is the new `ac_views_tasks_perf.rs`; it and `ac_views_perf.rs` run in the nightly `core-perf-ac` step. FR-QRY-05 AC-29 has no L1. A missing `columns` reads as §24.2 says. The new task's expected file is the whole file without `id:`. `new-view-board-book.yml` changes in the build commit. `weekStart` is `getDay` numbering; `targets()` / `neighbourTarget()` use `{ lane, day }`. `tagOptions` / `keepRow` NFC-normalise the selection; selected tags with 0 rows stay listed. The migration race is 40 trials with a concurrent writer. A missing `created` / `modified` has no date. Part B's assumptions hold: T15 shows no status chip in its unknown-value lane; "no history entry" is checked by `history.length`; day headings come from `Intl`; tag lanes are named by the tag; the done lane's heading uses `--type-green`; Preview and option changes are made by external `setFile` edits; the fake `vault_create` gives `task-migrated.yml`; alias rows keep the boards `Tasks`, `TasksBoard` |
 | D-1928 | The existing tests of the change table (views.md part three) change in a commit right after the red commit, not in the build commit (amends D-1912 and §31.2) |
+
+---
+
+# Part four: slice Q3 (D-2172…D-2196)
+
+Public interfaces of slice **Q3**, display and grouping per usage (plan `docs/plans/q3-display-and-grouping-plan.md`;
+planned as 0.7.0), for the test author (D-61) and the build. ACs: `docs/acceptance/views.md` **part five** (the ACs
+number their parts with slice OC's part four in between; this contract's part four is the ACs' part five): R220…R228;
+FR-QRY-05 AC-32…AC-47, FR-QRY-07 AC-32…AC-35, FR-QRY-01 AC-21, AC-22, FR-QRY-06 AC-26, FR-QRY-08 AC-4, FR-QRY-09 AC-9,
+FR-TYP-09 AC-37, FR-TYP-01 AC-29, FR-TSK-04 AC-30, FR-TSK-05 AC-23, FR-LNK-03 AC-26, FR-FMT-06 AC-8, FR-FMT-07 AC-37,
+FR-FMT-12 AC-16, AR-07 AC-12, FR-SYN-02 AC-15, FR-SYN-03 AC-36, FR-SYN-06 AC-52, FR-STO-07 AC-16, NFR-POR-01 AC-8,
+NFR-PERF-07 AC-7, AC-8, FR-UX-03 AC-56, AC-57, FR-UX-05 AC-27, FR-UX-08 AC-27, NFR-OTH-02 AC-25, and the table "Existing
+criteria this slice changes (part five)". Decisions D-2172…D-2187 (plan, BRD v1.249) and AP-2050…AP-2058 =
+D-2188…D-2196 (BRD v1.250). Fixtures: the base `tests/fixtures/vaults/views/`, the overlay
+`tests/fixtures/vaults/views-display/` (README there), `views-usage/` is not combined with it, `views-tasks/` for the
+Tasks criteria. Boards `Views` (A, B, W1, D3, D1, D2, H1, H2, C, E, G, F), `ViewsApp` and their Dark variants; cards are
+[v1-cards.md](v1-cards.md)'s (unchanged).
+
+**Status: approved, 2026-11-23.** Contract points CP-32…CP-37 accepted by the owner as D-2197…D-2202 (§47); each
+place they settle is marked **(CP-n, D-xxxx)**. The AC problems of §46 fixed in `docs/acceptance/views.md` part five
+(and the overlay README) as D-2203.
+
+Parts one to three hold unless a section below changes them; each superseded place there is marked **(changed by Q3,
+D-…)** with a pointer here. Where this part and the ACs disagree, the ACs win and this part is corrected before the red
+tests.
+
+## 33. What Q3 changes
+
+### 33.1 Words
+
+- A **display** is `list`, `table` or `wall` (D-2172). The file key stays `view`. **Wall** replaces Board and Kanban:
+  an **ungrouped wall** is a wrapping grid of cards; a **grouped wall** is part one's board (lanes as **columns** =
+  part one's "vertical", or **rows** = "horizontal").
+- A **grouping** is an attribute key, a period mapping `{ <key>: period }` (R201) or **none**. A **grouped** usage has a
+  valid effective grouping other than none (R220). A **group** is one group of a grouped Table or List; a **lane** is one
+  group of a grouped wall; both are the core's `Lane`s (§1.1, §24.1), with the same ids.
+- **Usage** (R194, unchanged): a tab (a `views:` item) or a block (a reference fence). `query/<name>` sets the
+  **defaults** (the query file). `All <plural>` is neither: its display and grouping are machine-local (D-2178).
+- **Own / effective** (R194, extended by R220): a usage's own value of `view`, `group_by`, `lanes`, `lane_order`,
+  `widths` is what its item or fence stores; its effective value is its own **valid** value, else the query file's
+  effective value (`widths`: else none). An own value replaces the whole value; `lane_order` is never merged.
+- **Old words** (D-2179): `board`, `vertical`, `horizontal`. They read as `wall`, `columns`, `rows` everywhere and are
+  never rewritten unless that key changes. **New words** are written only for the key being changed.
+
+### 33.2 What Q3 writes (replaces §12.2 and §23.2 for these actions)
+
+| Action | Tab | Block | `query/<name>` | `All <plural>` |
+| --- | --- | --- | --- | --- |
+| Display switch, `Display as …` | `type_patch` `viewDisplay` (item `view`) | the fence's `view` (`QueryCtl.setSource`) | `query_apply` `view` | `ui_state_set` `allView` |
+| Group menu attribute or `None`, `Group by…`, `Remove grouping` | `viewGroup` (item `group_by`, `none` included) | the fence's `group_by` | `query_apply` `groupBy`; `None` removes the line (D-2191, CP-32, D-2197) | `allView` |
+| Group menu `Lanes`, `Switch lanes` | `viewLanes` | the fence's `lanes` | `query_apply` `lanes` | `allView` |
+| Lane drag, group-header drag, `Move lane …` | `viewLaneOrder` | the fence's `lane_order` | `query_apply` `laneOrder` | not offered (D-2178) |
+| `Reset lane order` | `viewLaneOrder` `[]` or removal (D-2192, §41.7) | the fence, same rule | `query_apply` `laneOrder: null` (D-1792) | not offered |
+| Column resize end, resize keys (blur / 1 s), `⌫` on a handle, `Reset column widths` | `viewWidths` (D-2177, D-2190) | the fence's `widths` | `ui_state_set` `usageColumnWidths["page:…"]` | `ui_state_set` `typeColumnWidths` |
+| `Use the query's display` | `viewDisplay` `null` | removes the fence's `view` | not offered | not offered |
+| `Use the query's grouping` | `viewGroup` `null` (removes `group_by`, `lanes`, `lane_order`) | removes the three fence keys | not offered | not offered |
+| Fold a group or lane, ⌥-click | `ui_state_set` `usageFolded[<usage key>]` | same | same | `usageFolded["all:<type>"]` |
+| Sort, Columns, `New property…` | §12.2 (unchanged) | | | |
+| Card drag between lanes, a lane's `+` | the object (unchanged, part one §1.9, §26) | | | |
+| Editor `Done` | the query file: title, `Show`, filters, `Limit`, done-lane checkbox (D-2175) | same | same | — |
+
+Every vault write is one minimal atomic write of one file, base-checked (FR-SYN-02, FR-SYN-03), and none when the result
+equals the disk (FR-SYN-06; R222's no-write list: the pressed display, the checked grouping or `Lanes` item, a drop at
+its own place, a resize that ends at its starting width). A block write is one editor transaction, one undo step and
+one autosave whose `modified:` follows D-55 (D-1839). The first width write of a usage that has 0.6.0 widths on this Mac
+also removes that `ui-state.json` entry (D-2190, §41.6). Nothing else is written: opening, running, drawing, scrolling,
+folding, opening menus and moving the focus write no vault file (FR-SYN-06 AC-52). Q3 adds no job, no migration and no
+restore point; the 4C rename job's plan grows (§38).
+
+### 33.3 What this part supersedes
+
+| Place | Now |
+| --- | --- |
+| Part one §1.1 `View::Board`, `Lanes::{Vertical, Horizontal}`, `QueryResult.group` "only when `view == Board`" | `View::Wall`, `Lanes::{Columns, Rows}`; `group` for every display (§34) |
+| Part one §1.2 `view`, `group_by`, `lanes` read rules | §34.2 |
+| Part one §1.4 create rule (`group_by` / `lanes` only on a board) | §34.3 |
+| Part one §1.6 "Grouping … Only when `def.view == Board`", "No paging on a board" | §34.4 (grouping in every display; `limit` only on an ungrouped List or Table, D-2189) |
+| Part one §2 `QueryDefDto.view` / `lanes`, `QuerySummaryDto.view` words | §39.2 |
+| Part one §2.2, §4.4 lanes switch, lane drag, `Reset lane order` write the query file | the usage (§33.2) |
+| Part one §4.2 `QueryBoard`, `newViewDef`, `QueryEditor` View / Group by / Lanes; §4.3 `Add view` menu, View toolbar, Lanes switch, Editor rows; §4.7 `board.switchLanes` "a board" | §40, §41, §42 |
+| Part one §4.8 `board-request` "when a board tab is chosen" | every wall (§42.5) |
+| Part two §12.1 shared keys; §12.2 rows "widths, folds" and "editor `Done`, lanes switch, lane drag, `Reset lane order`" | §33.1, §33.2 |
+| Part two §13.1 `FenceUsage` / `UsageChange`; §13.2 `UsageRaw`; §14.1 `ViewItem`; §14.2 ops and the re-emit rule; §14.4 Duplicate | §35…§37, §36.2 (CP-35, D-2200) |
+| Part two §13.3 "resizing and folding work" in a block without an editor | resizing is disabled there (R222, FR-QRY-05 AC-45); folding works |
+| Part two §17.1, §17.2 `UsageRun` and "`limit` and grouping stay the query's" | §34.4 |
+| Part two §18 / §19.3 widths per usage in `usageColumnWidths` | in the vault for tabs and blocks (D-2177); `page:` keys stay (§42.3) |
+| Part three §23.2 editor `Group by` row, Kanban lane drag writes `Kanban.yml` | the Group menu; the tab writes `task.yml`'s item (FR-TSK-05 AC-23) |
+| Part three §24.2 `done_lane` "used only with `view: board`"; §24.4 "Only when `view == Board`" (periods, done lane) | used whenever the usage is grouped, every display (D-2188, §34.4) |
+| Part three §24.3 / §28.2 "a Board with empty `columns` writes none"; `newViewDef` Board | a Wall (§34.3, §41.8) |
+| Part three §29.2 toolbar `Lanes` radiogroup; §29.9 editor `View` / `Group by` / `Lanes`; §30.1 editor `combobox` `query.editor.groupBy` | §41.1, §41.2, §41.9 |
+| Part three §25.1 `default_task_view_text` through `create_text_unstamped` | R202's bytes as constants (D-2195, §34.3) |
+
+## 34. Query files and the run (`tegg-core::queries_q`; R220, R221; AR-03)
+
+### 34.1 Types (changes to part one §1.1, part three §24.1)
+
+```rust
+pub enum View { List, Table, Wall }          // Q3 (D-2172): `Wall` replaces `Board`; `board` reads as Wall (D-2179)
+pub enum Lanes { Columns, Rows }             // Q3: `vertical` / `horizontal` read as Columns / Rows; missing = Columns
+
+pub struct QueryDef {
+    // …parts one to three…
+    /// Q3 (D-2191, CP-32, D-2197): the file says `group_by: none`. Always false when `group_by` is Some. In a commit,
+    /// `group_by: None` with `group_none: true` removes a valid `group_by` line (§34.3).
+    pub group_none: bool,
+}
+
+/// Q3 (R220): a usage's own grouping as read (`tegg_format::usage::UsageGroupBy`, re-exported).
+pub use tegg_format::usage::{UsageGroupBy, UsageLanes, UsageView};
+
+pub struct UsageSettings {
+    pub sort: Option<Vec<Sort>>,                 // part two
+    pub columns: Option<Vec<String>>,            // part two
+    pub view: Option<View>,                      // Q3: None = absent or broken (then in `UsageRun.broken`)
+    pub group_by: Option<UsageGroupBy>,          // Q3: `None` (the word), `Key(k)`, `Period(k)`; valid at run time
+    pub lanes: Option<Lanes>,
+    pub lane_order: Option<Vec<String>>,         // `Some(vec![])` = `lane_order: []`
+    pub widths: Option<Vec<(String, u32)>>,      // in file order, keys NFC
+}
+pub struct UsageRun {
+    pub kind: UsageKind,
+    pub own: UsageSettings,
+    /// Part two's rule for every own key: `Broken { BadValue, key }` for an own value of a broken shape or that fails
+    /// its run-time check (a `sort` level, a `group_by` that doesn't resolve for the query's types). At most one per key.
+    pub broken: Vec<Broken>,
+    // Effective values (R220):
+    pub sort: Vec<Sort>,
+    pub columns: Vec<String>,                    // CP-33, D-2198 for a query file without `columns`
+    pub view: View,
+    pub group_by: Option<String>,                // None: not grouped (own `none`, query `none` or absent)
+    pub group_period: bool,
+    pub lanes: Lanes,
+    pub lane_order: Option<Vec<String>>,
+    pub widths: Vec<(String, u32)>,              // the own valid widths, else empty (a query file holds none)
+}
+```
+
+`QueryResult.group` (part one) is Some whenever the **effective** grouping resolves, in every display. `QueryRow.card`
+(v1-cards §3.3) is filled on every **wall** run, grouped or not. `QuerySummary.view` reads the new words through
+`View`. `LaneKind`, `Lane`, `DayGroup`, `GroupKind`, `Grouping` are unchanged.
+
+### 34.2 Read rules (R220; changes to part one §1.2, part three §24.2)
+
+- **`view`**: `list`, `table`, `wall`, and `board` read as `Wall` (D-2179). Any other value (`Wall`, `kanban`, a
+  non-string) → `BadValue` for `view`, default `List`, the file kept.
+- **`group_by`**: part three's rule (a non-blank string, or a one-entry mapping `{ <key>: period }`), plus the exact
+  string `none` → `group_by: None`, `group_none: true`, no broken entry, the file kept (D-2191, CP-32, D-2197). Read with
+  every display. `{ <key>: month }` and any other mapping value stay `BadValue` (D-2180).
+- **`lanes`**: `columns`, `rows`; `vertical` → `Columns`, `horizontal` → `Rows`; other values `BadValue`, default
+  `Columns`. Used only on a grouped wall; elsewhere kept and ignored, no notice (R220).
+- **`lane_order`**, **`done_lane`**, **`limit`**: shapes unchanged. `done_lane` is used whenever the usage is grouped
+  (D-2188); `limit` only on an ungrouped List or Table (D-2189).
+- **`columns` absent** (part three §24.2): reads as `[]` when `view` is a wall, else the create default, as today; a
+  usage's effective columns on a List or Table over such a wall file follow CP-33 (pending).
+- **`widths`** in a query file is not a known key: kept and ignored (R220), never read, never written.
+- `version` stays 1 (`QUERY_VERSION`); a file with `view: wall`, `lanes: rows` and `version: 1` is `Ok` (AR-07 AC-12).
+- The inline fence reader (`read_fence`, `FenceRead::Inline`) uses the same rules: an inline `view: board` without
+  `group_by` is a valid ungrouped wall. Inline fences have no usage (D-1810, D-2194 (e)).
+
+### 34.3 Write rules (changes to part one §1.4, part three §24.3)
+
+- **Words** (D-2179): `key_lines("view")` writes `wall` for `Wall`; `key_lines("lanes")` writes `columns` / `rows`. A key
+  is rewritten only when its **effective** value changes (`effective()` compares `View` / `Lanes` values, so a file's
+  `board` / `vertical` / `horizontal` never changes on a commit that keeps that value). A replaced one-line key keeps
+  its trailing comment (`lanes: columns            # vertical nebo horizontal`, FR-QRY-05 AC-46 (c)).
+- **`group_by` removal** (D-2191, CP-32, D-2197): a commit with `group_by: None`, `group_none: true` while the file reads
+  a valid `group_by` (`Some`) removes the key's line or block (the third explicit exception to D-1457, after D-1792 and
+  D-1898 (e)); `lanes` and `lane_order` stay. A file already reading `group_none` (or a broken `group_by`) is unchanged
+  by it. `group_by: None, group_none: false` still means "unchanged" (the editor's commit, which carries the file's def,
+  D-1842).
+- **Create** (`create_text`, R221 order unchanged): `group_by` when Some (any display); `lanes` only when `group_by` is
+  Some and `view == Wall`; `lane_order` when Some; `done_lane` when Some; `columns` omitted when `view == Wall` and
+  `columns` is empty (D-1910). Creates write the new words: `New view` › Wall gives `view: wall` and no `group_by`,
+  `lanes` or `columns` (FR-QRY-07 AC-32). `Save as query…` of an inline `view: board` fence writes `view: wall`.
+- **Default task views** (D-2195): `taskviews::default_task_view_text(name)` returns R202's bytes from constants
+  (`SCHEDULE_TEXT`, `KANBAN_TEXT`, equal to `expected/views-tasks/queries/{schedule,kanban}-default.yml`), with
+  `view: board` and `lanes: horizontal` / `vertical`; `default_task_view(name)` is `read_text` of that text. They no
+  longer go through `create_text_unstamped`, whose words are now the new ones.
+- `query_duplicate` and `retitle_text` copy every other byte (old words kept). `patch_job_text` is unchanged (it patches
+  `lane_order` link entries of query files, FR-LNK-03 AC-24).
+- Read-back check (D-1458): compares `group_none` too.
+- Expected bytes: §43.4.
+
+### 34.4 The evaluator and the run (changes to part one §1.6, part two §17.2, part three §24.4)
+
+- **The run's def.** `query_run`'s `run` closure builds `eval_def` from the query file's def with the usage's
+  **effective** `sort`, `columns`, `view`, `group_by` / `group_period` (`group_none` when the effective grouping is
+  none), `lanes` and `lane_order` (part two's substitution, extended). `QueryResult.def` stays the query file's def
+  (CP-12, D-1854); rendering reads `usage` first (`views/display.ts`, §40).
+- **`usage_run`** (part two §17.2) checks each own key: shape (`UsageValue::Broken` → broken), then run time: `sort` as
+  today; `group_by` `Key` / `Period` with the evaluator's own resolution rules (part one §1.6, part three §24.4) against
+  the **query's** types (`group_ok(key, period, chosen, defs)`): failing → broken, the query's grouping applies;
+  `UsageGroupBy::None` is always valid. `view`, `lanes`, `lane_order`, `widths` have no run-time check (unknown
+  `lane_order` entries and unknown `widths` keys are kept and ignored, R220).
+- **The query's broken entries a usage replaces** (R220 "A query's broken key a usage replaces"): in a usage run, a
+  syntactic `result.broken` entry (`at: None`) for `view`, `group_by`, `lanes` or `lane_order` is dropped when the usage
+  has a **valid** own value for that key. `query/<name>` (`Saved`) keeps every entry. Which notices are drawn is the
+  UI's (D-2194 (g), §41.2).
+- **Grouping** in every display: when `eval_def.group_by` is Some, `group_rows` / `group_period` run as today (lanes,
+  ids, `lane_order`, exclusion, hidden state lanes, period lanes with day groups, `none`). A grouping that doesn't
+  resolve gives `Broken { BadValue, key: "group_by" }` and `group: None`: a wall draws the **ungrouped wall** with the
+  notice (D-2179), a Table or List draws ungrouped with the notice.
+- **The done lane** (D-2188): applied when the effective grouping resolves (any display), with part three's rules per
+  grouping (period → the `done` lane; `status` with states → `done_within` on Done-state option lanes; other groupings
+  → Done rows outside `within_days` leave `rows`). An ungrouped usage ignores `done_lane` (no notice, every Done-state
+  row shown).
+- **Rows and cards**: `rows` hold every result (D-1451); `limit` is the UI's, applied only to an ungrouped List or
+  Table (R141 `Show more`, D-2189). On a **wall** run (effective `View::Wall`) every row gets `version`, `excerpt`,
+  `read_only` and `card` (v1-cards §3.3, one note read only where `body` is a card key); grouped or not. List and Table
+  runs (grouped or not) keep the no-excerpt read (`card: None`). The grouping key is hidden on cards only on a grouped
+  wall (D-1769's exception kept; R224: every key shows on an ungrouped wall).
+- **`uses_relative`**: true for a valid effective period grouping or a valid applied done lane (part three).
+- One index lock; nothing in a run writes.
+
+## 35. Usage values (`tegg-format::usage`; R220)
+
+```rust
+// crates/tegg-format/src/usage.rs (part two §13.2, extended)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)] pub enum UsageView { List, Table, Wall }
+#[derive(Debug, Clone, Copy, PartialEq, Eq)] pub enum UsageLanes { Columns, Rows }
+#[derive(Debug, Clone, PartialEq, Eq)] pub enum UsageGroupBy { None, Key(String), Period(String) }
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]           // Default: every key Absent
+pub struct UsageRaw {
+    pub sort: UsageValue<Vec<UsageSort>>,
+    pub columns: UsageValue<Vec<String>>,
+    pub view: UsageValue<UsageView>,
+    pub group_by: UsageValue<UsageGroupBy>,
+    pub lanes: UsageValue<UsageLanes>,
+    pub lane_order: UsageValue<Vec<String>>,
+    pub widths: UsageValue<Vec<(String, u32)>>,
+}
+impl<T> Default for UsageValue<T> { fn default() -> Self { UsageValue::Absent } }
+
+pub fn view_value(v: &Value) -> UsageValue<UsageView>;
+pub fn group_by_value(v: &Value) -> UsageValue<UsageGroupBy>;
+pub fn lanes_value(v: &Value) -> UsageValue<UsageLanes>;
+pub fn lane_order_value(v: &Value) -> UsageValue<Vec<String>>;
+pub fn widths_value(v: &Value) -> UsageValue<Vec<(String, u32)>>;
+// usage_of / usage_of_json read all seven keys; fence_usage (query_fence.rs) returns them.
+```
+
+Shape rules (Absent: the key isn't there; Set; Broken: present with another shape; never a rewrite):
+
+| Key | Set | Broken |
+| --- | --- | --- |
+| `view` | the strings `list`, `table`, `wall`, `board` (→ `Wall`), case-sensitive | anything else (`Wall`, `kanban`, a number, a list) |
+| `group_by` | the string `none` → `None`; another non-blank string → `Key(nfc(trim))`; a one-entry mapping `<non-blank string>: period` → `Period(nfc(trim(key)))` | a blank string, a mapping with another value (`month`, D-2180) or more entries, a list, a number |
+| `lanes` | `columns`, `rows`, `vertical` (→ `Columns`), `horizontal` (→ `Rows`) | anything else (`diagonal`) |
+| `lane_order` | a list of strings (flow or block), NFC; `[]` | anything else (`Reading`, a list with a non-string) |
+| `widths` | a mapping whose every key is a string (NFC) and every value a YAML integer 0…100,000, in file order | a non-mapping (`široké`), a float, a string or negative value |
+
+A `widths` value outside R130's limits is `Set` and drawn clamped (R220), never rewritten. Whether a `group_by` key exists
+is the run's check (§34.4). Literals of `UsageRaw` in code and tests take `..Default::default()` (type-only, D-2196).
+
+## 36. The type file's items (`tegg-schema`; R220, R221; AR-07 AC-12)
+
+### 36.1 Reading
+
+```rust
+pub use tegg_format::usage::{UsageGroupBy, UsageLanes, UsageView};
+pub struct ViewItem {
+    pub name: String,
+    pub sort: UsageValue<Vec<UsageSort>>,
+    pub columns: UsageValue<Vec<String>>,
+    pub view: UsageValue<UsageView>,                 // Q3
+    pub group_by: UsageValue<UsageGroupBy>,          // Q3
+    pub lanes: UsageValue<UsageLanes>,               // Q3
+    pub lane_order: UsageValue<Vec<String>>,         // Q3
+    pub widths: UsageValue<Vec<(String, u32)>>,      // Q3
+    pub plain: bool,                                 // a string item, or a mapping with only `name`
+}
+```
+
+- The five keys stop being unknown item keys: they are read by `usage_of_json`; other keys stay unknown (kept, written
+  after the known ones). A broken value never makes `views` unreadable (part two §14.1's rule is about the item's shape).
+- Items with these keys and `version: 1` are `Ok`; `CURRENT_VERSION` stays 1 (AR-07 AC-12). Repeats: the first item
+  of a name key wins (R196); an NFD name resolves as its NFC form (FR-FMT-12 AC-16).
+- New, starter and built-in type files are unchanged (no `views`).
+
+### 36.2 Ops (part two §14.2, extended)
+
+```rust
+pub enum TypeOp {
+    // …SetViews, SetViewSort, SetViewColumns, SetViewsSource (part two)…
+    /// Q3: the first item named `name` gets `view` as its own value; None removes it (`Use the query's display`).
+    SetViewDisplay { name: String, view: Option<UsageView> },
+    /// Q3: Some sets only the item's `group_by` (`UsageGroupBy::None` writes `group_by: none`); None removes
+    /// `group_by`, `lanes` and `lane_order` together (`Use the query's grouping`, D-2192).
+    SetViewGroup { name: String, group_by: Option<UsageGroupBy> },
+    SetViewLanes { name: String, lanes: Option<UsageLanes> },
+    /// Some(vec![]) writes `lane_order: []` (Reset on a usage whose query has a `lane_order`, D-2192); None removes it.
+    SetViewLaneOrder { name: String, lane_order: Option<Vec<String>> },
+    /// The pairs in the order given (Title first, then the table's column order, §41.6); None or an empty list removes
+    /// `widths` (D-2190).
+    SetViewWidths { name: String, widths: Option<Vec<(String, u32)>> },
+    /// Q3 Duplicate (CP-35, D-2200): the own known keys of `from`'s first item copied into `to`'s item as their lines.
+    CopyViewSettings { from: String, to: String },
+}
+```
+
+Rules (part two §14.2 holds unless said here):
+
+- **Key order in an item** (R221): `name`, `view`, `group_by`, `lanes`, `lane_order`, `sort`, `columns`, `widths`, then
+  the unknown keys as written. A key the op adds goes at its place in that order among the present keys.
+- **Bytes inside a changed item** (CP-35, D-2200): the item's `- name:` line and every known key the op didn't change
+  keep their lines as written (old words, trailing comments and flow or block style included); the changed key's lines
+  are replaced (a replaced one-line key keeps its trailing comment, D-1457) or inserted; full-line comments inside the
+  item go (D-1840). An item that didn't change keeps all its lines (R196).
+- **Style**: `view`, `lanes` plain scalars in new words; `group_by` a plain scalar (D-230 quoting via
+  `yaml_text::scalar`), `none`, or `group_by: { <key>: period }`; `lane_order: [ … ]` one flow line with D-230 quoting
+  (`lane_order: ["[[Lucie Horká]]"]`); `widths: { title: 300, author: 180 }` one flow mapping line, keys quoted as
+  flow scalars. Everything NFC.
+- **No-op** (no write): the new own value equals the current own **valid** value (`board` equals `Wall`, `vertical`
+  equals `Columns`; `widths` compared as maps, order ignored); removal of an absent key. A broken own value is replaced
+  by any Set (R194: a broken value goes on the first change of that key).
+- **Plain**: an item left with only `name` becomes `  - <name>`; when every item is plain the key becomes the flow line
+  again (FR-QRY-05 AC-32 step 6).
+- Refusals as part two (`ViewsUnreadable`, `ViewNotListed`, Newer, invalid, base `Conflict`); D-90 create of a missing
+  system type file. Every other `TypeOp` keeps the `views` range byte-identical (FR-FMT-07 AC-37).
+
+### 36.3 Rename, Duplicate, Remove, Trash (FR-QRY-07 AC-34)
+
+- **Query rename** (`rename_view`, part two §14.3): unchanged; it patches only the name token, so `view`, `group_by`,
+  `lanes`, `lane_order`, `widths` keep their bytes. The fence side (`renameSavedQueryPatches`) touches only `saved:`.
+- **Duplicate** (CP-35, D-2200): `query_duplicate(name)`, then one `type_patch(key, version, [views(names with the copy
+  right after the original), copyViewSettings(original, copy)])`, one write. The copy's item equals the original's
+  lines with the new name (FR-QRY-07 AC-34 (b)); unknown keys aren't copied (D-1863); folds aren't (machine-local).
+  This replaces part two §14.4's `viewSort` / `viewColumns` copies.
+- **Remove**, **Move to trash** from a view menu, **Show a saved query**: part one / part two unchanged (`SetViews`,
+  `SetViewsSource` for the Undo).
+
+## 37. The fence (`@tegg/doc` `packages/doc/src/queryfence.ts`; R221; D-82)
+
+```ts
+export type UsageView = 'list' | 'table' | 'wall'
+export type UsageLanes = 'columns' | 'rows'
+export type UsageGroup = { none: true } | { none: false; key: string; period: boolean }
+export type UsageWidths = [string, number][]                       // ordered pairs, keys NFC
+export type FenceUsage = {
+  sort: UsageSort[] | 'broken' | null; columns: string[] | 'broken' | null;            // part two
+  view: UsageView | 'broken' | null; group: UsageGroup | 'broken' | null;            // Q3 (`group` = the `group_by` key)
+  lanes: UsageLanes | 'broken' | null; laneOrder: string[] | 'broken' | null; widths: UsageWidths | 'broken' | null
+}
+/** `undefined`: leave the key; `null`: remove it; a value: set it. `Use the query's grouping` is
+ *  `{ group: null, lanes: null, laneOrder: null }` (one result, one write). */
+export type UsageChange = {
+  sort?: UsageSort[] | null; columns?: string[] | null;
+  view?: UsageView | null; group?: UsageGroup | null; lanes?: UsageLanes | null; laneOrder?: string[] | null; widths?: UsageWidths | null
+}
+export function fenceUsage(body: string): FenceUsage                 // §35's shapes (`board` → 'wall', `vertical` → 'columns', …)
+export function withUsage(fenceSource: string, change: UsageChange): string | null
+export function applyFenceUsage(text: string, range: [number, number], change: UsageChange): string | null
+```
+
+- **Keys and ranges**: part two §13.1 (a top-level key after the container prefix; its range is its line plus the
+  continuation lines). File keys: `view`, `group_by`, `lanes`, `lane_order`, `widths`.
+- **Place** (R221, replaces part two's `sort` / `columns` place rule by its generalisation): a present key is replaced in
+  its range; a missing key is inserted right after the range of the nearest **earlier** key present in the order
+  `saved`, `view`, `group_by`, `lanes`, `lane_order`, `sort`, `columns`, `widths` (else right after the `saved:` line).
+  Several keys in one change are applied in that order. Removal removes the key's range. Comments, unknown lines and
+  every byte outside the changed ranges are kept (Zobrazení block 5: `# ruční pokus` stays).
+- **Style**: as §36.2 (`view: wall`, `group_by: none`, `group_by: { finished: period }`, `lanes: rows`,
+  `lane_order: [Reading, To read, Read]` with `formatScalar` in flow context, `widths: { title: 240 }`). New lines get
+  the `saved:` line's prefix (`> `, list indentation) and the fence's EOL; a replaced one-line key keeps its trailing
+  comment. NFC; an NFD value the change doesn't touch keeps its bytes (the `saved:` line included).
+- **No-op per key**: a key whose current value is valid and equals the change keeps its bytes (old words included:
+  `lanes: vertical` with the change `'columns'` writes nothing); `null` on an absent key does nothing; `widths` compare
+  as maps. The whole call returns null when nothing changed.
+- `withSavedName`, `referenceFence`, `renameSavedQueryPatches` unchanged. The Rust reader `fence_usage` (§35) is the
+  L3 twin (`expected-views-display.json` `fences`).
+
+## 38. Renames reach usage lane orders (D-2193; FR-LNK-03 AC-26)
+
+The 4C rename job (`note-rename`, ms4-jobs) already patches query files' `lane_order` (part one §1.10). Q3 adds:
+
+- **Type files** (`tegg-schema`, `pub fn relink_view_lane_orders(text: &str, from: &str, to: &str, paths: &[String]) ->
+  Option<String>`): in every `views:` item's `lane_order` (flow or block), each `"[[…]]"` entry that resolves from the
+  vault root (D-291) to `from` gets the D-184 link text of `to` (D-230 quoting), its `|alias` / `#heading` part kept;
+  every other byte kept, no `modified:` (type files have none; D-1467). None when nothing matches, `views` unreadable,
+  Newer or invalid. The job writes them as direct rows after the query files and before the pins (`Host::type_files()`,
+  `Host::patch_types(&[QueryPatch])`, base-checked, in the job's backup and Undo), as part one §1.10 does for the query
+  rename.
+- **Reference fences in notes** (`@tegg/doc`, D-82): the `retarget-links` text op also patches `lane_order` entries of
+  reference fences whose link resolves to the renamed note (`relinkFenceLaneOrderPatches(text, op)` in
+  `queryfence.ts`, used by `transform.ts`), only that value token. The plan gains the notes that have such a fence but
+  no other link to the note: `Host::fence_lane_order_paths(from_path) -> Vec<String>` scans the notes the index lists
+  with a reference fence (`Stored.queries` non-empty, `query_usages` source), reads each and keeps those whose
+  `fence_usage` lane order has a matching entry. These notes take the job's usual note write (base check, backup,
+  Undo; the note's `modified:` follows the job's rule for link retargets).
+- 4E moves: CP-36, D-2201.
+- Fake core: the fake `note-rename` patches both (§43.1).
+
+## 39. IPC
+
+### 39.1 Commands
+
+| Command | Change |
+| --- | --- |
+| `query_run` | `QueryResultDto.usage` gains §39.2's fields; `group` for every display; `rows[].card` on every wall run; no new source kind |
+| `query_apply`, `query_get`, `query_create` | `QueryDefDto` new words and `groupNone` (CP-32, D-2197); input also accepts the old words (`board`, `vertical`, `horizontal`) and maps them |
+| `queries_list` | `QuerySummaryDto.view: 'list' \| 'table' \| 'wall' \| null` |
+| `type_patch` | ops `viewDisplay`, `viewGroup`, `viewLanes`, `viewLaneOrder`, `viewWidths`, `viewCopy` (§39.2) |
+| `type_get`, types list | `ViewItemDto` gains the five keys and their `…Broken` flags |
+| `ui_state_get` / `_set` | `UiStateDto.allView` (§42.3) |
+| `query_rename`, `query_trash`, `query_restore`, `query_duplicate`, `query_view_usages`, `query_usages`, `note_read`, `note_write`, `task_views_restore` | unchanged signatures (the 4C job's plan grows, §38) |
+
+No new command and no new event.
+
+### 39.2 DTOs
+
+```ts
+type ViewDto = 'list' | 'table' | 'wall';
+type LanesDto = 'columns' | 'rows';
+type UsageGroupDto = { none: true } | { none: false; key: string; period: boolean };
+type QueryDefDto = {
+  /* Q, Q2, Q2-T */ view: ViewDto; lanes: LanesDto;
+  groupNone: boolean;                       // Q3 (CP-32, D-2197)
+};
+type QuerySummaryDto = { /* … */ view: ViewDto | null };
+type UsageRunDto = {
+  kind: 'tab' | 'block';
+  own: {
+    sort: SortDto[] | null; columns: string[] | null;                                   // Q2.1
+    view: ViewDto | null; group: UsageGroupDto | null; lanes: LanesDto | null;
+    laneOrder: string[] | null; widths: [string, number][] | null;                     // Q3 (null: absent or broken)
+  };
+  broken: BrokenDto[];                      // keys also 'view' | 'group_by' | 'lanes' | 'lane_order' | 'widths'
+  sort: SortDto[]; columns: string[];       // effective (Q2.1)
+  view: ViewDto;                            // effective
+  groupBy: string | null; groupPeriod: boolean;   // effective; null = not grouped
+  lanes: LanesDto; laneOrder: string[] | null; widths: [string, number][];
+};
+type ViewItemDto = {
+  /* Q2.1 */ name; sort; sortBroken; columns; columnsBroken; plain;
+  view: ViewDto | null; viewBroken: boolean;
+  group: UsageGroupDto | null; groupBroken: boolean;
+  lanes: LanesDto | null; lanesBroken: boolean;
+  laneOrder: string[] | null; laneOrderBroken: boolean;
+  widths: [string, number][] | null; widthsBroken: boolean;
+};
+type TypeOpDto = /* … */
+  | { op: 'viewDisplay'; name: string; view: ViewDto | null }
+  | { op: 'viewGroup'; name: string; group: UsageGroupDto | null }
+  | { op: 'viewLanes'; name: string; lanes: LanesDto | null }
+  | { op: 'viewLaneOrder'; name: string; laneOrder: string[] | null }
+  | { op: 'viewWidths'; name: string; widths: [string, number][] | null }
+  | { op: 'viewCopy'; from: string; to: string };                       // CP-35, D-2200
+type AllViewDto = { view: ViewDto; groupBy: string | null; groupPeriod: boolean; lanes: LanesDto };
+// UiStateDto: allView?: Record<string /* type key */, AllViewDto>.
+// QueryResultDto.group: "null unless the effective grouping resolves" (doc only). QueryRowDto.card: "on wall runs".
+```
+
+`widths` values are integers; `[string, number][]` keeps the order (a JSON object would reorder integer-like keys).
+
+### 39.3 Rust and TS files
+
+`app/src-tauri/src/shellq.rs` (`QueryDefDto.view` / `lanes` words both ways, `group_none`, `UsageOwnDto`, `UsageRunDto`,
+`UsageGroupDto`, `view_str`), `dto.rs` (`ViewItemDto`, `TypeOpDto::{ViewDisplay, ViewGroup, ViewLanes, ViewLaneOrder,
+ViewWidths, ViewCopy}`, `UiStateDto.all_view` with `#[serde(default, skip_serializing_if = "Option::is_none")]`,
+`AllViewDto`), `lib.rs` (`view_item_dto`, `type_op`). TS: `app/ui/src/ipc/queries.ts`, `ipc/types.ts` (ts-rs bindings
+regenerated). `UiStateDto.version` stays 1.
+
+### 39.4 UI error handling
+
+- Tab writes (`type_patch` view ops): part two §16.1 (`Conflict`, `Rule(viewNotListed)` → the types store reloads,
+  alert `views.changedOutside`, `"Books" changed outside Tegg. The views weren't changed.`; `Io` → `query.saveFailed`).
+  The optimistic drawing (pressed button, lane order) returns to the disk state on the re-run.
+- Block writes: the editor's rule (an external change reloads or merges; a container that can't be patched fails with
+  `query.saveFailed`, D-1885).
+- Page writes: `query_apply` as v1-queries §2.1 (`This query changed outside Tegg. Your change wasn't saved.`).
+- `All <plural>`: `ui_state_set` only; a failed write keeps the shown state for the session.
+- A width write that fails keeps the 0.6.0 entry (§41.6).
+
+### 39.5 Who calls what
+
+| Surface | Calls |
+| --- | --- |
+| A view tab | `query_run({ kind: 'view', type, name })` (part two); writes per §33.2 through `useUsageWrite` and the type page's `type_patch` queue |
+| A saved-query block | `query_run({ kind: 'fence', body })`; writes `ctl.setSource(withUsage(…))` |
+| `query/<name>` | `query_run({ kind: 'saved' })`; `query_apply` with only the changed key |
+| `All <plural>` | CP-34, D-2199: an ungrouped Table keeps `index_type_rows`; another display or a grouping runs `query_run({ kind: 'def', def: allDef(type, allView, typeSort) })` |
+| Type settings › Views | the types store and `query_get` per tab (as today), texts from `viewKindText` (§41.11) |
+| Rename of an object | the 4C job (§38) |
+
+### 39.6 Live results
+
+Part one §2.3, part two §17.4 and part three §27.6 hold. A tab re-runs on `.tegg/types/` paths (its item may have
+changed) and on its query file; a block re-runs when its fence source changes; non-selected tabs' icons follow
+`TypeDto.viewItems` and `queries_list` (FR-QRY-07 AC-33, FR-QRY-09 AC-9: within 2 s, no write).
+
+## 40. UI modules
+
+### 40.1 New
+
+| Module | Owns |
+| --- | --- |
+| `app/ui/src/views/display.ts` (pure, L1) | `type Display = 'list' \| 'table' \| 'wall'`; `type Grouping = { key: string; period: boolean } \| null`; `effectiveDisplay(r)`, `effectiveGrouping(r)`, `effectiveLanes(r)`, `effectiveLaneOrder(r)`, `effectiveWidths(r)` (`usage` first, else `def`; `group` decides "grouped"); `ownKeys(r)` → `{ view, group, lanes, laneOrder, widths: 'own' \| 'broken' \| null }`; `groupChoices(type, queryTypes)` → `GroupChoice[]` (`{ id: 'none' \| '<key>' \| 'period:<key>'; key: string \| null; period: boolean }`, R223's order; several types: `none`, `tags`, `period:created`, `period:modified`; an attribute keyed `none` per CP-37); `groupName(choice, type)` (`Status`, `Due date · by period` via `group.byPeriod`); `groupModel(r, display)` → `GroupView[]` (`{ id, kind, label, value, color, target, count, rows: number[], grip: boolean }`: the lanes with ≥ 1 card (D-2184) in group order, the `week` lane flattened in `rows` order (D-2181), grip false on `none` and `done`); `laneOrderForGroupDrop(group, laneId, beforeId)` (= part one's `laneOrderAfterDrop`: every lane as a wall would draw it, excluded and empty ones included, except `none` / `done`); `resetLaneOrderChange(r)` → `[] \| null` (D-2192); `noticeKeys(r)` (D-2194 (g): `view`, `group_by` always; `lanes` on a grouped wall; `lane_order`, `done_lane` when grouped; `widths` on a Table; `sort` always; `columns` not on a wall; `limit` on an ungrouped List or Table; R221 key order, then slice Q's rank); `limitApplies(display, grouped)`; `writeRoute(usage \| 'all')` → `'item' \| 'fence' \| 'query' \| 'thisMac'`; `viewKindText(display, attributeName \| null)` (D-2194 (b)); `widthsToWrite(own, legacy, change, order)` (D-2190, §41.6); `allViewOf(ui, typeKey)` (missing = Table, not grouped); `allDef(type, allView, typeSort)` (CP-34, D-2199) |
+| `app/ui/src/views/useDisplay.ts` | `useQueryDisplay(result, usage, all?)` → `{ display, grouped, lanes, own }`; `useQueryGrouping(result, usage, all?)` → `{ grouping, choices, checked, laneOrder, folded, setFolded(ids), foldAll() }` (folds by usage key, `usageFolded`) |
+| `app/ui/src/queries/DisplaySwitch.tsx` | the `group` `Display` (R223): three buttons, roving focus with ←/→, choose with click / ⏎ / Space, `disabled` reason |
+| `app/ui/src/queries/GroupMenu.tsx` | `GroupButton` (text, `aria-expanded`, description `Grouped by <name>`) and the `menu` `Group by` placed by §20 (`data-popup="group"`): scope line, `None`, choices, the `Lanes` part on a grouped wall, the usage part (`Use the query's grouping`, `Use the query's display`); Esc returns the focus to `Group` |
+| `app/ui/src/queries/Grouped.tsx` | grouped Table and List bodies (R225): group headers (chevron button, value: option colour / relation chip / `#tag` / period label, count), folds (click, ⏎ / Space, ⌥-click all), header grip drag with a drop indicator (pointer, > 4 px), `Move lane up` / `down` on a focused header, windowing as FR-QRY-05 AC-9 over the flat list of headers and rows (< 80 row elements) |
+| `app/ui/src/queries/board/QueryWall.tsx` (renamed from `QueryBoard.tsx`) | a wall bound to a `QueryResultDto`: `group` → part one's `Board` (lanes `columns` = `vertical`, `rows` = `horizontal`, everything of part one / part three); no `group` → `WallGrid`; no `LanesSwitch` (removed) |
+| `app/ui/src/queries/board/WallGrid.tsx` | the ungrouped wall (R224): cards (`BoardCard` / `TaskCard`, no drag, `More actions` without `Move to` / `Also add to`), the grid of `grid.ts`, windowed against the page (or note) scroller with measured row heights, ≤ 150 card elements, roving focus |
+| `app/ui/src/queries/board/grid.ts` (pure, L1) | `GRID = { min: 220, max: 300, gap: 12 }`; `gridOf(width, count)` → `{ columns, cardWidth }` (columns = max(1, ⌊(width + gap) / (min + gap)⌋); cardWidth = min(max, (width − (columns − 1)·gap) / columns); fewer cards than columns: `max`, left-aligned); `windowRows(heights, scrollTop, viewport, overscan = 2)` → `[first, last]`; `gridNeighbour(index, key, columns, count)` (→/← reading order, ↓/↑ same column, clamped) |
+
+### 40.2 Changed
+
+| Module | Change |
+| --- | --- |
+| `views/useUsageWrite.ts` | `UsageWriter` gains `display(next: Display \| null)`, `group(next: UsageGroupDto \| null)` (null: the three keys), `lanes(next: LanesDto)`, `laneOrder(next: string[] \| null)`, `widths(next: [string, number][] \| null)`; routing per §33.2 (tab `type_patch` ops, block `withUsage`, page `query_apply` with `view` / `groupBy` + `groupPeriod` + `groupNone` / `lanes` / `laneOrder`, page widths → `ui_state_set`); `current()` gains the effective values; no write when equal (R222); `disabled` also covers walls' and Tables' new controls |
+| `views/usage.ts` | `canUseQuery(r, 'view' \| 'grouping')` (own or broken, D-1856 rule); `effectiveSort` / `effectiveColumns` unchanged |
+| `views/uiState.ts` | `allViewOf(typeKey)`, `setAllView(typeKey, v)` (one `ui_state_set`); `legacyWidthsOf(usageKey)`, `dropLegacyWidths(usageKey)` (one `ui_state_set`) |
+| `views/model.ts` | `newViewDef(type, 'table' \| 'list' \| 'wall')` (Wall: `view: 'wall'`, `groupBy: null`, `groupNone: false`, `lanes: 'columns'`, `laneOrder: null`, `columns: []`, `groupPeriod: false`, `doneLane: null`); `viewTabs` gains `kind: Display \| null` (item's own valid `view`, else the summary's); `groupByChoices` / `periodChoices` feed `groupChoices` |
+| `views/TypeViews.tsx` | `Add view` › `Table`, `List`, `Wall` (no `by …` hint); tab icons and `data-view-kind` from `viewTabs().kind`; `board-request` for every wall tab (§42.5); Duplicate per §36.3 |
+| `views/ViewPanel.tsx` | R223's toolbar (`Filter <plural>…`, `Filter by tag`, `DisplaySwitch`, `GroupButton`, sort, `Columns` (Table; List where today), `View actions`); body by effective display: `ResultsTable` / the list body (each through `Grouped` when grouped) / `QueryWall`; `limit` only when `limitApplies`; notices from `noticeKeys`; `View actions` lists `board.resetOrder` on any grouped usage with an effective `lane_order` |
+| `queries/QueryBlock.tsx` | header: `DisplaySwitch` and `GroupButton` before the sort icon, on saved-query blocks only (inline: none, D-2194 (e)); the body as `ViewPanel`'s; controls `aria-disabled` with `query.block.usageNotEditable` without an editor (resize handles included, FR-QRY-05 AC-45) |
+| `queries/QueryPage.tsx` | `DisplaySwitch` and `Group` with scope `default`; writes the query file |
+| `queries/ResultsTable.tsx` | a grouped body through `Grouped`; widths from the scope of §41.6; no handles on a wall (there's no table) |
+| `queries/QueryEditor.tsx` | no `View`, `Group by`, `Lanes` rows (D-2175); `Limit` always, with `p` `query.editor.limitHint` (D-2189); the done-lane checkbox when `doneLaneOffered(types)` and the **query file's own** grouping is a period or a `status` that carries states (D-2188); `DEFAULT_DEF` new words |
+| `queries/board/model.ts` | unchanged functions; `laneOrderAfterDrop` also serves group headers |
+| `tables/widths.ts` | `WidthScope = { kind: 'type'; key } \| { kind: 'page'; key: string /* page:<name key> */ } \| { kind: 'usage'; key: string; own: [string, number][] \| null; order: string[]; write(next: [string, number][] \| null): Promise<boolean> }` (§41.6); the debounce of keys becomes 1,000 ms for every scope |
+| `pages/TypePage.tsx` | `All <plural>`: `DisplaySwitch` and `Group` with scope `thisMac` (CP-34, D-2199) |
+| `views/ViewsSection.tsx` | names per `viewKindText` from each tab's effective display and grouping (D-2194 (b)); no `Board` |
+| `shell/commands.ts`, `shell/registry.ts` | §42.4 |
+| `views/usageHook.ts` | `usages()` additions (§43.1) |
+| `i18n/catalog.ts` | §42.2 |
+| `ui/test/fake-queries.ts`, `fake-schema.ts`, `fake-jobs.ts` | §43.1 |
+
+### 40.3 Removed
+
+`LanesSwitch` (and its `radiogroup` `Lanes`), the editor's `View` / `Group by` / `Lanes` controls, `QueryBoard` as a name
+(callers import `QueryWall`), the `Board` entry of `Add view`.
+
+## 41. Behaviour the contract fixes
+
+### 41.1 The display switch (R223; D-2172)
+
+- Where: a view tab's toolbar, `All <plural>`, a saved-query block's header, `query/<name>`. Not on inline fences.
+- Choosing the effective display writes nothing; another writes once (§33.2), keeps filters, sort, grouping, `lane_order`,
+  columns, widths and folds (board A), and the body redraws within 300 ms. Focus moves (Tab, ←/→) write nothing.
+- A Table keeps its columns; a Wall has no `Columns` button and no resize handles; a List keeps `Columns` where it has
+  it today.
+
+### 41.2 The Group button and menu (R223; D-2173, D-2180, D-2194 (c))
+
+- `Group` reads the effective grouping's name when `result.group` is Some, else `Group`; its description is `Grouped by
+  <name>` (`group.buttonBy`) when grouped.
+- Items: the scope line (`group.scope.tab` / `.block` / `.default` / `.thisMac`), `None`, `groupChoices`, then on a
+  grouped wall the `Lanes` group (`Columns`, `Rows`), then, when the usage has the keys (`canUseQuery`), `Use the
+  query's grouping` and `Use the query's display` (D-2192). Checked: the effective grouping (`None` when ungrouped or
+  broken), the effective lanes.
+- Choosing an item writes once and closes the menu; the checked item writes nothing; Esc writes nothing and focuses
+  `Group`. On a Table, List or ungrouped wall the `Lanes` part isn't drawn; `lanes` stays in the file (FR-QRY-05 AC-34
+  steps 5, 6).
+- Notices: one `p.query-notice[data-usage-broken]` per key of `noticeKeys(result)` (D-2194 (g)), in R221 order
+  (Zobrazení block 5: `view`, `group_by`, `widths`).
+
+### 41.3 The ungrouped wall (R224; board W1; D-2185)
+
+- Cards in `rows` order (the effective sort, then title, then path); left to right, row by row; `gridOf` per the
+  container's content width (a note: the note column). Every card key shows (no hidden grouping key).
+- No lanes, `No <attribute>`, hatching, `+` tile, card drag, `Move to`; a pointer drag on a card moves nothing.
+- Windowed: card elements of the visible rows ± 2 rows, never more than 150 (`__TEGG_TEST__.board().domCards`); the
+  container keeps the full height so the page scrolls as if all were there; scrolling never goes sideways.
+- Keyboard: Tab focuses the first card; `gridNeighbour` moves; ⏎ opens; Back restores the focus (rendering the card's
+  row first). `limit` is not applied (D-2189).
+
+### 41.4 The grouped wall (R224)
+
+Part one's board and part three's period and done lanes, unchanged, with `columns` / `rows` for vertical / horizontal.
+`Switch lanes` (palette) and the Group menu's `Lanes` write the usage. Lane drags, `Move lane …`, `Reset lane order`
+write the usage (§33.2). Card drags and `+` write the object (FR-QRY-05 AC-38). The DOM attribute `data-lanes` keeps its
+values `vertical` / `horizontal` (§45 choice 4).
+
+### 41.5 The grouped Table and List (R225; D-2181…D-2184)
+
+- Groups from `groupModel`: only groups with rows, in `lane_order` then default order, `No <attribute>` last; periods
+  flat (`today`, `week`, `later`, `none`, `done`), no day sub-headings.
+- Rows inside a group in `rows` order; a multi-value row appears under each of its values with identical cells.
+- Folds: per usage key, the lane ids of part one (`option:Reading`, `relation:<path>`, `tag:<key>`, `period:today`,
+  `none`, `done`); `!done` / `!option:<label>` for an initially folded lane (part three §29.4; `done_lane.folded` is the
+  initial fold of the `Done` group, D-2188). One fold list per usage, shared with its wall. ⌥-click: folds all when any
+  is expanded, else unfolds all. One `ui_state_set` per change.
+- Header drag: a drop writes `laneOrderForGroupDrop`; a drop at its own place writes nothing; no grip on `none`, `done`
+  or `All <plural>`; nothing drops after `none`. Keyboard: `Move lane up` / `down` on a focused header (D-2194 (d)).
+  Live text `group.moved`.
+- No row drags between groups, no `New <Type>` row or tile (D-2182, D-2183). Table windowing < 80 row elements, headers
+  counted (FR-QRY-05 AC-9).
+
+### 41.6 Column widths (D-2177, D-2190)
+
+- **Scopes**: a tab or block → `{ kind: 'usage', own: usage.own.widths, order, write: writer.widths }`; `query/<name>`
+  → `{ kind: 'page', key: 'page:<name key>' }` (`usageColumnWidths`); `All <plural>` → `{ kind: 'type' }`.
+- **Read**: own valid widths; while the usage has no own `widths` key (absent, not broken), the 0.6.0 entry
+  `usageColumnWidths[<usage key>]` (D-2177); then R130's defaults; drawn clamped (R130).
+- **Pointer**: during the drag only the live width changes (no write, no `ui_state_set`); on release one write of
+  `widthsToWrite`, none when the released width equals the starting width.
+- **Keys** (←/→, ⇧←/⇧→, Home/End on a handle): live steps; one write when the handle loses the focus or 1,000 ms after
+  the last key, whichever first. **`⌫`** on a handle: that key removed (the key absent → no write); empty → `widths`
+  removed. **`Reset column widths`**: `widths` removed.
+- **`widthsToWrite(own, legacy, change, order)`**: the base is `own` if the key is present and valid, else `legacy`,
+  else empty; the change applied (the changed width clamped by `clampWidth`; other entries as stored); pairs ordered
+  `title` first, then the table's effective column order, then other stored keys in their order.
+- **0.6.0 entry**: after a vault width write (resize, keys, `⌫`, Reset) that returned true, one `ui_state_set` removes
+  `usageColumnWidths[<usage key>]`; a refused write keeps it. A Reset with no own `widths` writes no vault file and only
+  removes the entry.
+- **Disabled**: a usage that can't be written (block without an editor, Newer query, type file that can't be written):
+  handles `aria-disabled` with the reason, no live resize (FR-QRY-05 AC-45).
+
+### 41.7 `Use the query's …` and `Reset lane order` on a usage (D-2192)
+
+- `Use the query's display` → `writer.display(null)`; `Use the query's grouping` → `writer.group(null)` (one write
+  removing `group_by`, `lanes`, `lane_order`). Offered when `ownKeys` has the key (own or broken); never on
+  `query/<name>` or `All <plural>`.
+- `Reset lane order` on a usage: `resetLaneOrderChange(r)` = `[]` when the query file has a `lane_order` (`def.laneOrder
+  !== null`), else null (remove the own key). Listed when the effective `lane_order` is non-null.
+
+### 41.8 New view, tabs, toolbar, block header (R223; FR-QRY-07 AC-32, AC-33)
+
+- `Add view` › `Wall` + `Done`: `query_create` of `newViewDef(type, 'wall')` (no `group_by`, `lanes`, `columns`), then
+  `views` appended (part one §4.4). The tab draws an ungrouped wall; `Group` reads `Group`.
+- Tab icons: `span[data-icon]` `table`, `list`, `wall`; `data-view-kind` the effective display.
+- No `radiogroup` `Lanes` anywhere. Block header: `DisplaySwitch`, `GroupButton`, then part two's controls; no dot or
+  badge on a block that differs from its query (D-2176).
+
+### 41.9 The editor (board C; D-2175, D-2188, D-2189)
+
+`Show`, the filters, `Limit` (hint `Applies to a List or Table without grouping`); the done-lane checkbox per §40.2; no
+`View`, `Group by`, `Lanes`, `Sort`, `On cards`. `Done` commits the shared keys (D-1842); its def carries the file's
+`view`, `group_by`, `group_none`, `lanes`, `lane_order`, so `patch` never writes them.
+
+### 41.10 `All <plural>` (D-2178; FR-TYP-09 AC-37)
+
+Display switch and Group with scope `thisMac`, writing `allView[<type>]` (one `ui_state_set`); groups in option order,
+no grips, no `Reset lane order`, no `Use the query's …`; folds `usageFolded["all:<type>"]`; `Columns` still writes the
+type file (D-1240); widths `typeColumnWidths`; sort machine-local (part three §29.7). Data source CP-34, D-2199.
+
+### 41.11 Type settings › Views (FR-TYP-01 AC-29; D-2194 (b))
+
+Each tab: `viewKindText(effective display, grouping attribute Name)` → `Wall · by Status` (`typeSettings.viewKindBy`),
+`Table` when ungrouped. The effective values come from the item's own valid values over the query file's def; an own
+grouping that doesn't resolve for the type uses the query's (as §34.4). Updated within 1 s of a type-page change.
+
+### 41.12 Where nothing can be written (FR-QRY-05 AC-45)
+
+Blocks without an editor (read view, Trash view, embedded notes), a Newer query file, a type file that can't be
+written: the switch, `Group`, the Group menu items, group and lane grips and resize handles are `aria-disabled` with
+the reason (`query.block.usageNotEditable`, `query.block.readOnly`, the reason `Remove` has); own values still apply;
+folds work. Inline fences show no switch and no `Group`.
+
+## 42. DOM, strings, UI state, commands
+
+### 42.1 DOM (additions to §4.3, §19.1, §30.1)
+
+| Part | Element | Name and attributes |
+| --- | --- | --- |
+| Usage root | tab panel, block root, page block root, `All` panel | `data-display="list\|table\|wall"` (effective); `data-group="<key>"` when grouped (`data-group-period` when a period); `data-own-view`, `data-own-group`, `data-own-lanes`, `data-own-lane-order`, `data-own-widths` present when the usage has the key (`"broken"` or `""`) |
+| Display switch | `div[role=group]` | `aria-label` `display.switch` (`Display`); `data-display-switch`; three `button`s `data-display="list\|table\|wall"`, `aria-label` and `title` `views.kind.*`, `aria-pressed`, roving `tabIndex`, `data-command="display.<d>"`, icon `span[data-icon]`; disabled: `aria-disabled="true"` + `aria-description` reason |
+| Group button | `button` | `aria-label` `group.button`, `aria-haspopup="menu"`, `aria-expanded`, `aria-description` `group.buttonBy` when grouped, `data-command="group.open"`; visible `span.group-text` |
+| Group menu | `div[role=menu]` | `aria-label` `group.menu`, `data-popup="group"`, `data-placement`; first child `div.menu-scope[role=presentation][data-scope="tab\|block\|default\|thisMac"]`; `menuitemradio`s `data-group-choice="none\|<key>\|period:<key>"` (attribute names `data-user-content`), `aria-checked`; a grouped wall adds `[role=separator]` and `div[role=group]` `aria-label` `group.lanes` with `menuitemradio`s `group.columns` / `group.rows` (`data-lanes-choice="columns\|rows"`); then `[role=separator]`, `menuitem` `group.useQuery` (`data-command="group.useQuery"`), `menuitem` `display.useQuery` (`data-command="display.useQuery"`) when offered |
+| Ungrouped wall | `div[role=group]` | `aria-label` = the query's title (`data-user-content`); `data-wall`, `data-grouped="false"`, `data-columns="<n>"`, `data-board-name`; cards part one's `article[data-board-card]` (`Book: <title>`), `data-wall-index="<i>"`, style width in px; no `data-lane` |
+| Grouped wall | part one's `div[data-board]` | adds `data-wall`, `data-grouped="true"`; `data-lanes` keeps `vertical\|horizontal` |
+| Grouped Table | `table` | per group a header row `tr.group-header[data-group-id="<lane id>"][data-lane-kind]` (`data-folded` when folded) whose single cell (`colspan` = the column count) holds `button.group-chevron` (`aria-label` `board.laneCountOf` form `<value>, <count> <plural>`, `aria-expanded`), the value (`span[data-color]` option label, `a.chip` relation, `#tag`, period label), `span.count[aria-hidden]`, grip `span[role=button][tabIndex=0]` `group.drag` (`data-command="group.drag"`) unless `none` / `done` / `All`; rows `tr[data-query-result][data-group-id]` |
+| Grouped List | `div[role=group][data-group-id]` | `aria-labelledby` its header; header `div.group-header` with the same parts; rows `[data-query-result]` (R141 rows) |
+| Editor | `dialog` `query.editor.dialog` | no `radiogroup` `query.editor.view`, no `combobox` `query.editor.groupBy`, no `query.editor.lanes`; `p.qe-limit-hint` `query.editor.limitHint` |
+| Live region | `div.sr-live` | `group.moved` (`Moved group {group}`), `board.laneMoved`, once per action |
+
+### 42.2 Strings (R227; NFR-OTH-02 AC-25)
+
+R227's new keys with R227's texts: `views.kind.wall`, `display.switch`, `group.button`, `group.buttonBy`, `group.menu`,
+`group.none`, `group.byPeriod`, `group.lanes`, `group.columns`, `group.rows`, `group.scope.tab`, `group.scope.block`,
+`group.scope.default`, `group.scope.thisMac`, `group.useQuery`, `display.useQuery`, `group.drag`, `group.moved`,
+`typeSettings.viewKindBy`, `query.editor.limitHint`, `cmd.displayList`, `cmd.displayTable`, `cmd.displayWall`,
+`cmd.groupBy`, `cmd.removeGrouping`, `cmd.useQueryDisplay`, `cmd.useQueryGrouping`. Changed text: `purpose.tasks` `All
+tasks as a list, table or wall, grouped by status or date.` (D-2194 (f)). Removed: R227's list. Kept undrawn:
+`query.editor.view`, `.list`, `.table`, `.tableHint`. Group counts through `board.laneCountOf` (`Intl.PluralRules`).
+
+### 42.3 UI state (R226; FR-STO-07 AC-16)
+
+```ts
+allView?: Record<string /* type key */, AllViewDto>;     // D-2178; missing = { view: 'table', groupBy: null, groupPeriod: false, lanes: 'columns' }
+usageColumnWidths?: Record<string, Record<string, number>>;  // `page:` keys read and written; `tab:` / `block:` keys read until the usage has own widths, removed after its first vault width write (D-2190); never added
+usageFolded?: Record<string, string[]>;                   // also Table / List groups; `all:<type>` for All <plural>
+```
+
+`typeColumnWidths`, `typeSort`, `tagFilter`, `typeViews.lastTab` unchanged; `moveQueryState` (rename) moves the same
+keys as before. Nothing machine-local under `.tegg/`.
+
+### 42.4 Commands (R227; FR-UX-03 AC-56; no shortcut, `needsVault: true`, section `view`)
+
+| Id | Title key | Listed when |
+| --- | --- | --- |
+| `display.list`, `display.table`, `display.wall` | `cmd.displayList`, `cmd.displayTable`, `cmd.displayWall` | a view tab, `All <plural>`, `query/<name>` or a selected saved-query block, writable, whose effective display isn't that one |
+| `group.open` | `cmd.groupBy` | the same places (opens the menu at `Group`, the checked item focused) |
+| `group.remove` | `cmd.removeGrouping` | the same places, when grouped |
+| `display.useQuery` | `cmd.useQueryDisplay` | a tab or selected block with an own `view` (valid or broken), writable |
+| `group.useQuery` | `cmd.useQueryGrouping` | a tab or selected block with own `group_by`, `lanes` or `lane_order`, writable |
+| `board.switchLanes` (kept) | `cmd.switchLanes` | a grouped wall (tab, `All`, page, selected block) |
+| `board.resetLaneOrder` (kept) | `cmd.resetLaneOrder` | a grouped usage or page with an effective `lane_order`; not `All` |
+| `board.laneUp` / `board.laneDown` (kept) | | also a focused group header of a Table or List |
+
+`ViewsStatus` (part one §4.7) gains `display: { value: Display; grouped: boolean; wall: boolean; writable: boolean;
+ownView: boolean; ownGroup: boolean; laneOrder: boolean; groupFocused: boolean; all: boolean } | null`.
+
+### 42.5 Performance marks (D-1800, D-2185)
+
+`board-request` / `board-ready` (part one §4.8) for every tab, page or `All` selection whose effective display is a
+wall, grouped or not (`board-ready` when the visible cards have painted, two frames after the answer). New:
+`rows-request` / `rows-ready` for a Table or List tab or page (grouped or not), `rows-ready` when the visible rows and
+headers have painted. NFR-PERF-07 AC-3…AC-6 read the same marks as before.
+
+## 43. Fake core, test hooks, tests and expected bytes
+
+### 43.1 Fake core and hooks
+
+- `app/ui/test/fake-queries.ts`: §34 (new words in and out, `board` / `vertical` / `horizontal` read, `group_none`,
+  `group_by` removal, create rules, grouping in every display, the done lane when grouped, cards on every wall run,
+  usage own / effective values of the five keys with run-time `group_by` checks, dropped replaced entries) and
+  `fenceUsage` from `@tegg/doc`. Checked against Rust on `expected-views-display.json` (L3,
+  `app/test/fake_views_display.contract.test.ts`, not an AC test). `default_task_view_text` from the constants.
+- `fake-schema.ts`: `ViewItemDto` additions and the ops of §36.2 (order, field-level bytes, no-ops, plain), `viewCopy`.
+- `fake-jobs.ts`: `note-rename` patches type files' item `lane_order`s and reference fences' `lane_order` lines (§38).
+- `ui_state_set` stores `allView`; existing hooks (`calls()`, `writes()`, `writesTo()`, `typeCalls()`, `queryRuns()`,
+  `setFile(…, { silent: true })`, `perfMarks()`) cover the rest.
+- `window.__TEGG_TEST__.board()` entries gain `display: 'wall'`, `grouped: boolean`, `columns: number` (ungrouped),
+  `cards: string[]` (ungrouped: every path in order). New `window.__TEGG_TEST__.groups()`: `{ usageKey: string; display:
+  'table' | 'list'; groups: { id: string; count: number; folded: boolean; rows: string[] }[]; domRows: number }[]`.
+  `usages()` entries gain `display`, `grouped`, `ownView`, `ownGroup`, `ownLanes`, `ownLaneOrder`, `ownWidths`
+  (`boolean | 'broken'`).
+- L4 kill harness (FR-SYN-02 AC-15, as part two §21.1): alternating `Core::type_patch(…, [SetViewDisplay { name:
+  "Přečtené 2026", view: Some(Wall | Table) }])` on the overlay, alternating `Core::note_write` of Zobrazení's two texts
+  (`expected/views-display/notes/zobrazeni-b2-view-list.md` and the overlay's file), alternating `SetViewWidths`
+  (`{ title: 300 }` ↔ `{ title: 200 }`); 200 kills each.
+- L6: `TEGG_TEST=1`, `TEGG_NOW`, `TZ`, a temporary Application Support (a second one for AC-43 (d)), external edits by
+  `app/e2e/helpers/external.ts`, keys only to Tegg (D-799).
+
+### 43.2 Test files per criterion
+
+| Criterion | L1 | L2 / L3 | L4 | L5 | L6 |
+| --- | --- | --- | --- | --- | --- |
+| FR-QRY-05 AC-32 | `app/test/views_display_model.ac.test.ts` (routing) | | `crates/tegg-schema/tests/ac_views_display_type_file.rs` | `app/webkit/views_display.ac.test.ts` | `app/e2e/views_display.ac.test.ts` |
+| AC-33 | `packages/doc/test/query_usage_display.ac.test.ts` | | `crates/tegg-core/tests/ac_views_display.rs` (query file) | `views_display` | |
+| AC-34 | `views_display_model` (`groupChoices`) | | `ac_views_display_type_file` | `views_display` | |
+| AC-35 | `views_display_model` (effective) | L3 | `ac_views_display` (runs) | `views_display` | |
+| AC-36 | `query_usage_display` (shapes) | L3 | `ac_views_display` | `views_display` | |
+| AC-37 | `views_display_model` (`grid.ts`) | | | `app/webkit/views_wall.ac.test.ts` | |
+| AC-38 | | | | `views_wall` | |
+| AC-39, AC-40 | `views_display_model` (`groupModel`) | | `ac_views_display` (`group` on Table / List runs) | `app/webkit/views_grouped.ac.test.ts` | |
+| AC-41 | | | `ac_views_display` | `views_grouped` | |
+| AC-42 | `query_usage_display` (fence bytes) | | `ac_views_display` (query file) | `views_grouped` | `views_display` (relaunch) |
+| AC-43 | `query_usage_display`, `views_display_model` (`widthsToWrite`) | | `ac_views_display_type_file` | `views_display` | `views_display` |
+| AC-44 | `views_display_model` | | | `views_display` | `views_display` |
+| AC-45, AC-46 | | AC-46: L3 | AC-46: `ac_views_display` | `views_display` | |
+| FR-QRY-07 AC-32 | `views_display_model` (`newViewDef`) | | `ac_views_display` (create bytes) | `views_display` | |
+| AC-33 | | | | `views_display` | |
+| AC-34 | | | `ac_views_display_type_file`; `crates/tegg-jobs/tests/ac_views_display_jobs.rs` (rename job) | `views_display` | |
+| AC-35 | | | `ac_views_display_type_file` | `views_display` | |
+| FR-QRY-01 AC-21 | `views_display_model` (done-lane offer) | | | `views_display` | |
+| AC-22 | | `crates/tegg-core/tests/ac_views_display_props.rs` (oracle) | `ac_views_display` | `views_grouped` | |
+| FR-QRY-06 AC-26 | | | `ac_views_display` | `views_display` | |
+| FR-QRY-08 AC-4 | | | | `views_grouped` | |
+| FR-QRY-09 AC-9 | | | `ac_views_display` (watcher) | `views_display` | `views_display` |
+| FR-TYP-09 AC-37 | `views_display_model` (`allViewOf`, `allDef`) | | | `views_display` | `views_display` |
+| FR-TYP-01 AC-29 | `views_display_model` (`viewKindText`) | | | `views_display` | |
+| FR-TSK-04 AC-30 | | | `ac_views_display` (`task.yml` bytes, flat groups) | `views_grouped` | |
+| FR-TSK-05 AC-23 | | | `ac_views_display` | `views_wall` | |
+| FR-LNK-03 AC-26 | `query_usage_display` (fence patch) | | `ac_views_display_jobs` (real `Core` host, `NodeTransformer`) | `views_display` | |
+| FR-FMT-06 AC-8 | `query_usage_display` | L3 (`fence_usage`) | | | |
+| FR-FMT-07 AC-37 | | `packages/doc/test/query_usage_display_props.ac.test.ts`, `crates/tegg-schema/tests/ac_views_display_props.rs` | `ac_views_display` | | |
+| FR-FMT-12 AC-16 | `query_usage_display` | | `ac_views_display_type_file` | `views_display` | |
+| AR-07 AC-12 | | L3 | `ac_views_display_type_file`, `ac_views_display` | | |
+| FR-SYN-02 AC-15 | | | `ac_views_display` (kill harness) | | |
+| FR-SYN-03 AC-36 | | | `ac_views_display` | `views_display` | |
+| FR-SYN-06 AC-52 | | | | `views_display` (counts) | `views_display` |
+| FR-STO-07 AC-16 | | | | `views_display` | `views_display` |
+| NFR-POR-01 AC-8 | | | `ac_views_display` (the `yaml` / `micromark` node check of part one's AC-6) | | |
+| NFR-PERF-07 AC-7, AC-8 | | | `crates/tegg-core/tests/ac_views_display_perf.rs` (report-only, nightly, §44) | `views_wall` / `views_grouped` (DOM counts) | `app/e2e/nfr_perf_07_wall.ac.test.ts` (nightly) |
+| FR-UX-03 AC-56 | `app/test/views_display_catalog.ac.test.ts` (registry) | | | `views_display` | |
+| AC-57 | | | | `views_display` | |
+| FR-UX-05 AC-27, FR-UX-08 AC-27 | | | | `views_display` | AC-27 (UX-08): `views_display` |
+| NFR-OTH-02 AC-25 | `views_display_catalog` | | | `views_display` (pseudo-locale) | |
+| FR-QRY-05 AC-47 | manual (`qa/manual/`) | | | | |
+
+Helpers: `app/webkit/views-display-helpers.ts` (base / overlay / `views-tasks` copies, the clock). No new
+`qa.config.json` step; the nightly `core-perf-ac` step gains `ac_views_display_perf.rs`. Proposed red-test order (as
+D-1813, D-1926; for the owner's red-test decisions): a compile-only stubs commit of §34.1, §35, §36.1, §36.2, §38
+(`View::Wall`, `Lanes::{Columns, Rows}`, `QueryDef.group_none`, the `UsageRaw` / `ViewItem` / `UsageSettings` /
+`UsageRun` fields, the ops, `relink_view_lane_orders`, `Host::fence_lane_order_paths`) with the type-only edits of
+existing Rust tests, then the red commit.
+
+### 43.3 L3 corpus (`tests/fixtures/queries-files/expected-views-display.json`)
+
+`reads`: the §39.2 `QueryDefDto` of `Celá zeď.yml` and of the base files with old words (`Rozečtené`, `Podle žánru`,
+`Podle autora`, `Seskupeno podle data`), plus runtime `view: wall` / `lanes: rows` / `group_by: none` texts (`{ name,
+text, def, broken }`); `items`: the overlay `book.yml` items as `ViewItemDto`; `fences`: `{ file, fence: n, saved, view,
+group, lanes, laneOrder, widths, sort, columns }` for Zobrazení's six fences and the fence cases of §43.4 (`null`,
+`"broken"` or the value); `results`: R228's walls, groups and orders (`cs`, `en-US`) as `{ usage, display, group: {
+key, lanes: [{ id, paths }] } | null, paths }`. Read by `ac_views_display.rs`, `query_usage_display.ac.test.ts` and
+`fake_views_display.contract.test.ts`. Board / Kanban values of `expected-views.json` and `expected-views-tasks.json`
+become `wall` / `columns` / `rows` (`Fixture-Change:`, D-2196).
+
+### 43.4 Expected bytes (`tests/fixtures/queries-files/expected/views-display/`, README there)
+
+Written with the red tests by the test author. Clock `2026-11-19T10:00:00+01:00` (Tasks: part three's); inputs the base
+(`base`), the overlay (`overlay`) or `views-tasks`. Byte rules as `expected/` (LF, final newline; `-crlf`, `-no-newline`
+variants). `types/`, `queries/`, `notes/` hold whole files after the action (`notes/` with the autosave's `modified:`
+unless said); `fences/` hold `applyFenceUsage` results next to their `-input.md`.
+
+| File | Input → action | Criteria |
+| --- | --- | --- |
+| `types/book-prectene-view-wall.yml`, `types/book-prectene-view-list.yml` | base; `Wall` on `Přečtené 2026`; then `List` (`Use the query's display` gives the base file) | FR-QRY-05 AC-32 |
+| `types/book-vyborne-group-status.yml`, `-group-status-wall.yml`, `-group-status-wall-rows.yml`, `-group-none.yml` | base; AC-34 steps 2…5 on `Výborné knihy` | AC-34 |
+| `types/book-overlay-rozectene-use-query-grouping.yml`, `types/book-overlay-prectene-use-query-display.yml`, `types/book-overlay-rozectene-group-status.yml` | overlay; AC-35 steps 3, 4, 6 | AC-35 |
+| `types/book-overlay-podle-zanru-wall.yml` | overlay; `Wall` on `Podle žánru` | AC-40 |
+| `types/book-overlay-vyborne-lane-order-eva.yml` | overlay; `Eva Lindová` above `Lucie Horká` | AC-42 (a) |
+| `types/book-prectene-widths-title-300.yml`, `types/book-prectene-widths-title-300-author-200.yml` | base; AC-43 (a) (`⌫` on Author gives the first file again; Reset gives the base) | AC-43 |
+| `types/book-prectene-widths-legacy-rating.yml` | base + 0.6.0 entry; Rating 150 | AC-44 |
+| `types/book-overlay-podle-autora-lanes-columns.yml` (+ `-crlf`, `-no-newline`) | overlay; `Columns` on `Podle autora` | AC-46 (c), FR-FMT-07 AC-37 |
+| `types/book-overlay-vyborne-renamed.yml`, `types/book-overlay-vyborne-duplicate.yml`, `types/book-overlay-without-podle-zanru.yml`, `types/book-overlay-readded-podle-zanru.yml`, `types/book-overlay-without-podle-autora.yml` | overlay; AC-34 (a)…(d) | FR-QRY-07 AC-34 |
+| `types/book-overlay-cela-zed-sort-desc.yml` | overlay; sort change on `Celá zeď` | FR-QRY-07 AC-35 |
+| `types/book-overlay-xbarva-input.yml`, `types/book-overlay-xbarva-after-display.yml` | the runtime `x-barva: modrá` variant; a display change on `Výborné knihy` | AC-35 |
+| `types/book-overlay-lucie-renamed.yml` | overlay; 4C rename `Lucie Horká` → `Lucie Horká-Nová` | FR-LNK-03 AC-26 |
+| `types/task-schedule-view-table.yml`, `types/task-kanban-lane-order-waiting.yml` | `views-tasks`; FR-TSK-04 AC-30 step 2; FR-TSK-05 AC-23 step 2 | FR-TSK-04 AC-30, FR-TSK-05 AC-23 |
+| `notes/cteni-2026-prectene-view-wall.md`, `notes/cteni-2026-rozectene-lanes-rows.md`, `notes/cteni-2026-rozectene-lane-order.md`, `notes/cteni-2026-prectene-widths-title-200.md` | base Čtení; AC-33 (a), (d) (`Rows`, then `To read` before `Reading`, D-2203); AC-43 (b) | AC-33, AC-43 |
+| `notes/zobrazeni-b6-view-wall.md`, `notes/zobrazeni-b5-group-author.md`, `notes/zobrazeni-b2-lane-order-reading.md`, `notes/zobrazeni-b2-view-list.md` | overlay Zobrazení; AC-33 (b); AC-36 (a); AC-42 (a); the kill harness's second text | AC-33, AC-36, AC-42, FR-SYN-02 AC-15 |
+| `notes/zobrazeni-vyborne-renamed.md` | overlay; the query rename job (no `modified:` change) | FR-QRY-07 AC-34 (a) |
+| `notes/lane-order-fence-input.md`, `notes/lane-order-fence-renamed.md` | the runtime fence of FR-LNK-03 AC-26; the 4C rename | FR-LNK-03 AC-26 |
+| `queries/prectene-2026-view-wall.yml`, `queries/rozectene-lanes-rows.yml`, `queries/podle-zanru-lanes-columns.yml`, `queries/rozectene-view-wall.yml` (after `rozectene-view-table.yml`), `queries/cela-zed-group-status.yml`, `queries/rozectene-group-none.yml` | the query page steps of AC-33 (c), AC-46 (c), FR-QRY-06 AC-26, D-2191 | AC-33, AC-46, FR-QRY-06 AC-26 |
+| `queries/new-view-wall-autor.yml`, `queries/new-view-wall-book.yml` | `New view` › Wall on `type/autor`, `type/book` | FR-QRY-07 AC-32 |
+| `queries/schedule-lanes-columns.yml` (+ `-crlf`, `-no-newline`) | `Switch lanes` on `query/Schedule` | FR-FMT-07 AC-37 (replaces `views-tasks/queries/schedule-lanes-vertical*.yml`) |
+| `fences/<case>-input.md` → `fences/<case>.md`, cases `insert-view`, `insert-group`, `insert-group-period`, `insert-group-none`, `insert-lanes`, `insert-lane-order`, `insert-widths`, `insert-all` (R221 order), `replace-view`, `remove-display`, `remove-grouping`, `tilde`, `info-meta`, `list-item`, `callout`, `comment-broken`, `crlf`, `nfd-saved`, `old-word-kept` | `applyFenceUsage` | FR-FMT-06 AC-8 |
+
+The query-page drags of AC-42 and FR-TSK-05 AC-23 step 4 reuse `expected/views/rozectene-lane-order-to-read-first.yml`
+and `expected/views-tasks/queries/kanban-lane-order-waiting.yml`; FR-QRY-01 AC-12's query-page commits reuse
+`rozectene-group-by-genres.yml`, `rozectene-view-table.yml`.
+
+### 43.5 Changed AC tests (D-2196)
+
+The table "Existing criteria this slice changes (part five)" is the list; each test changes in the build commits with
+`AC-Test-Change: slice Q3 builds display and grouping per usage (D-2172…D-2187); approved-by: owner`. This contract adds:
+- **Type-only** (no behaviour): `View::Board` → `View::Wall`, `Lanes::Vertical` / `Horizontal` → `Columns` / `Rows`,
+  `QueryDef { group_none: false, .. }`, `UsageRaw { .., ..Default::default() }`, `ViewItem` literals, `QueryDefDto`
+  `view: 'wall'`, `lanes: 'columns' | 'rows'`, `groupNone: false` in TS literals. Hand-written old words in test files
+  stay valid (D-2179).
+- **`Fixture-Change:`**: `expected/views/new-view-board-book.yml` removed (FR-QRY-07 AC-4 (c) now reads
+  `views-display/queries/new-view-wall-book.yml`); `expected/views-tasks/queries/schedule-lanes-vertical*.yml` removed
+  (replaced by §43.4's `schedule-lanes-columns*.yml`); the L3 values of §43.3; the overlay README's "Draft" (§46 item 3).
+- `data-lanes` values don't change (§45 choice 4), so the change table's `data-lanes` row changes no test.
+
+## 44. Performance check (D-2185; NFR-PERF-07 AC-7, AC-8)
+
+- **AC-7** (`app/e2e/nfr_perf_07_wall.ac.test.ts`, nightly, report-only until the v1.0 gate as D-1800): the reference
+  vault (`--seed 1 --small-images`), the type with the most objects read from the index, a runtime query file `Zeď`
+  (`view: wall`, no `group_by`, `sort: { by: title, order: asc }`) added to its `views:`; 20 selections of the tab;
+  `board-request` → `board-ready` p95 ≤ 225 ms; then a scroll to the bottom with `__TEGG_TEST__.board().domCards ≤ 150`
+  at every step and the last card visible.
+- **AC-8** (same file): a runtime query over 1,000 generated objects of one type grouped by a 6-option Select as a
+  Table; `rows-request` → `rows-ready` p95 ≤ 225 ms of 20; `__TEGG_TEST__.groups().domRows < 80` while scrolling; every
+  group header and row reached.
+- **L4 guard** (`crates/tegg-core/tests/ac_views_display_perf.rs`, `nfr_perf_07_ac7_wall_run`, nightly, report-only):
+  `Core::query_run` of `Zeď` on the same vault, p95 of 20, printed with the row count. An ungrouped wall run returns
+  every row's card data (§34.4); if this L4 time alone takes most of the 225 ms budget, the build reports it to the
+  owner before the UI work is called done (D-2185) rather than changing the IPC.
+
+## 45. Contract choices (no owner decision needed; follow the ACs and precedents)
+
+1. The model is extended in place again: `View::Wall` and `Lanes::{Columns, Rows}` rename the variants (no new type),
+   their `as_str` is the new word; old words are read rules only.
+2. One shape reader for the seven usage keys (`tegg_format::usage`) serves fences and items; `@tegg/doc` is the only
+   fence writer, `tegg-schema` the only type-file writer (part two §22.3).
+3. Grouping stays in the core for every display; Table and List draw the core's lanes (no UI re-grouping); their
+   "only groups with rows" and "flat periods" rules are a pure UI view (`groupModel`).
+4. `data-lanes` keeps `vertical` / `horizontal` (DOM values, not file words), so part one's and part three's tests of it
+   stand; new attributes use the new words (`data-display`, `data-lanes-choice`).
+5. `UsageGroupDto` / `UsageGroupBy` represent a usage's grouping with an explicit `none`; `UsageRunDto` reports the
+   effective grouping flat (`groupBy`, `groupPeriod`), as `QueryDefDto` (CP-23).
+6. Widths are ordered pairs everywhere (`[string, number][]`, `Vec<(String, u32)>`), compared as maps for no-ops.
+7. Other stored widths are written as stored (not re-clamped) when one column changes; only the changed width is
+   clamped. Width keys of columns no longer shown are kept.
+8. A query file's syntactic broken entry that a valid own value replaces is dropped by the core in that usage's run.
+9. The default task files are R202 constants in `taskviews.rs` (D-2195), so a new word in `create_text` can't reach them.
+10. Marks: `board-*` for every wall, new `rows-*` for Tables and Lists; hooks `board()` extended, `groups()` new.
+11. D-2193 finds fence lane orders by reading the notes the index lists with a reference fence; own values stay
+    unindexed (AR-01, part two §13.2).
+12. Tabs have no Undo for display, grouping and width writes (as Q2.1's sort); blocks have the editor's ⌘Z.
+13. `group_by: none` is matched exactly (`None` is an attribute key); `view` and `lanes` words are case-sensitive.
+
+## 46. AC problems (part four; fixed in the ACs as D-2203, owner 2026-11-23)
+
+1. **"The contract's part five".** The change table's rows "L3 corpora", "Type-only" and "`data-lanes` values" point to
+   "the contract's part five"; the contract's Q3 part is **part four** (plan §8 step 4). Fix: read "contract part four
+   (`docs/contracts/v1-views.md` §33…)".
+2. **FR-TYP-01 AC-29 "the `Views` list is R228's".** R228 gives tab icons, not Type settings texts. Fix: list them in
+   the AC: `Rozečtené` `Wall`, `Přečtené 2026` `Wall`, `Výborné knihy` `Table · by Author`, `Podle žánru` `List · by
+   Genres`, `Podle autora` `Wall · by Author`, `Celá zeď` `Wall`.
+3. **The overlay README still reads "Draft"** and "where a criterion depends on an open AP-2050…AP-2057"; part five's
+   Fixtures paragraph says the expected bytes are written "once AP-2050…AP-2058 are decided". Fix: drop both (they are
+   decided), the README with a `Fixture-Change:` trailer (as D-1864 item 2).
+4. **FR-QRY-05 AC-33 (d) "A lane drag there writes the fence's `lane_order`"** names no drag and no bytes. Fix: "dragging
+   `To read` before `Reading` inserts `lane_order: [To read, Reading, Read]` after the new `lanes: rows` line" (expected
+   `notes/cteni-2026-rozectene-lane-order.md`).
+5. **FR-STO-07 AC-16 "0.7.0 writes no `usageColumnWidths["tab:…"]` or `["block:…"]` entry"** reads as if removing a
+   0.6.0 entry (D-2190, FR-QRY-05 AC-44 step 3) broke it. Fix: "never adds or changes one; it only removes a usage's
+   0.6.0 entry after that usage's first vault width write".
+6. **Part two's read-view resizing.** R222 / FR-QRY-05 AC-45 disable resize handles in a block without an editor; part
+   two (§13.3, R194) said resizing works there. Fix: `app/webkit/views_usage.ac.test.ts` was searched; no part-two test
+   resizes in a block without an editor (`fr_qry_01_ac14_block_sort_is_its_own_without_an_editor` checks only sort), so
+   the change table records the search and changes no test.
+7. **FR-QRY-05 AC-46 (c) vs R196** ("a changed item is re-emitted"): keeping `    view: board` while `lanes` changes in
+   the same item contradicts part two's re-emit rule. Settled by CP-35 (field-level bytes); R221's "Items" row should
+   say "a changed item keeps the lines of every key the change doesn't touch".
+
+## 47. Contract points (part four; CP-32…CP-37 → D-2197…D-2202, accepted by the owner 2026-11-23)
+
+Each point was decided as recommended.
+
+| # | Question | Options | Recommendation |
+| --- | --- | --- | --- |
+| CP-32 → D-2197 | **How `None` on `query/<name>` and a file's `group_by: none` are represented** (D-2191). `QueryDef.group_by: None` already means "absent or broken" and, in a commit, "unchanged" (the editor's commit must never remove a broken line). | (a) A flat `QueryDef.group_none: bool` / DTO `groupNone` (read true for `group_by: none`; a commit with `group_by: None`, `group_none: true` removes a valid line; equal or broken: no write). (b) `group_by: Option<GroupBy>` enum (`Key`, `Period`, `None`) replacing `group_by` + `group_period` (every Q / Q2 / Q2-T literal and reader changes). (c) A separate core op `query_ungroup(name, base)` (a second write path for one key). | **(a)**, as CP-23 chose flat fields; §34 is written with it. |
+| CP-33 → D-2198 | **Columns of a query file without `columns` when a usage shows it as a Table or List.** Part three reads a missing `columns` as `[]` on a board (D-1927), so a tab switched from Wall to Table would show only Title (`New view` › Wall writes no `columns`). | (a) The run's effective columns use the create default (the single type's effective columns, else `[type, modified]`) when the file has no `columns` key and the effective display isn't a wall; `def.columns` stays as read. (b) Read a missing `columns` as the default for every `view` (changes D-1927's read rule and L3 values). (c) Keep `[]`: Title only until the user picks columns. | **(a)**: no file or L3 change; the Table looks like a new Table view. |
+| CP-34 → D-2199 | **Where `All <plural>`'s wall and groups come from** (D-2178). Today it draws `index_type_rows`; grouping is the core's (`query_run`). | (a) An ungrouped Table keeps `index_type_rows`; any other display or a grouping runs `query_run({ kind: 'def', def: allDef(type, allView, typeSort) })` (types `[key]`, no filters, the machine-local sort, `columns` = the type's effective columns). (b) `All <plural>` always runs `query_run` (one path; its Table changes source, type-columns tests touched). (c) The UI groups type rows (a second grouping implementation). | **(a)**: no change for today's default, one grouping implementation. |
+| CP-35 → D-2200 | **Bytes inside a changed `views:` item, and Duplicate** (D-2179, FR-QRY-05 AC-46 (c), FR-QRY-07 AC-34 (b)). Part two re-emits a changed item from its values, which would rewrite `view: board` / `lanes: horizontal` in a key that didn't change. | (a) Field-level: every known key the op doesn't change keeps its lines (old words, comments on those lines, style), for `sort` / `columns` too; Duplicate is one new op `CopyViewSettings { from, to }` copying those lines. (b) Field-level only for the five Q3 keys; `sort` / `columns` re-emitted as in Q2.1; Duplicate copies values with five more ops. (c) Re-emit new keys canonically except `view` / `lanes` old words (a special case). | **(a)**: one rule, the fewest changed bytes; Q2.1's expected files keep their bytes where their inputs were canonical (the test author confirms). |
+| CP-36 → D-2201 | **Which jobs patch usage `lane_order`s** (D-2193 names the 4C rename). The 4E type moves already patch query files' `lane_order` through the same `QueryPatch::ObjectMoved` path. | (a) Both 4C renames and 4E moves patch type-file items and fences (one shared path; tested by FR-LNK-03 AC-26 plus one L4 move case). (b) 4C only, as D-2193 says (a moved object's relation group can lose its place). | **(a)** |
+| CP-37 → D-2202 | **An attribute keyed `none`.** `group_by: none` means "not grouped" (D-2191), so grouping by such an attribute can't be written. | (a) The Group menu doesn't list an attribute whose key is `none`; nothing else changes. (b) Type settings refuse the key `none` for new attributes (a type-settings change). (c) List it and let it read as not grouped (silently wrong, T2). | **(a)** |

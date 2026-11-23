@@ -1163,7 +1163,7 @@ Slice **OC** (plan `docs/plans/oc-object-cards-and-settings-plan.md` §4; D-2054
 
 Slice **Q3** (plan `docs/plans/q3-display-and-grouping-plan.md`; owner decisions D-2172…D-2187, BRD v1.249), planned as **0.7.0**. The plan calls this "part four"; it is **part five** here because part four is slice OC (0.6.0) above. Boards: `design/edit-note-page/Views.dc.html` (A, B, W1, D3, D1, D2, H1, H2, C, E, G, F), `ViewsDark`, `ViewsApp`, `ViewsAppDark`. Board F draws `view`, `group_by`, `lanes` and `lane_order` in the query file: they stay valid there as the **defaults** (D-2174). Board G's dot on a differing block is superseded by D-2176. Board D3's `Finished by month` isn't built (D-2180). `TasksQKanban`, `TasksQSpec` and `QueryBlock` are stale (D-2187). Where a board and a decision differ, the decision wins. Where neither decided, a point went to the owner (end of this part); a criterion that follows one names its AP and decision.
 
-**Status: approved, 2026-11-23.** AP-2050…AP-2058 at the end of this part are decided as D-2188…D-2196 (BRD v1.250).
+**Status: approved, 2026-11-23.** AP-2050…AP-2058 at the end of this part are decided as D-2188…D-2196 (BRD v1.250). The problems the contract found (`docs/contracts/v1-views.md` part four §46) are fixed here as D-2203 (BRD v1.251).
 
 Decisions this part carries out:
 - **D-2172**: three displays, List, Table, Wall. Wall replaces Board and Kanban. The file key stays `view`.
@@ -1243,7 +1243,7 @@ Reference tables R220…R228.
 - Base `tests/fixtures/vaults/views/`, unchanged.
 - Criteria that say **overlay** copy the base, then the new overlay `tests/fixtures/vaults/views-display/` (synthetic, D-50; README there), then `new-empty/.tegg/`.
 - Tasks criteria: part three's `views-tasks` overlay.
-- Expected bytes after writes: `tests/fixtures/queries-files/expected/views-display/`, written by the test author once AP-2050…AP-2058 are decided.
+- Expected bytes after writes: `tests/fixtures/queries-files/expected/views-display/`, written by the test author with the red tests (contract part four §43.4).
 
 | Short | Path | Notes |
 | --- | --- | --- |
@@ -1305,9 +1305,10 @@ The test author confirms it with `./verify coverage` before the build.
 | Part three FR-FMT-07 AC-35 (`Switch lanes` on `Schedule.yml` writes `lanes: vertical`) | `crates/tegg-core/tests/ac_views_tasks.rs` `fr_fmt_07_ac35_q2t_keys_round_trip`; expected `views-tasks/queries/schedule-lanes-vertical.yml`, `-crlf`, `-no-newline` | The writer emits `lanes: columns` (D-2179). | FR-FMT-07 AC-37 |
 | types.md FR-TYP-01 AC-25, AC-27, AC-28 (`Board · by Status`, `Board · by Due date`; the key `typeSettings.viewBoardBy`) | `app/webkit/type_settings_oc.ac.test.ts` `fr_typ_01_ac25_views_lists_the_real_views`, `fr_typ_01_ac27_restore_default_views_inside_views`; `app/test/cards_catalog.ac.test.ts` `nfr_oth_02_ac24_card_and_picker_strings`, `fr_typ_01_ac28_type_settings_strings_themes_keyboard` | The texts become `Wall · by Status` and `Wall · by Due date`; the key becomes `typeSettings.viewKindBy` (R227). | FR-TYP-01 AC-29 |
 | NFR-OTH-02 AC-17, AC-21, AC-23 (exact key sets) | `app/test/views_catalog.ac.test.ts` `nfr_oth_02_ac21_view_strings`; `app/test/queries_catalog.ac.test.ts` `nfr_oth_02_ac17_query_strings` (`R192_QUERY`, `R207_QUERY`); `app/test/views_tasks_registry.ac.test.ts` `nfr_oth_02_ac23_q2t_strings` | The sets lose R227's removed keys and gain its new ones. | NFR-OTH-02 AC-25 |
-| L3 corpora | `tests/fixtures/queries-files/expected-views.json`, `expected-views-tasks.json` and their readers (`app/test/fake_views.contract.test.ts` `the twin fills the Q2 fields of summaries and rows` with `roz.view` `board`; the Rust L3 tests) | The DTO's `view` reads `wall` for `board`, and `lanes` reads `columns` / `rows`, as the contract's part five names them. | AR-07 AC-12 |
-| Type-only (no behaviour change) | <br>• `crates/tegg-core/tests/`: `ac_queries_props.rs`, `queries_setup/mod.rs`, `cards_setup/mod.rs`, `ac_views.rs`, `ac_views_writes.rs`, `ac_views_round_trip_props.rs`, `ac_views_tasks.rs`, `ac_views_tasks_props.rs`, `ac_views_perf.rs`, `ac_cards_perf.rs` <br>• `app/webkit/views-helpers.ts`, `cards-helpers.ts` <br>• `app/e2e/nfr_perf_07_board.ac.test.ts`, `nfr_perf_07_cards.ac.test.ts` | Tests that build `View::Board` or `Lanes::Vertical` / `Horizontal` use the renamed variants. Hand-written `view: board` / `lanes: vertical` strings in their files stay valid (D-2179). | contract part five |
-| `data-lanes` values | `views_board.ac.test.ts` (AC-10, AC-11, AC-17); `views_tabs.ac.test.ts` `fr_qry_07_ac15_views_follow_external_changes`; `views_tasks_kanban.ac.test.ts` `fr_tsk_05_ac19_kanban_lanes`; `views_tasks_queries.ac.test.ts` `fr_qry_01_ac17_*`; `views_tasks_schedule.ac.test.ts` `fr_tsk_04_ac27_live_and_midnight` | Changes only if the contract renames the attribute values to `columns` / `rows`. | contract part five |
+| L3 corpora | `tests/fixtures/queries-files/expected-views.json`, `expected-views-tasks.json` and their readers (`app/test/fake_views.contract.test.ts` `the twin fills the Q2 fields of summaries and rows` with `roz.view` `board`; the Rust L3 tests) | The DTO's `view` reads `wall` for `board`, and `lanes` reads `columns` / `rows`, as the contract's part four names them (§39.2; D-2203). | AR-07 AC-12 |
+| Type-only (no behaviour change) | <br>• `crates/tegg-core/tests/`: `ac_queries_props.rs`, `queries_setup/mod.rs`, `cards_setup/mod.rs`, `ac_views.rs`, `ac_views_writes.rs`, `ac_views_round_trip_props.rs`, `ac_views_tasks.rs`, `ac_views_tasks_props.rs`, `ac_views_perf.rs`, `ac_cards_perf.rs` <br>• `app/webkit/views-helpers.ts`, `cards-helpers.ts` <br>• `app/e2e/nfr_perf_07_board.ac.test.ts`, `nfr_perf_07_cards.ac.test.ts` | Tests that build `View::Board` or `Lanes::Vertical` / `Horizontal` use the renamed variants. Hand-written `view: board` / `lanes: vertical` strings in their files stay valid (D-2179). | contract part four (D-2203) |
+| `data-lanes` values | `views_board.ac.test.ts` (AC-10, AC-11, AC-17); `views_tabs.ac.test.ts` `fr_qry_07_ac15_views_follow_external_changes`; `views_tasks_kanban.ac.test.ts` `fr_tsk_05_ac19_kanban_lanes`; `views_tasks_queries.ac.test.ts` `fr_qry_01_ac17_*`; `views_tasks_schedule.ac.test.ts` `fr_tsk_04_ac27_live_and_midnight` | No change: the contract keeps `data-lanes` `vertical` / `horizontal` (part four §45 choice 4; D-2203). | contract part four |
+| Part two's resizing in a block without an editor (R194, contract §13.3: "resizing and folding work"), now disabled (R222, FR-QRY-05 AC-45) | none: `app/webkit/views_usage.ac.test.ts` was searched (D-2203); no part-two test resizes in a block without an editor (`fr_qry_01_ac14_block_sort_is_its_own_without_an_editor` checks the sort only) | Text only: R194's "resizing works" for such blocks reads as "resizing is disabled". | FR-QRY-05 AC-45 |
 | Reference rules: <br>• queries.md R142 `View` <br>• part one R185 `view` and `lanes` values; R186 `Add view` menu and toolbar; R187's `Vertical` / `Horizontal` names; R189 `View`, `Group by`, `Lanes`, `Limit`; R191 `board.switchLanes`; R192 keys <br>• part two R194 (the shared row), R195 `Place` and `Where it can't be written` (resizing works), R197 (`Editor Done`; `Lanes switch, lane drag, Reset lane order`; resize), R198 widths <br>• part three R201 (`Read only with view: board`), R204 `Toolbar`, R207 `query.editor.groupByPeriod*` <br>• cards.md R213's "Board views" wording | the tests above | Read with R220…R227. | this part |
 
 Expected not to change:
@@ -1362,7 +1363,7 @@ Values:
 | Place | A missing key is inserted right after the nearest earlier key that is present, else right after `name:` / `saved:`. A present key is replaced in place (its line or block). A removed key loses its lines. |
 | Style | <br>• `view`, `lanes`: plain scalars. <br>• `group_by`: a plain scalar, `none`, or a one-line flow mapping (`group_by: { finished: period }`). <br>• `lane_order`: one flow line with D-230 quoting (`lane_order: ["[[Lucie Horká]]"]`). <br>• `widths`: one flow mapping line, keys in the table's column order with Title first (`widths: { title: 300, author: 180 }`). <br>• Everything NFC. A replaced one-line key keeps its trailing comment (D-1457). |
 | Words written | `wall`, `columns` and `rows`, only for the key being changed. An old word in another key, item, fence or file keeps its bytes (D-2179). |
-| Items (R196) | <br>• A plain name becomes `  - name: <name>` plus the item's own keys. <br>• An item left with only `name` becomes plain. <br>• The list stays the flow line while every item is plain. <br>• Unknown item keys stay after the known ones. <br>• An unchanged item keeps its lines byte for byte. |
+| Items (R196) | <br>• A plain name becomes `  - name: <name>` plus the item's own keys. <br>• An item left with only `name` becomes plain. <br>• The list stays the flow line while every item is plain. <br>• Unknown item keys stay after the known ones. <br>• An unchanged item keeps its lines byte for byte. <br>• A changed item keeps the lines of every key the change doesn't touch (old words and trailing comments included); only the changed key's lines are replaced, inserted or removed; full-line comments inside it go (D-2200, D-2203). |
 | Fences (R195) | <br>• Markers, info string, the `saved:` line (an NFD value too), comments, unknown lines, container prefixes and EOLs are kept. New lines get the `saved:` line's prefix. <br>• Written through the editor (D-1839): one transaction, one autosave, `modified:` per D-55, one undo step. |
 | Query file | R185's write style and create order (`… sort, limit, view, group_by, lanes, lane_order, done_lane, columns, created, modified`); `modified:` set on each change |
 | Older Tegg | 0.6.0 ignores unknown item keys (R196) and unknown fence lines (R195). It reads `view: wall` and `lanes: rows` in a query file as broken keys and keeps the file (D-1442). |
@@ -1495,6 +1496,7 @@ On the overlay:
 | Zobrazení block 4 | A grouped wall as rows (the query's `lanes: horizontal`), 16 cards, no hatched lane: <br>• `To read` 2: Dům u řeky, Kniha o horách <br>• `Reading` 3: Noční vlak, Světla přístavu, Účetní ze Žižkova <br>• `Read` 9: Cizí přístavy, Čarovná mapa, Čtvrtá zima, Kniha o čaji, Mapa bez severu, Sto zimních dní, Šest cest k moři, Tiché město, Zahrada v dešti <br>• `Rozečteno` 1: Zápisník z Tater <br>• `No Status` 1: Písně z dálky |
 | Zobrazení block 5 | A Table, not grouped: Cizí přístavy, Čarovná mapa, Mapa bez severu. Headers `Title ↑`, Author, Status, Finished at R130's default widths. Above it three notices in the order `view`, `group_by`, `widths`; no `lanes` notice. |
 | Zobrazení block 6 | R193's `Výborné knihy` table |
+| `type-settings/book` › `Views` | `Rozečtené` `Wall`, `Přečtené 2026` `Wall`, `Výborné knihy` `Table · by Author`, `Podle žánru` `List · by Genres`, `Podle autora` `Wall · by Author`, `Celá zeď` `Wall` (D-2194 (b), D-2203) |
 | `query/Celá zeď` | as tab `Celá zeď` |
 | `query/Rozečtené`, `query/Seskupeno podle data` | R193's board, and R193's notice for `Seskupeno podle data`. Under FR-QRY-05 AC-36, the latter becomes R193's 17 books as an **ungrouped wall** in the same order, with the notice. |
 | `queries` | 10 rows, `Celá zeď` first (Created ↓). Six rows carry `Books page`. |
@@ -1541,7 +1543,7 @@ On the `views-tasks` overlay (part three's clock; **(W)** `en-US` in brackets):
 
   (c) On `query/Přečtené 2026`, `Wall` writes once: line 14 `view: table` → `view: wall`, and `modified:`. Within 1 s the `Přečtené 2026` tab and Čtení's block (no own `view`) draw walls, and they write nothing.
 
-  (d) In Čtení's `Rozečtené` block, Group › `Lanes` › `Rows` inserts `lanes: rows` after line 15 of Čtení. `Rozečtené.yml` is untouched and the tab keeps columns. A lane drag there writes the fence's `lane_order`.
+  (d) In Čtení's `Rozečtené` block, Group › `Lanes` › `Rows` inserts `lanes: rows` after line 15 of Čtení. `Rozečtené.yml` is untouched and the tab keeps columns. Then dragging `To read` before `Reading` inserts `lane_order: [To read, Reading, Read]` after the new `lanes: rows` line (expected `notes/cteni-2026-rozectene-lane-order.md`; D-2203).
 
   *(L5; L1 for the fence bytes; L4 for the query file)* Test: `fr_qry_05_ac33_display_and_grouping_in_a_block_and_on_the_query_page`
 - **AC-34** **The Group menu (R223; boards D3, H1; D-2173, D-2175, D-2180; T1).** On the base `Výborné knihy` tab:
@@ -1825,7 +1827,7 @@ On the `views-tasks` overlay (part three's clock; **(W)** `en-US` in brackets):
 ### FR-TYP-01 Type settings names displays (part five; amends types.md AC-25, AC-27)
 
 - **AC-29** **`Views` lists each tab's display (plan §7).**
-  - On the overlay, `type-settings/book`'s `Views` list is R228's.
+  - On the overlay, `type-settings/book`'s `Views` list is R228's (`type-settings/book` row).
   - On the base, `Rozečtené` reads `Wall · by Status`.
   - On `views-tasks`: `Schedule` `Wall · by Due date`, `Kanban` `Wall · by Status`, `Čeká na ostatní` `Table`.
   - The text comes from each tab's effective display and grouping; a change on the type page shows within 1 s.
@@ -1963,7 +1965,7 @@ On the `views-tasks` overlay (part three's clock; **(W)** `en-US` in brackets):
 
 - **AC-16** **What stays on this Mac (R226; D-2177, D-2178).**
   - After FR-TYP-09 AC-37, FR-QRY-05 AC-42 and AC-43 (c), `ui-state.json` holds `allView.book`, the `usageFolded` entries and `usageColumnWidths["page:přečtené 2026"]`, written atomically.
-  - 0.7.0 writes no `usageColumnWidths["tab:…"]` or `["block:…"]` entry.
+  - 0.7.0 never adds or changes a `usageColumnWidths["tab:…"]` or `["block:…"]` entry; it only removes a usage's 0.6.0 entry after that usage's first vault width write (FR-QRY-05 AC-44; D-2203).
   - Nothing machine-local is written under `.tegg/`.
 
   *(L5; L6 once)* Test: `fr_sto_07_ac16_display_state_on_this_mac`

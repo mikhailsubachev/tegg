@@ -1,6 +1,6 @@
 # Overlay `views-display/` (v1.0 slice Q3, display and grouping per usage)
 
-Synthetic overlay for `docs/acceptance/views.md` **part five** (slice Q3, R220…R228; D-2172…D-2187). Hand-written (D-50); every name, title and text is invented (D-62). **Draft**: the place and style of the new usage keys follow plan §3.3 and R221; where a criterion depends on an open AP-2050…AP-2057 its expectation says so.
+Synthetic overlay for `docs/acceptance/views.md` **part five** (slice Q3, R220…R228; D-2172…D-2187). Hand-written (D-50); every name, title and text is invented (D-62). The place and style of the new usage keys follow plan §3.3, R221 and contract part four (decided: D-2188…D-2203).
 
 **Why an overlay.** The base fixture `tests/fixtures/vaults/views/` can't take these files: parts one to three assert the flow `views:` line 13 of `book.yml`, `9 queries` on the Queries page and the `Used on` lists of the base queries. Base files are never edited for Q3.
 
@@ -50,4 +50,4 @@ Expected walls, tables, lists and groups at the test clock: `docs/acceptance/vie
 - `ui-state.json` with 0.6.0's machine-local widths for usages (`usageColumnWidths["tab:book/přečtené 2026"]`, `usageColumnWidths["block:id:01JB5V00000000000000000029/přečtené 2026#1"]`) for the legacy-widths criterion, and with an `All Books` display and grouping.
 - A Book `Nová kniha` with `finished` in this week (2026-11-21) and one later (2026-12-05) for the period groups `This week` and `Later` in a Table.
 - The ungrouped-wall benchmark: the reference vault (`tools/gen-vault --seed 1 --small-images`) plus a view `Zeď` over its largest type (NFR-PERF-07 AC-7); a 1,000-row grouped Table (NFR-PERF-07 AC-8).
-- Expected bytes after writes go to `tests/fixtures/queries-files/expected/views-display/` (README there), written by the test author with the red tests once AP-2050…AP-2057 are decided.
+- Expected bytes after writes go to `tests/fixtures/queries-files/expected/views-display/` (README there), written by the test author with the red tests (contract part four §43.4).
