@@ -125,8 +125,8 @@ test('fr_ux_03_ac54_commands_without_a_palette', async ({ browser }) => {
     const registered = new Set(await page.evaluate(() => ((window as any).__TEGG_TEST__?.commands?.() ?? []) as string[]));
     assert.ok(registered.size > 0, `${how}: __TEGG_TEST__.commands() lists the registry`);
     const scope = (await seen(drawer(page), 100)) ? drawer(page) : (await seen(sheet(page, 'Properties'), 100)) ? sheet(page, 'Properties') : (await seen(moreMenu(page), 100)) ? moreMenu(page) : undefined;
-    // D-2112: links in a note's text are content, not controls.
-    const ctl = (await controls(page, scope)).filter((c) => !c.inert && !c.text && !c.row && !(c.role === 'link' && c.exempt) && ['button', 'link', 'tab', 'menuitem', 'menuitemradio', 'checkbox', 'radio', 'switch'].includes(c.role));
+    // D-2112, D-2115: links and read-only task checkboxes in a note's text are content, not controls.
+    const ctl = (await controls(page, scope)).filter((c) => !c.inert && !c.text && !c.row && !((c.role === 'link' || c.role === 'checkbox') && c.exempt) && ['button', 'link', 'tab', 'menuitem', 'menuitemradio', 'checkbox', 'radio', 'switch'].includes(c.role));
     const missing = ctl.filter((c) => !c.command || !registered.has(c.command.split(':')[0]) && !registered.has(c.command)).map((c) => `${c.role} "${c.name.slice(0, 30)}" → ${c.command ?? '(none)'}`);
     assert.deepEqual(missing, [], `${how}: every control carries the data-command of a registered command`);
   });
@@ -147,7 +147,7 @@ test('fr_ux_03_ac54_commands_without_a_palette', async ({ browser }) => {
       await eventually(() => mainName(probe), (n) => !!n, 5000);
       if (inDrawer) await openDrawer(probe);
       const scope = inDrawer ? drawer(probe) : undefined;
-      const cmds = [...new Set((await controls(probe, scope)).filter((c) => !c.inert && !c.text && !c.row && !(c.role === 'link' && c.exempt) && c.command && c.command !== 'phone.menu').map((c) => c.command!))];
+      const cmds = [...new Set((await controls(probe, scope)).filter((c) => !c.inert && !c.text && !c.row && !((c.role === 'link' || c.role === 'checkbox') && c.exempt) && c.command && c.command !== 'phone.menu').map((c) => c.command!))];
       await probe.close();
       for (const id of cmds) {
         const key = `${inDrawer ? 'drawer' : 'page'}|${id}`;
@@ -316,8 +316,7 @@ test('fr_syn_06_ac51_reading_on_the_phone_writes_nothing', async ({ page }) => {
     await main(page).getByRole('radiogroup', { name: 'Theme' }).getByRole('radio', { name: 'Dark' }).click();
     await systemBack(page);
     await main(page).getByRole('link', { name: 'Date & time', exact: true }).click();
-    await main(page).getByRole('combobox', { name: 'Date format' }).click();
-    await page.getByRole('option', { name: /^Long/ }).click();
+    await main(page).getByRole('combobox', { name: 'Date format' }).selectOption('long'); // D-2113: the native select
   });
   await assertZeroWrites(core, before, 'the reading tour');
   const calls = (await core.calls()).map((c) => c.cmd);

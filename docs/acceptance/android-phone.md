@@ -246,7 +246,7 @@ Proposals for the contract:
 
 - **AC-54** **Every control is a command, without a palette (AP-2041).** With `'android'`:
   - no element `Command palette` opens on any route, from ⌘K, Ctrl+K or ⌘⇧P (a hardware keyboard emulated by Playwright);
-  - FR-UX-03 AC-8's rule holds on every route of RA9 at 412 × 915, with the drawer, a sheet and each menu open: every button, link, tab, menu item, checkbox, radio and switch carries the `data-command` of a registered command, except text inputs, the rows of object lists and links in a note's text (D-2112);
+  - FR-UX-03 AC-8's rule holds on every route of RA9 at 412 × 915, with the drawer, a sheet and each menu open: every button, link, tab, menu item, checkbox, radio and switch carries the `data-command` of a registered command, except text inputs, the rows of object lists, and links and read-only task checkboxes in a note's text (D-2112, D-2115);
   - every command a phone control carries runs from the registry with the same effect as the tap (data-driven over those commands).
 
   *(L5p)* Test: `fr_ux_03_ac54_commands_without_a_palette`
@@ -465,7 +465,7 @@ Proposals for the contract:
 - **AC-34** **Pan, page scroll and full screen (AP-2055).**
   - In the note, on the runtime `Široká mapa`, a one-finger horizontal drag scrolls the map area (`scrollLeft` changes by the drag − 16 … + 4 px; the finger rests before lifting, D-2106), and a vertical drag scrolls the page, not the map.
   - `Open full screen` opens the `dialog` `Mindmap: <title>` covering the viewport within the safe areas, without the app bar and the bottom bar. There, one-finger drags pan in both directions and a pinch zooms.
-  - `Close full screen` and system Back close it, back at the note's scroll position.
+  - `Close full screen` and system Back close it, back at the note's scroll position when it was opened (D-2114).
 
   *(L5p; LA for Back)* Test: `fr_mmp_02_ac34_mindmap_pan_and_full_screen`
 - **AC-35** **Map and List (AP-2055).** The header has the group `Mindmap view` with `Map` and `List`. `List` shows the callout's list in the read view's list style, with the same items and nesting and disabled checkboxes, and no editor. The choice is session state as D-776 says. *(L5p)* Test: `fr_mmp_02_ac35_map_and_list_read_only`

@@ -206,6 +206,8 @@ test('fr_mmp_02_ac34_mindmap_pan_and_full_screen', async ({ page }) => {
     assert.ok(m1 > m0 + 50, `a vertical drag scrolls the page (${m0} → ${m1})`);
     assert.equal(await a.evaluate((e) => e.scrollTop), 0, 'not the map');
   }
+  // D-2114: the button is in view (a finger taps what it sees) before the note's scroll is recorded.
+  await btn(fig, 'Open full screen').scrollIntoViewIfNeeded();
   const scroll = await page.evaluate(() => ([...document.querySelectorAll('main')].find((e) => e.getClientRects().length > 0) as HTMLElement).scrollTop);
   await btn(fig, 'Open full screen').click();
   const dlg = await must(page.getByRole('dialog', { name: 'Mindmap: Široká' }), 'dialog "Mindmap: Široká"');
