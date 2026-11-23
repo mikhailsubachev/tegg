@@ -919,9 +919,11 @@ export function App() {
       const el = [...document.querySelectorAll<HTMLElement>(`[data-command="${CSS.escape(id)}"]`)].find((e) => e.getClientRects().length > 0);
       el?.click();
     },
-    go: (r: Route) => { void go(r); },
+    // AND-2 (FR-UX-03 AC-54): a navigation run as a command closes the phone's drawer, as tapping its entry does.
+    go: (r: Route) => { if (isPhone()) setDrawerOpen(false); void go(r); },
     openPalette: () => setDialog('palette'),
     openSearch: () => {
+      if (isPhone()) setDrawerOpen(false);
       void go({ id: 'search' });
       // Also when Search is already shown: the caret goes to its field with the query selected (D-760).
       requestAnimationFrame(() => { const i = searchInput.current; if (i && !live.current.dialog) { i.focus({ preventScroll: true }); i.select(); } });
@@ -1224,12 +1226,15 @@ export function App() {
   }, [phone]); // eslint-disable-line react-hooks/exhaustive-deps
   const listRef = useRef(list);
   listRef.current = list;
+  const ctxRef = useRef(ctx);
+  ctxRef.current = ctx;
   const runRef = useRef(run);
   runRef.current = run;
   useEffect(() => {
     if (!isAndroid()) return;
     installTestHooks(async (id) => {
-      const c = listRef.current.find((x) => x.id === id);
+      // Built now: a page's own commands (its views) are listed once the page has registered them.
+      const c = commands(ctxRef.current).find((x) => x.id === id) ?? listRef.current.find((x) => x.id === id);
       if (!c) throw new Error(`not a command on the phone: ${id}`);
       runRef.current(c);
     });
@@ -1820,9 +1825,9 @@ export function App() {
               </Drawer>
               {phoneMore && (
                 <PopupMenu label={t('phone.more')} anchor={phoneMore} onClose={() => setPhoneMore(null)} entries={[
-                  { kind: 'item', key: 'properties', content: <span className="menu-title" data-command="phone.properties">{t('phone.properties')}</span>,
+                  { kind: 'item', key: 'properties', command: 'phone.properties', content: <span className="menu-title">{t('phone.properties')}</span>,
                     onChoose: () => { setPhoneMore(null); window.dispatchEvent(new CustomEvent('tegg:phone-properties')); } },
-                  { kind: 'item', key: 'source', content: <span className="menu-title" data-command="note.toggleSource">{t(sourceShown() ? 'phone.showFormatted' : 'phone.showSource')}</span>,
+                  { kind: 'item', key: 'source', command: 'note.toggleSource', content: <span className="menu-title">{t(sourceShown() ? 'phone.showFormatted' : 'phone.showSource')}</span>,
                     onChoose: () => { setPhoneMore(null); actions.toggleSource(); } },
                 ]} />
               )}

@@ -9,7 +9,7 @@ import { usePopupPlacement, type PopupOpener } from './usePopupPlacement';
 export type MenuEntry =
   | { kind: 'separator' }
   | { kind: 'note'; key: string; content: React.ReactNode }
-  | { kind: 'item' | 'radio' | 'checkbox'; key: string; content: React.ReactNode; label?: string; checked?: boolean; disabled?: boolean; description?: string; onChoose: () => void };
+  | { kind: 'item' | 'radio' | 'checkbox'; key: string; content: React.ReactNode; label?: string; checked?: boolean; disabled?: boolean; description?: string; onChoose: () => void; /** The item's registered command (FR-UX-03 AC-8). */ command?: string };
 
 export function PopupMenu({ label, anchor, entries, onClose, placement = 'below', restoreFocus = true, disabledFocusable = false, scrollable = false, fit = false, popupId, openerKind = 'menu', at, head, onItemHover, keepOpenOn, onKeyDownExtra }: {
   label: string;
@@ -114,6 +114,7 @@ export function PopupMenu({ label, anchor, entries, onClose, placement = 'below'
             aria-disabled={m.disabled || undefined}
             aria-description={m.description}
             aria-label={m.label}
+            data-command={m.command}
             tabIndex={-1}
             className={`menu-item${m.checked ? ' checked' : ''}`}
             onClick={choose}
