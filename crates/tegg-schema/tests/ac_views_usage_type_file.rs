@@ -208,7 +208,7 @@ fn fr_qry_07_ac25_views_items_read_and_kept() {
     assert_eq!(parse("book", &x).view_items.map(|i| i[1].clone()), Some(overlay_items()[1].clone()), "(c) the unknown key is ignored when read");
     let v = wrote(&x, vec![view_sort("Výborné knihy", Some(vec![s("title", true), s("finished", true)]))], "(c) Výborné knihy");
     assert_eq!(v, expected("book-overlay-xbarva-after-vyborne.yml"), "(c) the Přečtené 2026 item's lines kept byte for byte");
-    assert_eq!(do_patch(&v, vec![view_sort("Přečtené 2026", Some(vec![s("finished", true)]))]), Ok(Some(expected("book-overlay-xbarva-after-prectene.yml"))), "(c) its own change: x-barva after the known keys, the comment gone");
+    assert_eq!(do_patch(&v, vec![view_sort("Přečtené 2026", Some(vec![s("finished", true)]))]), Ok(Some(expected("book-overlay-xbarva-after-prectene.yml"))), "(c) its own change: only its sort lines change, x-barva keeps its place, the comment gone (D-2212)");
     // (d) A repeated name with different settings: one tab, the first item's settings; Remove removes both.
     let dup = swap(&overlay(), "  - Výborné knihy\n", "  - Výborné knihy\n  - name: přečtené 2026\n    columns: [author]\n");
     let di = parse("book", &dup).view_items.unwrap_or_default();
@@ -261,7 +261,7 @@ fn fr_fmt_12_ac13_usage_settings_are_nfc() {
     let input = expected("book-overlay-nfd-input.yml");
     let items = parse("book", &input).view_items;
     assert_eq!(items.as_ref().map(|i| i[1].name.clone()), Some("Přečtené 2026".to_string()), "an NFD name reads NFC");
-    assert_eq!(do_patch(&input, vec![view_sort("Přečtené 2026", Some(vec![s("finished", true)]))]), Ok(Some(expected("book-overlay-nfd-after-change.yml"))), "the change writes NFC");
+    assert_eq!(do_patch(&input, vec![view_sort("Přečtené 2026", Some(vec![s("finished", true)]))]), Ok(Some(expected("book-overlay-nfd-after-change.yml"))), "the change writes NFC; the untouched NFD name line keeps its bytes (D-2212)");
     let by = swap(&overlay(), "      - { by: title, order: asc }\n", &format!("      - {{ by: {}, order: asc }}\n", nfd("hodnocení")));
     assert_eq!(parse("book", &by).view_items.map(|i| i[1].sort.clone()), Some(UsageValue::Set(vec![s("rating", true), s("hodnocení", true)])), "an NFD `by` reads NFC");
     let t = wrote(&base(), vec![view_cols(&nfd("Přečtené 2026"), Some(&[&nfd("poznámka"), "author"]))], "NFD op values");

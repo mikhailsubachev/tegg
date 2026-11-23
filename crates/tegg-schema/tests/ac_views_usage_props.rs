@@ -2,7 +2,9 @@
 //! v1-views.md §14.2): random type files with `views:` in flow and block style, plain and mapping items with own `sort` /
 //! `columns`, unknown item keys, comments inside items, CRLF and NFD names, and a random usage change (`SetViewSort`,
 //! `SetViewColumns`, `SetViews`): every line outside the `views` key is byte-identical; an unchanged item keeps its
-//! lines; a changed item is re-emitted (name, sort, columns, then its unknown-key lines; its comments dropped); while
+//! lines; a changed item keeps the lines of the keys the change doesn't touch (D-2212: its name line, unknown keys and
+//! other own key in place; only the changed key's lines are replaced, removed or inserted at R221's place; its comments
+//! dropped), a new or flow item is emitted canonically (name, sort, columns, then its unknown-key lines); while
 //! every item is plain the key is one flow line; the result reads back as the intended items; a no-op writes nothing.
 //! Seeds as TS-L2: a fixed seed plus `QA_SEED` when set, printed; `QA_PROPERTY_SCALE` ≥ 100 runs 10 seeds × 1,000 cases.
 //! Written from the AC and the contract only (D-61).
@@ -110,6 +112,34 @@ fn written(r: &mut Rng, i: &Item) -> Vec<String> {
     }
     std::iter::once(format!("  - name: {name}")).chain(parts.into_iter().flatten()).collect()
 }
+/// D-2212: the field-level rewrite of one written item for a `SetViewSort` / `SetViewColumns` (`key` is "sort" or
+/// "columns"; `value` the key's new lines, None to remove). Comments go; other lines keep their bytes and places; a
+/// missing key goes after the nearest earlier own key (sort before columns), else right after the name line.
+fn field_level(lines: &[String], key: &str, value: Option<Vec<String>>) -> Vec<String> {
+    let mut out: Vec<String> = lines.iter().filter(|l| l.trim_start() != "# poznámka k pohledu").cloned().collect();
+    let range = |out: &[String], k: &str| -> Option<(usize, usize)> {
+        let a = out.iter().position(|l| l.starts_with(&format!("    {k}:")))?;
+        let mut b = a + 1;
+        while b < out.len() && out[b].starts_with("      ") {
+            b += 1;
+        }
+        Some((a, b))
+    };
+    match (range(&out, key), value) {
+        (Some((a, b)), Some(v)) => {
+            out.splice(a..b, v);
+        }
+        (Some((a, b)), None) => {
+            out.drain(a..b);
+        }
+        (None, Some(v)) => {
+            let at = if key == "columns" { range(&out, "sort").map(|(_, b)| b).unwrap_or(1) } else { 1 };
+            out.splice(at..at, v);
+        }
+        (None, None) => {}
+    }
+    out
+}
 fn rand_sort(r: &mut Rng) -> Vec<(String, bool)> {
     let mut pool: Vec<&str> = KEYS.to_vec();
     (0..r.int(4)).map(|_| (pool.remove(r.int(pool.len())).to_string(), r.bool())).collect()
@@ -208,11 +238,17 @@ fn fr_fmt_07_ac34_usage_settings_round_trip() {
                     TypeOp::SetViews(after.iter().map(|i| i.name.clone()).collect())
                 }
             };
-            // Changed items lose their kept lines (re-emitted, comments dropped).
+            // A changed item: field-level (D-2212) when it was written as a mapping and stays one; else emitted.
             let mut any_change = after.len() != items.len() || after.iter().zip(items.iter()).any(|(a, b)| a.name != b.name);
             for a in after.iter_mut() {
                 match items.iter().find(|b| b.name == a.name) {
                     Some(b) if b.value() == a.value() => {}
+                    Some(b) if !b.plain() && !a.plain() && b.lines.as_ref().is_some_and(|l| l.len() > 1) => {
+                        any_change = true;
+                        let (key, value) = if b.sort != a.sort { ("sort", a.sort.as_ref().map(|v| sort_lines(v, "    "))) } else { ("columns", a.columns.as_ref().map(|c| vec![format!("    columns: [{}]", c.join(", "))])) };
+                        a.lines = Some(field_level(b.lines.as_deref().unwrap_or_default(), key, value));
+                        a.comment = false;
+                    }
                     _ => {
                         any_change = true;
                         a.lines = None;
