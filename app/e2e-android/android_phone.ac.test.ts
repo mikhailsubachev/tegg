@@ -170,7 +170,9 @@ test('fr_ux_04_ac4_keyboard_never_hides_the_field', async () => {
   const fitted = await eventually(() => { const f = systemFrames(); const r = webViewRect(); return f.ime ? Math.abs(r.bottom - f.ime.top) : 999; }, (d) => d <= 2, 3000, 50);
   assert.ok(fitted <= 2, `the WebView's visible bottom equals the keyboard's top (± 2 device px; off by ${fitted})`);
   const kb = await v.eval<{ shown: number; resize: number }>('window.__teggKb');
-  assert.ok(kb.shown > 0 && kb.resize >= kb.shown && kb.resize - kb.shown <= 500, `the page is resized to the keyboard within 500 ms of its showing (${Math.round(kb.resize - kb.shown)} ms)`);
+  // The WebView may resize a few ms before the push's script call runs: within 500 ms on either side (AC-Test-Change,
+  // approved by the owner).
+  assert.ok(kb.shown > 0 && kb.resize > 0 && Math.abs(kb.resize - kb.shown) <= 500, `the page is resized to the keyboard within 500 ms of its showing (${Math.round(kb.resize - kb.shown)} ms)`);
   await v.type('ostružiník');
   await sleep(600);
   const above = async (sel: string, what: string) => {
@@ -192,9 +194,12 @@ test('fr_ux_04_ac4_keyboard_never_hides_the_field', async () => {
   start(TEST_ID);
   const c = await webview(TEST_ID); views.push(c);
   assert.ok(await c.waitFor('main[aria-label="Choose a vault"] input', 20_000), 'the chooser\'s Folder path');
+  const ih0 = await c.eval<number>('innerHeight');
   await tapEl(c, 'main[aria-label="Choose a vault"] input');
   await eventually(() => imeShown(), (x) => x, 2000, 100);
-  await sleep(500);
+  // Measured once the page has fitted the keyboard, not after a fixed time (AC-Test-Change, approved by the owner).
+  await eventually(() => c.eval<number>('innerHeight'), (h) => h < ih0 - 100, 2000, 100);
+  await sleep(300);
   for (const [sel, what] of [['main[aria-label="Choose a vault"] input', 'Folder path'], ['[data-command="vault.openPath"]', 'Open']]) {
     const r = await cssRect(c, sel);
     const ih = await c.eval<number>('innerHeight');

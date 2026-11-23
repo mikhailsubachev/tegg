@@ -60,6 +60,8 @@ test('fr_syn_06_ac51_reading_on_the_phone_writes_nothing', async () => {
   await drawerGo(v, 'goto.type:book');
   for (const t of ['Rozečtené', 'Přečtené 2026', 'Výborné knihy', '']) { await v.click(`main [role="tab"][data-view-tab="${t}"]`); await sleep(300); }
   await v.click('main [role="tab"][data-view-tab="Rozečtené"]');
+  // The board renders just after the click (AC-Test-Change, approved by the owner).
+  assert.ok(await v.waitFor('main [data-board]', 2000), 'the Rozečtené board');
   await v.eval(`(() => { const b = document.querySelector('main [data-board]'); for (const e of [b, ...b.querySelectorAll('*')]) if (e.scrollWidth > e.clientWidth + 1) e.scrollLeft = e.scrollWidth; return true; })()`);
   await drawerGo(v, 'queries.go');
   await v.click('main [data-query-row="Podle žánru"]');
