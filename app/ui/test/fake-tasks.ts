@@ -5,6 +5,7 @@ import * as D from '@tegg/doc';
 import * as S from '@tegg/schema';
 import { inWindow, objectsWith, resolver, type Obj } from './fake-links';
 import { listTypes, type Answer, type VersionDto } from './fake-schema';
+import { cardsFor } from './fake-cards';
 
 export type Files = Record<string, string>;
 
@@ -90,7 +91,10 @@ export function taskList(files: Files, ctx: Ctx = {}) {
   const objs = objectsWith(files, D, S);
   const resolve = resolver(objs);
   const all = new Map(objs.map((o) => [o.path, o]));
-  return { tasks: objs.filter((o) => o.type === 'task').map((o) => row(o, files, defs, resolve, all, ctx)), defs };
+  const tasks = objs.filter((o) => o.type === 'task').map((o) => row(o, files, defs, resolve, all, ctx));
+  // Slice OC (v1-cards §3.3): each row's Task card data.
+  const cards = cardsFor(files, tasks.map((t) => t.path));
+  return { tasks: tasks.map((t) => ({ ...t, card: cards[nfc(t.path)] ?? null })), defs };
 }
 
 /** `daily_tasks` (DailyTasksDto, D-485). */

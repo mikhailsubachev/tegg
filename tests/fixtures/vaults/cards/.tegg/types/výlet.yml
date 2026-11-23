@@ -1,0 +1,67 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Výlet
+plural: Výlety
+system: false
+folder: Výlety
+icon: map
+color: teal
+description: Výlety a túry, plánované i hotové.
+review: false
+preview: [stav, kraj]
+card: [tags, description, stav, náročnost, kraj, vybavení, délka, termín, odkaz, průvodce, neznámý-klíč, modified]
+views: [Výlety podle stavu]
+attributes:
+  - key: stav
+    name: Stav
+    type: select
+    icon: circle-dot
+    default: Plánovaný
+    options:
+      - { label: Plánovaný, color: gray }
+      - { label: Hotový, color: green }
+  - key: náročnost
+    name: Náročnost
+    type: select
+    options:
+      - { label: Lehká, color: green }
+      - { label: Střední, color: yellow }
+      - { label: Těžká, color: red }
+  - key: kraj
+    name: Kraj
+    type: text
+    icon: map-pin
+  - key: vybavení
+    name: Vybavení
+    type: multi-select
+    icon: backpack
+    options:
+      - { label: Mapa, color: gray }
+      - { label: Čelovka, color: yellow }
+      - { label: Pláštěnka, color: blue }
+      - { label: Termoska, color: orange }
+      - { label: Lékárnička, color: red }
+      - { label: Hůlky, color: gray }
+      - { label: Rukavice, color: purple }
+      - { label: Čepice, color: teal }
+      - { label: Svačina, color: green }
+      - { label: Nabíječka, color: gray }
+  - key: délka
+    name: Délka v km
+    type: number
+    icon: ikona-ktera-neexistuje
+  - key: termín
+    name: Termín
+    type: date
+    icon: calendar
+  - key: odkaz
+    name: Odkaz
+    type: url
+    icon: link
+  - key: průvodce
+    name: Průvodce
+    type: relation
+    to: [autor]
+  - key: poznámka
+    name: Poznámka
+    type: long-text

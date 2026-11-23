@@ -398,6 +398,8 @@ pub struct QueryRow {
     pub tags: Vec<String>,
     /// Q2-T (CP-24, D-1916): for an object of type `task`, ms5-tasks §2.1's `TaskRow`, from the same index read.
     pub task_row: Option<TaskRow>,
+    /// v1-cards §3.3 (slice OC): the card data on board runs (every row, its own type's keys); None on List and Table.
+    pub card: Option<crate::cards::CardData>,
 }
 
 /// v1-views §1.1 (R187): a board's lanes.
@@ -2990,6 +2992,7 @@ fn row_of(o: &QueryObject, def: &QueryDef, ctx: &Ctx, group_key: Option<&str>) -
         // v1-views §24.1: tag keys (NFC, case-folded), sorted, unique.
         tags: o.tags.iter().map(|t| tag_key(t)).filter(|t| !t.is_empty()).collect::<BTreeSet<String>>().into_iter().collect(),
         task_row: None,
+        card: None,
     }
 }
 
@@ -3322,7 +3325,9 @@ impl QCore<'_> {
     }
 
     pub(crate) fn query_run(&self, src: QuerySource, host: Option<&str>, env: &QueryEnv) -> QueryResult {
-        let defs = self.defs();
+        // v1-cards §3.1: the definitions and card lists of this run (a type-file change not yet reported is read first).
+        let cd = self.shared.card_defs();
+        let defs = cd.defs.clone();
         let index_ready = self.shared.graph_ready.load(Ordering::SeqCst);
         let base = |form: Form| QueryResult {
             form,
@@ -3360,28 +3365,41 @@ impl QCore<'_> {
                     let mut tdefs: Option<TaskDefs> = None;
                     let mut by_path: Option<crate::tasks5a::PathMap> = None;
                     for (row, &oi) in e.rows.iter_mut().zip(e.hits.iter()) {
-                        let task = objs[oi].r#type == "task";
+                        let o = &objs[oi];
+                        let task = o.r#type == "task";
                         if !board && !task {
                             continue;
                         }
-                        // The excerpt (a note text read) only where a card draws it: board runs.
-                        let st = if board { idx.note_state(&row.path) } else { idx.note_version(&row.path) };
+                        // v1-cards §3.3: the excerpt (a note text read) only where a card draws it: board runs whose
+                        // row's type has `body` among its card keys (FR-TYP-11 AC-18).
+                        let keys = cd.keys(o.r#type);
+                        let body = board && keys.iter().any(|k| k == "body");
+                        let st = if body { idx.note_state(&row.path) } else { idx.note_version(&row.path) };
                         let Some(st) = st else { continue };
+                        let paths = by_path.get_or_insert_with(|| objs.iter().enumerate().map(|(i, o)| (o.path, i)).collect());
+                        let card = crate::cards::card_data(o, objs, paths, &keys, defs.get(o.r#type), body.then_some(st.excerpt.as_str()));
                         if task {
                             let td = tdefs.get_or_insert_with(|| crate::tasks5a::task_defs_in(&defs));
-                            let paths = by_path.get_or_insert_with(|| objs.iter().enumerate().map(|(i, o)| (o.path, i)).collect());
-                            row.task_row = crate::tasks5a::query_task_row(&objs[oi], objs, paths, td, st.clone());
+                            row.task_row = crate::tasks5a::query_task_row(o, objs, paths, td, st.clone()).map(|mut t| {
+                                t.card = card.clone();
+                                t
+                            });
                         }
                         if board {
                             row.version = st.version;
-                            row.excerpt = st.excerpt;
+                            row.excerpt = card.excerpt.clone().unwrap_or_default();
                             row.read_only = !st.utf8;
+                            row.card = Some(card);
                         }
                     }
                     let any = e.rows.iter().any(|r| r.task_row.is_some());
                     (e, tdefs.filter(|_| any))
                 })
             };
+            // v1-cards §3.2: Image and PDF cards' files, resolved after the index lock.
+            let mut e = e;
+            let mut cache = None;
+            self.shared.fill_files(e.rows.iter_mut().filter_map(|r| r.card.as_mut().map(|c| (r.path.as_str(), c))), &mut cache);
             let mut broken = syntactic;
             // A `group_by` read as a bad value is also unresolved at run time: listed once.
             let had_group_by = broken.iter().any(|b| b.key == "group_by" && b.at.is_none());

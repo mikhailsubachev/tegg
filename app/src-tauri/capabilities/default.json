@@ -111,6 +111,7 @@
     "allow-pins-get",
     "allow-pins-apply",
     "allow-index-related",
+    "allow-type-card-example",
     "allow-type-move-plan",
     "allow-type-move",
     "allow-folder-move-preview",

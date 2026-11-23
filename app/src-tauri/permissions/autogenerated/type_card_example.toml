@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-type-card-example"
+description = "Enables the type_card_example command without any pre-configured scope."
+commands.allow = ["type_card_example"]
+
+[[permission]]
+identifier = "deny-type-card-example"
+description = "Denies the type_card_example command without any pre-configured scope."
+commands.deny = ["type_card_example"]

@@ -119,7 +119,7 @@ Delivered in slices 3A–3E (D-115); the requirement for each slice is in `docs/
 | FR-EDT-15 | Typing `#` opens tag autocomplete (existing tags shown with their color). Choosing a new name creates a new ta… | no ACs yet |
 | FR-SET-02 | Appearance: light / dark / system theme, font family & size, editor width (narrow/wide), accent color. | no ACs yet |
 | FR-SET-03 | Date/time format, first day of week. UI language: English in v1 (NFR-OTH-02). | no ACs yet |
-| FR-TYP-01 | The user can create, edit, and delete user-defined object types. Each type has: name, plural name, icon, color… | no ACs yet |
+| FR-TYP-01 | The user can create, edit, and delete user-defined object types. Each type has: name, plural name, icon, color… | ACs in `docs/acceptance/types.md` (incl. slice OC's type settings layout, AC-22…AC-28) and `docs/acceptance/cards.md` (property icons and the icon picker, AC-12…AC-21; slice OC, D-2070) |
 | FR-TYP-02 | Supported attribute types: Text, Long text, Number, Checkbox, Date, Date-time, Date range (start + end, e.g. t… | no ACs yet |
 | FR-TYP-03 | Each attribute can have: name, key (frontmatter key), type, default value, required flag, options (for selects… | no ACs yet |
 | FR-TYP-04 | Schema changes propagate: renaming an attribute key rewrites the frontmatter of all objects of that type (with… | 3 ACs |
@@ -128,7 +128,7 @@ Delivered in slices 3A–3E (D-115); the requirement for each slice is in `docs/
 | FR-TYP-07 | Every object can have its type changed after creation. Matching attributes are kept, and non-matching ones are… | 3 ACs |
 | FR-TYP-08 | Universal attributes available on all types: title, description (short summary), aliases (alternative names us… | no ACs yet |
 | FR-TYP-09 | Each type has an automatically generated Type page (like Capacities): a list/table of all objects of that type… | no ACs yet |
-| FR-TYP-11 | Each type defines its preview attributes (up to ~4 attributes shown as a compact strip in previews and embed c… | no ACs yet |
+| FR-TYP-11 | Each type defines its card: Title always, plus any properties the user picks, in order (reworded by D-2054)… | ACs in `docs/acceptance/types.md` (AC-1…AC-3) and `docs/acceptance/cards.md` (the card, its defaults and the `Card` section, AC-5…AC-29; slice OC, D-2054…D-2073); AC-4 in `docs/acceptance/type-columns.md` |
 | FR-TYP-12 | Review workflow setting per type (on/off, D-30). When on, new objects of that type get `review: unreviewed` an… | no ACs yet |
 | FR-TYP-13 | Every object has exactly one type (D-24); the type can be changed at any time (FR-TYP-07). | no ACs yet |
 | FR-TYP-17 | Hidden properties: per type, chosen properties are moved off the attribute panel into Other properties (D-316). | ACs in types.md (D-316) |

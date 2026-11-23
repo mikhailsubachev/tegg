@@ -30,7 +30,7 @@ See [README](README.md) for conventions. The rules referenced here (`TS-xx`) are
 
 ### TS-P Privacy guardrails (D-50, D-62)
 
-- **AC-1** `pre-commit` rejects a staged path under `test exports/`, a `.zip` outside `tests/fixtures/`, and a file > 1 MB outside `tests/fixtures/`.
+- **AC-1** `pre-commit` rejects a staged path under `test exports/`, a `.zip` outside `tests/fixtures/`, and a file > 2 MiB outside `tests/fixtures/` (D-2075).
 - **AC-2** Claude Code permissions deny reading and editing `test exports/`.
 - **AC-3** The real-export test's own test asserts that its output contains only counts, file indexes and IDs (numbers-only format), never titles or content.
 

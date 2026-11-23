@@ -141,6 +141,7 @@ pub(crate) fn type_files(plan: &Plan, base: &dyn Fn(&str) -> Option<String>) -> 
                 required: false,
                 description: None,
                 built_in: false,
+                icon: None,
             });
         }
         let path = format!(".tegg/types/{key}.yml");

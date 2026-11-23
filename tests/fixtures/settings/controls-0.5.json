@@ -1,0 +1,208 @@
+{
+ "$comment": "app-shell.md FR-UX-02 AC-24: every control of every settings/* route in DOM order, recorded from the 0.5.x UI (before slice OC) by app/webkit/settings-helpers.ts settingsControls on the inbox vault at its clock, region cs, 1,440 x 900. Section links (navigation) excluded.",
+ "routes": {
+  "settings/appearance": [
+   {
+    "role": "radio",
+    "name": "System",
+    "description": "",
+    "value": "false",
+    "disabled": false
+   },
+   {
+    "role": "radio",
+    "name": "Light",
+    "description": "",
+    "value": "true",
+    "disabled": false
+   },
+   {
+    "role": "radio",
+    "name": "Dark",
+    "description": "",
+    "value": "false",
+    "disabled": false
+   },
+   {
+    "role": "switch",
+    "name": "Show outline rail",
+    "description": "Short lines on the note’s right edge; hover them to see the outline.",
+    "value": "true",
+    "disabled": false
+   },
+   {
+    "role": "button",
+    "name": "Font",
+    "description": "Coming in v1.0",
+    "value": null,
+    "disabled": true
+   },
+   {
+    "role": "button",
+    "name": "Font size",
+    "description": "Coming in v1.0",
+    "value": null,
+    "disabled": true
+   },
+   {
+    "role": "button",
+    "name": "Accent color",
+    "description": "Coming in v1.0",
+    "value": null,
+    "disabled": true
+   }
+  ],
+  "settings/date-time": [
+   {
+    "role": "combobox",
+    "name": "Date format",
+    "description": "",
+    "value": "region",
+    "disabled": false
+   },
+   {
+    "role": "combobox",
+    "name": "Time format",
+    "description": "",
+    "value": "region",
+    "disabled": false
+   },
+   {
+    "role": "combobox",
+    "name": "First day of week",
+    "description": "",
+    "value": "region",
+    "disabled": false
+   }
+  ],
+  "settings/vault": [
+   {
+    "role": "button",
+    "name": "Reveal in Finder",
+    "description": "",
+    "value": null,
+    "disabled": false
+   },
+   {
+    "role": "button",
+    "name": "Open another vault…",
+    "description": "",
+    "value": null,
+    "disabled": false
+   },
+   {
+    "role": "combobox",
+    "name": "Default type for new notes",
+    "description": "",
+    "value": "quick-note",
+    "disabled": false
+   },
+   {
+    "role": "textbox",
+    "name": "Daily notes folder",
+    "description": "Applies to new daily notes. Existing ones stay where they are.",
+    "value": "Daily",
+    "disabled": false
+   },
+   {
+    "role": "textbox",
+    "name": "Daily note file name",
+    "description": "",
+    "value": "YYYY-MM-DD",
+    "disabled": false
+   },
+   {
+    "role": "textbox",
+    "name": "Attachments folder",
+    "description": "Applies to new attachments. Existing files aren't moved.",
+    "value": "_attachments",
+    "disabled": false
+   },
+   {
+    "role": "button",
+    "name": "Add starter types…",
+    "description": "",
+    "value": null,
+    "disabled": false
+   },
+   {
+    "role": "radio",
+    "name": "Normal",
+    "description": "",
+    "value": "true",
+    "disabled": false
+   },
+   {
+    "role": "radio",
+    "name": "Wide",
+    "description": "",
+    "value": "false",
+    "disabled": false
+   }
+  ],
+  "settings/shortcuts": [
+   {
+    "role": "button",
+    "name": "Change…",
+    "description": "Coming in v1.0",
+    "value": null,
+    "disabled": true
+   },
+   {
+    "role": "button",
+    "name": "Change…",
+    "description": "Coming in v1.0",
+    "value": null,
+    "disabled": true
+   }
+  ],
+  "settings/menu-bar": [
+   {
+    "role": "switch",
+    "name": "Show Tegg in the menu bar",
+    "description": "",
+    "value": "true",
+    "disabled": false
+   },
+   {
+    "role": "switch",
+    "name": "Open Tegg at login",
+    "description": "Tegg starts in the menu bar without opening a window.",
+    "value": "false",
+    "disabled": false
+   }
+  ],
+  "settings/backups": [],
+  "settings/trash-history": [],
+  "settings/previews": [
+   {
+    "role": "radio",
+    "name": "Hover to preview, click to open",
+    "description": "",
+    "value": "false",
+    "disabled": false
+   },
+   {
+    "role": "radio",
+    "name": "Click to preview, double-click to open",
+    "description": "",
+    "value": "true",
+    "disabled": false
+   },
+   {
+    "role": "radio",
+    "name": "Off: click opens",
+    "description": "",
+    "value": "false",
+    "disabled": false
+   },
+   {
+    "role": "slider",
+    "name": "Hover delay",
+    "description": "Used with Hover to preview.",
+    "value": "1000 ms",
+    "disabled": true
+   }
+  ]
+ }
+}

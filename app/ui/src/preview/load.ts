@@ -10,12 +10,21 @@ import { attributeRows } from '../read/properties';
 import { noteTitle } from '../read/ReadView';
 import { refreshTags, tagRows } from '../tags/store';
 import { tagKey } from '../tags/keys';
-import { stripColumns } from '../embeds/strip';
-import type { TypeColumn } from '../types/cell';
+import { cardParts, type CardItem } from '../cards/model';
+import { cardEnv } from '../cards/env';
 import type { PreviewTarget } from './types';
 
-/** A preview attribute of the strip (FR-TYP-11): the type's attribute, or a universal key. */
-export type StripItem = TypeColumn;
+/** An item of the strip (slice OC, D-2068, D-2093): the card's pill-area items, then its footer link. */
+export type StripItem = CardItem;
+
+/** The `Preview properties` region's items: the card's pills and link chips without tags, text and date (D-2093). */
+export function stripItems(card: EmbedNoteDto['card'], type: TypeDto | null): StripItem[] {
+  if (!card) return [];
+  const p = cardParts({ type, card, ...cardEnv() });
+  const items = p.items.filter((i) => i.kind !== 'unreviewed');
+  if (p.footer.link) items.push({ kind: 'link', key: p.footer.link.key, link: p.footer.link, index: items.length, footer: true });
+  return items;
+}
 
 export type PreviewModel =
   | { state: 'ok'; path: string; id: string | null; title: string; type: string; details: string | null; detailsLater?: Promise<string | null>;
@@ -121,8 +130,8 @@ async function modelOf(note: EmbedNoteDto, target: PreviewTarget, signal: AbortS
   // D-936 a: an empty body shows every attribute instead, and no strip.
   // D-938: an Image or PDF object shows its file, then the body if any (no attributes list).
   const kind: 'blocks' | 'properties' | 'empty' = body || typeKey === 'image' || typeKey === 'pdf' ? 'blocks' : rows.length > 0 ? 'properties' : 'empty';
-  const strip = body || typeKey === 'image' || typeKey === 'pdf' ? stripColumns(typeKey, data, 4) : [];
-  void type; void t;
+  const strip = body || typeKey === 'image' || typeKey === 'pdf' ? stripItems(note.card ?? null, type ?? null) : [];
+  void t;
   // D-933: every embed inside a preview is a card; their targets are read in one more call.
   // Their cards join the body when read (NFR-PERF-12: the preview is drawn first, without a second round trip).
   const treeLater = buildEmbedTree({ path: note.path, text, links }, types, (paths) => ipc.embedLoad(paths), { readOnly: true, cards: true, section });

@@ -1,17 +1,17 @@
 // 5A-1: the Daily Note's `Tasks due` section (FR-DLY-04 AC-8…AC-14, D-485, D-328), in place of the D-271
 // placeholder: on today's note overdue, due today and completed today; on other dates due that day and completed that
-// day. Rows: checkbox, type icon and title, due chip, source chip. Completing writes only the task (never the Daily
-// Note, which stays virtual if it is).
-import { RefElement } from '../preview/useReference';
+// day. Rows are Task ObjectCards with Task's card list (v1-cards §6.2, cards.md FR-TYP-11 AC-14, D-2133): the R43
+// checkbox, the title, the card's parts and the source chip. Completing writes only the task (never the Daily Note,
+// which stays virtual if it is).
 import { addDays, localDate } from '@tegg/doc';
 import { useEffect, useState } from 'react';
 import { t } from '../i18n/catalog';
 import { events, ipc } from '../ipc/client';
-import type { DailyTasksDto, TaskDefsDto, TaskRowDto } from '../ipc/types';
-import { chipIcon } from '../links/icons';
-import { Icon } from '../shell/Icon';
-import { Checkbox, DueChip, SourceChip, type TaskNav } from '../tasks/TaskCard';
-import { currentRegion, useToday } from '../tasks/useTasks';
+import type { DailyTasksDto, TaskDefsDto, TaskRowDto, TypeDto } from '../ipc/types';
+import { chipTypes } from '../links/icons';
+import { ObjectCard, cardEnv } from '../cards/ObjectCard';
+import type { TaskNav } from '../tasks/TaskCard';
+import { useToday } from '../tasks/useTasks';
 import { openSourceAt } from '../tasks/sourceNav';
 import { writeTask } from '../tasks/write';
 import { localMidnight } from '../zone';
@@ -25,7 +25,6 @@ export function DailyTasks({ date, onOpen }: { date: string; onOpen: (path: stri
   const [all, setAll] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const { today, zone } = useToday();
-  const region = currentRegion();
   useEffect(() => {
     const un = events.changed(() => setRefresh((n) => n + 1));
     return () => void un.then((f) => f());
@@ -64,17 +63,12 @@ export function DailyTasks({ date, onOpen }: { date: string; onOpen: (path: stri
       {list.length === 0 ? <p className="daily-empty">{t('daily.section.empty')}</p> : (
         <ul className="daily-rows daily-tasks">
           {list.map((r) => {
-            const icon = chipIcon('task');
+            // D-2133: each row is the Task ObjectCard (surface `tasks`) from `TaskRowDto.card`, Task's card list.
+            const taskType = (chipTypes() as TypeDto[]).find((x) => x.key === 'task') ?? null;
             return (
-              <li key={r.path} data-path={r.path.normalize('NFC')} className={`daily-task${r.state === 'done' ? ' done' : ''}`}>
-                <Checkbox row={r} onToggle={(d) => toggle(r, d)} />
-                {/* Slice P (R104 row 7): the task's title is its card's reference (a click previews, ⏎ opens). */}
-                <RefElement as="a" reference={{ target: { path: r.path.normalize('NFC'), fragment: null, kind: 'note' }, kind: 'card', open: () => onOpen(r.path) }}
-                  href="#" tabIndex={0} className="daily-row" data-command="daily.openRow" onClick={(e) => e.preventDefault()}>
-                  <Icon name={icon.glyph} dataIcon={icon.def} size={14} /><span data-user-content>{r.title}</span>
-                </RefElement>
-                <DueChip row={r} today={today} region={region} zone={zone} />
-                <SourceChip row={r} nav={nav} />
+              <li key={r.path} className={`daily-task${r.state === 'done' ? ' done' : ''}`}>
+                <ObjectCard path={r.path} card={r.card} type={taskType} typeName={taskType?.name} surface="tasks" env={{ ...cardEnv(), ...(zone ? { zone } : {}) }}
+                  task={r} nav={nav} onToggle={(d) => toggle(r, d)} readOnly={r.readOnly} onOpen={() => onOpen(r.path)} />
               </li>
             );
           })}

@@ -1,5 +1,5 @@
 // Slice Q (docs/contracts/v1-queries.md §2): the saved-query DTOs, hand-written as pins.ts.
-import type { LinkTargetDto, TaskDefsDto, TaskRowDto, TypeDto, VersionDto } from './types';
+import type { CardDataDto, LinkTargetDto, TaskDefsDto, TaskRowDto, TypeDto, VersionDto } from './types';
 
 export type QueryOp = 'is' | 'is_not' | 'contains' | 'is_empty' | 'is_not_empty' | 'is_any_of' | 'has_any_of' | 'has_all_of'
   | 'has_none_of' | 'before' | 'after' | 'between' | 'today' | 'this_week' | 'within_next_days' | 'overdue'
@@ -79,6 +79,8 @@ export type QueryRowDto = {
   tags: string[];
   /** Slice Q2-T (CP-24): ms5-tasks' row for an object of type `task`; null otherwise. */
   taskRow: TaskRowDto | null;
+  /** Slice OC (v1-cards §3.3): the card data on board runs; null on List and Table runs. */
+  card: CardDataDto | null;
 };
 export type QueryResultDto = {
   form: 'reference' | 'inline' | 'unreadable' | 'empty' | 'def'; name: string | null; lookup: LookupDto | null;

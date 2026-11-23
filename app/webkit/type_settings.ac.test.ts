@@ -171,7 +171,9 @@ test('fr_typ_01_ac4_general_edits_write_only_the_type_file_and_update_the_ui', a
   await commit(textbox(page, 'General', 'Description'), 'Všechny porady.');
   await (await must(general(page).getByRole('radio', { name: 'Orange', exact: true }), 'Orange')).click();
   await (await must(general(page).getByRole('button', { name: 'Change icon', exact: true }), 'Change icon')).click();
-  await (await must(page.getByRole('listbox', { name: 'Icon' }).getByRole('option').nth(17), 'icon briefcase (R14 #18)')).click();
+  // Slice OC (D-2070, types.md FR-TYP-01 AC-23): `Change icon` opens the picker; choose briefcase there.
+  await (await must(page.getByRole('combobox', { name: 'Search icons…' }), 'the picker')).fill('briefcase');
+  await (await must(page.locator('div[role="dialog"][data-icon-picker] [role="option"][data-icon="briefcase"]'), 'icon briefcase')).click();
   const want = swap(swap(swap(swap(swap(schuzka(), 'name: Schůzka\n', 'name: Porada\n'), 'plural: Schůzky\n', 'plural: Porady\n'), 'description: Porady a schůzky.\n', 'description: Všechny porady.\n'), 'color: teal\n', 'color: orange\n'), 'icon: users\n', 'icon: briefcase\n');
   assert.equal(await fileWhen(core, typeFile('schůzka'), (t) => t === want), want, 'only the changed lines');
   assert.deepEqual(await writtenOutside(core, [typeFile('schůzka')]), [], 'no note file written; the file keeps its name');
@@ -239,15 +241,15 @@ test('fr_typ_01_ac8_templates_and_views_sections', async ({ page }) => {
     assert.equal(await b.getAttribute('aria-disabled'), 'true');
     assert.equal(await description(b), 'Coming in v1.0');
   }
-  // Slice Q2 (FR-QRY-07 AC-17, AP-1517): the Views section is gone; views live on the type page.
-  assert.equal(await section(page, 'Views').count(), 0, 'no section Views');
+  // Slice OC (D-2071, types.md FR-TYP-01 AC-25): the Views section lists the type's real views.
+  assert.equal(await section(page, 'Views').count(), 1, 'the section Views');
 });
 
 test('fr_typ_01_ac9_sections_contrast_and_palette_commands', async ({ page }) => {
   await openTypes(page);
   await gotoSettings(page, 'Projekty', 'Projekt');
   const nav = await must(main(page).getByRole('navigation', { name: 'Settings sections' }), 'Settings sections');
-  assert.deepEqual((await nav.getByRole('link').allInnerTexts()).map((t) => t.trim()), ['General', 'Properties', 'Built in on every type', 'Preview properties', 'Hidden properties', 'Embeds', 'Review workflow', 'Templates', 'Delete type']); // D-1801, D-1826: no Views section
+  assert.deepEqual((await nav.getByRole('link').allInnerTexts()).map((t) => t.trim()), ['General', 'Properties', 'Built in on every type', 'Card', 'Hidden properties', 'Embeds', 'Review workflow', 'Templates', 'Views', 'Delete type']); // slice OC (types.md FR-TYP-01 AC-22): R12 after OC's ten
   await must(main(page).getByText(/^Applies to 3 objects · stored in \.tegg\/types\/projekt\.yml$/), 'Applies line');
   for (const n of ['Stav', 'Období', 'Rozpočet', 'Aktivní', 'Oblasti', 'Web', 'Poznámka']) await expand(page, n);
   for (const theme of ['Theme: Light', 'Theme: Dark']) {
@@ -614,7 +616,12 @@ test('fr_typ_06_ac2_built_in_attributes_are_locked', async ({ page }) => {
     if (await seen(del, 200)) assert.equal(await isDisabled(del), true, `${n}: Delete property… disabled`);
   }
   const status = await must(property(page, 'Status'), 'Status');
+  // D-2151 (types.md FR-TYP-01 AC-24): one property open at a time; opening the others collapsed Status, so it opens again.
+  const editStatus = status.getByRole('button', { name: 'Edit Status', exact: true });
+  assert.equal(await editStatus.getAttribute('aria-expanded'), 'false', 'opening another property collapsed Status');
+  await editStatus.click();
   const label = status.getByRole('textbox', { name: 'Option label' }).first();
+  await must(label, 'Status open again: its option labels');
   // D-489: Task status options are editable since 5A-1 (tasks.md FR-TSK-02 AC-2); a used label says why it is read-only.
   assert.notEqual(await description(label), 'Coming in MS5', 'Task status labels are no longer Coming in MS5 (FR-TSK-02)');
 });
@@ -648,36 +655,23 @@ test('fr_typ_06_ac4_missing_system_file_uses_defaults_and_the_first_change_creat
 
 // ------------------------------------------------------------------------------------------------ FR-TYP-11, FR-TYP-12
 
+// Slice OC (D-2054, cards.md "Existing criteria this slice changes"): Preview properties is superseded by the Card
+// section (cards.md FR-TYP-11 AC-20…AC-24, app/webkit/type_settings_oc.ac.test.ts); these keep what still holds.
 test('fr_typ_11_ac1_up_to_four_preview_properties', async ({ page }) => {
   const core = await openSchuzka(page);
-  const sec = await must(section(page, 'Preview properties'), 'Preview properties');
-  const chips = sec.getByRole('list', { name: 'Preview properties' }).getByRole('listitem');
-  assert.deepEqual((await chips.allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim().replace(/ Remove.*$/, '')), ['Datum', 'Účastníci']);
-  await (await must(sec.getByRole('button', { name: 'Add (2 left)', exact: true }), 'Add (2 left)')).click();
-  const menu = await must(page.getByRole('menu', { name: 'Add preview property' }), 'menu');
-  const items = (await menu.getByRole('menuitem').allInnerTexts()).map((t) => t.trim());
-  for (const x of ['Začátek', 'Projekt', 'Místo', 'Tags', 'Source', 'Aliases', 'Created', 'Modified']) assert.ok(items.includes(x), `${x} offered`);
-  assert.ok(!items.includes('Datum'), 'chosen ones not offered');
-  await menu.getByRole('menuitem', { name: 'Tags', exact: true }).click();
-  assert.equal(await fileWhen(core, typeFile('schůzka'), (t) => !!t?.includes('tags]')), swap(schuzka(), 'preview: [datum, účastníci]\n', 'preview: [datum, účastníci, tags]\n'));
-  await sec.getByRole('button', { name: 'Add (1 left)', exact: true }).click();
-  await page.getByRole('menu', { name: 'Add preview property' }).getByRole('menuitem', { name: 'Místo', exact: true }).click();
-  const full = await must(sec.getByRole('button', { name: /^Add/ }), 'Add button');
-  assert.equal(await full.getAttribute('aria-disabled'), 'true');
-  assert.equal(await description(full), 'Up to 4 preview properties');
-  await sec.getByRole('button', { name: 'Remove Datum from preview', exact: true }).click();
-  await fileWhen(core, typeFile('schůzka'), (t) => !!t?.includes('preview: [účastníci, tags, místo]'));
-  await sec.getByRole('listitem').filter({ hasText: 'Místo' }).first().focus();
-  await page.keyboard.press('Alt+ArrowLeft');
-  assert.ok((await fileWhen(core, typeFile('schůzka'), (t) => !!t?.includes('preview: [účastníci, místo, tags]')))?.includes('preview: [účastníci, místo, tags]'), 'reorder with ⌥←');
+  assert.equal(await section(page, 'Preview properties').count(), 0, 'no Preview properties section (D-2054)');
+  assert.ok(await seen(section(page, 'Card')), 'the Card section in its place');
+  assert.equal(await main(page).getByText(/Up to 4/).count(), 0, 'no limit of 4');
+  assert.deepEqual(await nonReadCalls(core), [], 'opening writes nothing');
 });
 
 test('fr_typ_11_ac2_unknown_preview_keys_warn_and_stay', async ({ page }) => {
   const vault = typesVault((f) => { f[typeFile('osoba')] = swap(f[typeFile('osoba')], 'preview: [firma]\n', 'preview: [firma, neexistuje]\n'); });
   const core = await openTypes(page, undefined, { vault });
   await gotoSettings(page, 'Osoby', 'Osoba');
-  const sec = await must(section(page, 'Preview properties'), 'Preview properties');
-  assert.ok(await seen(sec.getByText(/neexistuje/)), 'warning names the ignored key');
+  await must(section(page, 'Card'), 'Card');
+  // The warning moved to unknown `card:` keys; an unknown `preview` key is kept with no warning.
+  assert.equal(await main(page).getByText(/neexistuje/).count(), 0, 'no warning for an unknown preview key');
   assert.deepEqual(await nonReadCalls(core), [], 'kept in the file');
 });
 

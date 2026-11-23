@@ -355,6 +355,7 @@ export const READ_COMMANDS = new Set([
   'index_tags', 'index_conflicts', // 3C (ms3-shell §13.2): read-only
   'vault_recent', 'app_about', // D-219, D-220 (ms3-shell §12.5): read-only list; shows the About panel
   'type_get', 'type_template', 'type_usage', 'type_misfits', 'index_type_rows', 'starter_plan', // 3D (ms3-shell §14.3): read-only
+  'type_card_example', // slice OC (v1-cards §4.1): read-only
   'index_backlinks', 'index_broken_links', 'index_duplicate_titles', 'link_create_plan', 'backlinks', // 4A (ms4-links §4): read-only
   'daily_view', 'daily_dates', 'daily_draft', 'daily_context', 'daily_backlinks', // 4B (ms4-daily §4): read-only
   'job_report', 'job_interrupted', 'backups_list', 'editor_open', 'editor_close', // 4C (ms4-jobs §4): read-only / editor registration

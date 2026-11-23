@@ -228,16 +228,14 @@ test('fr_typ_09_ac18_without_columns_the_preview_fallback_follows_type_settings'
   const core = await openTypes(page);
   await gotoTypePage(page, S);
   assert.deepEqual(await headers(page), ['Title', 'Datum', 'Účastníci', 'Modified'], '(b) the R130 fallback');
-  await gotoSettings(page, S, 'Schůzka');
-  const sec = await must(section(page, 'Preview properties'), 'Preview properties');
-  await (await must(sec.getByRole('button', { name: 'Remove Datum from preview', exact: true }), 'Remove Datum from preview')).click();
-  await fileWhen(core, typeFile('schůzka'), (t) => !!t?.includes('preview: [účastníci]\n'));
-  await gotoTypePage(page, S);
-  assert.deepEqual(await headersWhen(page, (h) => !h.includes('Datum')), ['Title', 'Účastníci', 'Modified'], '(b) the fallback follows preview within 1 s');
+  // D-2150: the Preview properties UI is gone (slice OC); the columns are set through `columns:` in the type file.
+  const yml = schuzkaWith('columns: [účastníci, modified]\n');
+  await core.setFile(typeFile('schůzka'), yml);
+  assert.deepEqual(await headersWhen(page, (h) => !h.includes('Datum')), ['Title', 'Účastníci', 'Modified'], '(b) the columns follow the type file within 1 s');
   await openColumns(page);
   const checked = (await menuItems(page)).filter((i) => i.checked).map((i) => i.name);
-  assert.deepEqual(checked, ['Title', 'Účastníci', 'Modified'], 'the fallback columns are the checked items, Modified included (D-1240)');
-  assert.ok(!(await fileText(core, typeFile('schůzka')))?.includes('columns:'), 'no columns key is written by viewing (AC-20 (g))');
+  assert.deepEqual(checked, ['Title', 'Účastníci', 'Modified'], 'the columns are the checked items, Modified included (D-1240)');
+  assert.equal(await fileText(core, typeFile('schůzka')), yml, 'nothing is written by viewing (AC-20 (g))');
 });
 
 test('fr_typ_09_ac18_review_and_date_cells_use_the_existing_display', async ({ page }) => {
@@ -1022,13 +1020,16 @@ test('fr_typ_11_ac4_preview_and_columns_are_separate', async ({ page }) => {
   await (await must(typeTable(page, S).getByRole('row').filter({ hasText: '2026-10-07 Porada' }), 'row Porada')).click();
   const strip = await mustPreview(page, '2026-10-07 Porada', '(d) the row preview of Porada');
   const text = await strip.innerText();
-  assert.ok(text.includes('Datum') && text.includes('Účastníci') && !text.includes('Místo'), `(d) the preview strip follows preview, never columns: ${text.replace(/\s+/g, ' ')}`);
+  // Slice OC (D-2054, D-2068): the strip follows the card list (Schůzka's default: tags, body, datum, účastníci, modified):
+  // the Datum pill, then the Účastníci link chip; never `columns`.
+  assert.ok(text.includes('Datum') && text.includes('Jana Nováková') && !text.includes('Místo'), `(d) the preview strip follows the card list, never columns: ${text.replace(/\s+/g, ' ')}`);
   await page.keyboard.press('Escape');
   await gotoSettings(page, S, 'Schůzka');
-  const sec = await must(section(page, 'Preview properties'), 'Preview properties');
-  await (await must(sec.getByRole('button', { name: 'Remove Datum from preview', exact: true }), 'Remove Datum from preview')).click();
-  const t = await fileWhen(core, typeFile('schůzka'), (x) => !!x?.includes('preview: [účastníci]\n'));
-  assert.equal(t, swap(vault.files[typeFile('schůzka')], PREVIEW_S, 'preview: [účastníci]\n'), '(b) only the preview line is written');
+  // Slice OC (D-2054): the Card section in place of Preview properties; it writes only `card:` (seeded from R210).
+  const sec = await must(section(page, 'Card'), 'Card');
+  await (await must(sec.getByRole('button', { name: 'Remove Datum from the card', exact: true }), 'Remove Datum from the card')).click();
+  const t = await fileWhen(core, typeFile('schůzka'), (x) => !!x?.includes('card: ['));
+  assert.equal(t, swap(vault.files[typeFile('schůzka')], PREVIEW_S, `${PREVIEW_S}card: [tags, body, účastníci, modified]\n`), '(b) only the card line is written');
   await gotoTypePage(page, S);
   assert.deepEqual(await headers(page), ['Title', 'Místo', 'Datum'], '(b) the type page\'s columns don\'t change');
   assert.deepEqual(await writtenOutside(core, [typeFile('schůzka')]), [], 'no note file');

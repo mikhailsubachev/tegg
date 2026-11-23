@@ -37,6 +37,8 @@ pub struct TaskRow {
     pub modified: Option<String>,
     pub version: FileVersion,
     pub read_only: bool,
+    /// v1-cards §3.3 (slice OC): the Task card's data with Task's keys, from the same index read.
+    pub card: crate::cards::CardData,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -115,8 +117,19 @@ impl Core {
         let defs = defs_of(&task_type(self));
         let all = self.objects();
         let resolver = Resolver::new(&all, &self.shared);
-        let idx = self.index();
-        all.iter().filter(|o| o.r#type == "task").filter_map(|o| row(o, &defs, &resolver, idx.note_state(&o.path)?)).collect()
+        let mut rows: Vec<TaskRow> = {
+            let idx = self.index();
+            all.iter().filter(|o| o.r#type == "task").filter_map(|o| row(o, &defs, &resolver, idx.note_state(&o.path)?)).collect()
+        };
+        // v1-cards §3.3: every row's card from one index read.
+        let paths: Vec<String> = rows.iter().map(|r| nfc(&r.path)).collect();
+        let mut cards = self.cards_for(&paths);
+        for r in &mut rows {
+            if let Some(c) = cards.remove(&nfc(&r.path)) {
+                r.card = c;
+            }
+        }
+        rows
     }
 
     /// The Task type's status and priority options (§2.1).
@@ -217,6 +230,7 @@ fn build(o: Fields, fm: &serde_json::Map<String, Value>, defs: &TaskDefs, source
         modified: scalar(fm.get("modified")),
         version: st.version,
         read_only: !st.utf8,
+        card: crate::cards::CardData::default(),
     }
 }
 

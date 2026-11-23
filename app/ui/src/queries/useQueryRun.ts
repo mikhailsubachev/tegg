@@ -95,7 +95,17 @@ export function useQueryRun(source: QuerySourceDto | null, host: string | null):
       const paths = (c.paths ?? []).map(nfc);
       const name = res?.name ?? (live.current.source?.kind === 'saved' ? live.current.source.name : null);
       const lookup = res?.lookup ?? null;
+      // Slice OC (cards.md FR-TYP-11 AC-15, v1-cards §8.1): an Image or PDF card's file removed, changed or back draws
+      // its strip again from the core's answer (R77's missing-file state when it is gone).
+      const files = new Set<string>();
+      for (const row of res?.rows ?? []) {
+        const f = row.card?.file;
+        if (!f) continue;
+        if (f.path) files.add(nfc(f.path));
+        else if (f.target) files.add(`*/${nfc(f.target).split('/').pop()}`);
+      }
       const hit = paths.some((p) => {
+        if (files.has(p) || files.has(`*/${p.split('/').pop()}`)) return true;
         if (p.startsWith('.tegg/types/')) return true;
         if (p.startsWith(QUERIES) && !p.slice(QUERIES.length).includes('/')) {
           if (lookup === 'missing' || lookup === 'trashed' || lookup === 'unreadable') return true;

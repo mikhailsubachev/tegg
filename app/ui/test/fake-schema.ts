@@ -7,16 +7,17 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { parseDocument, parse as parseYaml } from 'yaml';
+import { cardIgnored, cardList } from '../../../packages/schema/src/cards.ts';
 
 const REPO = resolve(import.meta.dirname, '../../..');
 const SYSTEM = ['page', 'task', 'quick-note', 'daily-note', 'tag', 'image', 'pdf'];
 const R10 = ['text', 'long-text', 'number', 'checkbox', 'date', 'date-time', 'date-range', 'select', 'multi-select', 'url', 'email', 'relation'];
 const UNIVERSAL_PREVIEW = ['tags', 'source', 'aliases', 'created', 'modified'];
-const TOP = ['version', 'name', 'plural', 'system', 'folder', 'icon', 'color', 'description', 'review', 'preview', 'hidden', 'columns', 'views', 'embed', 'template', 'attributes'];
+const TOP = ['version', 'name', 'plural', 'system', 'folder', 'icon', 'color', 'description', 'review', 'preview', 'card', 'hidden', 'columns', 'views', 'embed', 'template', 'attributes'];
 /** R31 (D-417): the built-in default embed mode of a type key. */
 const defaultEmbed = (key: string) => (['page', 'quick-note', 'daily-note'].includes(key) ? 'full' : 'card');
 const embedMode = (raw: unknown): string | null => { const m = typeof raw === 'string' ? raw.trim().toLowerCase() : ''; return ['full', 'card', 'link'].includes(m) ? m : null; };
-const ITEM = ['key', 'name', 'type', 'default', 'required', 'options', 'to', 'multiple', 'description'];
+const ITEM = ['key', 'name', 'type', 'icon', 'default', 'required', 'options', 'to', 'multiple', 'description'];
 const HEADER = "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\n";
 
 export type VersionDto = { mtimeNs: string; size: number; hash: string };
@@ -44,6 +45,34 @@ const typePath = (key: string) => `.tegg/types/${nfc(key)}.yml`;
 const err = (kind: string, message: string, extra: Record<string, unknown> = {}) => ({ kind, message, ...extra });
 const sameVersion = (a: VersionDto | null | undefined, b: VersionDto | null | undefined) => !!a && !!b && a.size === b.size && a.hash === b.hash;
 
+// ------------------------------------------------------------------------------------------------ icons (slice OC, v1-cards §5)
+
+type IconNode = [string, Record<string, string>][];
+let iconData: { icons: Record<string, { n: IconNode }>; aliases: Record<string, string> } | null = null;
+/** The bundled Lucide 0.460.0 set and the aliases, read once in Node (v1-cards §13). */
+function icons() {
+  if (!iconData) {
+    const d = JSON.parse(readFileSync(resolve(REPO, 'packages/schema/data/lucide-0.460.0.json'), 'utf8'));
+    iconData = { icons: d.icons, aliases: JSON.parse(readFileSync(resolve(REPO, 'packages/schema/data/icon-aliases.json'), 'utf8')) };
+  }
+  return iconData;
+}
+/** v1-cards §2.4 `resolve_icon`: the canonical name (itself, else its alias target); null for unknown or non-ASCII. */
+export function canonicalIcon(name: unknown): string | null {
+  const n = typeof name === 'string' ? name.trim() : '';
+  if (!n || !/^[\x00-\x7f]+$/.test(n)) return null;
+  const set = icons();
+  if (Object.hasOwn(set.icons, n)) return n;
+  const t = Object.hasOwn(set.aliases, n) ? set.aliases[n] : null;
+  return t && Object.hasOwn(set.icons, t) ? t : null;
+}
+/** v1-cards §5.4: `ResolvedIconDto` of a name as written. */
+export function resolvedIcon(name: unknown): { name: string; node: IconNode } | null {
+  const c = canonicalIcon(name);
+  return c ? { name: c, node: icons().icons[c].n } : null;
+}
+const sameIcon = (a: unknown, b: unknown) => (typeof a === 'string' && typeof b === 'string' && a.trim() === b.trim()) || (canonicalIcon(a) !== null && canonicalIcon(a) === canonicalIcon(b));
+
 async function schema(): Promise<Record<string, any>> {
   return (await import('@tegg/schema')) as Record<string, any>;
 }
@@ -61,6 +90,8 @@ export function readType(key: string, text: string, exists: boolean, version: Ve
     key, name: key, plural: key, folder: key, icon: 'file-text', color: 'gray', system, invalid: false, exists, version,
     state: 'ok', error: null, declaredVersion: null, description: null, review: 'off', preview: [], previewIgnored: [], hidden: [], columns: null, columnsIgnored: [], columnsUnreadable: false, embed: defaultEmbed(key), embedRaw: null, template: null, attributes: [],
     views: null, viewsUnreadable: false, viewItems: null, viewsSource: null,
+    // Slice OC (v1-cards §4.2): a type without a readable file draws R210's fallback; `resolvedIcon` of `file-text`.
+    cardList: ['tags', 'body', 'modified'], cardDefault: true, cardKeys: ['tags', 'body', 'modified'], cardIgnored: [], cardUnreadable: false, resolvedIcon: resolvedIcon('file-text'),
   };
   const invalid = (message: string, line: number) => ({ ...base, invalid: true, state: 'invalid', error: { message, line } });
   const d = parseDocument(text, { prettyErrors: false });
@@ -94,11 +125,21 @@ export function readType(key: string, text: string, exists: boolean, version: Ve
     default: a.default ?? null, required: a.required === true,
     options: (a.options ?? []).map((o: any) => ({ label: String(o.label), color: o.color ?? null, state: o.state ?? null })),
     to: Array.isArray(a.to) ? a.to : null, multiple: a.multiple === true, description: a.description ?? null, builtIn: builtinKeys.includes(a.key),
+    // Slice OC (v1-cards §4.2, D-2070): `icon:` as written (trimmed; not a string → null) and its drawing.
+    icon: typeof a.icon === 'string' && a.icon.trim() ? a.icon.trim() : null, resolvedIcon: typeof a.icon === 'string' ? resolvedIcon(a.icon) : null,
   }));
   const preview: string[] = Array.isArray(y.preview) ? y.preview.map(String) : [];
   const declared = typeof y.version === 'number' ? y.version : null;
+  // Slice OC (v1-cards §2.1, §2.2; D-2076): `card:` as `columns`, the card list from @tegg/schema's twin.
+  const cardOk = Array.isArray(y.card) && y.card.every((x: unknown) => typeof x === 'string');
+  const card: string[] | null = cardOk ? y.card : null;
+  const cardUnreadable = y.card !== undefined && y.card !== null && !cardOk;
+  const cl = cardList({ key, state: declared !== null && declared > 1 ? 'newer' : 'ok', card, cardUnreadable, preview: preview.map((p) => nfc(p)), attributes });
+  const iconText = y.icon ?? 'file-text';
   return {
     ...base,
+    cardList: cl.list, cardDefault: cl.default, cardKeys: cl.keys, cardIgnored: cardIgnored({ key, attributes }, card ?? []), cardUnreadable,
+    resolvedIcon: resolvedIcon(typeof iconText === 'string' ? iconText : String(iconText)),
     name: y.name ?? key, plural: y.plural ?? y.name ?? key, folder: y.folder ?? y.plural ?? y.name ?? key,
     icon: y.icon ?? 'file-text', color: y.color ?? 'gray', system: typeof y.system === 'boolean' ? y.system : system,
     state: declared !== null && declared > 1 ? 'newer' : 'ok', declaredVersion: declared, description: y.description ?? null,
@@ -418,6 +459,23 @@ function setField(it: Item, key: string, lines: string[] | null) {
   for (let k = order - 1; k >= 0 && at < 0; k--) at = it.fields.findIndex((f) => f.key === ITEM[k]);
   it.fields.splice(at + 1, 0, { key, lines });
 }
+/** v1-cards §2.3: the `card` key as one flow line (its trailing comment and line end kept), removed when null. */
+function setCardLine(es: Entry[], keys: string[] | null) {
+  const i = es.findIndex((e) => e.key === 'card');
+  if (keys === null) { if (i >= 0) es.splice(i, 1); return; }
+  const flowLine = `card: ${flow(keys.map((k) => nfc(k)))}`;
+  if (i >= 0) {
+    const head = es[i].lines[0];
+    const eol = head.endsWith('\r\n') ? '\r\n' : head.endsWith('\n') ? '\n' : '';
+    const bare = head.slice(0, head.length - eol.length);
+    const tail = es[i].lines.length === 1 ? (/\s+#.*$/.exec(bare)?.[0] ?? '') : '';
+    es[i] = { key: 'card', lines: [`${flowLine}${tail}${eol || '\n'}`] };
+    return;
+  }
+  const crlf = es.some((e) => e.lines.some((l) => l.endsWith('\r\n')));
+  setTop(es, 'card', `${flowLine}${crlf ? '\r\n' : '\n'}`);
+}
+
 function itemFrom(a: any): Item {
   const it: Item = { fields: [] };
   const put = (k: string, lines: string[] | null) => { if (lines) it.fields.push({ key: k, lines }); };
@@ -455,6 +513,8 @@ async function patchText(key: string, text: string, ops: any[], t: TypeDto, all:
       if (op.field === 'folder') { const r = s.checkFolder(v ?? '', all, key); if (r) return rule(r); }
       const cur = (parseYaml(text) as any)?.[op.field] ?? null;
       if ((cur ?? null) === v) continue;
+      // v1-cards §2.3 (D-2103): the same icon by its canonical name writes nothing (`check-square` stays as written).
+      if (op.field === 'icon' && v !== null && sameIcon(cur ?? 'file-text', v)) continue;
       setTop(es, op.field, v === null || v === '' ? null : `${op.field}: ${scalar(op.field === 'folder' ? v.replace(/\/+$/, '') : v)}\n`);
     } else if (op.op === 'review') {
       if (t.review === 'locked') return { error: err('ReviewLocked', 'review is locked') };
@@ -469,6 +529,15 @@ async function patchText(key: string, text: string, ops: any[], t: TypeDto, all:
       if (t.columnsUnreadable) return rule({ reason: 'columnsUnreadable' });
       if (t.columns && JSON.stringify(op.keys) === JSON.stringify(t.columns)) continue;
       setTop(es, 'columns', `columns: ${flow(op.keys.map((k: string) => k.normalize('NFC')))}\n`);
+    } else if (op.op === 'card') {
+      // v1-cards §2.3 (D-2076): one flow line in NFC at its TOP place (after `preview`, else the nearest preceding key),
+      // a block list replaced, null removes the lines; an unreadable value is refused; an equal list is no write.
+      if (t.cardUnreadable) return rule({ reason: 'cardUnreadable' });
+      const cur = (parseYaml(join_(es)) as any)?.card;
+      const now: string[] | null = Array.isArray(cur) ? cur.map((x: unknown) => nfc(String(x))) : null;
+      const keys: string[] | null = op.keys === null || op.keys === undefined ? null : op.keys.map((k: string) => nfc(k));
+      if (JSON.stringify(now) === JSON.stringify(keys)) continue;
+      setCardLine(es, keys);
     } else if (op.op === 'views' || op.op === 'viewSort' || op.op === 'viewColumns' || op.op === 'viewsSource') {
       // Slice Q2 (v1-views §1.3, D-1803) and Q2.1 (§14.2, R196; D-1840, D-1852, D-1857): the views ops on the text so
       // far (several in one patch apply in order and are written once); plain names as one flow line, items with own
@@ -504,6 +573,20 @@ async function patchText(key: string, text: string, ops: any[], t: TypeDto, all:
           setTop(es, 'hidden', `hidden: ${flow(rest)}\n`);
         }
         if (t.columns?.some((c: string) => nfc(c) === nfc(op.key))) setTop(es, 'columns', `columns: ${flow(t.columns.filter((c: string) => nfc(c) !== nfc(op.key)).map(nfc))}\n`);
+        // v1-cards §2.3 (D-2077): and every card entry of it (an unreadable `card` is left as it is).
+        const card = (parseYaml(join_(es)) as any)?.card;
+        if (!t.cardUnreadable && Array.isArray(card) && card.some((c: unknown) => nfc(String(c)) === nfc(op.key))) {
+          setCardLine(es, card.map((c: unknown) => String(c)).filter((c: string) => nfc(c) !== nfc(op.key)));
+        }
+      } else if (op.op === 'attributeIcon') {
+        // v1-cards §2.3 (D-2070, D-2099, D-2103): right after the item's `type:` line, replaced, removed; allowed on
+        // built-in attributes; the current icon (also by its canonical name) writes nothing.
+        const i = find(op.key);
+        if (i < 0) continue;
+        const cur = t.attributes.find((a: any) => a.key === nfc(op.key))?.icon ?? null;
+        const next = typeof op.icon === 'string' && op.icon.trim() ? nfc(op.icon.trim()) : null;
+        if ((cur === null && next === null) || (cur !== null && next !== null && sameIcon(cur, next))) continue;
+        setField(its[i], 'icon', next === null ? null : [`    icon: ${scalar(next)}\n`]);
       } else if (op.op === 'moveAttribute') {
         const i = find(op.key);
         if (i < 0 || i === op.to) continue;

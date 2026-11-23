@@ -14,7 +14,7 @@ import { cleanup, render, fireEvent } from '@testing-library/react';
 import { parse } from '@tegg/doc';
 import { computeAccessibleDescription, computeAccessibleName } from 'dom-accessibility-api';
 import { catalog, need } from './read-helpers';
-import { TYPES, fixture, fixtureLoader, hostOf, resolveOnEmbeds, type EmbedNoteDto, type LinkTargetDto } from './embeds-helpers';
+import { TYPES, embedsCard, fixture, fixtureLoader, hostOf, resolveOnEmbeds, type EmbedNoteDto, type LinkTargetDto } from './embeds-helpers';
 
 const nfc = (s: string) => s.normalize('NFC');
 const name = (e: Element) => nfc(computeAccessibleName(e).trim());
@@ -188,28 +188,30 @@ test('fr_emb_02_ac2_daily_and_recipe_frames', async () => {
 });
 
 test('fr_emb_02_ac4_cards_show_the_header_and_the_preview_strip', async () => {
-  const jana = await loaded('Osoby/Jana Nováková.md');
+  // Slice OC (cards.md AP-1587, D-2092): the frame holds the ObjectCard with Osoba's default card list (`tags, body,
+  // firma, role, modified`, R210) from `EmbedNoteDto.card`; its head has `Open` and `Display as` (no `⋯`).
+  const osobaCard = (title: string, values: Record<string, unknown>, excerpt: string) => ({ type: 'osoba', title, keys: ['tags', 'body', 'firma', 'role', 'modified'], values: { tags: [], ...values }, excerpt, links: [], unreviewed: false, file: null });
+  const jana = { ...(await loaded('Osoby/Jana Nováková.md')), card: osobaCard('Jana Nováková', { firma: 'Beta a.s.', role: 'Analytička', modified: '2026-09-10T09:00:00+02:00' }, 'Poznámky o Janě.') };
   const j = await show(node('Jana Nováková', { mode: 'card', note: jana }));
   const f = frameOf(j.container);
   assert.equal(f.getAttribute('data-embed-mode'), 'card');
   assert.equal(name(f), 'Embedded: Jana Nováková');
-  assert.ok(f.firstElementChild?.querySelector('[data-icon="user"]'), 'Osoba icon');
+  const card = f.querySelector('article[data-object-card]');
+  assert.ok(card && f.firstElementChild === card, 'the frame holds one ObjectCard');
+  assert.ok(card!.querySelector('.card-lead [data-icon="user"]'), 'Osoba icon');
   assert.ok(button(f, 'Open Jana Nováková') && button(f, 'Display as'), 'Open and Display as');
-  const list = ([...f.querySelectorAll('[role="list"], ul, ol')] as HTMLElement[]).find((l) => name(l) === 'Properties');
-  assert.ok(list, 'the list Properties');
-  const items = [...list!.querySelectorAll('[role="listitem"], li')].map((li) => text(li).replace(/\s+/g, ' ').trim());
-  assert.deepEqual(items.length, 2, `exactly two items: ${items.join(' | ')}`);
-  assert.ok(/^Firma\s*Beta a\.s\.$/.test(items[0]) && /^Role\s*Analytička$/.test(items[1]), `in preview order: ${items.join(' | ')}`);
-  assert.ok(!text(j.container).includes('Poznámky o Janě.'), 'the body isn’t in the DOM');
+  assert.equal(f.querySelector('.embed-header'), null, 'no second header');
+  const items = [...card!.querySelectorAll('.card-pills [data-attribute]')].map((e) => text(e).replace(/\s+/g, ' ').trim());
+  assert.deepEqual(items, ['Firma Beta a.s.', 'Role Analytička'], `the pills in the card list's order: ${items.join(' | ')}`);
+  assert.ok(text(card!.querySelector('p.card-text')).includes('Poznámky o Janě.'), 'the body text (D-2062)');
   assert.equal(f.querySelector('input, textarea, [contenteditable="true"]'), null, 'values are never editable in a card');
   cleanup();
 
-  const sarka = await loaded('Osoby/Šárka Malá.md');
+  const sarka = { ...(await loaded('Osoby/Šárka Malá.md')), card: osobaCard('Šárka Malá', { modified: '2026-09-11T09:00:00+02:00' }, 'Bez vlastností.') };
   const s = await show(node('Šárka Malá', { mode: 'card', note: sarka }));
   const sf = frameOf(s.container);
-  assert.equal(sf.querySelector('[role="list"], ul, ol'), null, 'no strip without values');
-  assert.ok(!text(sf).includes('Bez vlastností.'), 'no body');
-  assert.equal(text(sf).replace(/\s+/g, ' ').trim().replace(/Open Šárka Malá|Display as/g, '').trim(), 'Šárka Malá', 'the header only, no empty-state text');
+  assert.equal(sf.querySelector('.card-pills'), null, 'no pill area without values (D-2065)');
+  assert.ok(text(sf).includes('Bez vlastností.'), 'the body text');
   cleanup();
 
   // 5A-2 (conversion.md FR-CNV-05 AC-1, R52; D-499): a Task in card mode is the D-74 card, not the generic card.
@@ -283,15 +285,17 @@ test('fr_emb_02_ac15_embed_strings_come_from_the_catalog', async () => {
   assert.ok(typeof cat.pseudo === 'function', 'catalog.pseudo (NFR-OTH-02 AC-3)');
   cat.setCatalog(cat.pseudo(cat.en), 'en-XA');
   try {
-    const jana = await loaded('Osoby/Jana Nováková.md');
+    // The batch carries the card data (v1-cards §3.3), so the card draws its pills (D-2137).
+    const jana = { ...(await loaded('Osoby/Jana Nováková.md')), card: embedsCard('Osoby/Jana Nováková.md') };
     const { container } = await show(node('Jana Nováková', { mode: 'card', note: jana }));
     const f = frameOf(container);
     assert.ok(name(f).includes('⟦') && name(f).includes('Jana Nováková'), `frame name from embed.name: ${name(f)}`);
     const buttons = [...f.querySelectorAll('button, [role="button"]')] as HTMLElement[];
     assert.ok(buttons.length >= 2, 'Open and Display as');
     for (const b of buttons) assert.ok(name(b).includes('⟦'), `button "${name(b)}" from the catalog`);
-    const list = f.querySelector('[role="list"], ul, ol');
-    assert.ok(list && name(list).includes('⟦'), 'Properties from the catalog');
+    // The card's pills replace the old Properties list (D-2054, D-2137): their names come from card.pill.
+    const pills = [...f.querySelectorAll('span.card-pill[data-attribute]')] as HTMLElement[];
+    assert.ok(pills.length > 0 && pills.every((p) => name(p).includes('⟦')), `the card's pills from the catalog: ${pills.map(name).join(' | ')}`);
     cleanup();
     const c = await show(node('Sama sebe', { state: 'circular', target: target('Pages/Sama sebe.md', 'Sama sebe') }));
     const msg = text(c.container.querySelector('[data-embed-message]'));

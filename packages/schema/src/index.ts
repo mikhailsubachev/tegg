@@ -6,6 +6,8 @@
 import { formatScalar, typeKey as docTypeKey, typeMatch as docTypeMatch, type Value } from '@tegg/doc';
 
 export type { Value };
+export { CARD_BUILT_INS, CARD_FALLBACK, cardIgnored, cardKeys, cardList, defaultCard, isEmpty } from './cards';
+export type { CardList, CardListInput, CardTypeInput } from './cards';
 
 /** Structural copies of the IPC shapes (`app/ui/src/ipc/types.ts`, §14.3). */
 /** `state`: ms5-tasks §2.2 (D-473), a Task status option's `state` as written. */
@@ -15,12 +17,20 @@ export type AttributeDto = {
   readOnlyReason: 'file' | 'color' | 'recurrence' | 'unsupported' | null;
   default: unknown | null; required: boolean; options: OptionDto[];
   to: string[] | null; multiple: boolean; description: string | null; builtIn: boolean;
+  /** Slice OC (v1-cards §4.2): the item's `icon:` as written, and its Lucide drawing (null: none or unknown). */
+  icon?: string | null; resolvedIcon?: ResolvedIconDto | null;
 };
+/** Slice OC (v1-cards §4.2): a canonical Lucide 0.460 name and its icon node. */
+export type ResolvedIconDto = { name: string; node: [string, Record<string, string>][] };
 export type TypeDto = {
   key: string; name: string; plural: string; folder: string; icon: string; color: string; system: boolean; invalid: boolean;
   exists: boolean; version: unknown | null; state: 'ok' | 'newer' | 'invalid'; error: { message: string; line: number } | null;
   declaredVersion: number | null; description: string | null; review: 'off' | 'on' | 'locked'; preview: string[];
   previewIgnored: string[]; template: string | null; attributes: AttributeDto[];
+  /** Slice OC (v1-cards §4.2, R209): the card list, whether it is the default, the effective keys, the ignored entries,
+   *  an unreadable `card` value, and the type icon's drawing. */
+  cardList?: string[]; cardDefault?: boolean; cardKeys?: string[]; cardIgnored?: string[]; cardUnreadable?: boolean;
+  resolvedIcon?: ResolvedIconDto | null;
 };
 
 /** AR-07 AC-1. */
@@ -53,7 +63,8 @@ export function widerTypes(t: AttrType): AttrType[] {
   return [...(WIDER[t] ?? [])];
 }
 
-/** R14 (FR-TYP-01 AC-4). */
+/** R14 (FR-TYP-01 AC-4). `ICONS` is R14's old list of 24 icon names, kept for D-2067 (they all still draw, through
+ *  Lucide 0.460 and the alias `check-square` → `square-check-big`); the picker offers every Lucide name (v1-cards §7.7). */
 export const COLORS: readonly string[] = ['gray', 'blue', 'green', 'orange', 'purple', 'red', 'teal', 'yellow'];
 export const ICONS: readonly string[] = [
   'file-text', 'check-square', 'zap', 'calendar', 'hash', 'image', 'file', 'book', 'book-open', 'lightbulb', 'users', 'user',

@@ -3,8 +3,9 @@
 // AssertionError (TS-I1). The link resolution and the type list below are transcriptions of the contract rules
 // (ms3-shell §11.1, ms4-embeds §3 / R31) over the synthetic fixture, as the note page would pass them in; the real
 // resolution and type reading are tested at the core (L4).
-import { readFileSync, existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
+import { cardsFor } from '../ui/test/fake-cards';
 import { parse as parseYaml } from 'yaml';
 import { need } from './read-helpers';
 
@@ -110,6 +111,25 @@ export async function memLoader(files: Map<string, string>, objs: Obj[]) {
     return out;
   };
   return { load, calls };
+}
+/** The card data (v1-cards §3.3) of `path` on the embeds fixture with new-empty's system types, as the fake core's
+ *  `embed_load` carries it (slice OC, D-2137). */
+export function embedsCard(path: string): unknown {
+  const files: Record<string, string> = {};
+  const walk = (root: string, prefix: string) => {
+    const go = (d: string) => {
+      for (const n of readdirSync(d)) {
+        const p = join(d, n);
+        if (statSync(p).isDirectory()) go(p);
+        else if (n !== 'README.md') files[(prefix + relative(root, p)).normalize('NFC')] = readFileSync(p, 'utf8');
+      }
+    };
+    go(root);
+  };
+  walk(join(REPO, 'tests/fixtures/vaults/new-empty/.tegg'), '.tegg/');
+  walk(FIXTURE, '');
+  const p = path.normalize('NFC');
+  return cardsFor(files, [p])[p] ?? null;
 }
 /** `memLoader` over the fixture files. */
 export async function fixtureLoader(overrides: Record<string, string | null> = {}) {

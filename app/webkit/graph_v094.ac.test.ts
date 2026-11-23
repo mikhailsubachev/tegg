@@ -543,7 +543,7 @@ test('fr_grp_06_ac12_links_in_the_graphs_preview_follow_hover_mode', async ({ pa
   await pointAt(page, P.rozpocet);
   await tick(page, 450);
   const prev = await must(shown(page, P.rozpocet), 'Rozpočet\'s hover preview in the column');
-  const chip = await must(prev.getByRole('link', { name: 'Jana Nováková', exact: true }), 'the strip chip Jana Nováková');
+  const chip = await must(prev.getByRole('link', { name: 'Vlastník: Jana Nováková', exact: true }), 'the strip chip Jana Nováková');
   const cb = (await chip.boundingBox())!;
   await page.mouse.move(cb.x + 4, cb.y + cb.height / 2, { steps: 8 });
   const sel0 = await selected(page);
@@ -561,7 +561,7 @@ test('fr_grp_06_ac12_links_in_the_graphs_preview_follow_hover_mode', async ({ pa
   await pointAt(page, P.rozpocet);
   await tick(page, 450);
   const prev2 = await must(shown(page, P.rozpocet), 'Rozpočet\'s hover preview again');
-  const c2 = (await (await must(prev2.getByRole('link', { name: 'Jana Nováková', exact: true }), 'the chip again')).boundingBox())!;
+  const c2 = (await (await must(prev2.getByRole('link', { name: 'Vlastník: Jana Nováková', exact: true }), 'the chip again')).boundingBox())!;
   await page.mouse.move(c2.x + 4, c2.y + c2.height / 2, { steps: 8 });
   const before = await readyCount(core, `note/${nfc(P.jana)}`);
   await page.mouse.click(c2.x + 4, c2.y + c2.height / 2);
@@ -578,7 +578,7 @@ test('fr_grp_06_ac12_links_in_the_graphs_preview_follow_hover_mode_in_the_panel'
   await tick(page, 450);
   const d = await mustPreview(page, ROZ, 'Rozpočet\'s hover popover');
   const b0 = (await d.boundingBox())!;
-  const chip = await must(d.getByRole('link', { name: 'Jana Nováková', exact: true }), 'the strip chip Jana Nováková');
+  const chip = await must(d.getByRole('link', { name: 'Vlastník: Jana Nováková', exact: true }), 'the strip chip Jana Nováková');
   const cb = (await chip.boundingBox())!;
   await page.mouse.move(cb.x + 4, cb.y + cb.height / 2, { steps: 8 });
   await tick(page, 450);
@@ -594,7 +594,7 @@ test('fr_grp_06_ac12_links_in_the_graphs_preview_follow_hover_mode_click_mode_un
   await waitDrawn(page, 10);
   await clickNode(page, P.rozpocet);
   const prev = await must(shown(page, P.rozpocet), 'Rozpočet\'s preview');
-  await (await must(prev.getByRole('link', { name: 'Jana Nováková', exact: true }), 'the strip chip')).click();
+  await (await must(prev.getByRole('link', { name: 'Vlastník: Jana Nováková', exact: true }), 'the strip chip')).click();
   await must(shown(page, P.jana), 'click mode: a click on the chip replaces the content (D-932)');
   await must(previewCol(page).getByRole('button', { name: 'Back to Rozpočet 2027', exact: true }), 'with Back to Rozpočet 2027');
 });

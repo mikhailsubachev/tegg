@@ -27,6 +27,9 @@ pub struct EmbedNote {
     pub utf8: bool,
     /// Resolution of every link target of the file, from its own path, in `linkTargets` order.
     pub links: Vec<LinkTarget>,
+    /// v1-cards §3.3 (slice OC): the card data of the embedded object; Some for state `Ok` when the index holds the
+    /// path (one index read per call, for every path of the batch).
+    pub card: Option<crate::cards::CardData>,
 }
 
 impl Core {
@@ -49,11 +52,19 @@ impl Core {
             seen.push(path.clone());
             out.push(self.embed_one(&path, media));
         }
+        // v1-cards §3.3: the batch's card data from one index read (FR-EMB-02 AC-21, D-429).
+        let ok: Vec<String> = out.iter().filter(|n| n.state == EmbedLoadState::Ok).map(|n| n.path.clone()).collect();
+        if !ok.is_empty() {
+            let mut cards = self.cards_for(&ok);
+            for n in out.iter_mut().filter(|n| n.state == EmbedLoadState::Ok) {
+                n.card = cards.remove(&n.path);
+            }
+        }
         out
     }
 
     fn embed_one(&self, path: &str, media: bool) -> EmbedNote {
-        let missing = |state| EmbedNote { path: path.to_string(), state, text: None, version: None, utf8: true, links: Vec::new() };
+        let missing = |state| EmbedNote { path: path.to_string(), state, text: None, version: None, utf8: true, links: Vec::new(), card: None };
         // Never an embed target (FR-TPL-07, D-102).
         if path.starts_with("_templates/") {
             return missing(EmbedLoadState::Missing);
@@ -90,7 +101,7 @@ impl Core {
             targets.extend(files);
         }
         let links = self.resolve_links(path, &targets);
-        EmbedNote { path: path.to_string(), state: EmbedLoadState::Ok, text: Some(text), version: Some(version), utf8, links }
+        EmbedNote { path: path.to_string(), state: EmbedLoadState::Ok, text: Some(text), version: Some(version), utf8, links, card: None }
     }
 }
 

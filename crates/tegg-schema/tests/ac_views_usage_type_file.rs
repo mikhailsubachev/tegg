@@ -181,7 +181,7 @@ fn fr_qry_07_ac24_tab_columns_are_its_own() {
     assert_eq!(r, expected("book-prectene-columns-reordered.yml"), "Finished before Author");
     assert_eq!(do_patch(&r, vec![view_cols("Přečtené 2026", None)]), Ok(Some(base())), "Use the query's columns: the fixture's bytes");
     // New property… Stran: the attribute (one write), then the item's columns (a second write).
-    let attr = AttrDef { key: "stran".into(), name: "Stran".into(), r#type: AttrType::Number, default: None, required: false, options: vec![], to: None, multiple: false, description: None, built_in: false };
+    let attr = AttrDef { key: "stran".into(), name: "Stran".into(), r#type: AttrType::Number, default: None, required: false, options: vec![], to: None, multiple: false, description: None, built_in: false, icon: None };
     let one = wrote(&base(), vec![TypeOp::AddAttribute(attr)], "New property Stran");
     assert_eq!(one, expected("book-new-property-stran-1.yml"), "the attribute appended");
     assert_eq!(do_patch(&one, vec![view_cols("Přečtené 2026", Some(&["author", "rating", "finished", "stran"]))]), Ok(Some(expected("book-new-property-stran-2.yml"))), "then the item's columns");
@@ -271,7 +271,7 @@ fn fr_fmt_07_ac34_usage_settings_round_trip() {
     assert_eq!(parse("book", &overlay()).view_items.map(|i| i.len()), Some(3), "the overlay's items are read");
     let views = lines(&overlay(), 13, 20);
     for (what, op) in [
-        ("a new attribute", TypeOp::AddAttribute(AttrDef { key: "stran".into(), name: "Stran".into(), r#type: AttrType::Number, default: None, required: false, options: vec![], to: None, multiple: false, description: None, built_in: false })),
+        ("a new attribute", TypeOp::AddAttribute(AttrDef { key: "stran".into(), name: "Stran".into(), r#type: AttrType::Number, default: None, required: false, options: vec![], to: None, multiple: false, description: None, built_in: false, icon: None })),
         ("columns", TypeOp::SetColumns(strs(&["author", "status"]))),
         ("a description", TypeOp::SetDescription(None)),
     ] {

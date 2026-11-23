@@ -40,3 +40,7 @@ attributes:
   - key: recurrence
     name: Recurrence
     type: recurrence
+  - key: projekt
+    name: Projekt
+    type: relation
+    to: [projekt]

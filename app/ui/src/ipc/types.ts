@@ -225,7 +225,16 @@ viewItems: Array<ViewItemDto> | null,
  * Slice Q2.1 (v1-views §17.3, D-1852): the exact text of the `views` key's lines (key line through its last line, EOLs
  * included); null when the key is absent.
  */
-viewsSource: string | null, };
+viewsSource: string | null, 
+/**
+ * Slice OC (v1-cards §4.2, R209): the card list (`card:` as written, else R210's default), whether it is the
+ * default, the effective keys, the entries the section warns about and an unreadable `card` value.
+ */
+cardList: Array<string>, cardDefault: boolean, cardKeys: Array<string>, cardIgnored: Array<string>, cardUnreadable: boolean, 
+/**
+ * Slice OC (v1-cards §5.4): `icon` resolved to a Lucide 0.460 drawing; null for an unknown name (R14's generic icon).
+ */
+resolvedIcon: ResolvedIconDto | null, };
 export type ViewItemDto = { name: string, sort: Array<UsageSortDto> | null, sortBroken: boolean, columns: Array<string> | null, columnsBroken: boolean, plain: boolean, };
 export type UsageSortDto = { by: string, order: "asc" | "desc", };
 export type TypeFileErrorDto = { message: string, line: number, };
@@ -246,10 +255,18 @@ supported: boolean,
 /**
  * `file`, `color`, `recurrence` or `unsupported` (FR-TYP-02 AC-4, AC-5).
  */
-readOnlyReason: string | null, default: unknown | null, required: boolean, options: Array<OptionDto>, to: Array<string> | null, multiple: boolean, description: string | null, builtIn: boolean, };
+readOnlyReason: string | null, default: unknown | null, required: boolean, options: Array<OptionDto>, to: Array<string> | null, multiple: boolean, description: string | null, builtIn: boolean, 
+/**
+ * Slice OC (v1-cards §4.2, FR-TYP-01 AC-12): the item's `icon:` as written; null when absent.
+ */
+icon: string | null, 
+/**
+ * Slice OC (v1-cards §5.4): `icon` resolved; null for no icon or an unknown name.
+ */
+resolvedIcon: ResolvedIconDto | null, };
 export type AttributeInputDto = { key: string, name: string, type: string, default: unknown | null, required: boolean, options: Array<OptionDto>, to: Array<string> | null, multiple: boolean, description: string | null, };
 export type AttributeChangeDto = { name?: string, type?: string, default?: unknown | null, required?: boolean, options?: Array<OptionDto>, to?: string[] | null, multiple?: boolean, description?: string | null, };
-export type TypeOpDto = { "op": "set", field: string, value: string | null, } | { "op": "review", on: boolean, } | { "op": "preview", keys: Array<string>, } | { "op": "columns", keys: Array<string>, } | { "op": "hidden", keys: Array<string>, } | { "op": "embed", mode: string, } | { "op": "addAttribute", attribute: AttributeInputDto, } | { "op": "updateAttribute", key: string, change: AttributeChangeDto, } | { "op": "removeAttribute", key: string, } | { "op": "moveAttribute", key: string, to: number, } | { "op": "setOptionState", attr: string, label: string, state: string, } | { "op": "addOption", attr: string, option: OptionDto, } | { "op": "setOptionColor", attr: string, label: string, color: string, } | { "op": "moveOption", attr: string, label: string, to: number, } | { "op": "removeOption", attr: string, label: string, } | { "op": "renameOption", attr: string, from: string, to: string, } | { "op": "views", names: Array<string>, } | { "op": "viewSort", name: string, sort: Array<UsageSortDto> | null, } | { "op": "viewColumns", name: string, columns: Array<string> | null, } | { "op": "viewsSource", source: string, };
+export type TypeOpDto = { "op": "set", field: string, value: string | null, } | { "op": "review", on: boolean, } | { "op": "preview", keys: Array<string>, } | { "op": "columns", keys: Array<string>, } | { "op": "hidden", keys: Array<string>, } | { "op": "embed", mode: string, } | { "op": "addAttribute", attribute: AttributeInputDto, } | { "op": "updateAttribute", key: string, change: AttributeChangeDto, } | { "op": "removeAttribute", key: string, } | { "op": "moveAttribute", key: string, to: number, } | { "op": "setOptionState", attr: string, label: string, state: string, } | { "op": "addOption", attr: string, option: OptionDto, } | { "op": "setOptionColor", attr: string, label: string, color: string, } | { "op": "moveOption", attr: string, label: string, to: number, } | { "op": "removeOption", attr: string, label: string, } | { "op": "renameOption", attr: string, from: string, to: string, } | { "op": "views", names: Array<string>, } | { "op": "viewSort", name: string, sort: Array<UsageSortDto> | null, } | { "op": "viewColumns", name: string, columns: Array<string> | null, } | { "op": "viewsSource", source: string, } | { "op": "card", keys: Array<string> | null, } | { "op": "attributeIcon", key: string, icon: string | null, };
 export type TypeUsageDto = { objects: number, values: { [key in string]?: number }, options: { [key in string]?: { [key in string]?: number } }, };
 export type TypeRowDto = { path: string, id: string | null, title: string, created: string | null, modified: string | null, values: Record<string, unknown>, links: Array<LinkTargetDto>, typeSingle: boolean, 
 /**
@@ -348,6 +365,11 @@ vaults?: Record<string, unknown>,
  * `updated-asc` | `title`); missing reads as `created-desc`.
  */
 queries?: QueriesUiDto, 
+/**
+ * Slice OC (v1-cards §10, R216, D-2066): the icon picker's Recent icons, canonical Lucide names, newest first, unique,
+ * at most 12; missing reads as none.
+ */
+recentIcons?: Array<string>, 
 /**
  * Slice OL (v1-outline §5, D-1601, FR-SET-02 AC-10): `Show outline rail`; missing reads as true.
  */
@@ -454,7 +476,11 @@ text: string | null, version: VersionDto | null, utf8: boolean,
 /**
  * Resolution of the file's link targets from its own path, in `linkTargets` order.
  */
-links: Array<LinkTargetDto>, };
+links: Array<LinkTargetDto>, 
+/**
+ * Slice OC (v1-cards §3.3): the embedded object's card data; null unless `ok` and indexed.
+ */
+card: CardDataDto | null, };
 export type NoteRenameDto = { jobId: number, 
 /**
  * The planned path; the final one is in the report.
@@ -522,7 +548,11 @@ export type TaskRowDto = { path: string, id: string | null, title: string, statu
 /**
  * `YYYY-MM-DD` when valid (D-484).
  */
-due: string | null, completed: string | null, tags: Array<string>, fmTags: Array<string>, source: LinkTargetDto | null, excerpt: string, created: string | null, modified: string | null, version: VersionDto, readOnly: boolean, };
+due: string | null, completed: string | null, tags: Array<string>, fmTags: Array<string>, source: LinkTargetDto | null, excerpt: string, created: string | null, modified: string | null, version: VersionDto, readOnly: boolean, 
+/**
+ * Slice OC (v1-cards §3.3): the Task card's data with Task's keys.
+ */
+card: CardDataDto, };
 export type StatusOptionDto = { label: string, color: string | null, state: string, stateRaw: string | null, };
 export type UnknownStateDto = { label: string, state: string | null, };
 export type TaskDefsDto = { statuses: Array<StatusOptionDto>, priorities: Array<OptionDto>, unknownStates: Array<UnknownStateDto>, };
@@ -617,6 +647,9 @@ export type JobPlanDto = { jobId: number, kind: string, files: number, templates
 empty: number, renames: Array<RenamePairDto>, trashes: Array<string>, warnings: Array<PlanWarningDto>, conflicts: Array<MergeConflictDto>, };
 export type RelatedEntryDto = { path: string, title: string, type: string, review: string | null, status: string | null, due: string | null, completed: string | null, linked: boolean, excerpt: string | null, score: number, shared: number, };
 export type RelatedDto = { entries: Array<RelatedEntryDto>, reason: 'short' | null, };
+export type ResolvedIconDto = { name: string, node: [string, Record<string, string>][], };
+export type CardDataDto = { type: string, title: string, keys: Array<string>, values: Record<string, unknown>, excerpt: string | null, links: Array<LinkTargetDto>, unreviewed: boolean, file: LinkTargetDto | null, };
+export type CardExampleDto = { path: string, card: CardDataDto, };
 export type StartStateDto = { "state": "needsAccess", path?: string, } | { "state": "opening", name: string, path: string, } | { "state": "open", vault: VaultInfo, } | { "state": "failed", path: string, kind: string, } | { "state": "none" };
 export type FoundVaultDto = { name: string, path: string, rel: string, };
 export type StorageAccessDto = { granted: boolean, sharedRoot: string, };

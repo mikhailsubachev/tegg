@@ -4,7 +4,7 @@
 use tegg_schema::{AttrDef, AttrType};
 
 fn def(t: &str) -> AttrDef {
-    AttrDef { key: "k".into(), name: "K".into(), r#type: AttrType::parse(t), default: None, required: false, options: Vec::new(), to: None, multiple: false, description: None, built_in: false }
+    AttrDef { key: "k".into(), name: "K".into(), r#type: AttrType::parse(t), default: None, required: false, options: Vec::new(), to: None, multiple: false, description: None, built_in: false, icon: None }
 }
 
 #[test]

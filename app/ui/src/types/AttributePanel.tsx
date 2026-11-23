@@ -10,10 +10,10 @@ import { taskState } from '@tegg/schema';
 import { appZone } from '../zone';
 import { t } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
-import type { LinkTargetDto, TypeDto } from '../ipc/types';
+import type { AttributeDto, LinkTargetDto, TypeDto } from '../ipc/types';
 import { formatDate, formatDateTime } from '../read/PropertiesStrip';
 import { DISABLED_CONTROLS, showDue } from '../shell/registry';
-import { Icon } from '../shell/Icon';
+import { Icon, LucideIcon } from '../shell/Icon';
 import { CheckboxControl, MultiSelectControl, SelectControl } from './controls/ChoiceControls';
 import { joinDesc, WarnIcon, type Value } from './controls/common';
 import { DateControl, DateRangeControl, DateTimeControl } from './controls/DateControls';
@@ -38,6 +38,12 @@ function readOnlyReason(row: PanelRow): string {
 }
 
 /** Relation targets of the note's frontmatter (rows and Other properties), resolved once per change of the head. */
+
+/** Slice OC (FR-TYP-01 AC-13, FR-EDT-07 AC-22; D-2070): a property's icon before its label, hidden from the
+ *  accessibility tree (the label's name stays the Name). */
+function labelIcon(attr: AttributeDto | null | undefined) {
+  return attr?.resolvedIcon ? <LucideIcon icon={attr.resolvedIcon} dataIcon={attr.icon ?? attr.resolvedIcon.name} size={12} className="attr-icon" /> : null;
+}
 export function useLinks(path: string, text: string): Map<string, LinkTargetDto> {
   const [links, setLinks] = useState<Map<string, LinkTargetDto>>(new Map());
   const targets = useMemo(() => {
@@ -186,7 +192,7 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
   };
 
   return (
-    <section className="attr-panel" aria-label={t('props.title')}>
+    <section className="attr-panel" data-attribute-panel="" aria-label={t('props.title')}>
       {onToggle && (
         <button type="button" className="properties-head" aria-expanded={open} data-command="note.toggleProperties" onClick={onToggle}>
           <Icon name={open ? 'chevron-down' : 'chevron-right'} size={12} />
@@ -199,8 +205,8 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
           const userNamed = !!row.attr;
           const emptyRequired = row.required && row.validity.state === 'empty';
           return (
-            <div key={row.key} className={`attr-row ${row.required ? 'required' : ''}`} data-key={row.key}>
-              <span className="attr-label" title={row.attr?.description ?? undefined} data-user-content={userNamed ? '' : undefined}>{row.label}</span>
+            <div key={row.key} className={`attr-row ${row.required ? 'required' : ''}`} data-key={row.key} data-attribute={row.key}>
+              <span className="attr-label" title={row.attr?.description ?? undefined} data-user-content={userNamed ? '' : undefined}>{labelIcon(row.attr)}{row.label}</span>
               <span className="attr-value" data-overdue={row.key === 'due' && overdue ? 'true' : undefined}>
                 {rowControl(row, i)}
                 {emptyRequired && editable && <span className="required-warning"><WarnIcon />{t('panel.required')}</span>}
@@ -218,8 +224,8 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
       {otherOpen && otherCount > 0 && (
         <ul className="other-list" aria-label={t('panel.otherList')}>
           {model.hidden.map((row, j) => ( // FR-TYP-17: hidden properties keep their controls (D-316)
-            <li key={`h:${row.key}`} className={`attr-row ${row.required ? 'required' : ''}`} data-key={row.key}>
-              <span className="attr-label" title={row.attr?.description ?? undefined} data-user-content={row.attr ? '' : undefined}>{row.label}</span>
+            <li key={`h:${row.key}`} className={`attr-row ${row.required ? 'required' : ''}`} data-key={row.key} data-attribute={row.key}>
+              <span className="attr-label" title={row.attr?.description ?? undefined} data-user-content={row.attr ? '' : undefined}>{labelIcon(row.attr)}{row.label}</span>
               <span className="attr-value">{rowControl(row, model.rows.length + j)}</span>
             </li>
           ))}

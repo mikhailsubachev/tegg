@@ -290,7 +290,7 @@ A commit's content never changes, so the push gate's `red-first` check (§4 step
 Applied to staged files (commit gate: added, copied, modified or renamed, using the staged content) or to every file in the tree (push gate). A file fails if:
 - its path starts with `test exports/`; or
 - its name ends with `.zip` (case-insensitive) and it is not under `tests/fixtures/`; or
-- its size is more than **1,048,576 bytes** and it is not under `tests/fixtures/`.
+- its size is more than **2,097,152 bytes** (2 MiB, D-2075) and it is not under `tests/fixtures/`.
 
 Each failure is reported with the path and which rule it broke; the `privacy` check fails.
 

@@ -57,7 +57,7 @@ fn do_patch(key: &str, text: &str, ops: Vec<TypeOp>) -> Result<Option<String>, S
 }
 
 fn attr(key: &str, name: &str, t: AttrType) -> AttrDef {
-    AttrDef { key: key.into(), name: name.into(), r#type: t, default: None, required: false, options: vec![], to: None, multiple: false, description: None, built_in: false }
+    AttrDef { key: key.into(), name: name.into(), r#type: t, default: None, required: false, options: vec![], to: None, multiple: false, description: None, built_in: false, icon: None }
 }
 
 /// `text` with the first occurrence of `from` replaced by `to`; the test fails if `from` isn't there (fixture drift).
@@ -159,6 +159,7 @@ fn attr_from_json(v: &Value) -> AttrDef {
         multiple: v.get("multiple").and_then(Value::as_bool).unwrap_or(false),
         description: None,
         built_in: false,
+        icon: None,
     }
 }
 
@@ -180,6 +181,7 @@ fn type_from_json(v: &Value) -> TypeFile {
         hidden: vec![],
         columns: None,
         views: None,
+        card: None,
         template: None,
         attributes: v["attributes"]
             .as_array()

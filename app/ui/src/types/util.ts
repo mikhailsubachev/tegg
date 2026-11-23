@@ -43,6 +43,7 @@ export function pageFallback(types: TypeDto[]): TypeDto {
   return types.find((x) => x.key === 'page') ?? {
     key: 'page', name: 'Page', plural: 'Pages', folder: 'Pages', icon: 'file-text', color: COLORS[0], system: true, invalid: false, exists: false,
     version: null, state: 'ok', error: null, declaredVersion: null, description: null, review: 'off', preview: [], previewIgnored: [], hidden: [], columns: null, columnsIgnored: [], columnsUnreadable: false, embed: 'full', embedRaw: null, template: null, attributes: [], views: null, viewsUnreadable: false, viewItems: null, viewsSource: null,
+    cardList: ['tags', 'body', 'modified'], cardDefault: true, cardKeys: ['tags', 'body', 'modified'], cardIgnored: [], cardUnreadable: false, resolvedIcon: null,
   };
 }
 

@@ -12,6 +12,7 @@ import { ROUTES, routeDef } from '../shell/registry';
 import type { DateTimeUiDto, TypeDefDto, VaultInfo } from '../ipc/types';
 import { DateTimeSettings, MenuBarSettings, ShortcutsSettings, VaultSettings } from './settings5b';
 import { BackupsSection } from './BackupsPage';
+import { SettingsLayout, SettingsRow } from '../settings/SettingsLayout';
 
 
 const SECTIONS: [string, string][] = [
@@ -46,77 +47,75 @@ export function SettingsPage({ id, theme, heading, onSection, onTheme, vault, ty
   commandTitle: (id: string) => string | null;
 }) {
   const def = routeDef(id) ?? ROUTES.find((r) => r.id === 'settings/appearance')!;
+  // R219 (D-2071, D-2106): the shared layout; every control in a `SettingsRow`, nothing added, removed or changed.
   return (
     <div className="page-column settings">
       <h1 ref={heading} tabIndex={-1}>{id === 'settings/backups' ? t('backups.title') : id === 'settings/previews' ? t('settings.previews') : t(def.name)}</h1>
-      <nav className="settings-sections" aria-label={t('frame.settingsSections')}>
-        {SECTIONS.map(([sid, key]) => (
-          <a
-            key={sid}
-            href="#"
-            tabIndex={0}
-            aria-current={sid === id ? 'page' : undefined}
-            data-command={`goto.${sid}`}
-            onClick={(e) => { e.preventDefault(); onSection(sid); }}
-          >
-            {t(key)}
-          </a>
-        ))}
-      </nav>
-      {id === 'settings/appearance' ? (
-        <div className="settings-body">
-          <div className="setting">
-            <span className="setting-label" id="theme-label">{t('settings.theme')}</span>
-            <div role="radiogroup" aria-labelledby="theme-label" aria-label={t('settings.theme')} className="segmented">
-              {CHOICES.map(([c, key]) => (
-                <button tabIndex={0}
-                  key={c}
-                  type="button"
-                  role="radio"
-                  aria-checked={theme === c}
-                  aria-label={t(key)}
-                  data-command={`theme.${c}`}
-                  className={theme === c ? 'on' : ''}
-                  onClick={(e) => { e.currentTarget.focus(); onTheme(c); }}
-                  onKeyDown={(e) => {
-                    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); onTheme(c); }
-                  }}
-                >
-                  {t(key)}
-                </button>
-              ))}
-            </div>
+      <SettingsLayout nav={SECTIONS.map(([sid, key]) => (
+        <a
+          key={sid}
+          href="#"
+          role="link"
+          tabIndex={0}
+          aria-current={sid === id ? 'page' : undefined}
+          data-command={`goto.${sid}`}
+          onClick={(e) => { e.preventDefault(); onSection(sid); }}
+        >
+          {t(key)}
+        </a>
+      ))}>
+        {id === 'settings/appearance' ? (
+          <div className="settings-body">
+            <SettingsRow label={t('settings.theme')} labelId="theme-label">
+              <div role="radiogroup" aria-labelledby="theme-label" aria-label={t('settings.theme')} className="segmented">
+                {CHOICES.map(([c, key]) => (
+                  <button tabIndex={0}
+                    key={c}
+                    type="button"
+                    role="radio"
+                    aria-checked={theme === c}
+                    aria-label={t(key)}
+                    data-command={`theme.${c}`}
+                    className={theme === c ? 'on' : ''}
+                    onClick={(e) => { e.currentTarget.focus(); onTheme(c); }}
+                    onKeyDown={(e) => {
+                      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); onTheme(c); }
+                    }}
+                  >
+                    {t(key)}
+                  </button>
+                ))}
+              </div>
+            </SettingsRow>
+            <SettingsRow label={t('settings.appearance.outlineRail')} labelId="outline-rail-label" note={t('settings.appearance.outlineRailNote')}>
+              <button type="button" tabIndex={0} role="switch" aria-checked={outlineRail} aria-label={t('settings.appearance.outlineRail')} aria-labelledby="outline-rail-label"
+                aria-description={t('settings.appearance.outlineRailNote')} className={`switch${outlineRail ? ' on' : ''}`} data-command="outline.toggleRail"
+                onClick={() => onOutlineRail?.(!outlineRail)}>
+                <span className="switch-knob" aria-hidden="true" />
+              </button>
+            </SettingsRow>
+            {(['ctl.font', 'ctl.fontSize', 'ctl.accentColor'] as const).map((c) => (
+              <SettingsRow key={c} label={t(c)} labelId={`${c}-label`}>
+                <Disabled control={c} ariaLabel={t(c)} labelledBy={`${c}-label`} showDue />
+              </SettingsRow>
+            ))}
           </div>
-          <div className="setting">
-            <button type="button" tabIndex={0} role="switch" aria-checked={outlineRail} aria-label={t('settings.appearance.outlineRail')}
-              aria-description={t('settings.appearance.outlineRailNote')} className={`switch${outlineRail ? ' on' : ''}`} data-command="outline.toggleRail"
-              onClick={() => onOutlineRail?.(!outlineRail)}>
-              <span className="switch-knob" aria-hidden="true" />
-              <span>{t('settings.appearance.outlineRail')}</span>
-            </button>
-            <span className="muted setting-note">{t('settings.appearance.outlineRailNote')}</span>
-          </div>
-          <div className="setting-row">
-            <Disabled control="ctl.font" />
-            <Disabled control="ctl.fontSize" />
-            <Disabled control="ctl.accentColor" />
-          </div>
-        </div>
-      ) : id === 'settings/vault' && vault ? (
-        <VaultSettings vault={vault} types={types} refresh={refresh} onStarter={onStarter} onOpenFolder={onOpenFolder} />
-      ) : id === 'settings/menu-bar' ? (
-        <MenuBarSettings />
-      ) : id === 'settings/shortcuts' ? (
-        <ShortcutsSettings commandTitle={commandTitle} />
-      ) : id === 'settings/backups' ? (
-        <BackupsSection />
-      ) : id === 'settings/previews' ? (
-        <PreviewSettings />
-      ) : id === 'settings/date-time' ? (
-        <DateTimeSettings value={dateTime} onChange={onDateTime} />
-      ) : (
-        <Placeholder def={def} />
-      )}
+        ) : id === 'settings/vault' && vault ? (
+          <VaultSettings vault={vault} types={types} refresh={refresh} onStarter={onStarter} onOpenFolder={onOpenFolder} />
+        ) : id === 'settings/menu-bar' ? (
+          <MenuBarSettings />
+        ) : id === 'settings/shortcuts' ? (
+          <ShortcutsSettings commandTitle={commandTitle} />
+        ) : id === 'settings/backups' ? (
+          <BackupsSection />
+        ) : id === 'settings/previews' ? (
+          <PreviewSettings />
+        ) : id === 'settings/date-time' ? (
+          <DateTimeSettings value={dateTime} onChange={onDateTime} />
+        ) : (
+          <Placeholder def={def} />
+        )}
+      </SettingsLayout>
     </div>
   );
 }
@@ -160,8 +159,7 @@ function PreviewSettings() {
   const pct = ((prefs.hoverDelay - DELAY_MIN) / (DELAY_MAX - DELAY_MIN)) * 100;
   return (
     <div className="settings-body">
-      <div className="setting">
-        <span className="setting-label" id={`${id}-mode`}>{t('settings.preview.mode')}</span>
+      <SettingsRow label={t('settings.preview.mode')} labelId={`${id}-mode`}>
         <div role="radiogroup" aria-labelledby={`${id}-mode`} className="radio-list">
           {MODES.map(([m, key], i) => (
             <button key={m} type="button" role="radio" data-mode={m} aria-checked={prefs.mode === m} aria-label={t(key)} data-command={`preview.mode.${m}`}
@@ -172,9 +170,8 @@ function PreviewSettings() {
             </button>
           ))}
         </div>
-      </div>
-      <div className="setting">
-        <span className="setting-label" id={`${id}-delay`}>{t('settings.preview.delay')}</span>
+      </SettingsRow>
+      <SettingsRow label={t('settings.preview.delay')} labelId={`${id}-delay`} note={t('settings.preview.delayNote')} noteId={`${id}-note`}>
         <div className="slider-row">
           <div role="slider" tabIndex={0} aria-labelledby={`${id}-delay`} aria-valuemin={DELAY_MIN} aria-valuemax={DELAY_MAX} aria-valuenow={prefs.hoverDelay}
             aria-valuetext={t('settings.preview.delayValue', { ms: prefs.hoverDelay })} aria-disabled={hover ? undefined : 'true'} aria-describedby={`${id}-note`}
@@ -190,8 +187,7 @@ function PreviewSettings() {
           </div>
           <span className="slider-value">{t('settings.preview.delayValue', { ms: prefs.hoverDelay })}</span>
         </div>
-        <p className="setting-note" id={`${id}-note`}>{t('settings.preview.delayNote')}</p>
-      </div>
+      </SettingsRow>
     </div>
   );
 }

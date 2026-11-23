@@ -227,15 +227,21 @@ impl Shared {
     }
 }
 
-impl Core {
+impl Shared {
     pub(crate) fn file_cache(&self) -> Arc<FileCache> {
-        let mut c = lock(&self.shared.files);
+        let mut c = lock(&self.files);
         if let Some(f) = c.as_ref() {
             return f.clone();
         }
-        let f = Arc::new(self.shared.build_file_cache());
+        let f = Arc::new(self.build_file_cache());
         *c = Some(f.clone());
         f
+    }
+}
+
+impl Core {
+    pub(crate) fn file_cache(&self) -> Arc<FileCache> {
+        self.shared.file_cache()
     }
 
     fn drop_file_cache(&self) {
@@ -252,6 +258,15 @@ fn object_of<'a>(cache: &FileCache, objs: &'a [ObjectInfo], file: &str) -> Optio
         .collect();
     found.sort_by(|a, b| a.path.cmp(&b.path));
     found.into_iter().next()
+}
+
+/// v1-cards §3.2 (slice OC): an Image's or PDF's file target from the object at `from`: kind `media` when the vault has
+/// the file (title its name, type by its extension), None when it doesn't.
+pub(crate) fn media_file(cache: &FileCache, from: &str, target: &str) -> Option<LinkTarget> {
+    let t = nfc(target.trim());
+    let t = t.split(['|', '#']).next().unwrap_or("").trim().to_string();
+    let file = cache.live.resolve(parent(&nfc(from)), &t)?;
+    Some(LinkTarget { target: target.to_string(), kind: LinkKind::Media, path: Some(file.to_string()), title: Some(name(file).to_string()), r#type: type_of_ext(file) })
 }
 
 /// §3.2 then §2 for a target the live objects don't resolve; `None` = still unresolved.

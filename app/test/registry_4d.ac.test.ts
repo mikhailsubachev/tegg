@@ -50,7 +50,7 @@ test('fr_tag_07_ac1_routes_tags_tag_page_and_backups_are_built', async () => {
   const b = routes.find((r) => r.id === 'settings/backups');
   assert.ok(b, 'route settings/backups');
   assert.equal(b.status.built, true, 'settings/backups is built');
-  assert.equal(b.design, null, 'no board');
+  assert.equal(b.design, 'Settings', 'board Settings (D-2106, D-2154)');
   const ms4 = (reg.overdue('MS4') as string[]).join('\n');
   for (const re of [/^tags /m, /FR-TAG-0[1-8]/, /duplicates\.merge|Merge…/, /ctl\.rowColor/]) assert.ok(!re.test(ms4), `overdue('MS4') holds ${re}:\n${ms4}`);
 });

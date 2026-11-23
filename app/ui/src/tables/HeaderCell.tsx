@@ -6,8 +6,11 @@
 import { useRef, useState } from 'react';
 import { t } from '../i18n/catalog';
 import { WIDTH, clampWidth } from './widths';
+import type { AttributeDto } from '../ipc/types';
+import { LucideIcon } from '../shell/Icon';
 
-export type HeaderColumn = { key: string; label: string; userNamed: boolean };
+/** Slice OC (FR-TYP-01 AC-13, D-2070): `attr`, the attribute the header's Name comes from; its icon goes before the text. */
+export type HeaderColumn = { key: string; label: string; userNamed: boolean; attr?: AttributeDto | null };
 export type SortMarker = { arrow: '↑' | '↓'; n: number | null };
 
 const SUP: Record<string, string> = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
@@ -96,6 +99,7 @@ export function HeaderCell({ col, first, width, sortable = true, ariaSort, marke
         else if (p && p.moves >= 3) dragged.current = true;
       }}
       onPointerCancel={() => { press.current = null; setReordering(false); }}>
+      {col.attr?.resolvedIcon && <LucideIcon icon={col.attr.resolvedIcon} dataIcon={col.attr.icon ?? col.attr.resolvedIcon.name} size={13} className="th-icon" />}
       <span className="th-label" data-user-content={col.userNamed ? '' : undefined}>{col.label}</span>
       {marker && <span className="sort-marker" aria-hidden="true">{' '}{marker.arrow}{marker.n !== null && <sup>{sup(marker.n)}</sup>}</span>}
       {resizable && (

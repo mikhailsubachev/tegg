@@ -24,7 +24,12 @@ import { foldedOf, setFolded } from '../../views/uiState';
 import { queryAlert } from '../editorHost';
 import { announceView, ensureViewsLive } from '../../views/live';
 import { queryNav } from '../nav';
-import { BoardCard, type TaskCardContext } from './BoardCard';
+import { ObjectCard, cardEnv } from '../../cards/ObjectCard';
+import type { TaskDefsDto } from '../../ipc/types';
+import type { TaskNav } from '../../tasks/TaskCard';
+
+/** What a Task card on a board needs (§29.5): the result's Task definitions and its nav and toggle. */
+type TaskCardContext = { defs: TaskDefsDto; nav: TaskNav; onToggle: (row: QueryRowDto, done: boolean) => void };
 import { cardMove, excludedValues, laneOrderAfterDrop, neighbourDropLane, prefillFor } from './model';
 import { writeCardChange, writeCardMove, writePeriodMove, type CardMoveResult } from './write';
 import type { PeriodMove } from '@tegg/doc';
@@ -108,6 +113,12 @@ export function QueryBoard({ result, name, title, readOnly, types, filter, apply
   const typeOf = (k: string) => types.find((x) => nfc(x.key) === nfc(k));
   const pageType = def.types.length === 1 ? typeOf(def.types[0]) : undefined;
   const typeName = (k: string) => typeOf(k)?.name ?? k;
+  // Slice OC (v1-cards §7.4): the ObjectCard's clock, zone and region, and the grouping key it hides (views.md R187;
+  // tags never hide, a period key keeps its date, R203) or shows in full on a multi-value card (D-1769).
+  const cEnv = { ...cardEnv(), ...(env.zone ? { zone: env.zone } : {}), ...(env.locale ? { region: env.locale } : {}) };
+  const gkeyCard = nfc(group.key);
+  const hideKey = isPeriod || gkeyCard === 'tags' ? null : gkeyCard;
+  const multiGroup = group.kind !== 'select' && !isPeriod && gkeyCard !== 'tags';
   const rowsByPath = useMemo(() => new Map(result.rows.map((r) => [nfc(r.path), r])), [result.rows]);
 
   // ---- optimistic moves (NFR-PERF-07 AC-4): the card shows in its target lane until the next answer.
@@ -365,8 +376,7 @@ export function QueryBoard({ result, name, title, readOnly, types, filter, apply
     settle(nfc(row.path), row, writeCardChange(row, (text) => { const a = change(text); return a === null ? null : { text: a, inlineKept: false }; }), () => {});
   };
   const taskCtx: TaskCardContext | null = result.taskDefs ? {
-    defs: result.taskDefs, today: env.today, region: env.locale, zone: env.zone,
-    preview: (taskType?.preview ?? ['status', 'priority', 'due']).map(nfc),
+    defs: result.taskDefs,
     nav: {
       openNote: (p) => open(p, null),
       openSource: (p, task) => queryNav()?.go({ id: 'note/<path>', param: nfc(p), selectEmbedOf: nfc(task) }),
@@ -525,13 +535,18 @@ export function QueryBoard({ result, name, title, readOnly, types, filter, apply
         newTile={pageType ? t('board.newTile', { type: pageType.name }) : ''}
         focusRequest={focusRequest}
         renderCard={(key, laneId, slot) => {
+          void taskType;
           const r = row(key);
           if (!r) return null;
           return (
-            <BoardCard key={`${laneId}\n${key}`} row={r} laneId={laneId} type={typeOf(r.type)} typeName={typeName(r.type)} group={group} task={taskCtx}
+            <ObjectCard key={`${laneId}\n${key}`} path={r.path} surface="board" type={typeOf(r.type) ?? null} typeName={typeName(r.type)} env={cEnv}
+              card={r.card ?? { type: r.type, title: r.title, keys: [], values: {}, excerpt: null, links: r.links, unreviewed: false, file: null }}
+              task={r.taskRow && taskCtx ? { ...r.taskRow, readOnly: r.readOnly || r.taskRow.readOnly } : null}
+              nav={taskCtx?.nav} onToggle={(done) => taskCtx?.onToggle(r, done)}
+              hideKey={hideKey} groupValues={multiGroup ? r.values[gkeyCard] : undefined} readOnly={r.readOnly}
               slot={{ ...slot, onKeyDown: (e) => { if (e.key === 'F10' && e.shiftKey && e.target === e.currentTarget) { e.preventDefault(); setSub(null); if (r.taskRow && taskCtx) setTaskMenu({ row: r, anchor: e.currentTarget, lane: laneId }); else setMenu({ row: r, anchor: e.currentTarget, lane: laneId }); return; } slot.onKeyDown(e); } }}
               onOpen={(p) => open(p, laneId)}
-              onMenu={(rr, anchor, lane) => { setSub(null); if (rr.taskRow && taskCtx) setTaskMenu({ row: rr, anchor, lane }); else setMenu({ row: rr, anchor, lane }); }} />
+              onMenu={(anchor) => { setSub(null); if (r.taskRow && taskCtx) setTaskMenu({ row: r, anchor, lane: laneId }); else setMenu({ row: r, anchor, lane: laneId }); }} />
           );
         }} />
       {menu && (

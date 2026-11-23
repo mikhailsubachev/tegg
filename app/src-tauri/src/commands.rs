@@ -2,7 +2,7 @@
 //! desktop `generate_handler!`. Compiled on every target; `tests/ac_android_commands.rs` ties them to the two handlers,
 //! `build.rs` and the capability files.
 
-/// Every command the desktop registers (AND-1 changes none; D-2053). Each is in `ANDROID` or excluded on Android.
+/// Every command the desktop registers (AND-1 changes none; D-2053; later slices add some, D-2168). Each is in `ANDROID` or excluded on Android.
 pub const DESKTOP: &[&str] = &[
     "vault_current", "vault_open", "index_search", "index_switcher", "note_read", "note_create", "perf_mark",
     "vault_create", "vault_pick_dir", "vault_last", "vault_recent", "app_about", "vault_types", "index_type_counts",
@@ -23,7 +23,7 @@ pub const DESKTOP: &[&str] = &[
     "index_tagged_objects", "tag_usage", "tag_new_path", "tag_rename", "tag_delete", "type_move_plan", "type_move",
     "folder_move_preview", "tidy_now", "jobs_ready", "value_remove_start", "type_delete_start", "merge_start",
     "job_plan", "backup_reveal", "graph_neighbourhood", "graph_presets_get", "graph_presets_apply", "pins_get",
-    "pins_apply", "index_related", "queries_list", "query_get", "query_run", "query_apply", "query_revert",
+    "pins_apply", "index_related", "type_card_example", "queries_list", "query_get", "query_run", "query_apply", "query_revert",
     "query_create", "query_duplicate", "query_rename", "query_trash", "query_restore", "query_usages",
     "query_view_usages", "task_views_restore", "import_pick_source", "import_scan", "import_cancel", "import_where", "import_check_target",
     "import_plan", "import_start", "import_status", "import_discard", "import_transform_result",
@@ -43,7 +43,7 @@ pub const ANDROID: &[&str] = &[
     "editor_close", "task_list", "daily_tasks", "vault_settings", "vault_settings_patch", "inbox_list",
     "inbox_count", "index_versions", "trash_list", "object_trash", "media_add", "media_add_paths", "tag_objects",
     "index_tagged_objects", "tag_usage", "tag_new_path", "jobs_ready", "job_plan", "pins_get", "pins_apply",
-    "queries_list", "query_get", "query_run", "query_usages", "query_view_usages", "vault_start", "vault_find",
+    "type_card_example", "queries_list", "query_get", "query_run", "query_usages", "query_view_usages", "vault_start", "vault_find",
     "storage_access", "storage_access_settings",
 ];
 

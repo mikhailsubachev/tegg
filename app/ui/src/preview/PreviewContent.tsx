@@ -8,7 +8,11 @@ import { chipIcon, chipTypes, typeNameOf } from '../links/icons';
 import { chipState, taskGlyph, taskIconDef } from '../links/chip';
 import { Icon } from '../shell/Icon';
 import { Notice, PreviewBody } from './PreviewBody';
-import { StripList } from '../embeds/strip';
+import { useRef } from 'react';
+import { CardItems } from '../cards/CardPill';
+import type { CardItem } from '../cards/model';
+import { useTwoRows } from '../cards/overflow';
+import '../cards/cards.css';
 import type { PreviewModel } from './load';
 import { getPrefs, previewHost } from './store';
 import type { PreviewTarget, PreviewExtraAction } from './types';
@@ -43,6 +47,18 @@ function HeaderIcon({ m }: { m: PreviewModel }) {
   const i = chipIcon(m.type);
   const type = (chipTypes() as TypeDto[]).find((x) => nfc(x.key) === m.type);
   return <span className="preview-icon" data-color={type?.color ?? undefined}><Icon name={i.glyph} dataIcon={i.def} size={16} /></span>;
+}
+
+/** The `Preview properties` region (D-2068, D-2093): the card's pills, then its link chip, two rows then `+N more`. Its
+ *  relation chips are references (D-1189): a click replaces the content in click mode. */
+function PreviewStrip({ items, path }: { items: CardItem[]; path: string }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useTwoRows(ref, [items]);
+  return (
+    <div role="region" aria-label={t('preview.properties')} className="preview-strip card-pills" ref={ref}>
+      <CardItems items={items} opts={{ from: path, onOpen: (p) => previewHost()?.open({ path: nfc(p), fragment: null, kind: 'note' }) }} />
+    </div>
+  );
 }
 
 export type ContentProps = {
@@ -91,13 +107,7 @@ export function PreviewContent({ uid, model, target, extraLines, extraAction, bo
           <Icon name="x" size={14} />
         </button>
       </header>
-      {m?.state === 'ok' && m.strip.length > 0 && (
-        <div role="region" aria-label={t('preview.properties')} className="preview-strip">
-          <StripList cols={m.strip} data={m.data} links={m.links} path={m.path} title={m.title} typeKey={m.type} className="preview-props" refs
-            onOpen={(p) => previewHost()?.open({ path: nfc(p), fragment: null, kind: 'note' })}
-            onTag={(k) => previewHost()?.open({ path: '', fragment: null, kind: 'tag', key: k })} />
-        </div>
-      )}
+      {m?.state === 'ok' && m.strip.length > 0 && <PreviewStrip items={m.strip} path={m.path} />}
       {m?.state === 'ok' && <Notice m={m} />}
       <article ref={bodyRef as RefObject<HTMLElement>} className="preview-body" aria-label={t('preview.content', { title: plainTitle(m, target) })} tabIndex={-1}>
         {m && <PreviewBody model={m} target={target} scrollToEmbedOf={scrollToEmbedOf} scroller={bodyRef} />}
