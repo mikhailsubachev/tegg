@@ -8,7 +8,9 @@ import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'reac
 import { t, catalogLocale } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
 import type { QueryDefDto, QueryResultDto, QueryRowDto, SortDto } from '../ipc/queries';
-import type { TypeDto } from '../ipc/types';
+import type { TypeDto, TypeRowDto } from '../ipc/types';
+import { collator } from '../i18n/collate';
+import { sortTypeRows } from './allSort';
 import { Icon } from '../shell/Icon';
 import { TagFilterControl } from './TagFilterControl';
 import { keepRow } from './tagFilter';
@@ -17,6 +19,7 @@ import { DisplayControls, type DisplayControlsApi } from '../queries/GroupMenu';
 import { effectiveDisplay, effectiveGrouping, groupChoices, isGrouped, limitApplies, noticeKeys, ownKeys, resetLaneOrderChange, type Display } from './display';
 import { ColumnsMenu, ResultChip, noticeOf } from '../queries/QueryBlock';
 import { ResultsTable } from '../queries/ResultsTable';
+import { GroupedList, useGrouped, type GroupControl } from '../queries/Grouped';
 import { SortPopover, sortKeyName } from '../queries/SortPopover';
 import { buttonText, headerClick, sameSort } from '../queries/sort';
 import { queryAlert } from '../queries/editorHost';
@@ -57,6 +60,8 @@ export type PanelApi = {
   /** Slice Q3: the palette's display, grouping and board commands on this tab. */
   run: (id: string) => void;
 };
+
+const showResultsOf = (state: ViewState, live: QueryResultDto | null) => state === 'ok' || state === 'types' || state === 'newer' || (state === 'draft' && !!live);
 
 export function viewStateOf(r: QueryResultDto | null, typeKey: string, draft: boolean): ViewState {
   if (draft) return 'draft';
@@ -160,7 +165,7 @@ export function ViewPanel({ name, typeKey, type, types, plural, filter, onFilter
     editorUsage: () => (usage ? { sort: uw.current().sort, columns: uw.current().columns, setColumns: (c) => uw.columns(c), disabled: uw.disabled } : null),
     display: () => (def && !draft ? {
       value: display, grouped, wall: display === 'wall', writable: !disabled, ownView: own.view !== null, ownGroup: own.group !== null || own.lanes !== null || own.laneOrder !== null,
-      laneOrder: grouped && laneOrder !== null, groupFocused: false, all: false, resetLaneOrder: grouped && laneOrder !== null,
+      laneOrder: grouped && laneOrder !== null, groupFocused: display !== 'wall' && !!groupCtl.current?.focused(), all: false, resetLaneOrder: grouped && laneOrder !== null,
     } : null),
     run: (id) => {
       if (disabled && (id.startsWith('display.') || id.startsWith('group.') || id === 'board.switchLanes' || id === 'board.resetLaneOrder')) return;
@@ -172,6 +177,9 @@ export function ViewPanel({ name, typeKey, type, types, plural, filter, onFilter
         case 'group.useQuery': void uw.group(null); return;
         case 'board.switchLanes': if (grouped && display === 'wall') void uw.lanes(lanes === 'rows' ? 'columns' : 'rows'); return;
         case 'board.resetLaneOrder': if (grouped && laneOrder !== null) resetLaneOrder(); return;
+        case 'board.laneUp': case 'board.laneDown':
+          if (display !== 'wall' && groupCtl.current?.focused()) { groupCtl.current.move(id === 'board.laneUp' ? -1 : 1); return; }
+          board.current?.run(id); return;
         default: board.current?.run(id);
       }
     },
@@ -200,7 +208,19 @@ export function ViewPanel({ name, typeKey, type, types, plural, filter, onFilter
   const rowTags = (r: QueryRowDto) => r.tags ?? (Array.isArray(r.values.tags) ? r.values.tags : []).map((x) => nfc(String(x)).replace(/^#/, '').toLowerCase());
   const keep = (r: QueryRowDto) => (!q || fold(r.title).includes(q)) && keepRow({ tags: rowTags(r) }, filter.tags);
   const all = result?.rows ?? [];
-  const narrowed = all.filter(keep);
+  // A sort just written shows at once (R222: within 300 ms), before the next run answers: the rows in the pending
+  // sort's order, the type page's comparison (title, then path, last).
+  const runSort = run.result?.usage?.sort ?? def?.sort ?? [];
+  const sortPending = !plainRun && !!def && !sameSort(effSort, runSort);
+  const narrowed0 = all.filter(keep);
+  const narrowed = sortPending ? sortTypeRows(narrowed0 as unknown as TypeRowDto[], effSort, type, collator()) as unknown as QueryRowDto[] : narrowed0;
+  // ---- Slice Q3 (R225, §41.5): a grouped Table or List draws the run's groups.
+  const groupCtl = useRef<GroupControl | null>(null);
+  const groupedBody = useGrouped({
+    on: showResultsOf(state, live) && grouped && display !== 'wall', result, def: def ? { ...def, lanes, laneOrder } : null, keep, foldKey: uKey,
+    display: display === 'list' ? 'list' : 'table', types, grips: true, disabled: readOnly ?? disabled ?? (draft || live ? t('query.block.usageNotEditable') : null),
+    onLaneOrder: (order) => { if (!readOnly && !draft && !live) void uw.laneOrder(order); }, controlRef: groupCtl,
+  });
   // D-2189: `limit` applies to an ungrouped List or Table only.
   const limit = limitApplies(display, grouped) ? Math.max(1, def?.limit ?? 50) : Math.max(1, narrowed.length);
   const count = Math.min(shown ?? limit, narrowed.length);
@@ -321,8 +341,9 @@ export function ViewPanel({ name, typeKey, type, types, plural, filter, onFilter
         sort={effSort} columns={effColumns} widthKey={uKey} widthScope={widthScope}
         onOpen={(p) => queryNav()?.openNote(p)}
         onSort={(by, shift) => { const cur = uw.current().sort; const next = headerClick(cur, by, shift); if (!sameSort(next, cur) || !ownSort) void uw.sort(next); }}
-        onColumns={(columns) => { void uw.columns(columns); }} />;
+        onColumns={(columns) => { void uw.columns(columns); }} grouped={grouped ? groupedBody : null} />;
     }
+    if (grouped) return <GroupedList grouped={groupedBody} title={def.title} />;
     return (
       <ul className="query-list view-list" aria-label={def.title}>
         {rows.map((r) => <li key={r.path} data-query-result={nfc(r.path)}><ResultChip row={r} onOpen={(p) => queryNav()?.openNote(p)} /></li>)}

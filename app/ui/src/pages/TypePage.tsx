@@ -245,7 +245,7 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
   const writable = !!type && type.state === 'ok';
   // Slice Q3 (§41.10; D-2178, CP-34): `All <plural>`'s display and grouping on this Mac.
   const allOn = !header && !!type && hasViews(typeKey, type);
-  const allDisplay = useAllDisplay({ type, typeKey, plural: pluralName, sort: levels, filterText: filter, tags: tagSel, types, on: allOn });
+  const allDisplay = useAllDisplay({ type, typeKey, plural: pluralName, sort: levels, filterText: filter, tags: tagSel, types, on: allOn, onSort: (s) => onSort(s) });
   // D-1245: a `columns` value that isn't a list disables the menu until it is fixed in the file.
   const menuOk = writable && !type.columnsUnreadable;
   const columnsReason = !type ? undefined : type.state === 'newer' ? t('ts.newer') : type.state !== 'ok' ? t('typePage.columnsInvalid')

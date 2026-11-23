@@ -3,7 +3,7 @@
 // block its fence through the editor (`QueryCtl.setSource`, one transaction, one undo step, one autosave), the query
 // page the query file (`query_apply`, the defaults). Each change is computed by the caller from the usage's effective
 // value (`current()`) and written whole as its own value; nothing is written when it equals the own value already set.
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { withUsage } from '@tegg/doc';
 import { t } from '../i18n/catalog';
 import { errorKind, ipc } from '../ipc/client';
@@ -79,6 +79,9 @@ export function useUsageWrite(usage: Usage | null, result: QueryResultDto | null
   // The own values this usage last wrote (undefined: none pending; null: removed), until the next run.
   const pending = useRef<{ sort?: SortDto[] | null; columns?: string[] | null; view?: Display | null; group?: UsageGroupDto | null; lanes?: LanesDto | null; laneOrder?: string[] | null; widths?: [string, number][] | null }>({});
   useEffect(() => { pending.current = {}; }, [result]);
+  // A pending own value shows at once (R222: the body redraws within 300 ms), before the write and the next run land.
+  const [, setTick] = useState(0);
+  const redraw = () => setTick((n) => n + 1);
 
   const readOnly = result?.lookup === 'newer';
   const disabled = !usage ? null
@@ -145,6 +148,7 @@ export function useUsageWrite(usage: Usage | null, result: QueryResultDto | null
       // False: the block is gone, or the editor refused the write (its container couldn't be patched, D-1885).
       if (!ctl.setSource(src)) { queryAlert(t('query.saveFailed')); return false; }
       pending.current = { ...pending.current, [key]: value };
+      redraw();
       return true;
     }
     // A tab: its `views:` item.
@@ -153,6 +157,7 @@ export function useUsageWrite(usage: Usage | null, result: QueryResultDto | null
       ? { op: 'viewSort', name: usage.name.normalize('NFC'), sort: value as SortDto[] | null }
       : { op: 'viewColumns', name: usage.name.normalize('NFC'), columns: value as string[] | null };
     pending.current = { ...pending.current, [key]: value };
+    redraw();
     try {
       if (patch) await patch([op]);
       else await ipc.typePatch(type.key, type.exists ? type.version : null, [op]);
@@ -202,6 +207,7 @@ export function useUsageWrite(usage: Usage | null, result: QueryResultDto | null
     const { type, ctl, fenceSource, rerun, patch, plural, apply } = opts.current;
     const remember = () => {
       pending.current = key === 'group' && value === null ? { ...pending.current, group: null, lanes: undefined, laneOrder: undefined } : { ...pending.current, [key]: value };
+      redraw();
     };
     if (usage.kind === 'page') {
       // `query/<name>` sets the defaults (the query file); `Use the query's …` isn't offered there.

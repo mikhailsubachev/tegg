@@ -90,3 +90,18 @@
 .query-header .group-button:hover, .query-header .group-button[aria-expanded="true"] { color: var(--text); background: var(--hover); }
 .view-toolbar .group-button { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); white-space: nowrap; }
 .view-toolbar .group-button:hover, .view-toolbar .group-button[aria-expanded="true"] { color: var(--text); background: var(--hover); }
+
+/* Slice Q3 (R225; boards Views H1, H2): grouped Table and List headers. */
+.query-table tr.group-header > td { padding: 0; background: var(--panel); border-bottom: 1px solid var(--border); }
+.group-header-cell, div.group-header { display: flex; align-items: center; gap: 6px; min-height: 30px; padding: 3px 8px; }
+div.group-header { border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 1; }
+.group-header .group-value { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.group-header .group-value.link-chip { font-weight: 500; }
+.group-header .count { color: var(--muted); font-variant-numeric: tabular-nums; }
+.group-header .group-grip { margin-left: auto; color: var(--muted); cursor: grab; display: inline-flex; padding: 2px; border-radius: 4px; opacity: 0; }
+.group-header:hover .group-grip, .group-header .group-grip:focus-visible { opacity: 1; }
+.group-header .group-grip[aria-disabled="true"] { cursor: default; }
+.group-header.group-dragging { opacity: 0.55; }
+.group-header.group-drop-before { box-shadow: inset 0 2px 0 var(--accent); }
+.group-header.group-drop-after { box-shadow: inset 0 -2px 0 var(--accent); }
+.query-group + .query-group { margin-top: 4px; }

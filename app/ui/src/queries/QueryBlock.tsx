@@ -26,6 +26,7 @@ import { DisplayControls, type DisplayControlsApi } from './GroupMenu';
 import { effectiveDisplay, effectiveGrouping, groupChoices, isGrouped, limitApplies, noticeKeys, ownKeys, resetLaneOrderChange, type Display } from '../views/display';
 import type { WidthScope } from '../tables/widths';
 import { ResultsTable } from './ResultsTable';
+import { GroupedList, useGrouped, type GroupControl } from './Grouped';
 import { SortPopover, sortKeyName } from './SortPopover';
 import { useQueryApply } from './useQueryApply';
 import { announceQuery, dismissQueryEditor, openQueryEditor, queryAlert, queryEditorOpen } from './editorHost';
@@ -350,6 +351,14 @@ export function QueryBlock(p: QueryBlockProps) {
   const view = display;
   // Slice Q3 (R224): a grouped wall draws its board; a wall without a valid grouping is the ungrouped wall.
   const isBoard = view === 'wall' && grouped;
+  // Slice Q3 (R225, §41.5): a grouped Table or List draws the run's groups; group drags write the usage's `lane_order`
+  // (the fence, or the query file on `query/<name>`); inline fences fold in memory and have no grips.
+  const groupCtl = useRef<GroupControl | null>(null);
+  const groupedBody = useGrouped({
+    on: showResults && grouped && view !== 'wall', result, def: def ? { ...def, lanes, laneOrder } : null, foldKey: uKey,
+    display: view === 'list' ? 'list' : 'table', types, grips: !inline, disabled: readOnly ? t('query.block.readOnly') : displayDisabled,
+    onLaneOrder: (order) => { if (inline || readOnly) return; undo.current = null; void uw.laneOrder(order); }, controlRef: groupCtl,
+  });
   const sortTitle = def ? (() => { const b = buttonText(effSort, (k) => sortKeyName(k, def.types.length === 1 ? types.find((x) => nfc(x.key) === nfc(def.types[0])) : undefined).label); return b.text + (b.more ? ` ${t('sort.more', { count: b.more })}` : ''); })() : undefined;
   // The palette (v1-views §4.7): a selected block, or the query page's block.
   useViewsHandler(!!(p.selected || p.onPage) && !!name && !inline, {
@@ -359,7 +368,7 @@ export function QueryBlock(p: QueryBlockProps) {
       usage: isBlockUsage && !usageDisabled && run.result ? { kind: 'block' as const, ownSort: canUseQuery(run.result, 'sort'), ownColumns: canUseQuery(run.result, 'columns') } : null,
       display: hasControls ? {
         value: display, grouped, wall: display === 'wall', writable: !displayDisabled, ownView: own.view !== null, ownGroup: own.group !== null || own.lanes !== null || own.laneOrder !== null,
-        laneOrder: grouped && laneOrder !== null, groupFocused: false, all: false,
+        laneOrder: grouped && laneOrder !== null, groupFocused: view !== 'wall' && !!groupCtl.current?.focused(), all: false,
       } : null,
     }),
     run: (id) => {
@@ -375,6 +384,9 @@ export function QueryBlock(p: QueryBlockProps) {
           case 'group.useQuery': void uw.group(null); return;
           case 'board.switchLanes': if (isBoard) void uw.lanes(lanes === 'rows' ? 'columns' : 'rows'); return;
           case 'board.resetLaneOrder': if (grouped && laneOrder !== null) resetLaneOrder(); return;
+          case 'board.laneUp': case 'board.laneDown':
+            if (view !== 'wall' && groupCtl.current?.focused()) { undo.current = null; groupCtl.current.move(id === 'board.laneUp' ? -1 : 1); return; }
+            break;
           default: break;
         }
       }
@@ -553,8 +565,9 @@ export function QueryBlock(p: QueryBlockProps) {
           if (isBlockUsage) { const cur = uw.current().sort; sortTo(headerClick(cur, by, shift)); return; }
           apply((d) => { const next = headerClick(d.sort, by, shift); return sameSort(next, d.sort) ? null : { sort: next }; });
         }}
-        onColumns={(columns) => columnsTo(columns)} />;
+        onColumns={(columns) => columnsTo(columns)} grouped={grouped ? groupedBody : null} />;
     }
+    if (grouped && def) return <GroupedList grouped={groupedBody} title={title} />;
     return (
       <ul className="query-list" aria-label={title}>
         {rows.map((r) => <li key={r.path}><ResultChip row={r} onOpen={openRow} /></li>)}

@@ -393,6 +393,8 @@ export function commands(ctx: ShellContext): Command[] {
       if (b.lanes === 'vertical') list.push(cmd('board.laneLeft', 'cmd.laneLeft'), cmd('board.laneRight', 'cmd.laneRight'));
       else list.push(cmd('board.laneUp', 'cmd.laneUp'), cmd('board.laneDown', 'cmd.laneDown'));
     }
+    // Slice Q3 (§42.4, D-2194 (d)): a focused group header of a grouped Table or List.
+    if (!b && d && d.groupFocused && d.grouped && !d.wall && d.writable && vw && !d.all) list.push(cmd('board.laneUp', 'cmd.laneUp'), cmd('board.laneDown', 'cmd.laneDown'));
   }
   if (ctx.route?.id === 'duplicate-titles') {
     list.push({ id: 'duplicates.merge', title: 'duplicates.merge', section: 'edit', needsVault: true, run: (c) => a(c)?.mergeFocused?.() });
