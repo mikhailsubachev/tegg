@@ -98,11 +98,14 @@ test('fr_syn_03_ac32_q2t_writes_check_the_base', async ({ page }) => {
 test('fr_syn_03_ac32_q2t_writes_check_the_base_kanban_lane_drag', async ({ page }) => {
   const core = await startTasksViews(page, { route: TYPE_TASK });
   const b = await openTasks(page, KANBAN);
-  const ext = overlayOriginal(qfile(KANBAN)).replace('limit: 50\n', 'limit: 40\n');
-  await core.setFile(qfile(KANBAN), ext, { silent: true });
+  // Slice Q3 (AC-Test-Change, D-2196; FR-TSK-05 AC-23): on the tab the lane drag writes task.yml's item; the base is
+  // task.yml and the alert is views.changedOutside. Kanban.yml stays untouched.
+  const ext = `${overlayOriginal(TASK_YML)}# změněno jinde\n`;
+  await core.setFile(TASK_YML, ext, { silent: true });
   await drag(page, laneGrip(b, 'option:Waiting'), lane(b, 'option:To do'), { at: 'left' });
-  assert.ok(await seen(alertWith(page, 'This query changed outside Tegg. Your change wasn\'t saved.'), 3000), 'the lane drag is refused');
-  assert.equal(await fileText(core, qfile(KANBAN)), ext, 'Kanban.yml keeps the external bytes');
+  assert.ok(await seen(alertWith(page, '"Tasks" changed outside Tegg. The views weren\'t changed.'), 3000), 'the lane drag is refused');
+  assert.equal(await fileText(core, TASK_YML), ext, 'task.yml keeps the external bytes');
+  assert.equal(await fileText(core, qfile(KANBAN)), overlayOriginal(qfile(KANBAN)), 'Kanban.yml untouched');
 });
 
 test('fr_syn_03_ac32_q2t_writes_check_the_base_restore', async ({ page }) => {
@@ -182,7 +185,8 @@ test('fr_syn_06_ac50_tasks_views_write_only_what_the_user_changes', async ({ pag
   await step('done-lane drop', [T.t02], () => drag(page, taskCard(s, T.t02), lane(s, 'done')));
   const k = await openTasks(page, KANBAN);
   await step('status drag', [T.t04], () => drag(page, taskCard(k, T.t04), lane(k, 'option:In progress')));
-  await step('lane drag', [qfile(KANBAN)], () => drag(page, laneGrip(k, 'option:Waiting'), lane(k, 'option:To do'), { at: 'left' }));
+  // Slice Q3 (AC-Test-Change, D-2196): a lane drag on the tab writes task.yml's Kanban item.
+  await step('lane drag', [TASK_YML], () => drag(page, laneGrip(k, 'option:Waiting'), lane(k, 'option:To do'), { at: 'left' }));
   const tg = await openTasks(page, 'Podle štítků');
   await step('tag drag', [T.t05], () => drag(page, taskCard(tg, T.t05, 'tag:doma'), lane(tg, 'tag:čtení')));
   s = await openTasks(page, SCHEDULE);

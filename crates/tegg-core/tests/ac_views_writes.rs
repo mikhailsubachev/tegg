@@ -187,7 +187,17 @@ fn fr_qry_05_ac11_group_by_kinds() {
     assert_eq!(tl.iter().map(|(i, c)| (i.clone(), c.len())).collect::<Vec<_>>(), vec![("tag:doporučené".into(), 2), ("tag:odloženo".into(), 1), ("tag:večerní".into(), 1), ("none".into(), 13)], "four tag lanes");
     let gt = group(&t, "Podle štítku");
     assert_eq!(gt.lanes[2].cards.first().map(|c| c.raw.clone()), Some(vec![]), "the inline #večerní: raw is empty");
-    assert!(run(&core, DATUM, &env()).group.is_none(), "group_by: finished (a date): no group");
+    // Slice Q3 (D-2173, D-2179): a broken group_by on a wall draws the ungrouped wall with the notice; `group_by` with
+    // `view: table` groups the Table.
+    let d = run(&core, DATUM, &env());
+    assert!(d.group.is_none(), "group_by: finished (a date): no group");
+    assert!(d.broken.iter().any(|b| b.key == "group_by"), "with the group_by notice");
+    assert_eq!((d.rows.len(), d.rows.iter().all(|x| x.card.is_some())), (17, true), "17 cards on an ungrouped wall, not 17 list rows");
+    write(&root, &qpath("Tabulka podle stavu"), board_query("Tabulka podle stavu", &[], &["group_by: status"]).replace("view: board", "view: table").as_bytes());
+    core.notify_changed(&[qpath("Tabulka podle stavu")]);
+    let _ = core.wait_idle(Duration::from_secs(30));
+    let tb = run(&core, "Tabulka podle stavu", &env());
+    assert_eq!(tb.group.as_ref().map(|g| g.key.clone()), Some("status".to_string()), "a Table with group_by is grouped (D-2173)");
 }
 
 #[test]
@@ -275,11 +285,12 @@ fn fr_qry_05_ac17_lanes_switch_writes_once() {
     let before = snapshot(&root);
     ok!(commit(&core, ROZ, |d| d.lanes = Lanes::Columns), "the checked radio");
     assert_eq!(snapshot(&root), before, "the checked radio writes nothing");
-    ok!(commit(&core, ROZ, |d| d.lanes = Lanes::Rows), "Rozečtené horizontal");
-    assert_eq!(disk_s(&root, &qpath(ROZ)), Some(expected("rozectene-lanes-horizontal.yml")), "line 15 and modified");
-    ok!(commit(&core, AUTOR_Q, |d| d.lanes = Lanes::Rows), "Podle autora horizontal");
+    // Slice Q3 (D-2179): the query page writes the new words (`rows`, `columns`) for the changed key.
+    ok!(commit(&core, ROZ, |d| d.lanes = Lanes::Rows), "Rozečtené rows");
+    assert_eq!(disk_s(&root, &qpath(ROZ)), Some(expected("rozectene-lanes-horizontal.yml")), "line 15 → lanes: rows, and modified");
+    ok!(commit(&core, AUTOR_Q, |d| d.lanes = Lanes::Rows), "Podle autora rows");
     assert_eq!(disk_s(&root, &qpath(AUTOR_Q)), Some(expected("podle-autora-lanes-horizontal.yml")), "inserted after group_by");
-    ok!(commit(&core, ZANR, |d| d.lanes = Lanes::Columns), "Podle žánru vertical");
+    ok!(commit(&core, ZANR, |d| d.lanes = Lanes::Columns), "Podle žánru columns");
     assert_eq!(disk_s(&root, &qpath(ZANR)), Some(expected("podle-zanru-lanes-vertical.yml")), "the comment and its spaces kept");
     assert_eq!(changed(&before, &snapshot(&root)), {
         let mut v = vec![qpath(AUTOR_Q), qpath(ROZ), qpath(ZANR)].into_iter().map(|p| tegg_format::nfc(&p)).collect::<Vec<_>>();
@@ -464,10 +475,11 @@ fn fr_qry_07_ac4_new_view_creates_a_query_and_a_tab() {
     assert_eq!(disk_s(&root, AUTOR), Some(expected("types/autor-views-new-view.yml")), "(b) autor.yml");
     std::fs::remove_file(root.join(qpath("New view"))).expect("setup: remove");
     reread(&core, &[&qpath("New view")]);
-    // D-1910, D-1929: `New view` › Board passes no columns.
-    let d = new_def(&core, &["book"], View::Wall, Some("status"), &[]);
-    ok!(core.query_create(QueryCreate { title: "New view".into(), def: Some(d.clone()), fence: None, free: true }, NOW), "(c) query_create board");
-    assert_eq!(disk_s(&root, &qpath("New view")), Some(expected("new-view-board-book.yml")), "(c) group_by, lanes: vertical, no columns");
+    // Slice Q3 (FR-QRY-07 AC-32, D-2172): `New view` › Wall passes no group_by, lanes or columns.
+    let d = new_def(&core, &["book"], View::Wall, None, &[]);
+    ok!(core.query_create(QueryCreate { title: "New view".into(), def: Some(d.clone()), fence: None, free: true }, NOW), "(c) query_create wall");
+    let want = String::from_utf8(std::fs::read(repo_root().join("tests/fixtures/queries-files/expected/views-display/queries/new-view-wall-book.yml")).expect("setup: expected")).expect("setup: UTF-8");
+    assert_eq!(disk_s(&root, &qpath("New view")), Some(want), "(c) view: wall, no group_by, lanes or columns");
     ok!(set_views(&core, "book", &["Rozečtené", "Přečtené 2026", "Výborné knihy", "New view"]), "(c) type_patch");
     assert_eq!(disk_s(&root, BOOK), Some(expected("types/book-views-new-view.yml")), "(c) book.yml");
     ok!(core.query_create(QueryCreate { title: "New view".into(), def: Some(d), fence: None, free: true }, NOW), "a second New view");

@@ -95,12 +95,17 @@ test('nfr_oth_02_ac17_query_strings', async () => {
   assert.deepEqual(bad, [], 'R145\'s keys with their English texts');
   // Slice Q2 adds its own `query.editor.*` keys (views.md R192, D-1812); they are checked by views_catalog.ac.test.ts.
   // Slice Q2-T (AC-Test-Change, D-1912; D-1891): `query.editor.onCards` and `query.editor.onCardsChange` go.
-  const R192_QUERY = ['query.editor.usedOnPage', 'query.editor.showFixed', 'query.editor.board', 'query.editor.groupBy', 'query.editor.groupByHint', 'query.editor.lanes'];
+  // Slice Q3 (AC-Test-Change, D-2196; R227): `query.editor.board`, `.groupBy`, `.groupByHint`, `.lanes` go.
+  const R192_QUERY = ['query.editor.usedOnPage', 'query.editor.showFixed'];
   // Slice Q2.1 adds R199's `query.*` keys (views.md part two, D-1850, D-1875).
   const R199_QUERY = ['query.block.usageNotEditable', 'query.editor.perUsage'];
   // Slice Q2-T adds R207's `query.*` keys (v1-views §30.2, D-1922).
-  const R207_QUERY = ['query.editor.groupByPeriod', 'query.editor.groupByPeriodHint', 'query.editor.doneLane', 'query.op.state_is', 'query.op.state_is_not'];
-  const keys = new Set([...R145.map(([k]) => k), ...R192_QUERY, ...R199_QUERY, ...R207_QUERY]);
+  // Slice Q3 (AC-Test-Change, D-2196; R227): `query.editor.groupByPeriod`, `.groupByPeriodHint` go; `query.editor.limitHint`
+  // is new.
+  const R207_QUERY = ['query.editor.doneLane', 'query.op.state_is', 'query.op.state_is_not'];
+  const R227_QUERY = ['query.editor.limitHint'];
+  const keys = new Set([...R145.map(([k]) => k), ...R192_QUERY, ...R199_QUERY, ...R207_QUERY, ...R227_QUERY]);
+  for (const k of ['query.editor.board', 'query.editor.groupBy', 'query.editor.groupByHint', 'query.editor.lanes', 'query.editor.groupByPeriod', 'query.editor.groupByPeriodHint']) assert.ok(!(k in en), `${k} removed (R227)`);
   for (const k of ['query.editor.onCards', 'query.editor.onCardsChange']) assert.ok(!(k in en), `${k} removed (D-1891)`);
   const extra = Object.keys(en).filter((k) => (k.startsWith('queries.') || k.startsWith('query.')) && !keys.has(k));
   assert.deepEqual(extra, [], 'no other `queries.*` / `query.*` key (exactly R145\'s and R192\'s)');

@@ -8,7 +8,7 @@ import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { axeContrast, colourLeaks, tokenColour } from './read-helpers';
 import {
-  KANBAN, SCHEDULE, T, TYPE_TASK, allTab, click, dayGroup, doneLane, doneToggle, drag, editor, eventually, expectedTasks, fileText, fileWhen, focusedCard, lane,
+  KANBAN, SCHEDULE, T, TASK_YML, TYPE_TASK, allTab, click, dayGroup, doneLane, doneToggle, drag, editor, eventually, expectedTasks, fileText, fileWhen, focusedCard, lane,
   laneGrip, liveRegion, main, menuItem, must, mustBeOn, openTagFilter, openTasks, overlayOriginal, paletteOptions, periodLanes, qfile, rx, runCommand, seen,
   selectedTab, sleep, startTasksViews, tab, tablist, taskCard, textOf, titleOf, toolbar, toolbarMenuButton, viewMenu, writesTo,
 } from './views-tasks-helpers';
@@ -80,15 +80,16 @@ test('fr_ux_03_ac53_tasks_views_by_keyboard', async ({ page }) => {
   await runCommand(page, 'Move card to previous lane');
   assert.ok((await fileWhen(core, T.t08, (x) => !!x?.includes('due: 2026-10-19')))?.includes('due: 2026-10-19'), '`Move card to previous lane`: to Later (`due: 2026-10-19`), one write');
   assert.equal((await writesTo(core)).filter((p) => p === T.t08).length, 1, 'one write');
-  // Next view to Kanban; Tab to a lane heading; Move lane right (one Kanban.yml write).
+  // Next view to Kanban; Tab to a lane heading; Move lane right (one write of the tab's item in task.yml; slice Q3,
+  // AC-Test-Change, D-2196; FR-TSK-05 AC-23).
   await runCommand(page, 'Next view');
   assert.equal(await eventually(() => selectedTab(page), (s) => s === KANBAN, 2000), KANBAN, '`Next view` selects Kanban');
   const k = await openTasks(page, KANBAN);
   assert.ok(await tabUntil(page, async () => page.evaluate(() => document.activeElement?.getAttribute('data-command') === 'board.laneDrag')), 'Tab reaches a lane heading');
   assert.ok(await indicatorShown(page), 'the lane grip shows the indicator');
   await runCommand(page, 'Move lane right');
-  assert.ok((await fileWhen(core, qfile(KANBAN), (x) => !!x?.includes('lane_order:')))?.includes('lane_order:'), '`Move lane right` writes Kanban.yml');
-  assert.equal((await writesTo(core)).filter((p) => p === qfile(KANBAN)).length, 1, 'once');
+  assert.ok((await fileWhen(core, TASK_YML, (x) => !!x?.includes('  - name: Kanban\n    lane_order:')))?.includes('lane_order:'), '`Move lane right` writes the Kanban item of task.yml');
+  assert.equal(await fileText(core, qfile(KANBAN)), overlayOriginal(qfile(KANBAN)), 'Kanban.yml untouched');
   // Filter tasks, type za, Esc.
   await runCommand(page, 'Filter tasks');
   assert.ok(await eventually(() => page.evaluate(() => (document.activeElement?.getAttribute('aria-label') ?? '').replace(/[⟦⟧]/g, '') === 'Filter Tasks…'), (x) => x, 2000), 'the focus in `Filter Tasks…`');

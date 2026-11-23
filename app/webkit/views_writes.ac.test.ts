@@ -47,12 +47,26 @@ test('fr_syn_03_ac30_view_writes_check_the_base', async ({ page }) => {
     assert.ok(await eventually(() => page.getByRole('alert').filter({ hasText: VIEWS_OUT }).count(), (c) => c > n || c >= 1, 3000), `${what}: the alert`);
     assert.equal(await fileText(core, BOOK_YML), d, `${what}: refused, nothing written`);
   }
-  // A query file: Switch lanes, a lane drag, a sort change, a header click.
+  // Slice Q3 (AC-Test-Change, D-2196; FR-SYN-03 AC-36): on a tab `Switch lanes` and a lane drag write book.yml's item,
+  // refused on a changed book.yml with `views.changedOutside`; the query-file refusals move to the query page.
   await selectTab(page, Q.roz);
+  for (const [what, act] of [
+    ['Switch lanes', async () => { await runCommand(page, 'Switch lanes'); }],
+    ['a lane drag', async () => { const bb = await must(board(page, Q.roz), 'Rozečtené'); await drag(page, bb.locator('section[data-lane="option:To read"] [role="button"][data-command="board.laneDrag"]'), lane(bb, 'option:Reading'), { at: 'left' }); }],
+  ] as const) {
+    const d = await silently(core, BOOK_YML);
+    const n = await page.getByRole('alert').filter({ hasText: VIEWS_OUT }).count();
+    await act();
+    assert.ok(await eventually(() => page.getByRole('alert').filter({ hasText: VIEWS_OUT }).count(), (c) => c > n, 3000), `${what} on a tab with a changed book.yml: the alert`);
+    assert.equal(await fileText(core, BOOK_YML), d, `${what}: nothing written`);
+  }
   const q = await silently(core, qfile(Q.roz));
-  await click(laneRadio(toolbar(page), 'Horizontal'), 'Horizontal');
-  assert.ok(await seen(alertWith(page, QUERY_OUT), 3000), 'Switch lanes on a changed Rozečtené.yml: refused');
+  await runCommand(page, 'Go to Queries');
+  await click(main(page).locator(`tr[data-query-row="${Q.roz}"] a`).first(), 'query/Rozečtené');
+  await runCommand(page, 'Switch lanes');
+  assert.ok(await seen(alertWith(page, QUERY_OUT), 3000), 'Switch lanes on query/Rozečtené with a changed Rozečtené.yml: refused');
   assert.equal(await fileText(core, qfile(Q.roz)), q, 'nothing written');
+  await runCommand(page, 'Go to type: Books');
   // Q2.1 (FR-SYN-03 AC-31): on a tab a header click now writes book.yml's item; the query-file refusal stands on the
   // query page.
   const p = await silently(core, qfile(Q.p26));
@@ -114,11 +128,15 @@ test('fr_syn_06_ac48_only_view_actions_write', async ({ page }) => {
   // Then each action writes exactly its file, once.
   await runCommand(page, 'Go to type: Books');
   await selectTab(page, Q.roz);
-  await click(laneRadio(toolbar(page), 'Horizontal'), 'Switch lanes');
-  assert.ok(await fileWhen(core, qfile(Q.roz), (x) => x === expectedView('rozectene-lanes-horizontal.yml')), 'Switch lanes writes Rozečtené.yml');
+  // Slice Q3 (AC-Test-Change, D-2196; FR-SYN-06 AC-52): the Group menu's `Lanes` writes the tab's item in book.yml.
+  const types0 = (await callsOf(core, 'type_patch')).length;
+  await click(toolbar(page).locator('button[data-command="group.open"]'), 'Group');
+  await click(page.locator('div[role="menu"][data-popup="group"] [role="menuitemradio"][data-lanes-choice="rows"]'), 'Lanes › Rows');
+  assert.ok(await fileWhen(core, BOOK_YML, (x) => !!x && x.includes('  - name: Rozečtené\n    lanes: rows\n')), 'Rows writes the item in book.yml');
+  assert.equal((await callsOf(core, 'type_patch')).length - types0, 1, 'one type_patch');
   await drag(page, card(board(page, Q.roz), B('Kniha o horách')), lane(board(page, Q.roz), 'option:Reading'));
   assert.ok(await fileWhen(core, B('Kniha o horách'), (x) => x === expectedView('books/kniha-o-horach-reading.md')), 'a card drag writes the book');
-  assert.deepEqual(await writes(core), [qfile(Q.roz), B('Kniha o horách')], 'exactly those files, once each');
+  assert.deepEqual(await writes(core), [B('Kniha o horách')], 'the book once; no query file');
   assert.equal(Object.keys(await core.files()).filter((k) => k.startsWith('.tegg/') && /ui-state|index/.test(k)).length, 0, 'no index or UI state in the vault');
 });
 

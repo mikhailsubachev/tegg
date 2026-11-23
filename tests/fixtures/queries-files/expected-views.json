@@ -45,9 +45,9 @@
           }
         ],
         "limit": 50,
-        "view": "board",
+        "view": "wall",
         "groupBy": "status",
-        "lanes": "vertical",
+        "lanes": "columns",
         "laneOrder": [
           "Reading",
           "To read",
@@ -110,7 +110,7 @@
         "limit": 50,
         "view": "table",
         "groupBy": null,
-        "lanes": "vertical",
+        "lanes": "columns",
         "laneOrder": null,
         "columns": [
           "author",
@@ -150,7 +150,7 @@
         "limit": 50,
         "view": "table",
         "groupBy": null,
-        "lanes": "vertical",
+        "lanes": "columns",
         "laneOrder": null,
         "columns": [
           "author",
@@ -178,9 +178,9 @@
           }
         ],
         "limit": 50,
-        "view": "board",
+        "view": "wall",
         "groupBy": "genres",
-        "lanes": "horizontal",
+        "lanes": "rows",
         "laneOrder": null,
         "columns": [
           "author",
@@ -207,9 +207,9 @@
           }
         ],
         "limit": 50,
-        "view": "board",
+        "view": "wall",
         "groupBy": "author",
-        "lanes": "vertical",
+        "lanes": "columns",
         "laneOrder": null,
         "columns": [
           "rating",
@@ -236,9 +236,9 @@
           }
         ],
         "limit": 50,
-        "view": "board",
+        "view": "wall",
         "groupBy": "finished",
-        "lanes": "vertical",
+        "lanes": "columns",
         "laneOrder": null,
         "columns": [
           "author"
@@ -266,7 +266,7 @@
         "limit": 50,
         "view": "list",
         "groupBy": null,
-        "lanes": "vertical",
+        "lanes": "columns",
         "laneOrder": null,
         "columns": [
           "poznámka"
@@ -295,7 +295,7 @@
         "limit": 50,
         "view": "list",
         "groupBy": null,
-        "lanes": "vertical",
+        "lanes": "columns",
         "laneOrder": null,
         "columns": [
           "type",
@@ -334,7 +334,7 @@
         "limit": 50,
         "view": "list",
         "groupBy": null,
-        "lanes": "vertical",
+        "lanes": "columns",
         "laneOrder": null,
         "columns": [
           "author",
@@ -375,7 +375,7 @@
         "limit": 50,
         "view": "table",
         "groupBy": null,
-        "lanes": "vertical",
+        "lanes": "columns",
         "laneOrder": null,
         "columns": [
           "author",

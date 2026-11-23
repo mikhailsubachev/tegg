@@ -6,6 +6,9 @@
 // the ACs and the contract only (D-61). Lookups go through `must` (TS-I1).
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+const REPO = resolve(import.meta.dirname, '../..');
 import {
   CEKA, KANBAN, NOW, SCHEDULE, T, TASK_YML, TYPE_TASK, addMenu, addView, allTab, changedFiles, click, drag, dropLabel, eventually, expectedTasks, fileText, fileWhen,
   flat, focusedCard, kanbanLanes, lane, laneCards, laneGrip, liveRegion, main, menuItem, must, mustBeOn, newInLane, nfc, openTasks, overlayOriginal, overlayVault,
@@ -96,21 +99,21 @@ test('fr_tsk_05_ac20_kanban_drags_and_lane_order', async ({ page }) => {
   await dropOn(page, taskCard(b, T.t01), lane(b, 'option:To do'));
   const back = touched(overlayOriginal(T.t01));
   assert.equal(await fileWhen(core, T.t01, (x) => x === back), back, 'from Done back to To do: completed removed');
-  // The Waiting lane's grip before To do writes Kanban.yml once; task.yml and task files untouched.
+  // Slice Q3 (AC-Test-Change, D-2196; FR-TSK-05 AC-23): on the tab a lane drag, `Move lane …` and `Reset lane order`
+  // write the `Kanban` item of task.yml; Kanban.yml and the task files stay untouched (its bytes move to query/Kanban).
   const before = await core.files();
   await drag(page, laneGrip(b, 'option:Waiting'), lane(b, 'option:To do'), { at: 'left' });
-  const want = expectedTasks('queries/kanban-lane-order-waiting.yml');
-  assert.equal(await fileWhen(core, qfile(KANBAN), (x) => x === want), want, 'Kanban.yml: `lane_order: [Waiting, To do, In progress, Done, Rozpracováno]` after `lanes: vertical`, modified');
-  assert.deepEqual(await changedFiles(core, before), [qfile(KANBAN)], 'task.yml and every task file unchanged');
-  assert.equal(await fileText(core, TASK_YML), overlayOriginal(TASK_YML), 'task.yml byte-identical');
+  const want = readFileSync(join(REPO, 'tests/fixtures/queries-files/expected/views-display/types/task-kanban-lane-order-waiting.yml'), 'utf8');
+  assert.equal(await fileWhen(core, TASK_YML, (x) => x === want), want, 'task.yml: the Kanban item\'s `lane_order: [Waiting, To do, In progress, Done, Rozpracováno]`');
+  assert.deepEqual(await changedFiles(core, before), [TASK_YML], 'Kanban.yml and every task file unchanged');
+  assert.equal(await fileText(core, qfile(KANBAN)), overlayOriginal(qfile(KANBAN)), 'Kanban.yml byte-identical');
   await runCommand(page, 'Reset lane order');
-  const reset = expectedTasks('queries/kanban-lane-order-reset.yml');
-  assert.equal(await fileWhen(core, qfile(KANBAN), (x) => x === reset), reset, '`Reset lane order` removes the line');
+  assert.equal(await fileWhen(core, TASK_YML, (x) => x === overlayOriginal(TASK_YML)), overlayOriginal(TASK_YML), '`Reset lane order` removes the item\'s own key (the query has none, AP-2054)');
   // The palette: Move lane left / right; Move column left / right no longer exist.
   await laneGrip(b, 'option:Waiting').focus();
   await runCommand(page, 'Move lane left');
-  assert.ok((await fileWhen(core, qfile(KANBAN), (x) => !!x?.includes('lane_order: [To do, Waiting, In progress, Done, Rozpracováno]')))?.includes('lane_order:'), '`Move lane left` writes lane_order');
-  assert.equal(await fileText(core, TASK_YML), overlayOriginal(TASK_YML), 'never task.yml');
+  assert.ok((await fileWhen(core, TASK_YML, (x) => !!x?.includes('    lane_order: [To do, Waiting, In progress, Done, Rozpracováno]\n')))?.includes('lane_order:'), '`Move lane left` writes the item\'s lane_order');
+  assert.equal(await fileText(core, qfile(KANBAN)), overlayOriginal(qfile(KANBAN)), 'never Kanban.yml');
   await page.keyboard.press('Meta+k');
   await must(paletteDialog(page), 'the palette');
   await page.getByRole('combobox', { name: 'Command query' }).fill('Move column');

@@ -248,12 +248,11 @@ test('fr_qry_01_ac6_editor_by_keyboard', async ({ page }) => {
   await (await must(editor(page).getByRole('button', { name: /^⟦?Remove group⟧?$/ }), 'Remove group')).focus();
   await page.keyboard.press('Enter');
   assert.equal(await group(page, 'all').or(group(page, 'any')).count(), 0, 'the group is removed');
-  await (await must(viewChoice(page, 'Table'), 'Table')).focus();
-  await page.keyboard.press('Space');
+  // Slice Q3 (AC-Test-Change, D-2196; D-2175): the editor has no View; its Table step served only as a commit and is dropped.
   await (await must(editorButton(page, 'Done'), 'Done')).focus();
   await page.keyboard.press('Enter');
   const t = await eventually(() => queryFileText(core, Q.table), (x) => !!x && x.includes('priority: High'));
-  assert.ok(t?.includes('match: any') && t.includes('  - priority: High') && t.includes('view: table'), 'the file: `match: any`, the Priority row, Table');
+  assert.ok(t?.includes('match: any') && t.includes('  - priority: High'), 'the file: `match: any`, the Priority row');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-QRY-01 AC-7
@@ -265,8 +264,9 @@ test('fr_qry_01_ac7_no_group_by_yet', async ({ page }) => {
   await must(editor(page), 'the editor');
   assert.equal(await editor(page).getByText(/group by/i).count(), 0, 'no group-by control in the editor');
   assert.equal(await block(page, Q.running).getByText(/group by/i).count(), 0, 'nor in the block');
-  await click(viewChoice(page, 'List'), 'List');
-  await done(page);
+  // Slice Q3 (AC-Test-Change, D-2196; D-2175): the View step becomes the query page's display switch, same `view:` bytes.
+  await page.keyboard.press('Escape');
+  await click(main(page).locator('div[role="group"][data-display-switch] button[data-display="list"]'), 'List (the display switch)');
   const t = await eventually(() => queryFileText(core, Q.running), (x) => !!x && x.includes('view: list'));
   assert.ok(t?.includes('view: list\ngroup_by: status\n'), '`group_by: status` kept byte for byte');
 });

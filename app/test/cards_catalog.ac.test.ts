@@ -100,7 +100,7 @@ const KEYS: Row[] = [
   ['iconPicker.noMatch', { query: 'kanbanx' }, 'No icons for “kanbanx”. Try another word.'], ['iconPicker.current', {}, 'Current'],
   ['cmd.card.edit', {}, 'Edit card…'], ['cmd.card.add', {}, 'Add property to card…'], ['cmd.card.reset', {}, 'Reset card to default'], ['cmd.type.changeIcon', {}, 'Change type icon…'],
   // Contract §9 additions.
-  ['typeSettings.viewsList', { plural: 'Books' }, 'Views of Books'], ['typeSettings.viewDefault', {}, 'Default · always first'], ['typeSettings.viewBoardBy', { attribute: 'Status' }, 'Board · by Status'],
+  ['typeSettings.viewsList', { plural: 'Books' }, 'Views of Books'], ['typeSettings.viewDefault', {}, 'Default · always first'], ['typeSettings.viewKindBy', { display: 'Wall', attribute: 'Status' }, 'Wall · by Status'] /* slice Q3 (AC-Test-Change, D-2196; R227) */,
   ['typeSettings.viewEdit', {}, 'Edit'], ['typeSettings.viewDrag', { name: 'Rozečtené' }, 'Drag to reorder Rozečtené'], ['typeSettings.noIcon', {}, 'No icon'],
   ['typeSettings.cardMoved', { name: 'Kraj', position: 3 }, 'Moved Kraj to position 3'], ['iconPicker.resultsGroup', {}, 'Results'], ['iconPicker.results', { count: 1 }, '1 icon'],
   ['iconPicker.results', { count: 7 }, '7 icons'], ['iconPicker.loadFailed', {}, 'Icons couldn\'t be loaded. Try again.'], ['ts.section.card', {}, 'Card'], ['ts.section.views', {}, 'Views'],
@@ -131,7 +131,7 @@ test('nfr_oth_02_ac24_card_and_picker_strings', async () => {
 test('fr_typ_01_ac28_type_settings_strings_themes_keyboard', async () => {
   const { cat } = await mods();
   const want: Row[] = [
-    ['typeSettings.viewsList', { plural: 'Books' }, 'Views of Books'], ['typeSettings.viewDefault', {}, 'Default · always first'], ['typeSettings.viewBoardBy', { attribute: 'Status' }, 'Board · by Status'],
+    ['typeSettings.viewsList', { plural: 'Books' }, 'Views of Books'], ['typeSettings.viewDefault', {}, 'Default · always first'], ['typeSettings.viewKindBy', { display: 'Wall', attribute: 'Status' }, 'Wall · by Status'] /* slice Q3 (AC-Test-Change, D-2196; R227) */,
     ['views.remove', { plural: 'Books' }, 'Remove from Books page'], ['typeSettings.propertyIcon', { name: 'Kraj' }, 'Icon for Kraj'], ['typeSettings.noIcon', {}, 'No icon'],
   ];
   const en = cat.en as Record<string, unknown>;

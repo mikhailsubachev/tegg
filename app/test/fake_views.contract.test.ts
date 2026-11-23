@@ -86,7 +86,8 @@ test('the twin runs every expected-views.json result', async () => {
 test('the twin fills the Q2 fields of summaries and rows', async () => {
   const list = (await handle('queries_list', {}, files)).result as any[];
   const roz = list.find((s) => s.name === 'Rozečtené');
-  assert.deepEqual([roz.view, roz.types], ['board', ['book']], 'QuerySummaryDto.view and types');
+  // Slice Q3 (D-2179, D-2203): `view: board` is summarised as `wall`.
+  assert.deepEqual([roz.view, roz.types], ['wall', ['book']], 'QuerySummaryDto.view and types');
   const r = await queryRun({ kind: 'saved', name: 'Rozečtené' }, null, CS, files, types);
   assert.ok(r.rows.every((x) => typeof x.excerpt === 'string' && x.readOnly === false && 'status' in x.values), 'rows carry excerpt, readOnly and the grouping key');
   const usages = (await handle('query_view_usages', { name: 'rozečtené' }, files)).result;
@@ -152,7 +153,8 @@ test('editor and column writes give the expected files', () => {
 test('New view gives new-view-*.yml', () => {
   const base = { types: [], match: 'all' as const, filters: [], sort: S(['modified', 'desc']), limit: 50, groupBy: null, lanes: 'vertical' as const, laneOrder: null };
   assert.equal(queryCreateText({ ...base, title: 'New view', types: ['autor'], view: 'table', columns: ['poznámka', 'modified'] }, NOW), expected('new-view-autor.yml'));
-  assert.equal(queryCreateText({ ...base, title: 'New view', types: ['book'], view: 'board', groupBy: 'status', columns: [] }, NOW), expected('new-view-board-book.yml'), 'a new Board writes no columns (D-1910)');
+  // Slice Q3 (FR-QRY-07 AC-32, D-2172): `New view` › Wall writes `view: wall` and no group_by, lanes or columns.
+  assert.equal(queryCreateText({ ...base, title: 'New view', types: ['book'], view: 'wall' as any, columns: [] }, NOW), readFileSync(join(QFX, 'expected/views-display/queries/new-view-wall-book.yml'), 'utf8'), 'a new Wall (D-1910)');
 });
 
 test('the 4C link patch rewrites lane_order links', async () => {

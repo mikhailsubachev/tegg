@@ -58,10 +58,8 @@ test('fr_qry_05_ac28_cards_follow_preview_properties', async ({ page }) => {
   assert.equal((await writes(core)).filter((p) => p.startsWith('.tegg/queries/')).length, w0, 'no query file written');
   // Switching Rozečtené to Table shows its columns again.
   await core.setFile(BOOK_YML, original(BOOK_YML));
-  await click(toolbarMenuButton(page), '`View actions`');
-  await click(menuItem(await must(viewMenu(page), 'menu'), 'Edit view'), 'Edit view');
-  await click(editor(page).getByRole('radiogroup', { name: rx('View') }).getByRole('radio', { name: rx('Table') }), 'Table');
-  await click(editor(page).getByRole('button', { name: rx('Done') }), 'Done');
+  // Slice Q3 (AC-Test-Change, D-2196; FR-QRY-07 AC-32): `Table` comes from the display switch (an item write).
+  await click(toolbar(page).locator('div[data-display-switch] button[data-display="table"]'), 'Table');
   const hs = await eventually(() => panelOf(page).locator('[role="columnheader"]').allInnerTexts().then((x) => x.map((h) => flat(h).replace(/[↑↓¹²³]/g, '').trim())), (x) => x.length >= 3, 3000);
   assert.deepEqual(hs.slice(0, 3), ['Title', 'Author', 'Rating'], 'Table: Title, Author, Rating');
 });
@@ -70,11 +68,12 @@ test('fr_qry_05_ac28_cards_follow_preview_properties_new_board_writes_no_columns
   const core = await startViews(page, { route: typeRoute('book') });
   await must(tab(page, Q.roz), 'tab', 8000);
   await click(addView(page), 'Add view');
-  await click(menuItem(await must(addMenu(page), 'menu `Add view`'), 'Board'), 'Board');
+  // Slice Q3 (AC-Test-Change, D-2196; FR-QRY-07 AC-32): `New view` › Wall.
+  await click(menuItem(await must(addMenu(page), 'menu `Add view`'), 'Wall'), 'Wall');
   await must(editor(page), 'the editor');
   await click(editor(page).getByRole('button', { name: rx('Done') }), 'Done');
   const q = await fileWhen(core, qfile('New view'), (x) => x !== undefined);
-  assert.ok(q !== undefined && q.includes('view: board\n'), '`New view` › Board created');
+  assert.ok(q !== undefined && q.includes('view: wall\n'), '`New view` › Wall created');
   assert.ok(!/^columns:/m.test(q!), `no \`columns\` line (D-1910): ${JSON.stringify(q)}`);
 });
 

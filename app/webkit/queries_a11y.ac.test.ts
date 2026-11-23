@@ -105,12 +105,10 @@ test('fr_ux_03_ac42_queries_without_the_pointer', async ({ page }) => {
   // closed and the editor has the focus back with the new block selected.
   await must(b.locator('[data-query-result]'), 'the inserted block\'s results', 3000);
   assert.ok(await eventually(() => page.evaluate(() => !!document.querySelector('.ProseMirror-selectednode') && !!document.activeElement?.classList.contains('ProseMirror')), (v) => v, 2000), 'the inserted block is selected in the focused editor');
-  await page.keyboard.press('Meta+Enter');
-  await must(editor(page), 'the editor by ⌘↩');
-  await (await must(viewChoice(page, 'Table'), 'Table')).focus();
+  // Slice Q3 (AC-Test-Change, D-2196; D-2175): the editor has no View; Table comes from the block's display switch (a
+  // fence write, by keyboard).
+  await (await must(b.locator('div[role="group"][data-display-switch] button[data-display="table"]'), 'the block\'s Table')).focus();
   await page.keyboard.press('Space');
-  await (await must(editorButton(page, 'Done'), 'Done')).focus();
-  await page.keyboard.press('Enter');
   for (let i = 0; i < 40 && (await focusName(page)).name !== 'Columns'; i++) await page.keyboard.press('Tab');
   await page.keyboard.press('Space');
   await must(columnsMenu(page), 'the Columns menu');
@@ -118,7 +116,8 @@ test('fr_ux_03_ac42_queries_without_the_pointer', async ({ page }) => {
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Space');
   await page.keyboard.press('Escape');
-  assert.ok(await eventually(() => queryFileText(core, 'Klávesnice'), (x) => !!x && x.includes('view: table') && /columns: \[[^\]]*,/.test(x)), 'Table and one more column written');
+  assert.ok(await eventually(() => core.files().then((f) => f[P.lisabon]), (x) => !!x && x.includes('saved: Klávesnice\nview: table\n')), 'Table written to the block\'s fence');
+  assert.ok(await eventually(() => core.files().then((f) => f[P.lisabon]), (x) => !!x && /\ncolumns: \[[^\]]*,/.test(x)), 'one more column written');
   // Open a result (⏎ on a row).
   for (let i = 0; i < 20 && !(await page.evaluate(() => !!document.activeElement?.closest('[data-query-result]'))); i++) await page.keyboard.press('Tab');
   // The first row reached depends on the default sort (`modified` desc, R138): open whichever row has the focus.

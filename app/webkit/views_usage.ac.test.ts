@@ -594,18 +594,23 @@ test('fr_qry_05_ac25_widths_per_usage', async ({ page }) => {
   await drag(page, handle, { dx: 200 - (await th.boundingBox())!.width, dy: 0 });
   const w2 = (await th.boundingBox())!.width;
   assert.ok(near(w2, 200), `Title 200 px in block 2 (${w2})`);
+  // Slice Q3 (AC-Test-Change, D-2196; D-2177): a block's resize writes `widths` into its fence once, when the drag ends;
+  // it is a vault write, not a ui-state.json entry.
   const key = blockKey(CESTY_ID, Q.p26, 2);
-  const st = await eventually(() => uiState(core), (u) => u?.usageColumnWidths?.[key]?.title === 200);
-  assert.equal(st?.usageColumnWidths?.[key]?.title, 200, `usageColumnWidths["${key}"].title = 200`);
-  assert.equal((await uiWrites(core)) - w0, 1, 'once on release');
+  const cesty = await fileWhen(core, CESTY, (t) => !!t && /saved: Přečtené 2026\n(?:[^`]*\n)?widths: \{ title: 200 \}\n```/.test(t));
+  assert.ok(cesty && /widths: \{ title: 200 \}/.test(cesty), 'block 2\'s fence gets `widths: { title: 200 }`');
+  assert.equal((await uiState(core))?.usageColumnWidths?.[key], undefined, `no usageColumnWidths["${key}"]`);
+  assert.equal((await uiWrites(core)) - w0, 0, 'no ui_state_set');
   assert.ok(!near((await hdr(block(page, Q.p26, 0), 'Title').boundingBox())!.width, 200), 'block 1 keeps its width');
-  assert.deepEqual(await writes(core), [], 'no vault file changes');
+  assert.deepEqual(await writes(core), [CESTY], 'one note write');
   await runCommand(page, 'Go to type: Books');
   await selectTab(page, Q.p26);
   assert.ok(!near((await hdr(panelOf(page), 'Title').boundingBox())!.width, 200), 'the tab keeps R130\'s default');
   const th2 = hdr(panelOf(page), 'Title');
   await drag(page, panelOf(page).getByRole('separator', { name: rx('Resize Title') }), { dx: 300 - (await th2.boundingBox())!.width, dy: 0 });
-  assert.equal((await eventually(() => uiState(core), (u) => u?.usageColumnWidths?.[tabKey(Q.p26)]?.title === 300))?.usageColumnWidths?.[tabKey(Q.p26)]?.title, 300, 'the tab\'s key');
+  // Slice Q3 (D-2177): the tab's widths go into its views: item.
+  assert.ok(await fileWhen(core, BOOK_YML, (t) => !!t && t.includes('    widths: { title: 300 }\n')), 'the tab\'s item gets `    widths: { title: 300 }`');
+  assert.equal((await uiState(core))?.usageColumnWidths?.[tabKey(Q.p26)], undefined, 'no ui-state.json entry for the tab');
   assert.equal(await usageRoot(page, tabKey(Q.p26)).count(), 1, 'the tabpanel carries data-usage-key');
 });
 
@@ -670,8 +675,11 @@ test('fr_fmt_12_ac13_usage_settings_are_nfc', async ({ page }) => {
   await must(handle, 'block 2 (NFD saved:)', 8000);
   await b2.scrollIntoViewIfNeeded();
   await drag(page, handle, { dx: 60, dy: 0 });
-  const st = await eventually(() => uiState(core), (u) => Object.keys(u?.usageColumnWidths ?? {}).length > 0);
-  assert.deepEqual(Object.keys(st?.usageColumnWidths ?? {}), [blockKey(CESTY_ID, Q.p26, 2)], 'one NFC key for the NFD block');
+  // Slice Q3 (AC-Test-Change, D-2196; D-2177): the widths go into the NFD block's fence; its NFD `saved:` line keeps its
+  // bytes and the new line is NFC; no ui-state.json key.
+  const t = await fileWhen(core, CESTY, (x) => !!x && x.includes(`saved: ${'Přečtené 2026'.normalize('NFD')}\nwidths: { title: `));
+  assert.ok(t?.includes(`saved: ${'Přečtené 2026'.normalize('NFD')}\nwidths: { title: `), 'the NFD saved: line kept, `widths:` after it');
+  assert.deepEqual(Object.keys((await uiState(core))?.usageColumnWidths ?? {}), [], 'no usageColumnWidths key');
   const probe = await usages(page);
   assert.ok(probe && probe.every((u) => u.key === u.key.normalize('NFC')), 'usages(): NFC keys');
 });
@@ -714,18 +722,17 @@ test('fr_syn_06_ac49_each_usage_action_writes_one_file', async ({ page }) => {
     await click(toolbarMenuButton(page), '⋯');
     await page.keyboard.press('Escape');
     if (n === Q.roz) continue; // a board with vertical lanes: no Columns, no folding
-    // A table tab: its Columns menu opened and closed, and a resize.
+    // A table tab: its Columns menu opened and closed. Slice Q3 (AC-Test-Change, D-2196; D-2177): a resize writes the
+    // usage now, so the read-only tour has no resizes.
     await click(tabColumns(page), 'Columns');
     await must(columnsMenu(page), 'menu Columns');
     await page.keyboard.press('Escape');
-    await drag(page, await must(panelOf(page).getByRole('separator', { name: rx('Resize Title') }), 'Resize Title'), { dx: 40, dy: 0 });
   }
   await openNote(page, 'Knihy na cesty');
   const b1 = await must(block(page, Q.p26, 0), 'Cesty', 8000);
   await click(blockColumns(b1), 'block 1: Columns');
   await must(columnsMenu(page), 'menu Columns');
   await page.keyboard.press('Escape');
-  await drag(page, await must(b1.getByRole('separator', { name: rx('Resize Title') }), 'block 1: Resize Title'), { dx: 40, dy: 0 });
   // Folding: a lane of a board with horizontal lanes (`query/Podle žánru`), closed and opened again.
   await runCommand(page, 'Go to Queries');
   await click(main(page).locator(`tr[data-query-row="${Q.zanr}"] a`).first(), 'query/Podle žánru');
@@ -757,8 +764,10 @@ test('fr_sto_07_ac11_usage_state_is_machine_local', async ({ page }) => {
   await must(th, 'block', 8000);
   assert.ok(!near((await th.boundingBox())!.width, 200), '0.4.0\'s queryColumnWidths isn\'t read');
   await drag(page, blk.getByRole('separator', { name: rx('Resize Title') }), { dx: 40, dy: 0 });
-  const st = await eventually(() => uiState(core), (u) => !!u?.usageColumnWidths);
-  assert.ok(st?.usageColumnWidths?.[blockKey(CTENI_ID, Q.p26, 1)], 'usageColumnWidths with the block key');
+  // Slice Q3 (AC-Test-Change, D-2196; D-2177): the block's widths go into its fence (a vault write), never ui-state.json.
+  assert.ok(await fileWhen(core, CTENI, (t) => !!t && /saved: Přečtené 2026\nwidths: \{ title: \d+ \}\n/.test(t)), 'the fence gets its widths');
+  const st = await uiState(core);
+  assert.equal(st?.usageColumnWidths?.[blockKey(CTENI_ID, Q.p26, 1)], undefined, 'no usageColumnWidths entry for the block');
   assert.deepEqual([st?.queryColumnWidths, st?.boardFolded], [ui.queryColumnWidths, ui.boardFolded], '0.4.0 keys stay unchanged');
   assert.equal(Object.keys(await core.files()).filter((k) => /ui-state/.test(k)).length, 0, 'nothing in the vault');
 });

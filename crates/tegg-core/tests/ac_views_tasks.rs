@@ -972,7 +972,8 @@ fn fr_qry_01_ac18_period_and_done_lane_read_rules() {
         cmp("groupPeriod", json!(def.group_period), &mut diff);
         cmp("laneOrder", json!(def.lane_order), &mut diff);
         cmp("columns", json!(def.columns), &mut diff);
-        cmp("lanes", json!(if def.lanes == Lanes::Rows { "horizontal" } else { "vertical" }), &mut diff);
+        // Slice Q3 (D-2179, D-2203): the DTO words are `columns` / `rows`.
+        cmp("lanes", json!(if def.lanes == Lanes::Rows { "rows" } else { "columns" }), &mut diff);
         cmp("doneLane", def.done_lane.map(|x| json!({ "withinDays": x.within_days, "folded": x.folded })).unwrap_or(Value::Null), &mut diff);
         cmp("sort", json!(def.sort.iter().map(|s| json!({ "by": s.by, "order": if s.order == queries_q::Order::Asc { "asc" } else { "desc" } })).collect::<Vec<_>>()), &mut diff);
         let filters: Vec<Value> = def
@@ -1001,6 +1002,11 @@ fn fr_qry_01_ac18_period_and_done_lane_read_rules() {
     let core = open(&root, &sb.dirs, false);
     let before = snapshot(&root);
     check_groups(&core, &corpus_groups(&c, "FR-QRY-01 AC-18"));
+    // Slice Q3 (D-2179): a broken group_by on a wall draws the ungrouped wall (cards), not a List.
+    for q in ["Rozvrh po měsících", "Rozvrh dvě období"] {
+        let r = core.query_run(QuerySource::Saved(q.into()), None, &env());
+        assert!(r.group.is_none() && !r.rows.is_empty() && r.rows.iter().all(|x| x.card.is_some()), "{q}: an ungrouped wall with the notice");
+    }
     assert_eq!(current(&core, "Rozvrh bez folded").0.done_lane, Some(DoneLane { within_days: 7, folded: false }), "`folded` missing = false");
     assert_eq!(snapshot(&root), before, "no variant is rewritten");
 }
@@ -1132,14 +1138,16 @@ fn fr_fmt_07_ac35_q2t_keys_round_trip() {
         ok!(commit(&core, n, |_| {}), format!("{n}: unchanged commit"));
     }
     assert_eq!(snapshot(&root), before, "an unchanged commit writes nothing");
-    // Switch lanes: one line and modified; CRLF and no-final-newline copies keep their bytes.
+    // Switch lanes: one line and modified; CRLF and no-final-newline copies keep their bytes. Slice Q3 (D-2179): the
+    // writer emits `lanes: columns` (expected/views-display/queries/schedule-lanes-columns*.yml).
+    let q3 = |rel: &str| String::from_utf8(std::fs::read(repo_root().join("tests/fixtures/queries-files/expected/views-display").join(rel)).expect("setup: expected")).expect("setup: UTF-8");
     ok!(commit(&core, "Schedule", |d| d.lanes = Lanes::Columns), "Switch lanes");
-    assert_eq!(disk_s(&root, SCHEDULE), Some(exp("queries/schedule-lanes-vertical.yml")), "lanes: vertical");
-    for (variant, input, want) in [("crlf", fx(SCHEDULE).replace('\n', "\r\n"), "queries/schedule-lanes-vertical-crlf.yml"), ("no-newline", fx(SCHEDULE).trim_end_matches('\n').to_string(), "queries/schedule-lanes-vertical-no-newline.yml")] {
+    assert_eq!(disk_s(&root, SCHEDULE), Some(q3("queries/schedule-lanes-columns.yml")), "lanes: columns");
+    for (variant, input, want) in [("crlf", fx(SCHEDULE).replace('\n', "\r\n"), "queries/schedule-lanes-columns-crlf.yml"), ("no-newline", fx(SCHEDULE).trim_end_matches('\n').to_string(), "queries/schedule-lanes-columns-no-newline.yml")] {
         write(&root, SCHEDULE, input.as_bytes());
         reread(&core, &[SCHEDULE]);
         ok!(commit(&core, "Schedule", |d| d.lanes = Lanes::Columns), format!("Switch lanes ({variant})"));
-        assert_eq!(disk_s(&root, SCHEDULE), Some(exp(want)), "{variant}: bytes kept");
+        assert_eq!(disk_s(&root, SCHEDULE), Some(q3(want)), "{variant}: bytes kept");
     }
     // The lane drag, Reset lane order, the editor's group_by and done-lane changes.
     ok!(commit(&core, "Kanban", |d| d.lane_order = Some(strs(&["Waiting", "To do", "In progress", "Done", "Rozpracováno"]))), "lane drag");

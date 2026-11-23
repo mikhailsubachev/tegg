@@ -113,7 +113,8 @@ test('fr_tsk_04_ac22_header_tabs_and_toolbar', { timeout: 300_000 }, async () =>
     const d = await launch(c, 'inbox');
     await (await need(d, 'Tasks', 8000)).click();
     assert.ok(await waitFor(() => marks(c.log).includes('route-ready:type/task'), 5000), 'the sidebar entry opens type/task');
-    for (const l of ['Views', 'All Tasks', 'Schedule', 'Kanban', 'Čeká na ostatní', 'Add view', 'Type settings', 'New Task', 'Filter Tasks…', 'Filter by tag', 'Lanes', 'View actions']) {
+    // Slice Q3 (AC-Test-Change, D-2196; FR-TSK-04 AC-30, R223): the display switch and `Group` instead of `Lanes`.
+    for (const l of ['Views', 'All Tasks', 'Schedule', 'Kanban', 'Čeká na ostatní', 'Add view', 'Type settings', 'New Task', 'Filter Tasks…', 'Filter by tag', 'Display', 'Group', 'View actions']) {
       assert.ok(await shown(d, l, 3000), `"${l}" in the accessibility tree`);
     }
     assert.ok(await shown(d, '15 open · 2 overdue · 1 done this week', 3000), 'the summary');
