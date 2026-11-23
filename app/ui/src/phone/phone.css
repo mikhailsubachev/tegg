@@ -609,8 +609,7 @@ html[data-layout="phone"] main tr.query-row td a {
 }
 
 /* FR-UX-04 AC-5: board card titles, card chips, `Used on` chips and the query page's back link take a 48 px hit
-   area. Titles and the back link grow; chips keep their look and get an invisible 48 px band, in rows 48 px tall so
-   the bands never overlap. */
+   area. Titles, the back link and the chips' boxes grow to 48 px; a chip's visible pill stays 22 px tall. */
 html[data-layout="phone"] .board-card-title,
 html[data-layout="phone"] .query-back {
   display: inline-flex;
@@ -623,22 +622,53 @@ html[data-layout="phone"] .query-usages li {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  row-gap: 28px;
   min-height: 48px;
 }
 html[data-layout="phone"] .board-card-foot .chip,
 html[data-layout="phone"] .query-usages .chip {
   position: relative;
+  z-index: 0;
   min-width: 48px;
+  min-height: 48px;
   justify-content: center;
+  background: transparent;
 }
+/* The chip's own look (its colour, 22 px tall) is drawn behind its content. */
 html[data-layout="phone"] .board-card-foot .chip::before,
 html[data-layout="phone"] .query-usages .chip::before {
   content: '';
   position: absolute;
+  z-index: -1;
   left: 0;
   right: 0;
   top: 50%;
-  height: 48px;
+  height: 22px;
   transform: translateY(-50%);
+  border-radius: 5px;
+  background: var(--cbg, transparent);
+}
+html[data-layout="phone"] .board-card-foot .link-chip.kind-unresolved::before,
+html[data-layout="phone"] .query-usages .link-chip.kind-unresolved::before {
+  background: none;
+}
+html[data-layout="phone"] .board-card-foot .tag-chip::before,
+html[data-layout="phone"] .query-usages .tag-chip::before {
+  background: var(--accent-bg);
+}
+
+/* FR-UX-04 AC-5: the remaining small controls (sort and grouping menus, the search Type filter, the Theme radios, the
+   tag page's breadcrumb link) are 48 px tall on the phone. */
+html[data-layout="phone"] main .text-button,
+html[data-layout="phone"] .type-filter,
+html[data-layout="phone"] main .segmented [role="radio"],
+html[data-layout="phone"] main .breadcrumb a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  min-width: 48px;
+}
+/* Rows of object lists are at least 56 px (a table row's height is its minimum). */
+html[data-layout="phone"] main tr.type-row,
+html[data-layout="phone"] main tr.query-row {
+  height: 56px;
 }

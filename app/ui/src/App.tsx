@@ -1764,7 +1764,18 @@ export function App() {
     const closeDrawer = (navigated: boolean) => {
       setDrawerOpen(false);
       // D-130: after a navigation from the drawer the new page's heading gets the focus once the page isn't inert.
-      if (navigated) setTimeout(() => heading.current?.focus(), 60);
+      if (navigated) {
+        // Once the drawer's inert is gone and the new route is shown (or after 1 s), its heading takes the focus.
+        const from = shownRoute.current;
+        const t0 = performance.now();
+        const tick = () => {
+          const h = heading.current;
+          const ready = shownRoute.current !== from || performance.now() - t0 > 1000;
+          if (ready && h && h.isConnected && !h.closest('[inert]')) { h.focus({ preventScroll: true }); return; }
+          if (performance.now() - t0 < 2000) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }
       if (!navigated) setTimeout(() => document.querySelector<HTMLElement>('.phone-bottombar [data-command="phone.menu"]')?.focus(), 40);
     };
     return withImport(

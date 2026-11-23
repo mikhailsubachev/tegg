@@ -103,7 +103,7 @@ export function AllTagsPage({ heading, sort: sort0, onSort, onOpen, commandRef }
             {rows.map((r, i) => (
               // Slice P (R104 row 10, D-937): a click previews the Tag; ⏎ and a double-click open its page.
               <RefElement as="tr" reference={{ target: { path: '', fragment: null, kind: 'tag', key: r.key }, kind: 'row', open: () => onOpen(r.key) }}
-                key={r.key} className="type-row" data-tag={r.key} tabIndex={i === 0 ? 0 : -1}
+                key={r.key} className="type-row" data-tag={r.key} tabIndex={i === 0 ? 0 : -1} role={phone ? 'row' : undefined}
                 // Slice PIN (R134, R135): `Tag` menu (right-click, ⇧F10) and a drag source of the tag.
                 onContextMenu={(e) => { e.preventDefault(); if (!phone) setRowMenu({ key: r.key, name: r.name, anchor: e.currentTarget }); }}
                 {...(phone ? {} : pinDragSource({ request: { kind: 'tag', key: r.key }, label: `#${r.name}`, icon: 'hash', color: r.color }))}
@@ -113,9 +113,9 @@ export function AllTagsPage({ heading, sort: sort0, onSort, onOpen, commandRef }
                   const at = list.indexOf(e.currentTarget);
                   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); list[Math.max(0, Math.min(list.length - 1, at + (e.key === 'ArrowDown' ? 1 : -1)))]?.focus(); }
                 }}>
-                <td><a data-command="tagsPage.c1" href="#" className="tag-chip" style={tagChipStyle(r.color)} tabIndex={-1} onClick={(e) => e.preventDefault()}><span data-user-content>#{r.name}</span></a></td>
-                <td className="num">{r.count}</td>
-                <td>{r.lastUsed ? dateTimeText(r.lastUsed) : ''}</td>
+                <td role={phone ? 'cell' : undefined}><a data-command="tagsPage.c1" href="#" className="tag-chip" style={tagChipStyle(r.color)} tabIndex={-1} onClick={(e) => e.preventDefault()}><span data-user-content>#{r.name}</span></a></td>
+                <td className="num" role={phone ? 'cell' : undefined}>{r.count}</td>
+                <td role={phone ? 'cell' : undefined}>{r.lastUsed ? dateTimeText(r.lastUsed) : ''}</td>
                 <td aria-hidden="true" className="chevron">›</td>
               </RefElement>
             ))}
