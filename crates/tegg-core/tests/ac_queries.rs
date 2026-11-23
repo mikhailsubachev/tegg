@@ -618,6 +618,8 @@ fn fr_qry_05_ac8_read_only_cells_two_views() {
     let root = vault(&sb);
     let start = swapped(&qfixture(ZRUSENE), &[("view: list", "view: board")]);
     write(&root, &qpath(ZRUSENE), start.as_bytes());
+    // D-2211: the base vault has no cancelled task; one gives the run a row to draw.
+    write(&root, "Tasks/Zrušená výprava.md", "---\nid: 01JB5Q00000000000000000099\ntype: task\ntitle: Zrušená výprava\nstatus: Cancelled\ncreated: 2026-10-01T09:00:00+02:00\nmodified: 2026-10-02T09:00:00+02:00\n---\n".as_bytes());
     let core = open(&root, &sb.dirs);
     let r = core.query(ZRUSENE);
     // Slice Q3 (views.md part five change table, D-2179): `view: board` reads as `wall`; without `group_by` it is a valid

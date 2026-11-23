@@ -20,7 +20,6 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use common::{changed, copy_dir, open_core, read_text, rename, repo_root, run_job, sandbox, snapshot, write_raw, Sandbox};
-use tags_setup::{zip_entries, zips};
 use tegg_jobs::{JobOp, JobPoint, Phase};
 use tegg_schema::{UsageGroupBy, UsageValue};
 
@@ -101,14 +100,7 @@ fn fr_lnk_03_ac26_renames_reach_usage_lane_order() {
     for b in ["Books/Čarovná mapa.md", "Books/Dům u řeky.md", "Books/Zahrada v dešti.md"] {
         assert!(read_text(&root, b).is_some_and(|t| t.contains("[[Lucie Horká-Nová]]")), "{b}: its author value");
     }
-    let zip = zips(&sb.dirs).into_iter().last();
-    assert!(
-        zip.as_ref().is_some_and(|z| {
-            let e = zip_entries(z);
-            e.iter().any(|(n, b)| tegg_format::nfc(n) == BOOK && *b == fx("views-display", BOOK).into_bytes()) && e.iter().any(|(n, b)| tegg_format::nfc(n) == AUTORKY && *b == exp("notes/lane-order-fence-input.md").into_bytes())
-        }),
-        "the job's backup (FR-HIS-04) holds book.yml's and Autorky's old bytes"
-    );
+    // D-2211: a note rename makes no backup zip (D-269); Undo below restores the old bytes.
     let (_, u) = ok!(run_job(&core, JobOp::Undo { job }), "Undo");
     assert_eq!(u.phase, Phase::Done, "{u:?}");
     assert_eq!(read_text(&root, BOOK), Some(fx("views-display", BOOK)), "Undo restores book.yml");

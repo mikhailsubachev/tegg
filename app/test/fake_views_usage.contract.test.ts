@@ -91,6 +91,13 @@ test('the twin reads every expected-views-usage.json fence', async () => {
   assert.deepEqual(bad, []);
 });
 
+/** D-2211: the Q2.1 fields of a usage (Q3 adds own and effective view, group, lanes, lane order, widths; the Q2.1 corpus
+ *  has none of them). */
+function q21(u: any): unknown {
+  if (!u) return u
+  return { kind: u.kind, own: { sort: u.own.sort, columns: u.own.columns }, broken: u.broken, sort: u.sort, columns: u.columns }
+}
+
 test('the twin runs every expected-views-usage.json result (R200)', async () => {
   const types = listTypes(over, {});
   const bad: string[] = [];
@@ -101,7 +108,7 @@ test('the twin runs every expected-views-usage.json result (R200)', async () => 
       source = { kind: 'fence', body: f.body };
     }
     const r = await queryRun(source, null, row.env, over, types);
-    const got: Record<string, unknown> = { state: r.state, broken: r.broken, usage: r.usage };
+    const got: Record<string, unknown> = { state: r.state, broken: r.broken, usage: q21(r.usage) };
     const want: Record<string, unknown> = { state: row.state, broken: row.broken, usage: row.usage };
     if (row.lanes) { got.lanes = (r.group?.lanes ?? []).map((l) => ({ id: l.id, paths: l.cards.map((c) => r.rows[c.row].path) })); want.lanes = row.lanes; }
     else { got.paths = r.rows.map((x) => x.path); want.paths = row.paths; }
@@ -122,7 +129,7 @@ test('the twin keeps the query file\'s def and answers no usage on query/<name>,
   const missing = await queryRun({ kind: 'view', type: 'book', name: 'Neexistuje' }, null, env, over, types);
   assert.deepEqual([missing.lookup, missing.usage], ['missing', null], 'a missing query: no usage');
   const empty = await queryRun({ kind: 'fence', body: 'saved: Přečtené 2026\nsort: []\ncolumns: [neznámý, author]' }, null, env, over, types);
-  assert.deepEqual(empty.usage?.own, { sort: [], columns: ['neznámý', 'author'] }, '`sort: []` and unknown column keys are own values');
+  assert.deepEqual((q21(empty.usage) as any)?.own, { sort: [], columns: ['neznámý', 'author'] }, '`sort: []` and unknown column keys are own values');
   const sideways = await queryRun({ kind: 'fence', body: 'saved: Přečtené 2026\nsort: sideways\ncolumns: author' }, null, env, over, types);
   assert.deepEqual(sideways.usage?.broken.map((b) => b.key), ['sort', 'columns'], 'broken shapes: one entry per key');
   assert.deepEqual(sideways.usage?.sort, page.def!.sort, 'and the query\'s values');

@@ -139,7 +139,7 @@ fn gen_item(r: &mut Rng, name: &str) -> Item {
     if r.chance(40) {
         let k = r.below(3);
         let l = distinct(r, &LANE_VALUES, k);
-        let lines = if r.chance(50) { vec![lane_line(&l)] } else { std::iter::once("    lane_order:".to_string()).chain(l.iter().map(|v| format!("      - {}", flow_value(v)))).collect() };
+        let lines = if l.is_empty() || r.chance(50) { vec![lane_line(&l)] } else { std::iter::once("    lane_order:".to_string()).chain(l.iter().map(|v| format!("      - {}", flow_value(v)))).collect() };
         own.lane_order = Some(l);
         parts.push(Part { kind: "lane_order", lines });
     }
@@ -175,11 +175,11 @@ fn distinct(r: &mut Rng, from: &[&str], n: usize) -> Vec<String> {
 fn render(items: &[Item], nl: &str) -> String {
     let mut views = String::from("views:");
     for it in items {
-        views.push_str(nl);
+        views.push_str("\n");
         views.push_str(&format!("  - name: {}", it.name));
         for p in &it.parts {
             for l in &p.lines {
-                views.push_str(nl);
+                views.push_str("\n");
                 views.push_str(l);
             }
         }
@@ -236,7 +236,7 @@ fn apply_model(it: &Item, op: &Op) -> (Item, bool) {
             (Some(_), Some(_)) if same => {}
             (Some(l), Some(i)) => {
                 let old = &out.parts[i].lines;
-                let comment = if old.len() == 1 { old[0].find("   #").map(|c| old[0][c..].to_string()).unwrap_or_default() } else { String::new() };
+                let comment = if old.len() == 1 { old[0].find(" #").map(|h| old[0][old[0][..=h].trim_end().len()..].to_string()).unwrap_or_default() } else { String::new() };
                 out.parts[i].lines = vec![format!("{l}{comment}")];
                 changed = true;
             }

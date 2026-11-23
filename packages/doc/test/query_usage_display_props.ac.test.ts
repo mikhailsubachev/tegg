@@ -88,7 +88,7 @@ function genFence(r: R): F {
   if (r.bool()) {
     const l = distinct(r, LANE_VALUES, r.int(3))
     own.laneOrder = l.map((x) => x.normalize('NFC'))
-    rest.push({ kind: 'lane_order', lines: r.bool() ? [laneLine(l)] : ['lane_order:', ...l.map((x) => `  - ${quote(x)}`)] })
+    rest.push({ kind: 'lane_order', lines: l.length === 0 || r.bool() ? [laneLine(l)] : ['lane_order:', ...l.map((x) => `  - ${quote(x)}`)] })
   }
   if (r.bool()) {
     const keys = [...WIDTH_KEYS].sort(() => (r.bool() ? 1 : -1)).slice(0, 1 + r.int(2))

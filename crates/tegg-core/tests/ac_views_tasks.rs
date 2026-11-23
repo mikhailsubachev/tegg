@@ -556,7 +556,8 @@ fn fr_qry_07_ac27_a_new_vault_gets_default_views() {
     for n in TASK_VIEW_NAMES {
         let d = some!(default_task_view(n), format!("default_task_view({n})"));
         // D-1936: no `created` / `modified`, the same bytes on every Mac.
-        assert_eq!(queries_q::create_text_unstamped(&d), exp(&format!("queries/{}-default.yml", n.to_lowercase())), "create_text_unstamped(default_task_view({n})) gives R202's bytes");
+        // D-2211 (D-2195): the defaults are constants; the general create writer writes the new words, so it is not compared.
+        let _ = &d;
         assert_eq!(default_task_view_text(n), Some(exp(&format!("queries/{}-default.yml", n.to_lowercase()))), "default_task_view_text({n})");
     }
     assert!(default_task_view("Čeká na ostatní").is_none(), "no default for other names");
