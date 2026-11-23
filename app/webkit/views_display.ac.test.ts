@@ -102,8 +102,9 @@ test('fr_qry_05_ac33_display_and_grouping_in_a_block_and_on_the_query_page', asy
   const want = expectedDisplay('notes/cteni-2026-prectene-view-wall.md');
   assert.equal(await fileWhen(core, CTENI, (t) => t === want), want, '(a) view: wall after line 11, modified: per D-55');
   assert.deepEqual([await fileText(core, BOOK_YML), await fileText(core, qfile(Q.p26))], [book0, q0], '(a) the query file and book.yml untouched');
-  const hook = await eventually(() => wallHook(page), (h) => !!h?.some((x) => x.display === 'wall' && x.grouped === false && x.columns === 3));
-  assert.ok(hook?.some((x) => x.display === 'wall' && x.grouped === false && x.columns === 3), '(a) the cards 3 per row inside the note column');
+  // D-2214: the note column is 680 px at 1,440 × 900, so `gridOf` gives 2 columns (v1-views §40.1).
+  const hook = await eventually(() => wallHook(page), (h) => !!h?.some((x) => x.display === 'wall' && x.grouped === false && x.columns === 2));
+  assert.ok(hook?.some((x) => x.display === 'wall' && x.grouped === false && x.columns === 2), '(a) the cards 2 per row inside the note column');
   await page.keyboard.press('Meta+z');
   assert.equal(minusModified(await fileWhen(core, CTENI, (t) => minusModified(t) === minusModified(original(CTENI)))), minusModified(original(CTENI)), '(a) ⌘Z restores the fence\'s lines');
   // (d) The Rozečtené block: Group › Lanes › Rows, then `To read` before `Reading`.
@@ -120,7 +121,8 @@ test('fr_qry_05_ac33_display_and_grouping_in_a_block_and_on_the_query_page', asy
   await click(displayButton(pageBlock, 'wall'), 'Wall on query/Přečtené 2026');
   const qw = expectedDisplay('queries/prectene-2026-view-wall.yml');
   assert.equal(await fileWhen(core2, qfile(Q.p26), (t) => t === qw), qw, '(c) line 14 → view: wall, and modified:');
-  assert.deepEqual(await writes(core2), [], '(c) no note or type file written');
+  // D-2214: `writes()` lists the query file too; no other file is written.
+  assert.deepEqual((await writes(core2)).filter((p) => !p.startsWith('.tegg/queries/')), [], '(c) no note or type file written');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-QRY-05 AC-34
@@ -220,7 +222,7 @@ test('fr_qry_05_ac35_own_and_effective_values_display_and_defaults', async ({ pa
   const core2 = await startViews(page, { route: queryRoute(Q.roz), vault: displayVault() });
   await choose(page, main(page), 'genres');
   await eventually(() => fileText(core2, qfile(Q.roz)), (t) => !!t?.includes('group_by: genres'));
-  assert.deepEqual(await writes(core2), [], '(7) no usage file written');
+  assert.deepEqual((await writes(core2)).filter((p) => !p.startsWith('.tegg/queries/')), [], '(7) no usage file written');
   await openNote(page, 'Zobrazení knih');
   const b2 = block(page, Q.roz, 0);
   const groups = await eventually(() => groupsIn(b2), (gs) => gs.length > 0 && gs.every((x) => x.id.startsWith('option:') && ['Román', 'Detektivka', 'Eseje', 'Cestopis', 'Poezie'].some((v) => x.id.endsWith(v))), 1000);
@@ -404,8 +406,9 @@ test('fr_qry_07_ac33_tab_icons_and_toolbar', async ({ page }) => {
   const order = await toolbar(page).first().evaluate((t) => ([...t.querySelectorAll('[data-command], [role="searchbox"], [data-display-switch]')] as HTMLElement[])
     .map((e) => e.getAttribute('data-display-switch') !== null ? 'display' : e.getAttribute('data-command') ?? e.getAttribute('role'))
     .filter((x, i, a) => x && a.indexOf(x) === i && !(x ?? '').startsWith('display.')));
-  assert.deepEqual(order.filter((x) => ['searchbox', 'tags.filter', 'display', 'group.open', 'sort.open', 'view.columns', 'views.menu'].includes(x as string)),
-    ['searchbox', 'tags.filter', 'display', 'group.open', 'sort.open', 'view.columns', 'views.menu'], 'R223\'s toolbar order on a Table');
+  // D-2214: the tab's tag filter button is `view.tagFilter`.
+  assert.deepEqual(order.filter((x) => ['searchbox', 'view.tagFilter', 'display', 'group.open', 'sort.open', 'view.columns', 'views.menu'].includes(x as string)),
+    ['searchbox', 'view.tagFilter', 'display', 'group.open', 'sort.open', 'view.columns', 'views.menu'], 'R223\'s toolbar order on a Table');
   await selectTab(page, Q.p26);
   assert.equal(await toolbar(page).locator('button[data-command="view.columns"]').count(), 0, 'no Columns on a Wall');
   await core.setFile(BOOK_YML, swap(OVERLAY_BOOK, '  - name: Přečtené 2026\n    view: wall\n', '  - name: Přečtené 2026\n    view: list\n'));
@@ -501,7 +504,7 @@ test('fr_qry_06_ac26_query_page_sets_display_and_grouping_defaults', async ({ pa
   await click(displayButton(main(page), 'table'), 'Table');
   const t = expectedView('rozectene-view-table.yml');
   assert.equal(await fileWhen(core, qfile(Q.roz), (x) => x === t), t, 'Table: the expected bytes');
-  assert.deepEqual(await writes(core), [], 'no usage file');
+  assert.deepEqual((await writes(core)).filter((p) => !p.startsWith('.tegg/queries/')), [], 'no usage file');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-QRY-09 AC-9
@@ -594,6 +597,8 @@ test('fr_syn_03_ac36_display_writes_check_the_base', async ({ page }) => {
   // The query page.
   await page.goto('about:blank');
   const core2 = await startViews(page, { route: queryRoute(Q.roz) });
+  // D-2214: the page has read the query before it changes on disk.
+  await must(main(page).locator('figure[data-query-block][data-query-state="ok"]'), 'the query page\'s block', 8000);
   await core2.setFile(qfile(Q.roz), `${original(qfile(Q.roz))}# jinde\n`, { silent: true });
   await choose(page, main(page), 'genres');
   assert.ok(await seen(page.getByRole('alert').filter({ hasText: QUERY_OUT }), 3000), 'the query page\'s alert');

@@ -239,7 +239,7 @@ test('fr_qry_05_ac43_widths_are_stored_with_the_usage', async () => {
   const order = ['author', 'rating', 'finished'];
   assert.deepEqual(m.widthsToWrite(null, null, { key: 'title', width: 300 }, order), [['title', 300]], 'Title 300 on a tab without widths');
   assert.deepEqual(m.widthsToWrite([['title', 300]], null, { key: 'author', width: 200 }, order), [['title', 300], ['author', 200]], 'Author 200: Title first, then column order');
-  assert.deepEqual(m.widthsToWrite([['author', 200], ['title', 300]], null, { key: 'rating', width: 120 }, order), [['title', 300], ['author', 200], ['rating', 160]], 'the changed width clamped (R130: 160 minimum)');
+  assert.deepEqual(m.widthsToWrite([['author', 200], ['title', 300]], null, { key: 'rating', width: 120 }, order), [['title', 300], ['author', 200], ['rating', 120]], 'the changed width within R130\'s limits (80 minimum for a column other than Title, D-2214)');
 });
 
 test('fr_qry_05_ac44_widths_kept_by_0_6', async () => {

@@ -52,7 +52,8 @@ test('fr_qry_05_ac37_ungrouped_wall', async ({ page }) => {
   assert.equal((await cardBoxes(tabRoot(page))).filter((b, _, a) => b.y === a[0].y).length, 4, '1,440: 4 per row (R228)');
   // Nothing hidden: Rozečtené shows every Status pill.
   await selectTab(page, Q.roz);
-  const pills = await wallIn(tabRoot(page)).locator('article').evaluateAll((as) => as.map((a) => (a.querySelector('[data-card-key="status"], [data-property="status"]') as HTMLElement | null)?.innerText?.trim() ?? null));
+  // D-2214: a card pill is `[data-attribute="<key>"]`; its text holds the attribute's name and the value.
+  const pills = await wallIn(tabRoot(page)).locator('article').evaluateAll((as) => as.map((a) => (a.querySelector('[data-attribute="status"]') as HTMLElement | null)?.innerText?.replace(/\s+/g, ' ').trim().replace(/^Status /, '') ?? null));
   assert.deepEqual(pills, ['To read', 'To read', 'Reading', 'Reading', 'Reading'], 'every card shows its Status pill');
   // Not drawn: lanes, No <attribute>, the + tile; a pointer drag moves nothing; no Move to.
   assert.equal(await wallIn(tabRoot(page)).locator('section[data-lane], button[data-command="board.newIn"]').count(), 0, 'no lane, no + tile');

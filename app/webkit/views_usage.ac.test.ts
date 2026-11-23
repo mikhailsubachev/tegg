@@ -372,7 +372,8 @@ test('fr_qry_07_ac26_rename_duplicate_remove_with_settings', async ({ page }) =>
   assert.equal(await fileWhen(core, BOOK_YML, (x) => x === expectedUsage('types/book-overlay-duplicate.yml')), expectedUsage('types/book-overlay-duplicate.yml'), '(b) the copy\'s item after line 19');
   assert.equal(await eventually(() => selectedTab(page), (s) => s === 'Přečtené 2026 (2)'), 'Přečtené 2026 (2)', '(b) the copy is selected');
   const dup = (await core.typeCalls()).at(-1);
-  assert.deepEqual(dup?.ops.map((o: any) => o.op), ['views', 'viewSort', 'viewColumns'], '(b) one type_patch with three ops');
+  // D-2214 (CP-35, D-2200): the copy's item lines come from one `viewCopy` op.
+  assert.deepEqual(dup?.ops.map((o: any) => o.op), ['views', 'viewCopy'], '(b) one type_patch: views and viewCopy');
   assert.equal((await uiState(core))?.usageColumnWidths?.[tabKey('Přečtené 2026 (2)')], undefined, '(b) widths not copied');
 });
 

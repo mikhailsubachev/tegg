@@ -136,7 +136,8 @@ test('fr_typ_09_ac8_later_controls_are_disabled_and_cells_not_editable', async (
   await openTypes(page);
   await gotoTypePage(page, S);
   // Slice Q2 (FR-QRY-07 AC-1, AC-2, AC-17; AP-1517): tabs come from `views:`, `Add view` is built, `Filter` and `Group` left.
-  for (const l of ['Filter', 'Group']) assert.equal(await main(page).getByRole('button', { name: l, exact: true }).count(), 0, `no ${l}`);
+  // D-2214: slice Q3 builds `Group` (R223); only `Filter` stays absent.
+  for (const l of ['Filter']) assert.equal(await main(page).getByRole('button', { name: l, exact: true }).count(), 0, `no ${l}`);
   const add = await must(main(page).getByRole('button', { name: 'Add view', exact: true }), 'Add view');
   assert.notEqual(await add.getAttribute('aria-disabled'), 'true', 'Add view is built');
   const tabs = await must(main(page).getByRole('tablist', { name: 'Views' }), 'tablist Views');

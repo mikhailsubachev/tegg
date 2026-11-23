@@ -512,7 +512,8 @@ test('fr_qry_07_ac15_views_follow_external_changes', async ({ page }) => {
 test('fr_qry_07_ac17_view_placeholders_removed', async ({ page }) => {
   await startViews(page, { route: typeRoute('book') });
   await must(tablist(page), 'tablist', 8000);
-  for (const n of ['Filter', 'Group']) assert.equal(await main(page).getByRole('button', { name: n, exact: true }).count(), 0, `no \`${n}\` control on the type page`);
+  // D-2214: slice Q3 builds `Group` (R223); only `Filter` stays absent.
+  for (const n of ['Filter']) assert.equal(await main(page).getByRole('button', { name: n, exact: true }).count(), 0, `no \`${n}\` control on the type page`);
   assert.equal(await isDisabled(addView(page)), false, 'Add view is built (not aria-disabled)');
   assert.equal(await main(page).getByText('Coming in v1.0').count(), 0, 'no `Coming in v1.0`');
   await click(main(page).getByRole('button', { name: 'Type settings', exact: true }), 'Type settings');
