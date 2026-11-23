@@ -381,7 +381,12 @@ export function viewsOp(text: string, op: any): { text: string } | { error: Reco
     const old = op.op === 'viewSort' ? it.sort : it.columns;
     if (JSON.stringify(old) === JSON.stringify(value)) return { text };
     const nu: VItem = { ...it, [op.op === 'viewSort' ? 'sort' : 'columns']: value };
-    nu.plain = nu.sort === null && nu.columns === null && nu.unknown.length === 0;
+    // D-2212 (CP-35 extended): field-level, the item's other keys keep their lines.
+    const lines = value === null ? null : op.op === 'viewSort'
+      ? ((v: UsageSort[]) => (v.length === 0 ? ['sort: []'] : v.length === 1 ? [`sort: ${levelText(v[0])}`] : ['sort:', ...v.map((l) => `  - ${levelText(l)}`)]))(value as UsageSort[])
+      : [`columns: [${(value as string[]).map(flowItem).join(', ')}]`];
+    nu.out = setVField(bareFields(it), op.op === 'viewSort' ? 'sort' : 'columns', lines);
+    nu.plain = nu.out.every((f) => f.key === 'name');
     changed.add(nu);
     next = cur.map((x, i) => (i === at ? nu : x));
   } else if (['viewDisplay', 'viewGroup', 'viewLanes', 'viewLaneOrder', 'viewWidths', 'viewCopy'].includes(op.op)) {

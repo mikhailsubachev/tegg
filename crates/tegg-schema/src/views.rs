@@ -89,32 +89,6 @@ impl Item {
     }
 }
 
-impl Item {
-    /// Part two's re-emit of an item whose `sort` or `columns` changed (R196; D-1840, FR-FMT-12 AC-13): the name in NFC,
-    /// the known keys in R221's order (`sort` and `columns` from their values, a broken one as written), then the unknown
-    /// keys in NFC. The Q3 keys keep their lines.
-    fn canonicalize(&mut self) {
-        let mut out: Vec<(String, Vec<String>)> = vec![("name".into(), vec![format!("name: {}", scalar(&self.name, true))])];
-        for k in &KEY_ORDER[1..] {
-            let Some((_, l)) = self.fields.iter().find(|(x, _)| x == k) else { continue };
-            let l = match (*k, &self.sort, &self.columns) {
-                ("sort", UsageValue::Set(v), _) => sort_lines(v),
-                ("columns", _, UsageValue::Set(c)) => vec![format!("columns: {}", flow_list(c))],
-                ("sort", _, _) | ("columns", _, _) => l.iter().map(|x| nfc(x)).collect(),
-                _ => l.clone(),
-            };
-            out.push((k.to_string(), l));
-        }
-        for (k, l) in &self.fields {
-            if !KEY_ORDER.contains(&k.as_str()) {
-                out.push((k.clone(), l.iter().map(|x| nfc(x)).collect()));
-            }
-        }
-        self.fields = out;
-        self.changed = true;
-    }
-}
-
 /// The trailing comment of a one-line field (the blanks before ` #` included), outside quotes.
 fn trailing_comment(line: &str) -> Option<String> {
     let colon = line.find(':')?;
@@ -473,7 +447,6 @@ pub(crate) fn apply_views(def: &mut TypeFile, lines: &mut Vec<String>, op: &Type
                 }
                 it.set_field("sort", if let UsageValue::Set(l) = &v { Some(sort_lines(l)) } else { None });
                 it.sort = v;
-                it.canonicalize();
                 true
             })
         }
@@ -488,7 +461,6 @@ pub(crate) fn apply_views(def: &mut TypeFile, lines: &mut Vec<String>, op: &Type
                 }
                 it.set_field("columns", if let UsageValue::Set(c) = &v { Some(vec![format!("columns: {}", flow_list(c))]) } else { None });
                 it.columns = v;
-                it.canonicalize();
                 true
             })
         }

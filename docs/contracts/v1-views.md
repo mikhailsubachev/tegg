@@ -2573,6 +2573,8 @@ Rules (part two §14.2 holds unless said here):
   keep their lines as written (old words, trailing comments and flow or block style included); the changed key's lines
   are replaced (a replaced one-line key keeps its trailing comment, D-1457) or inserted; full-line comments inside the
   item go (D-1840). An item that didn't change keeps all its lines (R196).
+  The same rule holds for part two's `SetViewSort` and `SetViewColumns` (D-2212): they replace only the `sort` /
+  `columns` lines; the name line, the other keys (a hand-written `view: board` included) and unknown keys keep theirs.
 - **Comments between items** (RT-1, D-2204): a full-line comment between two items belongs to the item **before** it
   (the item whose lines it follows); it goes only when that item changes, and stays while that item is unchanged. A
   comment before the first item belongs to the `views:` key and stays.
