@@ -97,33 +97,55 @@ export function PhoneFrame(props: {
   // visible block at the top.
   useEffect(() => {
     const m = () => document.querySelector<HTMLElement>('main.phone-main');
-    let anchor: { el: Element; offset: number } | null = null;
+    let anchor: { el: Element; offset: number; col: Element | null } | null = null;
     const remember = () => {
       const main = m();
       if (!main) return;
       const top = main.getBoundingClientRect().top;
-      const blocks = main.querySelectorAll('article > *, .page-column > *, li, tr, p, h2, h3');
+      const SEL = 'article > *, .page-column > *, li, tr, p, h1, h2, h3, h4, h5, h6';
+      const blocks = main.querySelectorAll(SEL);
       anchor = null;
       for (const el of blocks) {
         const r = el.getBoundingClientRect();
-        if (r.height > 0 && r.bottom > top + 1) { anchor = { el, offset: r.top - top }; break; }
+        if (r.height <= 0 || r.bottom <= top + 1) continue;
+        // The innermost visible block (its own candidates come next in document order): a wrapper holding the whole
+        // page would keep only the scroll position (D-2121).
+        if (el.querySelector(SEL)) continue;
+        anchor = { el, offset: r.top - top, col: main.firstElementChild };
+        break;
       }
     };
-    const onScroll = () => remember();
+    // Only a rotation moves the place: a new viewport size, and the insets the plugin sends after it (the app bar's top,
+    // the side padding). The scrolls a reflow fires meanwhile aren't the reader's and don't move the anchor; route
+    // changes never restore it (D-2121).
+    const sizeNow = () => `${innerWidth}x${innerHeight}`;
+    let size = sizeNow();
+    let pending = false;
+    const onScroll = () => { if (!pending && sizeNow() === size) remember(); };
     document.addEventListener('scroll', onScroll, true);
     remember();
     const f = () => {
+      size = sizeNow();
+      pending = false;
       const el = document.activeElement as HTMLElement | null;
       if (el && /^(INPUT|TEXTAREA)$/.test(el.tagName)) { el.scrollIntoView({ block: 'nearest' }); return; }
       const main = m();
       const a = anchor;
-      if (main && a && a.el.isConnected) {
+      if (main && a && a.el.isConnected && a.col === main.firstElementChild) {
         const top = main.getBoundingClientRect().top;
         main.scrollTop += a.el.getBoundingClientRect().top - top - a.offset;
       }
     };
+    let insets = JSON.stringify(nativeState().insets);
+    const offInsets = onNative((n) => {
+      const next = JSON.stringify(n.insets);
+      if (next === insets) return;
+      insets = next;
+      pending = true;
+      requestAnimationFrame(() => requestAnimationFrame(f));
+    });
     window.addEventListener('resize', f);
-    return () => { window.removeEventListener('resize', f); document.removeEventListener('scroll', onScroll, true); };
+    return () => { window.removeEventListener('resize', f); document.removeEventListener('scroll', onScroll, true); offInsets(); };
   }, []);
   const [indexing, setIndexing] = useState(false);
   const running = props.progress?.state === 'running';

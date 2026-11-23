@@ -19,6 +19,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsAnimationCompat
 import androidx.core.view.WindowInsetsCompat
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
@@ -26,6 +27,7 @@ import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
+import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 @InvokeArg
@@ -71,16 +73,27 @@ class TeggStoragePlugin(private val activity: Activity) : Plugin(activity) {
             // The WebView ends at the keyboard's top, so the page's layout viewport shrinks.
             view.setPadding(0, 0, 0, if (imeShown) ime.bottom else 0)
             val d = activity.resources.displayMetrics.density
+            // The WebView rounds its layout viewport up to whole CSS px (2400 device px at 2.625 → 915, not 914.29),
+            // so its bottom and right edges lie up to 1 CSS px past the screen. A bottom or right bar's inset adds that
+            // overhang, and every inset rounds up, so nothing ends under a bar (FR-UX-04 AC-3).
+            val win = activity.windowManager.currentWindowMetrics.bounds
+            val h = (win.height() - if (imeShown) ime.bottom else 0) / d
+            val w = win.width() / d
             insets = Insets(
-                (bars.top / d).roundToInt(),
-                if (imeShown) 0 else (bars.bottom / d).roundToInt(),
-                (bars.left / d).roundToInt(),
-                (bars.right / d).roundToInt(),
+                ceil(bars.top / d).toInt(),
+                if (imeShown || bars.bottom == 0) 0 else ceil(bars.bottom / d + (ceil(h) - h)).toInt(),
+                ceil(bars.left / d).toInt(),
+                if (bars.right == 0) 0 else ceil(bars.right / d + (ceil(w) - w)).toInt(),
             )
             keyboard = imeShown
             push("{insets:${insetsJs()},keyboard:$keyboard}")
             all
         }
+        // With an animation callback the content view gets the keyboard's end state when its animation starts, not
+        // when it ends, so the page fits the keyboard at once (FR-UX-04 AC-4, D-2121).
+        ViewCompat.setWindowInsetsAnimationCallback(content, object : WindowInsetsAnimationCompat.Callback(DISPATCH_MODE_STOP) {
+            override fun onProgress(insets: WindowInsetsCompat, running: MutableList<WindowInsetsAnimationCompat>) = insets
+        })
         content.requestApplyInsets()
     }
 

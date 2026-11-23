@@ -178,7 +178,8 @@ html[data-layout="phone"] .phone-sheet-layer {
 }
 html[data-layout="phone"] .phone-scrim {
   position: absolute;
-  inset: 0;
+  /* Below the status bar: its area keeps the theme's bg while the drawer or a sheet is open (FR-UX-04 AC-3, D-2121). */
+  inset: var(--inset-top) 0 0 0;
   background: var(--side);
   opacity: 0;
   transition: opacity 200ms ease;
@@ -192,7 +193,10 @@ html[data-layout="phone"] .phone-drawer {
   left: 0;
   top: var(--inset-top);
   bottom: var(--inset-bottom);
-  width: min(320px, calc(100vw - 56px));
+  /* A side cutout or bar in landscape: the drawer's background reaches the edge, its content starts after the inset
+     (FR-UX-04 AC-3, D-2122). */
+  width: calc(min(320px, calc(100vw - 56px)) + var(--inset-left));
+  padding-left: var(--inset-left);
   display: flex;
   flex-direction: column;
   background: var(--side);
@@ -243,6 +247,9 @@ html[data-layout="phone"] .phone-sheet {
   flex-direction: column;
   background: var(--bg);
   border-radius: 12px 12px 0 0;
+  /* Side cutouts and bars in landscape (FR-UX-04 AC-3, D-2122). */
+  padding-left: var(--inset-left);
+  padding-right: var(--inset-right);
 }
 html[data-layout="phone"] .phone-sheet-head {
   display: flex;
@@ -678,4 +685,16 @@ html[data-layout="phone"] main tr.query-row {
 html[data-layout="phone"] .phone-map-area.fill .phone-map-sizer {
   min-width: calc(100% + 50vw);
   min-height: calc(100% + 50vh);
+}
+
+/* The start screens (AND-1's access, opening and chooser screens; contract §8): a scroller inside the insets, on the
+   theme's bg (the body's bg shows under the bars), so nothing sits under the system bars, also when the chooser is
+   taller than a landscape screen (FR-UX-04 AC-3, D-2122). */
+html[data-layout="phone"] .chooser {
+  background: var(--bg);
+  margin: var(--inset-top) var(--inset-right) var(--inset-bottom) var(--inset-left);
+  height: calc(100% - var(--inset-top) - var(--inset-bottom));
+  padding: 24px 16px;
+  overflow-y: auto;
+  align-items: safe center;
 }

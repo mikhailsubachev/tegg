@@ -199,8 +199,11 @@ In `load(webView)` the plugin sets `ViewCompat.setOnApplyWindowInsetsListener` o
 - `bars` = `insets.getInsets(systemBars() or displayCutout())`, `imeShown` = `insets.isVisible(ime())`.
 - The content view's bottom padding is `ime().bottom` while `imeShown`, else 0: the WebView ends at the keyboard's top,
   so the page's layout viewport shrinks (as Chromium on a phone does).
-- The page gets `{ top, bottom: imeShown ? 0 : bars.bottom, left, right }` in CSS px (device px ÷ density) and
-  `keyboard: imeShown`, through §6.
+- The page gets `{ top, bottom: imeShown ? 0 : bars.bottom, left, right }` in CSS px (device px ÷ density, rounded
+  up; a bottom or right bar's inset also covers the up to 1 CSS px by which the WebView's layout viewport, rounded up
+  to whole CSS px, reaches past the screen, D-2118) and `keyboard: imeShown`, through §6.
+- A `WindowInsetsAnimationCompat` callback (`DISPATCH_MODE_STOP`) on the content view makes the keyboard's end state
+  arrive when its animation starts, so the WebView is resized at once (D-2121).
 
 The system bars are never padded natively: the page draws its own background under them and keeps text out with the
 insets (CSS variables, §8.1).
@@ -291,7 +294,7 @@ desktop's: `vault_last`'s note when it exists, else `inbox`.
 
 Rendered instead of `TitleBar`, `Sidebar`, `ContextPanel`, the outline rail, focus mode and the palette when `isPhone()`
 and a vault is open. The start screens (`AccessScreen`, `OpeningScreen`, `AndroidChooser`) are AND-1's and only gain the
-insets (padding by the CSS variables) and the keyboard rules (§8.6).
+insets (padding by the CSS variables, on the theme's `bg`, D-2122) and the keyboard rules (§8.6).
 
 | Part | DOM |
 | --- | --- |
@@ -308,7 +311,8 @@ Absent on the phone (not in the DOM): `.titlebar` and its `tablist "Tabs"`, `New
 ### 8.3 The drawer (`Drawer`, RA10; CP-7, CP-8)
 
 `div[role="dialog"][aria-modal="true"][aria-label="Navigation"].phone-drawer` from the left edge, width
-`min(320px, 100vw − 56px)`, from `var(--inset-top)` to `var(--inset-bottom)`, over a scrim `div.phone-scrim` (no role)
+`min(320px, 100vw − 56px)`, from `var(--inset-top)` to `var(--inset-bottom)`, over a scrim `div.phone-scrim` (no role; from `var(--inset-top)` down, so the status bar's area keeps `bg`, D-2121;
+the drawer's width grows by `--inset-left`, which pads its content, D-2122)
 that covers the rest of the viewport, the bottom bar included. Mounted when opened; removed from the DOM when its close
 transition ends (`transition-duration` 200 ms, `0s` under `prefers-reduced-motion: reduce`). While open, every other
 child of the app root has `inert`; Tab and Shift+Tab cycle inside the drawer.
