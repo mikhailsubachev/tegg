@@ -19,6 +19,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { moduleGated, rustFiles, unguarded } from './android-rules';
+import { ANDROID_EXCLUDED } from '../ui/src/ipc/android';
 
 const REPO = resolve(import.meta.dirname, '../..');
 const SHELL = join(REPO, 'app/src-tauri');
@@ -157,8 +158,32 @@ test('ar_03_ac12_desktop_build_unchanged', () => {
   const now = (p: string) => JSON.parse(readFileSync(join(REPO, p), 'utf8'));
   const def = now('app/src-tauri/capabilities/default.json');
   assert.deepEqual(def.platforms, ['macOS'], '(b) default.json gains platforms ["macOS"] (contract §1)');
-  const { platforms: _p, ...defRest } = def;
-  assert.deepEqual(defRest, noPlatforms(atBase('app/src-tauri/capabilities/default.json')), '(b) default.json: the permission list and every other field equal main at the merge-base');
+  const { platforms: _p, permissions: defPerms, ...defRest } = def;
+  const { permissions: basePerms, ...baseRest } = noPlatforms(atBase('app/src-tauri/capabilities/default.json')) as Record<string, unknown>;
+  assert.deepEqual(defRest, baseRest, '(b) default.json: every field but the permission list equals main at the merge-base');
+  // D-2168 (amends D-2053): main's permission list stays, in its order; the branch may add only the `allow-…` of its own
+  // added desktop commands, each classified for Android (in commands::ANDROID or in RA2's excluded groups).
+  const permId = (p: unknown) => (typeof p === 'string' ? p : JSON.stringify(p));
+  const nowIds = (defPerms as unknown[]).map(permId);
+  const baseIds = (basePerms as unknown[]).map(permId);
+  let at = 0;
+  for (const p of nowIds) if (at < baseIds.length && p === baseIds[at]) at += 1;
+  assert.equal(at, baseIds.length, `(b) default.json keeps main's permission list in its order; missing or moved: ${baseIds.filter((p) => !nowIds.includes(p)).join(', ') || baseIds[at]}`);
+  const rs = readFileSync(join(SHELL, 'src/commands.rs'), 'utf8');
+  const rsList = (name: string) => {
+    const m = new RegExp(`pub const ${name}: &\\[&str\\] = &\\[([\\s\\S]*?)\\];`).exec(rs);
+    assert.ok(m, `commands.rs has ${name}`);
+    return [...m![1].matchAll(/"([a-z0-9_]+)"/g)].map((x) => x[1]);
+  };
+  const desktopCmds = rsList('DESKTOP');
+  const androidCmds = new Set(rsList('ANDROID'));
+  const excludedCmds = new Set(ANDROID_EXCLUDED);
+  const baseSet = new Set(baseIds);
+  for (const p of nowIds.filter((x) => !baseSet.has(x))) {
+    const cmd = desktopCmds.find((c) => `allow-${c.replace(/_/g, '-')}` === p);
+    assert.ok(cmd, `(b) default.json adds only permissions of the branch's own desktop commands; ${p} is not one (D-2168)`);
+    assert.ok(androidCmds.has(cmd!) || excludedCmds.has(cmd!), `(b) the added ${cmd} is classified for Android: in commands::ANDROID or an excluded group (D-2168)`);
+  }
   const cap = now('app/src-tauri/capabilities/capture.json');
   const { platforms: capPlatforms, ...capRest } = cap;
   assert.ok(capPlatforms === undefined || JSON.stringify(capPlatforms) === '["macOS"]', `(b) capture.json: at most platforms ["macOS"] added, got ${JSON.stringify(capPlatforms)}`);

@@ -184,12 +184,16 @@ fn ar_03_ac9_command_sets_per_platform() {
     let desktop: Vec<String> = DESKTOP.iter().map(|s| s.to_string()).collect();
     assert_eq!(&desktop, desk_names, "(a) DESKTOP equals the desktop generate_handler!, in source order");
     let desktop_set: BTreeSet<String> = desktop.iter().cloned().collect();
-    assert_eq!(desktop_set, old_set, "(a) DESKTOP equals the desktop set on main at {base} (AND-1 changes none)");
+    // D-2168 (amends D-2053): main's set at the merge-base stays whole; the branch may add its own commands, each
+    // classified for Android below.
+    let removed: Vec<&String> = old_set.difference(&desktop_set).collect();
+    assert!(removed.is_empty(), "(a) DESKTOP keeps every desktop command on main at {base}; removed: {removed:?}");
     assert!(!desktop_set.contains("type_misfits"), "(a) type_misfits stays unregistered (D-808)");
 
     // (b) ANDROID = DESKTOP − RA2's groups + the four Android-only commands.
     let ex = excluded();
-    // D-2053: every desktop command is classified for Android: in ANDROID or in one of RA2's excluded groups.
+    // D-2053, D-2168: every desktop command, the branch's added ones included, is classified for Android: in ANDROID or
+    // in one of RA2's excluded groups.
     for c in &desktop {
         assert!(ANDROID.contains(&c.as_str()) || ex.contains(c.as_str()), "classify the desktop command {c} for Android: add it to commands::ANDROID or to an excluded group (RA2, D-2053)");
     }
