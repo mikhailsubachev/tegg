@@ -1248,7 +1248,9 @@ export function App() {
   // Test hook (ms3-shell §10): registered command ids and route ids.
   useEffect(() => {
     const w = window as { __TEGG_TEST__?: Record<string, unknown> };
-    w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), commands: () => list.map((c) => c.id), routes: () => ROUTES.map((r) => r.id) };
+    // On the phone the registry follows the shown page's controls (page-local commands, D-2117, D-2128), so it is read
+    // live rather than from the memoized list.
+    w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), commands: () => (isPhone() ? commands(ctxRef.current) : list).map((c) => c.id), routes: () => ROUTES.map((r) => r.id) };
   }, [list]);
 
   // Focus returns to where it was as soon as the dialog is gone, before the next key (D-139).

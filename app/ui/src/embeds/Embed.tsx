@@ -1,5 +1,6 @@
 // One embed of R30 (docs/contracts/ms4-embeds.md §6; FR-EMB-02, FR-LNK-07, D-418, D-423…D-425, D-427): a framed full
 // embed, a card, a link-mode embed, or a frame for a state that can't show content (R30a). Strings from R33.
+import { isPhone } from '../phone/layout';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { parse, type EmbedMode } from '@tegg/doc';
 import { ipc } from '../ipc/client';
@@ -114,7 +115,12 @@ function LinkEmbed({ node, onOpen, host, inPreview }: EmbedProps) {
   );
 }
 
-function ModeMenu({ mode, disabled, onMode }: { mode: EmbedMode; disabled: string | null; onMode?: (m: EmbedMode) => void }) {
+/** D-2128: `Display as` changes the file, so the phone doesn't render it. */
+function ModeMenu(props: { mode: EmbedMode; disabled: string | null; onMode?: (m: EmbedMode) => void }) {
+  return isPhone() ? null : <DesktopModeMenu {...props} />;
+}
+
+function DesktopModeMenu({ mode, disabled, onMode }: { mode: EmbedMode; disabled: string | null; onMode?: (m: EmbedMode) => void }) {
   const [open, setOpen] = useState(false);
   const menu = useRef<HTMLDivElement | null>(null);
   const modes: EmbedMode[] = ['full', 'card', 'link'];

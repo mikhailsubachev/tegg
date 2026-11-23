@@ -18,6 +18,7 @@ import { currentRegion, useToday } from '../tasks/useTasks';
 import { dueLabel } from '../tasks/views';
 import { writeTask, type TaskAction } from '../tasks/write';
 import { Checkbox } from '../tasks/TaskCard';
+import { isPhone } from '../phone/layout';
 import type { EmbedNode } from './tree';
 
 // ------------------------------------------------------------------------------------------------ writes
@@ -127,7 +128,10 @@ export function TaskEmbed({ node, editable, title, body, openButton, modeMenu, t
   const overdue = due.tone === 'overdue';
   const dueName = t('task.dueButton', { label: due.text || t('task.none') }) + (overdue ? `, ${t('task.overdueWord')}` : '');
   const statusColor = d.statuses.find((s) => s.label === h.status)?.color ?? null;
-  const button = (o: { ref: React.MutableRefObject<HTMLButtonElement | null>; which: 'status' | 'priority' | 'due'; name: string; command: string; attrs?: Record<string, string>; children: ReactNode }) => (
+  // D-2128: on the phone the status, priority and due show as text, not as buttons that edit them.
+  const button = (o: { ref: React.MutableRefObject<HTMLButtonElement | null>; which: 'status' | 'priority' | 'due'; name: string; command: string; attrs?: Record<string, string>; children: ReactNode }) => isPhone() ? (
+    <span className="task-card-btn as-text" {...o.attrs}>{o.children}</span>
+  ) : (
     <button
       ref={o.ref}
       type="button"

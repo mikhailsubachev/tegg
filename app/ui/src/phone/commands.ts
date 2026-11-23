@@ -2,6 +2,7 @@
 // phone. The phone has no palette; every control still runs a registered command, and none of RA11's hidden commands
 // is listed.
 import type { Command, ShellContext } from '../shell/commands';
+import { pageCommandIds } from './contentCommands';
 
 /** The frame's commands, new or kept (`goto.type:<key>` stands for each type entry). */
 export const PHONE_FRAME_COMMANDS: readonly string[] = [
@@ -74,6 +75,15 @@ function own(ctx: ShellContext): Command[] {
     { id: 'tagPage.c5', title: 'tag.noGrouping', section: 'view', needsVault: true, run: p('tagPage.c5') },
     { id: 'search.type', title: 'search.typeLabel', section: 'view', needsVault: true, run: p('search.type') },
   ];
+  // D-2128, D-2129: the page-local commands the shown page's controls carry (content folds and embeds, board cards,
+  // lane folds, view tabs), each running its control's tap.
+  const titles: Record<string, string> = { 'read.fold:': 'cmd.phone.fold', 'read.openEmbed:': 'cmd.phone.openEmbed', 'board.openCard:': 'cmd.phone.openCard', 'board.openSource:': 'cmd.phone.openSource', 'views.tab:': 'cmd.phone.viewTab', 'board.toggleLane': 'cmd.phone.foldLane' };
+  const known = new Set(list.map((c) => c.id));
+  for (const id of pageCommandIds()) {
+    if (known.has(id)) continue;
+    const title = Object.entries(titles).find(([k]) => id.startsWith(k))?.[1] ?? 'cmd.phone.more';
+    list.push({ id, title, section: 'view', needsVault: true, run: p(id) });
+  }
   if (route === 'note/<path>' || route === 'daily/YYYY-MM-DD' || route === 'today') {
     list.push(
       { id: 'phone.more', title: 'cmd.phone.more', section: 'view', needsVault: true, run: p('phone.more') },

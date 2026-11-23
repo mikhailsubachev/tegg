@@ -37,7 +37,8 @@ export function Checkbox({ row, onToggle, tabIndex = 0 }: { row: TaskRowDto; onT
       type="button"
       role="checkbox"
       tabIndex={tabIndex}
-      data-command="task.complete"
+      // D-2129: a view-only checkbox on the phone carries no command.
+      data-command={phone ? undefined : 'task.complete'}
       className={`task-check${done ? ' checked' : ''}`}
       aria-checked={done}
       aria-label={name}
@@ -86,7 +87,8 @@ export function SourceChip({ row, nav, tabIndex = 0 }: { row: TaskRowDto; nav: T
       reference={{ target, kind: 'chip', open: () => open(document.activeElement as HTMLElement), createOffer: (el) => open(el) }}
       href="#"
       tabIndex={tabIndex}
-      data-command="task.openSource"
+      // D-2129: on the phone the source chip runs `board.openSource:<path>` (the card's task path).
+      data-command={isPhone() ? `board.openSource:${row.path.normalize('NFC')}` : 'task.openSource'}
       className={`chip link-chip kind-${kind} task-source`}
       data-link-kind={kind}
       aria-description={ok ? t('task.source', { title: text }) : t('link.noNote', { target: text })}
@@ -152,6 +154,7 @@ export function TaskCard({ row, defs, today, region, zone, nav, alsoIn, hideStat
   const shownTags = [...new Set([...tags.map((x) => x.normalize('NFC').replace(/^#/, '')), ...row.tags.filter((k) => !tags.some((x) => x.normalize('NFC').toLowerCase() === k))])];
   const path = row.path.normalize('NFC');
   const { dragging, ...slotRest } = slot ?? { dragging: false };
+  const phoneCard = !!slot && isPhone();
   // On a board the card's own controls stay Tab stops, as on every R43 card (FR-UX-03 AC-53).
   const inner = 0;
   return (
@@ -165,12 +168,14 @@ export function TaskCard({ row, defs, today, region, zone, nav, alsoIn, hideStat
       onKeyDown={(e) => onKey?.(e, row)}
       {...dragProps}
       {...(slot ? { ...slotRest, 'data-board-card': path, 'data-task-card': '', 'data-read-only': row.readOnly ? '' : undefined } : {})}
+      // D-2129: on the phone a tap on a board card opens its task, and the card carries `board.openCard:<path>`.
+      {...(phoneCard ? { 'data-command': `board.openCard:${path}`, onClick: () => nav.openNote(row.path) } : {})}
     >
       <div className="task-card-head">
         <Checkbox row={row} onToggle={(d) => onToggle(row, d)} tabIndex={inner} />
         {/* Slice P (R104 row 7, D-930): the title is the card's reference: a click previews, ⏎ and a double-click open. */}
         <RefElement as="a" reference={{ target: { path: row.path.normalize('NFC'), fragment: null, kind: 'note' }, kind: 'card', open: () => nav.openNote(row.path) }}
-          href="#" tabIndex={inner} draggable={false} data-command="task.open" data-card-title="" className="task-title"
+          href="#" tabIndex={inner} draggable={false} data-command={phoneCard ? `board.openCard:${path}` : 'task.open'} data-card-title="" className="task-title"
           // Slice PIN (R135, D-1381): a drag from the title link can pin the task (a drop on Pinned).
           // The press also reaches the card, so a drop on a column still changes the status; a drop on Pinned pins.
           onMouseDown={(e: React.MouseEvent) => { if (e.button === 0 && !isPhone()) startPinDrag(e.nativeEvent, { request: { kind: 'object', path: row.path.normalize('NFC') }, label: row.title, icon: 'check-square' }); }}

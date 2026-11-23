@@ -8,6 +8,7 @@ import { Icon } from '../shell/Icon';
 import { setHistoryBack, systemBack } from './back';
 import { nativeState, onNative, setBackHandler, type NativeState } from './native';
 import { setHeadingSlot } from './PageHeading';
+import { watchContent } from './contentCommands';
 
 /** §8.1: the insets as CSS variables on `<html>`, `data-keyboard` while the keyboard is shown. */
 function applyNative(s: NativeState) {
@@ -168,6 +169,8 @@ export function PhoneFrame(props: {
     window.addEventListener('resize', f);
     return () => { window.removeEventListener('resize', f); document.removeEventListener('scroll', onScroll, true); offInsets(); cancelAnimationFrame(queued); };
   }, []);
+  // D-2128: the numbered commands of the controls inside the shown page's content.
+  useEffect(() => watchContent(() => document.querySelector<HTMLElement>('main.phone-main')), []);
   const [indexing, setIndexing] = useState(false);
   const running = props.progress?.state === 'running';
   useEffect(() => {
