@@ -12,6 +12,8 @@ import { openQueryEditor } from '../queries/editorHost';
 import { refreshQueries, useQueries } from '../queries/store';
 import { restoreDefaultViews, restoreState } from './defaultViews';
 import { nameKey, viewTabs, viewsAfterDrop, viewsAfterMove, viewsAfterRemove } from './model';
+import { groupChoices, viewKindText } from './display';
+import { sortKeyName } from '../queries/SortPopover';
 import './views.css';
 
 const nfc = (s: string) => s.normalize('NFC');
@@ -53,30 +55,32 @@ export function ViewsSection({ type, send, reload, onAddView }: {
     (document.querySelector(`[data-view-handle="${CSS.escape(n)}"]`) as HTMLElement | null)?.focus();
   });
 
-  // Board views: `Board · by <attribute>` from the query's `group_by` (one read per board view).
-  const [groupBy, setGroupBy] = useState<Record<string, string | null>>({});
-  const boards = tabs.filter((x) => x.summary?.view === 'wall').map((x) => x.summary!.name);
+  // D-2194 (b), §41.11: `<Display> · by <attribute>` from each tab's effective display and grouping: the item's own
+  // valid values over the query file's (one read per tab's query); an own grouping the type can't use reads the query's.
+  const [defs, setDefs] = useState<Record<string, { groupBy: string | null; groupPeriod: boolean } | null>>({});
+  const tabNames = tabs.filter((x) => x.summary).map((x) => x.summary!.name);
+  const stamp = tabs.map((x) => `${x.summary?.name ?? ''}\u0000${x.summary?.modified ?? ''}`).join('\n');
   useEffect(() => {
     let alive = true;
-    for (const n of boards) {
-      if (n in groupBy) continue;
-      void ipc.queryGet(n).then((q) => { if (alive) setGroupBy((g) => ({ ...g, [n]: q.def?.groupBy ?? null })); }, () => {});
+    for (const n of tabNames) {
+      void ipc.queryGet(n).then((q) => { if (alive) setDefs((g) => ({ ...g, [n]: q.def ? { groupBy: q.def.groupBy ?? null, groupPeriod: !!q.def.groupPeriod } : null })); },
+        () => { if (alive) setDefs((g) => ({ ...g, [n]: null })); });
     }
     return () => { alive = false; };
-  }, [boards.join('\n')]); // eslint-disable-line react-hooks/exhaustive-deps
-  const attrName = (k: string | null) => {
-    if (!k) return null;
-    if (k === 'tags') return t('attr.tags');
-    return type.attributes.find((a) => nfc(a.key) === nfc(k))?.name ?? k;
-  };
-  const kindText = (name: string, view: string | null | undefined) => {
-    if (view === 'table') return t('views.kind.table');
-    if (view === 'list') return t('views.kind.list');
-    if (view === 'board' || view === 'wall') {
-      const a = attrName(groupBy[name] ?? null);
-      return a ? t('typeSettings.viewBoardBy', { attribute: a }) : t('views.kind.board');
-    }
-    return null;
+  }, [stamp]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The list waits for its first reads (a few ms), so a name never shows without its grouping.
+  const loaded = summaries !== null && tabNames.every((n) => n in defs);
+  const choiceIds = new Set(groupChoices(type, [type.key]).map((c) => c.id));
+  const kindText = (tab: (typeof tabs)[number]) => {
+    if (!tab.kind) return null;
+    const item = (type.viewItems ?? []).find((i) => nameKey(i.name) === tab.key);
+    const fileDef = tab.summary ? defs[tab.summary.name] ?? null : null;
+    let grouping: { key: string; period: boolean } | null = fileDef?.groupBy ? { key: nfc(fileDef.groupBy), period: fileDef.groupPeriod } : null;
+    const own = item?.group ?? null;
+    if (own && own.none) grouping = null;
+    else if (own && !own.none && choiceIds.has(own.period ? `period:${nfc(own.key)}` : nfc(own.key))) grouping = { key: nfc(own.key), period: own.period };
+    if (grouping && !choiceIds.has(grouping.period ? `period:${grouping.key}` : grouping.key)) grouping = null;
+    return viewKindText(tab.kind, grouping ? sortKeyName(grouping.key, type).label : null);
   };
 
   const write = (next: string[] | null, announce?: string) => {
@@ -137,7 +141,8 @@ export function ViewsSection({ type, send, reload, onAddView }: {
   const restoreOff = !summaries || !restore.enabled;
   const [allA, allB] = t('views.all', { plural: '\u0000' }).split('\u0000');
   return (
-    <section id="ts-views" aria-labelledby="ts-views-h" className="ts-section views-section">
+    <section id="ts-views" aria-labelledby="ts-views-h" className="ts-section views-section" aria-busy={loaded ? undefined : true}
+      style={loaded ? undefined : { visibility: 'hidden' }}>
       <h2 id="ts-views-h">{t('ts.section.views')}</h2>
       <ul ref={listRef} role="list" aria-label={t('typeSettings.viewsList', { plural: type.plural })} className="ts-views-list">
         <li data-view-row="" className="ts-view-row fixed">
@@ -146,7 +151,7 @@ export function ViewsSection({ type, send, reload, onAddView }: {
           <span className="ts-view-kind hint">{t('typeSettings.viewDefault')}</span>
         </li>
         {tabs.map((x) => {
-          const kind = kindText(x.summary?.name ?? x.name, x.summary?.view);
+          const kind = kindText(x);
           const dropBefore = drag && drag.before !== null && nameKey(drag.before) === x.key && nameKey(drag.name) !== x.key;
           return (
             <li key={x.key} data-view-row={nfc(x.name)} className={`ts-view-row${drag && nameKey(drag.name) === x.key ? ' dragging' : ''}${dropBefore ? ' drop-before' : ''}`}
