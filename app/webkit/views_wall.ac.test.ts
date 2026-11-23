@@ -83,7 +83,7 @@ test('fr_qry_05_ac37_ungrouped_wall', async ({ page }) => {
 });
 
 test('fr_qry_05_ac37_ungrouped_wall_few_cards_and_sort', async ({ page }) => {
-  const two = ['version: 1', 'title: Dvě knihy', 'types: [book]', 'match: all', 'filters:', '  - rating: Excellent', '  - author: "[[Eva Lindová]]"', 'sort: { by: title, order: asc }', 'limit: 50',
+  const two = ['version: 1', 'title: Dvě knihy', 'types: [book]', 'match: all', 'filters:', '  - rating: Excellent', '  - author: { links_to: "[[Eva Lindová]]" }', 'sort: { by: title, order: asc }', 'limit: 50',
     'view: wall', 'created: 2026-11-18T20:00:00+01:00', 'modified: 2026-11-18T20:00:00+01:00', ''].join('\n');
   const core = await startViews(page, { route: typeRoute('book'), vault: displayVault((f) => {
     f['.tegg/queries/Dvě knihy.yml'] = two;

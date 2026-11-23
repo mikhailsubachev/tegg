@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.254, for review                                            |
+| **Document status** | Draft v1.255, for review                                            |
 | **Date**            | 2026-11-23                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -255,6 +255,7 @@
 | v1.252  | 2026-11-23 | Slice Q3 red tests (stubs 08e8f99b, red tests b98eac33, changed tests 0a5bf1a8, 691cb86c): D-2204…D-2209 (RT-1…RT-6; owner: "Accept all"): comment ownership between `views:` items, UI helper argument shapes, AC-46 (c)'s chain, wall render bounds at L5, no type-move case, `Show a saved query` appends; D-2210: five more changed AC tests |
 | v1.253  | 2026-11-23 | Slice Q3-a build (539c04ec): D-2211 (Q3-a test fixes), D-2212 (sort and columns writes keep untouched item lines, amends D-1840), D-2213 (`done_lane` with a broken `group_by`); owner: "Approve all" |
 | v1.254  | 2026-11-23 | Slice Q3-b build (23b7648c): D-2214 (Q3-b test changes; owner: "Approve all") |
+| v1.255  | 2026-11-23 | D-2215 (the few-cards wall test filters with `links_to`; owner: "Approve") |
 
 Slice OC decisions and versions were renumbered on merging main (PR #154 used the same numbers): D-1942…D-2053 → D-2054…D-2165, v1.220…v1.229 → v1.238…v1.247. Commit messages before this renumbering use the old numbers (D-2166).
 
@@ -2228,6 +2229,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-2212 | Sort and columns writes keep untouched item lines (owner, 2026-11-23: "Approve all"; slice Q3-a build, commit 539c04ec) | D-2200's rule applies to `SetViewSort` and `SetViewColumns` too: a changed `views:` item keeps the lines of every key the change doesn't touch (a hand-written `view: board` stays). Q2.1's expected bytes for these ops change accordingly. Amends D-1840 |
 | D-2213 | `done_lane` with a broken `group_by` (owner, 2026-11-23: "Approve all"; slice Q3-a build, commit 539c04ec) | `done_lane` also applies when the usage's `group_by` is set but broken (FR-QRY-01 AC-18, AC-36 (d): 17 tasks) |
 | D-2214 | Q3-b test changes (owner, 2026-11-23: "Approve all"; slice Q3-b build, commit 23b7648c) | With `AC-Test-Change: …; approved-by: owner`: `type_page` FR-TYP-09 AC-8 and `views_tabs` FR-QRY-07 AC-17 no longer assert the absence of a `Group` button; `views_usage` FR-QRY-07 AC-26 expects Duplicate's `viewCopy` op (CP-35, D-2200); `writtenPaths` counts a type-file write once; the usage `writes()` of FR-QRY-05 AC-33 (c), AC-35 and FR-QRY-06 AC-26 leave out query files, which `query/<name>` writes; FR-QRY-05 AC-33 (a) expects 2 wall columns in a 680 px note column (§40.1's formula); FR-QRY-07 AC-33 looks for `view.tagFilter`; FR-SYN-03 AC-36 waits for the block's first run before the outside change; FR-QRY-05 AC-37 finds card pills by `data-attribute`; the L1 FR-QRY-05 AC-43 keyboard resize expects 120 px (R130's minimum) |
+| D-2215 | The few-cards wall test filters with `links_to` (owner, 2026-11-23: "Approve"; slice Q3-b build) | `views_wall` FR-QRY-05 AC-37 (`…_few_cards_and_sort`) writes its relation filter as `author: { links_to: "[[Eva Lindová]]" }`: queries.md's rules allow only `links_to` or is (not) empty on a relation, so the shorthand was a broken filter. With `AC-Test-Change: …; approved-by: owner` |
 
 ---
 
