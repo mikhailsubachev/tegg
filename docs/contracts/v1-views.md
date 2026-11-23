@@ -2572,6 +2572,9 @@ Rules (part two §14.2 holds unless said here):
   keep their lines as written (old words, trailing comments and flow or block style included); the changed key's lines
   are replaced (a replaced one-line key keeps its trailing comment, D-1457) or inserted; full-line comments inside the
   item go (D-1840). An item that didn't change keeps all its lines (R196).
+- **Comments between items** (RT-1, D-2204): a full-line comment between two items belongs to the item **before** it
+  (the item whose lines it follows); it goes only when that item changes, and stays while that item is unchanged. A
+  comment before the first item belongs to the `views:` key and stays.
 - **Style**: `view`, `lanes` plain scalars in new words; `group_by` a plain scalar (D-230 quoting via
   `yaml_text::scalar`), `none`, or `group_by: { <key>: period }`; `lane_order: [ … ]` one flow line with D-230 quoting
   (`lane_order: ["[[Lucie Horká]]"]`); `widths: { title: 300, author: 180 }` one flow mapping line, keys quoted as
@@ -2767,6 +2770,7 @@ changed) and on its query file; a block re-runs when its fence source changes; n
 | `app/ui/src/queries/Grouped.tsx` | grouped Table and List bodies (R225): group headers (chevron button, value: option colour / relation chip / `#tag` / period label, count), folds (click, ⏎ / Space, ⌥-click all), header grip drag with a drop indicator (pointer, > 4 px), `Move lane up` / `down` on a focused header, windowing as FR-QRY-05 AC-9 over the flat list of headers and rows (< 80 row elements) |
 | `app/ui/src/queries/board/QueryWall.tsx` (renamed from `QueryBoard.tsx`) | a wall bound to a `QueryResultDto`: `group` → part one's `Board` (lanes `columns` = `vertical`, `rows` = `horizontal`, everything of part one / part three); no `group` → `WallGrid`; no `LanesSwitch` (removed) |
 | `app/ui/src/queries/board/WallGrid.tsx` | the ungrouped wall (R224): cards (`BoardCard` / `TaskCard`, no drag, `More actions` without `Move to` / `Also add to`), the grid of `grid.ts`, windowed against the page (or note) scroller with measured row heights, ≤ 150 card elements, roving focus |
+| `display.ts` argument shapes (RT-2, D-2205) | `writeRoute(usage)` takes `QueryResultDto.usage` (`UsageRunDto \| null`) or `'all'`: a tab → `'item'`, a block → `'fence'`, `null` (`query/<name>`) → `'query'`, `'all'` → `'thisMac'`. `widthsToWrite(own: [string, number][] \| null, legacy: Record<string, number> \| null, change: { key: string; width: number }, order: string[])` → `[string, number][]` (`legacy` is the 0.6.0 `usageColumnWidths` entry). `allDef(type, allView: AllViewDto, typeSort: SortDto[])`. `gridNeighbour(index, key, columns, count)` takes DOM key names (`ArrowRight`, `ArrowLeft`, `ArrowDown`, `ArrowUp`). |
 | `app/ui/src/queries/board/grid.ts` (pure, L1) | `GRID = { min: 220, max: 300, gap: 12 }`; `gridOf(width, count)` → `{ columns, cardWidth }` (columns = max(1, ⌊(width + gap) / (min + gap)⌋); cardWidth = min(max, (width − (columns − 1)·gap) / columns); fewer cards than columns: `max`, left-aligned); `windowRows(heights, scrollTop, viewport, overscan = 2)` → `[first, last]`; `gridNeighbour(index, key, columns, count)` (→/← reading order, ↓/↑ same column, clamped) |
 
 ### 40.2 Changed
@@ -3188,3 +3192,17 @@ Each point was decided as recommended.
 | CP-35 → D-2200 | **Bytes inside a changed `views:` item, and Duplicate** (D-2179, FR-QRY-05 AC-46 (c), FR-QRY-07 AC-34 (b)). Part two re-emits a changed item from its values, which would rewrite `view: board` / `lanes: horizontal` in a key that didn't change. | (a) Field-level: every known key the op doesn't change keeps its lines (old words, comments on those lines, style), for `sort` / `columns` too; Duplicate is one new op `CopyViewSettings { from, to }` copying those lines. (b) Field-level only for the five Q3 keys; `sort` / `columns` re-emitted as in Q2.1; Duplicate copies values with five more ops. (c) Re-emit new keys canonically except `view` / `lanes` old words (a special case). | **(a)**: one rule, the fewest changed bytes; Q2.1's expected files keep their bytes where their inputs were canonical (the test author confirms). |
 | CP-36 → D-2201 | **Which jobs patch usage `lane_order`s** (D-2193 names the 4C rename). The 4E type moves already patch query files' `lane_order` through the same `QueryPatch::ObjectMoved` path. | (a) Both 4C renames and 4E moves patch type-file items and fences (one shared path; tested by FR-LNK-03 AC-26 plus one L4 move case). (b) 4C only, as D-2193 says (a moved object's relation group can lose its place). | **(a)** |
 | CP-37 → D-2202 | **An attribute keyed `none`.** `group_by: none` means "not grouped" (D-2191), so grouping by such an attribute can't be written. | (a) The Group menu doesn't list an attribute whose key is `none`; nothing else changes. (b) Type settings refuse the key `none` for new attributes (a type-settings change). (c) List it and let it read as not grouped (silently wrong, T2). | **(a)** |
+
+## 48. Red-test decisions (RT-1…RT-6 → D-2204…D-2209; extra test changes D-2210, owner 2026-11-23)
+
+Raised by the test author with the red tests (b98eac33) and accepted as recommended ("Accept all").
+
+| # | Decision |
+| --- | --- |
+| RT-1 → D-2204 | A full-line comment between `views:` items belongs to the item before it and goes only when that item changes (§36.2). |
+| RT-2 → D-2205 | `display.ts` argument shapes as §40.1 now states (`writeRoute`, `widthsToWrite`, `allDef`, `gridNeighbour`). |
+| RT-3 → D-2206 | FR-QRY-05 AC-46 (c)'s `Table` then `Wall` on `query/Rozečtené` runs after `Genres` (FR-QRY-06 AC-26), as §43.4's `rozectene-view-wall.yml` says. |
+| RT-4 → D-2207 | NFR-PERF-07 AC-7, AC-8: the DOM bounds are checked at L5 (`__TEGG_TEST__`); L6 measures the times and that the last card or row shows. |
+| RT-5 → D-2208 | CP-36's 4E move case has no L4 test: a type move keeps the stem, so the D-184 link text in a `lane_order` doesn't change. |
+| RT-6 → D-2209 | `Show a saved query` adds the name as a plain item at the end of `views:` (`book-overlay-readded-podle-zanru.yml`). |
+| D-2210 | Five tests outside the part-five change table change with Q3: `ac_views_writes.rs` `nfr_por_01_ac6_view_files_are_plain` (`lanes: rows`), `queries_editor.ac.test.ts` `fr_qry_01_ac5_editor_commits_once` and `fr_qry_01_ac5_editor_from_the_query_page` (the commit is a Limit change), `views_a11y.ac.test.ts` `fr_ux_03_ac50_view_commands` (the display switch and `Group` are Tab stops, no `Vertical`), `bug_qa1_fr_syn_03_query_undo_keeps_external_change` (the commit is a Limit change). |

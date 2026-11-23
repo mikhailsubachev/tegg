@@ -50,7 +50,9 @@ test('fr_ux_03_ac50_view_commands', async ({ page }) => {
   // FR-UX-03 AC-8: every control reachable on each tab, with the menus, the popover and the editor open.
   await allTab(page).focus();
   const stops = await tabStops(page);
-  for (const n of ['Add view', 'Filter Books…', 'Filter by tag', 'Sort', 'View actions', 'Vertical']) assert.ok(stops.has(n), `Rozečtené: ${n} is a Tab stop`);
+  // Slice Q3 (AC-Test-Change, D-2210; R223): the display switch and `Group` instead of the Lanes radios.
+  for (const n of ['Add view', 'Filter Books…', 'Filter by tag', 'Wall', 'Group', 'Sort', 'View actions']) assert.ok(stops.has(n), `Rozečtené: ${n} is a Tab stop`);
+  assert.ok(!stops.has('Vertical'), 'no `Vertical` radio');
   await click(sortButton(toolbar(page)), 'Sort');
   await must(sortDialog(page), 'Sort');
   const inSort = await tabStops(page, 20);

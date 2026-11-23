@@ -185,7 +185,8 @@ test('fr_qry_01_ac5_editor_commits_once', async ({ page }) => {
   await page.keyboard.press('Meta+Enter');
   await must(editor(page), '⌘↩ opens the editor');
   const from = (await core.queryRuns()).length;
-  await click(viewChoice(page, 'List'), 'List');
+  // Slice Q3 (AC-Test-Change, D-2210; D-2175): the editor has no View row; the change is the Limit (AP-2051).
+  await (await must(limitField(page), 'Limit')).fill('40');
   const runs = await eventually(() => runsSince(core, from), (r) => r.some((x) => x.source?.kind === 'def'), 300);
   assert.ok(runs.some((x) => x.source?.kind === 'def'), 'the change runs `query_run` `def` within 300 ms');
   assert.deepEqual(await queryWrites(core), [], 'no write per change');
@@ -198,7 +199,7 @@ test('fr_qry_01_ac5_editor_commits_once', async ({ page }) => {
   assert.equal((await core.queryCalls()).filter((c) => c.cmd === 'query_revert').length, 1, 'one `query_revert`');
   // A click outside commits too; `Edit query` on the query page opens it.
   await openEditor(block(page, Q.table), page);
-  await click(viewChoice(page, 'List'), 'List');
+  await (await must(limitField(page), 'Limit')).fill('40');
   await page.mouse.click(5, 300);
   assert.equal((await eventually(() => queryWrites(core), (w) => w.length === 3)).length, 3, 'a click outside commits (one write)');
 });
@@ -207,7 +208,8 @@ test('fr_qry_01_ac5_editor_from_the_query_page', async ({ page }) => {
   const core = await startQueries(page, { route: queryRoute(Q.running) });
   await click(editQueryButton(page), '`Edit query` on the query page');
   await must(editor(page), 'the editor');
-  await click(viewChoice(page, 'List'), 'List');
+  // Slice Q3 (AC-Test-Change, D-2210; D-2175): the change is the Limit, not the removed View row.
+  await (await must(limitField(page), 'Limit')).fill('40');
   await page.keyboard.press('Escape');
   assert.deepEqual(await eventually(() => queryWrites(core), (w) => w.length === 1), [qfile(Q.running)], 'Esc after a change commits once');
   assert.equal((await focusName(page)).name, 'Edit query', 'the focus returns to `Edit query`');

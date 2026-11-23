@@ -734,7 +734,8 @@ fn nfr_por_01_ac6_view_files_are_plain() {
         .stderr(Stdio::inherit()).output();
     let out = ok!(out, "node runs");
     let v: serde_json::Value = ok!(serde_json::from_slice(&out.stdout), "the yaml package parses every file");
-    assert_eq!(v[qpath(ROZ)]["lanes"], "horizontal", "lanes as a plain scalar");
+    // Slice Q3 (AC-Test-Change, D-2210; D-2179): the changed key gets the new word.
+    assert_eq!(v[qpath(ROZ)]["lanes"], "rows", "lanes as a plain scalar");
     assert_eq!(v[qpath(P26)]["sort"], serde_json::json!([{ "by": "rating", "order": "desc" }, { "by": "finished", "order": "asc" }]), "sort as a list of mappings");
     assert_eq!(v[qpath(AUTOR_Q)]["lane_order"], serde_json::json!(["[[Tomáš Rybář]]", "[[Eva Lindová]]"]), "lane_order as link strings");
     assert_eq!(v[BOOK]["views"], serde_json::json!(["Výborné knihy", "Rozečtené", "Přečtené 2026", "Čtu, až bude čas"]), "views as a list of strings");

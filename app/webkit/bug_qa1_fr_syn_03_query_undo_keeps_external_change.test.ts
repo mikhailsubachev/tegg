@@ -7,7 +7,7 @@
 import { test } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
-  P, Q, block, done, eventually, mustResults, noteRoute, openEditor, qfile, queryFileText, queryWrites, seen, sleep, startQueries, viewChoice, click,
+  P, Q, block, done, eventually, limitField, must, mustResults, noteRoute, openEditor, qfile, queryFileText, queryWrites, seen, sleep, startQueries,
 } from './queries-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
@@ -18,15 +18,15 @@ test('bug_qa1_fr_syn_03_query_undo_keeps_external_change', async ({ page }) => {
   const core = await startQueries(page, { route: noteRoute(P.porada7) });
   const b = block(page, Q.table);
   await mustResults(b, TABLE7, 'precondition', 8000);
-  // One commit: Table → List, Done (one `query_apply`).
+  // One commit: Limit 30, Done (one `query_apply`). Slice Q3 (AC-Test-Change, D-2210; D-2175): the editor has no View row.
   await openEditor(b, page);
-  await click(viewChoice(page, 'List'), 'List');
+  await (await must(limitField(page), 'Limit')).fill('30');
   await done(page);
   assert.deepEqual(await eventually(() => queryWrites(core), (w) => w.length === 1), [qfile(Q.table)], 'the commit writes once');
   const committed = (await queryFileText(core, Q.table))!;
-  assert.ok(committed.includes('view: list'), 'the commit wrote `view: list`');
+  assert.ok(committed.includes('limit: 30'), 'the commit wrote `limit: 30`');
   // Another program changes the query file afterwards (with `vault:changed`).
-  const outside = committed.replace('limit: 50', 'limit: 40');
+  const outside = committed.replace('limit: 30', 'limit: 40');
   assert.notEqual(outside, committed, 'the external edit changes the bytes');
   await core.setFile(qfile(Q.table), outside);
   await sleep(500);
