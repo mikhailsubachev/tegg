@@ -76,8 +76,17 @@ async function textBoxes(v: WebView): Promise<{ what: string; left: number; top:
       const role = e.getAttribute('role') || ({ BUTTON: 'button', A: 'link', H1: 'heading', H2: 'heading', INPUT: 'textbox' })[e.tagName] || '';
       const own = [...e.childNodes].some((c) => c.nodeType === 3 && c.textContent.trim());
       if (!own && !ROLE.test(role)) continue;
-      const b = e.getBoundingClientRect();
-      if (b.width === 0 || b.height === 0 || b.bottom <= 0 || b.top >= innerHeight) continue;
+      const r = e.getBoundingClientRect();
+      // Clipped by every ancestor that clips (a scroller shows only what is inside it; AC-Test-Change, approved by
+      // the owner, as D-2104 at L5p).
+      const b = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+      for (let a = e.parentElement; a && a !== document.body; a = a.parentElement) {
+        const as = getComputedStyle(a);
+        if (as.overflowX === 'visible' && as.overflowY === 'visible') continue;
+        const c = a.getBoundingClientRect();
+        b.left = Math.max(b.left, c.left); b.top = Math.max(b.top, c.top); b.right = Math.min(b.right, c.right); b.bottom = Math.min(b.bottom, c.bottom);
+      }
+      if (b.right - b.left <= 0 || b.bottom - b.top <= 0 || b.bottom <= 0 || b.top >= innerHeight) continue;
       out.push({ what: e.tagName + ' ' + (e.getAttribute('aria-label') || e.innerText || '').slice(0, 20), left: b.left, top: b.top, right: b.right, bottom: b.bottom });
     }
     return out;
@@ -152,11 +161,16 @@ test('fr_ux_04_ac4_keyboard_never_hides_the_field', async () => {
   const { v } = await launchPhone(vault, { TEGG_ROUTE: 'search' }, views);
   const field = 'header[role="banner"] [role="search"] input';
   assert.ok(await v.waitFor(field, 5000), 'Search query');
+  // The 500 ms are timed in the page, from the keyboard's showing (the plugin's `keyboard: true` push, sent when its
+  // animation starts) to the last resize, not across adb calls (about 1 s each) and not from the tap, which also
+  // counts Android starting the keyboard (AC-Test-Change, approved by the owner).
+  await v.eval(`(() => { window.__teggKb = { shown: 0, resize: 0 }; const n = window.__TEGG_NATIVE__; const r0 = n.receive.bind(n); n.receive = (k, p) => { if (p && p.keyboard === true && !window.__teggKb.shown) window.__teggKb.shown = performance.now(); return r0(k, p); }; addEventListener('resize', () => { window.__teggKb.resize = performance.now(); }); return true; })()`);
   await tapEl(v, field);
   assert.equal(await eventually(() => imeShown(), (x) => x, 2000, 100), true, 'a tap on Search query shows the keyboard');
-  const t0 = Date.now();
-  const fitted = await eventually(() => { const f = systemFrames(); const r = webViewRect(); return f.ime ? Math.abs(r.bottom - f.ime.top) : 999; }, (d) => d <= 2, 500, 50);
-  assert.ok(fitted <= 2 && Date.now() - t0 <= 700, `within 500 ms the WebView's visible bottom equals the keyboard's top (± 2 device px; off by ${fitted})`);
+  const fitted = await eventually(() => { const f = systemFrames(); const r = webViewRect(); return f.ime ? Math.abs(r.bottom - f.ime.top) : 999; }, (d) => d <= 2, 3000, 50);
+  assert.ok(fitted <= 2, `the WebView's visible bottom equals the keyboard's top (± 2 device px; off by ${fitted})`);
+  const kb = await v.eval<{ shown: number; resize: number }>('window.__teggKb');
+  assert.ok(kb.shown > 0 && kb.resize >= kb.shown && kb.resize - kb.shown <= 500, `the page is resized to the keyboard within 500 ms of its showing (${Math.round(kb.resize - kb.shown)} ms)`);
   await v.type('ostružiník');
   await sleep(600);
   const above = async (sel: string, what: string) => {
@@ -169,7 +183,7 @@ test('fr_ux_04_ac4_keyboard_never_hides_the_field', async () => {
   assert.equal(await v.waitFor(FRAME, 200), false, 'the bottom bar is hidden');
   await v.eval(`(() => { const m = [...document.querySelectorAll('main')].find((e) => e.getClientRects().length > 0); m.scrollTop = m.scrollHeight; return true; })()`);
   await sleep(400);
-  await above('main button[data-command="search.showMore"], main button:is([aria-label^="Show next"])', 'Show next 10, scrolled to the end');
+  await above('main button[data-command="search.showNext"]', 'Show next 10, scrolled to the end');
   back();
   assert.equal(await eventually(() => imeShown(), (x) => !x, 1000, 100), false, 'Back hides the keyboard');
   assert.ok(await v.waitFor(FRAME, 500), 'the full height and the bottom bar come back within 500 ms');
@@ -206,8 +220,8 @@ test('fr_ux_04_ac7_rotation_keeps_the_place', async () => {
   const before = fileState(vault);
   const { pid, v } = await launchPhone(vault, { TEGG_ROUTE: `note/${DLOUHA}` }, views);
   await titleIs(v, 'Dlouhá poznámka');
-  await v.eval(`(() => { const m = [...document.querySelectorAll('main')].find((e) => e.getClientRects().length > 0); const h = [...m.querySelectorAll('h2')].find((x) => x.innerText.trim() === 'Druhá kapitola'); m.scrollTop += h.getBoundingClientRect().top - m.getBoundingClientRect().top; return true; })()`);
-  const first = () => v.eval<string>(`(() => { const m = [...document.querySelectorAll('main')].find((e) => e.getClientRects().length > 0); const t = m.getBoundingClientRect().top; const b = [...m.querySelectorAll('p, h2')].find((x) => x.getBoundingClientRect().bottom > t + 2); return b ? b.innerText.trim().slice(0, 30) : ''; })()`);
+  await v.eval(`(() => { const m = [...document.querySelectorAll('main')].find((e) => e.getClientRects().length > 0); const h = [...m.querySelectorAll('h1, h2, h3, h4, h5, h6')].find((x) => x.innerText.trim() === 'Druhá kapitola'); m.scrollTop += h.getBoundingClientRect().top - m.getBoundingClientRect().top; return true; })()`);
+  const first = () => v.eval<string>(`(() => { const m = [...document.querySelectorAll('main')].find((e) => e.getClientRects().length > 0); const t = m.getBoundingClientRect().top; const b = [...m.querySelectorAll('p, h1, h2, h3, h4, h5, h6')].find((x) => x.getBoundingClientRect().bottom > t + 2); return b ? b.innerText.trim().slice(0, 30) : ''; })()`);
   assert.match(await first(), /^Druhá kapitola/, 'setup: Druhá kapitola first');
   const ok = (b: string) => /^(Druhá kapitola|Další odstavec 1:|Odstavec 40:)/.test(b);
   for (const turn of [1, 0] as const) {
@@ -260,7 +274,9 @@ test('fr_nav_03_ac17_system_back_is_tegg_back', async () => {
     await titleIs(v, 'Inbox', 10_000);
     await go(v, 'goto.type:book');
     await titleIs(v, 'Books');
+    assert.ok(await v.waitFor('main [role="tab"][data-view-tab="Přečtené 2026"]', 10_000), 'the view tab Přečtené 2026');
     await v.click('main [role="tab"][data-view-tab="Přečtené 2026"]');
+    assert.ok(await v.waitFor('main [data-query-result="Books/Mapa bez severu.md"]', 10_000), 'Mapa bez severu in the view');
     await v.click(`main [data-query-result="Books/Mapa bez severu.md"]`);
     await titleIs(v, 'Mapa bez severu');
     await v.click('main a[href][data-link-kind], main .phone-strip a');
@@ -386,6 +402,7 @@ test('fr_qry_05_ac32_vertical_board_on_the_phone', async () => {
   const vault = pushPhone();
   const before = fileState(vault);
   const { v } = await launchPhone(vault, { TEGG_ROUTE: 'type/book' }, views);
+  assert.ok(await v.waitFor('main [role="tab"][data-view-tab="Rozečtené"]', 10_000), 'the view tab Rozečtené');
   await v.click('main [role="tab"][data-view-tab="Rozečtené"]');
   const card = 'main article[data-board-card="Books/Noční vlak.md"]';
   assert.ok(await v.waitFor(card, 5000), 'the card Noční vlak');
@@ -404,6 +421,7 @@ test('fr_qry_09_ac9_live_views_on_the_phone', async () => {
   ready();
   const vault = pushPhone();
   const { v } = await launchPhone(vault, { TEGG_ROUTE: 'type/book' }, views);
+  assert.ok(await v.waitFor('main [role="tab"][data-view-tab="Rozečtené"]', 10_000), 'the view tab Rozečtené');
   await v.click('main [role="tab"][data-view-tab="Rozečtené"]');
   const dum = 'main article[data-board-card="Books/Dům u řeky.md"]';
   assert.ok(await v.waitFor(dum, 5000), 'Dům u řeky');
@@ -581,12 +599,15 @@ test('fr_ux_08_ac26_talkback_reads_the_frame', async () => {
   const vault = pushPhone();
   const { v } = await launchPhone(vault, { TEGG_ROUTE: 'inbox' }, views);
   await sleep(1000);
-  const dump = uiDump();
+  // The WebView builds its accessibility tree lazily: the first dump after start can be empty (AC-Test-Change,
+  // approved by the owner).
+  const dump = await eventually(async () => uiDump(), (d) => /(text|content-desc)="Menu"/.test(d), 3000, 300);
   for (const name of ['Menu', 'Search', 'New', 'Today']) assert.match(dump, new RegExp(`(text|content-desc)="${name}"`), `the dump lists ${name}`);
   assert.match(dump, /(text|content-desc)="New"[^>]*enabled="false"|enabled="false"[^>]*(text|content-desc)="New"/, 'New is not enabled');
-  await v.click('main li a, main li');
+  // The row's link, not the `li` (the first match of `main li a, main li`; AC-Test-Change, approved by the owner).
+  await v.click('main li a');
   await sleep(1000);
-  assert.match(uiDump(), /(text|content-desc)="Back"/, 'Back in the app bar after one navigation');
+  assert.match(await eventually(async () => uiDump(), (d) => /(text|content-desc)="Back"/.test(d), 3000, 300), /(text|content-desc)="Back"/, 'Back in the app bar after one navigation');
   await v.click(`${FRAME} [data-command="phone.menu"]`);
   await sleep(800);
   const d2 = uiDump();
@@ -599,15 +620,18 @@ test('fr_ux_08_ac27_system_font_size', async () => {
   fontScale(1);
   const { v } = await launchPhone(vault, { TEGG_ROUTE: 'inbox' }, views);
   const base = await v.eval<number>(`parseFloat(getComputedStyle(document.body).fontSize)`);
+  // `cur` is the live WebView: after a restart the old connection is dead (AC-Test-Change, approved by the owner).
+  let cur = v;
   for (const s of [1.3, 2.0]) {
     fontScale(s);
     await sleep(1500);
-    const size = await eventually(() => v.eval<number>(`parseFloat(getComputedStyle(document.body).fontSize)`), (x) => Math.abs(x - base * s) <= 0.5, 2000, 200);
+    const size = await eventually(() => cur.eval<number>(`parseFloat(getComputedStyle(document.body).fontSize)`), (x) => Math.abs(x - base * s) <= 0.5, 2000, 200);
     assert.ok(Math.abs(size - base * s) <= 0.5, `font scale ${s}: the computed body font size grows by ${s} (± 0.5 px, the WebView's text zoom): ${base} → ${size}`);
     for (const r of ['inbox', `note/${DLOUHA}`, 'type/book']) {
-      if (r !== 'inbox') { forceStop(TEST_ID); writeTestEnv(TEST_ID, { TEGG_VAULT: vault, TEGG_ROUTE: r, TEGG_IPC_LOG: ipcLogPath() }); start(TEST_ID); }
-      const w = r === 'inbox' ? v : await webview(TEST_ID);
+      if (cur !== v || r !== 'inbox') { forceStop(TEST_ID); writeTestEnv(TEST_ID, { TEGG_VAULT: vault, TEGG_ROUTE: r, TEGG_IPC_LOG: ipcLogPath() }); start(TEST_ID); }
+      const w = cur === v && r === 'inbox' ? v : await webview(TEST_ID);
       if (w !== v) views.push(w);
+      cur = w;
       assert.ok(await w.waitFor(FRAME, 30_000), `${s}, ${r}: open`);
       await sleep(800);
       const o = await w.eval<{ sw: number; iw: number }>(`({ sw: document.scrollingElement.scrollWidth, iw: innerWidth })`);
@@ -617,7 +641,7 @@ test('fr_ux_08_ac27_system_font_size', async () => {
     }
   }
   fontScale(1);
-  assert.match(await v.eval<string>(`document.querySelector('meta[name="viewport"]')?.content ?? ''`), /user-scalable=no/, 'the page can\'t be pinch-zoomed');
+  assert.match(await cur.eval<string>(`document.querySelector('meta[name="viewport"]')?.content ?? ''`), /user-scalable=no/, 'the page can\'t be pinch-zoomed');
 });
 
 // ------------------------------------------------------------------------------------------------ NFR-SEC-01 AC-4
@@ -640,7 +664,7 @@ test('nfr_sec_01_ac4_external_links_leave_through_the_system', async () => {
   assert.ok(await tapLink('web'), 'the link web');
   await sleep(2000);
   const starts = logcatSince(mark, /ActivityTaskManager: START u0 \{act=android\.intent\.action\.VIEW/);
-  assert.ok(starts.some((l) => l.includes('dat=https://example.org/') && l.includes('%C4%8De%C5%A1tina') || l.includes('dat=https://example.org/…')), `a VIEW intent for https://example.org/%C4%8De%C5%A1tina: ${starts.join(' | ')}`);
+  assert.ok(starts.some((l) => l.includes('dat=https://example.org/') && l.includes('%C4%8De%C5%A1tina') || l.includes('dat=https://example.org/…') || l.includes('dat=https://example.org/...')), `a VIEW intent for https://example.org/%C4%8De%C5%A1tina: ${starts.join(' | ')}`);
   assert.ok(ipcLog().some((x) => x.cmd === 'android_open_url'), 'through android_open_url');
   resume(TEST_ID);
   await sleep(1000);

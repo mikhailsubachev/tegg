@@ -74,7 +74,10 @@ test('fr_syn_06_ac51_reading_on_the_phone_writes_nothing', async () => {
     await v.key('Enter');
     await titleIs(v, note);
     for (const cmd of ['phone.more', 'phone.properties', 'phone.sheet.close', 'phone.more', 'note.toggleSource', 'phone.more', 'note.toggleSource']) {
-      await v.click(`[data-command="${cmd}"]`).catch(() => undefined);
+      // A menu item is clicked inside the open menu: the Properties strip carries `phone.properties` too
+      // (AC-Test-Change, approved by the owner).
+      const inMenu = cmd === 'phone.properties' || cmd === 'note.toggleSource';
+      await v.click(inMenu ? `[role="menu"] [data-command="${cmd}"]` : `[data-command="${cmd}"]`).catch(() => undefined);
       await sleep(250);
     }
     if (note === 'Mapa výletu') {
@@ -151,8 +154,8 @@ test('fr_syn_03_ac35_external_changes_on_the_phone', async () => {
   const vault = pushPhone();
   const { v } = await launchPhone(vault, { TEGG_ROUTE: 'note/Pages/Dlouhá poznámka.md' }, views);
   await titleIs(v, 'Dlouhá poznámka');
-  await v.eval(`(() => { const m = [...document.querySelectorAll('main')].find((e) => e.getClientRects().length > 0); const h = [...m.querySelectorAll('h2')].find((x) => x.innerText.trim() === 'Druhá kapitola'); m.scrollTop += h.getBoundingClientRect().top - m.getBoundingClientRect().top; return true; })()`);
-  const first = () => v.eval<string>(`(() => { const m = [...document.querySelectorAll('main')].find((e) => e.getClientRects().length > 0); const t = m.getBoundingClientRect().top; const b = [...m.querySelectorAll('p, h2')].find((x) => x.getBoundingClientRect().bottom > t + 2); return b ? b.innerText.trim().slice(0, 30) : ''; })()`);
+  await v.eval(`(() => { const m = [...document.querySelectorAll('main')].find((e) => e.getClientRects().length > 0); const h = [...m.querySelectorAll('h1, h2, h3, h4, h5, h6')].find((x) => x.innerText.trim() === 'Druhá kapitola'); m.scrollTop += h.getBoundingClientRect().top - m.getBoundingClientRect().top; return true; })()`);
+  const first = () => v.eval<string>(`(() => { const m = [...document.querySelectorAll('main')].find((e) => e.getClientRects().length > 0); const t = m.getBoundingClientRect().top; const b = [...m.querySelectorAll('p, h1, h2, h3, h4, h5, h6')].find((x) => x.getBoundingClientRect().bottom > t + 2); return b ? b.innerText.trim().slice(0, 30) : ''; })()`);
   const p = `${vault}/Pages/Dlouhá poznámka.md`;
   syncWrite(p, `${sh(`cat ${quote(p)}`)}\nPřipsáno na Macu: žluťoučký kůň.\n`);
   const shown = await eventually(() => v.eval<boolean>(`document.querySelector('main').innerText.includes('Připsáno na Macu')`), (x) => x, 2000, 100);
@@ -167,7 +170,7 @@ test('fr_syn_03_ac35_external_changes_on_the_phone', async () => {
   await v.click(`${DRAWER} [data-command="goto.inbox"]`);
   assert.ok(await eventually(() => v.eval<boolean>(`document.querySelector('main').innerText.includes('Z Macu')`), (x) => x, 2000, 100), 'its Inbox row');
   // the open note deleted
-  await v.click(`main li a, main li`);
+  await v.click(`main li a`);
   await sleep(800);
   const open = await title(v);
   sh(`rm ${quote(`${vault}/Quick Notes/${open}.md`)}`, false);

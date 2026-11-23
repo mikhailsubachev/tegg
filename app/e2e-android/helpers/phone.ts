@@ -53,8 +53,12 @@ export function imeShown(): boolean {
 export function barAppearance(id = TEST_ID): { lightStatus: boolean; lightNav: boolean } {
   const out = sh('dumpsys window windows', false);
   const at = out.indexOf(`${id}/`);
-  const part = at >= 0 ? out.slice(at, at + 6000) : out;
-  return { lightStatus: /APPEARANCE_LIGHT_STATUS_BARS/.test(part), lightNav: /APPEARANCE_LIGHT_NAVIGATION_BARS/.test(part) };
+  // Only Tegg's own window block: the next window's (the launcher's) `apr=` isn't Tegg's (AC-Test-Change, approved by
+  // the owner).
+  const next = at >= 0 ? out.indexOf('Window #', at) : -1;
+  const part = at >= 0 ? out.slice(at, next > at ? next : undefined) : out;
+  // Android 15 prints `apr=LIGHT_STATUS_BARS LIGHT_NAVIGATION_BARS` (older releases `APPEARANCE_LIGHT_…`).
+  return { lightStatus: /\bLIGHT_STATUS_BARS\b/.test(part), lightNav: /\bLIGHT_NAVIGATION_BARS\b/.test(part) };
 }
 /** The WebView's rectangle on the screen (device px) from `uiautomator dump`. */
 export function webViewRect(): Box {
@@ -156,7 +160,9 @@ export async function launchPhone(vault: string, env: Record<string, string> = {
   return { pid, v };
 }
 /** The page's visible `h1` (the app bar's title). */
-export const title = (v: WebView) => v.eval<string>(`(document.querySelector('header[role="banner"] h1')?.innerText ?? '').trim()`);
+// An eval during a cold start's page load can answer nothing: that is an empty title (AC-Test-Change, approved by the
+// owner).
+export const title = async (v: WebView) => (await v.eval<string | undefined>(`(document.querySelector('header[role="banner"] h1')?.innerText ?? '').trim()`)) ?? '';
 export async function titleIs(v: WebView, want: string, ms = 5000): Promise<string> {
   return eventually(() => title(v), (t) => t.normalize('NFC') === want.normalize('NFC'), ms, 150);
 }
