@@ -111,10 +111,13 @@ test('fr_ux_03_ac55_cards_keyboard_only', async ({ page }) => {
   assert.ok(await tabTo(page, 'Icon for Kraj', 150), 'Tab to Icon for Kraj in Properties');
   await check('Icon for Kraj');
   await page.keyboard.press('Enter');
+  // D-2053: `pin` lists loader-pinwheel, map-pin, map-pin-check, … by name (§7.7); Kraj already has map-pin, so → → picks
+  // map-pin-check.
   await page.keyboard.type('pin');
   await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
   await page.keyboard.press('Enter');
-  assert.ok(!(await fileWhen(core, VYLET_YML, (t) => !t?.includes('    icon: map-pin\n'), 2000))?.includes('    icon: map-pin\n'), 'Kraj\'s icon: one write');
+  assert.ok((await fileWhen(core, VYLET_YML, (t) => !!t?.includes('    icon: map-pin-check\n'), 2000))?.includes('    icon: map-pin-check\n'), 'Kraj\'s icon: one write');
   await runCommand(page, 'Reset card to default');
   assert.ok(!(await fileWhen(core, VYLET_YML, (t) => !t?.includes('\ncard:'), 2000))?.includes('\ncard:'), 'Reset card to default: one write');
   assert.equal((await typePatches(core)).length, 6, 'six writes in all, one per step');

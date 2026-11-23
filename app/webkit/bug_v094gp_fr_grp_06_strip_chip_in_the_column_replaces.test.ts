@@ -15,7 +15,7 @@ test('bug_v094gp_fr_grp_06_a_strip_chip_in_the_column_replaces_the_content', asy
   await waitDrawn(page, 10);
   await clickNode(page, P.rozpocet);
   const prev = await must(shown(page, P.rozpocet), 'Rozpočet\'s preview in the column');
-  await (await must(prev.getByRole('link', { name: 'Jana Nováková', exact: true }), 'the strip chip Jana Nováková')).click();
+  await (await must(prev.getByRole('link', { name: 'Vlastník: Jana Nováková', exact: true }), 'the strip chip Jana Nováková')).click();
   await must(shown(page, P.jana), 'a click on the strip chip replaces the column\'s content with Jana\'s preview (D-932)');
   await must(previewCol(page).getByRole('button', { name: 'Back to Rozpočet 2027', exact: true }), 'with Back to Rozpočet 2027');
   assert.equal((await callsOf(core, 'nav_opened')).length, 0, 'and opens nothing');
