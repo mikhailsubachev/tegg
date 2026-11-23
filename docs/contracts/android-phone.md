@@ -493,7 +493,15 @@ inputs and rows of object lists; running the command does what the tap does.
 `mindmap.showList`, `mindmap.zoomIn`, `mindmap.zoomOut`, `mindmap.fit`, `mindmap.fullScreen`,
 `mindmap.closeFullScreen`, `android.openSettings`. Page controls keep their existing ids (view tabs: `views.tab:<name>`, D-2117;
 `query.showMore`, `search.*` except `search.create*`, `daily.showMore`, `daily.openRow`, `sidebar.pinned.open`,
-`sidebar.pinned.toggle`, board folds, callout folds).
+`sidebar.pinned.toggle`, board folds). `mindmap.showMap` and `mindmap.showList` are the phone's own (the control's tap;
+the desktop's act on the editor, D-2127).
+
+Controls inside a note's content (D-2128, FR-UX-03 AC-55): the edit-only ones are not rendered on the phone (a note
+embed's `Display as`; a task embed's status, priority and due buttons, whose values show as text). The others carry
+per-control commands, registered while their page is shown, each running its control's tap through `actions.phone(id)`:
+- `read.fold:<n>`: the n-th fold button (a foldable callout or mindmap) of the shown note, from 1 in document order;
+- `read.openEmbed:<n>`: every control that opens the n-th embed of the shown note (its chip, `Open <title>`);
+- `board.openCard:<path>`: a board task card's title (`<path>` NFC, as `data-path`), an exception inside `board.*`.
 
 `PHONE_HIDDEN_COMMANDS` (exact ids; prefixes end in `*`): `app.palette`, `help.shortcuts`, `nav.forward`,
 `view.toggleSidebar`, `view.toggleRightPanel`, `view.toggleFocus`, `note.toggleProperties`, `note.width.*`, `edit.*`,

@@ -250,6 +250,14 @@ Proposals for the contract:
   - every command a phone control carries runs from the registry with the same effect as the tap (data-driven over those commands).
 
   *(L5p)* Test: `fr_ux_03_ac54_commands_without_a_palette`
+- **AC-55** **Controls inside a note's content (D-2128; QA review of AND-2).** With `'android'` at 412 × 915, on the vault `tasks/` + `new-empty/.tegg/` + `views-tasks/` + the overlay `phone-content/` at the tasks clock:
+  - On `note/Pages/Vložené.md` no `Display as` control is rendered, and the task embed `Opravit kolo` has no status, priority or due button: its status `In progress` shows as text, and its checkbox is drawn `aria-disabled` (as RA11).
+  - The callout's fold button carries `read.fold:1` and the mindmap's `read.fold:2`; every control of the note embed `Vložená stránka` that opens it (its chip, `Open Vložená stránka`) carries `read.openEmbed:1`, and those of the task embed `read.openEmbed:2` (numbers count from 1 in document order on the page).
+  - AC-54's second part holds on this note and on `type/task` with each of its tabs open (`All Tasks`, `Schedule`, `Kanban`, `Čeká na ostatní`), none of the commands is in RA11's hidden list, and a board task card's title carries `board.openCard:<path>`.
+  - Running a command by id has the tap's effect, also inside the page: `read.fold:1` flips the callout's `aria-expanded` and shows `Skrytý text tipu.`; `read.fold:2` shows the map `Složená mapa`; `read.openEmbed:1` opens `note/Pages/Vložená stránka.md`; on the `Kanban` tab `board.openCard:Tasks/Opravit kolo.md` opens `note/Tasks/Opravit kolo.md`; on `note/Pages/Mapa výletu.md` (the `phone/` vault) `mindmap.showList` shows the list and `mindmap.showMap` the map again (the pressed one of `Map` / `List`).
+  - Zero writes.
+
+  *(L5p)* Test: `fr_ux_03_ac55_content_controls_on_the_phone`
 
 ### AR-03 The phone UI on the platform layer (adds to AC-1…AC-12)
 
