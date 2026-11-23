@@ -274,6 +274,12 @@ export async function hitArea(loc: Locator): Promise<{ width: number; height: nu
 
 /** A one-finger drag by (dx, dy) starting at `from` (viewport CSS px): CDP touch events on Chromium (real scrolling);
  *  synthetic pointer and touch events on WebKit (no native scrolling there, so scroll amounts are checked on Chromium). */
+/** D-2106: a drag of `want` px scrolls by want − 16 … want + 4 px (the engine's touch slop), 0 within ± 4 px. */
+export function byTheDrag(moved: number, want: number): boolean {
+  if (want === 0) return Math.abs(moved) <= 4;
+  const m = Math.sign(want) * moved;
+  return m >= Math.abs(want) - 16 && m <= Math.abs(want) + 4;
+}
 export async function touchDrag(page: Page, from: { x: number; y: number }, dx: number, dy: number, o: { steps?: number; holdMs?: number } = {}) {
   const steps = o.steps ?? 10;
   if (page.context().browser()?.browserType().name() === 'chromium') {
@@ -285,6 +291,8 @@ export async function touchDrag(page: Page, from: { x: number; y: number }, dx: 
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(from.x + (dx * i) / steps, from.y + (dy * i) / steps) });
       await sleep(16);
     }
+    // D-2106: the finger rests before lifting, so the engine doesn't fling.
+    await sleep(150);
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await cdp.detach();
   } else {
@@ -441,6 +449,10 @@ export async function sidewaysOverflow(page: Page): Promise<{ scrollWidth: numbe
       if (e.scrollWidth <= e.clientWidth + 1) continue;
       const s = getComputedStyle(e);
       if (/(auto|scroll|hidden|clip)/.test(s.overflowX)) continue;
+      // D-2111: inside an ancestor that scrolls sideways (the map area) it scrolls in that box.
+      let boxed = false;
+      for (let a = e.parentElement; a && a.tagName !== 'MAIN'; a = a.parentElement) if (/(auto|scroll)/.test(getComputedStyle(a).overflowX) && a.getBoundingClientRect().right <= innerWidth + 1) { boxed = true; break; }
+      if (boxed) continue;
       const r = e.getBoundingClientRect();
       if (r.right > innerWidth + 1 || r.left < -1) offenders.push(`${e.tagName.toLowerCase()}.${String(e.className).split(/\s+/).join('.')}`);
     }

@@ -156,10 +156,25 @@ async function sheetRows(page: Page): Promise<{ label: string; value: string }[]
 }
 async function deskPanelText(browser: import('@playwright/test').Browser, o: Parameters<typeof startDesktop>[1]): Promise<string> {
   const { page: desk, context } = await desktopPage(browser);
-  await desk.addInitScript(() => { const w = window as any; w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), readView: true }; });
+  // D-2109: the attribute panel of the editor page (AC-22, contract CP-14), with the values shown in its fields.
   await startDesktop(desk, o);
   const region = await must(desk.getByRole('region', { name: 'Properties', exact: true }), 'desktop: the attribute panel (region Properties)', 5000);
-  const text = flat(await region.innerText());
+  const text = flat(await region.evaluate((r) => {
+    const out: string[] = [];
+    const walk = (n: Node) => {
+      if (n.nodeType === 3) { out.push(n.textContent ?? ''); return; }
+      const e = n as HTMLElement;
+      if (e instanceof HTMLInputElement || e instanceof HTMLTextAreaElement) { out.push(` ${e.value} `); return; }
+      if (e instanceof HTMLSelectElement) { out.push(` ${e.selectedOptions[0]?.text ?? ''} `); return; }
+      if (e.nodeType === 1 && getComputedStyle(e).display === 'none') return;
+      const block = e.nodeType === 1 && /^(block|flex|grid|list-item|table-row)/.test(getComputedStyle(e).display);
+      if (block) out.push(' ');
+      for (const c of e.childNodes) walk(c);
+      if (block) out.push(' ');
+    };
+    walk(r);
+    return out.join('');
+  }));
   await context.close();
   return text;
 }

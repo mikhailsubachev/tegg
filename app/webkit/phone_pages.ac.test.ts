@@ -248,10 +248,11 @@ test('fr_tag_06_ac14_tag_page_on_the_phone', async ({ page, browser }) => {
   const { page: desk, context } = await desktopPage(browser);
   await startDesktop(desk, { vault: tagsVault(), route: `tag/${encodeURIComponent('účty')}`, now: TAGS_NOW });
   const paths = (p: Page) => p.getByRole('main').locator('[data-path]').evaluateAll((rs) => rs.map((r) => (r.getAttribute('data-path') ?? '').normalize('NFC')));
-  const want = await eventually(() => paths(desk), (x) => x.length === 14, 3000);
-  assert.equal(want.length, 14, 'setup: the desktop lists 14 objects');
-  assert.deepEqual(await eventually(() => paths(page), (x) => x.length === 14, 3000), want, 'its 14 objects in the desktop\'s default order');
-  const countDesk = flat(await desk.getByRole('main').getByText(/\b14\b/).first().innerText());
+  // D-2105: 6 objects (the tags fixture, R82).
+  const want = await eventually(() => paths(desk), (x) => x.length === 6, 3000);
+  assert.equal(want.length, 6, 'setup: the desktop lists 6 objects');
+  assert.deepEqual(await eventually(() => paths(page), (x) => x.length === 6, 3000), want, 'its 6 objects in the desktop\'s default order');
+  const countDesk = flat(await desk.getByRole('main').getByText(/\b6 objects\b/).first().innerText());
   await must(main(page).getByText(countDesk, { exact: true }), `R82's count line "${countDesk}"`);
   await context.close();
   assert.equal(await main(page).getByRole('button', { name: /^Type/ }).count(), 0, 'no Type filter');

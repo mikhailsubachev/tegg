@@ -195,7 +195,7 @@ Proposals for the contract:
   - **Exempt:** links and chips inside a note's running text, and map nodes. Each exempt target's centre is at least 24 px from every other target's centre (WCAG 2.5.8).
 
   *(L5p)* Test: `fr_ux_04_ac5_touch_targets`
-- **AC-6** **No sideways page scroll.** At 360 × 800 and 412 × 915, on every route of RA9 and on each of Mapa výletu, Široký obsah, Odkazy ven, Dlouhá poznámka, Čtení, read-view's Bloky and Odkazy, mindmap's Uzly and the runtime `Široká mapa`, `document.scrollingElement.scrollWidth` equals `innerWidth`. Every element wider than the column has `overflow-x: auto` and scrolls inside its own box. *(L5p)* Test: `fr_ux_04_ac6_no_sideways_page_scroll`
+- **AC-6** **No sideways page scroll.** At 360 × 800 and 412 × 915, on every route of RA9 and on each of Mapa výletu, Široký obsah, Odkazy ven, Dlouhá poznámka, Čtení, read-view's Bloky and Odkazy, mindmap's Uzly and the runtime `Široká mapa`, `document.scrollingElement.scrollWidth` equals `innerWidth`. Every element wider than the column has `overflow-x: auto` and scrolls inside its own box, or lies inside an ancestor that scrolls sideways, such as the map area (D-2111). *(L5p)* Test: `fr_ux_04_ac6_no_sideways_page_scroll`
 - **AC-7** **Rotation (AP-2053).** On the device, Dlouhá poznámka is scrolled so that `Druhá kapitola` is the first visible block. Rotating to landscape (`settings put system user_rotation 1`, accelerometer off) and back keeps:
   - the route, with `Druhá kapitola` still the first visible block (± one line);
   - the phone layout in both orientations (AC-1);
@@ -233,7 +233,7 @@ Proposals for the contract:
 - **AC-18** **No swipe navigates (RA12; AP-2040).** With touch input, horizontal drags of 200 px in both directions, starting at x = 4 and at the centre, over: a note's text, the `Přečtené 2026` table, the `Rozečtené` lanes, Mapa výletu's map, an Inbox row, the app bar and the bottom bar. For each one:
   - the route, the history (Back and Forward lead to the same entries afterwards) and the drawer stay as they were;
   - zero writes;
-  - the table, the lanes and the map scroll by the drag instead (`scrollLeft` changes by 200 ± 4 px, or to its end).
+  - the table, the lanes and the map scroll by the drag instead (`scrollLeft` changes by 184…204 px, the drag less the engine's touch slop, or to its end; the finger rests before lifting, so no fling, D-2106).
 
   `nav_swipe_scroll` answers `false` (RA2), so FR-NAV-03 AC-8 holds and AC-11's swipe never runs. *(L5p; LA once over the note)* Test: `fr_nav_03_ac18_no_swipe_navigates`
 - **AC-19** **History keeps its desktop rules.** At L5p, FR-NAV-03 AC-1, AC-4, AC-5 and AC-7 hold with the app bar's `Back` and `__TEGG_TEST__.systemBack()` as the triggers (Dlouhá poznámka for AC-4's scroll check):
@@ -246,7 +246,7 @@ Proposals for the contract:
 
 - **AC-54** **Every control is a command, without a palette (AP-2041).** With `'android'`:
   - no element `Command palette` opens on any route, from ⌘K, Ctrl+K or ⌘⇧P (a hardware keyboard emulated by Playwright);
-  - FR-UX-03 AC-8's rule holds on every route of RA9 at 412 × 915, with the drawer, a sheet and each menu open: every button, link, tab, menu item, checkbox, radio and switch carries the `data-command` of a registered command, except text inputs and the rows of object lists;
+  - FR-UX-03 AC-8's rule holds on every route of RA9 at 412 × 915, with the drawer, a sheet and each menu open: every button, link, tab, menu item, checkbox, radio and switch carries the `data-command` of a registered command, except text inputs, the rows of object lists and links in a note's text (D-2112);
   - every command a phone control carries runs from the registry with the same effect as the tap (data-driven over those commands).
 
   *(L5p)* Test: `fr_ux_03_ac54_commands_without_a_palette`
@@ -389,7 +389,7 @@ Proposals for the contract:
 
 ### FR-TAG-06 The tag page on the phone (adds to AC-1…AC-13)
 
-- **AC-14** **Read-only (AP-2059).** `tag/účty` shows `#účty` with its colour tile (not a button), R82's count line and its 14 objects in the desktop's default order. There is no Type filter, `Tag colour` popover, rename, delete or merge. A tap on a row opens it; a tag chip in a row opens its tag page. Zero writes. *(L5p)* Test: `fr_tag_06_ac14_tag_page_on_the_phone`
+- **AC-14** **Read-only (AP-2059).** `tag/účty` shows `#účty` with its colour tile (not a button), R82's count line and its 6 objects in the desktop's default order (D-2105). There is no Type filter, `Tag colour` popover, rename, delete or merge. A tap on a row opens it; a tag chip in a row opens its tag page. Zero writes. *(L5p)* Test: `fr_tag_06_ac14_tag_page_on_the_phone`
 
 ### FR-EDT-10 The read view on the phone (adds to AC-1…AC-9)
 
@@ -463,7 +463,7 @@ Proposals for the contract:
 
   *(L1 for the scale rules; L5p; L5p Chromium for the pinch; LA once)* Test: `fr_mmp_02_ac33_mindmap_zoom_on_the_phone`
 - **AC-34** **Pan, page scroll and full screen (AP-2055).**
-  - In the note, on the runtime `Široká mapa`, a one-finger horizontal drag scrolls the map area (`scrollLeft` changes by the drag ± 4 px), and a vertical drag scrolls the page, not the map.
+  - In the note, on the runtime `Široká mapa`, a one-finger horizontal drag scrolls the map area (`scrollLeft` changes by the drag − 16 … + 4 px; the finger rests before lifting, D-2106), and a vertical drag scrolls the page, not the map.
   - `Open full screen` opens the `dialog` `Mindmap: <title>` covering the viewport within the safe areas, without the app bar and the bottom bar. There, one-finger drags pan in both directions and a pinch zooms.
   - `Close full screen` and system Back close it, back at the note's scroll position.
 

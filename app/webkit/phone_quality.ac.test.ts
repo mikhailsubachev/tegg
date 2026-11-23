@@ -125,7 +125,8 @@ test('fr_ux_03_ac54_commands_without_a_palette', async ({ browser }) => {
     const registered = new Set(await page.evaluate(() => ((window as any).__TEGG_TEST__?.commands?.() ?? []) as string[]));
     assert.ok(registered.size > 0, `${how}: __TEGG_TEST__.commands() lists the registry`);
     const scope = (await seen(drawer(page), 100)) ? drawer(page) : (await seen(sheet(page, 'Properties'), 100)) ? sheet(page, 'Properties') : (await seen(moreMenu(page), 100)) ? moreMenu(page) : undefined;
-    const ctl = (await controls(page, scope)).filter((c) => !c.inert && !c.text && !c.row && ['button', 'link', 'tab', 'menuitem', 'menuitemradio', 'checkbox', 'radio', 'switch'].includes(c.role));
+    // D-2112: links in a note's text are content, not controls.
+    const ctl = (await controls(page, scope)).filter((c) => !c.inert && !c.text && !c.row && !(c.role === 'link' && c.exempt) && ['button', 'link', 'tab', 'menuitem', 'menuitemradio', 'checkbox', 'radio', 'switch'].includes(c.role));
     const missing = ctl.filter((c) => !c.command || !registered.has(c.command.split(':')[0]) && !registered.has(c.command)).map((c) => `${c.role} "${c.name.slice(0, 30)}" → ${c.command ?? '(none)'}`);
     assert.deepEqual(missing, [], `${how}: every control carries the data-command of a registered command`);
   });
@@ -146,7 +147,7 @@ test('fr_ux_03_ac54_commands_without_a_palette', async ({ browser }) => {
       await eventually(() => mainName(probe), (n) => !!n, 5000);
       if (inDrawer) await openDrawer(probe);
       const scope = inDrawer ? drawer(probe) : undefined;
-      const cmds = [...new Set((await controls(probe, scope)).filter((c) => !c.inert && !c.text && !c.row && c.command && c.command !== 'phone.menu').map((c) => c.command!))];
+      const cmds = [...new Set((await controls(probe, scope)).filter((c) => !c.inert && !c.text && !c.row && !(c.role === 'link' && c.exempt) && c.command && c.command !== 'phone.menu').map((c) => c.command!))];
       await probe.close();
       for (const id of cmds) {
         const key = `${inDrawer ? 'drawer' : 'page'}|${id}`;
@@ -249,7 +250,7 @@ test('fr_syn_06_ac51_reading_on_the_phone_writes_nothing', async ({ page }) => {
   // five notes, their sheets and source views
   for (const p of [PH.mapa, PH.siroky, PH.ven, PH.dlouha, B('Mapa bez severu')]) {
     await step(`the note ${p}`, async () => {
-      if (p.startsWith('Books/')) { await go('Books', 'Books'); await main(page).locator(`[data-query-result="${nfc(p)}"]`).first().click(); }
+      if (p.startsWith('Books/')) { await go('Books', 'Books'); await main(page).locator('[role="tab"][data-view-tab=""]').click(); /* D-2110: All Books */ await main(page).locator(`[data-query-result="${nfc(p)}"]`).first().click(); }
       else { await barButton(page, 'Search').click(); await page.getByRole('search').getByRole('searchbox').or(page.getByRole('search').getByRole('textbox')).first().fill(p.split('/').pop()!.replace(/\.md$/, '')); await page.keyboard.press('Enter'); }
       await eventually(h1, (t) => t === nfc(p.split('/').pop()!.replace(/\.md$/, '')), 3000);
       await moreButton(page).click();

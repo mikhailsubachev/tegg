@@ -17,6 +17,7 @@ import assert from 'node:assert/strict';
 import { I, inboxVault, reviewedText } from './capture-helpers';
 import { conflictsVault } from './editor-helpers';
 import {
+  byTheDrag, ui,
   B, FRAME, PH, SMALL, appBar, assertZeroWrites, backButton, barButton, bottomBar, desktopPage, drawer, drawerEntry, eventually, fileStateOf,
   firstVisibleBlock, flat, isChromium, longPress, loadVault, mainName, mainScroll, must, nfc, openDrawer, phonePage, phoneVault, rect, scrollBlockToTop,
   seen, sheet, sleep, startDesktop, startPhone, systemBack, touchDrag, moreButton, moreMenu, type PhoneHandle,
@@ -282,7 +283,7 @@ test('fr_nav_03_ac18_no_swipe_navigates', async ({ browser }) => {
           // the start scrolls it back, which is already its end (scrollLeft stays 0).
           const sc1 = await scrollLeftOf(page, at!.scroller!);
           const want = dx < 0 ? Math.min(200, sc0.max - sc0.left) : -Math.min(200, sc0.left);
-          assert.ok(Math.abs(sc1.left - sc0.left - want) <= 4, `${how}: the ${at!.scroller} scrolls by the drag (200 ± 4 px or to its end): ${sc0.left} → ${sc1.left} (max ${sc0.max})`);
+          assert.ok(byTheDrag(sc1.left - sc0.left, want), `${how}: the ${at!.scroller} scrolls by the drag (184…204 px or to its end, D-2106): ${sc0.left} → ${sc1.left} (max ${sc0.max})`);
         }
         await page.close();
       }
@@ -293,7 +294,8 @@ test('fr_nav_03_ac18_no_swipe_navigates', async ({ browser }) => {
 // ------------------------------------------------------------------------------------------------ FR-NAV-03 AC-19
 
 test('fr_nav_03_ac19_history_rules_on_the_phone', async ({ page }) => {
-  const core = await startPhone(page, { route: `note/${PH.dlouha}` });
+  // D-2108: a stored ui-state, so the tab write changes only `typeViews`.
+  const core = await startPhone(page, { route: `note/${PH.dlouha}`, uiState: ui() });
   await must(page.getByRole('main', { name: 'Dlouhá poznámka' }), 'Dlouhá poznámka');
   const before = await fileStateOf(core);
   const uiBefore = JSON.stringify(await core.uiState());
@@ -345,7 +347,10 @@ test('fr_nav_03_ac19_history_rules_on_the_phone', async ({ page }) => {
   assert.deepEqual(changed, [], 'Back writes nothing to the vault (AC-7)');
   assert.deepEqual((await core.calls()).filter((c) => ['note_write', 'note_create', 'daily_create'].includes(c.cmd)).map((c) => c.cmd), [], 'no write command');
   const uiAfter = await core.uiState();
-  assert.equal(JSON.stringify({ ...(uiAfter ?? {}), typeViews: undefined }), JSON.stringify({ ...(JSON.parse(uiBefore) ?? {}), typeViews: undefined }), 'Back writes nothing to ui-state.json apart from the remembered tab (AC-7)');
+  // D-2108: every key but `typeViews`, compared as objects; the app's own defaults for keys the stored state lacks count as unchanged.
+  const DEFAULTS = { typeSort: {}, otherPropertiesOpen: false };
+  const strip = (u: Record<string, unknown> | null) => { const o: Record<string, unknown> = { ...DEFAULTS, ...(u ?? {}) }; delete o.typeViews; return o; };
+  assert.deepEqual(strip(uiAfter as Record<string, unknown> | null), strip(JSON.parse(uiBefore)), 'Back writes nothing to ui-state.json apart from the remembered tab (AC-7)');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-VLT-01 AC-29
