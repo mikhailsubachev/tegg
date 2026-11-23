@@ -343,7 +343,7 @@ Found by the first run of this check: needed by the MVP but owned by no mileston
 | FR-QRY-02 | M | Operators per attribute type: is/is not, contains, is empty/not empty, before/after/between, relative dates (t… | Query builder and views (§11) |
 | FR-QRY-03 | M | Context-aware filters: "links to *this note*", "source is *this note*", "created on *this daily note's date*".… | Query builder and views (§11) |
 | FR-QRY-04 | M | Cross-type queries through relations, one level deep: e.g. *Tasks whose source is a Meeting where attendees co… | Query builder and views (§11) |
-| FR-QRY-05 | M | Views: Table (editable cells write to frontmatter), List, Board (group by a select, status, multi-select, tags… | Query builder and views (§11) |
+| FR-QRY-05 | M | Displays: Table (editable cells write to frontmatter), List, Wall; grouping in any display (D-2172, D-2173)… | Query builder and views (§11) |
 | FR-QRY-06 | M | Queries can be embedded in any note as a block (FR-FMT-06), or saved as a named query shown in the sidebar/Hom… | Query builder and views (§11) |
 | FR-QRY-07 | M | Each type has default views (FR-TYP-09); users can add more views per type (e.g. Books: "Currently reading" bo… | Query builder and views (§11) |
 | FR-QRY-08 | S | Creating an object from within a query view pre-fills the attributes that match the filters (e.g. a new card i… | Query builder and views (§11) |
