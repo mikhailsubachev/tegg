@@ -366,7 +366,7 @@ vaults?: Record<string, unknown>,
  */
 queries?: QueriesUiDto, 
 /**
- * Slice OC (v1-cards §10, R216, D-1954): the icon picker's Recent icons, canonical Lucide names, newest first, unique,
+ * Slice OC (v1-cards §10, R216, D-2066): the icon picker's Recent icons, canonical Lucide names, newest first, unique,
  * at most 12; missing reads as none.
  */
 recentIcons?: Array<string>, 

@@ -1,4 +1,4 @@
-// Two rows, then `+N more` (docs/contracts/v1-cards.md §7.2; D-1949, D-1977): every item of a pill area is rendered;
+// Two rows, then `+N more` (docs/contracts/v1-cards.md §7.2; D-2061, D-2089): every item of a pill area is rendered;
 // after layout the items after the second row get `hidden` and `data-overflow` (they stay in the DOM), and `+N more`
 // becomes the last visible item of row 2, its tooltip naming the hidden items. `Unreviewed` is never hidden or counted.
 // Recomputed within one animation frame of a size change. A pill whose value is cut gets `<Name>: <value>` as tooltip.
@@ -30,7 +30,7 @@ export function layoutRows(area: HTMLElement): void {
   const row2 = tops[1];
   const hidden: HTMLElement[] = [];
   const hide = (e: HTMLElement) => { e.hidden = true; e.setAttribute('data-overflow', ''); hidden.unshift(e); };
-  // `Unreviewed`, the preview strip's footer link (D-1981) and a Task card's R43 chips (D-1904) are never hidden or counted.
+  // `Unreviewed`, the preview strip's footer link (D-2093) and a Task card's R43 chips (D-1904) are never hidden or counted.
   const fixed = (e: HTMLElement) => e.classList.contains('card-unreviewed') || e.hasAttribute('data-footer-link') || e.classList.contains('task-chip');
   for (const e of [...items].reverse()) if (e.offsetTop > row2 && !fixed(e)) hide(e);
   const more = document.createElement('span');

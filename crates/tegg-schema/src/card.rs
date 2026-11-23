@@ -1,4 +1,4 @@
-//! The card list of a type (docs/contracts/v1-cards.md §2.2; cards.md R209, R210; D-1947, D-1964, D-1967).
+//! The card list of a type (docs/contracts/v1-cards.md §2.2; cards.md R209, R210; D-2059, D-2076, D-2079).
 //!
 //! The one place that decides which keys a type's cards draw: `card:` as written when it is present and readable, else
 //! R210's default (system table, Tag fixed, user types from `preview`). The TS twin is `@tegg/schema` `cardList`, tied by
@@ -33,7 +33,7 @@ fn strings(v: &[&str]) -> Vec<String> {
     v.iter().map(|s| s.to_string()).collect()
 }
 
-/// R210 (D-1967) for a system key, else None.
+/// R210 (D-2079) for a system key, else None.
 fn system_default(key: &str) -> Option<&'static [&'static str]> {
     Some(match key {
         "page" => &["tags", "body", "modified"],
@@ -105,7 +105,7 @@ pub(crate) fn effective_keys(def: &TypeFile, list: &[String]) -> Vec<String> {
     out
 }
 
-/// `card` entries that are neither an attribute key nor a built-in (NFC), each once, in file order (D-1964).
+/// `card` entries that are neither an attribute key nor a built-in (NFC), each once, in file order (D-2076).
 pub(crate) fn ignored(def: &TypeFile, card: &[String]) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
     for e in card {

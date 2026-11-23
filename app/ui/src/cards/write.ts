@@ -1,6 +1,6 @@
 // The lists the `Card` section sends with `type_patch` `card` (docs/contracts/v1-cards.md §6.1, §7.5; cards.md R214;
-// FR-TYP-11 AC-21…AC-24, AC-26; D-1964, D-1985, D-2002). Pure. Each starts from `type.cardList` (R210's default when
-// `cardDefault`: the first write seeds the list, D-1964) and keeps unknown and hand-written entries at their places
+// FR-TYP-11 AC-21…AC-24, AC-26; D-2076, D-2097, D-2114). Pure. Each starts from `type.cardList` (R210's default when
+// `cardDefault`: the first write seeds the list, D-2076) and keeps unknown and hand-written entries at their places
 // (the type-columns §3 rules); every entry is sent in NFC (FR-FMT-12).
 import { CARD_BUILT_INS } from '@tegg/schema';
 import type { TypeDto } from '../ipc/types';
@@ -50,7 +50,7 @@ export function cardDrop(type: CardType, key: string, beforeKey: string | null):
   return placeBefore(start(type), nfc(key), beforeKey === null ? null : nfc(beforeKey));
 }
 
-/** `Add property`'s choices (AC-22; AP-1592, D-1985): the type's attributes not on the card in schema order (no
+/** `Add property`'s choices (AC-22; AP-1592, D-2097): the type's attributes not on the card in schema order (no
  *  `file`-kind attribute, never `review` or `title`), then the built-ins not on it. */
 export function addChoices(type: CardType): { attributes: string[]; builtIns: string[] } {
   const on = new Set(effective(type));

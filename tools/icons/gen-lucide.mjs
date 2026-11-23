@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Lucide icon data for Tegg (docs/contracts/v1-cards.md §5; FR-TYP-01 AC-20; D-1955, D-1963, D-1993, D-2000).
+// Lucide icon data for Tegg (docs/contracts/v1-cards.md §5; FR-TYP-01 AC-20; D-2067, D-2075, D-2105, D-2112).
 //
 // Run by hand at dev time (Node >= 22, no dependencies):
 //
@@ -27,7 +27,7 @@ export const INTEGRITY = 'sha512-X6pIdg7jVxv7YQ/uR241hwhNiztcAfmj181TbcX7HCxxk/3
 export const COUNT = 1539;
 /** The SVG tags an icon node may hold (v1-cards §2.4). */
 export const TAGS = ['path', 'circle', 'rect', 'polyline', 'line', 'polygon', 'ellipse'];
-/** types.md R14's 24 old names (D-1955): each must resolve, by name or by an alias. */
+/** types.md R14's 24 old names (D-2067): each must resolve, by name or by an alias. */
 export const OLD_NAMES = ['file-text', 'check-square', 'zap', 'calendar', 'hash', 'image', 'file', 'book', 'book-open', 'lightbulb', 'users', 'user', 'folder', 'map', 'star', 'flag',
   'bookmark', 'briefcase', 'coffee', 'globe', 'graduation-cap', 'pen-line', 'utensils', 'plane'];
 
@@ -183,7 +183,7 @@ function check() {
   const data = JSON.parse(readFileSync(DATA, 'utf8'));
   const aliases = JSON.parse(readFileSync(ALIASES, 'utf8'));
   bad.push(...problems(data, aliases));
-  if (statSync(DATA).size >= 2 * 1024 * 1024) bad.push('the data file is 2 MiB or more (D-1963)');
+  if (statSync(DATA).size >= 2 * 1024 * 1024) bad.push('the data file is 2 MiB or more (D-2075)');
   if (!existsSync(CREDITS)) bad.push(`${CREDITS} is missing`);
   else {
     const rtf = readFileSync(CREDITS, 'utf8');

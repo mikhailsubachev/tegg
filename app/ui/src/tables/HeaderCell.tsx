@@ -9,7 +9,7 @@ import { WIDTH, clampWidth } from './widths';
 import type { AttributeDto } from '../ipc/types';
 import { LucideIcon } from '../shell/Icon';
 
-/** Slice OC (FR-TYP-01 AC-13, D-1958): `attr`, the attribute the header's Name comes from; its icon goes before the text. */
+/** Slice OC (FR-TYP-01 AC-13, D-2070): `attr`, the attribute the header's Name comes from; its icon goes before the text. */
 export type HeaderColumn = { key: string; label: string; userNamed: boolean; attr?: AttributeDto | null };
 export type SortMarker = { arrow: '↑' | '↓'; n: number | null };
 

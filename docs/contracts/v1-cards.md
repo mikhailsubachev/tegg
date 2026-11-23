@@ -6,14 +6,14 @@ AC-15, FR-SYN-02 AC-14, FR-SYN-03 AC-33, FR-SYN-06 AC-51, FR-STO-07 AC-13, NFR-P
 AC-54, AC-55, FR-UX-08 AC-26, FR-UX-05 AC-26, NFR-OTH-02 AC-24) and the table "Existing criteria this slice changes";
 `types.md` slice OC part (R12 after OC, FR-TYP-01 AC-22…AC-28, FR-EDT-07 AC-22); `views.md` part four (FR-QRY-05 AC-30,
 AC-31); `embeds.md` FR-EMB-02 AC-19…AC-21; `previews.md` part four (FR-LNK-10 AC-17…AC-19); `app-shell.md` R219, R1
-changes, FR-UX-02 AC-22…AC-26. Decisions D-1942…D-1962 (plan `docs/plans/oc-object-cards-and-settings-plan.md`, BRD
-v1.220, v1.221), D-1963 (2 MiB commit limit), AP-1571…AP-1604 = D-1964…D-1997 (BRD v1.223). Boards
-`design/edit-note-page/TypeCards`, `CardSettings` (A, B, D, E; **section C is never copied**, D-1962), `IconSet`,
+changes, FR-UX-02 AC-22…AC-26. Decisions D-2054…D-2074 (plan `docs/plans/oc-object-cards-and-settings-plan.md`, BRD
+v1.238, v1.239), D-2075 (2 MiB commit limit), AP-1571…AP-1604 = D-2076…D-2109 (BRD v1.241). Boards
+`design/edit-note-page/TypeCards`, `CardSettings` (A, B, D, E; **section C is never copied**, D-2074), `IconSet`,
 `Settings`, `SettingsApp` and their Dark variants. Fixtures: `tests/fixtures/vaults/views/` + `new-empty/.tegg/` + the
 overlay `tests/fixtures/vaults/cards/` (README there); `views-tasks/` for Task criteria; `previews/` for FR-LNK-10.
 
-**Status: approved, 2026-11-22.** CP-1 (§16) is D-1998 (as proposed); the AC problems of §17 are fixed in the ACs as
-D-1999; `Credits.rtf` also carries `d3-force`'s licence (D-2000). BRD v1.224. Where this contract and the ACs disagree, the ACs win and this contract is corrected
+**Status: approved, 2026-11-22.** CP-1 (§16) is D-2110 (as proposed); the AC problems of §17 are fixed in the ACs as
+D-2111; `Credits.rtf` also carries `d3-force`'s licence (D-2112). BRD v1.242. Where this contract and the ACs disagree, the ACs win and this contract is corrected
 before the red tests.
 
 This contract **extends** [ms3-shell.md](ms3-shell.md) §14 (type DTO, `type_patch`, `@tegg/schema`),
@@ -45,7 +45,7 @@ or the alias target, §5.3).
 Nothing else. Opening the vault (also the first launch of 0.6.0 on a 0.5.x vault), drawing any card, opening any
 `type-settings/<key>`, `Add property` and Esc, any picker and Esc, the example card and every `settings/*` route write no
 vault file (FR-SYN-06 AC-51). New, starter and built-in type files are written without `card` and attribute `icon`
-(D-1947, AR-07 AC-11). No job and no restore point is added (a Card or icon change is one type-file line, as `columns`).
+(D-2059, AR-07 AC-11). No job and no restore point is added (a Card or icon change is one type-file line, as `columns`).
 
 ### 1.2 Reads
 
@@ -66,13 +66,13 @@ No surface sends a read per card (D-784, FR-TYP-11 AC-18, FR-EMB-02 AC-21).
 
 | Place | Now |
 | --- | --- |
-| ms3-shell §14.3 `TypeOpDto` `preview` op used by Type settings and `Add column` | no UI sends it any more (D-1942); the op and `TypeOp::SetPreview` (with its 4-limit) stay for tests and the core |
+| ms3-shell §14.3 `TypeOpDto` `preview` op used by Type settings and `Add column` | no UI sends it any more (D-2054); the op and `TypeOp::SetPreview` (with its 4-limit) stay for tests and the core |
 | ms3-shell §14.7 `PreviewSection`, R14's `Icon` listbox | the `Card` section (§7.5) and the icon picker (§7.7) |
-| type-columns §1 last bullet (`SetPreview` keeps its 4-limit) | unchanged; R130's fallback columns still read `preview` (D-1965) |
+| type-columns §1 last bullet (`SetPreview` keeps its 4-limit) | unchanged; R130's fallback columns still read `preview` (D-2077) |
 | v1-views §29.5, §28.2 rows `BoardCard.tsx`, `tasks/TaskCard.tsx` | every board card is `ObjectCard` from the row's `card` (§6, §7.4); `BoardCard.tsx` goes, `TaskCard` the component goes (its parts stay) |
 | v1-views §4.3 / §30.1 rows `Card`, `Board card` (pills in `preview` order, the empty `No <Name>` pill) | §8.1 |
-| ms4-embeds §6 card mode (header + `StripList`), v1-previews §3.4 strip | `ObjectCard` in the frame (D-1980); the preview's region holds the card's pills and link chip (D-1981) |
-| ms4-links duplicate details "up to 2 preview values" (D-289) | the first two set pill values of the card list (D-1982, §3.5) |
+| ms4-embeds §6 card mode (header + `StripList`), v1-previews §3.4 strip | `ObjectCard` in the frame (D-2092); the preview's region holds the card's pills and link chip (D-2093) |
+| ms4-links duplicate details "up to 2 preview values" (D-289) | the first two set pill values of the card list (D-2094, §3.5) |
 | `shell/Icon.tsx` `TYPE_ICONS`, `typeIconName` for type icons | type icons are drawn from `resolvedIcon` (§5.4; CP-1); the hand-drawn `PATHS` stay for app chrome |
 
 ## 2. `tegg-schema` (`crates/tegg-schema`)
@@ -82,20 +82,20 @@ No surface sends a read per card (D-784, FR-TYP-11 AC-18, FR-EMB-02 AC-21).
 ```rust
 pub struct AttrDef {
     // …ms3-shell §14.1.1…
-    /// D-1958 (R209): the item's `icon:` value as written (trimmed); None = no `icon:` line or not a string.
+    /// D-2070 (R209): the item's `icon:` value as written (trimmed); None = no `icon:` line or not a string.
     pub icon: Option<String>,
 }
 pub struct TypeFile {
     // …
-    /// D-1947 (R209): the `card:` keys as written (NFD kept), flow or block list; None = key absent, or present and
+    /// D-2059 (R209): the `card:` keys as written (NFD kept), flow or block list; None = key absent, or present and
     /// unreadable (then `Parsed.card_unreadable`).
     pub card: Option<Vec<String>>,
 }
 pub struct Parsed {
     // …
-    /// D-1964 (AP-1571): `card` is present but not a list of strings (scalar, mapping, a list holding a non-string).
+    /// D-2076 (AP-1571): `card` is present but not a list of strings (scalar, mapping, a list holding a non-string).
     pub card_unreadable: bool,
-    /// D-1964: `card` entries (NFC) that are neither an attribute key nor a card built-in (§2.2), each once, in file
+    /// D-2076: `card` entries (NFC) that are neither an attribute key nor a card built-in (§2.2), each once, in file
     /// order; `title`, `review` and `file`-kind attribute keys are skipped silently (not listed).
     pub card_ignored: Vec<String>,
 }
@@ -103,7 +103,7 @@ pub struct Parsed {
 
 Reading: as `columns` (type-columns §1): a `card` value that isn't a list of strings doesn't make the file invalid
 (AR-07 AC-4 unchanged); an attribute `icon` that isn't a string reads as None and its line is kept. `CURRENT_VERSION`
-stays 1 (D-1948).
+stays 1 (D-2060).
 
 ### 2.2 The card list (the one place, `crates/tegg-schema/src/card.rs`, re-exported)
 
@@ -133,7 +133,7 @@ pub fn card_list(parsed: &Parsed) -> CardList;
 pub fn card_list_undefined() -> CardList;
 ```
 
-- **Defaults** (R210, D-1967): `page` `tags, body, modified`; `task` `tags, body, status, due, priority, recurrence,
+- **Defaults** (R210, D-2079): `page` `tags, body, modified`; `task` `tags, body, status, due, priority, recurrence,
   source`; `quick-note` `body, created`; `daily-note` `body, modified`; `image` `width, height, size, created`; `pdf`
   `tags, pages, size, created`; `tag` `body, modified`. A user type: `tags`, `body`, then each `preview` key (NFC) that is
   an attribute key or one of `tags`, `source`, `aliases`, `created` (others skipped), then `modified`; a repeated key
@@ -148,7 +148,7 @@ pub fn card_list_undefined() -> CardList;
 ### 2.3 Writing (changes to ms3-shell §14.1.4)
 
 - **Order.** `TOP_ORDER` gains `card` after `preview`: `version, name, plural, system, folder, icon, color, description,
-  review, preview, card, hidden, columns, views, embed, template, attributes` (D-1964: "after `preview`, else after
+  review, preview, card, hidden, columns, views, embed, template, attributes` (D-2076: "after `preview`, else after
   `review`" is the nearest-preceding-key rule). `ITEM_ORDER` gains `icon` after `type`: `key, name, type, icon, default,
   required, options, to, multiple, description`. `serialize` writes `card` only when `def.card` is Some and an item's
   `icon` only when Some, so new, starter and built-in files are byte-identical to their fixtures (AR-07 AC-11).
@@ -156,17 +156,17 @@ pub fn card_list_undefined() -> CardList;
   (`render_top`), keys NFC, in the given order, repeats as given (the UI's helpers decide them, §6.1); inserted at its
   TOP place when absent; a block list is replaced by the one flow line; `card: []` is a valid value. A no-op when the key
   exists, is readable and equals `keys` after NFC. `None`: removes the `card` key's lines (a no-op when absent).
-  Refused with `RuleError::CardUnreadable` when `card_unreadable` (D-1964: fixed in the file first), both forms.
+  Refused with `RuleError::CardUnreadable` when `card_unreadable` (D-2076: fixed in the file first), both forms.
 - **`TypeOp::SetAttributeIcon { key: String, icon: Option<String> }`.** `Some(name)`: the item's `icon:` line written
   `    icon: <name>` (plain scalar, NFC, trimmed), inserted right after the item's `type:` line (ITEM_ORDER), replaced in
   place when present. `None`: removes the item's `icon:` line. A key with no attribute item (universal keys) is a
-  no-op. **Never `BuiltInChanged`** (D-1987): it is the one item change allowed on a `built_in` attribute. A no-op when
+  no-op. **Never `BuiltInChanged`** (D-2099): it is the one item change allowed on a `built_in` attribute. A no-op when
   the current value equals the new one byte for byte **or both resolve to the same canonical name** (§2.4; so choosing
-  `square-check-big` where `check-square` is written writes nothing, D-1991).
-- **`TypeOp::SetIcon`** gains the same canonical equality (D-1991); otherwise unchanged (no validation of the name; the
+  `square-check-big` where `check-square` is written writes nothing, D-2103).
+- **`TypeOp::SetIcon`** gains the same canonical equality (D-2103); otherwise unchanged (no validation of the name; the
   picker offers only Lucide names).
 - **`TypeOp::RemoveAttribute(key)`** also removes every `card` entry NFC-equal to the key (repeats included) in the same
-  write, as it does for `preview`, `hidden` and `columns` (D-1965; FR-TYP-11 AC-28). When `card_unreadable` the `card`
+  write, as it does for `preview`, `hidden` and `columns` (D-2077; FR-TYP-11 AC-28). When `card_unreadable` the `card`
   lines are left as they are. The 4E delete-property job's type-file change uses the same op, so its Undo restores the
   exact bytes as today.
 - **Every other op** leaves the `card` lines and every item's `icon:` line byte-identical (they are untouched lines:
@@ -183,10 +183,10 @@ pub const LUCIDE_VERSION: &str = "0.460.0";
 pub struct IconEl { pub tag: String, pub attrs: Vec<(String, String)> }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ResolvedIcon { pub name: &'static str, pub node: &'static [IconEl] }
-/// D-1955: the name itself when it is a Lucide 0.460 name, else its alias target (§5.3); None for anything else
+/// D-2067: the name itself when it is a Lucide 0.460 name, else its alias target (§5.3); None for anything else
 /// (unknown, empty, any non-ASCII character: FR-FMT-12 AC-15).
 pub fn resolve_icon(name: &str) -> Option<ResolvedIcon>;
-/// types.md R14's 24 names (the list `ICONS` held), kept only to test D-1955.
+/// types.md R14's 24 names (the list `ICONS` held), kept only to test D-2067.
 pub const OLD_ICON_NAMES: [&str; 24];
 ```
 
@@ -238,7 +238,7 @@ pub struct CardData {
     pub file: Option<LinkTarget>,
 }
 impl Core {
-    /// D-1984 (AP-1591): the type's most recently modified object (its `modified` instant, newest first; a missing or
+    /// D-2096 (AP-1591): the type's most recently modified object (its `modified` instant, newest first; a missing or
     /// unreadable `modified` last, D-1927; then path) as card data whose `keys` are **every candidate key**: the
     /// attribute keys in schema order (no `file`-kind) then `CARD_BUILT_INS`; `excerpt` always read. None: no object.
     pub fn type_card_example(&self, key: &str) -> Option<CardExample>;
@@ -275,7 +275,7 @@ A change under `.tegg/types/` already re-runs every mounted board, embed batch a
 path); a card list or icon change therefore redraws within NFR-PERF-08's 2 s (FR-TYP-11 AC-19, FR-TYP-01 AC-13). The
 type store refreshes `vault_types` on the same event (ms3-shell §14.3).
 
-### 3.5 Duplicate details (`links4a.rs` `details`; FR-LNK-14 AC-15, D-1982)
+### 3.5 Duplicate details (`links4a.rs` `details`; FR-LNK-14 AC-15, D-2094)
 
 `DuplicateDetails.preview` keeps its name and shape (`Vec<(String, Value)>`) and now holds the **first two set pill
 values** of the object's card list: walk `keys` in order, skip `tags`, `body`, `description`, `created`, `modified`,
@@ -367,7 +367,7 @@ section's reason text. `type_card_example` failing → the example shows the emp
 
 ### 5.1 The data file
 
-- **Path:** `packages/schema/data/lucide-0.460.0.json` (generated, committed; ~441 KB minified, under D-1963's 2 MiB).
+- **Path:** `packages/schema/data/lucide-0.460.0.json` (generated, committed; ~441 KB minified, under D-2075's 2 MiB).
 - **Shape** (minified JSON, one line, keys of `icons` in code-point order):
   `{ "lucide": "0.460.0", "package": "lucide-static@0.460.0", "integrity": "sha512-X6pIdg7jVxv7YQ/uR241hwhNiztcAfmj181TbcX7HCxxk/3mGaRtAc6b2ftUvQBufbJE6ehgyzO2uVsa604tWg==", "count": 1539, "icons": { "<name>": { "n": IconNode, "k": ["<keyword>", …] } } }`
   where `n` is the package's `icon-nodes.json` entry as is and `k` its `tags.json` entry (empty list when absent).
@@ -390,7 +390,7 @@ section's reason text. `type_card_example` failing → the example shows the emp
 - `lucide-static` is **not** a dependency of any package (no lockfile entry); AC-20 (a)'s "or" branch: the committed
   script records the version and integrity.
 
-### 5.3 Aliases (D-1955, D-1991)
+### 5.3 Aliases (D-2067, D-2103)
 
 `packages/schema/data/icon-aliases.json`, hand-written: `{ "check-square": "square-check-big" }`. Read by the Rust core
 (`include_str!`, `resolve_icon`), the UI resolver (§6.1 `icons/resolve.ts`) and the fake core. An alias is never written
@@ -401,7 +401,7 @@ to a file and never shown in the picker as its own option; searching an alias na
 The core resolves names: every `TypeDto` carries `resolvedIcon` and every `AttributeDto` its `resolvedIcon` (one icon
 node each, a few hundred bytes). Everything that draws a type or property icon (cards, the sidebar, type pages and their
 headers, tables, the attribute panel, chips, search rows, the capture window, the graph, the Card list, the picker's
-`Current` mark) draws from these through `LucideIcon` (§6.1); `data-icon` is the name **as written** (D-1991). An
+`Current` mark) draws from these through `LucideIcon` (§6.1); `data-icon` is the name **as written** (D-2103). An
 undefined type, or `resolvedIcon: null`, draws the existing generic `type` glyph (R14). So no surface loads the set
 (FR-TYP-01 AC-20 (b)). Which surfaces switch from the hand-drawn system glyphs is CP-1.
 
@@ -415,14 +415,14 @@ window and never again (FR-TYP-01 AC-20 (b)); nothing imports it statically (L0:
 the JSON outside `icons/lucide-icons.ts`). A load failure shows `iconPicker.loadFailed` in the picker's status (§9) and
 retries on the next open.
 
-### 5.6 The licence (D-1993)
+### 5.6 The licence (D-2105)
 
 `app/src-tauri/Credits.rtf` (generated by §5.2): a plain RTF with the heading `Lucide 0.460.0` and the package's
 `LICENSE` text verbatim (the ISC licence with its copyright line, which also names the Feather (MIT) portions).
 `tauri.conf.json` `bundle.macOS.files` gains `"Resources/Credits.rtf": "./Credits.rtf"` (and the preview config inherits
 it), so the built bundle has `Contents/Resources/Credits.rtf`, which the standard About panel (`About Tegg`, D-220) shows.
 L6 reads it from the built `.app` (FR-TYP-01 AC-20 (d)). After Lucide's text it carries the heading `d3-force` and the `LICENSE` text of the installed `d3-force`
-package (ISC), read by the generator from `app/node_modules/d3-force/LICENSE` (D-2000).
+package (ISC), read by the generator from `app/node_modules/d3-force/LICENSE` (D-2112).
 
 ### 5.7 Offline (NFR-SEC-01)
 
@@ -438,9 +438,9 @@ Nothing is fetched at runtime: the set is in the bundle (UI chunk) and in the bi
 | `packages/schema/src/cards.ts` (exported from `index.ts`; pure, the TS twin of §2.2 for the fake core and L1) | `CARD_BUILT_INS`, `CARD_FALLBACK`, `defaultCard(type)`, `cardList(type: { key; state; card: string[] \| null; cardUnreadable; preview; attributes }) → { list; default; keys }` (corpus §2.2), `isEmpty(value)` (corpus §3.2) |
 | `app/ui/src/cards/model.ts` (pure, L1) | `cardParts(input: { type: TypeDto \| null; card: CardDataDto; task?: TaskRowDto \| null; hideKey?: string \| null; groupValues?: unknown; now: number; zone: string; region: string; dateSetting }) → CardParts`: `{ lead; strip: 'image' \| 'pdf' \| null; tags: { shown: string[]; more: number }; text: { from: 'body' \| 'description'; text: string } \| null; items: CardItem[]; footer: { link: CardLink \| null; date: { key: 'created' \| 'modified'; text: string; iso: string } \| null } }`; `CardItem = { kind: 'unreviewed' } \| { kind: 'pill'; key; name; icon: ResolvedIconDto \| null; value: string; dot: string \| null; invalid: boolean; title: string; label: string } \| { kind: 'link'; key; link: CardLink } \| { kind: 'local'; key; text; path }`; `urlChipText(url)`, `localItem(fileUrl)`, `footerDateText(key, value, typeKey, now, zone, region, setting)`, `moreHint(hidden: CardItem[])` (R211, R212, §7.1…§7.3) |
 | `app/ui/src/cards/task.ts` (pure, L1) | D-1904's Task rules over `cardParts` (status hidden for the first option and as the grouping key, priority hidden for the last option / absent / Done, `due` as R44's label with `tone`, the source chip in the footer always, no text on Done) |
-| `app/ui/src/cards/write.ts` (pure, L1) | the lists `type_patch` `card` sends: `cardRemove(type, key)` (every NFC-equal entry), `cardAdd(type, key)` (appends), `cardMove(type, key, delta)` (null when it can't move), `cardDrop(type, key, beforeKey)`; each starts from `type.cardList` (the default when `cardDefault`, D-1964's seed) and keeps unknown and hand-written entries at their places (type-columns §3 rules); `addChoices(type) → { attributes: string[]; builtIns: string[] }` (D-1985) |
+| `app/ui/src/cards/write.ts` (pure, L1) | the lists `type_patch` `card` sends: `cardRemove(type, key)` (every NFC-equal entry), `cardAdd(type, key)` (appends), `cardMove(type, key, delta)` (null when it can't move), `cardDrop(type, key, beforeKey)`; each starts from `type.cardList` (the default when `cardDefault`, D-2076's seed) and keeps unknown and hand-written entries at their places (type-columns §3 rules); `addChoices(type) → { attributes: string[]; builtIns: string[] }` (D-2097) |
 | `app/ui/src/cards/ObjectCard.tsx` | the one card component (R211): props `{ path; card: CardDataDto; type: TypeDto \| null; surface: 'board' \| 'embed' \| 'example' \| 'tasks'; task?: TaskRowDto; hideKey?; groupValues?; head?: ReactNode /* embed: Open + Display as */; menu?; slot? /* board focus and drag props */; onOpen }`; `inert` for `example` |
-| `app/ui/src/cards/CardPill.tsx` | one pill, one link chip, one local item, `+N more`, `Unreviewed`; also used by the preview's `Preview properties` region (D-1981) |
+| `app/ui/src/cards/CardPill.tsx` | one pill, one link chip, one local item, `+N more`, `Unreviewed`; also used by the preview's `Preview properties` region (D-2093) |
 | `app/ui/src/cards/overflow.ts` | `useTwoRows(ref, items)`: measures the pill area's items (`offsetTop`), hides the ones after row 2 and places `+N more` (§7.2) |
 | `app/ui/src/cards/CardSection.tsx` | type settings' `Card` section (R214, §7.5) |
 | `app/ui/src/cards/cards.css` | card and section styles (tokens only, FR-UX-05 AC-2) |
@@ -459,16 +459,16 @@ Nothing is fetched at runtime: the set is in the bundle (UI chunk) and in the bi
 | --- | --- |
 | `queries/board/QueryBoard.tsx` | renders `ObjectCard` (surface `board`) from `row.card`, with `task` = `row.taskRow`, `hideKey` = the grouping key (except a period key), `groupValues` for D-1769 |
 | `daily/DailyTasks.tsx` | `ObjectCard` (surface `tasks`) from `TaskRowDto.card` |
-| `embeds/Embed.tsx` | card mode: the frame holds `ObjectCard` (surface `embed`) with `head` = `Open <title>` + `Display as` (no `⋯`, D-1980); `embeds/TaskEmbed.tsx` (R52) unchanged |
-| `preview/PreviewContent.tsx` | the `Preview properties` region renders the card's items without tags, text and date (D-1981) through `CardPill` |
+| `embeds/Embed.tsx` | card mode: the frame holds `ObjectCard` (surface `embed`) with `head` = `Open <title>` + `Display as` (no `⋯`, D-2092); `embeds/TaskEmbed.tsx` (R52) unchanged |
+| `preview/PreviewContent.tsx` | the `Preview properties` region renders the card's items without tags, text and date (D-2093) through `CardPill` |
 | `links/DuplicateDetails.tsx` | unchanged code; the values it gets follow §3.5 |
 | `pages/TypeSettingsPage.tsx` | R12 after OC's ten sections in `SettingsLayout`; `PreviewSection` → `CardSection`; `DefaultViewsSection` → `ViewsSection`; Properties: one row expanded at a time, `Icon for <Name>` buttons; General: `Change icon` opens the picker |
 | `pages/SettingsPage.tsx`, `pages/settings5b.tsx`, `pages/BackupsPage.tsx`, `pages/ShortcutsPage.tsx` | the same controls inside `SettingsLayout` / `SettingsRow` (no control added, removed or changed, FR-UX-02 AC-24) |
-| `tables/HeaderCell.tsx` (type page and `queries/ResultsTable.tsx` headers), `types/AttributePanel.tsx` | property icons before header and label text (FR-TYP-01 AC-13, FR-EDT-07 AC-22); a header's icon is that of the attribute its Name comes from. The read view's `read/PropertiesStrip.tsx` shows no property icons in slice OC (D-2041) |
+| `tables/HeaderCell.tsx` (type page and `queries/ResultsTable.tsx` headers), `types/AttributePanel.tsx` | property icons before header and label text (FR-TYP-01 AC-13, FR-EDT-07 AC-22); a header's icon is that of the attribute its Name comes from. The read view's `read/PropertiesStrip.tsx` shows no property icons in slice OC (D-2153) |
 | `shell/Icon.tsx` | `TYPE_ICONS`, `SYSTEM_DEFAULT`, `typeIconName` removed for type icons (callers use `icons/resolve.ts` + `LucideIcon`; CP-1); `PATHS` / `Icon` stay for app chrome |
 | `links/icons.ts` (`chipIcon`) | from `TypeDto.resolvedIcon` |
-| `shell/commands.ts`, `shell/registry.ts` | §11; R1's `design` of `settings/*` → `'Settings'`, `type-settings/<type>` → `'CardSettings'` (D-1994) |
-| `packages/schema/src/index.ts` | `ICONS` stays, documented as the old names (D-1955); `cards.ts` exports |
+| `shell/commands.ts`, `shell/registry.ts` | §11; R1's `design` of `settings/*` → `'Settings'`, `type-settings/<type>` → `'CardSettings'` (D-2106) |
+| `packages/schema/src/index.ts` | `ICONS` stays, documented as the old names (D-2067); `cards.ts` exports |
 | `tasks/TaskCard.tsx` | the `TaskCard` component and `CardProps` go; `Checkbox`, `DueChip`, `SourceChip`, `isDone`, `TaskNav` stay (used by `cards/task.ts`, `ObjectCard`, `TaskEmbed`) |
 
 ### 6.3 Removed
@@ -485,37 +485,37 @@ AC-17's L0 rule), `Embed.tsx`'s own strip helper, the `TaskCard` component. Cata
 - **Kinds** come from the type's `AttributeDto` of the key; built-ins: `tags`, `body`, `description`, `created`,
   `modified` by R212; `source` as R212's `source` rows; `aliases` as a `multi-select` of text.
 - **Values** are formatted as the type page's cells (FR-TYP-09 AC-2, D-781; `cell.tsx`'s formatter). `size` on Image
-  and PDF uses trash-media R76's byte format (D-1968). Empty values (R212 last row, `isEmpty`) draw nothing.
+  and PDF uses trash-media R76's byte format (D-2080). Empty values (R212 last row, `isEmpty`) draw nothing.
 - **Pills:** accessible name `card.pill` (`{name}: {value}`); `title` = Name, or `card.pill` when the value is cut; the
   icon (`LucideIcon`, `data-icon` as written, `aria-hidden`) or the visible Name; Select: dot `--type-<colour>` and the
   label; an unknown option: no dot, raw value, FR-EDT-07 AC-7's warning icon with `Not an option`.
 - **Link items** (`relation`, `source`, `url`): the footer link is the first key in list order of kind `relation` or
-  `source` whose value is set and is a wikilink, an `http(s)` URL or a `file://` URL (R218's `↗ <name>`, not a link, D-2001); a multi-value relation shows its first value and
+  `source` whose value is set and is a wikilink, an `http(s)` URL or a `file://` URL (R218's `↗ <name>`, not a link, D-2113); a multi-value relation shows its first value and
   `+<n>` (`span.card-link-more`, `title` = the other targets joined by `Intl.ListFormat(locale, { type: 'unit', style:
   'short' })`). Other relation and source links and every `url` value are link items in the pill area at their place
-  (D-1972). Wikilinks resolve through `card.links` by target text (`linkOf`); resolved → the D-73 chip (a reference,
+  (D-2084). Wikilinks resolve through `card.links` by target text (`linkOf`); resolved → the D-73 chip (a reference,
   previews.md R104); unresolved → the D-73 broken chip with the Create offer. Every link chip (pill area and footer)
   keeps its visible text and is named `card.pill` (`<Name>: <target title>`, `source`: `Source: …`), so `+N more`'s
-  hint lists it so too (D-2027); a Task's source chip keeps R43's form, no name.
-- **URL text** (D-1973): `urlChipText` = host without a leading `www.` + `/` + the last non-empty path segment,
+  hint lists it so too (D-2139); a Task's source chip keeps R43's form, no name.
+- **URL text** (D-2085): `urlChipText` = host without a leading `www.` + `/` + the last non-empty path segment,
   percent-decoded (raw on a decoding error), NFC; query and fragment dropped; the host alone when the path is empty or
   `/`. Only `http:` / `https:` values are links (`open_external` with the value as written). A `file:` value is a
   **local item** `↗ <last segment>` (`card.localLink`), `title` = the decoded path, not a link: activating it acts on the
   card. `source` text that is neither → the `Source` pill (`card.source`); a `url` value that isn't an absolute `http(s)`
   URL → a pill with the invalid-value icon (AC-13).
-- **Text:** the first of `body` / `description` in list order that has text (D-1975): `description` from `values`
+- **Text:** the first of `body` / `description` in list order that has text (D-2087): `description` from `values`
   (trimmed, not empty), `body` from `excerpt` (not empty); clamped to 2 lines with `…` (CSS line clamp); Task: none on
   Done.
-- **Tags:** `values.tags` in order, the first 3 as `#<tag>`, then `+<n>` (R43, D-1976).
+- **Tags:** `values.tags` in order, the first 3 as `#<tag>`, then `+<n>` (R43, D-2088).
 - **Grouping key:** hidden as v1-views §29.5 says; a multi-value grouping key with ≥ 2 values on this card shows every
   value as pills, at the key's place when it is an effective key, else after the other pills (D-1769 kept).
-- **`Unreviewed`:** first item of the pill area when `card.unreviewed`; never hidden or counted (D-1977).
+- **`Unreviewed`:** first item of the pill area when `card.unreviewed`; never hidden or counted (D-2089).
 - **Strip source:** the image strip's `src` is the media URL of the attachment, `tegg-media://…/_attachments/<file>` in
   the app; under the fake core in WebKit, which can't route a custom scheme, it is the fake's media base
   `http://localhost:<port>/__media/_attachments/<file>` (ms6-trash-media §3.6), and FR-TYP-11 AC-15 accepts either
-  (D-2017, as D-2001 for `file://`).
+  (D-2129, as D-2113 for `file://`).
 
-### 7.2 Two rows, then `+N more` (D-1949, D-1977)
+### 7.2 Two rows, then `+N more` (D-2061, D-2089)
 
 `useTwoRows` renders **every** item of the pill area, measures their `offsetTop` after layout (a `ResizeObserver` on
 the card and on `document.fonts.ready`), and gives the items after the second row the `hidden` attribute and
@@ -525,7 +525,7 @@ item before it is hidden too. N = the hidden items (never `Unreviewed`). Its `ti
 `card.moreHint` with the hidden items' `card.pill` texts joined as above; it is not focusable and a click on it bubbles to
 the card. Recomputed within one animation frame of a size change.
 
-### 7.3 The footer date (D-1971)
+### 7.3 The footer date (D-2083)
 
 The first of `created` / `modified` in list order whose value is a valid date-time or date. Text by the local day in the
 machine's zone (D-104) against today: `card.editedToday` / `card.editedYesterday` / `card.editedOn` with the region's
@@ -574,7 +574,7 @@ with `datetime` = the value as written.
   collapsing commits an unsaved field first (as on blur).
 - General's `Change icon` (`ts.changeIcon`) shows the type's icon and opens the picker for the type icon (no `None`).
 
-### 7.7 The icon picker (R215; D-1990, D-1991, D-1992)
+### 7.7 The icon picker (R215; D-2102, D-2103, D-2104)
 
 - **Open:** anchored to its opener (below, flipped to stay in the window, v1-views §20's rule); one at a time; focus in
   the search field. First open in a window awaits `loadIconSet()` (the dialog shows at once with an empty grid, then the
@@ -598,18 +598,18 @@ with `datetime` = the value as written.
 - **Virtualisation:** at most 200 `option` elements in the DOM; the selected option is always rendered (its `id` is the
   combobox's `aria-activedescendant`); rows outside the window keep their height through the grid's padding.
 - **Current:** the option whose name equals the opener's canonical current icon has `aria-description`
-  `iconPicker.current`; choosing it writes no type file but still updates Recent (D-1989).
+  `iconPicker.current`; choosing it writes no type file but still updates Recent (D-2101).
 - **Choosing** sends the op (§1.1) with the canonical name, closes, returns the focus to the opener, then
   `rememberIcon`. `None (show the name)` (properties only) sends `icon: null` and adds nothing to Recent.
 - **Announcements:** the result count (`iconPicker.results`, plural) politely once typing pauses 500 ms.
 
-### 7.8 Recent icons (R216; D-1954, D-1989)
+### 7.8 Recent icons (R216; D-2066, D-2101)
 
 `recentIcons` in the app's UI-state store: canonical names, newest first, unique, at most 12. Every choice that sets an
 icon (also the current one) moves the name to the front with one `ui_state_set`; `None` adds nothing. Read from the
 store when the picker opens (no extra call).
 
-### 7.9 The `Views` section (types.md FR-TYP-01 AC-25…AC-27; D-1988)
+### 7.9 The `Views` section (types.md FR-TYP-01 AC-25…AC-27; D-2100)
 
 A list `typeSettings.viewsList` (`Views of {plural}`): `All <plural>` (`views.all`) with `typeSettings.viewDefault`;
 then each `views:` name as the type page's tab shows it (trashed, missing and unreadable states included), with its
@@ -620,7 +620,7 @@ menu); on Task, last, `Restore default views` (v1-views §29.10's button, moved)
 the type page's tab drag (`type_patch` `views`, one write per move, FR-QRY-07 AC-6's bytes). Read-only on a newer or
 invalid file and on `viewsUnreadable`, with the reasons of the type page.
 
-### 7.10 The shared settings layout (R219; D-1959, D-1994)
+### 7.10 The shared settings layout (R219; D-2071, D-2106)
 
 `SettingsLayout`: the `h1` above; a CSS grid `168px` section list (`nav.settings-sections`, `frame.settingsSections`) +
 24 px gap + the content; the whole at most `940px`, left-aligned in the pane after its padding. `SettingsRow`: a grid
@@ -646,7 +646,7 @@ for the section at the top (an `IntersectionObserver` on the `h2`s).
 | Pill area | `div.card-pills` | items in order; overflow items `[hidden][data-overflow]` |
 | Unreviewed | `span.card-unreviewed` | `data-review="unreviewed"`; first item |
 | Pill | `span.card-pill` | `data-attribute="<key>"` (one per value of a multi-value key, `data-value-index`); `aria-label` `card.pill`; `title`; children: `svg[data-icon][aria-hidden=true]` or `span.card-pill-name`, `span.card-dot[data-color]`, `span.card-pill-value`; invalid: `data-invalid` with the warning icon; never editable, `white-space: nowrap` |
-| Link item | `a.chip` | `data-attribute="<key>"`; `aria-label` `card.pill` with the property's Name and the chip's text (`Vlastník: Jana Nováková`, D-2027; a Task's source chip has none); URL: `data-link-kind="external"`; wikilinks: the D-73 chip attributes (`data-link-kind="note\|broken"`) |
+| Link item | `a.chip` | `data-attribute="<key>"`; `aria-label` `card.pill` with the property's Name and the chip's text (`Vlastník: Jana Nováková`, D-2139; a Task's source chip has none); URL: `data-link-kind="external"`; wikilinks: the D-73 chip attributes (`data-link-kind="note\|broken"`) |
 | Local item | `span.card-local` | `data-attribute`, `title` = decoded path; not focusable |
 | More | `span.card-more` | text `card.more`; `title` and `aria-description` `card.moreHint` |
 | Footer | `footer.card-footer` | link `a.chip[data-footer-link]` (+ `span.card-link-more`), date `time.card-date[data-date-key="created\|modified"][datetime]` |
@@ -666,7 +666,7 @@ for the section at the top (an `IntersectionObserver` on the `h2`s).
 | Example | `div[role=region]` | `typeSettings.cardExample`; holds one `article[data-object-card][data-example]` |
 | Fixed note | `p.card-fixed` | `typeSettings.cardFixed` |
 | Property icon | `button` | `typeSettings.propertyIcon`, `aria-haspopup="dialog"`, `data-command="property.icon"`; placeholder `aria-description` `typeSettings.noIcon` |
-| Property row | `div.ts-prop[data-attribute]` | the toggle `button` stays `Edit <Name>` with `aria-expanded` (`true` while open); a separate `button` `Collapse <Name>` sits in the open row (D-2040) |
+| Property row | `div.ts-prop[data-attribute]` | the toggle `button` stays `Edit <Name>` with `aria-expanded` (`true` while open); a separate `button` `Collapse <Name>` sits in the open row (D-2152) |
 | Views list | `ul[role=list]` | `typeSettings.viewsList`; `li[data-view-row="<name NFC>"]` (`""` for `All`); handle `typeSettings.viewDrag`; `button` `typeSettings.viewEdit`; `button` `views.remove`; `button` `views.add` (`data-command="views.new"`); Task: `button` `typeSettings.restoreViews` (`data-command="types.restoreDefaultViews"`) |
 | Live region | `div.sr-live` | `typeSettings.cardMoved`, `views.moved` |
 
@@ -686,7 +686,7 @@ for the section at the top (an `IntersectionObserver` on the `h2`s).
 `div.settings-layout` > `nav.settings-sections` (links `a[aria-current="page"]`) + `div.settings-content`; rows
 `div.settings-row` > `.settings-label` + `.settings-control` (> control) + `.settings-note`: the row note is a
 sibling of `.settings-control`, drawn in the control column under the control, so the control's box ends above it
-(D-2045). Every `settings/*` route and
+(D-2157). Every `settings/*` route and
 `type-settings/<key>` use them (FR-UX-02 AC-22 measures these boxes). `tests/fixtures/settings/controls-0.5.json` (FR-UX-02
 AC-24) is recorded by `app/webkit/settings-helpers.ts` `settingsControls(page)` on the 0.5 UI and committed with the red
 tests, before the restyle.
@@ -728,10 +728,10 @@ Palette only, no shortcut, `needsVault: true`, section `navigate`:
 | `card.reset` | `cmd.card.reset` | `type-settings/<key>` whose type has a readable `card:` | the reset write |
 | `type.changeIcon` | `cmd.type.changeIcon` | `type/<key>`, `type-settings/<key>` (defined types) | opens the picker for the type icon, anchored to `Change icon` (type settings) or the type page header's icon (`[data-type-icon]`) |
 
-Controls inside the section and the picker are reached by Tab from these (D-1995). FR-UX-03 AC-8's control map gains
+Controls inside the section and the picker are reached by Tab from these (D-2107). FR-UX-03 AC-8's control map gains
 `card.move`, `property.icon`, `card.add`, `card.reset` (`data-command` values above).
 
-## 12. Performance marks (NFR-PERF-07 AC-6, FR-TYP-01 AC-21; D-1996)
+## 12. Performance marks (NFR-PERF-07 AC-6, FR-TYP-01 AC-21; D-2108)
 
 Through `ipc.perfMark` (v1-views §4.8's mechanism):
 
@@ -796,14 +796,14 @@ the commit gate's L0 checks when the data, aliases, `Credits.rtf` or the script 
    `cardKeys`) and in every card data (`keys`); the TS twin in `@tegg/schema` serves only the fake core and L1, tied by a
    shared corpus (the §14.4 precedent: `@tegg/schema` mirrors `tegg-schema`).
 2. `card:` reads and writes exactly as `columns` (D-1240, D-1243, D-1245): unreadable flag, ignored list, one flow line,
-   TOP place, NFC; the first write seeds from `cardList` (the default), D-1964.
+   TOP place, NFC; the first write seeds from `cardList` (the default), D-2076.
 3. Tag's card is fixed: a hand-written `card:` in `tag.yml` is kept and not read (R210 "fixed").
 4. `review`, `title` and `file`-kind keys in `card:` are skipped silently, not named in the warning (they are known
    properties a card never draws as entries).
 5. Attribute icons have their own op (`attributeIcon`), not a field of `updateAttribute`: it is the one change allowed
-   on built-ins (D-1987) and needs no `AttrChange` churn in existing tests.
+   on built-ins (D-2099) and needs no `AttrChange` churn in existing tests.
 6. Icon equality for "the current icon writes nothing" is canonical (alias-aware) in the schema and the fake, so the
-   UI's check isn't the only guard (D-1991).
+   UI's check isn't the only guard (D-2103).
 7. Icons in use are resolved by the core and sent as nodes in the type DTOs; the picker alone loads the full set as a
    lazy JS chunk (plan §11's risk; CSP forbids `fetch` of a JSON asset).
 8. One data file (names, nodes, keywords) generated by a pinned, integrity-checked script; aliases in a separate
@@ -829,9 +829,9 @@ the commit gate's L0 checks when the data, aliases, `Credits.rtf` or the script 
 
 | CP → D | Point | Proposal | Alternative |
 | --- | --- | --- | --- |
-| CP-1 → D-1998 | **System type icons everywhere.** D-237 kept hand-drawn system glyphs (`task`, `bolt`, `file`, …) wherever a system type has its default icon; OC draws every type icon from Lucide on cards (Nápad's lead is `zap`, Vyhlídka's `image`), and a user type's new icon (`newspaper`, `tent`) must show in the sidebar, type page header and chips (FR-TYP-01 AC-17), which the hand-drawn set can't. The ACs don't say whether the sidebar, chips, search rows, the capture window and the graph keep D-237's glyphs for system types. | Every type icon on every surface is drawn from Lucide through `resolvedIcon` (one resolver; D-237's system glyphs retired for type icons; Task cards keep R43's checkbox; app chrome such as `Home`, `Inbox`, `Settings` keeps its hand-drawn icons) | Keep D-237's hand-drawn glyph on surfaces other than cards while a system type has its default icon; Lucide for every other type icon and on cards |
+| CP-1 → D-2110 | **System type icons everywhere.** D-237 kept hand-drawn system glyphs (`task`, `bolt`, `file`, …) wherever a system type has its default icon; OC draws every type icon from Lucide on cards (Nápad's lead is `zap`, Vyhlídka's `image`), and a user type's new icon (`newspaper`, `tent`) must show in the sidebar, type page header and chips (FR-TYP-01 AC-17), which the hand-drawn set can't. The ACs don't say whether the sidebar, chips, search rows, the capture window and the graph keep D-237's glyphs for system types. | Every type icon on every surface is drawn from Lucide through `resolvedIcon` (one resolver; D-237's system glyphs retired for type icons; Task cards keep R43's checkbox; app chrome such as `Home`, `Inbox`, `Settings` keeps its hand-drawn icons) | Keep D-237's hand-drawn glyph on surfaces other than cards while a system type has its default icon; Lucide for every other type icon and on cards |
 
-## 17. AC problems (fixed in the ACs as D-1999, owner 2026-11-22)
+## 17. AC problems (fixed in the ACs as D-2111, owner 2026-11-22)
 
 1. **R217's removed keys include the `Preview properties` heading, but its key `preview.properties` also names the
    previews' region**, which previews.md part four keeps (`The region keeps its name Preview properties`). Fix: R217
@@ -851,7 +851,7 @@ the commit gate's L0 checks when the data, aliases, `Credits.rtf` or the script 
    end in a partial row. This contract moves ±6 in the flattened option order, clamped to the last option (§7.7). Fix:
    AC-16 states that rule.
 6. **R211 `Lead` and AC-16 use `data-icon` = the name as written, while R215 options use `data-icon` = the Lucide
-   name**; both are intended (D-1991), but tests that select `[data-icon="square-check-big"]` on a card will find none.
+   name**; both are intended (D-2103), but tests that select `[data-icon="square-check-big"]` on a card will find none.
    No fix needed if the test author keeps the two apart; noted so they do.
 7. **FR-TYP-11 AC-12 "the link chip at the left edge (± 1 px of the card's content box)"** holds only when the footer has
    a link; with a date alone (Máchovo) the date sits at the right edge and nothing is at the left. No contradiction;

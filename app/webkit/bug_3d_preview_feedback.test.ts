@@ -11,7 +11,7 @@ test('bug_3d_fr_typ_01_icon_picker_shows_pictures', async ({ page }) => {
   await openTypes(page);
   await gotoSettings(page, 'Schůzky', 'Schůzka');
   await (await must(general(page).getByRole('button', { name: 'Change icon', exact: true }), 'Change icon')).click();
-  // Slice OC (D-1958): the Lucide picker replaced R14's listbox of 24; every option still shows its picture.
+  // Slice OC (D-2070): the Lucide picker replaced R14's listbox of 24; every option still shows its picture.
   const options = page.locator('div[role="dialog"][data-icon-picker] [role="option"]');
   await must(options.first(), 'the picker\'s options', 5000);
   const n = await options.count();
@@ -23,7 +23,7 @@ test('bug_3d_fr_typ_06_system_type_icon_and_colour_change_shows', async ({ page 
   await openTypes(page);
   await gotoSettings(page, 'Pages', 'Page');
   await (await must(general(page).getByRole('button', { name: 'Change icon', exact: true }), 'Change icon')).click();
-  await page.getByRole('combobox', { name: 'Search icons…' }).fill('briefcase'); // slice OC (D-1958): the picker
+  await page.getByRole('combobox', { name: 'Search icons…' }).fill('briefcase'); // slice OC (D-2070): the picker
   await (await must(page.locator('div[role="dialog"][data-icon-picker] [role="option"][data-icon="briefcase"]'), 'briefcase')).click();
   await sleep(500);
   assert.equal(await badgeIcon(page), 'briefcase', 'the header shows the new icon');
@@ -40,7 +40,7 @@ test('bug_3d_fr_typ_01_custom_type_icon_and_colour_change_shows', async ({ page 
   await sleep(500);
   assert.match((await badge(page).getAttribute('style')) ?? '', /--type-orange/);
   await (await must(general(page).getByRole('button', { name: 'Change icon', exact: true }), 'Change icon')).click();
-  await page.getByRole('combobox', { name: 'Search icons…' }).fill('briefcase'); // slice OC (D-1958): the picker
+  await page.getByRole('combobox', { name: 'Search icons…' }).fill('briefcase'); // slice OC (D-2070): the picker
   await (await must(page.locator('div[role="dialog"][data-icon-picker] [role="option"][data-icon="briefcase"]'), 'briefcase')).click();
   await sleep(500);
   assert.equal(await badgeIcon(page), 'briefcase');

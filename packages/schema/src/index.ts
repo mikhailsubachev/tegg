@@ -63,7 +63,7 @@ export function widerTypes(t: AttrType): AttrType[] {
   return [...(WIDER[t] ?? [])];
 }
 
-/** R14 (FR-TYP-01 AC-4). `ICONS` is R14's old list of 24 icon names, kept for D-1955 (they all still draw, through
+/** R14 (FR-TYP-01 AC-4). `ICONS` is R14's old list of 24 icon names, kept for D-2067 (they all still draw, through
  *  Lucide 0.460 and the alias `check-square` → `square-check-big`); the picker offers every Lucide name (v1-cards §7.7). */
 export const COLORS: readonly string[] = ['gray', 'blue', 'green', 'orange', 'purple', 'red', 'teal', 'yellow'];
 export const ICONS: readonly string[] = [

@@ -14,10 +14,10 @@ import { cardParts, type CardItem } from '../cards/model';
 import { cardEnv } from '../cards/env';
 import type { PreviewTarget } from './types';
 
-/** An item of the strip (slice OC, D-1956, D-1981): the card's pill-area items, then its footer link. */
+/** An item of the strip (slice OC, D-2068, D-2093): the card's pill-area items, then its footer link. */
 export type StripItem = CardItem;
 
-/** The `Preview properties` region's items: the card's pills and link chips without tags, text and date (D-1981). */
+/** The `Preview properties` region's items: the card's pills and link chips without tags, text and date (D-2093). */
 export function stripItems(card: EmbedNoteDto['card'], type: TypeDto | null): StripItem[] {
   if (!card) return [];
   const p = cardParts({ type, card, ...cardEnv() });

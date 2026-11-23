@@ -86,9 +86,9 @@ test('the twin writes the card and icon lines as tegg-schema', async () => {
   const naro = '    name: Náročnost\n    type: select\n';
   assert.equal(await patch('výlet', [{ op: 'attributeIcon', key: 'náročnost', icon: 'mountain' }]), vylet.replace(naro, `${naro}    icon: mountain\n`), 'an icon line after type');
   assert.equal(await patch('výlet', [{ op: 'attributeIcon', key: 'kraj', icon: null }]), vylet.replace('    type: text\n    icon: map-pin\n', '    type: text\n'), 'None removes it');
-  assert.equal(await patch('kontrola', [{ op: 'set', field: 'icon', value: 'square-check-big' }]), null, 'the canonical name of the current icon writes nothing (D-1991)');
+  assert.equal(await patch('kontrola', [{ op: 'set', field: 'icon', value: 'square-check-big' }]), null, 'the canonical name of the current icon writes nothing (D-2103)');
   const removed = await patch('výlet', [{ op: 'removeAttribute', key: 'kraj' }]);
-  assert.ok(removed?.includes('card: [tags, description, stav, náročnost, vybavení, délka, termín, odkaz, průvodce, neznámý-klíč, modified]\n'), 'a deleted property leaves card: (D-1965)');
+  assert.ok(removed?.includes('card: [tags, description, stav, náročnost, vybavení, délka, termín, odkaz, průvodce, neznámý-klíč, modified]\n'), 'a deleted property leaves card: (D-2077)');
 });
 
 test('the twin gives the example card and duplicate details as the core', async () => {

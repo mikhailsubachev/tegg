@@ -1,4 +1,4 @@
-// The card model (docs/contracts/v1-cards.md §6.1, §7.1…§7.3; cards.md R211, R212; D-1942…D-1953, D-1971…D-1977):
+// The card model (docs/contracts/v1-cards.md §6.1, §7.1…§7.3; cards.md R211, R212; D-2054…D-2065, D-2083…D-2089):
 // what one ObjectCard draws, from its type's definition and the core's card data (raw values of the effective keys).
 // Pure: the date, zone, region and Date & time setting come in the input, so L1 runs it without the app.
 import { isEmpty } from '@tegg/schema';
@@ -18,12 +18,12 @@ export type CardLink = (
   | { kind: 'external'; key: string; url: string; text: string; more: string[] }
   | { kind: 'local'; key: string; url: string; text: string; path: string; more: string[] }
 ) & {
-  /** D-2027: the property's Name; the chip's accessible name is `card.pill` (`Vlastník: Jana Nováková`), its visible
+  /** D-2139: the property's Name; the chip's accessible name is `card.pill` (`Vlastník: Jana Nováková`), its visible
    *  text stays the target's. */
   name?: string;
 };
 
-/** D-2027: a link chip's accessible name, `<Property>: <target title>` as a pill's (its visible text alone without a Name). */
+/** D-2139: a link chip's accessible name, `<Property>: <target title>` as a pill's (its visible text alone without a Name). */
 export function linkLabel(l: CardLink): string {
   return l.name ? t('card.pill', { name: l.name, value: l.text }) : l.text;
 }
@@ -39,7 +39,7 @@ export type PillItem = {
 export type CardItem =
   | { kind: 'unreviewed' }
   | PillItem
-  | { kind: 'link'; key: string; link: CardLink; index: number; /** The preview strip's footer link (D-1981). */ footer?: boolean }
+  | { kind: 'link'; key: string; link: CardLink; index: number; /** The preview strip's footer link (D-2093). */ footer?: boolean }
   | { kind: 'local'; key: string; text: string; path: string; url: string; index: number };
 
 export type CardLead = { kind: 'icon'; icon: ResolvedIconDto | null; dataIcon: string } | { kind: 'checkbox' };
@@ -97,7 +97,7 @@ const isHttp = (v: string) => {
 const isFile = (v: string) => /^file:\/\//i.test(v.trim());
 const decode = (s: string) => { try { return decodeURIComponent(s); } catch { return s; } };
 
-/** D-1973: `<host without www.>/<last non-empty path segment, decoded, NFC>`; the host alone without a path. */
+/** D-2085: `<host without www.>/<last non-empty path segment, decoded, NFC>`; the host alone without a path. */
 export function urlChipText(url: string): string {
   let u: URL;
   try { u = new URL(url.trim()); } catch { return url; }
@@ -106,7 +106,7 @@ export function urlChipText(url: string): string {
   return nfc(last ? `${host}/${decode(last)}` : host);
 }
 
-/** D-1973: a file: URL value as `↗ <last segment>` with its decoded path; never a link. */
+/** D-2085: a file: URL value as `↗ <last segment>` with its decoded path; never a link. */
 export function localItem(fileUrl: string): { text: string; path: string; title: string } | null {
   if (!isFile(fileUrl)) return null;
   let raw: string;
@@ -145,7 +145,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?$/;
 const validDate = (s: string) => DATE.test(s) && !Number.isNaN(utcOf(s)) && new Date(utcOf(s)).toISOString().slice(0, 10) === s;
 
-/** D-1971: the footer date's text (`Edited today`, `Created Fri`, `Added Nov 2, 2026`); null when the value isn't a date. */
+/** D-2083: the footer date's text (`Edited today`, `Created Fri`, `Added Nov 2, 2026`); null when the value isn't a date. */
 export function footerDateText(key: string, value: unknown, typeKey: string, now: number, zone: string, region: string, setting?: DateTimeUiDto | null): string | null {
   if (typeof value !== 'string') return null;
   const v = value.trim();
@@ -165,7 +165,7 @@ const listText = (xs: string[]) => {
   try { return new Intl.ListFormat(catalogLocale(), { type: 'unit', style: 'short' }).format(xs); } catch { return xs.join(', '); }
 };
 
-/** The accessible text of an item (`card.pill` for pills and link chips, D-2027; the shown text for local items). */
+/** The accessible text of an item (`card.pill` for pills and link chips, D-2139; the shown text for local items). */
 export function itemLabel(i: CardItem): string | null {
   if (i.kind === 'pill') return i.label;
   if (i.kind === 'link') return linkLabel(i.link);
@@ -240,16 +240,16 @@ export function cardParts(input: CardInput): CardParts {
   const rules: TaskRules | null = task ? taskRules(type ?? null, task, input) : null;
   const done = rules?.done ?? false;
 
-  // Lead (D-1944; Task: the checkbox).
+  // Lead (D-2056; Task: the checkbox).
   const lead: CardLead = task ? { kind: 'checkbox' } : { kind: 'icon', icon: type?.resolvedIcon ?? null, dataIcon: type?.icon || 'type' };
   const strip = typeKey === 'image' ? 'image' : typeKey === 'pdf' ? 'pdf' : null;
 
-  // Tags (R43's rule on every card, D-1976).
+  // Tags (R43's rule on every card, D-2088).
   const allTags = keys.includes('tags') ? (Array.isArray(values.get('tags')) ? (values.get('tags') as unknown[]) : isEmpty(values.get('tags')) ? [] : [values.get('tags')])
     .map((x) => nfc(String(x)).trim().replace(/^#/, '')).filter((x) => x && !isEmpty(x)) : [];
   const tags = { shown: allTags.slice(0, 3), more: Math.max(0, allTags.length - 3) };
 
-  // Text (D-1950, D-1975): the first of body / description in list order that has text; none on a Done task.
+  // Text (D-2062, D-2087): the first of body / description in list order that has text; none on a Done task.
   let text: CardParts['text'] = null;
   if (!done) {
     for (const k of keys) {
@@ -263,7 +263,7 @@ export function cardParts(input: CardInput): CardParts {
     }
   }
 
-  // The footer link (D-1972): the first relation or source in list order that is set and is a link.
+  // The footer link (D-2084): the first relation or source in list order that is set and is a link.
   let footerLink: CardLink | null = null;
   if (rules?.source) footerLink = rules.source;
   let footerKey: string | null = null;
@@ -292,7 +292,7 @@ export function cardParts(input: CardInput): CardParts {
     }
   }
 
-  // The footer date (D-1971): the first of created / modified in list order with a valid date.
+  // The footer date (D-2083): the first of created / modified in list order with a valid date.
   let date: CardParts['footer']['date'] = null;
   for (const k of keys) {
     if (k !== 'created' && k !== 'modified') continue;

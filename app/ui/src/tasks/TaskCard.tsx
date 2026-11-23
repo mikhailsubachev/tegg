@@ -1,5 +1,5 @@
 // Slice 5A-1: the parts of the task card (tasks.md R43; D-482): the checkbox, the due chip (R44, FR-TSK-09) and the
-// source chip (FR-TSK-08, D-486). Slice OC (v1-cards §6.2; D-1904, D-1942): the card itself is `cards/ObjectCard.tsx`
+// source chip (FR-TSK-08, D-486). Slice OC (v1-cards §6.2; D-1904, D-2054): the card itself is `cards/ObjectCard.tsx`
 // with `cards/task.ts`'s rules; these parts stay (ObjectCard, TaskEmbed, the Daily Note's rows).
 import { RefElement } from '../preview/useReference';
 import type { PreviewTarget } from '../preview/types';

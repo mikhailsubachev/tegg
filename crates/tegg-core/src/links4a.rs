@@ -465,7 +465,7 @@ impl Core {
         BrokenLinks { occurrences, objects, groups: out }
     }
 
-    /// v1-cards §3.5 (FR-LNK-14 AC-15, D-1982): `preview` holds the first two set pill values of the object's card list.
+    /// v1-cards §3.5 (FR-LNK-14 AC-15, D-2094): `preview` holds the first two set pill values of the object's card list.
     fn details(&self, o: &crate::ObjectInfo, cd: &crate::cards::CardDefs) -> DuplicateDetails {
         let preview = crate::cards::detail_values(o, cd);
         let name = o.path.rsplit('/').next().unwrap_or(&o.path);

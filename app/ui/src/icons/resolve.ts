@@ -1,4 +1,4 @@
-// Icon names (docs/contracts/v1-cards.md §5.3, §5.4, §6.1; D-1955, D-1991). Pure: the canonical name of a name in a
+// Icon names (docs/contracts/v1-cards.md §5.3, §5.4, §6.1; D-2067, D-2103). Pure: the canonical name of a name in a
 // loaded set (itself, else its alias target), and the drawings the core resolved into the type DTOs, which everything
 // but the picker draws from (no surface loads the set to draw an icon in use).
 import type { AttributeDto, ResolvedIconDto, TypeDto } from '../ipc/types';
@@ -10,7 +10,7 @@ export type IconData = { lucide: string; package: string; integrity: string; cou
 /** The loaded set: icons by name, the names in code-point order, and the aliases (§5.3). */
 export type IconSet = { version: string; icons: Record<string, { n: IconNode; k: string[] }>; names: string[]; aliases: Record<string, string> };
 
-/** D-1955: the canonical Lucide name of `name` (itself, else its alias target); null for an unknown, empty or non-ASCII
+/** D-2067: the canonical Lucide name of `name` (itself, else its alias target); null for an unknown, empty or non-ASCII
  *  name (FR-FMT-12 AC-15). */
 export function resolveIcon(set: IconSet, name: string | null | undefined): string | null {
   const n = (name ?? '').trim();

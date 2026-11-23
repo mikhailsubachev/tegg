@@ -369,7 +369,7 @@ export function Embed(props: EmbedProps): ReactNode {
     content = <p className="embed-message" data-embed-message>{msg}</p>;
   } else if (node.state === 'date-missing') content = <p className="embed-message" data-embed-message>{t('embed.noDay')}</p>;
   else if (node.mode === 'card' && node.note) {
-    // Slice OC (D-1980, cards.md AP-1587): the frame holds the ObjectCard; its head is the lead, the title, `Open` and
+    // Slice OC (D-2092, cards.md AP-1587): the frame holds the ObjectCard; its head is the lead, the title, `Open` and
     // `Display as` (no `⋯`); the frame keeps opening the object on a click outside its buttons and links.
     const types = chipTypes() as TypeDto[];
     const typeKey = node.note.card?.type ?? node.target.type ?? 'page';

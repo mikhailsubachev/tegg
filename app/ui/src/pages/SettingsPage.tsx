@@ -47,7 +47,7 @@ export function SettingsPage({ id, theme, heading, onSection, onTheme, vault, ty
   commandTitle: (id: string) => string | null;
 }) {
   const def = routeDef(id) ?? ROUTES.find((r) => r.id === 'settings/appearance')!;
-  // R219 (D-1959, D-1994): the shared layout; every control in a `SettingsRow`, nothing added, removed or changed.
+  // R219 (D-2071, D-2106): the shared layout; every control in a `SettingsRow`, nothing added, removed or changed.
   return (
     <div className="page-column settings">
       <h1 ref={heading} tabIndex={-1}>{id === 'settings/backups' ? t('backups.title') : id === 'settings/previews' ? t('settings.previews') : t(def.name)}</h1>

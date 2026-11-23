@@ -1,4 +1,4 @@
-// The shared settings layout (docs/contracts/v1-cards.md §6.1, §7.10, §8.4; app-shell R219; D-1959, D-1994): a section
+// The shared settings layout (docs/contracts/v1-cards.md §6.1, §7.10, §8.4; app-shell R219; D-2071, D-2106): a section
 // list on the left (`nav.settings-sections`, `Settings sections`) and the content; `SettingsRow` puts one label and its
 // control in the two columns, with an optional note under the control. Type settings use it; Settings (slice OC-d)
 // takes it over.

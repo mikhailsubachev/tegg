@@ -1,5 +1,5 @@
 // One item of a card's pill area (docs/contracts/v1-cards.md §6.1, §8.1; cards.md R212): a pill, a link chip, a local
-// item, `Unreviewed`, and `+N more`. The preview's `Preview properties` region draws its items with these too (D-1981).
+// item, `Unreviewed`, and `+N more`. The preview's `Preview properties` region draws its items with these too (D-2093).
 import type { ReactNode } from 'react';
 import { t } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
@@ -70,7 +70,7 @@ function TaskChip({ item, valueIndex }: { item: PillItem; valueIndex?: number })
 }
 
 export function CardLinkChip({ link, opts, footer, extra }: { link: CardLink; opts: LinkOpts; footer?: boolean; extra?: ReactNode }) {
-  // D-2027: the chip is named `<Property>: <target title>` as a pill is (`card.pill`); its visible text is the target's.
+  // D-2139: the chip is named `<Property>: <target title>` as a pill is (`card.pill`); its visible text is the target's.
   const common = { 'data-attribute': link.key, 'data-footer-link': footer ? '' : undefined, tabIndex: opts.tabIndex ?? 0, 'aria-label': link.name ? linkLabel(link) : undefined } as const;
   const more = link.more.length > 0
     ? <span className="card-link-more" title={listText(link.more)}>+{link.more.length}</span>

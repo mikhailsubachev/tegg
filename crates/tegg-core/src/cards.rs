@@ -1,4 +1,4 @@
-//! Card data (docs/contracts/v1-cards.md §3.2, §3.5; cards.md R211, R212; D-1942, D-1982, D-1984).
+//! Card data (docs/contracts/v1-cards.md §3.2, §3.5; cards.md R211, R212; D-2054, D-2094, D-2096).
 //!
 //! One builder (`card_data`) fills what one ObjectCard draws besides its type's definition, from the query evaluator's
 //! index read (`Index::with_query_objects`), under the read's one index lock (D-784): raw frontmatter values for the
@@ -191,7 +191,7 @@ fn source_is_link(v: &Value) -> bool {
     lower.starts_with("http://") || lower.starts_with("https://") || lower.starts_with("file:")
 }
 
-/// v1-cards §3.5 (FR-LNK-14 AC-15, D-1982): the first two set pill values of the object's card list: `keys` in order,
+/// v1-cards §3.5 (FR-LNK-14 AC-15, D-2094): the first two set pill values of the object's card list: `keys` in order,
 /// without `tags`, `body`, `description`, `created`, `modified`, relation keys, a linking `source` and `url` keys; a
 /// `multi-select` or `aliases` value gives one entry per non-empty item; `checkbox` only when `true`; empty values
 /// skipped.
@@ -270,7 +270,7 @@ impl Shared {
 }
 
 impl Core {
-    /// D-1984 (AP-1591): the type's most recently modified object (its `modified` instant, newest first; a missing or
+    /// D-2096 (AP-1591): the type's most recently modified object (its `modified` instant, newest first; a missing or
     /// unreadable `modified` last, D-1927; then path) as card data whose `keys` are every candidate key: the attribute
     /// keys in schema order (no `file`-kind) then `CARD_BUILT_INS`; `excerpt` always read. None: no object.
     pub fn type_card_example(&self, key: &str) -> Option<CardExample> {

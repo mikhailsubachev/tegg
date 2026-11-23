@@ -49,7 +49,7 @@ function HeaderIcon({ m }: { m: PreviewModel }) {
   return <span className="preview-icon" data-color={type?.color ?? undefined}><Icon name={i.glyph} dataIcon={i.def} size={16} /></span>;
 }
 
-/** The `Preview properties` region (D-1956, D-1981): the card's pills, then its link chip, two rows then `+N more`. Its
+/** The `Preview properties` region (D-2068, D-2093): the card's pills, then its link chip, two rows then `+N more`. Its
  *  relation chips are references (D-1189): a click replaces the content in click mode. */
 function PreviewStrip({ items, path }: { items: CardItem[]; path: string }) {
   const ref = useRef<HTMLDivElement | null>(null);

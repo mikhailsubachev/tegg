@@ -17,7 +17,7 @@ export const LA = 'America/Los_Angeles';
 export const REGION_DATES = { date: 'region', time: 'region', week: 'region' };
 export const ISO_DATES = { date: 'iso', time: '24', week: 'region' };
 
-/** Lucide 0.460 names the fixtures use; `check-square` is the alias of `square-check-big` (D-1955). */
+/** Lucide 0.460 names the fixtures use; `check-square` is the alias of `square-check-big` (D-2067). */
 const KNOWN = new Set(['map', 'map-pin', 'circle-dot', 'backpack', 'calendar', 'link', 'newspaper', 'square-check-big', 'zap', 'image', 'file', 'file-text', 'book', 'user',
   'mountain', 'tent', 'folder', 'hash', 'check']);
 export function resolvedIcon(name: string | null | undefined): { name: string; node: [string, Record<string, string>][] } | null {

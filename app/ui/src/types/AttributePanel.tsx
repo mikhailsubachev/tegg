@@ -39,7 +39,7 @@ function readOnlyReason(row: PanelRow): string {
 
 /** Relation targets of the note's frontmatter (rows and Other properties), resolved once per change of the head. */
 
-/** Slice OC (FR-TYP-01 AC-13, FR-EDT-07 AC-22; D-1958): a property's icon before its label, hidden from the
+/** Slice OC (FR-TYP-01 AC-13, FR-EDT-07 AC-22; D-2070): a property's icon before its label, hidden from the
  *  accessibility tree (the label's name stays the Name). */
 function labelIcon(attr: AttributeDto | null | undefined) {
   return attr?.resolvedIcon ? <LucideIcon icon={attr.resolvedIcon} dataIcon={attr.icon ?? attr.resolvedIcon.name} size={12} className="attr-icon" /> : null;

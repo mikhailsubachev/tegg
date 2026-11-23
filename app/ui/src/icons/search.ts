@@ -1,4 +1,4 @@
-// Searching the icon set (docs/contracts/v1-cards.md §7.7; FR-TYP-01 AC-14, AC-15; AP-1597, D-1990, D-1991). Pure:
+// Searching the icon set (docs/contracts/v1-cards.md §7.7; FR-TYP-01 AC-14, AC-15; AP-1597, D-2102, D-2103). Pure:
 // the picker's results for a typed query and its Suggested group for a property's or type's Name.
 import type { IconSet } from './resolve';
 

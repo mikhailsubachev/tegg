@@ -34,7 +34,7 @@ function check(id: string, messages: string[]): CheckResult {
 // Privacy (TS-P AC-1, CONTRACT §6)
 // ---------------------------------------------------------------------------
 
-// D-1963: 2 MiB (was 1 MiB), so a design board holding the whole icon set can be committed.
+// D-2075: 2 MiB (was 1 MiB), so a design board holding the whole icon set can be committed.
 export const MAX_FILE_BYTES = 2_097_152;
 
 function privacyViolations(file: string, size: number): string[] {

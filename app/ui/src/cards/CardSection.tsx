@@ -1,7 +1,7 @@
 // Type settings' `Card` section (docs/contracts/v1-cards.md §7.5, §8.2; cards.md R214; FR-TYP-11 AC-20…AC-27;
-// D-1942, D-1964, D-1985, D-1991…D-1993). The ordered card list (Title first and fixed), `Add property`, `Reset to
+// D-2054, D-2076, D-2097, D-2103…D-2105). The ordered card list (Title first and fixed), `Add property`, `Reset to
 // default`, the live example card and the fixed note. Each change is one `type_patch` `card` through the page's serial
-// writer, built by `cards/write.ts` from the list as shown (the first write seeds R210's default, D-1964).
+// writer, built by `cards/write.ts` from the list as shown (the first write seeds R210's default, D-2076).
 import { cardKeys, defaultCard } from '@tegg/schema';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { t } from '../i18n/catalog';

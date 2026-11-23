@@ -1,4 +1,4 @@
-// Recent icons (docs/contracts/v1-cards.md §7.8, §10; FR-TYP-01 AC-18, FR-STO-07 AC-13; D-1954, D-1989): canonical
+// Recent icons (docs/contracts/v1-cards.md §7.8, §10; FR-TYP-01 AC-18, FR-STO-07 AC-13; D-2066, D-2101): canonical
 // Lucide names, newest first, unique, at most 12, in the machine-local UI state (`ui-state.json`), never in the vault.
 // The app owns the UI state and registers how to read and change it, so each choice is one `ui_state_set`.
 import type { UiStateDto } from '../ipc/types';
@@ -22,7 +22,7 @@ export function recentIcons(): string[] {
   return [...(impl?.get()?.recentIcons ?? [])].slice(0, RECENT_MAX);
 }
 
-/** One `ui_state_set` per choice (also the current icon, D-1989). */
+/** One `ui_state_set` per choice (also the current icon, D-2101). */
 export function rememberIcon(canonical: string): void {
   if (!impl) return;
   impl.update((u) => ({ ...u, recentIcons: pushRecent(u.recentIcons ?? [], canonical) }));

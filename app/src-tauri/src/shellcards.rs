@@ -60,7 +60,7 @@ pub(crate) fn icon_dto(name: Option<&str>) -> Option<ResolvedIconDto> {
     Some(ResolvedIconDto { name: r.name.to_string(), node: r.node.iter().map(|e| (e.tag.clone(), e.attrs.iter().cloned().collect())).collect() })
 }
 
-/// §4.1 `type_card_example`: the type's most recently modified object with every candidate key (D-1984); null when the
+/// §4.1 `type_card_example`: the type's most recently modified object with every candidate key (D-2096); null when the
 /// type has no object.
 #[tauri::command]
 pub async fn type_card_example(state: State<'_, AppState>, key: String) -> Result<Option<CardExampleDto>, IpcError> {

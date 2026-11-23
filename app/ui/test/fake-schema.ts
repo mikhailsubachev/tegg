@@ -125,12 +125,12 @@ export function readType(key: string, text: string, exists: boolean, version: Ve
     default: a.default ?? null, required: a.required === true,
     options: (a.options ?? []).map((o: any) => ({ label: String(o.label), color: o.color ?? null, state: o.state ?? null })),
     to: Array.isArray(a.to) ? a.to : null, multiple: a.multiple === true, description: a.description ?? null, builtIn: builtinKeys.includes(a.key),
-    // Slice OC (v1-cards §4.2, D-1958): `icon:` as written (trimmed; not a string → null) and its drawing.
+    // Slice OC (v1-cards §4.2, D-2070): `icon:` as written (trimmed; not a string → null) and its drawing.
     icon: typeof a.icon === 'string' && a.icon.trim() ? a.icon.trim() : null, resolvedIcon: typeof a.icon === 'string' ? resolvedIcon(a.icon) : null,
   }));
   const preview: string[] = Array.isArray(y.preview) ? y.preview.map(String) : [];
   const declared = typeof y.version === 'number' ? y.version : null;
-  // Slice OC (v1-cards §2.1, §2.2; D-1964): `card:` as `columns`, the card list from @tegg/schema's twin.
+  // Slice OC (v1-cards §2.1, §2.2; D-2076): `card:` as `columns`, the card list from @tegg/schema's twin.
   const cardOk = Array.isArray(y.card) && y.card.every((x: unknown) => typeof x === 'string');
   const card: string[] | null = cardOk ? y.card : null;
   const cardUnreadable = y.card !== undefined && y.card !== null && !cardOk;
@@ -513,7 +513,7 @@ async function patchText(key: string, text: string, ops: any[], t: TypeDto, all:
       if (op.field === 'folder') { const r = s.checkFolder(v ?? '', all, key); if (r) return rule(r); }
       const cur = (parseYaml(text) as any)?.[op.field] ?? null;
       if ((cur ?? null) === v) continue;
-      // v1-cards §2.3 (D-1991): the same icon by its canonical name writes nothing (`check-square` stays as written).
+      // v1-cards §2.3 (D-2103): the same icon by its canonical name writes nothing (`check-square` stays as written).
       if (op.field === 'icon' && v !== null && sameIcon(cur ?? 'file-text', v)) continue;
       setTop(es, op.field, v === null || v === '' ? null : `${op.field}: ${scalar(op.field === 'folder' ? v.replace(/\/+$/, '') : v)}\n`);
     } else if (op.op === 'review') {
@@ -530,7 +530,7 @@ async function patchText(key: string, text: string, ops: any[], t: TypeDto, all:
       if (t.columns && JSON.stringify(op.keys) === JSON.stringify(t.columns)) continue;
       setTop(es, 'columns', `columns: ${flow(op.keys.map((k: string) => k.normalize('NFC')))}\n`);
     } else if (op.op === 'card') {
-      // v1-cards §2.3 (D-1964): one flow line in NFC at its TOP place (after `preview`, else the nearest preceding key),
+      // v1-cards §2.3 (D-2076): one flow line in NFC at its TOP place (after `preview`, else the nearest preceding key),
       // a block list replaced, null removes the lines; an unreadable value is refused; an equal list is no write.
       if (t.cardUnreadable) return rule({ reason: 'cardUnreadable' });
       const cur = (parseYaml(join_(es)) as any)?.card;
@@ -573,13 +573,13 @@ async function patchText(key: string, text: string, ops: any[], t: TypeDto, all:
           setTop(es, 'hidden', `hidden: ${flow(rest)}\n`);
         }
         if (t.columns?.some((c: string) => nfc(c) === nfc(op.key))) setTop(es, 'columns', `columns: ${flow(t.columns.filter((c: string) => nfc(c) !== nfc(op.key)).map(nfc))}\n`);
-        // v1-cards §2.3 (D-1965): and every card entry of it (an unreadable `card` is left as it is).
+        // v1-cards §2.3 (D-2077): and every card entry of it (an unreadable `card` is left as it is).
         const card = (parseYaml(join_(es)) as any)?.card;
         if (!t.cardUnreadable && Array.isArray(card) && card.some((c: unknown) => nfc(String(c)) === nfc(op.key))) {
           setCardLine(es, card.map((c: unknown) => String(c)).filter((c: string) => nfc(c) !== nfc(op.key)));
         }
       } else if (op.op === 'attributeIcon') {
-        // v1-cards §2.3 (D-1958, D-1987, D-1991): right after the item's `type:` line, replaced, removed; allowed on
+        // v1-cards §2.3 (D-2070, D-2099, D-2103): right after the item's `type:` line, replaced, removed; allowed on
         // built-in attributes; the current icon (also by its canonical name) writes nothing.
         const i = find(op.key);
         if (i < 0) continue;

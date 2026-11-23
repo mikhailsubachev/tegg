@@ -161,7 +161,7 @@ function modifiedInstant(v: unknown): number | null {
   return Number.isNaN(t) ? null : t;
 }
 
-/** §3.2 `type_card_example` (D-1984): the type's most recently modified object with every candidate key. */
+/** §3.2 `type_card_example` (D-2096): the type's most recently modified object with every candidate key. */
 export function cardExample(files: Files, key: string, opts: CardOpts = {}): { path: string; card: CardDataDto } | null {
   const ctx = context(files, opts);
   const k = nfc(key);
@@ -175,7 +175,7 @@ export function cardExample(files: Files, key: string, opts: CardOpts = {}): { p
   return pick ? { path: nfc(pick.o.path), card: card(ctx, pick.o, keys, true) } : null;
 }
 
-/** §3.5 (FR-LNK-14 AC-15, D-1982): duplicate details' `preview`, the first two set pill values of the card list. */
+/** §3.5 (FR-LNK-14 AC-15, D-2094): duplicate details' `preview`, the first two set pill values of the card list. */
 export function detailValues(o: Obj, types: any[]): [string, unknown][] {
   const def = types.find((t) => t.key === o.type);
   const keys: string[] = def ? def.cardKeys ?? [] : [...(S as any).CARD_FALLBACK];

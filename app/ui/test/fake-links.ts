@@ -457,7 +457,7 @@ async function brokenLinks(files: Files, ctx: Ctx) {
 }
 
 function details(ctx: Ctx, o: Obj) {
-  // Slice OC (v1-cards §3.5, D-1982): the first two set pill values of the object's card list.
+  // Slice OC (v1-cards §3.5, D-2094): the first two set pill values of the object's card list.
   const preview = detailValues(o, ctx.types);
   return { created: typeof o.attributes.created === 'string' ? o.attributes.created : null, preview, stem: nfc(o.stem) !== nfc(o.title) ? nfc(o.stem) : null };
 }

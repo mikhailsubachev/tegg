@@ -1,5 +1,5 @@
 // The card list of a type and the empty-value rule (docs/contracts/v1-cards.md §2.2, §3.2, §6.1; cards.md R209, R210,
-// R212; D-1947, D-1964, D-1967). The TypeScript twin of `tegg-schema`'s `card.rs` and `tegg-core`'s `is_empty_value`,
+// R212; D-2059, D-2076, D-2079). The TypeScript twin of `tegg-schema`'s `card.rs` and `tegg-core`'s `is_empty_value`,
 // for the fake core and L1 tests; tied to the Rust crates by tests/fixtures/types/card-lists.json and card-empty.json.
 // Pure TypeScript, platform-neutral (AR-03).
 
@@ -9,7 +9,7 @@ export const CARD_BUILT_INS: readonly string[] = ['tags', 'body', 'description',
 export const CARD_FALLBACK: readonly string[] = ['tags', 'body', 'modified'];
 const TAG_CARD = ['body', 'modified'];
 const PREVIEW_BUILT_INS = ['tags', 'source', 'aliases', 'created'];
-/** R210 (D-1967): the system types' default lists. */
+/** R210 (D-2079): the system types' default lists. */
 const SYSTEM_DEFAULTS: Readonly<Record<string, readonly string[]>> = {
   page: ['tags', 'body', 'modified'],
   task: ['tags', 'body', 'status', 'due', 'priority', 'recurrence', 'source'],
@@ -80,7 +80,7 @@ export function cardKeys(type: CardTypeInput, list: readonly string[]): string[]
   return out;
 }
 
-/** `card` entries that are neither an attribute key nor a built-in (NFC), each once, in file order (D-1964). */
+/** `card` entries that are neither an attribute key nor a built-in (NFC), each once, in file order (D-2076). */
 export function cardIgnored(type: CardTypeInput, card: readonly string[]): string[] {
   if (nfc(type.key) === 'tag') return [];
   const out: string[] = [];

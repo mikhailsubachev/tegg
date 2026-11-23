@@ -2262,7 +2262,7 @@ function fakeMain(init: { vault: FakeVault | null; opts: FakeOptions; outside: R
       void state.emit('vault:changed', { paths: [path] });
       return path;
     },
-    // Slice OC (v1-cards §4.1, D-1984): the type settings' example card, read-only.
+    // Slice OC (v1-cards §4.1, D-2096): the type settings' example card, read-only.
     type_card_example: (a) => viaNode('type_card_example', '__teggLinks')({ key: a.key, bin: Object.keys(x.bin) }),
     ui_state_get: () => state.uiState ?? { version: 1, theme: 'system', sidebarOpen: true, rightPanel: { open: false, tab: 'backlinks' }, propertiesOpen: true },
     ui_state_set: (a) => {

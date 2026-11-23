@@ -39,7 +39,7 @@
 }
 
 .card-pills { display: flex; flex-wrap: wrap; gap: 4px; align-items: flex-start; }
-/* Two rows at most (D-1949) even before `useTwoRows` has measured (a card drawn while detached keeps its height). */
+/* Two rows at most (D-2061) even before `useTwoRows` has measured (a card drawn while detached keeps its height). */
 .object-card:not(.object-task-card) > .card-pills, .preview-strip.card-pills { max-height: 48px; overflow: hidden; }
 .card-pills > [hidden], .preview-strip > [hidden] { display: none !important; }
 .card-pill {
@@ -70,10 +70,10 @@
 .card-footer > :first-child:not(.card-date) { min-width: 0; }
 .card-date { margin-left: auto; color: var(--muted); white-space: nowrap; flex: none; }
 
-/* The card in an embed frame (D-1980): the frame is the border. */
+/* The card in an embed frame (D-2092): the frame is the border. */
 .embed-card > .object-card { border: none; border-radius: 0; background: transparent; padding: 8px 12px; }
 
-/* The preview's Preview properties region (D-1981): the card's pills, then its link chip. */
+/* The preview's Preview properties region (D-2093): the card's pills, then its link chip. */
 .preview-strip.card-pills { padding: 0 16px 10px; }
 
 /* The Card section of type settings (docs/contracts/v1-cards.md §7.5, §8.2; board CardSettings A, B). */

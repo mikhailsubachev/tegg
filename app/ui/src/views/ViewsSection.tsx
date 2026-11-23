@@ -1,5 +1,5 @@
-// Type settings' `Views` section (docs/contracts/v1-cards.md §7.9, §8.2; types.md FR-TYP-01 AC-25…AC-27; D-1959,
-// D-1988, AP-1595): the type's `views:` list as the type page's tabs show it, `All <plural>` first and fixed; drag or
+// Type settings' `Views` section (docs/contracts/v1-cards.md §7.9, §8.2; types.md FR-TYP-01 AC-25…AC-27; D-2071,
+// D-2100, AP-1595): the type's `views:` list as the type page's tabs show it, `All <plural>` first and fixed; drag or
 // ⌥↑/⌥↓ reorders (one `type_patch` `views` per move, FR-QRY-07 AC-6's bytes), `Edit` opens the views editor (R189) as
 // `Edit view` does, `Remove from <plural> page` drops the name (the query file stays), `Add view` opens the type page's
 // menu; on Task, last, `Restore default views` (v1-views §29.10). Read-only on a newer or invalid file and on

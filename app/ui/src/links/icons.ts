@@ -27,7 +27,7 @@ export function setChipTypes(types: TypeDefDto[]): void {
   const changed = sig !== allSig;
   allSig = sig;
   all = types;
-  setIconsInUse(types); // D-1998: type icons are drawn from Lucide
+  setIconsInUse(types); // D-2110: type icons are drawn from Lucide
   defs = new Map(types.map((t) => [t.key.normalize('NFC'), t.icon]));
   names = new Map(types.map((t) => [t.key.normalize('NFC'), t.name]));
   if (changed) for (const f of typeListeners) f();

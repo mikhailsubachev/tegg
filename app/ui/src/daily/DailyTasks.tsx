@@ -1,6 +1,6 @@
 // 5A-1: the Daily Note's `Tasks due` section (FR-DLY-04 AC-8…AC-14, D-485, D-328), in place of the D-271
 // placeholder: on today's note overdue, due today and completed today; on other dates due that day and completed that
-// day. Rows are Task ObjectCards with Task's card list (v1-cards §6.2, cards.md FR-TYP-11 AC-14, D-2021): the R43
+// day. Rows are Task ObjectCards with Task's card list (v1-cards §6.2, cards.md FR-TYP-11 AC-14, D-2133): the R43
 // checkbox, the title, the card's parts and the source chip. Completing writes only the task (never the Daily Note,
 // which stays virtual if it is).
 import { addDays, localDate } from '@tegg/doc';
@@ -63,7 +63,7 @@ export function DailyTasks({ date, onOpen }: { date: string; onOpen: (path: stri
       {list.length === 0 ? <p className="daily-empty">{t('daily.section.empty')}</p> : (
         <ul className="daily-rows daily-tasks">
           {list.map((r) => {
-            // D-2021: each row is the Task ObjectCard (surface `tasks`) from `TaskRowDto.card`, Task's card list.
+            // D-2133: each row is the Task ObjectCard (surface `tasks`) from `TaskRowDto.card`, Task's card list.
             const taskType = (chipTypes() as TypeDto[]).find((x) => x.key === 'task') ?? null;
             return (
               <li key={r.path} className={`daily-task${r.state === 'done' ? ' done' : ''}`}>

@@ -1,8 +1,8 @@
-// The one card of every type (docs/contracts/v1-cards.md §6.1, §7.4, §8.1; cards.md R211…R213; D-1942…D-1953, D-1904,
-// D-1980): boards (part one's focus and drag props on the same `article`), Task cards (R43's checkbox and menu), card
+// The one card of every type (docs/contracts/v1-cards.md §6.1, §7.4, §8.1; cards.md R211…R213; D-2054…D-2065, D-1904,
+// D-2092): boards (part one's focus and drag props on the same `article`), Task cards (R43's checkbox and menu), card
 // embeds (the frame's head: `Open`, `Display as`) and the example card of type settings (inert). Parts top to bottom:
 // strip (Image, PDF), lead and title, tags, text, the pill area (two rows, then `+N more`), the footer. A part with
-// nothing to show leaves no element (D-1953).
+// nothing to show leaves no element (D-2065).
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import type { CardSlotProps } from '../board/Board';
 import { t } from '../i18n/catalog';
@@ -37,7 +37,7 @@ export type ObjectCardProps = {
   onToggle?: (done: boolean) => void;
   hideKey?: string | null;
   groupValues?: unknown;
-  /** Embeds: `Open <title>` and `Display as` in place of `⋯` (D-1980). */
+  /** Embeds: `Open <title>` and `Display as` in place of `⋯` (D-2092). */
   head?: ReactNode;
   /** Embeds: the title's reference props (the frame's header reference). */
   titleRef?: Record<string, unknown>;
@@ -149,7 +149,7 @@ export function ObjectCard(p: ObjectCardProps) {
       {...(task ? { 'data-task-card': '', 'data-state': task.state, 'data-overdue': overdue ? 'true' : 'false' } : {})}
       {...(example ? { inert: true, 'data-example': '' } : {})}
       // The Daily Note's Task cards (surface `tasks`) aren't a Tab stop themselves: Tab goes checkbox, title, source chip
-      // (FR-DLY-04 AC-14, D-2021).
+      // (FR-DLY-04 AC-14, D-2133).
       tabIndex={p.slot ? p.slot.tabIndex : undefined}
       onClick={openCard}
     >

@@ -189,7 +189,7 @@ export async function fileWhen(core: FakeCoreHandle, rel: string, ok: (t: string
   return eventually(() => fileText(core, rel), ok, ms);
 }
 /**
- * Reads per card (D-2018, cards.md FR-TYP-11 AC-18, embeds.md FR-EMB-02 AC-21): `note_read`, `type_get`, `embed_load`,
+ * Reads per card (D-2130, cards.md FR-TYP-11 AC-18, embeds.md FR-EMB-02 AC-21): `note_read`, `type_get`, `embed_load`,
  * `link_resolve` and `index_*` calls whose arguments name one of the drawn cards' objects (its path or `id`). App-level
  * calls (`index_tags`, `index_conflicts`, `index_type_counts`, and the like) and the opened note's own `note_read` name
  * no card and aren't counted. Returns `<cmd> <card path>` per such call.

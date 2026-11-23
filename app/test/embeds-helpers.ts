@@ -113,7 +113,7 @@ export async function memLoader(files: Map<string, string>, objs: Obj[]) {
   return { load, calls };
 }
 /** The card data (v1-cards §3.3) of `path` on the embeds fixture with new-empty's system types, as the fake core's
- *  `embed_load` carries it (slice OC, D-2025). */
+ *  `embed_load` carries it (slice OC, D-2137). */
 export function embedsCard(path: string): unknown {
   const files: Record<string, string> = {};
   const walk = (root: string, prefix: string) => {

@@ -143,7 +143,7 @@ pub struct AttrDef {
     pub description: Option<String>,
     /// A system type's attribute present in its built-in default (FR-TYP-06 AC-2).
     pub built_in: bool,
-    /// D-1958 (R209): the item's `icon:` value as written (trimmed); None = no `icon:` line or not a string.
+    /// D-2070 (R209): the item's `icon:` value as written (trimmed); None = no `icon:` line or not a string.
     pub icon: Option<String>,
 }
 
@@ -176,7 +176,7 @@ pub struct TypeFile {
     pub columns: Option<Vec<String>>,
     /// The type page's view tabs, query names in order (v1-views §1.3, D-1782); None = key absent (or unreadable).
     pub views: Option<Vec<String>>,
-    /// D-1947 (R209): the `card:` keys as written (NFD kept), flow or block list; None = key absent, or present and
+    /// D-2059 (R209): the `card:` keys as written (NFD kept), flow or block list; None = key absent, or present and
     /// unreadable (then `Parsed.card_unreadable`).
     pub card: Option<Vec<String>>,
     /// Vault path of the default template (D-232).
@@ -210,10 +210,10 @@ pub struct Parsed {
     pub views_unreadable: bool,
     /// v1-views §14.1 (D-1840, D-1855): the `views:` items, same order and length as `def.views`.
     pub view_items: Option<Vec<ViewItem>>,
-    /// v1-cards §2.1 (D-1964, AP-1571): `card` is present but not a list of strings (scalar, mapping, a list holding a
+    /// v1-cards §2.1 (D-2076, AP-1571): `card` is present but not a list of strings (scalar, mapping, a list holding a
     /// non-string).
     pub card_unreadable: bool,
-    /// v1-cards §2.1 (D-1964): `card` entries (NFC) that are neither an attribute key nor a card built-in, each once, in
+    /// v1-cards §2.1 (D-2076): `card` entries (NFC) that are neither an attribute key nor a card built-in, each once, in
     /// file order; `title`, `review` and `file`-kind attribute keys are skipped silently. Empty for Tag (fixed card).
     pub card_ignored: Vec<String>,
 }
@@ -448,7 +448,7 @@ fn parse_uncached(key: &str, text: &str) -> Parsed {
             let columns_unreadable = list_unreadable(&top, "columns");
             let (_, view_items, views_unreadable) = read_views(&top);
             let embed_raw = embed_raw_of(&top);
-            // v1-cards §2.1 (D-1964): as `columns`; Tag's card is fixed, so its `card:` is neither read nor warned about.
+            // v1-cards §2.1 (D-2076): as `columns`; Tag's card is fixed, so its `card:` is neither read nor warned about.
             let card_unreadable = list_unreadable(&top, "card");
             let card_ignored = if key == "tag" { Vec::new() } else { card::ignored(&def, def.card.as_deref().unwrap_or(&[])) };
             Parsed { def, readability, preview_ignored, embed_raw, columns_unreadable, columns_ignored, views_unreadable, view_items, card_unreadable, card_ignored }
@@ -550,7 +550,7 @@ fn read_def(key: &str, text: &str) -> Result<ReadDef, (String, usize)> {
             multiple: m.get("multiple") == Some(&Value::Bool(true)),
             description: text_of("description"),
             built_in: builtin_keys.contains(&k),
-            // D-1958: as written (trimmed); a value that isn't a string reads as None and its line is kept.
+            // D-2070: as written (trimmed); a value that isn't a string reads as None and its line is kept.
             icon: match m.get("icon") {
                 Some(Value::String(s)) if !s.trim().is_empty() => Some(s.trim().to_string()),
                 _ => None,
@@ -592,7 +592,7 @@ fn read_def(key: &str, text: &str) -> Result<ReadDef, (String, usize)> {
         },
         // v1-views §1.3 (D-1782), §14.1 (D-1840): the names of the items; a value that can't be read is None.
         views: read_views(&top).0,
-        // D-1947, D-1964: as `columns`: kept as written (NFD included); a value that isn't a list of strings is None.
+        // D-2059, D-2076: as `columns`: kept as written (NFD included); a value that isn't a list of strings is None.
         card: match top.get("card") {
             Some(Value::Array(a)) if a.iter().all(Value::is_string) => Some(a.iter().filter_map(|v| v.as_str().map(str::to_string)).collect()),
             _ => None,
@@ -692,7 +692,7 @@ pub enum RuleError {
     /// Slice 5A-1 (D-473): no `status` option of the Task type with state Open / Done would remain.
     NeedOpen,
     NeedDone,
-    /// v1-cards §2.3 (D-1964): a `SetCard` on a file whose `card` value can't be read (fixed in the file first).
+    /// v1-cards §2.3 (D-2076): a `SetCard` on a file whose `card` value can't be read (fixed in the file first).
     CardUnreadable,
 }
 
@@ -993,9 +993,9 @@ fn option_text(o: &OptionDef) -> String {
 // ------------------------------------------------------------------------------------------------ writing: whole files
 
 /// Canonical top-level order (§14.1.4, from the approved fixtures).
-/// v1-cards §2.3 (D-1964): `card` after `preview`.
+/// v1-cards §2.3 (D-2076): `card` after `preview`.
 const TOP_ORDER: [&str; 17] = ["version", "name", "plural", "system", "folder", "icon", "color", "description", "review", "preview", "card", "hidden", "columns", "views", "embed", "template", "attributes"];
-/// Canonical attribute item order; v1-cards §2.3 (D-1958): `icon` after `type`.
+/// Canonical attribute item order; v1-cards §2.3 (D-2070): `icon` after `type`.
 const ITEM_ORDER: [&str; 10] = ["key", "name", "type", "icon", "default", "required", "options", "to", "multiple", "description"];
 const ITEM_INDENT: usize = 2;
 
@@ -1017,7 +1017,7 @@ fn render_top(field: &str, def: &TypeFile) -> Option<Vec<String>> {
         }),
         "preview" => one(flow_list(&def.preview)),
         "hidden" => one(flow_list(&def.hidden)), // FR-TYP-17, D-316
-        "card" => def.card.as_ref().and_then(|c| one(flow_list(c))),       // D-1947
+        "card" => def.card.as_ref().and_then(|c| one(flow_list(c))),       // D-2059
         "columns" => def.columns.as_ref().and_then(|c| one(flow_list(c))), // D-1240
         "views" => def.views.as_ref().and_then(|v| one(flow_list(v))),     // v1-views §1.3, D-1782
         "template" => def.template.as_ref().and_then(|t| one(scalar(t, false))),
@@ -1044,7 +1044,7 @@ fn render_field(field: &str, a: &AttrDef, fi: usize) -> Option<Vec<String>> {
         "key" => one(scalar(&a.key, false)),
         "name" => one(scalar(&a.name, false)),
         "type" => one(scalar(a.r#type.as_str(), false)),
-        "icon" => a.icon.as_ref().filter(|i| !i.trim().is_empty()).and_then(|i| one(scalar(i.trim(), false))), // D-1958
+        "icon" => a.icon.as_ref().filter(|i| !i.trim().is_empty()).and_then(|i| one(scalar(i.trim(), false))), // D-2070
         "default" => a.default.as_ref().filter(|d| !d.is_null()).and_then(|d| one(value_text(d, false))),
         "required" => a.required.then(|| vec![format!("{sp}required: true")]),
         "options" => {
@@ -1162,11 +1162,11 @@ pub enum TypeOp {
     MoveOption { attr: String, label: String, to: usize },
     RemoveOption { attr: String, label: String },
     RenameOption { attr: String, from: String, to: String },
-    /// v1-cards §2.3 (D-1947, D-1964): the `card` line, one flow list in NFC in the given order (repeats as given);
+    /// v1-cards §2.3 (D-2059, D-2076): the `card` line, one flow list in NFC in the given order (repeats as given);
     /// None removes the key's lines (`Reset to default`). Refused with `CardUnreadable` while `card` can't be read.
     SetCard(Option<Vec<String>>),
-    /// v1-cards §2.3 (D-1958, D-1987): an attribute item's `icon:` line, right after its `type:` line; None removes it.
-    /// Allowed on built-in attributes; the current icon (also by its canonical name, D-1991) writes nothing.
+    /// v1-cards §2.3 (D-2070, D-2099): an attribute item's `icon:` line, right after its `type:` line; None removes it.
+    /// Allowed on built-in attributes; the current icon (also by its canonical name, D-2103) writes nothing.
     SetAttributeIcon { key: String, icon: Option<String> },
 }
 
@@ -1223,7 +1223,7 @@ fn patch_inner(key: &str, text: &str, ops: &[TypeOp], ctx: &PatchContext, used: 
         return Err(SchemaError::Rule(RuleError::ColumnsUnreadable)); // D-1245: fixed in the file first
     }
     if parsed.card_unreadable && ops.iter().any(|o| matches!(o, TypeOp::SetCard(_))) {
-        return Err(SchemaError::Rule(RuleError::CardUnreadable)); // D-1964: fixed in the file first
+        return Err(SchemaError::Rule(RuleError::CardUnreadable)); // D-2076: fixed in the file first
     }
     if parsed.views_unreadable && ops.iter().any(|o| matches!(o, TypeOp::SetViews(_) | TypeOp::SetViewSort { .. } | TypeOp::SetViewColumns { .. })) {
         return Err(SchemaError::Rule(RuleError::ViewsUnreadable)); // v1-views §1.3: fixed in the file first
@@ -1298,7 +1298,7 @@ fn apply(def: &mut TypeFile, lines: &mut Vec<String>, op: &TypeOp, system: bool,
         }
         TypeOp::SetIcon(i) => {
             let i = nfc(i.trim());
-            // D-1991: the same icon by its canonical name writes nothing (`check-square` stays as written).
+            // D-2103: the same icon by its canonical name writes nothing (`check-square` stays as written).
             if !i.is_empty() && def.icon != i && !icons::same_icon(&def.icon, &i) {
                 def.icon = i;
                 set_top(lines, "icon", render_top("icon", def));
@@ -1339,7 +1339,7 @@ fn apply(def: &mut TypeFile, lines: &mut Vec<String>, op: &TypeOp, system: bool,
             }
         }
         TypeOp::SetCard(keys) => {
-            // v1-cards §2.3 (D-1964): an equal list (after NFC) on an existing key, or a reset without the key, writes
+            // v1-cards §2.3 (D-2076): an equal list (after NFC) on an existing key, or a reset without the key, writes
             // nothing; a block list becomes one flow line; a trailing comment of a flow line is kept.
             let keys: Option<Vec<String>> = keys.as_ref().map(|k| k.iter().map(|x| nfc(x)).collect());
             let now: Option<Vec<String>> = def.card.as_ref().map(|c| c.iter().map(|x| nfc(x)).collect());
@@ -1349,7 +1349,7 @@ fn apply(def: &mut TypeFile, lines: &mut Vec<String>, op: &TypeOp, system: bool,
             }
         }
         TypeOp::SetAttributeIcon { key, icon } => {
-            // v1-cards §2.3 (D-1958, D-1987, D-1991): never BuiltInChanged; a key with no item writes nothing.
+            // v1-cards §2.3 (D-2070, D-2099, D-2103): never BuiltInChanged; a key with no item writes nothing.
             let key = nfc(key);
             let Some(i) = def.attributes.iter().position(|a| a.key == key) else { return Ok(()) };
             let new = icon.as_ref().map(|n| nfc(n.trim())).filter(|n| !n.is_empty());
@@ -1508,7 +1508,7 @@ fn apply(def: &mut TypeFile, lines: &mut Vec<String>, op: &TypeOp, system: bool,
                 cols.retain(|c| nfc(c) != key);
                 set_top(lines, "columns", render_top("columns", def));
             }
-            // D-1965 (FR-TYP-11 AC-28): and every card entry of it; an unreadable `card` (None) is left as it is.
+            // D-2077 (FR-TYP-11 AC-28): and every card entry of it; an unreadable `card` (None) is left as it is.
             if let Some(card) = def.card.as_mut().filter(|c| c.iter().any(|c| nfc(c) == key)) {
                 card.retain(|c| nfc(c) != key);
                 write_card(lines, def);
@@ -1858,7 +1858,7 @@ fn crlf(lines: &[String]) -> bool {
     lines.first().is_some_and(|l| l.ends_with('\r'))
 }
 
-/// v1-cards §2.3 (D-1964): the `card` key as one flow line from `def.card` (removed when None). A one-line value keeps
+/// v1-cards §2.3 (D-2076): the `card` key as one flow line from `def.card` (removed when None). A one-line value keeps
 /// its trailing comment (and the spaces before it) and its line end; a new line goes to its TOP place.
 fn write_card(lines: &mut Vec<String>, def: &TypeFile) {
     let span = top_span(lines, "card");
@@ -1893,7 +1893,7 @@ fn write_card(lines: &mut Vec<String>, def: &TypeFile) {
     }
 }
 
-/// v1-cards §2.3 (D-1958): item `i`'s `icon:` line from `a.icon`: replaced in place, removed, or inserted right after
+/// v1-cards §2.3 (D-2070): item `i`'s `icon:` line from `a.icon`: replaced in place, removed, or inserted right after
 /// the item's `type:` line (ITEM_ORDER), with the file's line end.
 fn set_item_icon(lines: &mut Vec<String>, i: usize, a: &AttrDef) {
     let cr = crlf(lines);

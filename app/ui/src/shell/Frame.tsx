@@ -344,7 +344,7 @@ export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, 
                   onKeyDown={(ev) => { if (ev.key === 'F10' && ev.shiftKey) { ev.preventDefault(); setTypeMenu({ entry: e, anchor: ev.currentTarget }); } }}
                   {...(typePinnable(e.key) ? pinDragSource({ request: { kind: 'type', key: e.key }, label: e.plural, icon: typeIconName(e.key, e.icon), color: e.color }) : {})}
                 >
-                  {/* Slice OC (D-1991, D-1998): `data-icon` is the type's icon as written. */}
+                  {/* Slice OC (D-2103, D-2110): `data-icon` is the type's icon as written. */}
                   <span className="type-icon"><Icon name={typeIconName(e.key, e.icon)} dataIcon={e.icon || undefined} /></span>
                   <span className="entry-label" data-user-content title={e.plural}>
                     {e.plural}

@@ -193,7 +193,7 @@ export const CONTROL_COMMANDS: Record<string, string> = {
   'ctl.fontSize': 'settings.fontSize',
   'ctl.accentColor': 'settings.accentColor',
   'settings.shortcuts.change': 'settings.changeShortcut',
-  // Slice OC (v1-cards §11, D-1995): the Card section's and the property icons' controls, reached by Tab.
+  // Slice OC (v1-cards §11, D-2107): the Card section's and the property icons' controls, reached by Tab.
   'card.move': 'card.move',
   'property.icon': 'property.icon',
   'card.add': 'card.add',
@@ -281,7 +281,7 @@ export function commands(ctx: ShellContext): Command[] {
         disabled: () => a(ctx)?.restoreDefaultViewsState?.() ?? null, run: (c) => a(c)?.restoreDefaultViews?.() });
     }
   }
-  // Slice OC (cards.md R217, v1-cards §11; D-1995): palette only, no shortcut.
+  // Slice OC (cards.md R217, v1-cards §11; D-2107): palette only, no shortcut.
   {
     const r = ctx.route ?? null;
     const typeKey = !r ? '' : (r.id === 'note/<path>' ? (r.type ?? '') : r.id === 'type/<type>' || r.id === 'type-settings/<type>' ? (r.param ?? r.key ?? '') : '').normalize('NFC');

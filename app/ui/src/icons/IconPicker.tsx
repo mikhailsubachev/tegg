@@ -1,5 +1,5 @@
 // The icon picker (docs/contracts/v1-cards.md §5.5, §7.7, §7.8, §8.3, §12; cards.md R215, R216; FR-TYP-01 AC-14…AC-18,
-// AC-20, AC-21; D-1954, D-1955, D-1958, D-1989…D-1992). A non-modal dialog anchored to its opener, one at a time. The
+// AC-20, AC-21; D-2066, D-2067, D-2070, D-2101…D-2104). A non-modal dialog anchored to its opener, one at a time. The
 // whole Lucide set is loaded on the first open of a window (`loadIconSet`, its own chunk; nothing is fetched,
 // NFR-SEC-01). The grid has 6 columns and is virtualised (at most 200 options in the DOM; the selected one always).
 import { createElement, Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -29,7 +29,7 @@ export type IconPickerOptions = {
   current: string | null;
   /** Properties only: `None (show the name)` (AP-1599). */
   allowNone: boolean;
-  /** The chosen canonical name, or null for None. The caller decides whether a write is needed (D-1989). */
+  /** The chosen canonical name, or null for None. The caller decides whether a write is needed (D-2101). */
   onChoose: (name: string | null) => void;
   onClose?: () => void;
 };

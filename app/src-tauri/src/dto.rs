@@ -496,9 +496,9 @@ pub enum TypeOpDto {
     ViewColumns { name: String, columns: Option<Vec<String>> },
     /// v1-views §17.3 (D-1852): the `views` key's lines replaced byte for byte (`TypeOp::SetViewsSource`).
     ViewsSource { source: String },
-    /// Slice OC (v1-cards §4.2, D-1964): the `card` line (`TypeOp::SetCard`); null removes it (`Reset to default`).
+    /// Slice OC (v1-cards §4.2, D-2076): the `card` line (`TypeOp::SetCard`); null removes it (`Reset to default`).
     Card { keys: Option<Vec<String>> },
-    /// Slice OC (v1-cards §4.2, D-1958): an attribute's `icon:` line (`TypeOp::SetAttributeIcon`); null removes it.
+    /// Slice OC (v1-cards §4.2, D-2070): an attribute's `icon:` line (`TypeOp::SetAttributeIcon`); null removes it.
     AttributeIcon { key: String, icon: Option<String> },
 }
 
@@ -656,7 +656,7 @@ pub struct UiStateDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub queries: Option<QueriesUiDto>,
-    /// Slice OC (v1-cards §10, R216, D-1954): the icon picker's Recent icons, canonical Lucide names, newest first, unique,
+    /// Slice OC (v1-cards §10, R216, D-2066): the icon picker's Recent icons, canonical Lucide names, newest first, unique,
     /// at most 12; missing reads as none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]

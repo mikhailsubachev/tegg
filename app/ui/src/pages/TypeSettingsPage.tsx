@@ -27,7 +27,7 @@ import { attrTypeLabel, colorName, nfc, typeErrorMessage } from '../types/util';
 
 type Save = 'saved' | 'saving' | 'failed';
 const BUILT_IN_ROWS = ['title', 'description', 'aliases', 'tags', 'source', 'review', 'created', 'modified'];
-// Slice OC (types.md R12 after OC, FR-TYP-01 AC-22; D-1959): ten sections; Tag has no Card, Hidden or Views (D-693, D-728).
+// Slice OC (types.md R12 after OC, FR-TYP-01 AC-22; D-2071): ten sections; Tag has no Card, Hidden or Views (D-693, D-728).
 const SECTIONS = ['general', 'properties', 'builtIn', 'card', 'hidden', 'embeds', 'review', 'templates', 'views', 'delete'] as const;
 type SectionId = (typeof SECTIONS)[number];
 const SECTION_LABEL: Record<SectionId, string> = {
@@ -271,7 +271,7 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted, reload, 
   const cardApi = useRef<CardSectionApi | null>(null);
   const sections = SECTIONS.filter((x) => !(nfc(type.key) === 'tag' && TAG_SECTIONS.has(x)));
   const roReason = readOnlyReason(type);
-  /** R215: the picker for the type icon (no `None`); the current icon writes nothing (D-1989). */
+  /** R215: the picker for the type icon (no `None`); the current icon writes nothing (D-2101). */
   const openTypeIcon = (anchor?: HTMLElement | null) => {
     const a = anchor ?? iconBtn.current;
     if (!a || ro) return;
@@ -282,7 +282,7 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted, reload, 
     add: () => cardApi.current?.openAdd(), reset: () => cardApi.current?.reset(), changeIcon: () => openTypeIcon(),
     addDisabled: () => cardApi.current?.addDisabled() ?? null, resetDisabled: () => cardApi.current?.resetDisabled() ?? null,
   });
-  // The section at the top of the pane has `aria-current="location"` (R219, D-2010).
+  // The section at the top of the pane has `aria-current="location"` (R219, D-2122).
   const [current, setCurrent] = useState<SectionId>('general');
   const layoutRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -636,7 +636,7 @@ function PropertyGroup({ attr: a, index, type, types, usage, ro, w, setType, exp
   const typeBtn = useRef<HTMLButtonElement | null>(null);
   const editBtn = useRef<HTMLButtonElement | null>(null);
   const iconBtn = useRef<HTMLButtonElement | null>(null);
-  /** R215 (types.md FR-TYP-01 AC-24, cards.md FR-TYP-01 AC-12): the property's icon, allowed on built-ins (D-1987);
+  /** R215 (types.md FR-TYP-01 AC-24, cards.md FR-TYP-01 AC-12): the property's icon, allowed on built-ins (D-2099);
    *  the icon it already has (canonical) or None without one writes nothing. */
   const pickIcon = () => {
     if (ro || !iconBtn.current) return;

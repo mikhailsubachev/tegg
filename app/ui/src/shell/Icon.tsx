@@ -1,6 +1,6 @@
 // Line icons for the frame (stroke uses the current text colour, FR-UX-05 AC-2). Decorative: hidden from the
 // accessibility tree; the control around an icon carries the label.
-// Slice OC (v1-cards §5.4, D-1998): type icons are drawn from Lucide through the icons in use (`icons/inUse.ts`);
+// Slice OC (v1-cards §5.4, D-2110): type icons are drawn from Lucide through the icons in use (`icons/inUse.ts`);
 // `typeIconName` names them `lucide:<fallback glyph>:<name as written>`, and the hand-drawn paths stay for app chrome
 // (and as the fallback before the vault's types are loaded).
 // The Lucide drawing and the icons in use live here so the capture window, which may import only this module of the
@@ -219,7 +219,7 @@ function legacyGlyph(key: string, icon?: string | null): string {
   return icon && TYPE_ICONS.has(icon) ? icon : 'type';
 }
 
-/** A type's icon for `Icon` / `iconElement`: drawn from Lucide (D-1998) once the vault's types are loaded. */
+/** A type's icon for `Icon` / `iconElement`: drawn from Lucide (D-2110) once the vault's types are loaded. */
 export function typeIconName(key: string, icon?: string | null): string {
   const k = key.normalize('NFC');
   const written = icon || SYSTEM_DEFAULT[k] || '';

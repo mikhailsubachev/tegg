@@ -1,4 +1,4 @@
-/* The shared settings layout (docs/contracts/v1-cards.md §7.10, §8.4; app-shell R219; D-1959, D-1994; boards Settings,
+/* The shared settings layout (docs/contracts/v1-cards.md §7.10, §8.4; app-shell R219; D-2071, D-2106; boards Settings,
    CardSettings): the section list on the left, one label column, one control column, notes under the control. Tokens
    only (FR-UX-05 AC-2). */
 :root { --settings-nav-width: 168px; --settings-label-width: 170px; --settings-max: 940px; }

@@ -1,8 +1,8 @@
 # Slice OC: object cards, Object settings and the Settings layout (2026-11-22)
 
-Status: **accepted by the owner on 2026-11-22 ("Accept all"): AP-1551…AP-1570 are D-1942…D-1961 in order (BRD v1.220; FR-TYP-11 reworded, FR-TYP-01 names property icons).** AP-1569 was then changed by the owner: the boards are committed as drawn (D-1962, BRD v1.221), and where their notes differ from the decisions the decisions win. Next: the ACs. Requirements touched: FR-TYP-01, FR-TYP-11, FR-EMB-02, FR-QRY-07 (board cards), FR-SET-01…07 (layout only).
+Status: **accepted by the owner on 2026-11-22 ("Accept all"): AP-1551…AP-1570 are D-2054…D-2073 in order (BRD v1.238; FR-TYP-11 reworded, FR-TYP-01 names property icons).** AP-1569 was then changed by the owner: the boards are committed as drawn (D-2074, BRD v1.239), and where their notes differ from the decisions the decisions win. Next: the ACs. Requirements touched: FR-TYP-01, FR-TYP-11, FR-EMB-02, FR-QRY-07 (board cards), FR-SET-01…07 (layout only).
 
-Boards (owner, 2026-11-22): `TypeCards`, `TypeCardsDark`, `CardSettings`, `CardSettingsDark`, `IconSet`, `IconSetDark`, `Settings`, `SettingsDark`, `SettingsApp`, `SettingsAppDark`. They are **not in git yet**: they sit uncommitted in the main checkout and are committed as drawn (D-1962).
+Boards (owner, 2026-11-22): `TypeCards`, `TypeCardsDark`, `CardSettings`, `CardSettingsDark`, `IconSet`, `IconSetDark`, `Settings`, `SettingsDark`, `SettingsApp`, `SettingsAppDark`. They are **not in git yet**: they sit uncommitted in the main checkout and are committed as drawn (D-2074).
 
 ## 1. What is built
 
@@ -13,7 +13,7 @@ Boards (owner, 2026-11-22): `TypeCards`, `TypeCardsDark`, `CardSettings`, `CardS
 5. **Type settings redrawn** in the Settings style, and its `Views` section lists the type's real views (reorder, Edit, Add view) in place of the disabled buttons.
 6. **Settings redrawn** in the same style: a section list on the left, one label column, one control column, notes under the control. No setting is added, removed or changed.
 
-Not in this slice: Templates, Font / Font size / Accent color, Trash and history, shortcut editing (all stay `Coming in v1.0`); a card setup per view (AP-1552); property icons in the read view's properties strip (`PropertiesStrip`, D-2041).
+Not in this slice: Templates, Font / Font size / Accent color, Trash and history, shortcut editing (all stay `Coming in v1.0`); a card setup per view (AP-1552); property icons in the read view's properties strip (`PropertiesStrip`, D-2153).
 
 ## 2. Where we are
 
@@ -101,7 +101,7 @@ A picked property with no value draws nothing.
 
 ## 8. Points for the owner
 
-All decided: the Proposal column is the decision (D-1942…D-1961), except AP-1569, superseded by D-1962.
+All decided: the Proposal column is the decision (D-2054…D-2073), except AP-1569, superseded by D-2074.
 
 ### 8.1 From the boards' "To decide"
 
@@ -150,7 +150,7 @@ All decided: the Proposal column is the decision (D-1942…D-1961), except AP-15
 
 ## 9. What changes
 
-- **BRD (done, v1.220):** D-1942…D-1961; FR-TYP-11 reworded; FR-TYP-01 names property icons; `requirements-coverage.md`; CLAUDE.md status.
+- **BRD (done, v1.238):** D-2054…D-2073; FR-TYP-11 reworded; FR-TYP-01 names property icons; `requirements-coverage.md`; CLAUDE.md status.
 - **ACs:** a new `docs/acceptance/cards.md` (the card, the Card section, property icons, the picker); additions to `types.md` (settings layout, Views section), `views.md` (board cards), `embeds.md`, `previews.md`, `app-shell.md` (Settings layout).
 - **Changed AC tests** (each with an `AC-Test-Change` trailer): the limit of 4 and the `preview` writes in the types tests, the board card tests of Q2-T, the embed strip, tests that assert the line after `preview:` in a type file.
 - **Contract:** `docs/contracts/v1-cards.md`: `card` and attribute `icon` in the type DTO and writer ops, the card values in the list reads, the icon data file, the fake core's twin.
