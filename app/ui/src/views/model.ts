@@ -148,8 +148,8 @@ export function newViewDef(type: TypeDto, kind: 'table' | 'list' | 'board', _typ
   // Q2-T: only a Board carries `groupPeriod` / `doneLane` here (views_model's exact Table def, FR-QRY-07 AC-4); the
   // IPC reads a missing value as false / null.
   return {
-    title: t('views.newName'), types: [nfc(type.key)], match: 'all', filters: [], sort: [{ by: 'modified', order: 'desc' }], limit: 50, view: kind,
-    groupBy, lanes: 'vertical', laneOrder: null, columns, ...(board ? { groupPeriod: false, doneLane: null } : {}),
+    title: t('views.newName'), types: [nfc(type.key)], match: 'all', filters: [], sort: [{ by: 'modified', order: 'desc' }], limit: 50, view: board ? 'wall' : kind,
+    groupBy, lanes: 'columns', laneOrder: null, columns, ...(board ? { groupPeriod: false, doneLane: null } : {}),
   } as QueryDefDto;
 }
 

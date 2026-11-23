@@ -87,14 +87,14 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, op
     setSelected(name);
     if (name !== DRAFT) setLastTab(typeKey, name);
     const s = name ? tabs.find((x) => x.key === nameKey(name))?.summary : null;
-    if (s?.view === 'board') void ipc.perfMark('board-request').catch(() => {});
+    if (s?.view === 'wall') void ipc.perfMark('board-request').catch(() => {});
   };
   // A remembered board tab opened with the page asks for its board too (D-1800).
   const opened = useRef(false);
   useEffect(() => {
     if (opened.current || !summaries || !shownName || shownName === DRAFT) return;
     opened.current = true;
-    if (tabs.find((x) => x.name === shownName)?.summary?.view === 'board') void ipc.perfMark('board-request').catch(() => {});
+    if (tabs.find((x) => x.name === shownName)?.summary?.view === 'wall') void ipc.perfMark('board-request').catch(() => {});
   }, [summaries, shownName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- per-tab state: the filter text and tags (D-1796) and the run state shown on the tab.
@@ -279,7 +279,7 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, op
   // ---- the tab list as shown: All, the views, the draft.
   type TabItem = { name: string; label: string; kind: 'table' | 'list' | 'board' | null; summary: QuerySummaryDto | null; draft: boolean };
   const items: TabItem[] = [
-    ...tabs.map((x) => ({ name: x.name, label: x.name, kind: x.summary?.view ?? null, summary: x.summary, draft: false })),
+    ...tabs.map((x) => ({ name: x.name, label: x.name, kind: x.summary?.view === 'wall' ? 'board' as const : x.summary?.view ?? null, summary: x.summary, draft: false })),
     ...(draft ? [{ name: DRAFT, label: t('views.newName'), kind: draft.kind, summary: null, draft: true }] : []),
   ];
   const order = [null, ...items.map((x) => x.name)];
@@ -381,7 +381,7 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, op
       item('remove', t('views.remove', { plural }), () => remove(name), { description: writable ? t('views.removeHint') : reason ?? undefined, disabled: !writable }),
       // Slice Q2.1 (§15; D-1835): the tab goes too, in one Undo with the move.
       item('trash', t('views.trash'), () => { trash(name, summary?.name ?? name, summary?.title ?? name); }, { description: writable ? undefined : reason ?? undefined, disabled: !writable }),
-      ...(toolbar && isSel && def?.view === 'board' && def.laneOrder !== null
+      ...(toolbar && isSel && def?.view === 'wall' && def.laneOrder !== null
         ? [item('reset', t('board.resetOrder'), () => panel.current?.board()?.run('board.resetLaneOrder'))] : []),
     ];
   };

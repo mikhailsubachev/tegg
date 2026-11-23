@@ -21,7 +21,7 @@ import './editor.css';
 type Filter = Extract<FilterItemDto, { kind: 'filter' }>;
 const nfc = (s: string) => s.normalize('NFC');
 const stem = (p: string) => nfc((p.split('/').pop() ?? p).replace(/\.md$/i, ''));
-const DEFAULT_DEF = (): QueryDefDto => ({ title: t('query.editor.untitled'), types: [], match: 'all', filters: [], sort: [{ by: 'modified', order: 'desc' }], limit: 50, view: 'list', groupBy: null, lanes: 'vertical', laneOrder: null, columns: ['type', 'modified'], groupPeriod: false, doneLane: null });
+const DEFAULT_DEF = (): QueryDefDto => ({ title: t('query.editor.untitled'), types: [], match: 'all', filters: [], sort: [{ by: 'modified', order: 'desc' }], limit: 50, view: 'list', groupBy: null, lanes: 'columns', laneOrder: null, columns: ['type', 'modified'], groupPeriod: false, doneLane: null });
 
 /** Rows without an attribute and groups without rows are left out of runs and commits. */
 function clean(d: QueryDefDto): QueryDefDto {
@@ -383,7 +383,7 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
         <button tabIndex={0} type="button" className="qe-add" onClick={addFilter}><Icon name="plus" size={12} />{t('query.editor.addFilter')}</button>
         <button tabIndex={0} type="button" className="qe-add" onClick={addGroup}><Icon name="plus" size={12} />{t('query.editor.addGroup')}</button>
       </div>
-      {def.view !== 'board' && (
+      {def.view !== 'wall' && (
         // D-1795: no Sort row (sorting is on the view, R188); `Limit` hidden while View is Board.
         <div className="qe-section qe-sort">
           <label className="qe-limit">
@@ -398,16 +398,16 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
       <div className="qe-section">
         <div className="qe-label">{t('query.editor.view')}</div>
         <div className="qe-segment" role="radiogroup" aria-label={t('query.editor.view')}>
-          {(['table', 'list', 'board'] as const).map((v) => (
+          {(['table', 'list', 'wall'] as const).map((v) => (
             <button key={v} tabIndex={0} type="button" role="radio" aria-checked={def.view === v} className={def.view === v ? 'on' : ''}
-              onClick={() => update((d) => ({ ...d, view: v, groupBy: v === 'board' && d.groupBy === null && oneType ? defaultGroupBy(oneType) : d.groupBy }))}>
+              onClick={() => update((d) => ({ ...d, view: v, groupBy: v === 'wall' && d.groupBy === null && oneType ? defaultGroupBy(oneType) : d.groupBy }))}>
               {t(v === 'list' ? 'query.editor.list' : v === 'table' ? 'query.editor.table' : 'query.editor.board')}
             </button>
           ))}
         </div>
-        {def.view !== 'board' && <span className="qe-hint">{t('query.editor.tableHint')}</span>}
+        {def.view !== 'wall' && <span className="qe-hint">{t('query.editor.tableHint')}</span>}
       </div>
-      {def.view === 'board' && (
+      {def.view === 'wall' && (
         <>
           <div className="qe-section">
             <div className="qe-label">{t('query.editor.groupBy')}</div>
@@ -426,9 +426,9 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
           <div className="qe-section">
             <div className="qe-label">{t('query.editor.lanes')}</div>
             <div className="qe-segment" role="radiogroup" aria-label={t('query.editor.lanes')}>
-              {(['vertical', 'horizontal'] as const).map((l) => (
+              {(['columns', 'rows'] as const).map((l) => (
                 <button key={l} tabIndex={0} type="button" role="radio" aria-checked={def.lanes === l} className={def.lanes === l ? 'on' : ''}
-                  onClick={() => update((d) => ({ ...d, lanes: l }))}>{t(l === 'vertical' ? 'board.vertical' : 'board.horizontal')}</button>
+                  onClick={() => update((d) => ({ ...d, lanes: l }))}>{t(l === 'columns' ? 'board.vertical' : 'board.horizontal')}</button>
               ))}
             </div>
           </div>

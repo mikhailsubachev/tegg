@@ -55,7 +55,7 @@ export function ViewsSection({ type, send, reload, onAddView }: {
 
   // Board views: `Board · by <attribute>` from the query's `group_by` (one read per board view).
   const [groupBy, setGroupBy] = useState<Record<string, string | null>>({});
-  const boards = tabs.filter((x) => x.summary?.view === 'board').map((x) => x.summary!.name);
+  const boards = tabs.filter((x) => x.summary?.view === 'wall').map((x) => x.summary!.name);
   useEffect(() => {
     let alive = true;
     for (const n of boards) {
@@ -72,7 +72,7 @@ export function ViewsSection({ type, send, reload, onAddView }: {
   const kindText = (name: string, view: string | null | undefined) => {
     if (view === 'table') return t('views.kind.table');
     if (view === 'list') return t('views.kind.list');
-    if (view === 'board') {
+    if (view === 'board' || view === 'wall') {
       const a = attrName(groupBy[name] ?? null);
       return a ? t('typeSettings.viewBoardBy', { attribute: a }) : t('views.kind.board');
     }

@@ -223,6 +223,16 @@ pub trait Host: Send + Sync {
     fn query_files(&self) -> Vec<String> {
         Vec::new()
     }
+    /// v1-views §38 (D-2193): `.tegg/types/*.yml`.
+    fn type_files(&self) -> Vec<String> {
+        Vec::new()
+    }
+    /// v1-views §38 (D-2193): the notes with a reference fence whose own `lane_order` has an entry resolving (D-291, from
+    /// the vault root) to `from_path`.
+    fn fence_lane_order_paths(&self, from_path: &str) -> Vec<String> {
+        let _ = from_path;
+        Vec::new()
+    }
     /// Notes and templates that use the saved query `name`, no `.trash/`.
     fn query_usage_paths(&self, name: &str) -> Vec<String> {
         let _ = name;

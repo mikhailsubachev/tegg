@@ -451,6 +451,9 @@ impl Inner {
         // v1-queries §1.8 (D-1466): query files' link values follow every move that happened, before the pins.
         let qp: Vec<crate::host::QueryPatch> = real.iter().map(|(from, to)| crate::host::QueryPatch::ObjectMoved { from: from.clone(), to: to.clone(), paths: paths_before.clone() }).collect();
         self.write_queries(run, &qp, single);
+        // v1-views §38 (CP-36, D-2201): type files' `views:` lane orders follow the same moves.
+        let before: Vec<String> = paths_before.iter().cloned().collect();
+        self.write_types(run, &real, &before, None, single);
         // v1-pinned §1.6 (FR-LNK-03 AC-22): last, pins of the moved notes follow the moves that really happened.
         let patches = self.moved_patches(real.iter().cloned());
         self.write_pins(run, &patches, single);

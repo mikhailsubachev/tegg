@@ -11,6 +11,7 @@ import { applyTaskChange, completeTask, type TaskState } from '@tegg/doc';
 import { t, catalogLocale } from '../../i18n/catalog';
 import { ipc } from '../../ipc/client';
 import type { GroupingDto, LaneDto, QueryDefDto, QueryEnvDto, QueryResultDto, QueryRowDto } from '../../ipc/queries';
+import { lanesDir } from '../../ipc/queries';
 import type { TaskRowDto, TypeDto } from '../../ipc/types';
 import { CardMenu, type MoveTarget } from '../../tasks/CardMenu';
 import { shortDate } from '../../tasks/views';
@@ -199,7 +200,7 @@ export function QueryBoard({ result, name, title, readOnly, types, filter, apply
     const tone = isPeriod && l.id === 'period:today' && isTaskDue ? 'danger' as const : isPeriod && l.kind === 'none' ? 'muted' as const : null;
     return {
       id: l.id, kind: l.kind, label: labelOf(l), userLabel: !(l.kind === 'none' || l.kind === 'period' || l.kind === 'done'), color: l.color, cards, excluded: l.excluded,
-      excludedText: def.lanes === 'horizontal' ? t('board.excludedLong', { values: listFormat(excludedValues(group)) }) : t('board.excluded'),
+      excludedText: def.lanes === 'rows' ? t('board.excludedLong', { values: listFormat(excludedValues(group)) }) : t('board.excluded'),
       dropTarget: l.dropTarget, grip: (l.dropTarget || l.kind === 'period') && l.kind !== 'none' && l.kind !== 'done',
       newLabel: newOk ? t('board.newIn', { type: pageType!.name, lane: labelOf(l) }) : null,
       days, hint, tone, countLabel: countText(cards.length),
@@ -225,7 +226,7 @@ export function QueryBoard({ result, name, title, readOnly, types, filter, apply
 
   // ---- the test hook (contract §5).
   const snap = useRef<() => Snapshot>(() => ({ name, lanes: [], domCards: 0 }));
-  snap.current = () => ({ name, lanes: lanesShown.map((l) => ({ id: l.id, cards: l.cards, days: (l.days ?? []).map((d) => ({ date: d.date, cards: d.cards })), folded: folded.includes(l.id) && def.lanes === 'horizontal' })),
+  snap.current = () => ({ name, lanes: lanesShown.map((l) => ({ id: l.id, cards: l.cards, days: (l.days ?? []).map((d) => ({ date: d.date, cards: d.cards })), folded: folded.includes(l.id) && def.lanes === 'rows' })),
     domCards: root.current?.querySelectorAll('article[data-board-card]').length ?? 0 });
   useEffect(() => {
     ensureViewsLive();
@@ -462,11 +463,11 @@ export function QueryBoard({ result, name, title, readOnly, types, filter, apply
   const control: BoardControl = {
     status: () => {
       const c = focusedCard();
-      return { lanes: def.lanes, laneOrder: def.laneOrder !== null, cardFocused: !!c, laneFocused: focusedLane() !== null, taskFocused: !!c && !!rowsByPath.get(c.key)?.taskRow && !!taskCtx };
+      return { lanes: lanesDir(def.lanes), laneOrder: def.laneOrder !== null, cardFocused: !!c, laneFocused: focusedLane() !== null, taskFocused: !!c && !!rowsByPath.get(c.key)?.taskRow && !!taskCtx };
     },
     run: (id) => {
       switch (id) {
-        case 'board.switchLanes': if (!readOnly) apply({ lanes: def.lanes === 'vertical' ? 'horizontal' : 'vertical' }); return true;
+        case 'board.switchLanes': if (!readOnly) apply({ lanes: def.lanes === 'columns' ? 'rows' : 'columns' }); return true;
         case 'board.resetLaneOrder': if (!readOnly && def.laneOrder !== null) apply({ laneOrder: null }); return true;
         case 'task.complete': case 'task.setStatus': {
           const c = focusedCard();
@@ -514,7 +515,7 @@ export function QueryBoard({ result, name, title, readOnly, types, filter, apply
   const row = (key: string) => rowsByPath.get(key);
   return (
     <div ref={root} className="query-board">
-      <Board label={title} name={name} groupBy={nfc(group.key)} lanes={def.lanes} data={lanesShown} folded={folded} onFold={onFold}
+      <Board label={title} name={name} groupBy={nfc(group.key)} lanes={lanesDir(def.lanes)} data={lanesShown} folded={folded} onFold={onFold}
         readOnly={readOnly}
         canDragCard={(key) => !!row(key) && !row(key)!.readOnly}
         dropLabel={dropLabel}

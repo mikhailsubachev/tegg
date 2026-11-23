@@ -60,7 +60,7 @@ pub enum UsageGroupBy {
 pub struct UsageRaw {
     pub sort: UsageValue<Vec<UsageSort>>,
     pub columns: UsageValue<Vec<String>>,
-    /// Slice Q3 (v1-views §35). Red-test stubs: not read yet (always Absent).
+    /// Slice Q3 (v1-views §35).
     pub view: UsageValue<UsageView>,
     pub group_by: UsageValue<UsageGroupBy>,
     pub lanes: UsageValue<UsageLanes>,
@@ -68,21 +68,91 @@ pub struct UsageRaw {
     pub widths: UsageValue<Vec<(String, u32)>>,
 }
 
-/// v1-views §35 shape readers. Red-test stubs (Q3): always Absent.
-pub fn view_value(_v: &Value) -> UsageValue<UsageView> {
-    UsageValue::Absent
+/// v1-views §35: `view` — `list`, `table`, `wall`, and `board` (→ Wall, D-2179); case-sensitive; anything else Broken.
+pub fn view_value(v: &Value) -> UsageValue<UsageView> {
+    match v.as_str() {
+        Some("list") => UsageValue::Set(UsageView::List),
+        Some("table") => UsageValue::Set(UsageView::Table),
+        Some("wall") | Some("board") => UsageValue::Set(UsageView::Wall),
+        _ => UsageValue::Broken,
+    }
 }
-pub fn group_by_value(_v: &Value) -> UsageValue<UsageGroupBy> {
-    UsageValue::Absent
+/// v1-views §35: `group_by` — the exact string `none` → None (D-2191); another non-blank string → Key; a one-entry
+/// mapping `<non-blank key>: period` → Period (R201); anything else (a blank string, `month`, D-2180, more entries, a
+/// list, a number) Broken.
+pub fn group_by_value(v: &Value) -> UsageValue<UsageGroupBy> {
+    match v {
+        Value::String(s) if s == "none" => UsageValue::Set(UsageGroupBy::None),
+        Value::String(s) => {
+            let t = s.trim_matches(char::is_whitespace);
+            if t.is_empty() { UsageValue::Broken } else { UsageValue::Set(UsageGroupBy::Key(nfc(t))) }
+        }
+        Value::Object(m) if m.len() == 1 => {
+            let (k, x) = m.iter().next().expect("one entry");
+            let k = k.trim_matches(char::is_whitespace);
+            if !k.is_empty() && x.as_str() == Some("period") { UsageValue::Set(UsageGroupBy::Period(nfc(k))) } else { UsageValue::Broken }
+        }
+        _ => UsageValue::Broken,
+    }
 }
-pub fn lanes_value(_v: &Value) -> UsageValue<UsageLanes> {
-    UsageValue::Absent
+/// v1-views §35: `lanes` — `columns`, `rows`, `vertical` (→ Columns), `horizontal` (→ Rows); anything else Broken.
+pub fn lanes_value(v: &Value) -> UsageValue<UsageLanes> {
+    match v.as_str() {
+        Some("columns") | Some("vertical") => UsageValue::Set(UsageLanes::Columns),
+        Some("rows") | Some("horizontal") => UsageValue::Set(UsageLanes::Rows),
+        _ => UsageValue::Broken,
+    }
 }
-pub fn lane_order_value(_v: &Value) -> UsageValue<Vec<String>> {
-    UsageValue::Absent
+/// v1-views §35: `lane_order` — a list of strings (NFC), `[]` included; anything else Broken.
+pub fn lane_order_value(v: &Value) -> UsageValue<Vec<String>> {
+    columns_value(v)
 }
-pub fn widths_value(_v: &Value) -> UsageValue<Vec<(String, u32)>> {
-    UsageValue::Absent
+/// v1-views §35: one `widths` value — a YAML integer 0…100,000 (a float, a string or a negative value is broken).
+fn width_of(v: &Value) -> Option<u32> {
+    match v {
+        Value::Number(n) if !n.is_f64() => n.as_u64().filter(|x| *x <= 100_000).map(|x| x as u32),
+        _ => None,
+    }
+}
+/// v1-views §35: `widths` — a mapping of string keys (NFC) to integers 0…100,000. A JSON mapping has no file order;
+/// the YAML readers (`usage_of`, `widths_orders`) keep it.
+pub fn widths_value(v: &Value) -> UsageValue<Vec<(String, u32)>> {
+    match v {
+        Value::Object(m) => m.iter().map(|(k, x)| width_of(x).map(|w| (nfc(k), w))).collect::<Option<Vec<_>>>().map(UsageValue::Set).unwrap_or(UsageValue::Broken),
+        _ => UsageValue::Broken,
+    }
+}
+/// `widths` of a YAML node, in file order.
+fn widths_yaml(y: &Yaml) -> UsageValue<Vec<(String, u32)>> {
+    match y {
+        Yaml::Hash(h) => h
+            .iter()
+            .map(|(k, x)| match (k, x) {
+                (Yaml::String(k), Yaml::Integer(n)) if (0..=100_000).contains(n) => Some((nfc(k), *n as u32)),
+                _ => None,
+            })
+            .collect::<Option<Vec<_>>>()
+            .map(UsageValue::Set)
+            .unwrap_or(UsageValue::Broken),
+        _ => UsageValue::Broken,
+    }
+}
+
+/// v1-views §36.1: the file order of each `views:` item's `widths` keys (NFC), None for an item without a `widths`
+/// mapping; None when the text doesn't load or has no `views` list. tegg-schema reads items as JSON (sorted keys) and
+/// takes the order from here.
+pub fn widths_orders(text: &str) -> Option<Vec<Option<Vec<String>>>> {
+    let doc = yaml_rust2::YamlLoader::load_from_str(text).ok()?.into_iter().next()?;
+    let Yaml::Array(items) = &doc["views"] else { return None };
+    Some(
+        items
+            .iter()
+            .map(|i| match &i["widths"] {
+                Yaml::Hash(h) => Some(h.keys().map(|k| nfc(&key_text(k))).collect()),
+                _ => None,
+            })
+            .collect(),
+    )
 }
 
 /// A YAML node as JSON (the shapes the rules look at; other scalars as strings or null).
@@ -143,21 +213,31 @@ pub fn columns_value(v: &Value) -> UsageValue<Vec<String>> {
     }
 }
 
-/// `sort` / `columns` of a mapping read as JSON (tegg-schema's `views:` items); other keys ignored.
+/// The seven usage keys of a mapping read as JSON (tegg-schema's `views:` items); other keys ignored. `widths` comes in
+/// key order (see `widths_orders`).
 pub fn usage_of_json(map: &serde_json::Map<String, Value>) -> UsageRaw {
     UsageRaw {
         sort: map.get("sort").map(sort_value).unwrap_or(UsageValue::Absent),
         columns: map.get("columns").map(columns_value).unwrap_or(UsageValue::Absent),
-        ..Default::default()
+        view: map.get("view").map(view_value).unwrap_or(UsageValue::Absent),
+        group_by: map.get("group_by").map(group_by_value).unwrap_or(UsageValue::Absent),
+        lanes: map.get("lanes").map(lanes_value).unwrap_or(UsageValue::Absent),
+        lane_order: map.get("lane_order").map(lane_order_value).unwrap_or(UsageValue::Absent),
+        widths: map.get("widths").map(widths_value).unwrap_or(UsageValue::Absent),
     }
 }
 
-/// `sort` / `columns` of a YAML mapping (a fence body or a `views:` item); other keys ignored.
+/// The seven usage keys of a YAML mapping (a fence body or a `views:` item); other keys ignored.
 pub fn usage_of(map: &yaml_rust2::yaml::Hash) -> UsageRaw {
-    let get = |k: &str| map.get(&Yaml::String(k.into())).map(json_of);
+    let raw = |k: &str| map.get(&Yaml::String(k.into()));
+    let get = |k: &str| raw(k).map(json_of);
     UsageRaw {
         sort: get("sort").map(|v| sort_value(&v)).unwrap_or(UsageValue::Absent),
         columns: get("columns").map(|v| columns_value(&v)).unwrap_or(UsageValue::Absent),
-        ..Default::default()
+        view: get("view").map(|v| view_value(&v)).unwrap_or(UsageValue::Absent),
+        group_by: get("group_by").map(|v| group_by_value(&v)).unwrap_or(UsageValue::Absent),
+        lanes: get("lanes").map(|v| lanes_value(&v)).unwrap_or(UsageValue::Absent),
+        lane_order: get("lane_order").map(|v| lane_order_value(&v)).unwrap_or(UsageValue::Absent),
+        widths: raw("widths").map(widths_yaml).unwrap_or(UsageValue::Absent),
     }
 }

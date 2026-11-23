@@ -448,6 +448,16 @@ impl Host for CoreHost {
         self.shared.vault.list_dir(crate::queries_q::QUERIES_DIR).unwrap_or_default().into_iter().filter(|p| crate::queries_q::is_query_path(p)).collect()
     }
 
+    fn type_files(&self) -> Vec<String> {
+        let mut v: Vec<String> = self.shared.vault.list_dir(".tegg/types").unwrap_or_default().into_iter().map(|p| nfc(&p)).filter(|p| p.ends_with(".yml")).collect();
+        v.sort();
+        v
+    }
+
+    fn fence_lane_order_paths(&self, from_path: &str) -> Vec<String> {
+        crate::queries_q::QCore { shared: &self.shared }.fence_lane_order_paths(from_path)
+    }
+
     fn query_usage_paths(&self, name: &str) -> Vec<String> {
         crate::queries_q::QCore { shared: &self.shared }.query_usage_paths(name)
     }

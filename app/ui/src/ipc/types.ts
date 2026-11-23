@@ -235,7 +235,23 @@ cardList: Array<string>, cardDefault: boolean, cardKeys: Array<string>, cardIgno
  * Slice OC (v1-cards §5.4): `icon` resolved to a Lucide 0.460 drawing; null for an unknown name (R14's generic icon).
  */
 resolvedIcon: ResolvedIconDto | null, };
-export type ViewItemDto = { name: string, sort: Array<UsageSortDto> | null, sortBroken: boolean, columns: Array<string> | null, columnsBroken: boolean, plain: boolean, };
+export type ViewItemDto = { name: string, sort: Array<UsageSortDto> | null, sortBroken: boolean, columns: Array<string> | null, columnsBroken: boolean, plain: boolean, 
+/**
+ * Slice Q3 (v1-views §39.2): the item's own display (`board` read as `wall`); null when absent or broken.
+ */
+view: "list" | "table" | "wall" | null, viewBroken: boolean, 
+/**
+ * Slice Q3: the item's own grouping (`group_by`); null when absent or broken.
+ */
+group: { none: true } | { none: false; key: string; period: boolean } | null, groupBroken: boolean, 
+/**
+ * Slice Q3: `vertical` / `horizontal` read as `columns` / `rows`.
+ */
+lanes: "columns" | "rows" | null, lanesBroken: boolean, laneOrder: Array<string> | null, laneOrderBroken: boolean, 
+/**
+ * Slice Q3 (D-2177): ordered pairs, keys NFC.
+ */
+widths: Array<[string, number]> | null, widthsBroken: boolean, };
 export type UsageSortDto = { by: string, order: "asc" | "desc", };
 export type TypeFileErrorDto = { message: string, line: number, };
 export type OptionDto = { label: string, color: string | null, 
@@ -266,7 +282,7 @@ icon: string | null,
 resolvedIcon: ResolvedIconDto | null, };
 export type AttributeInputDto = { key: string, name: string, type: string, default: unknown | null, required: boolean, options: Array<OptionDto>, to: Array<string> | null, multiple: boolean, description: string | null, };
 export type AttributeChangeDto = { name?: string, type?: string, default?: unknown | null, required?: boolean, options?: Array<OptionDto>, to?: string[] | null, multiple?: boolean, description?: string | null, };
-export type TypeOpDto = { "op": "set", field: string, value: string | null, } | { "op": "review", on: boolean, } | { "op": "preview", keys: Array<string>, } | { "op": "columns", keys: Array<string>, } | { "op": "hidden", keys: Array<string>, } | { "op": "embed", mode: string, } | { "op": "addAttribute", attribute: AttributeInputDto, } | { "op": "updateAttribute", key: string, change: AttributeChangeDto, } | { "op": "removeAttribute", key: string, } | { "op": "moveAttribute", key: string, to: number, } | { "op": "setOptionState", attr: string, label: string, state: string, } | { "op": "addOption", attr: string, option: OptionDto, } | { "op": "setOptionColor", attr: string, label: string, color: string, } | { "op": "moveOption", attr: string, label: string, to: number, } | { "op": "removeOption", attr: string, label: string, } | { "op": "renameOption", attr: string, from: string, to: string, } | { "op": "views", names: Array<string>, } | { "op": "viewSort", name: string, sort: Array<UsageSortDto> | null, } | { "op": "viewColumns", name: string, columns: Array<string> | null, } | { "op": "viewsSource", source: string, } | { "op": "card", keys: Array<string> | null, } | { "op": "attributeIcon", key: string, icon: string | null, };
+export type TypeOpDto = { "op": "set", field: string, value: string | null, } | { "op": "review", on: boolean, } | { "op": "preview", keys: Array<string>, } | { "op": "columns", keys: Array<string>, } | { "op": "hidden", keys: Array<string>, } | { "op": "embed", mode: string, } | { "op": "addAttribute", attribute: AttributeInputDto, } | { "op": "updateAttribute", key: string, change: AttributeChangeDto, } | { "op": "removeAttribute", key: string, } | { "op": "moveAttribute", key: string, to: number, } | { "op": "setOptionState", attr: string, label: string, state: string, } | { "op": "addOption", attr: string, option: OptionDto, } | { "op": "setOptionColor", attr: string, label: string, color: string, } | { "op": "moveOption", attr: string, label: string, to: number, } | { "op": "removeOption", attr: string, label: string, } | { "op": "renameOption", attr: string, from: string, to: string, } | { "op": "views", names: Array<string>, } | { "op": "viewSort", name: string, sort: Array<UsageSortDto> | null, } | { "op": "viewColumns", name: string, columns: Array<string> | null, } | { "op": "viewsSource", source: string, } | { "op": "viewDisplay", name: string, view: "list" | "table" | "wall" | null, } | { "op": "viewGroup", name: string, group: { none: true } | { none: false; key: string; period: boolean } | null, } | { "op": "viewLanes", name: string, lanes: "columns" | "rows" | null, } | { "op": "viewLaneOrder", name: string, laneOrder: Array<string> | null, } | { "op": "viewWidths", name: string, widths: Array<[string, number]> | null, } | { "op": "viewCopy", from: string, to: string, } | { "op": "card", keys: Array<string> | null, } | { "op": "attributeIcon", key: string, icon: string | null, };
 export type TypeUsageDto = { objects: number, values: { [key in string]?: number }, options: { [key in string]?: { [key in string]?: number } }, };
 export type TypeRowDto = { path: string, id: string | null, title: string, created: string | null, modified: string | null, values: Record<string, unknown>, links: Array<LinkTargetDto>, typeSingle: boolean, 
 /**
@@ -402,7 +418,13 @@ usageFolded?: { [key in string]?: Array<string> },
  * Slice Q2-T (v1-views §30.3, D-1893): the tag filter per view tab (`tab:<type>/<name key>`) or `All <plural>`
  * (`all:<type>`); tag keys, NFC, lower case.
  */
-tagFilter?: { [key in string]?: Array<string> }, };
+tagFilter?: { [key in string]?: Array<string> }, 
+/**
+ * Slice Q3 (v1-views §39.2, §42.3; D-2178): `All <plural>`'s display and grouping per type key; missing reads as a
+ * Table, not grouped.
+ */
+allView?: { [key in string]?: AllViewDto }, };
+export type AllViewDto = { view: "list" | "table" | "wall", groupBy: string | null, groupPeriod: boolean, lanes: "columns" | "rows", };
 export type LinkTargetDto = { target: string, 
 /**
  * `note`, `daily`, `date-missing` or `unresolved`.

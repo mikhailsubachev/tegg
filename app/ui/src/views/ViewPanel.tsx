@@ -9,6 +9,7 @@ import { createPortal } from 'react-dom';
 import { t, catalogLocale } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
 import type { QueryDefDto, QueryResultDto, QueryRowDto, SortDto } from '../ipc/queries';
+import { lanesDir, lanesOf } from '../ipc/queries';
 import type { TypeDto } from '../ipc/types';
 import { Icon } from '../shell/Icon';
 import { TagFilterControl } from './TagFilterControl';
@@ -125,7 +126,7 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
   const [shown, setShown] = useState<number | null>(null);
   const sortBtn = useRef<HTMLButtonElement | null>(null);
   const columnsBtn = useRef<HTMLButtonElement | null>(null);
-  const isBoard = def?.view === 'board' && !!result?.group;
+  const isBoard = def?.view === 'wall' && !!result?.group;
   useImperativeHandle(apiRef, () => ({
     def: () => writer.current() ?? def,
     readOnly: () => readOnly,
@@ -181,7 +182,7 @@ export function ViewPanel({ name, typeKey, type, types, plural, slot, filter, on
           }
         }} />
       <TagFilterControl rows={tagRows} selected={filter.tags} onChange={setTags} command="view.tagFilter" allHint={nfc(typeKey) === 'task' ? t('tasks.tagAll') : null} />
-      {def && isBoard && <LanesSwitch lanes={def.lanes} disabled={readOnly} onSwitch={(l) => apply({ lanes: l })} />}
+      {def && isBoard && <LanesSwitch lanes={lanesDir(def.lanes)} disabled={readOnly} onSwitch={(l) => apply({ lanes: lanesOf(l) })} />}
       {def && (
         <button ref={sortBtn} type="button" tabIndex={0} className="text-button view-sort" aria-label={t('sort.button')} aria-haspopup="dialog" aria-expanded={!!sortOpen}
           data-command="sort.open" aria-disabled={disabled ? 'true' : undefined} aria-description={disabled ?? undefined}

@@ -11,7 +11,7 @@ use serde_json::{Map, Value};
 use tegg_format::nfc;
 
 mod views;
-pub use views::{rename_view, views_source};
+pub use views::{relink_view_lane_orders, rename_view, views_source};
 // Slice OC (docs/contracts/v1-cards.md §2.2, §2.4): the card list and the Lucide icon names.
 pub mod card;
 pub use card::{card_list, card_list_undefined, default_card, CardList, CARD_BUILT_INS, CARD_FALLBACK};
@@ -224,7 +224,7 @@ pub struct ViewItem {
     pub name: String,
     pub sort: UsageValue<Vec<UsageSort>>,
     pub columns: UsageValue<Vec<String>>,
-    /// Slice Q3 (v1-views §36.1). Red-test stubs: not read yet (always Absent).
+    /// Slice Q3 (v1-views §36.1): own display and grouping values (Absent / Set / Broken); `widths` in file order.
     pub view: UsageValue<UsageView>,
     pub group_by: UsageValue<UsageGroupBy>,
     pub lanes: UsageValue<UsageLanes>,
@@ -369,9 +369,39 @@ fn view_item(v: &Value) -> Option<ViewItem> {
                 return None;
             }
             let u = tegg_format::usage::usage_of_json(m);
-            Some(ViewItem { name: nfc(name), sort: u.sort, columns: u.columns, view: UsageValue::Absent, group_by: UsageValue::Absent, lanes: UsageValue::Absent, lane_order: UsageValue::Absent, widths: UsageValue::Absent, plain: m.len() == 1 })
+            Some(ViewItem { name: nfc(name), sort: u.sort, columns: u.columns, view: u.view, group_by: u.group_by, lanes: u.lanes, lane_order: u.lane_order, widths: u.widths, plain: m.len() == 1 })
         }
         _ => None,
+    }
+}
+
+fn is_views_op(o: &TypeOp) -> bool {
+    matches!(
+        o,
+        TypeOp::SetViews(_)
+            | TypeOp::SetViewSort { .. }
+            | TypeOp::SetViewColumns { .. }
+            | TypeOp::SetViewsSource(_)
+            | TypeOp::SetViewDisplay { .. }
+            | TypeOp::SetViewGroup { .. }
+            | TypeOp::SetViewLanes { .. }
+            | TypeOp::SetViewLaneOrder { .. }
+            | TypeOp::SetViewWidths { .. }
+            | TypeOp::CopyViewSettings { .. }
+    )
+}
+
+/// v1-views §36.1: `widths` pairs in file order (a JSON mapping sorts its keys; the order is read from the YAML).
+pub(crate) fn order_widths(items: &mut Option<Vec<ViewItem>>, text: &str) {
+    let Some(items) = items.as_mut() else { return };
+    if !items.iter().any(|i| matches!(&i.widths, UsageValue::Set(w) if w.len() > 1)) {
+        return;
+    }
+    let Some(orders) = tegg_format::usage::widths_orders(text) else { return };
+    for (i, order) in items.iter_mut().zip(orders) {
+        if let (UsageValue::Set(w), Some(order)) = (&mut i.widths, order) {
+            w.sort_by_key(|(k, _)| order.iter().position(|o| o == k).unwrap_or(usize::MAX));
+        }
     }
 }
 
@@ -452,7 +482,8 @@ fn parse_uncached(key: &str, text: &str) -> Parsed {
             }
             // One YAML parse per call: the unreadable flags and the raw `embed` come from the same mapping.
             let columns_unreadable = list_unreadable(&top, "columns");
-            let (_, view_items, views_unreadable) = read_views(&top);
+            let (_, mut view_items, views_unreadable) = read_views(&top);
+            order_widths(&mut view_items, text);
             let embed_raw = embed_raw_of(&top);
             // v1-cards §2.1 (D-2076): as `columns`; Tag's card is fixed, so its `card:` is neither read nor warned about.
             let card_unreadable = list_unreadable(&top, "card");
@@ -1243,7 +1274,7 @@ fn patch_inner(key: &str, text: &str, ops: &[TypeOp], ctx: &PatchContext, used: 
     if parsed.card_unreadable && ops.iter().any(|o| matches!(o, TypeOp::SetCard(_))) {
         return Err(SchemaError::Rule(RuleError::CardUnreadable)); // D-2076: fixed in the file first
     }
-    if parsed.views_unreadable && ops.iter().any(|o| matches!(o, TypeOp::SetViews(_) | TypeOp::SetViewSort { .. } | TypeOp::SetViewColumns { .. })) {
+    if parsed.views_unreadable && ops.iter().any(|o| !matches!(o, TypeOp::SetViewsSource(_)) && is_views_op(o)) {
         return Err(SchemaError::Rule(RuleError::ViewsUnreadable)); // v1-views §1.3: fixed in the file first
     }
     let mut def = parsed.def;
@@ -1381,12 +1412,17 @@ fn apply(def: &mut TypeFile, lines: &mut Vec<String>, op: &TypeOp, system: bool,
                 set_item_icon(lines, i, &def.attributes[i]);
             }
         }
-        TypeOp::SetViewDisplay { .. } | TypeOp::SetViewGroup { .. } | TypeOp::SetViewLanes { .. } | TypeOp::SetViewLaneOrder { .. } | TypeOp::SetViewWidths { .. } | TypeOp::CopyViewSettings { .. } => {
-            // Red-test stub (Q3, v1-views §36.2): not built yet; refused without a write.
-            return Err(RuleError::ViewNotListed.into());
-        }
-        TypeOp::SetViews(_) | TypeOp::SetViewSort { .. } | TypeOp::SetViewColumns { .. } | TypeOp::SetViewsSource(_) => {
-            // v1-views §1.3 (D-1782), §14.2 (R196; D-1840, D-1852, D-1857).
+        TypeOp::SetViews(_)
+        | TypeOp::SetViewSort { .. }
+        | TypeOp::SetViewColumns { .. }
+        | TypeOp::SetViewsSource(_)
+        | TypeOp::SetViewDisplay { .. }
+        | TypeOp::SetViewGroup { .. }
+        | TypeOp::SetViewLanes { .. }
+        | TypeOp::SetViewLaneOrder { .. }
+        | TypeOp::SetViewWidths { .. }
+        | TypeOp::CopyViewSettings { .. } => {
+            // v1-views §1.3 (D-1782), §14.2 (R196; D-1840, D-1852, D-1857), §36.2 (Q3; CP-35, D-2200).
             views::apply_views(def, lines, op)?;
         }
         TypeOp::SetColumns(keys) => {

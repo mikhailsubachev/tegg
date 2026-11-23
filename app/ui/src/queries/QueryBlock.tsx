@@ -10,6 +10,7 @@ import { newQueryFence, referenceFence, savedName, withSavedName } from '@tegg/d
 import { t } from '../i18n/catalog';
 import { events, ipc } from '../ipc/client';
 import type { BrokenDto, FilterItemDto, QueryDefDto, QueryDto, QueryResultDto, QueryRowDto, QuerySourceDto, SortDto } from '../ipc/queries';
+import { lanesDir, lanesOf } from '../ipc/queries';
 import { buttonText, headerClick, levels, sameSort } from './sort';
 import type { TypeDto, VersionDto } from '../ipc/types';
 import { chipIcon, chipTypes, onChipTypes, typeNameOf } from '../links/icons';
@@ -77,7 +78,7 @@ const nfc = (s: string) => s.normalize('NFC');
 /** `New property…` (§4.4) loads the type settings' dialog only when used (it pulls in the editor package). */
 const NewPropertyDialog = lazy(() => import('../pages/TypeSettingsPage').then((m) => ({ default: m.NewPropertyDialog })));
 const DRAFT_DEF = (): QueryDefDto => ({
-  title: t('query.editor.untitled'), types: [], match: 'all', filters: [], sort: [{ by: 'modified', order: 'desc' }], limit: 50, view: 'list', groupBy: null, lanes: 'vertical', laneOrder: null, columns: ['type', 'modified'], groupPeriod: false, doneLane: null,
+  title: t('query.editor.untitled'), types: [], match: 'all', filters: [], sort: [{ by: 'modified', order: 'desc' }], limit: 50, view: 'list', groupBy: null, lanes: 'columns', laneOrder: null, columns: ['type', 'modified'], groupPeriod: false, doneLane: null,
 });
 
 type BlockState = 'loading' | 'ok' | 'noResults' | 'draft' | 'notFound' | 'trashed' | 'unreadable' | 'needsContext' | 'needsHost' | 'noType';
@@ -322,7 +323,7 @@ export function QueryBlock(p: QueryBlockProps) {
   const showResults = state === 'ok' || state === 'noResults';
   const view = def?.view ?? 'list';
   // D-1773: a board query draws its board (a broken `group_by` draws a List with its notice, R185).
-  const isBoard = view === 'board' && !!result?.group;
+  const isBoard = view === 'wall' && !!result?.group;
   const sortTitle = def ? (() => { const b = buttonText(effSort, (k) => sortKeyName(k, def.types.length === 1 ? types.find((x) => nfc(x.key) === nfc(def.types[0])) : undefined).label); return b.text + (b.more ? ` ${t('sort.more', { count: b.more })}` : ''); })() : undefined;
   // The palette (v1-views §4.7): a selected block, or the query page's block.
   useViewsHandler(!!(p.selected || p.onPage) && !!name && !inline, {
@@ -450,7 +451,7 @@ export function QueryBlock(p: QueryBlockProps) {
             </button>
           )}
           {showResults && isBoard && def && (
-            <LanesSwitch lanes={def.lanes} disabled={readOnly ? t('query.block.readOnly') : null} onSwitch={(l) => apply({ lanes: l })} />
+            <LanesSwitch lanes={lanesDir(def.lanes)} disabled={readOnly ? t('query.block.readOnly') : null} onSwitch={(l) => apply({ lanes: lanesOf(l) })} />
           )}
           {showResults && view === 'table' && (
             <button ref={columnsBtn} type="button" tabIndex={0} className="query-head-button" data-command="query.columns" aria-haspopup="menu" aria-expanded={columnsOpen}
