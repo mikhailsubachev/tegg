@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.243, for review                                            |
+| **Document status** | Draft v1.244, for review                                            |
 | **Date**            | 2026-11-22                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -244,6 +244,7 @@
 | v1.241  | 2026-11-23 | Slice AND-2 build (owner, "Approve, snap off"): D-2103, D-2104: phone board lanes scroll freely without snapping, four L5p test fixes (`AC-Test-Change`) |
 | v1.242  | 2026-11-23 | Slice AND-2 build (owner, "Approve all eight"): D-2105…D-2112: eight L5p test and AC fixes (`AC-Test-Change`) |
 | v1.243  | 2026-11-23 | Slice AND-2 build (owner, "Approve all three"): D-2113…D-2115: three more L5p test fixes (`AC-Test-Change`) |
+| v1.244  | 2026-11-23 | Slice AND-2 build (owner, "Approve both"): D-2116 (AC-54 waits for the drawer's slide), D-2117 (a command per view tab on the phone) |
 
 ---
 
@@ -2060,6 +2061,8 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-2113 | FR-SYN-06 AC-51 sets the Date format by the native select (AND-2 build) (owner, 2026-11-23: "Approve all three") | As D-2104 for FR-SET-01 AC-14: the phone keeps the Mac's Date & time section with its native select (contract §9.10), so the reading tour sets `Long` through it (`AC-Test-Change`). |
 | D-2114 | FR-MMP-02 AC-34 compares with the scroll at opening (AND-2 build) (owner, 2026-11-23: "Approve all three") | The test brings `Open full screen` into view before it records the note's scroll; closing full screen returns to the scroll the note had when full screen opened. AC text and test (`AC-Test-Change`). |
 | D-2115 | Read-only task checkboxes in note text carry no command (AND-2 build; FR-UX-03 AC-54) (owner, 2026-11-23: "Approve all three") | Like D-2112's links: a read-only task checkbox in a note's text is content, not a control, and needs no `data-command`. AC text and test (`AC-Test-Change`). |
+| D-2116 | FR-UX-03 AC-54 waits for the drawer's slide (AND-2 build) (owner, 2026-11-23: "Approve both") | The test's forced tap in the drawer waits until the drawer's 200 ms slide (contract §8) has ended, so it doesn't land on a control still off-screen (`AC-Test-Change`). |
+| D-2117 | A command per view tab on the phone (AND-2 build; FR-UX-03 AC-54; contract §9.5, §10) (owner, 2026-11-23: "Approve both") | On the phone each view tab carries `views.tab:<name>` (`views.tab:` for `All <plural>`), one registered command per tab of the shown type page (as `goto.type:<key>`), which selects that tab, as the tap does; `views.next` keeps meaning the next tab. The desktop's tabs are unchanged. |
 | D-1880 | The WebKit tests load a built bundle (owner, 2026-11-19: "Build it") | A page load from the Vite dev server made about 356 requests and took about 610 ms; from a built bundle it makes 5 and takes about 180 ms, and the dev server stopped scaling past 6 workers. `app/webkit/serve-built.ts` builds the UI once per run with the app's Vite config, keeps it in memory and serves it on the run's port; the page entries and the eight modules the tests import in the page (seven of the UI and `packages/doc`) are entry chunks at their source paths, so no test changed. A test prelude is now a module of its own that the page entry imports first, so it runs before the app's modules, as the shipped app's region setting does. The bundle is a production build (minified, React's production mode), as the shipped app is. `TEGG_WEBKIT_DEV=1` serves the dev server for debugging. CONTRACT §3.2.1 |
 | D-1881 | 6 WebKit workers in the gates (owner, 2026-11-19: "Build it"; replaces D-1347) | D-1347 lowered the gates to 4 workers because 6 drove the load average to about 14–24 while every test loaded the dev server. With the built bundle (D-1880) 6 workers gave a load average of about 8 and ran 293 tests in 83 s against 148 s for the dev server with 4, also with four busy cores next to them. 8 workers were faster still (71 s) but are not used until 6 has held in the gates. `app/playwright.config.ts` |
 | D-1882 | A nightly WebKit run on the dev server (owner, 2026-11-19: "Add nightly run"; QA review of D-1880) | The app renders inside React's StrictMode, which runs effects twice in a development build only. With the built bundle (D-1880) the push gate no longer exercises that, and at least eight guards in the UI exist only to stay correct under it. The nightly step `app-webkit-dev` runs the whole WebKit suite on the Vite dev server with 4 workers (`VERIFY_WEBKIT_DEV=1`), so a removed guard fails the nightly gate the next morning. The push gate stays on the bundle. CONTRACT §3.2.1 |

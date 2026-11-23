@@ -158,7 +158,7 @@ test('fr_ux_03_ac54_commands_without_a_palette', async ({ browser }) => {
         const tapPage = await phonePage(browser);
         const c1 = await startPhone(tapPage, { route });
         await eventually(() => mainName(tapPage), (n) => !!n, 5000);
-        if (inDrawer) await openDrawer(tapPage);
+        if (inDrawer) await drawerSettled(tapPage); // D-2116
         const n1 = (await c1.calls()).length;
         await (inDrawer ? drawer(tapPage) : tapPage.locator('body')).locator(`[data-command="${id.replace(/"/g, '\\"')}"]`).first().click({ force: true });
         const byTap = await effect(tapPage, c1, n1);
@@ -167,7 +167,7 @@ test('fr_ux_03_ac54_commands_without_a_palette', async ({ browser }) => {
         const runPage = await phonePage(browser);
         const c2 = await startPhone(runPage, { route });
         await eventually(() => mainName(runPage), (n) => !!n, 5000);
-        if (inDrawer) await openDrawer(runPage);
+        if (inDrawer) await drawerSettled(runPage); // D-2116
         const hasRun = await runPage.evaluate(() => typeof (window as any).__TEGG_TEST__?.run === 'function');
         assert.ok(hasRun, `${how}: window.__TEGG_TEST__.run(id) exists (contract §12.2, D-2101)`);
         const n2 = (await c2.calls()).length;
@@ -323,3 +323,15 @@ test('fr_syn_06_ac51_reading_on_the_phone_writes_nothing', async ({ page }) => {
   assert.deepEqual(calls.filter((c) => RA2_EXCLUDED.includes(c)), [], 'no invoke of an RA2-excluded command during the tour (AR-03 AC-13)');
   assert.equal(await page.getByText('This isn’t available yet.').count(), 0, 'error.unsupported is never shown');
 });
+
+/** D-2116: opens the drawer and waits until its 200 ms slide (contract §8) has ended: its left edge stays put. */
+async function drawerSettled(page: Page): Promise<void> {
+  const d = await openDrawer(page);
+  let last = NaN;
+  for (let i = 0; i < 40; i++) {
+    const x = (await rect(d))?.x ?? NaN;
+    if (x === last && x >= -0.5) return;
+    last = x;
+    await sleep(50);
+  }
+}

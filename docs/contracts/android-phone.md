@@ -414,7 +414,7 @@ or the vault. Hidden: `Mindmap layout`, `Edit node`; `MindmapMap` is `readOnly` 
 
 `TypePage`, `TypeViews`, `ViewPanel`, `ResultsTable`, `QueryBoard` take `readOnly` from `isPhone()`:
 - The header: `h1 <plural>` (app bar), the count line, and `p.phone-sort-line` with `phoneSortLine` under the tabs.
-- `tablist "Views"`: chips in one row, `overflow-x: auto`; tab `data-command="views.next"`; selecting stores
+- `tablist "Views"`: chips in one row, `overflow-x: auto`; tab `data-command="views.tab:<name>"` (`views.tab:` for `All <plural>`; one registered command per tab, which selects it, D-2117); selecting stores
   `typeViews.lastTab` (`ui_state_set`) and adds no history entry. A tab state (R186) shows its text only.
 - Table: no resize separators, header cells are not buttons (`th` without `role="button"`, no sort on tap); the table
   container scrolls sideways; the Title column is `position: sticky; left: 0`.
@@ -487,7 +487,7 @@ inputs and rows of object lists; running the command does what the tap does.
 `tasks.go`, `tags.go`, `queries.go`, `goto.type:<key>` (each type entry), `vault.switch`, `vault.recent.1`…`9`,
 `vault.openFolder`, `vault.create`, `app.logoMenu`, `theme.system`, `theme.light`, `theme.dark`, `mindmap.showMap`,
 `mindmap.showList`, `mindmap.zoomIn`, `mindmap.zoomOut`, `mindmap.fit`, `mindmap.fullScreen`,
-`mindmap.closeFullScreen`, `android.openSettings`. Page controls keep their existing ids (`views.next`,
+`mindmap.closeFullScreen`, `android.openSettings`. Page controls keep their existing ids (view tabs: `views.tab:<name>`, D-2117;
 `query.showMore`, `search.*` except `search.create*`, `daily.showMore`, `daily.openRow`, `sidebar.pinned.open`,
 `sidebar.pinned.toggle`, board folds, callout folds).
 
