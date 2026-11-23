@@ -43,3 +43,13 @@ test('ac_ids_known_duplicates_are_skipped_and_stale_ones_reported', (t) => {
   writeFiles(fixed, { 'docs/acceptance/a.md': A, 'docs/acceptance/b.md': B });
   assert.match(duplicateAcIds(fixed, ['FR-ABC-01/AC-2'])[0], /FR-ABC-01\/AC-2 is no longer defined twice/);
 });
+
+test('ac_ids_known_duplicates_of_a_requirement_without_criteria_are_not_judged', (t) => {
+  // D-2126: a QA-tool test's fixture repository has no criteria of the listed requirements.
+  const dir = tmpDir(t);
+  writeFiles(dir, { 'docs/acceptance/a.md': A, 'docs/acceptance/b.md': B });
+  assert.deepEqual(duplicateAcIds(dir, ['FR-XYZ-09/AC-1']), []);
+  const empty = tmpDir(t);
+  writeFiles(empty, { 'src/.keep': '' });
+  assert.deepEqual(duplicateAcIds(empty, ['FR-ABC-01/AC-2']), []);
+});
