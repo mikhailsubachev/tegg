@@ -10,6 +10,7 @@ const layers: Layer[] = [];
 export function pushLayer(close: () => void): () => void {
   const l: Layer = { close };
   layers.push(l);
+  installEscape();
   return () => {
     const i = layers.indexOf(l);
     if (i >= 0) layers.splice(i, 1);
@@ -33,4 +34,19 @@ export function systemBack(): boolean {
     return true;
   }
   return backFn ? backFn() : false;
+}
+
+// Escape (a hardware keyboard, the tests) closes the top layer like system Back, wherever the focus is: a layer whose
+// own key handler took it has stopped it before it gets here.
+let escapeInstalled = false;
+function installEscape(): void {
+  if (escapeInstalled || typeof document === 'undefined') return;
+  escapeInstalled = true;
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || e.defaultPrevented) return;
+    const top = layers[layers.length - 1];
+    if (!top) return;
+    e.preventDefault();
+    flushSync(() => top.close());
+  });
 }

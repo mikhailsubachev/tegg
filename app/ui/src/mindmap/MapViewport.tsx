@@ -7,6 +7,7 @@ import { t } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
 import { Icon } from '../shell/Icon';
 import { pushLayer } from '../phone/back';
+import { setMapFullScreen } from '../phone/fullScreen';
 import { blockHeight, canZoomIn, canZoomOut, openingScale, pinchScale, scrollAfterZoom, zoomIn, zoomOut } from './zoom';
 
 type Size = { width: number; height: number };
@@ -115,6 +116,11 @@ export function MapViewport({ title, map, list }: { title: string; map: ReactNod
     requestAnimationFrame(() => { const m = document.querySelector('main'); if (m) m.scrollTop = savedScroll.current; });
   }, []);
   useEffect(() => (full ? pushLayer(closeFull) : undefined), [full, closeFull]);
+  useEffect(() => {
+    if (!full) return;
+    setMapFullScreen(true);
+    return () => setMapFullScreen(false);
+  }, [full]);
   const zoomButtons = (
     <>
       <button type="button" className="icon-button" aria-label={t('phone.map.zoomOut')} data-command="mindmap.zoomOut"

@@ -607,3 +607,38 @@ html[data-layout="phone"] main tr.query-row td a {
   align-items: center;
   min-height: 48px;
 }
+
+/* FR-UX-04 AC-5: board card titles, card chips, `Used on` chips and the query page's back link take a 48 px hit
+   area. Titles and the back link grow; chips keep their look and get an invisible 48 px band, in rows 48 px tall so
+   the bands never overlap. */
+html[data-layout="phone"] .board-card-title,
+html[data-layout="phone"] .query-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  min-width: 48px;
+}
+html[data-layout="phone"] .board-card-foot,
+html[data-layout="phone"] .query-usages li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  row-gap: 28px;
+  min-height: 48px;
+}
+html[data-layout="phone"] .board-card-foot .chip,
+html[data-layout="phone"] .query-usages .chip {
+  position: relative;
+  min-width: 48px;
+  justify-content: center;
+}
+html[data-layout="phone"] .board-card-foot .chip::before,
+html[data-layout="phone"] .query-usages .chip::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 48px;
+  transform: translateY(-50%);
+}

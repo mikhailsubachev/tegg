@@ -3,12 +3,13 @@
 // the vault chooser (FR-VLT-01) and the launch landing (D-132). The note route is the slice 3B read view (D-117).
 import { ShortcutsPage } from './pages/ShortcutsPage';
 import { resetMindmapViews } from './mindmap/mount';
+import { mapFullScreen, subscribeMapFullScreen } from './phone/fullScreen';
 import { registerConvertPrefs } from './convert/prefs';
 import { adoptTasksUi, registerViewsUiState } from './views/uiState';
 import { restoreDefaultViews, restoreState } from './views/defaultViews';
 import { viewsActions, watchFocus } from './views/actions';
 import { registerWidthsStore, widthsChanged } from './tables/widths';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { t } from './i18n/catalog';
 import { events, ipc } from './ipc/client';
 import type { ProgressDto, StartStateDto, SwitcherItemDto, TypeDefDto, UiStateDto, VaultInfo } from './ipc/types';
@@ -277,6 +278,7 @@ export function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [phoneMore, setPhoneMore] = useState<HTMLElement | null>(null);
   const [phoneNotice, setPhoneNotice] = useState<string | null>(null);
+  const mapFull = useSyncExternalStore(subscribeMapFullScreen, mapFullScreen);
   const phone = isPhone();
   // Another vault opened from the drawer's switcher closes the drawer.
   useEffect(() => { setDrawerOpen(false); }, [vault?.path]);
@@ -312,6 +314,8 @@ export function App() {
   const heading = useRef<HTMLHeadingElement | null>(null);
   const searchInput = useRef<HTMLInputElement | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
+  /** AND-2 (FR-NAV-03 AC-17): Back from a note to a list focuses that note's row on the phone. */
+  const backRowFocus = useRef<string | null>(null);
   const pendingFocus = useRef(false);
   /** "G3 in the panel" (FR-UX-03 AC-33): an object opened by key from the panel graph focuses the page heading (D-130). */
   const headingFocus = useRef(false);
@@ -591,6 +595,7 @@ export function App() {
     history.current.saveScroll(centreScroll(), centreCaret());
     const e = dir === 'back' ? history.current.back() : history.current.forward();
     if (!e) return;
+    backRowFocus.current = isPhone() && dir === 'back' && here?.route.id === 'note/<path>' && here.route.param ? here.route.param.normalize('NFC') : null;
     setChooser(null);
     setFocusMode(false);
     pendingReturn.current = null;
@@ -1446,6 +1451,40 @@ export function App() {
           }
         }
       }
+      // AND-2 (FR-NAV-03 AC-17): the row of the note Back came from takes the focus once it is drawn.
+      const rowPath = backRowFocus.current;
+      backRowFocus.current = null;
+      if (rowPath && route.id !== 'note/<path>' && route.id !== DAILY) {
+        const key = routeKey;
+        const sel = `[data-query-result="${CSS.escape(rowPath)}"], [data-path="${CSS.escape(rowPath)}"]`;
+        // Rows drawn later (a view's run): focus the row the moment it is inserted, then keep the focus on it for ~30
+        // frames against a later render, unless the user touches or types meanwhile; give up after 2 s.
+        const m = document.querySelector('main');
+        let user = false;
+        let held = 0;
+        const stop = () => { user = true; };
+        window.addEventListener('pointerdown', stop, { capture: true, once: true });
+        window.addEventListener('keydown', stop, { capture: true, once: true });
+        const tryFocus = (): boolean => {
+          const row = m?.querySelector<HTMLElement>(sel);
+          if (!row) return false;
+          if (!row.contains(document.activeElement)) {
+            if (!row.hasAttribute('tabindex')) row.setAttribute('tabindex', '-1');
+            row.focus({ preventScroll: true });
+          }
+          return true;
+        };
+        const obs = new MutationObserver(() => { if (!user && shownRoute.current === key) tryFocus(); });
+        const done = () => { obs.disconnect(); window.removeEventListener('pointerdown', stop, true); window.removeEventListener('keydown', stop, true); };
+        if (m) obs.observe(m, { childList: true, subtree: true });
+        const t0 = performance.now();
+        const tick = () => {
+          if (shownRoute.current !== key || user || performance.now() - t0 > 2000) { done(); return; }
+          if (tryFocus() && held++ >= 30) { done(); return; }
+          requestAnimationFrame(tick);
+        };
+        tick();
+      }
       // The Tasks page marks itself once its cards have painted (FR-TSK-04 AC-14).
       // The Tasks page and the graph (v1-graph §3: after its first graph or state) mark themselves.
       if (route.id === 'graph/<path>') return;
@@ -1742,7 +1781,7 @@ export function App() {
           onSearch={actions.openSearch}
           onToday={() => { void go({ id: 'today' }); }}
           current={route?.id === 'search' ? 'search' : isDaily && route?.param === today ? 'today' : null}
-          fullScreen={false}
+          fullScreen={mapFull}
           notice={phoneNotice}
           mainName={(route?.id === 'note/<path>' || isDaily) && !noteShown ? undefined : pageName}
           mainClass={route?.id === 'note/<path>' || isDaily ? 'note-main' : ''}

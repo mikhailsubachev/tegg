@@ -141,7 +141,7 @@ export function PhoneFrame(props: {
   );
   return (
     <>
-      <header role="banner" className="phone-appbar">
+      <header role="banner" className="phone-appbar" inert={props.fullScreen || undefined}>
         <div className="phone-appbar-row">
           {props.canBack && (
             <button type="button" className="icon-button phone-back" aria-label={t('phone.back')} data-command="nav.back" onClick={props.onBack}>
@@ -163,7 +163,7 @@ export function PhoneFrame(props: {
           <span>{t('progress.running', { done: props.progress.done, total: props.progress.total })}</span>
         </div>
       )}
-      <main aria-label={props.mainName} className={`phone-main ${props.mainClass}`}>
+      <main aria-label={props.mainName} className={`phone-main ${props.mainClass}`} inert={props.fullScreen || undefined}>
         {props.children}
       </main>
       {showBar && (
