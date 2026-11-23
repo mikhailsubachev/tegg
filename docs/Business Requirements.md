@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.253, for review                                            |
+| **Document status** | Draft v1.254, for review                                            |
 | **Date**            | 2026-11-23                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -254,6 +254,7 @@
 | v1.251  | 2026-11-23 | Slice Q3 contract (`docs/contracts/v1-views.md` part four, §33…§47): D-2197…D-2202 (CP-32…CP-37; owner: "Accept all"): `group_none` for `None` on the query page, default columns when a usage shows a wall query as a Table or List, `All <plural>` grouped through a query run, field-level bytes in a changed `views:` item and Duplicate copying its lines, type moves also patch usage lane orders, an attribute keyed `none` not offered for grouping; D-2203: seven AC fixes found by the contract |
 | v1.252  | 2026-11-23 | Slice Q3 red tests (stubs 08e8f99b, red tests b98eac33, changed tests 0a5bf1a8, 691cb86c): D-2204…D-2209 (RT-1…RT-6; owner: "Accept all"): comment ownership between `views:` items, UI helper argument shapes, AC-46 (c)'s chain, wall render bounds at L5, no type-move case, `Show a saved query` appends; D-2210: five more changed AC tests |
 | v1.253  | 2026-11-23 | Slice Q3-a build (539c04ec): D-2211 (Q3-a test fixes), D-2212 (sort and columns writes keep untouched item lines, amends D-1840), D-2213 (`done_lane` with a broken `group_by`); owner: "Approve all" |
+| v1.254  | 2026-11-23 | Slice Q3-b build (23b7648c): D-2214 (Q3-b test changes; owner: "Approve all") |
 
 Slice OC decisions and versions were renumbered on merging main (PR #154 used the same numbers): D-1942…D-2053 → D-2054…D-2165, v1.220…v1.229 → v1.238…v1.247. Commit messages before this renumbering use the old numbers (D-2166).
 
@@ -2226,6 +2227,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-2211 | Q3-a test fixes (owner, 2026-11-23: "Approve all"; slice Q3-a build, commit 539c04ec) | With `AC-Test-Change: …; approved-by: owner`: the generators of `ac_views_display_props` (tegg-schema) and `query_usage_display_props` (@tegg/doc) write LF-only lines, an empty `lane_order` as `[]` and keep comment indentation; `fr_qry_05_ac8` gets the cancelled tasks it needs; `fr_qry_07_ac27` drops its assertion that the general create writer gives R202's old words (D-2195: the defaults are constants, other creates write the new words); `fr_lnk_03_ac26` drops its backup-zip assertion (a note rename makes none, D-269); `fr_qry_01_ac16` and `fr_fmt_12_ac13` compare only the fields they check; `fake_views_usage.contract.test.ts` gains the Q3 usage fields |
 | D-2212 | Sort and columns writes keep untouched item lines (owner, 2026-11-23: "Approve all"; slice Q3-a build, commit 539c04ec) | D-2200's rule applies to `SetViewSort` and `SetViewColumns` too: a changed `views:` item keeps the lines of every key the change doesn't touch (a hand-written `view: board` stays). Q2.1's expected bytes for these ops change accordingly. Amends D-1840 |
 | D-2213 | `done_lane` with a broken `group_by` (owner, 2026-11-23: "Approve all"; slice Q3-a build, commit 539c04ec) | `done_lane` also applies when the usage's `group_by` is set but broken (FR-QRY-01 AC-18, AC-36 (d): 17 tasks) |
+| D-2214 | Q3-b test changes (owner, 2026-11-23: "Approve all"; slice Q3-b build, commit 23b7648c) | With `AC-Test-Change: …; approved-by: owner`: `type_page` FR-TYP-09 AC-8 and `views_tabs` FR-QRY-07 AC-17 no longer assert the absence of a `Group` button; `views_usage` FR-QRY-07 AC-26 expects Duplicate's `viewCopy` op (CP-35, D-2200); `writtenPaths` counts a type-file write once; the usage `writes()` of FR-QRY-05 AC-33 (c), AC-35 and FR-QRY-06 AC-26 leave out query files, which `query/<name>` writes; FR-QRY-05 AC-33 (a) expects 2 wall columns in a 680 px note column (§40.1's formula); FR-QRY-07 AC-33 looks for `view.tagFilter`; FR-SYN-03 AC-36 waits for the block's first run before the outside change; FR-QRY-05 AC-37 finds card pills by `data-attribute`; the L1 FR-QRY-05 AC-43 keyboard resize expects 120 px (R130's minimum) |
 
 ---
 
