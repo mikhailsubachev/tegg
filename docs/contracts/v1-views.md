@@ -2468,7 +2468,8 @@ pub struct UsageRun {
 - **The done lane** (D-2188): applied when the effective grouping resolves (any display), with part three's rules per
   grouping (period → the `done` lane; `status` with states → `done_within` on Done-state option lanes; other groupings
   → Done rows outside `within_days` leave `rows`). An ungrouped usage ignores `done_lane` (no notice, every Done-state
-  row shown).
+  row shown). A `group_by` that is set but broken (unresolved, or unreadable in the file and not replaced by the usage)
+  still counts as grouped for the done lane (D-2213; FR-QRY-01 AC-18, FR-QRY-05 AC-36 (d)).
 - **Rows and cards**: `rows` hold every result (D-1451); `limit` is the UI's, applied only to an ungrouped List or
   Table (R141 `Show more`, D-2189). On a **wall** run (effective `View::Wall`) every row gets `version`, `excerpt`,
   `read_only` and `card` (v1-cards §3.3, one note read only where `body` is a card key); grouped or not. List and Table
