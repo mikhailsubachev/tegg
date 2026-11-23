@@ -116,7 +116,7 @@ test('fr_qry_07_ac32_view_tabs_on_the_phone', async ({ browser }) => {
   assert.equal(await tl.evaluate((e) => getComputedStyle(e).overflowX), 'auto', 'the row scrolls sideways');
   assert.equal(await addView(page).count(), 0, 'no Add view');
   assert.equal(await page.locator('[data-command="views.menu"]').count(), 0, 'no tab chevron or menu');
-  assert.equal(await tab(page, 'Rozečtené').getAttribute('data-command'), 'views.next', 'a chip carries views.next');
+  assert.equal(nfc(await tab(page, 'Rozečtené').getAttribute('data-command') ?? ''), nfc('views.tab:Rozečtené'), 'a chip carries its own views.tab:<name> (D-2117)');
   await tab(page, 'Rozečtené').click();
   const b = board(page, 'Rozečtené');
   await must(b, 'Rozečtené shows its board');
