@@ -343,9 +343,17 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce }: 
       const ro = v ? panel.current?.readOnly() ?? null : null;
       const b = v ? panel.current?.board() ?? null : null;
       return { typeKey: cur.key, tab: v, writable, viewWritable: !!v && !ro && !!panel.current?.def(), board: b ? b.status() : null, sortable: !!v && !!panel.current?.def(),
-        usage: v ? panel.current?.usage() ?? null : null };
+        usage: v ? panel.current?.usage() ?? null : null,
+        // D-2117: on the phone each tab runs its own command.
+        phoneTabs: isPhone() ? ['', ...items.filter((it) => !it.draft).map((it) => nfc(it.name))] : undefined };
     },
     run: (id) => {
+      if (id.startsWith('views.tab:')) {
+        const n = id.slice('views.tab:'.length);
+        const want = n === '' ? null : (items.find((it) => nfc(it.name) === nfc(n))?.name ?? undefined);
+        if (want !== undefined && viewName() !== want) select(want);
+        return;
+      }
       switch (id) {
         case 'views.new': if (writable) { setAddOpen(true); } return;
         case 'views.edit': editView(null); return;
@@ -410,7 +418,7 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce }: 
                 step(e.key === 'ArrowRight' ? 1 : -1, true);
               }
             }}>
-            <div role="tab" id={tabId(null)} data-command="views.next" data-view-tab="" data-view-kind="table" aria-selected={shownName === null} tabIndex={shownName === null ? 0 : -1}
+            <div role="tab" id={tabId(null)} data-command={phone ? 'views.tab:' : 'views.next'} data-view-tab="" data-view-kind="table" aria-selected={shownName === null} tabIndex={shownName === null ? 0 : -1}
               aria-posinset={1} aria-setsize={items.length + 1} aria-controls={shownName === null ? 'view-panel' : undefined}
               className={`view-tab${shownName === null ? ' on' : ''}${tabDrag && tabDrag.before === (items[0]?.name ?? null) && tabDrag.name !== items[0]?.name ? '' : ''}`}
               onClick={() => { if (shownName !== null) select(null); }}
@@ -424,7 +432,7 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce }: 
               const dropBefore = tabDrag && tabDrag.name !== it.name && tabDrag.before !== undefined && tabDrag.before !== null && nfc(tabDrag.before) === nfc(it.name);
               const dropAfter = tabDrag && tabDrag.before === null && i === items.length - 1 && tabDrag.name !== it.name;
               return (
-                <div key={it.name} role="tab" id={tabId(it.name)} data-command="views.next" data-view-tab={it.draft ? t('views.newName') : nfc(it.name)} data-view-kind={it.kind ?? undefined}
+                <div key={it.name} role="tab" id={tabId(it.name)} data-command={phone && !it.draft ? `views.tab:${nfc(it.name)}` : 'views.next'} data-view-tab={it.draft ? t('views.newName') : nfc(it.name)} data-view-kind={it.kind ?? undefined}
                   data-view-state={st && (on || it.draft || st === 'trashed' || st === 'missing') ? st : undefined} aria-selected={on} aria-haspopup={it.draft ? undefined : 'menu'}
                   aria-posinset={i + 2} aria-setsize={items.length + 1} tabIndex={on ? 0 : -1}
                   className={`view-tab${on ? ' on' : ''}${tabDrag?.name === it.name ? ' dragging' : ''}${dropBefore ? ' drop-before' : ''}${dropAfter ? ' drop-after' : ''}`}

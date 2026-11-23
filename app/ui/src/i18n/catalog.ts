@@ -921,6 +921,7 @@ export const en: Catalog = {
   'cmd.newView': 'New view…',
   'cmd.editView': 'Edit view',
   'cmd.nextView': 'Next view',
+  'cmd.selectView': 'Show view {name}',
   'cmd.previousView': 'Previous view',
   'cmd.moveViewLeft': 'Move view left',
   'cmd.moveViewRight': 'Move view right',

@@ -133,6 +133,8 @@ export type ViewsStatus = {
   /** `writable`: the type file can be written (tab changes); `viewWritable`: the shown query can be (sort, lanes);
    *  missing = `writable`. */
   typeKey: string | null; tab: string | null; writable: boolean; viewWritable?: boolean;
+  /** AND-2 (D-2117): the view tabs' names on the phone ('' is `All <plural>`), each a `views.tab:<name>` command. */
+  phoneTabs?: string[];
   /** Q2-T (§30.4): `taskFocused` = the focused card is a Task card (`task.complete`, `task.setStatus`). */
   board: { lanes: 'vertical' | 'horizontal'; laneOrder: boolean; cardFocused: boolean; laneFocused: boolean; taskFocused?: boolean } | null;
   sortable: boolean;
@@ -341,6 +343,7 @@ export function commands(ctx: ShellContext): Command[] {
     if (onType && vs.writable) list.push(cmd('views.new', 'cmd.newView', 'create'));
     if (onType && vs.tab !== null) list.push(cmd('views.edit', 'cmd.editView'));
     if (onType) list.push(cmd('views.next', 'cmd.nextView'), cmd('views.previous', 'cmd.previousView'));
+    if (onType) for (const n of vs.phoneTabs ?? []) list.push({ ...cmd(`views.tab:${n}`, 'cmd.selectView'), vars: { name: n } });
     if (onType && vs.tab !== null && vs.writable) list.push(cmd('views.moveLeft', 'cmd.moveViewLeft'), cmd('views.moveRight', 'cmd.moveViewRight'));
     const b = vs.board;
     const vw = vs.viewWritable ?? vs.writable;
