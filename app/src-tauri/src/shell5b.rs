@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::Instant;
 
+#[cfg(desktop)]
 use tauri::window::{Effect, EffectState, EffectsBuilder};
 use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
@@ -44,6 +45,7 @@ fn save_shell(app: &AppHandle, s: &ShellSettingsDto) -> Result<(), IpcError> {
 
 /// Creates the hidden capture window and the hidden saved panel (pre-warmed, FR-CAP-03). Both are transparent windows
 /// with the native popover material, 14 px corners and the system shadow (D-592, capture.md R55 look).
+#[cfg(desktop)]
 pub(crate) fn build_windows(app: &AppHandle) -> tauri::Result<()> {
     let _ = APP.set(app.clone());
     let script = init_script(&app.state::<AppState>().dirs);
@@ -97,6 +99,7 @@ static TRAY_RECT: Mutex<Option<(f64, f64, f64, f64)>> = Mutex::new(None);
 static PREVIOUS_APP: Mutex<Option<i32>> = Mutex::new(None);
 
 /// §1.3: `trigger` `status-item` | `status-menu` | `hotkey` | `palette`; `kind` `default` | `task`.
+#[cfg(desktop)]
 pub(crate) fn open_capture(app: &AppHandle, trigger: &'static str, kind: &'static str) {
     let Some(win) = app.get_webview_window(CAPTURE) else { return };
     let seq = SEQ.fetch_add(1, Ordering::SeqCst) + 1;
@@ -111,6 +114,7 @@ pub(crate) fn open_capture(app: &AppHandle, trigger: &'static str, kind: &'stati
     let _ = win.set_focus();
 }
 
+#[cfg(desktop)]
 fn position(app: &AppHandle, win: &tauri::WebviewWindow, trigger: &str) {
     let size = win.outer_size().unwrap_or(tauri::PhysicalSize { width: 840, height: 520 });
     let anchored = matches!(trigger, "status-item" | "status-menu").then(|| *TRAY_RECT.lock().unwrap_or_else(|p| p.into_inner())).flatten();
@@ -127,10 +131,12 @@ fn position(app: &AppHandle, win: &tauri::WebviewWindow, trigger: &str) {
         let y = mp.y + ms.height as i32 / 6;
         let _ = win.set_position(tauri::PhysicalPosition { x, y });
     } else {
+        #[cfg(desktop)]
         let _ = win.center();
     }
 }
 
+#[cfg(desktop)]
 fn hide_capture(app: &AppHandle) {
     // Before the hide: once the capture window is gone, AppKit makes the main window key, which isn't the user's choice.
     let main_key = app.get_webview_window("main").is_some_and(|m| m.is_visible().unwrap_or(false) && m.is_focused().unwrap_or(false));
@@ -146,6 +152,7 @@ fn hide_capture(app: &AppHandle) {
 pub(crate) fn show_main(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
+        #[cfg(desktop)]
         let _ = w.unminimize();
         let _ = w.set_focus();
     }
@@ -153,14 +160,17 @@ pub(crate) fn show_main(app: &AppHandle) {
 
 // ------------------------------------------------------------------------------------------------ status item (§1.4)
 
+#[cfg(desktop)]
 const TRAY_ID: &str = "tegg-status";
 
 /// D-597, D-782, D-783: the status item is the Tegg mark (logo 3B) as a template image: macOS colours it like the other
 /// menu bar items (white on a tinted or dark menu bar, dark on a light one).
+#[cfg(desktop)]
 fn tray_image() -> tauri::image::Image<'static> {
     tauri::include_image!("icons/tray.png")
 }
 
+#[cfg(desktop)]
 pub(crate) fn set_status_item(app: &AppHandle, show: bool) -> tauri::Result<()> {
     use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
     use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -221,11 +231,13 @@ pub(crate) fn hotkey_states() -> Vec<HotkeyStateDto> {
     HOTKEY_STATE.lock().unwrap_or_else(|p| p.into_inner()).clone()
 }
 
+#[cfg(desktop)]
 fn register_hotkey(index: usize) -> bool {
     let (_, _, code, _) = HOTKEYS[index];
     macos::register_hotkey(index as u32 + 1, code)
 }
 
+#[cfg(desktop)]
 pub(crate) fn setup_hotkeys(app: &AppHandle) {
     macos::install_hotkey_handler(|id| {
         let Some(app) = APP.get() else { return };
@@ -247,12 +259,14 @@ pub(crate) fn setup_hotkeys(app: &AppHandle) {
 // ------------------------------------------------------------------------------------------------ single instance (D-71)
 
 /// The per-user temp folder keeps one socket per bundle, whatever Application Support folder a launch uses.
+#[cfg(desktop)]
 fn instance_socket(bundle_id: &str) -> PathBuf {
     std::env::temp_dir().join(format!("{bundle_id}.instance.sock"))
 }
 
 /// Before the app starts: when another instance of this app bundle runs, it is asked to show its main window and this
 /// process exits. Otherwise a listener is set up for later launches.
+#[cfg(desktop)]
 pub(crate) fn single_instance(bundle_id: &str) {
     use std::io::{BufRead, Write};
     use std::os::unix::net::{UnixListener, UnixStream};
@@ -277,13 +291,15 @@ pub(crate) fn single_instance(bundle_id: &str) {
 
 // ------------------------------------------------------------------------------------------------ login item (§1.5)
 
+#[cfg(desktop)]
 pub(crate) fn launched_at_login() -> bool {
-    if std::env::var("TEGG_TEST").as_deref() == Ok("1") {
+    if crate::test_mode() {
         return test_var("TEGG_TEST_LAUNCHED_AT_LOGIN").as_deref() == Some("1");
     }
     macos::launched_as_login_item()
 }
 
+#[cfg(desktop)]
 fn set_login_item(on: bool) -> Result<(), IpcError> {
     if let Some(file) = test_var("TEGG_TEST_LOGIN_ITEM") {
         use std::io::Write;
@@ -344,6 +360,7 @@ fn template_head(text: &str) -> Option<String> {
     None
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn capture_context(state: State<'_, AppState>) -> Result<CaptureContextDto, IpcError> {
     let vault = vault_token(&state);
@@ -378,6 +395,7 @@ pub(crate) async fn capture_context(state: State<'_, AppState>) -> Result<Captur
     Ok(CaptureContextDto { vault, types, default_type, tags })
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn capture_create(state: State<'_, AppState>, vault: String, r#type: String, title: String, text: String, media: Option<Vec<String>>) -> Result<CapturedDto, IpcError> {
     let Some(current) = vault_token(&state) else { return Err(err("NoVault", "no vault is open")) };
@@ -414,6 +432,7 @@ pub(crate) async fn capture_create(state: State<'_, AppState>, vault: String, r#
     Ok(CapturedDto { path, title: tegg_format::nfc(title.trim()), type_name })
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn capture_ready(seq: u64) -> Result<(), IpcError> {
     let p = PENDING.lock().unwrap_or_else(|p| p.into_inner()).take();
@@ -429,12 +448,14 @@ pub(crate) async fn capture_ready(seq: u64) -> Result<(), IpcError> {
     Ok(())
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn capture_hide(app: AppHandle) -> Result<(), IpcError> {
     let a = app.clone();
     app.run_on_main_thread(move || hide_capture(&a)).map_err(|e| err("Io", e))
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn capture_resize(app: AppHandle, height: f64) -> Result<(), IpcError> {
     if let Some(w) = app.get_webview_window(CAPTURE) {
@@ -443,6 +464,7 @@ pub(crate) async fn capture_resize(app: AppHandle, height: f64) -> Result<(), Ip
     Ok(())
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn capture_open_main(app: AppHandle, path: Option<String>) -> Result<(), IpcError> {
     let a = app.clone();
@@ -461,11 +483,13 @@ pub(crate) async fn capture_open_main(app: AppHandle, path: Option<String>) -> R
     .map_err(|e| err("Io", e))
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn capture_draft_get(app: AppHandle) -> Result<Option<CaptureDraftDto>, IpcError> {
     Ok(tegg_vault::read_local_file(&support(&app).join(DRAFT_FILE)).and_then(|b| serde_json::from_slice(&b).ok()))
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn capture_draft_set(app: AppHandle, draft: Option<CaptureDraftDto>) -> Result<(), IpcError> {
     let path = support(&app).join(DRAFT_FILE);
@@ -502,6 +526,7 @@ fn hide_saved_later(app: AppHandle, gen: u64) {
 }
 
 /// D-1358 (ms5-capture §17): the pointer entered (`true`, the panel stays) or left (`false`, it hides 1.5 s later).
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn capture_saved_hover(app: AppHandle, inside: bool) -> Result<(), IpcError> {
     let gen = SAVED_GEN.fetch_add(1, Ordering::SeqCst) + 1;
@@ -511,6 +536,7 @@ pub(crate) async fn capture_saved_hover(app: AppHandle, inside: bool) -> Result<
     Ok(())
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn capture_saved_show(app: AppHandle, type_name: String, title: String, path: String, heading: Option<String>) -> Result<(), IpcError> {
     let gen = SAVED_GEN.fetch_add(1, Ordering::SeqCst) + 1;
@@ -531,6 +557,7 @@ pub(crate) async fn capture_saved_show(app: AppHandle, type_name: String, title:
 }
 
 /// D-578: the main window's palette `Quick Capture` / `Capture a task` and Inbox zero.
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn capture_open(app: AppHandle, kind: String) -> Result<(), IpcError> {
     let kind: &'static str = if kind == "task" { "task" } else { "default" };
@@ -571,10 +598,11 @@ pub(crate) async fn vault_settings_patch(app: AppHandle, state: State<'_, AppSta
     Ok(settings_dto(s))
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn vault_reveal(state: State<'_, AppState>) -> Result<(), IpcError> {
     let path = state.vault.lock().unwrap_or_else(|p| p.into_inner()).as_ref().map(|v| v.path.clone()).ok_or_else(|| err("NoVault", "no vault is open"))?;
-    if std::env::var("TEGG_TEST").as_deref() == Ok("1") {
+    if crate::test_mode() {
         if let Some(file) = test_var("TEGG_TEST_REVEAL") {
             use std::io::Write;
             let mut f = std::fs::OpenOptions::new().create(true).append(true).open(file).map_err(|e| err("Io", e))?;
@@ -585,15 +613,17 @@ pub(crate) async fn vault_reveal(state: State<'_, AppState>) -> Result<(), IpcEr
     std::process::Command::new("/usr/bin/open").arg("-R").arg(&path).spawn().map(|_| ()).map_err(|e| err("Io", e))
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn shell_settings(app: AppHandle) -> Result<ShellSettingsDto, IpcError> {
     let mut s = load_shell(&support(&app));
-    if test_var("TEGG_TEST_LOGIN_ITEM").is_none() && std::env::var("TEGG_TEST").as_deref() != Ok("1") {
+    if test_var("TEGG_TEST_LOGIN_ITEM").is_none() && !crate::test_mode() {
         s.open_at_login = macos::login_item_enabled();
     }
     Ok(s)
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn shell_settings_set(app: AppHandle, settings: ShellSettingsDto) -> Result<(), IpcError> {
     let before = load_shell(&support(&app));
@@ -612,11 +642,13 @@ pub(crate) async fn shell_settings_set(app: AppHandle, settings: ShellSettingsDt
     Ok(())
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn hotkeys() -> Result<Vec<HotkeyStateDto>, IpcError> {
     Ok(hotkey_states())
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn hotkeys_retry(app: AppHandle, id: String) -> Result<Vec<HotkeyStateDto>, IpcError> {
     let (tx, rx) = std::sync::mpsc::channel();
@@ -674,6 +706,7 @@ pub(crate) async fn inbox_count(state: State<'_, AppState>) -> Result<u32, IpcEr
     Ok(core(&state)?.inbox_count() as u32)
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn inbox_bulk(state: State<'_, AppState>, paths: Vec<String>, change: serde_json::Value) -> Result<JobIdDto, IpcError> {
     use tegg_core::tegg_jobs::{InboxJobChange, JobOp};
@@ -907,7 +940,7 @@ mod macos {
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(all(desktop, not(target_os = "macos")))]
 mod macos {
     pub fn install_hotkey_handler(_f: impl Fn(u32) + Send + Sync + 'static) {}
     pub fn register_hotkey(_id: u32, _code: u32) -> bool {
@@ -930,6 +963,7 @@ mod macos {
 
 /// `capture_suggest` (D-603, ms5-capture §16.1): at most 8 switcher matches as link text, title, type and the matched
 /// alias, for `[[` and `@` in the capture window. No body, excerpt or path is sent (NFR-SEC-03 as amended).
+#[cfg(desktop)]
 #[tauri::command]
 pub(crate) async fn capture_suggest(state: State<'_, AppState>, query: String) -> Result<Vec<CaptureSuggestDto>, IpcError> {
     let core = core(&state)?;

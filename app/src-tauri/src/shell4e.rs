@@ -46,6 +46,7 @@ pub struct JobMaybeDto {
     pub job_id: Option<u32>,
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn type_move_plan(state: State<'_, AppState>, paths: Vec<String>, to_type: String) -> Result<TypeMovePlanDto, IpcError> {
     let core = core(&state)?;
@@ -58,6 +59,7 @@ pub async fn type_move_plan(state: State<'_, AppState>, paths: Vec<String>, to_t
     Ok(TypeMovePlanDto { rows, needs_dialog: p.needs_dialog })
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn type_move(state: State<'_, AppState>, paths: Vec<String>, to_type: String, mapping: Vec<MapDto>, review: bool, bulk: Option<bool>) -> Result<JobMaybeDto, IpcError> {
     let mapping = mapping
@@ -74,11 +76,13 @@ pub struct CountDto {
     pub count: u32,
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn folder_move_preview(state: State<'_, AppState>, r#type: String, folder: String) -> Result<CountDto, IpcError> {
     Ok(CountDto { count: core(&state)?.folder_move_count(&r#type, &folder) as u32 })
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn tidy_now(state: State<'_, AppState>) -> Result<JobMaybeDto, IpcError> {
     let id = core(&state)?.jobs().start(JobOp::FolderMove { r#type: None, to_folder: None }).map_err(job_err)?;
@@ -96,12 +100,14 @@ pub async fn jobs_ready(state: State<'_, AppState>) -> Result<(), IpcError> {
 
 /// Starts a `value-remove` job (FR-TYP-04 AC-6…AC-9) that stops in `confirm`; the dialog reads `job_plan`. Refusals
 /// come from `Jobs::start` (D-853).
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn value_remove_start(state: State<'_, AppState>, r#type: String, key: String) -> Result<JobStartDto, IpcError> {
     crate::shell4d::started(core(&state)?.jobs().start(JobOp::ValueRemove { r#type, key }))
 }
 
 /// Starts a `type-delete` job (FR-TYP-05 AC-6…AC-9) that stops in `confirm`.
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn type_delete_start(state: State<'_, AppState>, r#type: String) -> Result<JobStartDto, IpcError> {
     crate::shell4d::started(core(&state)?.jobs().start(JobOp::TypeDelete { r#type }))

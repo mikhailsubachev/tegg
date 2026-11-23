@@ -13,8 +13,12 @@ import { registerWidthsStore, widthsChanged } from './tables/widths';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { t } from './i18n/catalog';
 import { events, ipc } from './ipc/client';
-import type { ProgressDto, SwitcherItemDto, TypeDefDto, UiStateDto, VaultInfo } from './ipc/types';
+import type { ProgressDto, StartStateDto, SwitcherItemDto, TypeDefDto, UiStateDto, VaultInfo } from './ipc/types';
 import { Chooser } from './pages/Chooser';
+import { AndroidChooser } from './pages/AndroidChooser';
+import { AccessScreen, OpeningScreen } from './pages/AndroidStart';
+import { isAndroid } from './platform';
+import { onUnsupported } from './ipc/android';
 import { ConflictsPage } from './pages/ConflictsPage';
 import { NotePage, type DraftInfo, type NoteMeta, type NotePageApi } from './pages/NotePage';
 import { pageWidthOf, type PageWidth } from './edit/WidthSwitch';
@@ -177,12 +181,24 @@ function initialUi(): UiState {
 
 /** The Import window is mounted once, at the same place of every tree App returns (the chooser, the frame), so a vault
  *  switch or the chooser never remounts it (v1-import-window §3.1). */
+/** AND-1 (D-2026): a non-modal alert for a command the phone doesn't have; it goes after a few seconds. */
+function UnsupportedAlert() {
+  const [shown, setShown] = useState(true);
+  useEffect(() => { const h = setTimeout(() => setShown(false), 4000); return () => clearTimeout(h); }, []);
+  return shown ? <div role="alert" className="unsupported-alert">{t('error.unsupported')}</div> : null;
+}
+
 function withImport(node: React.ReactNode) {
   return <>{node}<ImportDialog /></>;
 }
 
 export function App() {
   const [vault, setVault] = useState<VaultInfo | null | undefined>(undefined);
+  // Slice AND-1 (android-shell §9.2): the start state on Android; `rechecks` counts answers still without access after
+  // the page came back; `unsupported` the refused commands (D-2026).
+  const [start, setStart] = useState<StartStateDto | null>(null);
+  const [rechecks, setRechecks] = useState(0);
+  const [unsupported, setUnsupported] = useState(0);
   const [types, setTypes] = useState<TypeDefDto[]>([]);
   const typesRef = useRef(types);
   typesRef.current = types;
@@ -257,6 +273,15 @@ export function App() {
   const flushNote = useCallback(async () => {
     try { await noteApi.current?.flush(); } catch { /* the page shows its own save state */ }
   }, []);
+  // AND-1 (FR-EDT-08 AC-14, D-2027): Android stops a backgrounded app without asking, so the open note's pending edit is
+  // written as soon as the page is hidden. The desktop keeps its quit flow (D-196) and adds no listener.
+  useEffect(() => {
+    if (!isAndroid()) return;
+    const f = () => { if (document.visibilityState === 'hidden') void flushNote(); };
+    document.addEventListener('visibilitychange', f);
+    return () => document.removeEventListener('visibilitychange', f);
+  }, [flushNote]);
+  useEffect(() => onUnsupported(() => setUnsupported((n) => n + 1)), []);
   // Back/forward (FR-NAV-03, D-165): in memory, one per window; `histTick` re-renders the title-bar buttons.
   const history = useRef(createHistory());
   const [, setHistTick] = useState(0);
@@ -379,6 +404,9 @@ export function App() {
     void loadTypes().finally(() => void land());
   }, [land, loadTypes]);
 
+  /** AND-1: a vault opened from the Android chooser is the start state's `open` too (the shell also says so). */
+  const openedHere = useCallback((v: VaultInfo) => { setStart({ state: 'open', vault: v }); opened(v); }, [opened]);
+
   /** D-219: open another vault from the title-bar switcher or ⌃⌘n, as the chooser does (FR-VLT-01 AC-15); an error
    *  (not a Tegg vault, gone) shows the chooser, which explains it. */
   const openVaultPath = useCallback((path: string) => {
@@ -426,8 +454,35 @@ export function App() {
     // A result after the cleanup is dropped: StrictMode runs this effect twice, and two `opened` calls would load the
     // landing page twice (NFR-PERF-05 AC-3: one link_resolve, one note_read).
     let live = true;
-    ipc.vaultCurrent().then((v) => { if (live) (v ? opened(v) : setVault(null)); }, () => { if (live) setVault(null); });
+    const android: Promise<() => void>[] = [];
+    if (!isAndroid()) {
+      ipc.vaultCurrent().then((v) => { if (live) (v ? opened(v) : setVault(null)); }, () => { if (live) setVault(null); });
+    } else {
+      // android-shell §5.2 step 4 (F2): subscribe, then ask. An event that came after the question is newer than its
+      // answer, so that answer is dropped (FR-VLT-01 AC-18).
+      let events_ = 0;
+      const apply = (s: StartStateDto, recheck = false) => {
+        if (!live) return;
+        setStart(s);
+        if (s.state === 'open') {
+          if (liveVault.current?.path !== s.vault.path) opened(s.vault);
+        } else {
+          if (s.state === 'needsAccess' && recheck) setRechecks((n) => n + 1);
+          if (s.state !== 'opening') setChooser(null);
+          setVault(null);
+        }
+      };
+      const ask = (recheck = false) => {
+        const at = events_;
+        ipc.vaultStart().then((s) => { if (at === events_) apply(s, recheck); }, () => {});
+      };
+      const onVisible = () => { if (document.visibilityState === 'visible') ask(true); };
+      document.addEventListener('visibilitychange', onVisible);
+      android.push(events.vaultStart((s) => { events_++; apply(s); }).then((f) => { ask(); return f; }));
+      android.push(Promise.resolve(() => document.removeEventListener('visibilitychange', onVisible)));
+    }
     const un = [
+      ...android,
       // The end of indexing changes what every page reads (a page opened while it ran saw part of the vault), but the
       // core sends no `vault:changed` for it: pages read again as after a change (bug v0.70, tag page; FR-UX-07).
       events.progress((p) => { setProgress(p); if (p.state === 'done') setRefresh((n) => n + 1); }),
@@ -974,7 +1029,8 @@ export function App() {
         openVaultPath(r.path);
       }, () => {});
     },
-    openFolder: () => { void ipc.vaultPickDir().then((p) => { if (p) openVaultPath(p); }, () => {}); },
+    // AND-1 (RA4): the phone has no folder dialog; `Open folder as vault…` shows the Android chooser.
+    openFolder: () => { if (isAndroid()) { setDialog(null); void flushNote().then(() => setChooser({ form: false })); return; } void ipc.vaultPickDir().then((p) => { if (p) openVaultPath(p); }, () => {}); },
     about: () => { void ipc.appAbout().catch(() => {}); },
     setTheme: (c: ThemeChoice) => updateUi((u) => ({ ...u, theme: c })),
     // Slice P (R106): each does nothing without a reference or a chip at the caret (FR-UX-03 AC-19).
@@ -1353,7 +1409,27 @@ export function App() {
     requestAnimationFrame(tick);
   }, [routeKey, meta, chooserShown]);
 
+  if (isAndroid() && start && !(start.state === 'open' && vault)) {
+    // android-shell §9.2: before a vault is open the phone shows the permission screen, the vault being opened or the
+    // Android chooser, never the desktop chooser (F2, F5).
+    // D-137: with no vault open, the palette offers only creating or opening a vault, Settings and the theme.
+    const noVault = available_commands.filter((c) => c.id === 'vault.create' || c.id === 'vault.open' || c.id.startsWith('theme.') || c.id.startsWith('goto.settings'));
+    const palette = dialog === 'palette' && <Palette list={noVault} onRun={(c) => { closeDialog(); run(c); }} onClose={closeDialog} />;
+    if (start.state === 'needsAccess') return <AccessScreen path={start.path} rechecks={rechecks} />;
+    if (start.state === 'opening') return <>{<OpeningScreen name={start.name} />}{palette}</>;
+    if (start.state === 'open') return null;
+    return <><AndroidChooser key={chooser ? `c${chooser.form}` : 'none'} onOpened={openedHere} failed={start.state === 'failed' ? start : null} startWithForm={chooser?.form ?? false} />{palette}</>;
+  }
   if (vault === undefined) return withImport(null);
+
+  if (chooserShown && isAndroid()) {
+    return (
+      <>
+        <AndroidChooser key={chooser ? `c${chooser.form}` : 'none'} onOpened={openedHere} startWithForm={chooser?.form ?? false} />
+        {dialog === 'palette' && <Palette list={available_commands} onRun={(c) => { closeDialog(); run(c); }} onClose={closeDialog} />}
+      </>
+    );
+  }
 
   if (chooserShown) {
     return withImport(
@@ -1655,6 +1731,7 @@ export function App() {
       {calendar && <Calendar selected={calendar.selected} anchor={calendar.anchor} onChoose={calendar.onChoose}
         onClose={() => { const a = calendar.anchor; setCalendar(null); if (a?.isConnected) a.focus(); }} />}
       {dialog === 'palette' && <Palette list={available_commands} onRun={(c) => { closeDialog(); run(c); }} onClose={closeDialog} />}
+      {unsupported > 0 && <UnsupportedAlert key={unsupported} />}
       {quitAsk && (
         <div className="dialog-backdrop">
           <div role="dialog" aria-modal="true" aria-label={t(quitAsk === 'keepBoth' ? 'quit.keepBoth' : 'quit.title')} className="dialog"

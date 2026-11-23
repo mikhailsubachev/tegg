@@ -19,7 +19,7 @@ use tegg_format::{nfc, sanitize_file_stem};
 use tegg_index::{is_indexable, prepare, Index, Prepared};
 pub use tegg_index::{
     AttrFilter, Backlink, Conflict, TagInfo, ConflictKind, DateRange, IndexError, MatchField, MatchTier, ObjectInfo, QueryTier, SearchPage,
-    AttributeHit, SearchQuery, SearchResult, Snippet, SwitcherItem, SwitcherKind, DuplicateDetails,
+    AttributeHit, SearchQuery, SearchResult, Snippet, SwitcherItem, SwitcherKind, DuplicateDetails, fold,
 };
 pub use tegg_vault::{AppDirs, FileVersion, FolderSync, SyncAdapter, Vault, VaultError, VaultFs, WriteOutcome};
 pub use tegg_jobs;
@@ -303,19 +303,40 @@ pub struct Core {
     jobs_engine: tegg_jobs::Jobs,
 }
 
+/// docs/contracts/android-shell.md §3.3 (FR-SYN-06 AC-50, D-2025; CP-1 → D-2036): what `Core::open_ext` adds to
+/// `CoreOptions`. `bulk_jobs: false` (the Android app) starts no tidy job and refuses every bulk job (D-2007).
+#[derive(Clone, Copy, Debug)]
+pub struct OpenExtras {
+    pub bulk_jobs: bool,
+}
+
+impl Default for OpenExtras {
+    fn default() -> Self {
+        OpenExtras { bulk_jobs: true }
+    }
+}
+
+impl Core {
+    /// docs/contracts/android-shell.md §3.3: `Core::open` with `OpenExtras`.
+    pub fn open_ext(root: &Path, dirs: &AppDirs, opts: CoreOptions, extras: OpenExtras) -> Result<Core, CoreError> {
+        let vault = Vault::open(root, dirs).map_err(|e| CoreError::Vault(VaultError::Io(std::io::Error::other(format!("{e:?}")))))?;
+        Core::start(vault, opts, extras)
+    }
+}
+
 impl Core {
     /// §5.1: opens the vault (zero writes), opens or rebuilds the index in the background, starts the watcher.
     pub fn open(root: &Path, dirs: &AppDirs, opts: CoreOptions) -> Result<Core, CoreError> {
         let vault = Vault::open(root, dirs).map_err(|e| CoreError::Vault(VaultError::Io(std::io::Error::other(format!("{e:?}")))))?;
-        Core::start(vault, opts)
+        Core::start(vault, opts, OpenExtras::default())
     }
 
     pub fn open_with(fs: Arc<dyn VaultFs>, dirs: &AppDirs, opts: CoreOptions) -> Result<Core, CoreError> {
         let vault = Vault::open_with(Box::new(fs), dirs).map_err(|e| CoreError::Vault(VaultError::Io(std::io::Error::other(format!("{e:?}")))))?;
-        Core::start(vault, opts)
+        Core::start(vault, opts, OpenExtras::default())
     }
 
-    fn start(vault: Vault, opts: CoreOptions) -> Result<Core, CoreError> {
+    fn start(vault: Vault, opts: CoreOptions, extras: OpenExtras) -> Result<Core, CoreError> {
         let local = vault.local_dir();
         let index = Index::open(&local.join(INDEX_FILE))?;
         let graph_ready = AtomicBool::new(!index.is_empty());
@@ -380,7 +401,9 @@ impl Core {
         let s = shared.clone();
         adapter.start(Box::new(move |paths| s.enqueue(Job::Paths(paths))));
         let jobs_engine = tegg_jobs::Jobs::with_host(Arc::new(jobs4c::CoreHost { shared: shared.clone() }));
-        if opts.watch {
+        if !extras.bulk_jobs {
+            jobs_engine.disable_bulk();
+        } else if opts.watch {
             tidy4e::spawn(Arc::downgrade(&shared), jobs_engine.handle());
         }
         Ok(Core { shared, worker: Some(worker), watch: Mutex::new(watch), jobs_engine })

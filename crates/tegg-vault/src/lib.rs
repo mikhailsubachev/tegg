@@ -22,7 +22,10 @@ pub use local::{
     append_local_file, create_external_dir_new, create_local_dir, list_local_dir, read_local_file, remove_dir_tree, remove_local_path, rename_dir_no_replace, trash_import_leftover,
     write_local_file, LocalFs, BEFORE_RENAME,
 };
+pub use local::{fs_change_of, on_disk_name, on_disk_path, OnDiskName};
 pub use mem::MemFs;
+/// docs/contracts/android-shell.md §1: tests build `notify::Event`s through this re-export.
+pub use notify;
 pub use new_vault::EMPTY_VAULT;
 pub use types::TypeDef;
 
@@ -428,13 +431,14 @@ pub struct Vault {
 
 const RECENT_MAX: usize = 9;
 
-/// The recent-vaults file: one NFC path per line, most recent first (D-219).
+/// The recent-vaults file: one path per line as spelled on disk (D-2029), most recent first, compared after NFC
+/// (D-219, FR-VLT-01 AC-17, AC-27).
 fn recent_paths(dirs: &AppDirs) -> Vec<String> {
     let Some(bytes) = local::read_local_file(&dirs.recent_vaults_file()) else { return Vec::new() };
     let mut out: Vec<String> = Vec::new();
     for line in String::from_utf8_lossy(&bytes).lines() {
-        let p = nfc(line.trim_end());
-        if !p.is_empty() && !out.contains(&p) && out.len() < RECENT_MAX {
+        let p = line.trim_end().to_string();
+        if !p.is_empty() && !out.iter().any(|o| nfc(o) == nfc(&p)) && out.len() < RECENT_MAX {
             out.push(p);
         }
     }
@@ -485,16 +489,17 @@ impl Vault {
         if !root.is_dir() {
             return Err(OpenError::Missing);
         }
-        let root = root.canonicalize().map_err(OpenError::Io)?;
+        // The folder as spelled on disk, so it reopens where names aren't normalised (D-2029, FR-VLT-01 AC-27).
+        let root = local::on_disk_path(&root.canonicalize().map_err(OpenError::Io)?).map_err(OpenError::Io)?;
         if !root.join(VAULT_YML).is_file() {
             return Err(OpenError::NotATeggVault);
         }
         // FR-VLT-01 AC-7, D-98: remember it in Application Support, never in the vault.
         local::write_local_file(&dirs.last_vault_file(), root.to_string_lossy().as_bytes()).map_err(OpenError::Io)?;
         // D-219, FR-VLT-01 AC-17: most recent first, NFC paths, no duplicates, at most 9. A failure only loses the list.
-        let me = nfc(&root.to_string_lossy());
+        let me = root.to_string_lossy().into_owned();
         let mut list: Vec<String> = vec![me.clone()];
-        list.extend(recent_paths(dirs).into_iter().filter(|p| *p != me).take(RECENT_MAX - 1));
+        list.extend(recent_paths(dirs).into_iter().filter(|p| nfc(p) != nfc(&me)).take(RECENT_MAX - 1));
         let _ = local::write_local_file(&dirs.recent_vaults_file(), list.join("\n").as_bytes());
         Ok(Vault { fs: Box::new(LocalFs::new(&root)), local: local_dir_for(dirs, &root.to_string_lossy()), root, lock: Mutex::new(()) })
     }

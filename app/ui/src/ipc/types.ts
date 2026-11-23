@@ -650,4 +650,7 @@ export type RelatedDto = { entries: Array<RelatedEntryDto>, reason: 'short' | nu
 export type ResolvedIconDto = { name: string, node: [string, Record<string, string>][], };
 export type CardDataDto = { type: string, title: string, keys: Array<string>, values: Record<string, unknown>, excerpt: string | null, links: Array<LinkTargetDto>, unreviewed: boolean, file: LinkTargetDto | null, };
 export type CardExampleDto = { path: string, card: CardDataDto, };
+export type StartStateDto = { "state": "needsAccess", path?: string, } | { "state": "opening", name: string, path: string, } | { "state": "open", vault: VaultInfo, } | { "state": "failed", path: string, kind: string, } | { "state": "none" };
+export type FoundVaultDto = { name: string, path: string, rel: string, };
+export type StorageAccessDto = { granted: boolean, sharedRoot: string, };
 export type TypeDefDto = TypeDto;

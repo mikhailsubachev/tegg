@@ -207,6 +207,8 @@ pub(crate) struct Inner {
     stop: AtomicBool,
     /// D-819: the UI's worker answers `job:transform`.
     ui_ready: AtomicBool,
+    /// docs/contracts/android-shell.md §3.3 (D-2025): false on the phone; every op but `TestBackup` is refused.
+    bulk_off: AtomicBool,
 }
 
 /// The job engine of one open vault. Owned by `tegg_core::Core` (`Core::jobs()`).
@@ -258,6 +260,7 @@ impl Jobs {
                 replied: Condvar::new(),
                 next_request: Mutex::new(1),
                 stop: AtomicBool::new(false),
+                bulk_off: AtomicBool::new(false),
                 ui_ready: AtomicBool::new(false),
             }),
         }
@@ -290,6 +293,12 @@ impl Jobs {
 
     fn enqueue(&self, op: JobOp, from_title: Option<String>) -> Result<JobId, JobError> {
         enqueue_in(&self.inner, op, from_title)
+    }
+
+    /// docs/contracts/android-shell.md §3.3 (D-2007, D-2025): turns bulk jobs off for this engine; from then on
+    /// `start` refuses every op except `TestBackup` with `JobError::Unsupported`.
+    pub fn disable_bulk(&self) {
+        self.inner.bulk_off.store(true, Ordering::SeqCst);
     }
 
     /// D-819: a handle for the core's tidy scheduler; it never keeps the engine alive.
@@ -333,6 +342,9 @@ impl Jobs {
 
     /// v1-import §12.1: queues an import. It waits behind this vault's other jobs and they wait behind it (R153).
     pub fn start_import(&self, job: Arc<dyn ImportJob>) -> Result<JobId, JobError> {
+        if self.inner.bulk_off.load(Ordering::SeqCst) {
+            return Err(JobError::Unsupported); // D-2025: no bulk job with bulk jobs off
+        }
         let host = self.inner.host.clone().ok_or(JobError::NotImplemented)?;
         // The job exists (and can be cancelled) before it is in the queue, so its `queued` event (§10.2) always comes
         // before the job thread's `planning`.
@@ -476,6 +488,9 @@ impl Jobs {
         job: JobId,
         choice: ResolveChoice,
     ) -> Result<JobId, JobError> {
+        if self.inner.bulk_off.load(Ordering::SeqCst) {
+            return Err(JobError::Unsupported); // D-2025: no bulk job with bulk jobs off
+        }
         let host = self.inner.host.clone().ok_or(JobError::NotImplemented)?;
         // v1-import §9.6: an import is never resumed. `Undo` is the roll-back from the log alone (no transformer, no
         // source); then both journal files go. The backup zip stays.
@@ -518,6 +533,9 @@ impl Jobs {
 }
 
 fn enqueue_in(inner: &Arc<Inner>, op: JobOp, from_title: Option<String>) -> Result<JobId, JobError> {
+        if inner.bulk_off.load(Ordering::SeqCst) && !matches!(op, JobOp::TestBackup { .. }) {
+            return Err(JobError::Unsupported);
+        }
         let host = inner.host.clone().ok_or(JobError::NotImplemented)?;
         let kind = match &op {
             JobOp::NoteRename { path, .. } => {

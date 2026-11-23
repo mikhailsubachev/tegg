@@ -74,16 +74,19 @@ pub(crate) fn started(r: Result<u64, JobError>) -> Result<JobStartDto, IpcError>
     }
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn tag_rename(state: State<'_, AppState>, from: String, to: String) -> Result<JobStartDto, IpcError> {
     started(core(&state)?.jobs().start(JobOp::TagRename { from, to }))
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn tag_delete(state: State<'_, AppState>, key: String) -> Result<JobStartDto, IpcError> {
     started(core(&state)?.jobs().start(JobOp::TagDelete { tag: key, keep_text: false }))
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn merge_start(state: State<'_, AppState>, keep: String, others: Vec<String>) -> Result<JobStartDto, IpcError> {
     started(core(&state)?.jobs().start(JobOp::Merge { keep, others }))
@@ -137,12 +140,13 @@ fn show(v: &serde_json::Value) -> String {
 }
 
 /// `Show in Finder` of a backup zip (`TEGG_TEST_REVEAL` records `reveal <path>`, ms6-trash-media §9.1).
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn backup_reveal(state: State<'_, AppState>, name: String) -> Result<(), IpcError> {
     let core = core(&state)?;
     let Some(b) = core.backups().into_iter().find(|b| b.name == name) else { return Err(err("NotFound", "no such backup")) };
     let abs = core.backup_dir().join(&b.name);
-    if std::env::var("TEGG_TEST").as_deref() == Ok("1") {
+    if crate::test_mode() {
         if let Ok(file) = std::env::var("TEGG_TEST_REVEAL") {
             use std::io::Write;
             let mut f = std::fs::OpenOptions::new().create(true).append(true).open(file).map_err(|e| err("Io", e))?;

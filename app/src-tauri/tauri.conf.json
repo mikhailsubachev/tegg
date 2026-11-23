@@ -30,6 +30,9 @@
       "icons/icon.icns",
       "icons/icon.png"
     ],
+    "android": {
+      "minSdkVersion": 30
+    },
     "macOS": {
       "minimumSystemVersion": "14.0",
       "signingIdentity": "-",

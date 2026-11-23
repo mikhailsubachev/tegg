@@ -159,6 +159,11 @@ const COMMANDS: &[&str] = &[
     "import_status",
     "import_discard",
     "import_transform_result",
+    // android-shell §2.1: the Android-only commands, after the desktop's.
+    "vault_start",
+    "vault_find",
+    "storage_access",
+    "storage_access_settings",
 ];
 
 fn main() {

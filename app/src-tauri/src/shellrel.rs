@@ -34,6 +34,7 @@ fn related_out(l: RelatedList) -> RelatedDto {
 }
 
 /// §2 `index_related`: the Related list of `path` (NFC) with linked objects hidden or shown.
+#[cfg(desktop)]
 #[tauri::command]
 pub async fn index_related(state: State<'_, AppState>, path: String, show_linked: bool) -> Result<RelatedDto, IpcError> {
     let core = core(&state)?;
