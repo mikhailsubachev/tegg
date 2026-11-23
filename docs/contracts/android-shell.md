@@ -25,7 +25,7 @@ the owner (CP-1…CP-6 → D-2036…D-2041, decided 2026-11-22: the proposals; B
 | `app/src-tauri/src/start.rs` | `StartState`, `start_state` (§5.1); pure, compiled on every target |
 | `app/src-tauri/tegg-android/` | the local Tauri plugin crate `tauri-plugin-tegg-android` (Rust + `android/` Kotlin library, D-2018), §6 |
 | `app/src-tauri/gen/android/` | the Gradle project, committed without build outputs, `local.properties`, keystores (D-2018), §8 |
-| `app/src-tauri/capabilities/default.json` | gains `"platforms": ["macOS"]`; nothing else changes (AR-03 AC-12) |
+| `app/src-tauri/capabilities/default.json` | gains `"platforms": ["macOS"]`; nothing else changes (AR-03 AC-12), apart from a later branch's own added commands' permissions (D-2168) |
 | `app/src-tauri/capabilities/android.json` | new: window `main`, `platforms: ["android"]`, exactly `ANDROID`'s `allow-…` permissions plus `core:default` |
 | `app/ui/src/platform.ts` | `platform(): 'android' \| 'macos'` from `window.__TEGG_PLATFORM__` (default `macos`) |
 | `app/ui/src/ipc/android.ts` | `ANDROID_EXCLUDED: readonly string[]` (RA2's groups) and the refusal (§9.1) |
@@ -43,7 +43,8 @@ the owner (CP-1…CP-6 → D-2036…D-2041, decided 2026-11-22: the proposals; B
 
 `commands.rs` holds three `pub const …: &[&str]` in source order of the desktop `generate_handler!`:
 
-- `DESKTOP`: every command the desktop registers, unchanged from `7ff0fc0b` (`type_misfits` stays out, D-808).
+- `DESKTOP`: every command the desktop registers, unchanged from `7ff0fc0b` (`type_misfits` stays out, D-808); later
+  branches add commands (D-2053, D-2168), for example slice OC's `type_card_example`, which is also in `ANDROID` (D-2167).
 - `ANDROID_ONLY`: `vault_start`, `vault_find`, `storage_access`, `storage_access_settings`.
 - `ANDROID`: `DESKTOP` minus RA2's groups P1…P5, J, V, O, then `ANDROID_ONLY`.
 
