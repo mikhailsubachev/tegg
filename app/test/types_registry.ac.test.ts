@@ -107,7 +107,7 @@ test('fr_typ_01_ac9_object_counts_use_plural_categories', async () => {
 
 test('fr_typ_01_ac9_rule_and_error_messages_are_catalog_strings', async () => {
   const { cat } = await mods();
-  const reasons = ['empty', 'forbiddenChar', 'keyTaken', 'keyTooLong', 'folderTaken', 'folderInvalid', 'reservedKey', 'attrKeyTaken', 'attrKeyInvalid', 'rangeCollision', 'optionEmpty', 'optionDuplicate', 'optionUsed']; // slice OC: typeRule.previewFull removed (R217, D-1999)
+  const reasons = ['empty', 'forbiddenChar', 'keyTaken', 'keyTooLong', 'folderTaken', 'folderInvalid', 'reservedKey', 'attrKeyTaken', 'attrKeyInvalid', 'rangeCollision', 'optionEmpty', 'optionDuplicate', 'optionUsed']; // slice OC: typeRule.previewFull removed (R217, D-2111)
   const missing = reasons.map((r) => `typeRule.${r}`).filter((k) => !(k in cat.en) || String(cat.t(k, { key: 'x', label: 'x', field: 'x' })).trim() === '');
   assert.deepEqual(missing, [], 'typeRule.<reason> messages');
   const kinds = ['NewerVersion', 'InvalidType', 'BuiltInChanged', 'ReviewLocked', 'SystemType', 'HasObjects', 'UnknownType', 'Rule'];
@@ -142,5 +142,5 @@ test('fr_typ_01_ac4_r14_colours_and_icons_have_catalog_labels', async () => {
   assert.deepEqual(s!.ICONS, R14_ICONS);
   const shown = Object.values(cat.en).map(String);
   for (const [, label] of R14_COLORS) assert.ok(shown.includes(label), `colour label ${label} in the catalog`);
-  // Slice OC (R217, D-1955): R14's icon.<name> labels are gone; an icon is named by its Lucide name. ICONS stays as the old names.
+  // Slice OC (R217, D-2067): R14's icon.<name> labels are gone; an icon is named by its Lucide name. ICONS stays as the old names.
 });

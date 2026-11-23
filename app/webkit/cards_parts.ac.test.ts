@@ -82,13 +82,13 @@ test('fr_typ_11_ac8_empty_values_draw_nothing', async ({ page }) => {
   const kraj = 'kraj: "—"\n';
   assert.deepEqual((await variant(kraj, 'kraj: " — "\n'))?.items, [], '" — " draws nothing');
   let c = await variant('kraj: " — "\n', 'kraj: "–"\n');
-  // Kraj has the icon map-pin, so the pill shows the icon and – with no visible name (D-2015).
+  // Kraj has the icon map-pin, so the pill shows the icon and – with no visible name (D-2127).
   assert.deepEqual(await cardWhen(objectCard(b, P.machovo), (x) => (x?.items.length ?? 0) === 1).then((x) => x?.items.map((i) => [i.icon, i.text, i.label])), [['map-pin', '–', 'Kraj: –']], 'the en dash draws a Kraj pill: map-pin and –, named Kraj: –, no visible Kraj');
   c = await variant('kraj: "–"\n', 'kraj: "— nic"\n');
   assert.ok((await cardWhen(objectCard(b, P.machovo), (x) => !!x?.items[0]?.text.includes('— nic')))?.items[0]?.text.includes('— nic'), '"— nic" draws');
   await variant('kraj: "— nic"\n', 'kraj: "—"\n');
   await variant('vybavení: []\n', 'vybavení: [Mapa, —]\n');
-  // D-2028: wait for the vybavení pill, not for any one-item card (the stale card may still show a pill).
+  // D-2140: wait for the vybavení pill, not for any one-item card (the stale card may still show a pill).
   const one = await cardWhen(objectCard(b, P.machovo), (x) => !!x?.items.some((i) => i.attribute === 'vybavení'));
   assert.deepEqual(one?.items.map((i) => [i.attribute, i.label]), [['vybavení', 'Vybavení: Mapa']], '[Mapa, —]: one pill Mapa');
   void c;
@@ -263,7 +263,7 @@ test('fr_typ_11_ac13_url_values', async ({ page }) => {
   const core = await startCards(page, { vault: cardsVault((f) => sevenTypes(f)), route: queryRoute(SEVEN) });
   const b = await must(board(page), 'the seven-type board', 8000);
   const chip = objectCard(b, P.snezka).locator('a.chip[data-attribute="odkaz"]');
-  // Sněžka's odkaz chip is item 16: the two-row rule (AC-11) hides it, so it is listed in the "not shown" hint (D-2016).
+  // Sněžka's odkaz chip is item 16: the two-row rule (AC-11) hides it, so it is listed in the "not shown" hint (D-2128).
   assert.equal(await chip.count(), 1, 'Sněžka\'s odkaz chip is in the DOM');
   const sm = await cardInfo(objectCard(b, P.snezka));
   assert.ok(sm?.more?.title?.startsWith('Not shown: ') && sm.more.title.includes('example.com/snezka-z-pece'), `the odkaz chip is listed in the not-shown hint: ${sm?.more?.title}`);
@@ -280,7 +280,7 @@ test('fr_typ_11_ac13_url_values', async ({ page }) => {
   await core.setFile(P.snezka, swap(original(P.snezka), 'odkaz: "https://www.example.com/trasy/snezka-z-pece?zdroj=rss#mapa"', 'odkaz: example.org'));
   await sleep(500);
   assert.equal(await objectCard(b, P.snezka).locator('[data-attribute="odkaz"][data-invalid]').count(), 1, 'a URL without a scheme: a pill with the invalid-value icon');
-  // D-2028: the click on Podklady's local item opens Podklady (a click on the card), so it comes after the board's checks.
+  // D-2140: the click on Podklady's local item opens Podklady (a click on the card), so it comes after the board's checks.
   await pod.click().catch(() => undefined);
   assert.ok(!(await core.externalOpened()).some((u) => u.startsWith('file:')), 'a file:// value is never passed to open_external');
   assert.deepEqual(net, [], 'no request to a non-local host');

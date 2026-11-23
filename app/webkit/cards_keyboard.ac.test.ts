@@ -101,7 +101,7 @@ test('fr_ux_03_ac55_cards_keyboard_only', async ({ page }) => {
   assert.ok(await tabTo(page, 'Remove Poznámka from the card'), 'Tab to Remove Poznámka from the card');
   await check('Remove Poznámka from the card');
   await page.keyboard.press('Enter');
-  // D-2033: poznámka leaves the card: list; the type file still defines the attribute.
+  // D-2145: poznámka leaves the card: list; the type file still defines the attribute.
   const cardLine = (t: string | null | undefined) => /^card: \[(.*)\]$/m.exec(t ?? '')?.[1] ?? '';
   assert.ok(!cardLine(await fileWhen(core, VYLET_YML, (t) => !cardLine(t).includes('poznámka'), 2000)).includes('poznámka'), 'Remove: one write');
   await runCommand(page, 'Change type icon…');
@@ -111,7 +111,7 @@ test('fr_ux_03_ac55_cards_keyboard_only', async ({ page }) => {
   assert.ok(await tabTo(page, 'Icon for Kraj', 150), 'Tab to Icon for Kraj in Properties');
   await check('Icon for Kraj');
   await page.keyboard.press('Enter');
-  // D-2053: `pin` lists loader-pinwheel, map-pin, map-pin-check, … by name (§7.7); Kraj already has map-pin, so → → picks
+  // D-2165: `pin` lists loader-pinwheel, map-pin, map-pin-check, … by name (§7.7); Kraj already has map-pin, so → → picks
   // map-pin-check.
   await page.keyboard.type('pin');
   await page.keyboard.press('ArrowRight');

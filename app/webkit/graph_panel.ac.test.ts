@@ -856,7 +856,7 @@ test('fr_grp_06_ac6_panel_preview_popover_content', async ({ page }) => {
   for (const part of ['Rozpočet 2027', 'Projekt', 'Projekt · 6 connections', 'Links to Plán čtvrtletí by relation Podklady · Linked from Plán čtvrtletí', 'Jana Nováková', 'Termín', 'Dec 31, 2026', 'Rozpočet na příští rok.']) {
     assert.ok(text.includes(part), `the popover shows ${JSON.stringify(part)}: ${text}`);
   }
-  // D-2024, D-2027: the link chip shows the target only; its accessible name carries the property's Name.
+  // D-2136, D-2139: the link chip shows the target only; its accessible name carries the property's Name.
   assert.ok(await d.getByLabel(nfc('Vlastník: Jana Nováková'), { exact: true }).count() >= 1, 'the link chip is named "Vlastník: Jana Nováková"');
   assert.ok(await d.locator('[data-icon="folder"]').count() >= 1, 'the folder icon');
   const btns = (await d.getByRole('button').allInnerTexts()).map(flat);

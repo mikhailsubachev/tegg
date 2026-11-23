@@ -1,5 +1,5 @@
 // Slice OC benchmark (L6, Appium mac2 on the built release test app; app-perf, outside the push run): docs/acceptance/
-// cards.md NFR-PERF-07 AC-6 (D-1774, AP-1603 → D-1996): NFR-PERF-07 AC-3's board (the 5,000-note reference vault, gen-vault
+// cards.md NFR-PERF-07 AC-6 (D-1774, AP-1603 → D-2108): NFR-PERF-07 AC-3's board (the 5,000-note reference vault, gen-vault
 // `--seed 1 --small-images`, plus a runtime type `karta` with 500 objects in 6 lanes of `fáze`) whose `karta.yml` gets
 // `card: [tags, body, fáze, a1, a2, a3, a4, a5, modified]` (five runtime Text attributes, every value set, a 300-character
 // body): selecting the `Karty` tab paints the visible cards within 225 ms p95 of 20 runs (`perfMark('board-request')` →
@@ -76,7 +76,7 @@ test('nfr_perf_07_ac6_boards_with_card_values', { timeout: 60 * 60_000 }, async 
     }
     console.log(`NFR-PERF-07 AC-6: 500 cards with nine card values, board-request → board-ready p95 ${p(times, 0.95).toFixed(1)} ms (target 225 ms)`);
     if (enforce) assert.ok(p(times, 0.95) <= 225, `p95 ${p(times, 0.95).toFixed(1)} ms > 225 ms`);
-    else console.log('NFR-PERF-07 AC-6: report-only until the v1.0 release gate (D-1996)');
+    else console.log('NFR-PERF-07 AC-6: report-only until the v1.0 release gate (D-2108)');
   } finally {
     rmSync(base, { recursive: true, force: true });
   }

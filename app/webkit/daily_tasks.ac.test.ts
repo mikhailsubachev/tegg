@@ -65,7 +65,7 @@ test.describe('Tasks due in Europe/Prague', () => {
     assert.ok(text.includes(`${shortDate('2026-10-09', 'cs')} · 5 days overdue`), `due chip: ${text}`);
     const src = await must(r1.locator('[data-link-kind]').filter({ hasText: 'Porada' }), 'source chip');
     assert.equal(await description(src), 'Source: Porada');
-    // D-2021: each row is the Task ObjectCard with Task's default card list (tags, body, status, due, priority, …).
+    // D-2133: each row is the Task ObjectCard with Task's default card list (tags, body, status, due, priority, …).
     assert.equal(await r1.evaluate((e) => e.matches('article[data-object-card][data-task-card]')), true, 'the row is a Task ObjectCard');
     assert.ok(text.includes('Domluvit') && text.includes('#práce') && text.includes('High'), `Task's card list: body, tags, priority (${text})`);
     assert.ok((await r1.locator('[data-icon], svg').count()) > 0, 'the type icon');

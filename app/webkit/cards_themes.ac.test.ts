@@ -50,7 +50,7 @@ for (const theme of ['light', 'dark'] as const) {
       await must(settingsNav(x.page), `${r}: the section list`, 8000);
       await check(x.page, r);
     }
-    // Option dots use --type-<colour>; +N more uses --muted. D-2043: R187 hides the grouping property's pill, so the
+    // Option dots use --type-<colour>; +N more uses --muted. D-2155: R187 hides the grouping property's pill, so the
     // board is regrouped by náročnost (as cards_parts ac10 does) before the stav dot is read.
     await core.setFile(`.tegg/queries/${STAV_Q}.yml`, swap((await core.files())[nfc(`.tegg/queries/${STAV_Q}.yml`)], 'group_by: stav', 'group_by: náročnost'));
     await cardWhen(objectCard(board(page), P.snezka), (c) => !!c?.items.some((i) => i.attribute === 'stav'), 3000);
@@ -69,7 +69,7 @@ async function leaks(page: Page, root: string, allowed: string[]): Promise<strin
   return page.evaluate(([sel, ok]) => {
     const allow = new Set((ok as string[]).map((s) => s.normalize('NFC')));
     const isData = (t: string) => allow.has(t) || /^[\d\s.,:+#·—–-]*$/.test(t) || /^[A-Z][a-z]{2} \d{1,2}, \d{4}$/.test(t) || /^\d{4}-\d{2}-\d{2}$/.test(t) || /^[a-z0-9]+(-[a-z0-9]+)*$/.test(t) || /^#\S+$/.test(t) || /^\S+\.\S+(\/\S*)?$/.test(t);
-    // D-2034: pseudo brackets nest (`⟦Remove ⟦Tags⟧ from the card⟧`): drop the innermost pairs until none is left.
+    // D-2146: pseudo brackets nest (`⟦Remove ⟦Tags⟧ from the card⟧`): drop the innermost pairs until none is left.
     const rest = (t: string) => {
       let x = t, y = '';
       while (x !== y) { y = x; x = x.replace(/⟦[^⟦⟧]*⟧/g, ' '); }
@@ -88,7 +88,7 @@ async function leaks(page: Page, root: string, allowed: string[]): Promise<strin
         for (const a of ['title', 'aria-label', 'aria-description']) {
           const v = el.getAttribute(a);
           if (!v) continue;
-          // D-2034: a pill's `title` is its property's Name from the type file (user data, not a UI string), and a
+          // D-2146: a pill's `title` is its property's Name from the type file (user data, not a UI string), and a
           // title on user content (a local item's path) is data.
           if (a === 'title' && (v === el.getAttribute('data-name-title') || el.matches('[data-user-content]'))) continue;
           const t = rest(v).replace(/(^|\s)[^\s⟦⟧]*:\s*/g, ' ').trim();

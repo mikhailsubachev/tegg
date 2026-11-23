@@ -171,7 +171,7 @@ test('fr_typ_01_ac4_general_edits_write_only_the_type_file_and_update_the_ui', a
   await commit(textbox(page, 'General', 'Description'), 'Všechny porady.');
   await (await must(general(page).getByRole('radio', { name: 'Orange', exact: true }), 'Orange')).click();
   await (await must(general(page).getByRole('button', { name: 'Change icon', exact: true }), 'Change icon')).click();
-  // Slice OC (D-1958, types.md FR-TYP-01 AC-23): `Change icon` opens the picker; choose briefcase there.
+  // Slice OC (D-2070, types.md FR-TYP-01 AC-23): `Change icon` opens the picker; choose briefcase there.
   await (await must(page.getByRole('combobox', { name: 'Search icons…' }), 'the picker')).fill('briefcase');
   await (await must(page.locator('div[role="dialog"][data-icon-picker] [role="option"][data-icon="briefcase"]'), 'icon briefcase')).click();
   const want = swap(swap(swap(swap(swap(schuzka(), 'name: Schůzka\n', 'name: Porada\n'), 'plural: Schůzky\n', 'plural: Porady\n'), 'description: Porady a schůzky.\n', 'description: Všechny porady.\n'), 'color: teal\n', 'color: orange\n'), 'icon: users\n', 'icon: briefcase\n');
@@ -241,7 +241,7 @@ test('fr_typ_01_ac8_templates_and_views_sections', async ({ page }) => {
     assert.equal(await b.getAttribute('aria-disabled'), 'true');
     assert.equal(await description(b), 'Coming in v1.0');
   }
-  // Slice OC (D-1959, types.md FR-TYP-01 AC-25): the Views section lists the type's real views.
+  // Slice OC (D-2071, types.md FR-TYP-01 AC-25): the Views section lists the type's real views.
   assert.equal(await section(page, 'Views').count(), 1, 'the section Views');
 });
 
@@ -616,7 +616,7 @@ test('fr_typ_06_ac2_built_in_attributes_are_locked', async ({ page }) => {
     if (await seen(del, 200)) assert.equal(await isDisabled(del), true, `${n}: Delete property… disabled`);
   }
   const status = await must(property(page, 'Status'), 'Status');
-  // D-2039 (types.md FR-TYP-01 AC-24): one property open at a time; opening the others collapsed Status, so it opens again.
+  // D-2151 (types.md FR-TYP-01 AC-24): one property open at a time; opening the others collapsed Status, so it opens again.
   const editStatus = status.getByRole('button', { name: 'Edit Status', exact: true });
   assert.equal(await editStatus.getAttribute('aria-expanded'), 'false', 'opening another property collapsed Status');
   await editStatus.click();
@@ -655,11 +655,11 @@ test('fr_typ_06_ac4_missing_system_file_uses_defaults_and_the_first_change_creat
 
 // ------------------------------------------------------------------------------------------------ FR-TYP-11, FR-TYP-12
 
-// Slice OC (D-1942, cards.md "Existing criteria this slice changes"): Preview properties is superseded by the Card
+// Slice OC (D-2054, cards.md "Existing criteria this slice changes"): Preview properties is superseded by the Card
 // section (cards.md FR-TYP-11 AC-20…AC-24, app/webkit/type_settings_oc.ac.test.ts); these keep what still holds.
 test('fr_typ_11_ac1_up_to_four_preview_properties', async ({ page }) => {
   const core = await openSchuzka(page);
-  assert.equal(await section(page, 'Preview properties').count(), 0, 'no Preview properties section (D-1942)');
+  assert.equal(await section(page, 'Preview properties').count(), 0, 'no Preview properties section (D-2054)');
   assert.ok(await seen(section(page, 'Card')), 'the Card section in its place');
   assert.equal(await main(page).getByText(/Up to 4/).count(), 0, 'no limit of 4');
   assert.deepEqual(await nonReadCalls(core), [], 'opening writes nothing');

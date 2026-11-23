@@ -4,7 +4,7 @@ Synthetic overlay for `docs/acceptance/views.md` **part three** (R201…R208; D-
 
 **State it represents.** The tasks vault of slice 5A **after** the Q2-T migration (R202) plus one user view and a project board: `task.yml` lists three views, the two default query files exist, and the user added `Čeká na ostatní` and `Projekty podle termínu`. The migration itself is tested on the base fixture without this overlay (its `task.yml` has no `views`).
 
-**How tests use it.** A part-three test that names the overlay copies `tests/fixtures/vaults/tasks/` (without its README), then `tests/fixtures/vaults/new-empty/.tegg/`, then this folder (without this README). The order matters: this folder **replaces** new-empty's `.tegg/types/task.yml`. It **adds** the four query files and three projects, and **replaces** two base tasks (`Tasks/Opravit kolo.md`, `Tasks/Příprava prezentace.md`) with copies that set `projekt` (D-2048); nothing else. Tests on the base fixture alone (the migration criteria, every slice 5A test) don't copy it.
+**How tests use it.** A part-three test that names the overlay copies `tests/fixtures/vaults/tasks/` (without its README), then `tests/fixtures/vaults/new-empty/.tegg/`, then this folder (without this README). The order matters: this folder **replaces** new-empty's `.tegg/types/task.yml`. It **adds** the four query files and three projects, and **replaces** two base tasks (`Tasks/Opravit kolo.md`, `Tasks/Příprava prezentace.md`) with copies that set `projekt` (D-2160); nothing else. Tests on the base fixture alone (the migration criteria, every slice 5A test) don't copy it.
 
 **Byte rules.** LF, UTF-8 without BOM, every file ends with one `\n`, NFC everywhere (file names too). Don't open and re-save these files in an editor. NFD, CRLF and no-final-newline variants are made at runtime.
 
@@ -14,7 +14,7 @@ Synthetic overlay for `docs/acceptance/views.md` **part three** (R201…R208; D-
 
 | File | What it holds | What it tests |
 | --- | --- | --- |
-| `.tegg/types/task.yml` | new-empty's `task.yml` with one added line 11: `views: [Schedule, Kanban, Čeká na ostatní]` (R184's place, after `preview`); `attributes:` moves to line 12; and, after `recurrence`, the user attribute `projekt` (`name: Projekt`, `type: relation`, `to: [projekt]`, D-2037); every other byte equals new-empty's | the Tasks page's tabs (R204); a tab's own sort written into a block-style `views:` (FR-QRY-01 AC-19); a Task property to add to Task's card (views.md FR-QRY-05 AC-31) and to set from the panel (FR-TSK-01 AC-6) |
+| `.tegg/types/task.yml` | new-empty's `task.yml` with one added line 11: `views: [Schedule, Kanban, Čeká na ostatní]` (R184's place, after `preview`); `attributes:` moves to line 12; and, after `recurrence`, the user attribute `projekt` (`name: Projekt`, `type: relation`, `to: [projekt]`, D-2149); every other byte equals new-empty's | the Tasks page's tabs (R204); a tab's own sort written into a block-style `views:` (FR-QRY-01 AC-19); a Task property to add to Task's card (views.md FR-QRY-05 AC-31) and to set from the panel (FR-TSK-01 AC-6) |
 | `.tegg/queries/Schedule.yml` | R202's Schedule bytes, `created` / `modified` `2026-10-13T08:00:00+02:00` | `group_by: { due: period }`, `lanes: horizontal`, `done_lane` folded (R201, R203) |
 | `.tegg/queries/Kanban.yml` | R202's Kanban bytes, same stamps | the Kanban by status as a view, no `lane_order`, `done_lane` on a board grouped by status (R201) |
 | `.tegg/queries/Čeká na ostatní.yml` | Task, `status: Waiting`, Table, `sort: { by: due, order: asc }`, `columns: [due, priority]` | a user Table view on the Tasks page; the tag filter on a table tab (FR-QRY-07 AC-30) |
@@ -23,8 +23,8 @@ Synthetic overlay for `docs/acceptance/views.md` **part three** (R201…R208; D-
 | `Projekty/Zahrada.md` | id `…E202`, `status: To do`, no `due` | the no-value lane `No Due date` |
 | `Projekty/Kuchařka.md` | id `…E203`, `status: Done`, `due: 2026-11-30` | Later; `Done` is only a label on Projekt (no `state`), so no done lane (R201) |
 
-| `Tasks/Opravit kolo.md` | the base's T09 with one added line `projekt: "[[Stěhování]]"` before `created` (D-2048) | a Task with a `projekt` and no `source`, no `due`: the projekt chip in the footer (views.md FR-QRY-05 AC-31) |
-| `Tasks/Příprava prezentace.md` | the base's task with one added line `projekt: "[[Stěhování]]"` before `created` (D-2048) | a Task with a `projekt` and a `due` on Schedule (FR-QRY-05 AC-31). T01 (`Zavolat Janě`, the only Task with a `source`) keeps no `projekt`: FR-TSK-01 AC-6 sets it from the panel |
+| `Tasks/Opravit kolo.md` | the base's T09 with one added line `projekt: "[[Stěhování]]"` before `created` (D-2160) | a Task with a `projekt` and no `source`, no `due`: the projekt chip in the footer (views.md FR-QRY-05 AC-31) |
+| `Tasks/Příprava prezentace.md` | the base's task with one added line `projekt: "[[Stěhování]]"` before `created` (D-2160) | a Task with a `projekt` and a `due` on Schedule (FR-QRY-05 AC-31). T01 (`Zavolat Janě`, the only Task with a `source`) keeps no `projekt`: FR-TSK-01 AC-6 sets it from the panel |
 
 The base's `Projekty/Web.md` (`due: 2026-10-14`) is the fourth project (Today lane).
 

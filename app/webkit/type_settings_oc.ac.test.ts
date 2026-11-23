@@ -80,7 +80,7 @@ test('fr_typ_11_ac21_changing_the_card_writes_only_card', async ({ page }) => {
   const k = await another(page, { route: settingsRoute('kontrola') });
   await click(cardRemove(k.page, 'Tags'), 'kontrola: Remove Tags', 8000);
   assert.equal(await fileWhen(k.core, KONTROLA_YML, (t) => !!t?.includes('card:')), swap(original(KONTROLA_YML), 'review: false\n', 'review: false\ncard: [body, modified]\n'), '(d) after review: false');
-  // D-2029: type-file writes under .tegg/types/ are allowed; no note file is written.
+  // D-2141: type-file writes under .tegg/types/ are allowed; no note file is written.
   const notes = [...(await core.writesTo()), ...(await s.core.writesTo()), ...(await k.core.writesTo())].filter((p) => !nfc(p).startsWith('.tegg/types/'));
   assert.deepEqual(notes, [], 'no note file is written');
 });
@@ -128,7 +128,7 @@ test('fr_typ_11_ac22_add_property', async ({ page }) => {
 test('fr_typ_11_ac23_reordering', async ({ page }) => {
   const core = await openSettings(page, 'výlet');
   await must(cardHandle(page, 'Kraj'), 'Drag to reorder Kraj');
-  // D-2030: the handles are scrolled into view before the mouse drag.
+  // D-2142: the handles are scrolled into view before the mouse drag.
   await cardHandle(page, 'Stav').scrollIntoViewIfNeeded();
   await cardHandle(page, 'Kraj').scrollIntoViewIfNeeded();
   const from = (await cardHandle(page, 'Kraj').boundingBox())!;
@@ -140,7 +140,7 @@ test('fr_typ_11_ac23_reordering', async ({ page }) => {
   assert.equal(await fileWhen(core, VYLET_YML, (t) => t !== original(VYLET_YML)), vyletWith('card: [tags, description, kraj, stav, náročnost, vybavení, délka, termín, odkaz, průvodce, neznámý-klíč, modified]\n'), 'Kraj above Stav: one write');
   await cardHandle(page, 'Kraj').focus();
   await page.keyboard.press('Alt+ArrowDown');
-  assert.equal(await fileWhen(core, VYLET_YML, (t) => !!t?.includes('stav, kraj, náročnost')), vyletWith('card: [tags, description, stav, kraj, náročnost, vybavení, délka, termín, odkaz, průvodce, neznámý-klíč, modified]\n'), '⌥↓ moves one place down (D-2047)');
+  assert.equal(await fileWhen(core, VYLET_YML, (t) => !!t?.includes('stav, kraj, náročnost')), vyletWith('card: [tags, description, stav, kraj, náročnost, vybavení, délka, termín, odkaz, průvodce, neznámý-klíč, modified]\n'), '⌥↓ moves one place down (D-2159)');
   assert.equal((await focusName(page)).name.replace(/[⟦⟧]/g, ''), 'Drag to reorder Kraj', 'the focus stays on the handle');
   const n = (await callsOf(core, 'type_patch')).length;
   await cardHandle(page, 'Tags').focus();
@@ -169,7 +169,7 @@ test('fr_typ_11_ac24_remove_and_reset', async ({ page }) => {
   const r = await another(page, { route: settingsRoute('výlet') });
   await must(cardList(r.page), 'the Card list', 8000);
   for (const name of ['Tags', 'Description', 'Stav', 'Náročnost', 'Kraj', 'Vybavení', 'Délka v km', 'Termín', 'Odkaz', 'Průvodce', 'Modified']) await click(cardRemove(r.page, name), `Remove ${name}`);
-  // RT-2 (proposal): unknown entries keep their place (R209, D-1964), so the last write is `card: [neznámý-klíč]`.
+  // RT-2 (proposal): unknown entries keep their place (R209, D-2076), so the last write is `card: [neznámý-klíč]`.
   assert.equal(await fileWhen(r.core, VYLET_YML, (t) => !!t?.includes('card: [neznámý-klíč]') || !!t?.includes('card: []')), vyletWith('card: [neznámý-klíč]\n'), 'removing every row keeps only the unknown key (RT-2)');
   const sn = await another(page, { vault: cardsVault((f) => { f[nfc(VYLET_YML)] = vyletWith('card: [neznámý-klíč]\n'); }), route: queryRoute(STAV_Q) });
   const c = await cardWhen(objectCard(board(sn.page), P.snezka), (x) => !!x, 8000);
@@ -244,7 +244,7 @@ test('fr_typ_11_ac28_kept_consistent_with_schema_changes', async ({ page }) => {
   await click(editProperty(page, 'Kraj'), 'Edit Kraj', 5000);
   await click(main(page).getByRole('button', { name: /^⟦?Delete property…⟧?$/ }), 'Delete property…');
   const d = await must(page.getByRole('dialog', { name: /^⟦?Delete property "Kraj"\?⟧?$/ }), 'the delete dialog');
-  // D-2031: Máchovo keeps `kraj: "—"`, a value for the delete job (D-2012), so the dialog is the job's, as for an
+  // D-2143: Máchovo keeps `kraj: "—"`, a value for the delete job (D-2124), so the dialog is the job's, as for an
   // attribute that still has values (type-moves.md FR-TYP-04 AC-6, AC-7).
   await click(d.getByRole('button', { name: /^⟦?Delete from 1 note⟧?$/ }), 'Delete from 1 note');
   const t = await fileWhen(core, VYLET_YML, (x) => !x?.includes('key: kraj'), 5000);

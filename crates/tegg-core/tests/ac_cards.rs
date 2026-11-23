@@ -193,7 +193,7 @@ fn fr_typ_11_ac18_one_read_per_list() {
     let c = some!(row.card.clone(), "QueryRow.card on a board run");
     assert_eq!(c.values.len(), 11, "card.values holds 11 entries: {:?}", c.values.keys().collect::<Vec<_>>());
     assert_eq!(c.excerpt, None, "no body on Výlet's card: no excerpt read");
-    assert_eq!(row.excerpt, "", "the row's own excerpt stays a string (D-1999)");
+    assert_eq!(row.excerpt, "", "the row's own excerpt stays a string (D-2111)");
     assert_eq!(c.links.iter().map(|l| (l.target.clone(), l.path.clone())).collect::<Vec<_>>(), vec![("Eva Lindová".to_string(), Some("Autoři/Eva Lindová.md".to_string()))], "card.links holds Eva Lindová, resolved");
     // A Table run carries no card (v1-views §24.4).
     let t = run(&core, "Přečtené 2026");

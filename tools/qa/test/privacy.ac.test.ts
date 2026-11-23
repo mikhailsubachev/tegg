@@ -8,7 +8,7 @@ import {
   installRealHooks, lastSummary, makeRepo, output, verify, writeFiles,
 } from './helpers.ts';
 
-const LIMIT = 2_097_152; // D-1963
+const LIMIT = 2_097_152; // D-2075
 
 function stage(repo: string, files: Record<string, string | Buffer>): void {
   writeFiles(repo, files);

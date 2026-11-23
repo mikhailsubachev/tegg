@@ -2,7 +2,7 @@
 // titles, no shortcut, `needsVault: true`, listed exactly where R217 says; NFR-OTH-02 AC-24: R217's keys with their
 // English texts, the removed keys gone, plural forms through `Intl.PluralRules` with a Czech test catalog), types.md
 // FR-TYP-01 AC-28 (the new labels of type settings come from the catalog) and app-shell.md FR-UX-02 AC-26 (R1's design
-// entries after OC). Interface docs/contracts/v1-cards.md §9, §11 (D-1994, D-1995). Written from the ACs and the contract
+// entries after OC). Interface docs/contracts/v1-cards.md §9, §11 (D-2106, D-2107). Written from the ACs and the contract
 // only (D-61). Modules load inside the tests (TS-I1).
 import { afterEach, test } from 'vitest';
 import assert from 'node:assert/strict';
@@ -70,7 +70,7 @@ test('fr_ux_03_ac54_card_and_icon_commands', async () => {
   await (cmd.commands(ctx) as any[]).find((c) => c.id === 'card.edit')?.run(ctx);
   assert.ok(calls.length === 1 && calls[0].section === 'card' && calls[0].focus === 'card.add' && JSON.stringify(calls[0]).includes('výlet'), `Edit card… goes to type-settings/výlet, section card, focus Add property: ${JSON.stringify(calls)}`);
   const sc = (reg.SHORTCUTS as { command: string }[]).filter((s) => /^(card\.|type\.changeIcon)/.test(s.command));
-  assert.deepEqual(sc, [], 'no shortcut (D-1995)');
+  assert.deepEqual(sc, [], 'no shortcut (D-2107)');
   for (const k of ['card.move', 'property.icon', 'card.add', 'card.reset']) assert.ok(k in cmd.CONTROL_COMMANDS, `FR-UX-03 AC-8's control map has ${k}`);
 });
 
@@ -121,7 +121,7 @@ test('nfr_oth_02_ac24_card_and_picker_strings', async () => {
   assert.deepEqual(bad, [], 'R217\'s keys and the contract\'s §9 keys with their English texts');
   assert.deepEqual(REMOVED.filter((k) => k in en), [], 'the Preview properties section\'s own keys are gone');
   assert.deepEqual(R14.map((n) => `icon.${n}`).filter((k) => k in en), [], 'R14\'s icon.<name> labels are gone (icons are named by their Lucide name)');
-  assert.deepEqual(KEPT.filter((k) => !(k in en)), [], 'the reused keys stay (preview.properties too, D-1999)');
+  assert.deepEqual(KEPT.filter((k) => !(k in en)), [], 'the reused keys stay (preview.properties too, D-2111)');
   cat.setCatalog({ ...en, 'card.more': { one: '+{count} další', few: '+{count} další', other: '+{count} dalších' } }, 'cs');
   assert.deepEqual([1, 3, 5].map((n) => cat.t('card.more', { count: n })), ['+1 další', '+3 další', '+5 dalších'], 'card.more through Intl.PluralRules: one, few, other');
 });
@@ -146,8 +146,8 @@ test('fr_ux_02_ac26_settings_design_entries', async () => {
   const { reg } = await mods();
   const routes = reg.ROUTES as { id: string; design: string | null; status?: { built?: boolean } }[];
   assert.deepEqual(SETTINGS.map((id) => [id, routes.find((r) => r.id === id)?.design ?? null]), SETTINGS.map((id) => [id, 'Settings']), 'the eight settings routes: design Settings');
-  assert.equal(routes.find((r) => r.id === 'type-settings/<type>')?.design, 'CardSettings', 'type-settings/<type>: design CardSettings (D-1994)');
+  assert.equal(routes.find((r) => r.id === 'type-settings/<type>')?.design, 'CardSettings', 'type-settings/<type>: design CardSettings (D-2106)');
   const th = routes.find((r) => r.id === 'settings/trash-history');
-  // D-2035: the registry's own shape, `status.built === false` (registry.ts `tbd`).
+  // D-2147: the registry's own shape, `status.built === false` (registry.ts `tbd`).
   assert.ok(th && th.status?.built === false, 'settings/trash-history stays TBD');
 });

@@ -1,8 +1,8 @@
 // Slice OC, L5: the preview strip shows the card (docs/acceptance/previews.md part four, FR-LNK-10 AC-17…AC-19; cards.md
-// AP-1588, D-1956): the `Preview properties` region holds the card's pills, then its link chip, from the target's card
+// AP-1588, D-2068): the `Preview properties` region holds the card's pills, then its link chip, from the target's card
 // list; no tags, no text, no date. On the previews fixture (AC-17, AC-19, its clock) and the cards fixture (AC-18),
 // through the fake core (docs/contracts/v1-cards.md §7.4, §8.1, §13). A new file: the previews tests change in the build
-// commit (D-1997). Written from the ACs and the contract only (D-61).
+// commit (D-2109). Written from the ACs and the contract only (D-61).
 import { test } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { P, cardsVault, eventually, main, must, noteRoute, sleep, startCards, swap } from './cards-helpers';
@@ -70,7 +70,7 @@ test('fr_lnk_10_ac19_tasks_images_and_pdfs', async ({ page }) => {
   await startPreviews(page, { at: PV.odkazy, mode: 'click' });
   const t = await openPreview(page, PV.odkazy, 'Zavolat Janě');
   const ti = await items(await must(strip(t), 'Zavolat Janě\'s strip'));
-  assert.deepEqual(ti.map((i) => i.attribute), ['status', 'due', 'priority', 'source'], 'status, due, priority (R210, D-2020), then the source chip');
+  assert.deepEqual(ti.map((i) => i.attribute), ['status', 'due', 'priority', 'source'], 'status, due, priority (R210, D-2132), then the source chip');
   assert.equal(ti.at(-1)?.text, 'Porada 2026-10-27', 'the source chip');
   assert.equal(await t.locator('[role="checkbox"]:not([aria-readonly="true"]), input[type="checkbox"]:not([disabled])').count(), 0, 'no control that changes the task');
   await page.keyboard.press('Escape');

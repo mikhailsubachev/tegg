@@ -40,10 +40,10 @@ test('fr_lnk_10_ac1_header_has_the_type_icon_title_and_type_name_and_no_cover', 
 
 test('fr_lnk_10_ac2_strip_holds_the_preview_attributes_with_a_value_in_order', async ({ page }) => {
   const { dlg } = await previewOf(page, 'Projekt', 0, 'Projekt Alfa');
-  // Slice OC (D-1956, cards.md AP-1588): the card's pills in the card list's order, then its link chip.
+  // Slice OC (D-2068, cards.md AP-1588): the card's pills in the card list's order, then its link chip.
   assert.deepEqual(await stripItems(dlg), ['Stav Aktivní', 'Termín Dec 31, 2026', 'Jana Nováková'], 'exactly three items: Rozpočet is empty, Poznámka is not on the card');
   const s = await need(strip(dlg), 'region "Preview properties"');
-  await need(chipNamed(s, 'Vlastník: Jana Nováková'), 'Vlastník as the chip named Vlastník: Jana Nováková'); // D-2027, D-2046
+  await need(chipNamed(s, 'Vlastník: Jana Nováková'), 'Vlastník as the chip named Vlastník: Jana Nováková'); // D-2139, D-2158
   await page.keyboard.press('Escape');
   const d2 = await clickToPreview(page, await needOdkazyLink(page, 'Hlavní'), 'Rozpočet 2027', 'Rozpočet');
   assert.equal(await strip(d2).count(), 0, 'Rozpočet (Page, preview: []) has no strip element');
@@ -52,7 +52,7 @@ test('fr_lnk_10_ac2_strip_holds_the_preview_attributes_with_a_value_in_order', a
 test('fr_lnk_10_ac2_changing_the_type_preview_list_updates_the_open_strip', async ({ page }) => {
   const { core, dlg } = await previewOf(page, 'Projekt', 0, 'Projekt Alfa');
   const yml = (await fileText(core, PV.projektYml))!;
-  // Slice OC (D-1942): the strip follows the type's card list (`card:`), no longer `preview`.
+  // Slice OC (D-2054): the strip follows the type's card list (`card:`), no longer `preview`.
   await core.setFile(PV.projektYml, swap(yml, 'preview: [stav, vlastník, termín, rozpočet]', 'preview: [stav, vlastník, termín, rozpočet]\ncard: [termín]'));
   const items = () => strip(dlg).locator('[data-attribute]').allInnerTexts().then((x) => x.map(flat)).catch(() => [] as string[]);
   const got = await eventually(items, (x) => JSON.stringify(x) === JSON.stringify(['Termín Dec 31, 2026']), 2000);
@@ -81,7 +81,7 @@ test('fr_lnk_10_ac4_nested_embeds_are_cards_without_recursion', async ({ page })
   const { dlg } = await previewOf(page, 'Hlavní', 0, 'Rozpočet 2027');
   const art = await need(content(dlg, 'Rozpočet 2027'), 'content');
   assert.ok((await contentSequence(art)).includes('CARD:Projekt Alfa'), 'Projekt Alfa is a card');
-  // Cards show body text (D-1950, D-2022); nested embeds still don't recurse.
+  // Cards show body text (D-2062, D-2134); nested embeds still don't recurse.
   assert.ok(flat(await art.innerText()).includes('Hlavní projekt roku.'), 'the card shows its body text');
 });
 
@@ -175,7 +175,7 @@ test('fr_lnk_10_ac8_task_preview_shows_the_box_icon_strip_and_no_controls', asyn
   const h = await needHeader(dlg, 'task preview');
   assert.ok(h.icon && h.icon !== 'check-square', `the To do box icon (D-600) instead of the Task icon: ${h.icon}`);
   assert.deepEqual([h.title, h.rest], ['Zavolat Janě', 'Task'], 'title and type');
-  // Slice OC (D-1956, D-1904): Task's card list (status, due, priority, …, source): the due chip with R44's label, then the source chip.
+  // Slice OC (D-2068, D-1904): Task's card list (status, due, priority, …, source): the due chip with R44's label, then the source chip.
   assert.deepEqual(await stripItems(dlg), ['Status To do', 'Fri, Oct 30', 'Priority High', 'Porada 2026-10-27'], 'the strip (the Tasks page\'s R44 label in en-US, D-947; not overdue)');
   assert.equal(await textOf(anyContent(dlg)), 'Domluvit termín schůzky k rozpočtu.', 'the body');
   assert.equal(await dlg.getByRole('checkbox').count(), 0, 'no checkbox');
@@ -196,7 +196,7 @@ test('fr_lnk_10_ac9_existing_daily_note_preview_and_open', async ({ page }) => {
   const { core, dlg } = await previewOf(page, 'Dny', 0, '2026-10-07');
   const h = await needHeader(dlg, 'daily preview');
   assert.deepEqual([h.icon, h.title, h.rest], ['calendar', '2026-10-07', 'Daily Note'], 'header');
-  // A Daily Note's card list is `body, modified`: no Date in the strip, the title is the date (D-2023).
+  // A Daily Note's card list is `body, modified`: no Date in the strip, the title is the date (D-2135).
   assert.equal(await strip(dlg).count(), 0, 'no strip (no Date)');
   assert.equal(await textOf(anyContent(dlg)), 'Zápis dne. Viz Rozpočet 2027.', 'body');
   await (await need(openBtn(dlg, '2026-10-07'), 'Open 2026-10-07')).click();

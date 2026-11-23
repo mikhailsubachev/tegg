@@ -1,5 +1,5 @@
 // Slice OC benchmark (L6, Appium mac2 on the built release test app; app-perf, outside the push run): docs/acceptance/
-// cards.md FR-TYP-01 AC-21 (AP-1603 → D-1996): the first open of the icon picker in a session paints its groups within
+// cards.md FR-TYP-01 AC-21 (AP-1603 → D-2108): the first open of the icon picker in a session paints its groups within
 // 300 ms p95 of 20 runs (each in a fresh window, the data load included; `perfMark('icon-picker-open')` →
 // `perfMark('icon-picker-ready')`, contract §12), later opens within 100 ms p95, and each keystroke of `arrow` typed one
 // letter at a time paints its results within 50 ms p95 (`icon-picker-input` → `icon-picker-results`). Report-only until
@@ -72,7 +72,7 @@ test('fr_typ_01_ac21_picker_is_quick', { timeout: 60 * 60_000 }, async () => {
     const r = { first: p(first, 0.95), later: p(later, 0.95), key: p(keys, 0.95) };
     console.log(`FR-TYP-01 AC-21: first open p95 ${r.first.toFixed(1)} ms (300), later opens p95 ${r.later.toFixed(1)} ms (100), keystroke p95 ${r.key.toFixed(1)} ms (50)`);
     if (enforce) assert.ok(r.first <= 300 && r.later <= 100 && r.key <= 50, JSON.stringify(r));
-    else console.log('FR-TYP-01 AC-21: report-only until the v1.0 release gate (D-1996)');
+    else console.log('FR-TYP-01 AC-21: report-only until the v1.0 release gate (D-2108)');
   } finally {
     rmSync(base, { recursive: true, force: true });
   }

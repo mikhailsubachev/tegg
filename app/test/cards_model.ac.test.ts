@@ -175,7 +175,7 @@ test('fr_typ_11_ac11_two_rows_then_more', async () => {
   const m = await model();
   const sn = await parts(P.snezka);
   assert.equal(sn.items.length, 16, 'Sněžka: 16 items in the pill area');
-  const hidden = sn.items.slice(11); // Svačina is item 11 (D-2014)
+  const hidden = sn.items.slice(11); // Svačina is item 11 (D-2126)
   const hint = String(m.moreHint(hidden));
   assert.ok(hint.startsWith('Not shown: Vybavení: Svačina, '), `moreHint lists the hidden items by their accessible names: ${hint}`);
   const board = await parts(P.snezka, { hideKey: 'stav' });
@@ -333,7 +333,7 @@ test('fr_typ_11_ac22_add_property', async () => {
   assert.ok(!img.attributes.includes('file') && img.attributes.includes('media-type'), 'Image: File (file kind) isn\'t offered, Media type is');
   assert.ok(![...img.attributes, ...img.builtIns].includes('review'), 'review is never offered');
   assert.deepEqual(w.cardAdd(fixtureType('výlet'), 'poznámka'), ['tags', 'description', 'stav', 'náročnost', 'kraj', 'vybavení', 'délka', 'termín', 'odkaz', 'průvodce', 'neznámý-klíč', 'modified', 'poznámka'], 'appends, the unknown key kept');
-  assert.deepEqual(w.cardRemove(fixtureType('book'), 'tags'), ['body', 'author', 'status', 'modified'], 'the first change seeds from the default (D-1964)');
+  assert.deepEqual(w.cardRemove(fixtureType('book'), 'tags'), ['body', 'author', 'status', 'modified'], 'the first change seeds from the default (D-2076)');
 });
 
 test('fr_typ_11_ac23_reordering', async () => {

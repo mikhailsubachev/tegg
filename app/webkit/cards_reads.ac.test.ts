@@ -10,7 +10,7 @@ import {
 
 test.use({ timezoneId: 'Europe/Prague' });
 
-// Only reads per card (per object) count; app-level calls and the opened note's own note_read don't (D-2018).
+// Only reads per card (per object) count; app-level calls and the opened note's own note_read don't (D-2130).
 
 // ------------------------------------------------------------------------------------------------ FR-TYP-11 AC-18
 

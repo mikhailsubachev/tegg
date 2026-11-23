@@ -1,7 +1,7 @@
 // Slice OC, L5: board cards are object cards (docs/acceptance/views.md part four, FR-QRY-05 AC-30 on the cards fixture,
-// AC-31 on the views-tasks overlay; cards.md R211…R213, D-1942, D-1904), through the fake core (docs/contracts/
+// AC-31 on the views-tasks overlay; cards.md R211…R213, D-2054, D-1904), through the fake core (docs/contracts/
 // v1-cards.md §7.1, §7.4, §8.1, §13). A new file: the part-one…three board tests change in the build commit
-// (cards.md "Existing criteria this slice changes", D-1997). Written from the ACs and the contract only (D-61).
+// (cards.md "Existing criteria this slice changes", D-2109). Written from the ACs and the contract only (D-61).
 import { test } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {

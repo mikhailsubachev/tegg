@@ -152,7 +152,7 @@ test('fr_typ_01_ac20_bundled_offline_credited', () => {
   assert.deepEqual(names.filter((n) => !/^[a-z0-9-]+$/.test(n)), [], 'names are ASCII');
   const tags = new Set(['path', 'circle', 'rect', 'polyline', 'line', 'polygon', 'ellipse']);
   assert.deepEqual(names.filter((n) => !Array.isArray(d.icons[n].n) || d.icons[n].n.length === 0 || d.icons[n].n.some(([t]) => !tags.has(t)) || !Array.isArray(d.icons[n].k)), [], 'each has a node of known tags and a keyword list');
-  assert.ok(statSync(DATA).size < 2 * 1024 * 1024, 'under D-1963\'s 2 MiB');
+  assert.ok(statSync(DATA).size < 2 * 1024 * 1024, 'under D-2075\'s 2 MiB');
   // The committed generator records the version and the integrity; lucide-static is no dependency.
   const gen = join(REPO, 'tools/icons/gen-lucide.mjs');
   assert.ok(existsSync(gen), 'tools/icons/gen-lucide.mjs exists (§5.2)');
@@ -168,7 +168,7 @@ test('fr_typ_01_ac20_bundled_offline_credited', () => {
   assert.deepEqual(ui.filter((p) => /from\s+['"]lucide(-react|-static)?['"]/.test(readFileSync(p, 'utf8'))).map(rel), [], 'no Lucide runtime package');
   assert.deepEqual(ui.filter((p) => rel(p) !== 'icons/load.ts' && /from\s+['"][^'"]*lucide-icons['"]/.test(readFileSync(p, 'utf8'))).map(rel), [], 'nothing imports lucide-icons statically');
   assert.ok(/import\(\s*['"]\.\/lucide-icons(\.ts)?['"]\s*\)/.test(readFileSync(join(REPO, 'app/ui/src/icons/load.ts'), 'utf8')), 'icons/load.ts imports it dynamically');
-  // (d) Credits.rtf holds the ISC licence and d3-force's (D-2000), and the bundle ships it.
+  // (d) Credits.rtf holds the ISC licence and d3-force's (D-2112), and the bundle ships it.
   const credits = join(REPO, 'app/src-tauri/Credits.rtf');
   assert.ok(existsSync(credits), 'app/src-tauri/Credits.rtf exists (§5.6)');
   const rtf = readFileSync(credits, 'utf8');

@@ -51,7 +51,7 @@ test('fr_typ_11_ac15_image_and_pdf_cards', async ({ page }) => {
   });
   assert.equal(strip.first, 'image', 'the card starts with the strip');
   assert.equal(strip.alt, 'Vyhlídka na Pálavě', 'alt = the title');
-  // The fake core's media base (http://localhost/__media/…) stands for tegg-media:// in WebKit (D-2017, contract §7.1).
+  // The fake core's media base (http://localhost/__media/…) stands for tegg-media:// in WebKit (D-2129, contract §7.1).
   assert.ok(/^(tegg-media:\/\/.*|http:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/__media)\/_attachments\/vyhlidka\.png$/.test(decodeURIComponent(strip.src ?? '')), `src from tegg-media:// or the fake's media base (${strip.src})`);
   assert.ok(Math.abs((strip.w ?? 0) - strip.inner) <= 1 && (strip.h ?? 999) <= 120 && strip.fit === 'cover', `the card's inner width, ≤ 120 px, cover (${JSON.stringify(strip)})`);
   const vi = await cardInfo(v);
@@ -76,7 +76,7 @@ test('fr_typ_11_ac17_one_component_everywhere', async ({ page }) => {
   const inKarty = await cardWhen(objectCard(main(k.page), P.snezka), (c) => (c?.items.length ?? 0) > 0, 8000);
   const items = (c: typeof onBoard) => (c?.items ?? []).map((i) => [i.attribute, i.text]);
   assert.deepEqual(items(onBoard), items(inKarty).filter(([a]) => a !== 'stav'), 'the same items in the same order on the board (minus stav) and in Karty');
-  // The preview strip of Sněžka: the pills then the link chip (D-1956).
+  // The preview strip of Sněžka: the pills then the link chip (D-2068).
   const pv = await another(page, { route: noteRoute(P.odkaz), ui: { preview: { mode: 'click' } } });
   await must(objectCard(main(pv.page), P.odkaz).or(main(pv.page)), 'Odkaz', 8000);
   const chip = main(pv.page).getByRole('link', { name: /Sněžka z Pece/ }).first();
@@ -149,7 +149,7 @@ test('fr_typ_01_ac13_where_property_icons_show', async ({ page }) => {
   assert.deepEqual(['Stav', 'Kraj', 'Vybavení', 'Termín', 'Odkaz', 'Náročnost', 'Délka v km', 'Průvodce'].map((l) => icons[l] ?? null), ['circle-dot', 'map-pin', 'backpack', 'calendar', 'link', null, null, null], 'icons before Stav, Kraj, Vybavení, Termín, Odkaz; none before the others');
   // A Table query over [výlet].
   const q = await another(page, { vault: cardsVault((f) => { f['.tegg/queries/Výlety tabulka.yml'] = ['# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Výlety tabulka.', 'version: 1', 'title: Výlety tabulka', 'types: [výlet]', 'match: all', 'filters: []', 'sort: { by: title, order: asc }', 'limit: 50', 'view: table', 'columns: [stav, kraj, délka]', 'created: 2026-11-01T09:00:00+01:00', 'modified: 2026-11-01T09:00:00+01:00', ''].join('\n'); }), route: queryRoute('Výlety tabulka') });
-  // D-2036: a query's table draws plain header cells (no role="columnheader"); they are found by the table's class.
+  // D-2148: a query's table draws plain header cells (no role="columnheader"); they are found by the table's class.
   const QUERY_TH = 'table.query-table thead th';
   await must(main(q.page).locator(QUERY_TH).first(), 'the query table', 8000);
   const qh = await headerIcons(main(q.page), QUERY_TH);
@@ -192,7 +192,7 @@ test('fr_syn_06_ac51_cards_upgrade_and_browsing_write_nothing', async ({ page })
   await click(s.page.getByRole('button', { name: /^⟦?Remove Kraj from the card⟧?$/ }), 'Remove Kraj from the card', 5000);
   await eventually(() => typePatches(s.core), (x) => x.length >= 1, 2000);
   assert.deepEqual((await typePatches(s.core)).map((x) => x.key), ['výlet'], 'a Card change: one type_patch of výlet.yml');
-  // D-2029: type-file writes under .tegg/types/ are allowed; no note file is written.
+  // D-2141: type-file writes under .tegg/types/ are allowed; no note file is written.
   assert.deepEqual((await s.core.writesTo()).filter((p) => !nfc(p).startsWith('.tegg/types/')), [], 'no note is written');
   void uiState;
   void picker;
@@ -212,7 +212,7 @@ test('fr_ux_08_ac26_cards_and_picker_for_voiceover', async ({ page }) => {
   const s = await another(page, { route: settingsRoute('výlet'), reducedMotion: 'reduce' });
   const list = await must(s.page.getByRole('list', { name: /^⟦?Card properties⟧?$/ }), 'the list Card properties', 8000);
   assert.equal(await list.getByRole('listitem').count(), 12, 'Card properties, list, 12 items');
-  // D-2032: Properties has its own `Drag to reorder Kraj`; the handle is found within the Card section's list.
+  // D-2144: Properties has its own `Drag to reorder Kraj`; the handle is found within the Card section's list.
   const handle = list.getByRole('button', { name: /^⟦?Drag to reorder Kraj⟧?$/ });
   await handle.focus();
   await s.page.keyboard.press('Alt+ArrowUp');

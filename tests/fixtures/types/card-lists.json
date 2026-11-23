@@ -266,7 +266,7 @@
   }
  },
  {
-  "name": "daily-note (new-empty, R210; no Day summary, D-1951)",
+  "name": "daily-note (new-empty, R210; no Day summary, D-2063)",
   "key": "daily-note",
   "state": "ok",
   "file": "# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.\nversion: 1\nname: Daily Note\nplural: Daily Notes\nsystem: true\nfolder: Daily\nicon: calendar\ncolor: purple\nreview: locked\npreview: [date]\nattributes:\n  - key: date\n    name: Date\n    type: date\n",

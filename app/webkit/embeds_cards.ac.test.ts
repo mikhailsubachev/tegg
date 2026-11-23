@@ -1,7 +1,7 @@
 // Slice OC, L5: card embeds are object cards (docs/acceptance/embeds.md FR-EMB-02 AC-19…AC-21; cards.md AP-1587, R213),
 // on the cards fixture's Karty and the embeds fixture's Jana Nováková, through the fake core (docs/contracts/v1-cards.md
 // §3.3 `EmbedNote.card`, §7.4, §8.1, §13). A new file: the 4F embed tests change in the build commit (cards.md
-// "Existing criteria this slice changes", D-1997). Written from the ACs and the contract only (D-61).
+// "Existing criteria this slice changes", D-2109). Written from the ACs and the contract only (D-61).
 import { test } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
@@ -40,7 +40,7 @@ test('fr_emb_02_ac19_card_mode_is_the_object_card', async ({ page }) => {
   await sn.locator('p.card-text').click();
   assert.ok((await eventually(() => mainName(page), (n) => (n ?? '').includes('Sněžka z Pece'), 3000) ?? '').includes('Sněžka z Pece'), 'a click on the card opens Sněžka');
   assert.deepEqual(await core.writesTo(), [], 'no note written');
-  // The embeds fixture's Režimy (D-2026): Jana's card shows Osoba's default list; Zavolat Janě stays R52's Task card embed.
+  // The embeds fixture's Režimy (D-2138): Jana's card shows Osoba's default list; Zavolat Janě stays R52's Task card embed.
   const e = await page.context().newPage();
   await openEmbeds(e, M.rezimy);
   const jana = await must(e.getByRole('group', { name: 'Embedded: Jana Nováková', exact: true }).locator('article[data-object-card]'), 'Jana\'s ObjectCard', 8000);
@@ -79,6 +79,6 @@ test('fr_emb_02_ac21_card_embeds_load_in_one_batch', async ({ page }) => {
   assert.ok(loads.length <= 1, `at most one embed-content call (${loads.length})`);
   const notes = ((loads[0] as any)?.result ?? []) as any[];
   assert.ok(notes.length === 5 && notes.every((n) => n.card && Array.isArray(n.card.keys) && 'values' in n.card), 'the batch carries every card\'s data');
-  // Only reads per card count, not app-level calls or Karty's own note_read (D-2018).
+  // Only reads per card count, not app-level calls or Karty's own note_read (D-2130).
   assert.deepEqual((await perCardReads(core, main(page))).filter((c) => !/^(embed_load|link_resolve) /.test(c)), [], 'no read per card');
 });

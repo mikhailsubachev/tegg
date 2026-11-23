@@ -1,4 +1,4 @@
-// Slice OC, L5: the shared Settings layout (docs/acceptance/app-shell.md R219, FR-UX-02 AC-22…AC-26; D-1959, D-1994):
+// Slice OC, L5: the shared Settings layout (docs/acceptance/app-shell.md R219, FR-UX-02 AC-22…AC-26; D-2071, D-2106):
 // the 168 px section list, the 170 px label column, notes under their controls, the 940 px content, the eight sections,
 // nothing added, removed or changed against tests/fixtures/settings/controls-0.5.json, keyboard and screen reader, and the
 // trash-history placeholder's design entry. Through the fake core with the inbox vault (docs/contracts/v1-cards.md §7.10,
@@ -133,7 +133,7 @@ test('fr_ux_02_ac25_settings_keyboard_and_screen_reader', async ({ page }) => {
   const n = await must(nav(page), 'the section list', 8000);
   await page.getByRole('main').getByRole('heading', { level: 1 }).focus();
   const seen: string[] = [];
-  for (let i = 0; i < 11; i++) { // D-2044: 11 Tab stops on settings/date-time
+  for (let i = 0; i < 11; i++) { // D-2156: 11 Tab stops on settings/date-time
     await page.keyboard.press('Tab');
     const f = await focusName(page);
     seen.push(`${f.role}:${f.name.replace(/[⟦⟧]/g, '')}`);

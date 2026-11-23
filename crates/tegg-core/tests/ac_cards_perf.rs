@@ -5,7 +5,7 @@
 //! `query_run` of the board with the nine card values and the excerpt returns in ≤ 100 ms p95 of 20 runs. The card data
 //! (nine keys, the excerpt) is always asserted; times are asserted in release builds (`common::target`: ×10 in debug
 //! builds). Skipped at push by `--skip nfr_perf_`; run nightly by `core-perf-ac`; report-only until the v1.0 release gate
-//! (D-1800, D-1996). Written from the AC and the contract only (D-61); synthetic data only (D-62).
+//! (D-1800, D-2108). Written from the AC and the contract only (D-61); synthetic data only (D-62).
 
 mod common;
 
@@ -67,7 +67,7 @@ fn nfr_perf_07_ac6_boards_with_card_values() {
     assert!(rows > 0, "the board has rows");
     assert_eq!(with_card, rows, "every row carries the nine card values and the excerpt (contract §3.3)");
     let p = p95(&mut samples);
-    println!("NFR-PERF-07 AC-6: query_run Karty, 500 cards with nine card values, p95 = {p:?} (target 100 ms; report-only until v1.0, D-1996)");
+    println!("NFR-PERF-07 AC-6: query_run Karty, 500 cards with nine card values, p95 = {p:?} (target 100 ms; report-only until v1.0, D-2108)");
     if std::env::var("TEGG_PERF_REF").as_deref() == Ok("1") && std::env::var("VERIFY_GATE").as_deref() == Ok("release") {
         assert!(p <= target(Duration::from_millis(100), 1.0), "p95 {p:?}");
     }

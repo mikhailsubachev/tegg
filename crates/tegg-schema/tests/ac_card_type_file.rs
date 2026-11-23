@@ -1,7 +1,7 @@
 //! Slice OC, `tegg-schema` side (L4 and L2): docs/acceptance/cards.md FR-TYP-11 AC-5, AC-6 (the card list, R209, R210),
 //! AC-21, AC-23, AC-24, AC-26, AC-27, AC-28 (the bytes of the `card` line), FR-TYP-01 AC-12, AC-17, AC-19 (an attribute's
 //! `icon:` line, the type icon, old names), AR-07 AC-11, FR-FMT-07 AC-36 (with the L2 property), FR-FMT-12 AC-15. BRD
-//! D-1942, D-1947, D-1948, D-1955, D-1958, D-1964…D-1967, D-1985, D-1987, D-1991. Interface docs/contracts/v1-cards.md
+//! D-2054, D-2059, D-2060, D-2067, D-2070, D-2076…D-2079, D-2097, D-2099, D-2103. Interface docs/contracts/v1-cards.md
 //! §2.1…§2.4 (`card_list`, `Parsed.card_unreadable`, `Parsed.card_ignored`, `TypeOp::SetCard`,
 //! `TypeOp::SetAttributeIcon`, `RuleError::CardUnreadable`, `icons::resolve_icon`, TOP order `… preview, card, hidden,
 //! columns, views …`, ITEM order `key, name, type, icon, …`) and the corpus tests/fixtures/types/card-lists.json.
@@ -183,7 +183,7 @@ fn fr_typ_11_ac21_changing_the_card_writes_only_card() {
     let a = do_patch("book", &b, vec![set_card(&["body", "author", "status", "modified"])]);
     assert_eq!(a, Ok(Some(swap(&b, BOOK_PREVIEW, &format!("{BOOK_PREVIEW}card: [body, author, status, modified]\n")))), "(a) Remove Tags: card inserted after preview");
     let first = a.ok().flatten().unwrap_or_default();
-    assert!(first.starts_with("# Tegg type definition") && first.contains("\nversion: 1\n"), "version: 1 stays (D-1948)");
+    assert!(first.starts_with("# Tegg type definition") && first.contains("\nversion: 1\n"), "version: 1 stays (D-2060)");
     // (b) Remove Body: only that line changes.
     let bb = do_patch("book", &first, vec![set_card(&["author", "status", "modified"])]);
     assert_eq!(bb, Ok(Some(swap(&b, BOOK_PREVIEW, &format!("{BOOK_PREVIEW}card: [author, status, modified]\n")))), "(b) Remove Body");
@@ -379,7 +379,7 @@ fn fr_typ_01_ac19_old_names_keep_drawing() {
     assert_eq!(Value::Array(ours), node.clone(), "check-square draws square-check-big's paths from the data file");
     // Files are never rewritten: the canonical name is a no-op, other changes keep the line.
     let k = cards("kontrola");
-    assert_eq!(do_patch("kontrola", &k, vec![TypeOp::SetIcon("square-check-big".into())]), Ok(None), "choosing square-check-big where check-square is written writes nothing (D-1991)");
+    assert_eq!(do_patch("kontrola", &k, vec![TypeOp::SetIcon("square-check-big".into())]), Ok(None), "choosing square-check-big where check-square is written writes nothing (D-2103)");
     for (what, op) in [("colour", TypeOp::SetColor("blue".into())), ("card", set_card(&["body"]))] {
         let t = do_patch("kontrola", &k, vec![op]).ok().flatten().unwrap_or_default();
         assert!(t.contains("\nicon: check-square\n"), "{what}: icon: check-square stays byte for byte");

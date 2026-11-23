@@ -228,7 +228,7 @@ test('fr_typ_09_ac18_without_columns_the_preview_fallback_follows_type_settings'
   const core = await openTypes(page);
   await gotoTypePage(page, S);
   assert.deepEqual(await headers(page), ['Title', 'Datum', 'Účastníci', 'Modified'], '(b) the R130 fallback');
-  // D-2038: the Preview properties UI is gone (slice OC); the columns are set through `columns:` in the type file.
+  // D-2150: the Preview properties UI is gone (slice OC); the columns are set through `columns:` in the type file.
   const yml = schuzkaWith('columns: [účastníci, modified]\n');
   await core.setFile(typeFile('schůzka'), yml);
   assert.deepEqual(await headersWhen(page, (h) => !h.includes('Datum')), ['Title', 'Účastníci', 'Modified'], '(b) the columns follow the type file within 1 s');
@@ -1020,12 +1020,12 @@ test('fr_typ_11_ac4_preview_and_columns_are_separate', async ({ page }) => {
   await (await must(typeTable(page, S).getByRole('row').filter({ hasText: '2026-10-07 Porada' }), 'row Porada')).click();
   const strip = await mustPreview(page, '2026-10-07 Porada', '(d) the row preview of Porada');
   const text = await strip.innerText();
-  // Slice OC (D-1942, D-1956): the strip follows the card list (Schůzka's default: tags, body, datum, účastníci, modified):
+  // Slice OC (D-2054, D-2068): the strip follows the card list (Schůzka's default: tags, body, datum, účastníci, modified):
   // the Datum pill, then the Účastníci link chip; never `columns`.
   assert.ok(text.includes('Datum') && text.includes('Jana Nováková') && !text.includes('Místo'), `(d) the preview strip follows the card list, never columns: ${text.replace(/\s+/g, ' ')}`);
   await page.keyboard.press('Escape');
   await gotoSettings(page, S, 'Schůzka');
-  // Slice OC (D-1942): the Card section in place of Preview properties; it writes only `card:` (seeded from R210).
+  // Slice OC (D-2054): the Card section in place of Preview properties; it writes only `card:` (seeded from R210).
   const sec = await must(section(page, 'Card'), 'Card');
   await (await must(sec.getByRole('button', { name: 'Remove Datum from the card', exact: true }), 'Remove Datum from the card')).click();
   const t = await fileWhen(core, typeFile('schůzka'), (x) => !!x?.includes('card: ['));
