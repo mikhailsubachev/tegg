@@ -111,7 +111,7 @@ import { setJumpHost } from './outline/jump';
 import { installMultiClickGuard, routeChanged } from './shell/multiClick';
 import { PageHeading } from './phone/PageHeading';
 import { isPhone } from './phone/layout';
-import { PhoneFrame } from './phone/PhoneFrame';
+import { PhoneFrame, PhoneStartInsets } from './phone/PhoneFrame';
 import { Drawer } from './phone/Drawer';
 import { PhoneSettingsList, PhoneStorageSettings, PhoneVaultSettings } from './phone/PhoneSettings';
 import { installTestHooks, nativeState, onNative, syncWindow } from './phone/native';
@@ -1510,10 +1510,12 @@ export function App() {
     // D-137: with no vault open, the palette offers only creating or opening a vault, Settings and the theme.
     const noVault = available_commands.filter((c) => c.id === 'vault.create' || c.id === 'vault.open' || c.id.startsWith('theme.') || c.id.startsWith('goto.settings'));
     const palette = dialog === 'palette' && <Palette list={noVault} onRun={(c) => { closeDialog(); run(c); }} onClose={closeDialog} />;
-    if (start.state === 'needsAccess') return <AccessScreen path={start.path} rechecks={rechecks} />;
-    if (start.state === 'opening') return <>{<OpeningScreen name={start.name} />}{palette}</>;
+    // D-2122: the start screens get the insets and the keyboard rule (§8.2, §8.6) before any PhoneFrame mounts.
+    const insets = isPhone() ? <PhoneStartInsets /> : null;
+    if (start.state === 'needsAccess') return <>{insets}<AccessScreen path={start.path} rechecks={rechecks} /></>;
+    if (start.state === 'opening') return <>{insets}{<OpeningScreen name={start.name} />}{palette}</>;
     if (start.state === 'open') return null;
-    return <><AndroidChooser key={chooser ? `c${chooser.form}` : 'none'} onOpened={openedHere} failed={start.state === 'failed' ? start : null} startWithForm={chooser?.form ?? false} />{palette}</>;
+    return <>{insets}<AndroidChooser key={chooser ? `c${chooser.form}` : 'none'} onOpened={openedHere} failed={start.state === 'failed' ? start : null} startWithForm={chooser?.form ?? false} />{palette}</>;
   }
   if (vault === undefined) return withImport(null);
 

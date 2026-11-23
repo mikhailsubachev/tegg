@@ -58,6 +58,9 @@ function own(ctx: ShellContext): Command[] {
     { id: 'vault.switch', title: 'cmd.switchVault', section: 'vault', needsVault: true, run: p('vault.switch') },
     { id: 'app.logoMenu', title: 'cmd.logoMenu', section: 'app', needsVault: false, run: p('app.logoMenu') },
     { id: 'android.openSettings', title: 'cmd.android.openSettings', section: 'app', needsVault: false, run: p('android.openSettings') },
+    // The read view's Map / List switch: the desktop's commands act on the editor (PHONE_REPLACES).
+    { id: 'mindmap.showMap', title: 'cmd.mindmap.showMap', section: 'view', needsVault: true, run: p('mindmap.showMap') },
+    { id: 'mindmap.showList', title: 'cmd.mindmap.showList', section: 'view', needsVault: true, run: p('mindmap.showList') },
     { id: 'mindmap.zoomIn', title: 'cmd.mindmap.zoomIn', section: 'view', needsVault: true, run: p('mindmap.zoomIn') },
     { id: 'mindmap.zoomOut', title: 'cmd.mindmap.zoomOut', section: 'view', needsVault: true, run: p('mindmap.zoomOut') },
     { id: 'mindmap.fit', title: 'cmd.mindmap.fit', section: 'view', needsVault: true, run: p('mindmap.fit') },
@@ -81,8 +84,12 @@ function own(ctx: ShellContext): Command[] {
 }
 
 /** The desktop list minus the hidden commands and routes not offered, plus the phone's own commands. */
+/** Desktop commands whose action needs the editor, which the phone's read view doesn't have: the phone's own command of
+ *  the same id (its control's tap) replaces them (FR-UX-03 AC-54, D-2101; QA review of AND-2). */
+const PHONE_REPLACES = new Set(['mindmap.showMap', 'mindmap.showList']);
+
 export function phoneCommands(list: readonly Command[], ctx: ShellContext = { vault: null, types: [], counts: {} }): Command[] {
-  const kept = list.filter((c) => !phoneHidden(c.id) && !NO_PHONE_GOTO.has(c.id));
+  const kept = list.filter((c) => !phoneHidden(c.id) && !NO_PHONE_GOTO.has(c.id) && !PHONE_REPLACES.has(c.id));
   const ids = new Set(kept.map((c) => c.id));
   const out = [...kept];
   for (const c of own(ctx)) if (!ids.has(c.id)) out.push(c);

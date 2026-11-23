@@ -111,7 +111,7 @@ Top to bottom:
 5. **Entries:** `Tags`, `Queries` (count), `Settings`.
 6. **Bottom, always in view:** the version button `Tegg: About and Settings` (FR-UX-01 AC-8).
 
-Not in the drawer: `New object`, `Search` (both in the bottom bar), `Trash` (trash management is out, plan §8), pin, unpin, reorder and drag targets. Width: min(320, viewport width − 56) px, from the left edge, over a scrim.
+Not in the drawer: `New object`, `Search` (both in the bottom bar), `Trash` (trash management is out, plan §8), pin, unpin, reorder and drag targets. Width: min(320, viewport width − 56) px, plus the left inset in front of it (a side cutout or bar in landscape, D-2122), from the left edge, over a scrim.
 
 ### RA11. What the phone hides (D-2006, D-2007, plan §8; AP-2042, AP-2050, AP-2059, AP-2060)
 

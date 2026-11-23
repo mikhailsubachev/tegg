@@ -30,6 +30,22 @@ export function useNative(): NativeState {
   return s;
 }
 
+/** The start screens (AND-1's access, opening and chooser screens; contract §8.2, §8.6, D-2122): the insets as CSS
+ *  variables, and the focused field kept in view after each viewport resize (the keyboard). They render before any
+ *  `PhoneFrame`. */
+export function PhoneStartInsets(): null {
+  useNative();
+  useEffect(() => {
+    const f = () => {
+      const el = document.activeElement as HTMLElement | null;
+      if (el && /^(INPUT|TEXTAREA)$/.test(el.tagName)) el.scrollIntoView({ block: 'nearest' });
+    };
+    window.addEventListener('resize', f);
+    return () => window.removeEventListener('resize', f);
+  }, []);
+  return null;
+}
+
 export type BarTab = 'search' | 'today' | null;
 
 export function PhoneFrame(props: {
@@ -121,7 +137,12 @@ export function PhoneFrame(props: {
     const sizeNow = () => `${innerWidth}x${innerHeight}`;
     let size = sizeNow();
     let pending = false;
-    const onScroll = () => { if (!pending && sizeNow() === size) remember(); };
+    // At most one block walk per frame (QA review of AND-2: scroll events come in bursts, from every scroller).
+    let queued = 0;
+    const onScroll = () => {
+      if (pending || sizeNow() !== size || queued) return;
+      queued = requestAnimationFrame(() => { queued = 0; if (!pending && sizeNow() === size) remember(); });
+    };
     document.addEventListener('scroll', onScroll, true);
     remember();
     const f = () => {
@@ -145,7 +166,7 @@ export function PhoneFrame(props: {
       requestAnimationFrame(() => requestAnimationFrame(f));
     });
     window.addEventListener('resize', f);
-    return () => { window.removeEventListener('resize', f); document.removeEventListener('scroll', onScroll, true); offInsets(); };
+    return () => { window.removeEventListener('resize', f); document.removeEventListener('scroll', onScroll, true); offInsets(); cancelAnimationFrame(queued); };
   }, []);
   const [indexing, setIndexing] = useState(false);
   const running = props.progress?.state === 'running';
