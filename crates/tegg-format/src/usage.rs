@@ -28,10 +28,61 @@ pub enum UsageValue<T> {
     Broken,
 }
 
+impl<T> Default for UsageValue<T> {
+    fn default() -> Self {
+        UsageValue::Absent
+    }
+}
+
+/// v1-views §35 (slice Q3, D-2172): a usage's own display. `board` reads as `Wall` (D-2179).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UsageView {
+    List,
+    Table,
+    Wall,
+}
+/// v1-views §35: a usage's own lanes. `vertical` / `horizontal` read as `Columns` / `Rows` (D-2179).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UsageLanes {
+    Columns,
+    Rows,
+}
+/// v1-views §35: a usage's own grouping; `None` is the word `none` (not grouped).
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum UsageGroupBy {
+    None,
+    Key(String),
+    Period(String),
+}
+
+/// Default: every key Absent (v1-views §35).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct UsageRaw {
     pub sort: UsageValue<Vec<UsageSort>>,
     pub columns: UsageValue<Vec<String>>,
+    /// Slice Q3 (v1-views §35). Red-test stubs: not read yet (always Absent).
+    pub view: UsageValue<UsageView>,
+    pub group_by: UsageValue<UsageGroupBy>,
+    pub lanes: UsageValue<UsageLanes>,
+    pub lane_order: UsageValue<Vec<String>>,
+    pub widths: UsageValue<Vec<(String, u32)>>,
+}
+
+/// v1-views §35 shape readers. Red-test stubs (Q3): always Absent.
+pub fn view_value(_v: &Value) -> UsageValue<UsageView> {
+    UsageValue::Absent
+}
+pub fn group_by_value(_v: &Value) -> UsageValue<UsageGroupBy> {
+    UsageValue::Absent
+}
+pub fn lanes_value(_v: &Value) -> UsageValue<UsageLanes> {
+    UsageValue::Absent
+}
+pub fn lane_order_value(_v: &Value) -> UsageValue<Vec<String>> {
+    UsageValue::Absent
+}
+pub fn widths_value(_v: &Value) -> UsageValue<Vec<(String, u32)>> {
+    UsageValue::Absent
 }
 
 /// A YAML node as JSON (the shapes the rules look at; other scalars as strings or null).
@@ -97,6 +148,7 @@ pub fn usage_of_json(map: &serde_json::Map<String, Value>) -> UsageRaw {
     UsageRaw {
         sort: map.get("sort").map(sort_value).unwrap_or(UsageValue::Absent),
         columns: map.get("columns").map(columns_value).unwrap_or(UsageValue::Absent),
+        ..Default::default()
     }
 }
 
@@ -106,5 +158,6 @@ pub fn usage_of(map: &yaml_rust2::yaml::Hash) -> UsageRaw {
     UsageRaw {
         sort: get("sort").map(|v| sort_value(&v)).unwrap_or(UsageValue::Absent),
         columns: get("columns").map(|v| columns_value(&v)).unwrap_or(UsageValue::Absent),
+        ..Default::default()
     }
 }

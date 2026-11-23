@@ -388,7 +388,7 @@ fn fr_tsk_04_ac26_schedule_and_kanban_are_queries() {
     let names: Vec<String> = core.queries().into_iter().map(|q| q.name).collect();
     assert!(names.iter().any(|n| n == "Schedule") && names.iter().any(|n| n == "Kanban"), "Schedule and Kanban are saved queries: {names:?}");
     let (d, _) = current(&core, "Schedule");
-    assert_eq!((d.types.clone(), d.group_by.clone(), d.group_period, d.lanes, d.done_lane), (strs(&["task"]), Some("due".to_string()), true, Lanes::Horizontal, Some(DoneLane { within_days: 7, folded: true })), "Schedule's definition");
+    assert_eq!((d.types.clone(), d.group_by.clone(), d.group_period, d.lanes, d.done_lane), (strs(&["task"]), Some("due".to_string()), true, Lanes::Rows, Some(DoneLane { within_days: 7, folded: true })), "Schedule's definition");
     let f: Vec<(String, Op, Value)> = d.filters.iter().filter_map(|x| if let FilterItem::Filter { key, op, value, .. } = x { Some((key.clone(), *op, value.clone())) } else { None }).collect();
     assert_eq!(f, vec![("status".to_string(), Op::StateIsNot, json!("cancelled"))], "the filter row `Status` `state is not` `Cancelled`");
     assert!(d.columns.is_empty(), "no `columns` on the default board");
@@ -425,7 +425,7 @@ fn fr_tsk_04_ac27_live_and_midnight() {
     write(&root, "Tasks/Nový.md", b"---\ntype: task\ntitle: Nov\xc3\xbd\nstatus: To do\ndue: 2026-10-14\n---\n");
     assert!(wait_until(Duration::from_secs(2), || lane(&s(), "period:today", "live").contains(&"Tasks/Nový.md".to_string())).is_some(), "a new task appears in Today & overdue");
     write(&root, SCHEDULE, swapped(&fx(SCHEDULE), "lanes: horizontal\n", "lanes: vertical\n").as_bytes());
-    assert!(wait_until(Duration::from_secs(2), || s().def.map(|d| d.lanes) == Some(Lanes::Vertical)).is_some(), "lanes: vertical is read");
+    assert!(wait_until(Duration::from_secs(2), || s().def.map(|d| d.lanes) == Some(Lanes::Columns)).is_some(), "lanes: vertical is read");
     // Midnight and zone changes are a new env: recomputed, nothing written.
     let sb2 = sandbox();
     let root2 = overlay_vault(&sb2);
@@ -972,7 +972,7 @@ fn fr_qry_01_ac18_period_and_done_lane_read_rules() {
         cmp("groupPeriod", json!(def.group_period), &mut diff);
         cmp("laneOrder", json!(def.lane_order), &mut diff);
         cmp("columns", json!(def.columns), &mut diff);
-        cmp("lanes", json!(if def.lanes == Lanes::Horizontal { "horizontal" } else { "vertical" }), &mut diff);
+        cmp("lanes", json!(if def.lanes == Lanes::Rows { "horizontal" } else { "vertical" }), &mut diff);
         cmp("doneLane", def.done_lane.map(|x| json!({ "withinDays": x.within_days, "folded": x.folded })).unwrap_or(Value::Null), &mut diff);
         cmp("sort", json!(def.sort.iter().map(|s| json!({ "by": s.by, "order": if s.order == queries_q::Order::Asc { "asc" } else { "desc" } })).collect::<Vec<_>>()), &mut diff);
         let filters: Vec<Value> = def
@@ -1133,12 +1133,12 @@ fn fr_fmt_07_ac35_q2t_keys_round_trip() {
     }
     assert_eq!(snapshot(&root), before, "an unchanged commit writes nothing");
     // Switch lanes: one line and modified; CRLF and no-final-newline copies keep their bytes.
-    ok!(commit(&core, "Schedule", |d| d.lanes = Lanes::Vertical), "Switch lanes");
+    ok!(commit(&core, "Schedule", |d| d.lanes = Lanes::Columns), "Switch lanes");
     assert_eq!(disk_s(&root, SCHEDULE), Some(exp("queries/schedule-lanes-vertical.yml")), "lanes: vertical");
     for (variant, input, want) in [("crlf", fx(SCHEDULE).replace('\n', "\r\n"), "queries/schedule-lanes-vertical-crlf.yml"), ("no-newline", fx(SCHEDULE).trim_end_matches('\n').to_string(), "queries/schedule-lanes-vertical-no-newline.yml")] {
         write(&root, SCHEDULE, input.as_bytes());
         reread(&core, &[SCHEDULE]);
-        ok!(commit(&core, "Schedule", |d| d.lanes = Lanes::Vertical), format!("Switch lanes ({variant})"));
+        ok!(commit(&core, "Schedule", |d| d.lanes = Lanes::Columns), format!("Switch lanes ({variant})"));
         assert_eq!(disk_s(&root, SCHEDULE), Some(exp(want)), "{variant}: bytes kept");
     }
     // The lane drag, Reset lane order, the editor's group_by and done-lane changes.

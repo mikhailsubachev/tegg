@@ -45,14 +45,16 @@ pub enum Match {
 pub enum View {
     List,
     Table,
-    /// Slice Q2 (v1-views §1.1, R185).
-    Board,
+    /// Slice Q2 (v1-views §1.1, R185); slice Q3 renames Board to Wall (v1-views §34.1, D-2172). Red-test stub: still
+    /// written as `board` (the new words are the build's).
+    Wall,
 }
-/// Board lanes (v1-views §1.1, R185); a missing `lanes` reads as Vertical.
+/// Board lanes (v1-views §1.1, R185); slice Q3 renames Vertical / Horizontal to Columns / Rows (§34.1). A missing
+/// `lanes` reads as Columns. Red-test stub: still written as `vertical` / `horizontal`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Lanes {
-    Vertical,
-    Horizontal,
+    Columns,
+    Rows,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Order {
@@ -78,15 +80,15 @@ impl View {
         match self {
             View::List => "list",
             View::Table => "table",
-            View::Board => "board",
+            View::Wall => "board",
         }
     }
 }
 impl Lanes {
     fn as_str(self) -> &'static str {
         match self {
-            Lanes::Vertical => "vertical",
-            Lanes::Horizontal => "horizontal",
+            Lanes::Columns => "vertical",
+            Lanes::Rows => "horizontal",
         }
     }
 }
@@ -219,6 +221,9 @@ pub struct QueryDef {
     /// Q2-T (R201, D-1898): None = key absent, or present and broken (then in `broken`). A commit with None removes the
     /// key (§24.3).
     pub done_lane: Option<DoneLane>,
+    /// Q3 (v1-views §34.1; D-2191, CP-32, D-2197): the file says `group_by: none`. Always false when `group_by` is
+    /// Some. Red-test stub: never read or written yet.
+    pub group_none: bool,
 }
 
 /// v1-views §24.1 (Q2-T, R201): `within_days` 1…366; a missing `folded` reads as false.
@@ -333,10 +338,19 @@ pub enum UsageKind {
     Tab,
     Block,
 }
+/// Q3 (v1-views §34.1): a usage's own grouping as read.
+pub use tegg_format::usage::{UsageGroupBy, UsageLanes, UsageView};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UsageSettings {
     pub sort: Option<Vec<Sort>>,
     pub columns: Option<Vec<String>>,
+    /// Q3 (v1-views §34.1). Red-test stubs: always None yet.
+    pub view: Option<View>,
+    pub group_by: Option<UsageGroupBy>,
+    pub lanes: Option<Lanes>,
+    pub lane_order: Option<Vec<String>>,
+    pub widths: Option<Vec<(String, u32)>>,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UsageRun {
@@ -345,6 +359,14 @@ pub struct UsageRun {
     pub broken: Vec<Broken>,
     pub sort: Vec<Sort>,
     pub columns: Vec<String>,
+    /// Q3 effective values (v1-views §34.1, R220). Red-test stubs: the query file's view, no grouping, Columns, no
+    /// lane order, no widths, whatever the usage says.
+    pub view: View,
+    pub group_by: Option<String>,
+    pub group_period: bool,
+    pub lanes: Lanes,
+    pub lane_order: Option<Vec<String>>,
+    pub widths: Vec<(String, u32)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -572,11 +594,12 @@ fn default_def(title: &str, columns: Vec<String>) -> QueryDef {
         limit: 50,
         view: View::List,
         group_by: None,
-        lanes: Lanes::Vertical,
+        lanes: Lanes::Columns,
         lane_order: None,
         columns,
         group_period: false,
         done_lane: None,
+        group_none: false,
     }
 }
 
@@ -980,7 +1003,7 @@ fn read_text(text: &str) -> QueryFile {
         match v.as_str() {
             Some("list") => def.view = View::List,
             Some("table") => def.view = View::Table,
-            Some("board") => def.view = View::Board,
+            Some("board") => def.view = View::Wall,
             _ => bad_key("view"),
         }
     }
@@ -996,8 +1019,8 @@ fn read_text(text: &str) -> QueryFile {
     }
     if let Some(v) = get("lanes") {
         match v.as_str() {
-            Some("vertical") => def.lanes = Lanes::Vertical,
-            Some("horizontal") => def.lanes = Lanes::Horizontal,
+            Some("vertical") => def.lanes = Lanes::Columns,
+            Some("horizontal") => def.lanes = Lanes::Rows,
             _ => bad_key("lanes"),
         }
     }
@@ -1025,7 +1048,7 @@ fn read_text(text: &str) -> QueryFile {
             def.columns = columns_no_schema(&def.types);
         }
         // Q2-T (v1-views §24.2, D-1927 RT-5): a board without `columns` reads as `[]` (a board never uses it, D-1891).
-        None if def.view == View::Board => def.columns = Vec::new(),
+        None if def.view == View::Wall => def.columns = Vec::new(),
         None => def.columns = columns_no_schema(&def.types),
     }
     let mut filter_broken = Vec::new();
@@ -1072,7 +1095,7 @@ fn done_lane_of(v: &Yaml) -> Option<DoneLane> {
 /// The `columns` default of a file without the key: none on a board (v1-views §24.2), else the type's columns.
 fn fill_columns(f: &mut QueryFile, defs: &Defs) {
     if !f.layout.columns_set {
-        f.def.columns = if f.def.view == View::Board { Vec::new() } else { columns_default(defs, &f.def.types) };
+        f.def.columns = if f.def.view == View::Wall { Vec::new() } else { columns_default(defs, &f.def.types) };
     }
 }
 
@@ -1452,10 +1475,10 @@ fn create_text_at(def: &QueryDef, now: Option<&str>, tail: Option<&str>) -> Stri
     // v1-views §1.4 (D-1783): `group_by` and `lanes` only on a board, `lane_order` only when set; Q2-T (§24.3):
     // `done_lane` when set (any view), and a board with empty `columns` writes none (D-1910).
     for k in ["sort", "limit", "view", "group_by", "lanes", "lane_order", "done_lane", "columns"] {
-        if matches!(k, "group_by" | "lanes") && def.view != View::Board {
+        if matches!(k, "group_by" | "lanes") && def.view != View::Wall {
             continue;
         }
-        if k == "columns" && def.view == View::Board && def.columns.is_empty() {
+        if k == "columns" && def.view == View::Wall && def.columns.is_empty() {
             continue;
         }
         l.extend(key_lines(k, def));
@@ -2397,8 +2420,15 @@ fn usage_run(kind: UsageKind, raw: &tegg_format::usage::UsageRaw, def: &QueryDef
         kind,
         sort: own_sort.clone().unwrap_or(query_sort),
         columns: own_columns.clone().unwrap_or_else(|| def.columns.clone()),
-        own: UsageSettings { sort: own_sort, columns: own_columns },
+        own: UsageSettings { sort: own_sort, columns: own_columns, view: None, group_by: None, lanes: None, lane_order: None, widths: None },
         broken,
+        // Red-test stubs (Q3): the query file's view, its grouping, lanes and lane order; no widths.
+        view: def.view,
+        group_by: def.group_by.clone(),
+        group_period: def.group_period,
+        lanes: def.lanes,
+        lane_order: def.lane_order.clone(),
+        widths: Vec::new(),
     }
 }
 
@@ -3056,7 +3086,7 @@ fn evaluate(objs: &[QueryObject], resolve: &dyn Fn(&str) -> Option<String>, defs
     // outside `within_days` leave `rows` (not shown, not counted, not offered by the tag filter).
     let mut done: Option<DoneLane> = None;
     let mut done_rows: HashSet<usize> = HashSet::new();
-    if let Some(d) = def.done_lane.filter(|_| def.view == View::Board) {
+    if let Some(d) = def.done_lane.filter(|_| def.view == View::Wall) {
         if done_lane_ok(&chosen, defs) {
             done = Some(d);
             relative = true;
@@ -3080,7 +3110,7 @@ fn evaluate(objs: &[QueryObject], resolve: &dyn Fn(&str) -> Option<String>, defs
     sort_rows(&mut hits, def, &chosen, &ctx, &mut broken);
     // v1-views §1.6 (R185, D-1770): a board groups its rows; a `group_by` that doesn't resolve is a broken part and the
     // results are drawn as a list. Q2-T: a period grouping (§24.4).
-    let group = if def.view == View::Board {
+    let group = if def.view == View::Wall {
         let g = if def.group_period { group_period(&hits, def, &chosen, &ctx, done, &done_rows) } else { group_rows(&hits, def, &chosen, &ctx, &active, resolve, done) };
         if g.is_some() && def.group_period {
             relative = true;
@@ -3452,8 +3482,8 @@ impl QCore<'_> {
                 let want = name_key(&name);
                 let item = self.shared.read_type(&type_key).and_then(|t| t.view_items).and_then(|items| items.into_iter().find(|i| name_key(&i.name) == want));
                 let raw = match item {
-                    Some(i) => tegg_format::usage::UsageRaw { sort: i.sort, columns: i.columns },
-                    None => tegg_format::usage::UsageRaw { sort: tegg_format::usage::UsageValue::Absent, columns: tegg_format::usage::UsageValue::Absent },
+                    Some(i) => tegg_format::usage::UsageRaw { sort: i.sort, columns: i.columns, ..Default::default() },
+                    None => tegg_format::usage::UsageRaw::default(),
                 };
                 saved(&name, Form::Reference, Some((UsageKind::Tab, raw)))
             }

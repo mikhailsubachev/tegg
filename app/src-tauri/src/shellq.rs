@@ -335,7 +335,7 @@ pub(crate) fn def_dto(d: QueryDef) -> QueryDefDto {
         limit: d.limit,
         view: view_str(d.view).into(),
         group_by: d.group_by,
-        lanes: if d.lanes == Lanes::Horizontal { "horizontal" } else { "vertical" }.into(),
+        lanes: if d.lanes == Lanes::Rows { "horizontal" } else { "vertical" }.into(),
         lane_order: d.lane_order,
         columns: d.columns,
         group_period: d.group_period,
@@ -365,16 +365,18 @@ pub(crate) fn def_from(d: QueryDefDto) -> Result<QueryDef, IpcError> {
         limit: d.limit,
         view: match d.view.as_str() {
             "table" => View::Table,
-            "board" => View::Board,
+            "board" => View::Wall,
             _ => View::List,
         },
         group_by: d.group_by,
-        lanes: if d.lanes == "horizontal" { Lanes::Horizontal } else { Lanes::Vertical },
+        lanes: if d.lanes == "horizontal" { Lanes::Rows } else { Lanes::Columns },
         lane_order: d.lane_order,
         columns: d.columns,
         // v1-views §24.3: `groupPeriod` with `groupBy`; a null `doneLane` removes the key when the file has one.
         group_period: d.group_period,
         done_lane: d.done_lane.map(|x| DoneLane { within_days: x.within_days, folded: x.folded }),
+        // Red-test stub (Q3, v1-views §39.2): `groupNone` isn't in the DTO yet.
+        group_none: false,
     })
 }
 
@@ -382,7 +384,7 @@ fn view_str(v: View) -> &'static str {
     match v {
         View::List => "list",
         View::Table => "table",
-        View::Board => "board",
+        View::Wall => "board",
     }
 }
 
@@ -736,7 +738,7 @@ mod tests {
         }))
         .expect("def parses");
         let d = def_from(def).expect("def converts");
-        assert_eq!((d.r#match, d.view, d.filters.len(), d.sort.len(), d.lanes), (Match::Any, View::Board, 3, 2, Lanes::Horizontal));
+        assert_eq!((d.r#match, d.view, d.filters.len(), d.sort.len(), d.lanes), (Match::Any, View::Wall, 3, 2, Lanes::Rows));
         let v = serde_json::to_value(def_dto(d)).expect("serializes");
         assert_eq!((v["sort"][1]["order"].as_str(), v["groupBy"].as_str(), v["laneOrder"][0].as_str(), v["view"].as_str()), (Some("desc"), Some("status"), Some("Done"), Some("board")), "{v}");
         assert_eq!((v["filters"][0]["kind"].as_str(), v["filters"][0]["op"].as_str(), v["filters"][1]["match"].as_str()), (Some("filter"), Some("is_not"), Some("all")), "{v}");

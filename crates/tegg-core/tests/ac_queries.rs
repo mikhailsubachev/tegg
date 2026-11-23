@@ -622,7 +622,7 @@ fn fr_qry_05_ac8_read_only_cells_two_views() {
     let r = core.query(ZRUSENE);
     // Slice Q2 (views.md change table, D-1802, D-1807): `view: board` is valid now; without `group_by` the board is a
     // broken `group_by` and shows as a List.
-    assert_eq!(r.def.as_ref().map(|d| d.view), Some(View::Board), "board is read (R185)");
+    assert_eq!(r.def.as_ref().map(|d| d.view), Some(View::Wall), "board is read (R185)");
     assert!(!r.broken.iter().any(|b| b.key == "view"), "view is not broken");
     let run_r = run(&core, ZRUSENE, Some(PREHLED));
     assert!(run_r.broken.iter().any(|b| b.reason == BrokenReason::BadValue && b.key == "group_by"), "the block names group_by (D-1807)");

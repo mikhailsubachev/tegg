@@ -80,7 +80,7 @@ fn strs(v: &[&str]) -> Vec<String> {
     v.iter().map(|s| s.to_string()).collect()
 }
 fn plain(name: &str) -> ViewItem {
-    ViewItem { name: name.into(), sort: UsageValue::Absent, columns: UsageValue::Absent, plain: true }
+    ViewItem { name: name.into(), sort: UsageValue::Absent, columns: UsageValue::Absent, view: UsageValue::Absent, group_by: UsageValue::Absent, lanes: UsageValue::Absent, lane_order: UsageValue::Absent, widths: UsageValue::Absent, plain: true }
 }
 fn overlay_items() -> Vec<ViewItem> {
     vec![
@@ -89,6 +89,11 @@ fn overlay_items() -> Vec<ViewItem> {
             name: "Přečtené 2026".into(),
             sort: UsageValue::Set(vec![s("rating", true), s("title", true)]),
             columns: UsageValue::Set(strs(&["author", "rating", "finished", "genres"])),
+            view: UsageValue::Absent,
+            group_by: UsageValue::Absent,
+            lanes: UsageValue::Absent,
+            lane_order: UsageValue::Absent,
+            widths: UsageValue::Absent,
             plain: false,
         },
         plain("Výborné knihy"),
@@ -111,7 +116,7 @@ fn ar_07_ac10_views_items_are_version_1() {
     assert!(!pf.views_unreadable, "a flow mapping item is readable");
     assert_eq!(
         pf.view_items,
-        Some(vec![plain("Rozečtené"), ViewItem { name: "Přečtené 2026".into(), sort: UsageValue::Absent, columns: UsageValue::Set(strs(&["author"])), plain: false }]),
+        Some(vec![plain("Rozečtené"), ViewItem { name: "Přečtené 2026".into(), sort: UsageValue::Absent, columns: UsageValue::Set(strs(&["author"])), view: UsageValue::Absent, group_by: UsageValue::Absent, lanes: UsageValue::Absent, lane_order: UsageValue::Absent, widths: UsageValue::Absent, plain: false }]),
         "flow items, the unknown key ignored"
     );
     assert_eq!(parse("book", &swap(&base(), LINE13, "views:\n  - name: Rozečtené\n")).view_items, Some(vec![plain("Rozečtené")]), "a mapping with only `name` is plain");

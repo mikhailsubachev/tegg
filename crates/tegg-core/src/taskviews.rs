@@ -18,8 +18,8 @@ const TASK_YML: &str = "task.yml";
 /// R202's def of `Schedule` or `Kanban` (None for any other name). `default_task_view_text` gives R202's bytes.
 pub fn default_task_view(name: &str) -> Option<QueryDef> {
     let (group_by, period, lanes, folded) = match name {
-        "Schedule" => ("due", true, Lanes::Horizontal, true),
-        "Kanban" => ("status", false, Lanes::Vertical, false),
+        "Schedule" => ("due", true, Lanes::Rows, true),
+        "Kanban" => ("status", false, Lanes::Columns, false),
         _ => return None,
     };
     Some(QueryDef {
@@ -29,13 +29,14 @@ pub fn default_task_view(name: &str) -> Option<QueryDef> {
         filters: vec![FilterItem::Filter { key: "status".into(), op: Op::StateIsNot, value: Value::String("cancelled".into()), src: None }],
         sort: vec![Sort { by: "due".into(), order: Order::Asc }, Sort { by: "priority".into(), order: Order::Asc }],
         limit: 50,
-        view: View::Board,
+        view: View::Wall,
         group_by: Some(group_by.into()),
         lanes,
         lane_order: None,
         columns: Vec::new(),
         group_period: period,
         done_lane: Some(DoneLane { within_days: 7, folded }),
+        group_none: false,
     })
 }
 

@@ -16,7 +16,7 @@ pub use views::{rename_view, views_source};
 pub mod card;
 pub use card::{card_list, card_list_undefined, default_card, CardList, CARD_BUILT_INS, CARD_FALLBACK};
 pub mod icons;
-pub use tegg_format::usage::{UsageOrder, UsageSort, UsageValue};
+pub use tegg_format::usage::{UsageGroupBy, UsageLanes, UsageOrder, UsageSort, UsageValue, UsageView};
 
 /// D-96 / D-239: NFC, trim, lower case, each whitespace run as `-` (`Quick Note` → `quick-note`).
 pub use tegg_format::type_key;
@@ -224,6 +224,12 @@ pub struct ViewItem {
     pub name: String,
     pub sort: UsageValue<Vec<UsageSort>>,
     pub columns: UsageValue<Vec<String>>,
+    /// Slice Q3 (v1-views §36.1). Red-test stubs: not read yet (always Absent).
+    pub view: UsageValue<UsageView>,
+    pub group_by: UsageValue<UsageGroupBy>,
+    pub lanes: UsageValue<UsageLanes>,
+    pub lane_order: UsageValue<Vec<String>>,
+    pub widths: UsageValue<Vec<(String, u32)>>,
     pub plain: bool,
 }
 
@@ -355,7 +361,7 @@ fn list_unreadable(top: &Map<String, Value>, key: &str) -> bool {
 /// other value.
 fn view_item(v: &Value) -> Option<ViewItem> {
     match v {
-        Value::String(s) => Some(ViewItem { name: nfc(s), sort: UsageValue::Absent, columns: UsageValue::Absent, plain: true }),
+        Value::String(s) => Some(ViewItem { name: nfc(s), sort: UsageValue::Absent, columns: UsageValue::Absent, view: UsageValue::Absent, group_by: UsageValue::Absent, lanes: UsageValue::Absent, lane_order: UsageValue::Absent, widths: UsageValue::Absent, plain: true }),
         Value::Object(m) => {
             let Some(Value::String(name)) = m.get("name") else { return None };
             let name = name.trim_matches(char::is_whitespace);
@@ -363,7 +369,7 @@ fn view_item(v: &Value) -> Option<ViewItem> {
                 return None;
             }
             let u = tegg_format::usage::usage_of_json(m);
-            Some(ViewItem { name: nfc(name), sort: u.sort, columns: u.columns, plain: m.len() == 1 })
+            Some(ViewItem { name: nfc(name), sort: u.sort, columns: u.columns, view: UsageValue::Absent, group_by: UsageValue::Absent, lanes: UsageValue::Absent, lane_order: UsageValue::Absent, widths: UsageValue::Absent, plain: m.len() == 1 })
         }
         _ => None,
     }
@@ -1148,6 +1154,18 @@ pub enum TypeOp {
     SetViewColumns { name: String, columns: Option<Vec<String>> },
     /// v1-views §14.2 (D-1852): the `views` key's lines replaced by `source` byte for byte.
     SetViewsSource(String),
+    /// Slice Q3 (v1-views §36.2): the first item named `name` gets `view` as its own value; None removes it.
+    SetViewDisplay { name: String, view: Option<UsageView> },
+    /// Q3: Some sets the item's `group_by` (`UsageGroupBy::None` writes `group_by: none`); None removes `group_by`,
+    /// `lanes` and `lane_order` (D-2192).
+    SetViewGroup { name: String, group_by: Option<UsageGroupBy> },
+    SetViewLanes { name: String, lanes: Option<UsageLanes> },
+    /// Some(vec![]) writes `lane_order: []`; None removes it.
+    SetViewLaneOrder { name: String, lane_order: Option<Vec<String>> },
+    /// The pairs in the order given; None or an empty list removes `widths` (D-2190).
+    SetViewWidths { name: String, widths: Option<Vec<(String, u32)>> },
+    /// Q3 Duplicate (CP-35, D-2200): the own known keys of `from`'s first item copied into `to`'s item.
+    CopyViewSettings { from: String, to: String },
     /// D-417 (ms4-embeds §3): the type's default embed mode.
     SetEmbed(EmbedMode),
     AddAttribute(AttrDef),
@@ -1362,6 +1380,10 @@ fn apply(def: &mut TypeFile, lines: &mut Vec<String>, op: &TypeOp, system: bool,
                 def.attributes[i].icon = new;
                 set_item_icon(lines, i, &def.attributes[i]);
             }
+        }
+        TypeOp::SetViewDisplay { .. } | TypeOp::SetViewGroup { .. } | TypeOp::SetViewLanes { .. } | TypeOp::SetViewLaneOrder { .. } | TypeOp::SetViewWidths { .. } | TypeOp::CopyViewSettings { .. } => {
+            // Red-test stub (Q3, v1-views §36.2): not built yet; refused without a write.
+            return Err(RuleError::ViewNotListed.into());
         }
         TypeOp::SetViews(_) | TypeOp::SetViewSort { .. } | TypeOp::SetViewColumns { .. } | TypeOp::SetViewsSource(_) => {
             // v1-views §1.3 (D-1782), §14.2 (R196; D-1840, D-1852, D-1857).

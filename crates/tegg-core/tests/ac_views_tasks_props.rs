@@ -325,7 +325,7 @@ fn fr_fmt_07_ac35_q2t_keys_round_trip() {
                 _ => "done_lane",
             };
             match change {
-                Change::Lanes => d.lanes = if d.lanes == Lanes::Horizontal { Lanes::Vertical } else { Lanes::Horizontal },
+                Change::Lanes => d.lanes = if d.lanes == Lanes::Rows { Lanes::Columns } else { Lanes::Rows },
                 Change::DoneLaneOff => d.done_lane = None,
                 Change::DoneLaneOn => d.done_lane = Some(DoneLane { within_days: 7, folded: true }),
                 Change::DoneLaneDays => d.done_lane = d.done_lane.map(|x| DoneLane { within_days: x.within_days + 10, folded: x.folded }),
