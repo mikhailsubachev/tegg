@@ -2,13 +2,13 @@
 
 Public interfaces of slice **OC**, for the test author (D-61) and the build. ACs: `docs/acceptance/cards.md` (R209…R218;
 FR-TYP-11 AC-5…AC-29, FR-TYP-01 AC-12…AC-21, FR-TYP-12 AC-4, FR-LNK-14 AC-15, AR-07 AC-11, FR-FMT-07 AC-36, FR-FMT-12
-AC-15, FR-SYN-02 AC-14, FR-SYN-03 AC-33, FR-SYN-06 AC-51, FR-STO-07 AC-13, NFR-POR-01 AC-7, NFR-PERF-07 AC-6, FR-UX-03
+AC-15, FR-SYN-02 AC-14, FR-SYN-03 AC-35, FR-SYN-06 AC-51, FR-STO-07 AC-15, NFR-POR-01 AC-7, NFR-PERF-07 AC-6, FR-UX-03
 AC-54, AC-55, FR-UX-08 AC-26, FR-UX-05 AC-26, NFR-OTH-02 AC-24) and the table "Existing criteria this slice changes";
 `types.md` slice OC part (R12 after OC, FR-TYP-01 AC-22…AC-28, FR-EDT-07 AC-22); `views.md` part four (FR-QRY-05 AC-30,
 AC-31); `embeds.md` FR-EMB-02 AC-19…AC-21; `previews.md` part four (FR-LNK-10 AC-17…AC-19); `app-shell.md` R219, R1
 changes, FR-UX-02 AC-22…AC-26. Decisions D-2054…D-2074 (plan `docs/plans/oc-object-cards-and-settings-plan.md`, BRD
 v1.238, v1.239), D-2075 (2 MiB commit limit), AP-1571…AP-1604 = D-2076…D-2109 (BRD v1.241). Boards
-`design/edit-note-page/TypeCards`, `CardSettings` (A, B, D, E; **section C is never copied**, D-2074), `IconSet`,
+`design/edit-note-page/TypeCards`, `CardSettings` (A, B, D, E; **the content of sections C and D is never copied**, D-2074, D-2171), `IconSet`,
 `Settings`, `SettingsApp` and their Dark variants. Fixtures: `tests/fixtures/vaults/views/` + `new-empty/.tegg/` + the
 overlay `tests/fixtures/vaults/cards/` (README there); `views-tasks/` for Task criteria; `previews/` for FR-LNK-10.
 
@@ -707,7 +707,7 @@ reorder {name}` · `typeSettings.noIcon` `No icon` · `typeSettings.cardMoved` `
 its name; §17 item 1), `board.card`, `board.none` (lanes), `task.more`, `task.complete`, `panel.checked`,
 `link.unreviewed` (the `Unreviewed` text), `ts.conflict`, `ts.newer`, `ts.icon`, `ts.changeIcon`, `attr.*`, `views.*`.
 
-## 10. UI state (R216; FR-STO-07 AC-13)
+## 10. UI state (R216; FR-STO-07 AC-15)
 
 ```ts
 type UiStateDto = { /* … */ recentIcons?: string[] };   // canonical Lucide names, newest first, ≤ 12, unique
@@ -778,9 +778,9 @@ Through `ipc.perfMark` (v1-views §4.8's mechanism):
 | FR-TYP-11 AC-7…AC-17, FR-TYP-12 AC-4 | `cards_model.ac.test.ts` (parts, values, URL text, dates, Task) | `ac_cards.rs` (card data) | `app/webkit/cards_parts.ac.test.ts`, `cards_surfaces.ac.test.ts` | |
 | FR-TYP-11 AC-18, AC-19, FR-LNK-14 AC-15 | | `ac_cards.rs` | `app/webkit/cards_reads.ac.test.ts` | |
 | FR-TYP-11 AC-20…AC-25, AC-27, AC-28 | `cards_model.ac.test.ts` (`write.ts`) | `ac_card_type_file.rs`, `ac_cards.rs` (Conflict, missing `task.yml`, delete job) | `app/webkit/type_settings_oc.ac.test.ts` | `app/e2e/cards.ac.test.ts` (AC-21) |
-| FR-TYP-01 AC-12, AC-17, AC-19, FR-SYN-02 AC-14, FR-SYN-03 AC-33 | `app/test/icon_picker.ac.test.ts` (resolver) | `ac_card_type_file.rs` (icon bytes, kill harness) | `app/webkit/icon_picker.ac.test.ts` | `cards.ac.test.ts` (AC-17) |
+| FR-TYP-01 AC-12, AC-17, AC-19, FR-SYN-02 AC-14, FR-SYN-03 AC-35 | `app/test/icon_picker.ac.test.ts` (resolver) | `ac_card_type_file.rs` (icon bytes, kill harness) | `app/webkit/icon_picker.ac.test.ts` | `cards.ac.test.ts` (AC-17) |
 | FR-TYP-01 AC-13, FR-EDT-07 AC-22 | | | `cards_surfaces.ac.test.ts` | |
-| FR-TYP-01 AC-14…AC-16, AC-18, AC-20, FR-STO-07 AC-13 | `icon_picker.ac.test.ts` (search oracle, suggested, L0 data file and imports) | | `icon_picker.ac.test.ts` | `cards.ac.test.ts` (relaunch, sockets, `Credits.rtf`) |
+| FR-TYP-01 AC-14…AC-16, AC-18, AC-20, FR-STO-07 AC-15 | `icon_picker.ac.test.ts` (search oracle, suggested, L0 data file and imports) | | `icon_picker.ac.test.ts` | `cards.ac.test.ts` (relaunch, sockets, `Credits.rtf`) |
 | types.md FR-TYP-01 AC-22…AC-28, views.md FR-QRY-05 AC-30, AC-31, embeds.md FR-EMB-02 AC-19…AC-21, previews.md FR-LNK-10 AC-17…AC-19 | | | `type_settings_oc.ac.test.ts`, the views / embeds / previews test files named in the change table | |
 | app-shell FR-UX-02 AC-22…AC-26 | `app/test/registry.ac.test.ts` (AC-26) | | `app/webkit/settings_layout.ac.test.ts` | |
 | FR-SYN-06 AC-51, FR-UX-08 AC-26 | | | `cards_surfaces.ac.test.ts` (counts) | `cards.ac.test.ts` |

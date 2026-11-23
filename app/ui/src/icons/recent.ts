@@ -1,4 +1,4 @@
-// Recent icons (docs/contracts/v1-cards.md §7.8, §10; FR-TYP-01 AC-18, FR-STO-07 AC-13; D-2066, D-2101): canonical
+// Recent icons (docs/contracts/v1-cards.md §7.8, §10; FR-TYP-01 AC-18, FR-STO-07 AC-15; D-2066, D-2101): canonical
 // Lucide names, newest first, unique, at most 12, in the machine-local UI state (`ui-state.json`), never in the vault.
 // The app owns the UI state and registers how to read and change it, so each choice is one `ui_state_set`.
 import type { UiStateDto } from '../ipc/types';

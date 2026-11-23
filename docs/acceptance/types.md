@@ -385,7 +385,7 @@ The criteria of the follow-up (D-246…D-252) follow these recommendations until
 
 ---
 
-# Slice OC: type settings in the shared layout (v1.0, 0.6.0; draft)
+# Slice OC: type settings in the shared layout (v1.0, 0.6.0; approved)
 
 Slice **OC** (plan `docs/plans/oc-object-cards-and-settings-plan.md` §5, §7; D-2054…D-2074; boards `CardSettings` A, D, E and Dark). Type settings get the Settings layout of app-shell.md R219 (D-2071), the `Card` section in place of `Preview properties` (D-2054; its criteria are [cards.md](cards.md) FR-TYP-11 AC-20…AC-28), the icon picker for the type and its properties (D-2070; cards.md FR-TYP-01 AC-12…AC-21), and a `Views` section that lists the type's real views (D-2071). **Status: approved, 2026-11-22** (cards.md's AP-1571…AP-1604 → D-2076…D-2109, BRD v1.241). Changed existing criteria and tests: cards.md "Existing criteria this slice changes" (R12's `Preview properties` row and `Views` row, R14's `Icon` listbox, FR-TYP-01 AC-4 (icon), AC-8, AC-9, FR-TYP-11 AC-1…AC-3, FR-TYP-06 AC-3).
 

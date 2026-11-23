@@ -101,7 +101,7 @@ A picked property with no value draws nothing.
 
 ## 8. Points for the owner
 
-All decided: the Proposal column is the decision (D-2054…D-2073), except AP-1569, superseded by D-2074.
+All decided: the Proposal column is the decision (D-2054…D-2073), except AP-1569, superseded by D-2074 (the boards as drawn; the owner's data in `CardSettings` sections C and D, amended by D-2171).
 
 ### 8.1 From the boards' "To decide"
 

@@ -260,7 +260,7 @@ History is in memory only: one list of visited routes per window, with the note 
 
 ---
 
-## Slice OC: the Settings layout (v1.0, 0.6.0; draft; D-2071)
+## Slice OC: the Settings layout (v1.0, 0.6.0; approved; D-2071)
 
 Slice **OC** (plan `docs/plans/oc-object-cards-and-settings-plan.md` §7, step OC-d; boards `Settings`, `SettingsApp` and their Dark variants; `CardSettings` A for type settings). Settings and type settings share one layout: a section list on the left, a label column, a control column, notes under the control. **No setting is added, removed or changed** (D-2071): every control, label, default, storage place and command stays. **Status: approved, 2026-11-22**; AP-1601 (the numbers and the design entries) is D-2106 ([cards.md](cards.md)). Type settings' criteria are types.md FR-TYP-01 AC-22…AC-28; the slice's themes and strings checks are cards.md FR-UX-05 AC-26 and NFR-OTH-02 AC-24. Changed tests: cards.md's table "Existing criteria this slice changes" (R1's design column, Settings tests tied to the old markup).
 
