@@ -604,8 +604,10 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   // Issue 102: once the reader scrolls, clicks, touches or presses a key, the late restores below stop; moving the page
   // back under the pointer sent a double-click's second click to another embed and closed an open preview.
   const readerActed = useRef(false);
+  // FR-EDT-02 AC-7: a `#^block` / `#Heading` open lands again once the read view's embeds have their height (below).
+  const fragmentAtOpen = useRef(restoreScroll === undefined ? fragment : undefined);
   useEffect(() => {
-    if (restoreAtOpen.current === undefined) return;
+    if (restoreAtOpen.current === undefined && !fragmentAtOpen.current) return;
     const acted = () => { readerActed.current = true; };
     const inputs = ['wheel', 'pointerdown', 'touchstart', 'keydown'] as const;
     for (const e of inputs) window.addEventListener(e, acted, { capture: true, passive: true });
@@ -633,6 +635,24 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       requestAnimationFrame(apply);
       for (const ms of [100, 300]) setTimeout(apply, ms);
       setTimeout(() => { apply(); restoreDone.current = true; }, 600);
+    });
+  }, [embedSnap.version]);
+  // FR-EDT-02 AC-7 (FR-LNK-11 AC-17): the read view lands on `#^block` / `#Heading` before its embeds have loaded; an
+  // embed below the target that gets its height later lets the pane scroll further, so the target is placed again
+  // (once per open, as Back's restore above), unless the reader has scrolled, clicked or typed since.
+  const landedAfterEmbeds = useRef(false);
+  useEffect(() => {
+    const f = fragmentAtOpen.current;
+    if (landedAfterEmbeds.current || !f || restoreAtOpen.current !== undefined || !embedSnap.tree || !loaded || loaded.mode === 'edit') return;
+    landedAfterEmbeds.current = true;
+    const apply = () => {
+      if (readerActed.current || nfc(liveFragment.current ?? '') !== nfc(f)) return;
+      scrollToFragment(root.current, f, null);
+    };
+    requestAnimationFrame(() => {
+      apply();
+      requestAnimationFrame(apply);
+      for (const ms of [100, 300, 600]) setTimeout(apply, ms);
     });
   }, [embedSnap.version]);
   // A type's default changed (FR-EMB-02 AC-7, AC-10).
