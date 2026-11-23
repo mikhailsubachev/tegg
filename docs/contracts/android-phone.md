@@ -501,7 +501,11 @@ embed's `Display as`; a task embed's status, priority and due buttons, whose val
 per-control commands, registered while their page is shown, each running its control's tap through `actions.phone(id)`:
 - `read.fold:<n>`: the n-th fold button (a foldable callout or mindmap) of the shown note, from 1 in document order;
 - `read.openEmbed:<n>`: every control that opens the n-th embed of the shown note (its chip, `Open <title>`);
-- `board.openCard:<path>`: a board task card's title (`<path>` NFC, as `data-path`), an exception inside `board.*`.
+- `board.openCard:<path>`: every control of a board task card that opens its task (the title, the card; `<path>` NFC,
+  as `data-path`), and `board.openSource:<path>`: its source chip (D-2129); both exceptions inside `board.*`.
+
+View-only task checkboxes (`aria-disabled`, on boards, table rows, task embeds) carry no `data-command` on the phone
+(no `task.complete`); FR-UX-03 AC-54 and AC-55 exempt them (D-2129).
 
 `PHONE_HIDDEN_COMMANDS` (exact ids; prefixes end in `*`): `app.palette`, `help.shortcuts`, `nav.forward`,
 `view.toggleSidebar`, `view.toggleRightPanel`, `view.toggleFocus`, `note.toggleProperties`, `note.width.*`, `edit.*`,

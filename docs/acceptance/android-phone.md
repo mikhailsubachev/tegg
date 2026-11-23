@@ -246,14 +246,14 @@ Proposals for the contract:
 
 - **AC-54** **Every control is a command, without a palette (AP-2041).** With `'android'`:
   - no element `Command palette` opens on any route, from ⌘K, Ctrl+K or ⌘⇧P (a hardware keyboard emulated by Playwright);
-  - FR-UX-03 AC-8's rule holds on every route of RA9 at 412 × 915, with the drawer, a sheet and each menu open: every button, link, tab, menu item, checkbox, radio and switch carries the `data-command` of a registered command, except text inputs, the rows of object lists, and links and read-only task checkboxes in a note's text (D-2112, D-2115);
+  - FR-UX-03 AC-8's rule holds on every route of RA9 at 412 × 915, with the drawer, a sheet and each menu open: every button, link, tab, menu item, checkbox, radio and switch carries the `data-command` of a registered command, except text inputs, the rows of object lists, links in a note's text, and view-only task checkboxes anywhere (`aria-disabled`; D-2112, D-2115, D-2129), which carry no hidden command either;
   - every command a phone control carries runs from the registry with the same effect as the tap (data-driven over those commands).
 
   *(L5p)* Test: `fr_ux_03_ac54_commands_without_a_palette`
 - **AC-55** **Controls inside a note's content (D-2128; QA review of AND-2).** With `'android'` at 412 × 915, on the vault `tasks/` + `new-empty/.tegg/` + `views-tasks/` + the overlay `phone-content/` at the tasks clock:
   - On `note/Pages/Vložené.md` no `Display as` control is rendered, and the task embed `Opravit kolo` has no status, priority or due button: its status `In progress` shows as text, and its checkbox is drawn `aria-disabled` (as RA11).
   - The callout's fold button carries `read.fold:1` and the mindmap's `read.fold:2`; every control of the note embed `Vložená stránka` that opens it (its chip, `Open Vložená stránka`) carries `read.openEmbed:1`, and those of the task embed `read.openEmbed:2` (numbers count from 1 in document order on the page).
-  - AC-54's second part holds on this note and on `type/task` with each of its tabs open (`All Tasks`, `Schedule`, `Kanban`, `Čeká na ostatní`), none of the commands is in RA11's hidden list, and a board task card's title carries `board.openCard:<path>`.
+  - AC-54's second part holds on this note and on `type/task` with each of its tabs open (`All Tasks`, `Schedule`, `Kanban`, `Čeká na ostatní`), none of the commands is in RA11's hidden list, and every control of a board task card that opens its task (its title, the card) carries `board.openCard:<path>` and its source chip `board.openSource:<path>` (D-2129).
   - Running a command by id has the tap's effect, also inside the page: `read.fold:1` flips the callout's `aria-expanded` and shows `Skrytý text tipu.`; `read.fold:2` shows the map `Složená mapa`; `read.openEmbed:1` opens `note/Pages/Vložená stránka.md`; on the `Kanban` tab `board.openCard:Tasks/Opravit kolo.md` opens `note/Tasks/Opravit kolo.md`; on `note/Pages/Mapa výletu.md` (the `phone/` vault) `mindmap.showList` shows the list and `mindmap.showMap` the map again (the pressed one of `Map` / `List`).
   - Zero writes.
 
