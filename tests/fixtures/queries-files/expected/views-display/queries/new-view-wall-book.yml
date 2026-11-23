@@ -1,0 +1,11 @@
+# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › New view.
+version: 1
+title: New view
+types: [book]
+match: all
+filters: []
+sort: { by: modified, order: desc }
+limit: 50
+view: wall
+created: 2026-11-19T10:00:00+01:00
+modified: 2026-11-19T10:00:00+01:00

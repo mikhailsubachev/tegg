@@ -1,0 +1,18 @@
+# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Rozečtené.
+version: 1
+title: Rozečtené
+types: [book]
+match: all
+filters:
+  - status: { is_any_of: [Reading, To read] }
+  - tags: { has_none_of: [odloženo] }
+sort:
+  - { by: status, order: asc }
+  - { by: modified, order: desc }
+limit: 50
+view: board
+lanes: vertical
+lane_order: [Reading, To read, Read]
+columns: [author, rating]
+created: 2026-11-02T20:00:00+01:00
+modified: 2026-11-19T10:00:00+01:00
