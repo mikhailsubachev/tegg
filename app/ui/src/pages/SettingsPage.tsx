@@ -29,7 +29,7 @@ const SECTIONS: [string, string][] = [
 const CHOICES: [ThemeChoice, string][] = [['system', 'settings.theme.system'], ['light', 'settings.theme.light'], ['dark', 'settings.theme.dark']];
 
 export function SettingsPage({ id, theme, heading, onSection, onTheme, vault, types, refresh, dateTime, onDateTime, onStarter, onOpenFolder, commandTitle, outlineRail = true, onOutlineRail, phone = false }: {
-  /** Slice AND-2 (android-phone §9.10, D-2183): no section list; Appearance has Theme only. */
+  /** Slice AND-2 (android-phone §9.10, D-2411): no section list; Appearance has Theme only. */
   phone?: boolean;
   id: string;
   theme: ThemeChoice;
@@ -54,7 +54,7 @@ export function SettingsPage({ id, theme, heading, onSection, onTheme, vault, ty
   return (
     <div className="page-column settings">
       <PageHeading ref={heading} tabIndex={-1}>{id === 'settings/backups' ? t('backups.title') : id === 'settings/previews' ? t('settings.previews') : t(def.name)}</PageHeading>
-      {/* AND-2 (android-phone §9.10, D-2183): no section list on the phone. */}
+      {/* AND-2 (android-phone §9.10, D-2411): no section list on the phone. */}
       <SettingsLayout nav={phone ? null : SECTIONS.map(([sid, key]) => (
         <a
           key={sid}

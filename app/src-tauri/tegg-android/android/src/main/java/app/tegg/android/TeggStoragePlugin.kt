@@ -1,6 +1,6 @@
 // Slice AND-1 (D-2016, D-2018, D-2037; docs/contracts/android-shell.md §6): "All files access" for the vault folder in
 // shared storage, the system page that grants it, and the app's private files folder for machine-local data.
-// Slice AND-2 (docs/contracts/android-phone.md §5; D-2201…D-2204, D-2216): the window seen by the page: safe-area
+// Slice AND-2 (docs/contracts/android-phone.md §5; D-2429…D-2432, D-2444): the window seen by the page: safe-area
 // insets and the keyboard, system Back, the bar icons, night mode and the font size, and links opened in other apps.
 package app.tegg.android
 
@@ -62,7 +62,7 @@ class TeggStoragePlugin(private val activity: Activity) : Plugin(activity) {
         applyConfiguration(activity.resources.configuration)
     }
 
-    // ------------------------------------------------------------ §5.1 insets and the keyboard (CP-1 → D-2201)
+    // ------------------------------------------------------------ §5.1 insets and the keyboard (CP-1 → D-2429)
 
     private fun watchInsets() {
         val content = activity.findViewById<View>(android.R.id.content) ?: return
@@ -90,7 +90,7 @@ class TeggStoragePlugin(private val activity: Activity) : Plugin(activity) {
             all
         }
         // With an animation callback the content view gets the keyboard's end state when its animation starts, not
-        // when it ends, so the page fits the keyboard at once (FR-UX-04 AC-4, D-2239).
+        // when it ends, so the page fits the keyboard at once (FR-UX-04 AC-4, D-2467).
         ViewCompat.setWindowInsetsAnimationCallback(content, object : WindowInsetsAnimationCompat.Callback(DISPATCH_MODE_STOP) {
             override fun onProgress(insets: WindowInsetsCompat, running: MutableList<WindowInsetsAnimationCompat>) = insets
         })
@@ -99,13 +99,13 @@ class TeggStoragePlugin(private val activity: Activity) : Plugin(activity) {
 
     private fun insetsJs() = "{top:${insets.top},bottom:${insets.bottom},left:${insets.left},right:${insets.right}}"
 
-    /** §6.1 (CP-2 → D-2202): the page's bridge `window.__TEGG_NATIVE__.receive('window', …)`. */
+    /** §6.1 (CP-2 → D-2430): the page's bridge `window.__TEGG_NATIVE__.receive('window', …)`. */
     private fun push(state: String) {
         val w = webView ?: return
         w.post { w.evaluateJavascript("window.__TEGG_NATIVE__ && window.__TEGG_NATIVE__.receive('window', $state)", null) }
     }
 
-    // ------------------------------------------------------------ §5.3 system Back (CP-3 → D-2203)
+    // ------------------------------------------------------------ §5.3 system Back (CP-3 → D-2431)
 
     private fun watchBack() {
         val a = activity as? AppCompatActivity ?: return
@@ -124,7 +124,7 @@ class TeggStoragePlugin(private val activity: Activity) : Plugin(activity) {
         })
     }
 
-    // ------------------------------------------------------------ §5.4 night mode and the font size (D-2216)
+    // ------------------------------------------------------------ §5.4 night mode and the font size (D-2444)
 
     private fun watchConfiguration() {
         activity.registerComponentCallbacks(object : ComponentCallbacks {
@@ -165,7 +165,7 @@ class TeggStoragePlugin(private val activity: Activity) : Plugin(activity) {
         invoke.resolve(JSObject())
     }
 
-    /** §5.2 (CP-4 → D-2204): the bar icons for the resolved theme, then the window state. */
+    /** §5.2 (CP-4 → D-2432): the bar icons for the resolved theme, then the window state. */
     @Command
     fun window(invoke: Invoke) {
         val dark = invoke.parseArgs(WindowArgs::class.java).dark
@@ -185,7 +185,7 @@ class TeggStoragePlugin(private val activity: Activity) : Plugin(activity) {
         }
     }
 
-    /** §5.5 (D-2192): `ACTION_VIEW` for http, https, mailto and tel only; no connection of Tegg's own. */
+    /** §5.5 (D-2420): `ACTION_VIEW` for http, https, mailto and tel only; no connection of Tegg's own. */
     @Command
     fun openUrl(invoke: Invoke) {
         val url = invoke.parseArgs(OpenUrlArgs::class.java).url.trim()

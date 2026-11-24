@@ -347,7 +347,7 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, op
       const b = v ? panel.current?.board() ?? null : null;
       return { typeKey: cur.key, tab: v, writable, viewWritable: !!v && !ro && !!panel.current?.def(), board: b ? b.status() : null, sortable: !!v && !!panel.current?.def(),
         usage: v ? panel.current?.usage() ?? null : null,
-        // D-2235: on the phone each tab runs its own command.
+        // D-2463: on the phone each tab runs its own command.
         phoneTabs: isPhone() ? ['', ...items.filter((it) => !it.draft).map((it) => nfc(it.name))] : undefined };
     },
     run: (id) => {

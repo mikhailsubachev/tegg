@@ -1,4 +1,4 @@
-// Slice AND-2 (docs/contracts/android-phone.md §7; RA9, D-2181…D-2183, D-2209): the phone's own routes and the
+// Slice AND-2 (docs/contracts/android-phone.md §7; RA9, D-2409…D-2411, D-2437): the phone's own routes and the
 // desktop routes it doesn't offer.
 import type { RouteDef } from '../shell/registry';
 

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Slice AND-1 (D-2031, docs/contracts/android-shell.md §10.3): the headless emulator of the LA layer.
-# Slice AND-2 (D-2200, docs/contracts/android-phone.md §13.3): a fixed pixel_7 profile (CSS 411 × 914 at 2.625), gesture
+# Slice AND-2 (D-2428, docs/contracts/android-phone.md §13.3): a fixed pixel_7 profile (CSS 411 × 914 at 2.625), gesture
 # navigation, auto-rotate off. An AVD of another profile is recreated.
 #   tools/android/avd.sh up     create the AVD tegg-and-35 once, boot it headless, wait for the boot to complete
 #   tools/android/avd.sh down   stop it

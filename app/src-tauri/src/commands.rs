@@ -47,7 +47,7 @@ pub const ANDROID: &[&str] = &[
     "storage_access", "storage_access_settings", "android_open_url", "android_window",
 ];
 
-/// The Android-only commands: AND-1's four (android-shell §2.2) and AND-2's two (android-phone §2.1; D-2192, D-2204).
+/// The Android-only commands: AND-1's four (android-shell §2.2) and AND-2's two (android-phone §2.1; D-2420, D-2432).
 pub const ANDROID_ONLY: &[&str] = &[
     "vault_start", "vault_find", "storage_access", "storage_access_settings", "android_open_url", "android_window",
 ];

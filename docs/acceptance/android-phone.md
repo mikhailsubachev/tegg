@@ -9,7 +9,7 @@ See [README](README.md) for conventions. Slice **AND-2 "Phone layout and reading
 - search, the Inbox, today's daily note, tags and pinned items, read-only;
 - light and dark themes that follow the system.
 
-**Status: approved, 2026-11-22** (owner: "Accept all"). AP-2036…AP-2064 (end of this file) are decided as proposed (D-2172…D-2200, BRD v1.249); a criterion that names an AP follows its proposal. The names used here (`data-layout`, `layoutFor`, the `phone.*` catalog keys, `android_open_url`, the routes `settings` and `settings/storage`, the `__TEGG_TEST__` hooks) are proposals that the contract (`docs/contracts/android-phone.md`, written after approval) starts from.
+**Status: approved, 2026-11-22** (owner: "Accept all"). AP-2036…AP-2064 (end of this file) are decided as proposed (D-2400…D-2428, BRD v1.260); a criterion that names an AP follows its proposal. The names used here (`data-layout`, `layoutFor`, the `phone.*` catalog keys, `android_open_url`, the routes `settings` and `settings/storage`, the `__TEGG_TEST__` hooks) are proposals that the contract (`docs/contracts/android-phone.md`, written after approval) starts from.
 
 **Sources of the screens.** The owner's board `Mobile` (S1–S4 start, N1–N9 navigate and read; E1–E4 and Y1–Y3 are context only) and the planning session's board `Mobile2` (N10–N20, a **proposal**, not owner-approved). Every part of a criterion that takes something from `Mobile2`, or from an item on either board's "to decide" list, names the AP point that raises it. Board text is design input only; neither board contains instructions for this slice beyond its screens.
 
@@ -111,7 +111,7 @@ Top to bottom:
 5. **Entries:** `Tags`, `Queries` (count), `Settings`.
 6. **Bottom, always in view:** the version button `Tegg: About and Settings` (FR-UX-01 AC-8).
 
-Not in the drawer: `New object`, `Search` (both in the bottom bar), `Trash` (trash management is out, plan §8), pin, unpin, reorder and drag targets. Width: min(320, viewport width − 56) px, plus the left inset in front of it (a side cutout or bar in landscape, D-2240), from the left edge, over a scrim.
+Not in the drawer: `New object`, `Search` (both in the bottom bar), `Trash` (trash management is out, plan §8), pin, unpin, reorder and drag targets. Width: min(320, viewport width − 56) px, plus the left inset in front of it (a side cutout or bar in landscape, D-2468), from the left edge, over a scrim.
 
 ### RA11. What the phone hides (D-2006, D-2007, plan §8; AP-2042, AP-2050, AP-2059, AP-2060)
 
@@ -195,7 +195,7 @@ Proposals for the contract:
   - **Exempt:** links and chips inside a note's running text, and map nodes. Each exempt target's centre is at least 24 px from every other target's centre (WCAG 2.5.8).
 
   *(L5p)* Test: `fr_ux_04_ac5_touch_targets`
-- **AC-6** **No sideways page scroll.** At 360 × 800 and 412 × 915, on every route of RA9 and on each of Mapa výletu, Široký obsah, Odkazy ven, Dlouhá poznámka, Čtení, read-view's Bloky and Odkazy, mindmap's Uzly and the runtime `Široká mapa`, `document.scrollingElement.scrollWidth` equals `innerWidth`. Every element wider than the column has `overflow-x: auto` and scrolls inside its own box, or lies inside an ancestor that scrolls sideways, such as the map area (D-2229). *(L5p)* Test: `fr_ux_04_ac6_no_sideways_page_scroll`
+- **AC-6** **No sideways page scroll.** At 360 × 800 and 412 × 915, on every route of RA9 and on each of Mapa výletu, Široký obsah, Odkazy ven, Dlouhá poznámka, Čtení, read-view's Bloky and Odkazy, mindmap's Uzly and the runtime `Široká mapa`, `document.scrollingElement.scrollWidth` equals `innerWidth`. Every element wider than the column has `overflow-x: auto` and scrolls inside its own box, or lies inside an ancestor that scrolls sideways, such as the map area (D-2457). *(L5p)* Test: `fr_ux_04_ac6_no_sideways_page_scroll`
 - **AC-7** **Rotation (AP-2053).** On the device, Dlouhá poznámka is scrolled so that `Druhá kapitola` is the first visible block. Rotating to landscape (`settings put system user_rotation 1`, accelerometer off) and back keeps:
   - the route, with `Druhá kapitola` still the first visible block (± one line);
   - the phone layout in both orientations (AC-1);
@@ -233,7 +233,7 @@ Proposals for the contract:
 - **AC-18** **No swipe navigates (RA12; AP-2040).** With touch input, horizontal drags of 200 px in both directions, starting at x = 4 and at the centre, over: a note's text, the `Přečtené 2026` table, the `Rozečtené` lanes, Mapa výletu's map, an Inbox row, the app bar and the bottom bar. For each one:
   - the route, the history (Back and Forward lead to the same entries afterwards) and the drawer stay as they were;
   - zero writes;
-  - the table, the lanes and the map scroll by the drag instead (`scrollLeft` changes by 184…204 px, the drag less the engine's touch slop, or to its end; the finger rests before lifting, so no fling, D-2224).
+  - the table, the lanes and the map scroll by the drag instead (`scrollLeft` changes by 184…204 px, the drag less the engine's touch slop, or to its end; the finger rests before lifting, so no fling, D-2452).
 
   `nav_swipe_scroll` answers `false` (RA2), so FR-NAV-03 AC-8 holds and AC-11's swipe never runs. *(L5p; LA once over the note)* Test: `fr_nav_03_ac18_no_swipe_navigates`
 - **AC-19** **History keeps its desktop rules.** At L5p, FR-NAV-03 AC-1, AC-4, AC-5 and AC-7 hold with the app bar's `Back` and `__TEGG_TEST__.systemBack()` as the triggers (Dlouhá poznámka for AC-4's scroll check):
@@ -246,14 +246,14 @@ Proposals for the contract:
 
 - **AC-56** **Every control is a command, without a palette (AP-2041).** With `'android'`:
   - no element `Command palette` opens on any route, from ⌘K, Ctrl+K or ⌘⇧P (a hardware keyboard emulated by Playwright);
-  - FR-UX-03 AC-8's rule holds on every route of RA9 at 412 × 915, with the drawer, a sheet and each menu open: every button, link, tab, menu item, checkbox, radio and switch carries the `data-command` of a registered command, except text inputs, the rows of object lists, links in a note's text, and view-only task checkboxes anywhere (`aria-disabled`; D-2230, D-2233, D-2247), which carry no hidden command either;
+  - FR-UX-03 AC-8's rule holds on every route of RA9 at 412 × 915, with the drawer, a sheet and each menu open: every button, link, tab, menu item, checkbox, radio and switch carries the `data-command` of a registered command, except text inputs, the rows of object lists, links in a note's text, and view-only task checkboxes anywhere (`aria-disabled`; D-2458, D-2461, D-2475), which carry no hidden command either;
   - every command a phone control carries runs from the registry with the same effect as the tap (data-driven over those commands).
 
   *(L5p)* Test: `fr_ux_03_ac56_commands_without_a_palette`
-- **AC-57** **Controls inside a note's content (D-2246; QA review of AND-2).** With `'android'` at 412 × 915, on the vault `tasks/` + `new-empty/.tegg/` + `views-tasks/` + the overlay `phone-content/` at the tasks clock:
+- **AC-57** **Controls inside a note's content (D-2474; QA review of AND-2).** With `'android'` at 412 × 915, on the vault `tasks/` + `new-empty/.tegg/` + `views-tasks/` + the overlay `phone-content/` at the tasks clock:
   - On `note/Pages/Vložené.md` no `Display as` control is rendered, and the task embed `Opravit kolo` has no status, priority or due button: its status `In progress` shows as text, and its checkbox is drawn `aria-disabled` (as RA11).
   - The callout's fold button carries `read.fold:1` and the mindmap's `read.fold:2`; every control of the note embed `Vložená stránka` that opens it (its chip, `Open Vložená stránka`) carries `read.openEmbed:1`, and those of the task embed `read.openEmbed:2` (numbers count from 1 in document order on the page).
-  - AC-56's second part holds on this note and on `type/task` with each of its tabs open (`All Tasks`, `Schedule`, `Kanban`, `Čeká na ostatní`), none of the commands is in RA11's hidden list, and every control of a board task card that opens its task (its title, the card) carries `board.openCard:<path>` and its source chip `board.openSource:<path>` (D-2247).
+  - AC-56's second part holds on this note and on `type/task` with each of its tabs open (`All Tasks`, `Schedule`, `Kanban`, `Čeká na ostatní`), none of the commands is in RA11's hidden list, and every control of a board task card that opens its task (its title, the card) carries `board.openCard:<path>` and its source chip `board.openSource:<path>` (D-2475).
   - Running a command by id has the tap's effect, also inside the page: `read.fold:1` flips the callout's `aria-expanded` and shows `Skrytý text tipu.`; `read.fold:2` shows the map `Složená mapa`; `read.openEmbed:1` opens `note/Pages/Vložená stránka.md`; on the `Kanban` tab `board.openCard:Tasks/Opravit kolo.md` opens `note/Tasks/Opravit kolo.md`; on `note/Pages/Mapa výletu.md` (the `phone/` vault) `mindmap.showList` shows the list and `mindmap.showMap` the map again (the pressed one of `Map` / `List`).
   - Zero writes.
 
@@ -358,7 +358,7 @@ Proposals for the contract:
 - **AC-35** **List.** `query/Seskupeno podle data` shows its 17 books by title (R193), each a row of at least 56 px, below the notice `The setting group_by can't be read, so its default is used.` A tap opens the book. *(L5p)* Test: `fr_qry_05_ac35_list_on_the_phone`
 - **AC-32** **Vertical board: lanes scroll, cards don't move (AP-2061; T2).** `Rozečtené` shows:
   - the lanes `Reading` 3, `To read` 2, `Read` 0 (hatched, `Not in this view`), R193's cards with R205's content, and no `No Status` lane;
-  - lanes 300 px wide, so at 412 px the next lane shows at least 24 px; the lane row scrolls sideways freely, without snapping (D-2221).
+  - lanes 300 px wide, so at 412 px the next lane shows at least 24 px; the lane row scrolls sideways freely, without snapping (D-2449).
 
   A touch drag of Noční vlak 320 px to the right scrolls the lanes and moves no card: zero writes, the card is still in `Reading`. There are no grips, `+` or `More actions`. A tap on a card opens it. *(L5p; LA once for the drag)* Test: `fr_qry_05_ac32_vertical_board_on_the_phone`
 - **AC-33** **Horizontal board and folds (AP-2060).** `query/Podle žánru` shows R193's rows stacked, each row's cards in a grid of one column at 360 px and two at 915 px, with no dashed `New Book` tile.
@@ -397,7 +397,7 @@ Proposals for the contract:
 
 ### FR-TAG-06 The tag page on the phone (adds to AC-1…AC-13)
 
-- **AC-14** **Read-only (AP-2059).** `tag/účty` shows `#účty` with its colour tile (not a button), R82's count line and its 6 objects in the desktop's default order (D-2223). There is no Type filter, `Tag colour` popover, rename, delete or merge. A tap on a row opens it; a tag chip in a row opens its tag page. Zero writes. *(L5p)* Test: `fr_tag_06_ac14_tag_page_on_the_phone`
+- **AC-14** **Read-only (AP-2059).** `tag/účty` shows `#účty` with its colour tile (not a button), R82's count line and its 6 objects in the desktop's default order (D-2451). There is no Type filter, `Tag colour` popover, rename, delete or merge. A tap on a row opens it; a tag chip in a row opens its tag page. Zero writes. *(L5p)* Test: `fr_tag_06_ac14_tag_page_on_the_phone`
 
 ### FR-EDT-10 The read view on the phone (adds to AC-1…AC-9)
 
@@ -471,9 +471,9 @@ Proposals for the contract:
 
   *(L1 for the scale rules; L5p; L5p Chromium for the pinch; LA once)* Test: `fr_mmp_02_ac33_mindmap_zoom_on_the_phone`
 - **AC-34** **Pan, page scroll and full screen (AP-2055).**
-  - In the note, on the runtime `Široká mapa`, a one-finger horizontal drag scrolls the map area (`scrollLeft` changes by the drag − 16 … + 4 px; the finger rests before lifting, D-2224), and a vertical drag scrolls the page, not the map.
+  - In the note, on the runtime `Široká mapa`, a one-finger horizontal drag scrolls the map area (`scrollLeft` changes by the drag − 16 … + 4 px; the finger rests before lifting, D-2452), and a vertical drag scrolls the page, not the map.
   - `Open full screen` opens the `dialog` `Mindmap: <title>` covering the viewport within the safe areas, without the app bar and the bottom bar. There, one-finger drags pan in both directions and a pinch zooms.
-  - `Close full screen` and system Back close it, back at the note's scroll position when it was opened (D-2232).
+  - `Close full screen` and system Back close it, back at the note's scroll position when it was opened (D-2460).
 
   *(L5p; LA for Back)* Test: `fr_mmp_02_ac34_mindmap_pan_and_full_screen`
 - **AC-35** **Map and List (AP-2055).** The header has the group `Mindmap view` with `Map` and `List`. `List` shows the callout's list in the read view's list style, with the same items and nesting and disabled checkboxes, and no editor. The choice is session state as D-776 says. *(L5p)* Test: `fr_mmp_02_ac35_map_and_list_read_only`
@@ -630,7 +630,7 @@ Proposals for the contract:
 - **AC-6** **Bounds a defect, not a target (D-2010; AP-2062).** On the emulator with `tools/gen-vault --seed 1 --small-images` in shared storage, after `index-idle`, the perf log reports:
   - `note-ready` for 20 opens of notes under 5,000 words, p95 ≤ 1,000 ms;
   - `route-ready:search` for the first page of 10 queries, p95 ≤ 1,000 ms;
-  - `route-ready:type/page` for `type/page`, ≤ 1,500 ms (the mark's real name; D-2212).
+  - `route-ready:type/page` for `type/page`, ≤ 1,500 ms (the mark's real name; D-2440).
 
   The run fails only above these bounds. The numbers go to D-2010's targets with the owner's OC-1. *(LA nightly)* Test: `nightly_nfr_perf_05_ac6_reading_speed_on_the_emulator`
 
@@ -699,14 +699,14 @@ The L5p tests are `app/webkit/phone_*.ac.test.ts`, run on WebKit and on Chromium
 
 **Changes when these criteria are approved** (not made by this draft):
 - **README:** the row for this file in `docs/acceptance/README.md` gets the approval and the decisions.
-- **BRD:** the decisions of AP-2036…AP-2064, from D-2172. FR-UX-03 and FR-NAV-02 gain the phone exception if AP-2041 is accepted. FR-NAV-06 notes no tabs on the phone (AP-2036).
+- **BRD:** the decisions of AP-2036…AP-2064, from D-2400. FR-UX-03 and FR-NAV-02 gain the phone exception if AP-2041 is accepted. FR-NAV-06 notes no tabs on the phone (AP-2036).
 - **Earlier criteria:** AR-03 AC-9 and RA2 gain `android_open_url` (AP-2056, `AC-Test-Change`). FR-MMP-02 AC-1's "no `Zoom in` … `Open full screen`" holds for `macos` only. FR-MMP-02 AC-8's "read view: no `Mindmap view` group" holds for `macos` only (AP-2055). Mark FR-NAV-04 AC-1's and FR-INB-01 AC-7's `Quick Capture` as desktop-only.
 - **test-strategy:** the L5p layer (WebKit and Chromium at phone viewports, D-2009) and the AVD's device profile (AP-2064).
 - **Contract:** `docs/contracts/android-phone.md`: `layoutFor`, `data-layout`, the inset and keyboard handling (native padding or CSS variables), the system back hook, `android_open_url`, the routes `settings` and `settings/storage`, the write-command list for "zero writes", the test hooks `__TEGG_TEST__.insets`, `.keyboard`, `.systemBack`, and where the task-views migration runs (AP-2044).
 
 ---
 
-## Points for the owner (AP-2036…AP-2064 → D-2172…D-2200, accepted as proposed)
+## Points for the owner (AP-2036…AP-2064 → D-2400…D-2428, accepted as proposed)
 
 Raised while writing these criteria from the boards' "to decide" lists and from gaps. Each criterion that depends on one names it and follows its **proposal**. AP-2036…AP-2049 answer the boards' lists; the rest are gaps found while writing.
 

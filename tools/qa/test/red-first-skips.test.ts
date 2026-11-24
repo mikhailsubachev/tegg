@@ -1,4 +1,4 @@
-// D-2243: the red-first verdict on an added AC test file. A testcase skipped in one run (a contract's one-engine test,
+// D-2471: the red-first verdict on an added AC test file. A testcase skipped in one run (a contract's one-engine test,
 // such as AND-2's pinch on phone-chromium only) counts as red when the same test failed with an AssertionError in
 // another run of the report; a skip without such a twin still fails the check.
 import { test } from 'node:test';

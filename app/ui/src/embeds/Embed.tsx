@@ -113,7 +113,7 @@ function LinkEmbed({ node, onOpen, host, inPreview }: EmbedProps) {
   );
 }
 
-/** D-2246: `Display as` changes the file, so the phone doesn't render it. */
+/** D-2474: `Display as` changes the file, so the phone doesn't render it. */
 function ModeMenu(props: { mode: EmbedMode; disabled: string | null; onMode?: (m: EmbedMode) => void }) {
   return isPhone() ? null : <DesktopModeMenu {...props} />;
 }

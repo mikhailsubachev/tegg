@@ -15,11 +15,11 @@
 //   written with `adb root` (google_apis image), as it isn't debuggable.
 // - "The private files dir's listing is the same" (FR-VLT-01 AC-20) leaves out the perf log, which the test itself asks
 //   the app to write there (contract §7.1).
-// - Slice AND-2 (docs/contracts/android-phone.md CP-6 → D-2206; AC-Test-Change approved by the owner): the phone
-//   layout replaces the sidebar on Android (D-2188), so "the vault is open" is the bottom bar `nav[aria-label="Main"]`,
+// - Slice AND-2 (docs/contracts/android-phone.md CP-6 → D-2434; AC-Test-Change approved by the owner): the phone
+//   layout replaces the sidebar on Android (D-2416), so "the vault is open" is the bottom bar `nav[aria-label="Main"]`,
 //   the version label and the vault switcher are read in the drawer (FR-UX-01 AC-8, FR-VLT-01 AC-29), and the tests that
 //   type into the editor (FR-VLT-01 AC-22, FR-EDT-08 AC-14) start with `TEGG_LAYOUT=desktop` (contract §12.1), as the
-//   phone layout has no editor in AND-2 (D-2187).
+//   phone layout has no editor in AND-2 (D-2415).
 // Written from the ACs and the contract only (D-61).
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';

@@ -78,7 +78,7 @@ async function textBoxes(v: WebView): Promise<{ what: string; left: number; top:
       if (!own && !ROLE.test(role)) continue;
       const r = e.getBoundingClientRect();
       // Clipped by every ancestor that clips (a scroller shows only what is inside it; AC-Test-Change, approved by
-      // the owner, as D-2222 at L5p).
+      // the owner, as D-2450 at L5p).
       const b = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
       for (let a = e.parentElement; a && a !== document.body; a = a.parentElement) {
         const as = getComputedStyle(a);

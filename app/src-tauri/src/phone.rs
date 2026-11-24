@@ -1,4 +1,4 @@
-//! Slice AND-2 (docs/contracts/android-phone.md §4.4, D-2192): the scheme check of `android_open_url`, pure and
+//! Slice AND-2 (docs/contracts/android-phone.md §4.4, D-2420): the scheme check of `android_open_url`, pure and
 //! compiled on every target so the host tests can run it.
 
 /// True exactly when the trimmed URL parses and its scheme, case-insensitive, is `http`, `https`, `mailto` or `tel`.

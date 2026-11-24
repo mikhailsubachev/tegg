@@ -107,7 +107,7 @@ export function ObjectCard(p: ObjectCardProps) {
   const typeName = p.typeName ?? type?.name ?? card.type;
   // On a board the card is the roving Tab stop; a Task card's own controls stay Tab stops (FR-UX-03 AC-53).
   const inner = board && !task ? -1 : 0;
-  // Slice AND-2 (D-2247): on the phone a board card and its title carry `board.openCard:<path>`; no card menu.
+  // Slice AND-2 (D-2475): on the phone a board card and its title carry `board.openCard:<path>`; no card menu.
   const phoneBoard = board && isPhone();
 
   const openCard = (e: React.MouseEvent<HTMLElement>) => {

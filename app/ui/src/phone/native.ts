@@ -1,4 +1,4 @@
-// Slice AND-2 (docs/contracts/android-phone.md §6.2, §12.2; CP-2 → D-2202): the page side of the native bridge
+// Slice AND-2 (docs/contracts/android-phone.md §6.2, §12.2; CP-2 → D-2430): the page side of the native bridge
 // `window.__TEGG_NATIVE__` the init script sets on Android, and the test hooks that drive it.
 import { ipc } from '../ipc/client';
 import type { InsetsDto } from '../ipc/types';

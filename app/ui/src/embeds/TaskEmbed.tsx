@@ -128,7 +128,7 @@ export function TaskEmbed({ node, editable, title, body, openButton, modeMenu, t
   const overdue = due.tone === 'overdue';
   const dueName = t('task.dueButton', { label: due.text || t('task.none') }) + (overdue ? `, ${t('task.overdueWord')}` : '');
   const statusColor = d.statuses.find((s) => s.label === h.status)?.color ?? null;
-  // D-2246: on the phone the status, priority and due show as text, not as buttons that edit them.
+  // D-2474: on the phone the status, priority and due show as text, not as buttons that edit them.
   const button = (o: { ref: React.MutableRefObject<HTMLButtonElement | null>; which: 'status' | 'priority' | 'due'; name: string; command: string; attrs?: Record<string, string>; children: ReactNode }) => isPhone() ? (
     <span className="task-card-btn as-text" {...o.attrs}>{o.children}</span>
   ) : (

@@ -272,7 +272,7 @@ export async function runTreeGate(root: string, cfg: Config, gate: Gate, opts: G
       checks.push(c);
       printCheck(c);
     }
-    // D-2199: no criterion ID defined twice, on the committed tree.
+    // D-2427: no criterion ID defined twice, on the committed tree.
     {
       const messages = duplicateAcIds(wt.dir);
       const c: CheckResult = { id: 'ac-ids', result: messages.length > 0 ? 'fail' : 'pass', messages };

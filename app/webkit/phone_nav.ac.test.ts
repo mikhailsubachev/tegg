@@ -120,7 +120,7 @@ test('fr_nav_04_ac14_drawer_open_and_close', async ({ browser }) => {
       ['Esc', () => page.keyboard.press('Escape')],
       ['system Back', () => systemBack(page)],
       // The open drawer covers Menu (and the scrim the bottom bar), so "Menu again" is Menu's command, run as its control
-      // does; a tap where Menu is lands on the drawer once it has slid in (AC-Test-Change, approved by the owner, D-2249).
+      // does; a tap where Menu is lands on the drawer once it has slid in (AC-Test-Change, approved by the owner, D-2477).
       ['Menu again', () => page.evaluate(() => (window as unknown as { __TEGG_TEST__: { run: (id: string) => Promise<void> } }).__TEGG_TEST__.run('phone.menu'))],
     ];
     for (const [how, close] of closeWith) {
@@ -285,7 +285,7 @@ test('fr_nav_03_ac18_no_swipe_navigates', async ({ browser }) => {
           // the start scrolls it back, which is already its end (scrollLeft stays 0).
           const sc1 = await scrollLeftOf(page, at!.scroller!);
           const want = dx < 0 ? Math.min(200, sc0.max - sc0.left) : -Math.min(200, sc0.left);
-          assert.ok(byTheDrag(sc1.left - sc0.left, want), `${how}: the ${at!.scroller} scrolls by the drag (184…204 px or to its end, D-2224): ${sc0.left} → ${sc1.left} (max ${sc0.max})`);
+          assert.ok(byTheDrag(sc1.left - sc0.left, want), `${how}: the ${at!.scroller} scrolls by the drag (184…204 px or to its end, D-2452): ${sc0.left} → ${sc1.left} (max ${sc0.max})`);
         }
         await page.close();
       }
@@ -296,7 +296,7 @@ test('fr_nav_03_ac18_no_swipe_navigates', async ({ browser }) => {
 // ------------------------------------------------------------------------------------------------ FR-NAV-03 AC-19
 
 test('fr_nav_03_ac19_history_rules_on_the_phone', async ({ page }) => {
-  // D-2226: a stored ui-state, so the tab write changes only `typeViews`.
+  // D-2454: a stored ui-state, so the tab write changes only `typeViews`.
   const core = await startPhone(page, { route: `note/${PH.dlouha}`, uiState: ui() });
   await must(page.getByRole('main', { name: 'Dlouhá poznámka' }), 'Dlouhá poznámka');
   const before = await fileStateOf(core);
@@ -349,7 +349,7 @@ test('fr_nav_03_ac19_history_rules_on_the_phone', async ({ page }) => {
   assert.deepEqual(changed, [], 'Back writes nothing to the vault (AC-7)');
   assert.deepEqual((await core.calls()).filter((c) => ['note_write', 'note_create', 'daily_create'].includes(c.cmd)).map((c) => c.cmd), [], 'no write command');
   const uiAfter = await core.uiState();
-  // D-2226: every key but `typeViews`, compared as objects; the app's own defaults for keys the stored state lacks count as unchanged.
+  // D-2454: every key but `typeViews`, compared as objects; the app's own defaults for keys the stored state lacks count as unchanged.
   const DEFAULTS = { typeSort: {}, otherPropertiesOpen: false };
   const strip = (u: Record<string, unknown> | null) => { const o: Record<string, unknown> = { ...DEFAULTS, ...(u ?? {}) }; delete o.typeViews; return o; };
   assert.deepEqual(strip(uiAfter as Record<string, unknown> | null), strip(JSON.parse(uiBefore)), 'Back writes nothing to ui-state.json apart from the remembered tab (AC-7)');

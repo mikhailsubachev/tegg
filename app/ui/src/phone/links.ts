@@ -1,4 +1,4 @@
-// Slice AND-2 (docs/contracts/android-phone.md §4.4, §9.3; NFR-SEC-01 AC-4, D-2192): which links leave through Android.
+// Slice AND-2 (docs/contracts/android-phone.md §4.4, §9.3; NFR-SEC-01 AC-4, D-2420): which links leave through Android.
 // Mirrors `open_url_allowed` in app/src-tauri/src/phone.rs.
 
 /** True exactly when the trimmed URL parses and its scheme, case-insensitive, is `http`, `https`, `mailto` or `tel`. */

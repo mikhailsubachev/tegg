@@ -1,6 +1,6 @@
 // Slice AND-2, LA nightly (the test APK on the emulator with the generated vault `tools/gen-vault --seed 1
 // --small-images` in shared storage; contract docs/contracts/android-phone.md §12.3, §14.2): docs/acceptance/android-phone.md
-// - NFR-PERF-05 AC-6 (report-only bounds on the emulator, D-2010, AP-2062 → D-2198; CP-12 → D-2212): after
+// - NFR-PERF-05 AC-6 (report-only bounds on the emulator, D-2010, AP-2062 → D-2426; CP-12 → D-2440): after
 //   `index-idle`, `note-ready` for 20 opens of notes under 5,000 words p95 ≤ 1,000 ms; `route-ready:search` for the
 //   first page of 10 queries p95 ≤ 1,000 ms; `route-ready:type/page` ≤ 1,500 ms. A duration is the ready mark's `ms`
 //   minus the latest `nav-start:<route>` before it (§12.3);

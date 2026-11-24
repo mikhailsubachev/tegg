@@ -121,7 +121,7 @@ const HIDDEN_TABLE = [
   'goto.duplicateTitles', 'goto.settings/shortcuts', 'goto.settings/menu-bar', 'goto.settings/trash-history', 'goto.settings/previews', 'settings.backups', 'job.*',
   'capture.*', 'import.open', 'inbox.*', 'duplicates.merge', 'vault.open', 'vault.addStarterTypes', 'app.about', 'nav.newTab', 'edit.copyBlockLink', 'typeSettings.*',
   'panel.editRecurrence', 'settings.font', 'settings.fontSize', 'settings.accentColor', 'settings.changeShortcut',
-  // D-2252: slice OC's card.edit opens type settings, which the phone doesn't offer.
+  // D-2480: slice OC's card.edit opens type settings, which the phone doesn't offer.
   'card.edit',
 ];
 /** §10's PHONE_FRAME_COMMANDS (`goto.type:<key>` stands for each type entry). */

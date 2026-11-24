@@ -1,5 +1,5 @@
 //! Slice AND-2, L4 (Mac host, temporary copy): docs/acceptance/android-phone.md FR-SYN-06 AC-52 "No task-views
-//! migration on Android" (AP-2044 → D-2180; T1), through docs/contracts/android-phone.md §3 (CP-5 → D-2205):
+//! migration on Android" (AP-2044 → D-2408; T1), through docs/contracts/android-phone.md §3 (CP-5 → D-2433):
 //! `Core::task_views_migrate` answers `TaskViewsMigration::Off` before reading anything when the core was opened with
 //! `OpenExtras { bulk_jobs: false }` (the Android shell's extras); the desktop's default extras keep R202's behaviour.
 //!

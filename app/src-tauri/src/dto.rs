@@ -1651,7 +1651,7 @@ pub struct StorageAccessDto {
     pub shared_root: String,
 }
 
-/// android-phone §2.2 (D-2204): safe-area insets in CSS px.
+/// android-phone §2.2 (D-2432): safe-area insets in CSS px.
 #[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(rename_all = "camelCase")]
@@ -1662,7 +1662,7 @@ pub struct InsetsDto {
     pub right: f64,
 }
 
-/// android-phone §2.2 (D-2204): `android_window`.
+/// android-phone §2.2 (D-2432): `android_window`.
 #[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(rename_all = "camelCase")]

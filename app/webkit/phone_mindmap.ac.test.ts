@@ -162,7 +162,7 @@ test('fr_mmp_02_ac33_mindmap_zoom_on_the_phone_pinch', async ({ page, browserNam
   test.skip(browserName !== 'chromium', 'the pinch uses CDP Input.dispatchTouchEvent (contract §13.2); the zoom buttons run on both engines');
   await startPhone(page, { vault: mapVault(), route: 'note/Pages/Široká mapa.md', now: MM_NOW });
   const fig = await must(figure(page, 'Široká'), 'figure "Mindmap: Široká"', 5000);
-  // D-2225: `Široká mapa` opens at the 0.5 minimum, where Zoom out is disabled; tap it only when enabled.
+  // D-2453: `Široká mapa` opens at the 0.5 minimum, where Zoom out is disabled; tap it only when enabled.
   if ((await btn(fig, 'Zoom out').getAttribute('aria-disabled')) !== 'true') await btn(fig, 'Zoom out').click();
   const s0 = await scaleOf(fig);
   const ar = await rect(area(fig));
@@ -199,14 +199,14 @@ test('fr_mmp_02_ac34_mindmap_pan_and_full_screen', async ({ page }) => {
     await touchDrag(page, { x: ar!.x + ar!.width - 40, y: ar!.y + ar!.height / 2 }, -150, 0);
     await sleep(300);
     const l1 = await a.evaluate((e) => e.scrollLeft);
-    assert.ok(byTheDrag(l1 - l0, 150), `a one-finger horizontal drag scrolls the map area by the drag (134…154 px, D-2224: ${l0} → ${l1})`);
+    assert.ok(byTheDrag(l1 - l0, 150), `a one-finger horizontal drag scrolls the map area by the drag (134…154 px, D-2452: ${l0} → ${l1})`);
     await touchDrag(page, { x: ar!.x + ar!.width / 2, y: ar!.y + ar!.height / 2 }, 0, -200);
     await sleep(300);
     const m1 = await page.evaluate(() => ([...document.querySelectorAll('main')].find((e) => e.getClientRects().length > 0) as HTMLElement).scrollTop);
     assert.ok(m1 > m0 + 50, `a vertical drag scrolls the page (${m0} → ${m1})`);
     assert.equal(await a.evaluate((e) => e.scrollTop), 0, 'not the map');
   }
-  // D-2232: the button is in view (a finger taps what it sees) before the note's scroll is recorded.
+  // D-2460: the button is in view (a finger taps what it sees) before the note's scroll is recorded.
   await btn(fig, 'Open full screen').scrollIntoViewIfNeeded();
   const scroll = await page.evaluate(() => ([...document.querySelectorAll('main')].find((e) => e.getClientRects().length > 0) as HTMLElement).scrollTop);
   await btn(fig, 'Open full screen').click();

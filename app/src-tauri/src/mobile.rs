@@ -235,7 +235,7 @@ pub(crate) async fn storage_access_settings(app: AppHandle) -> Result<(), IpcErr
     plugin(&app).open_settings().map_err(|e| err("Io", e))
 }
 
-/// android-phone §2.2 (D-2192): an external link leaves through Android; Tegg opens no connection itself.
+/// android-phone §2.2 (D-2420): an external link leaves through Android; Tegg opens no connection itself.
 #[tauri::command]
 pub(crate) async fn android_open_url(app: AppHandle, url: String) -> Result<(), IpcError> {
     if !crate::phone::open_url_allowed(&url) {
@@ -244,7 +244,7 @@ pub(crate) async fn android_open_url(app: AppHandle, url: String) -> Result<(), 
     plugin(&app).open_url(url.trim()).map_err(|e| if e == "NoHandler" { err("NoHandler", "no app opens this link") } else { err("Io", e) })
 }
 
-/// android-phone §2.2 (D-2204): the bar icons for the resolved theme, then the window state.
+/// android-phone §2.2 (D-2432): the bar icons for the resolved theme, then the window state.
 #[tauri::command]
 pub(crate) async fn android_window(app: AppHandle, dark: bool) -> Result<WindowStateDto, IpcError> {
     let w = plugin(&app).window(dark).map_err(|e| err("Io", e))?;

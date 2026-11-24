@@ -31,7 +31,7 @@ export function Checkbox({ row, onToggle, tabIndex = 0 }: { row: TaskRowDto; onT
       type="button"
       role="checkbox"
       tabIndex={tabIndex}
-      // D-2247: a view-only checkbox on the phone carries no command.
+      // D-2475: a view-only checkbox on the phone carries no command.
       data-command={phone ? undefined : 'task.complete'}
       className={`task-check${done ? ' checked' : ''}`}
       aria-checked={done}
@@ -81,7 +81,7 @@ export function SourceChip({ row, nav, tabIndex = 0, footer }: { row: TaskRowDto
       reference={{ target, kind: 'chip', open: () => open(document.activeElement as HTMLElement), createOffer: (el) => open(el) }}
       href="#"
       tabIndex={tabIndex}
-      // D-2247: on the phone the source chip runs `board.openSource:<path>` (the card's task path).
+      // D-2475: on the phone the source chip runs `board.openSource:<path>` (the card's task path).
       data-command={isPhone() ? `board.openSource:${row.path.normalize('NFC')}` : 'task.openSource'}
       className={`chip link-chip kind-${kind} task-source`}
       data-link-kind={kind}

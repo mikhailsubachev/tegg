@@ -9,9 +9,9 @@
 // Red-test reading (reported): notes are "opened" with the app's own IPC (`note_read`, as the page does) or with
 // `TEGG_ROUTE`, as the LA harness has no navigation driver. Every test starts with `ready()` (requireDevice: fails,
 // never skips, without an emulator).
-// Slice AND-2 (docs/contracts/android-phone.md CP-6 → D-2206; AC-Test-Change approved by the owner): "the vault opens"
+// Slice AND-2 (docs/contracts/android-phone.md CP-6 → D-2434; AC-Test-Change approved by the owner): "the vault opens"
 // is the phone frame's bottom bar `nav[aria-label="Main"]`; FR-FMT-12 AC-16's edit types into the editor, so its second
-// start sets `TEGG_LAYOUT=desktop` (contract §12.1), as the phone layout has no editor in AND-2 (D-2187).
+// start sets `TEGG_LAYOUT=desktop` (contract §12.1), as the phone layout has no editor in AND-2 (D-2415).
 // Written from the ACs and the contract only (D-61).
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';

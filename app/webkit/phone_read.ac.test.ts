@@ -156,7 +156,7 @@ async function sheetRows(page: Page): Promise<{ label: string; value: string }[]
 }
 async function deskPanelText(browser: import('@playwright/test').Browser, o: Parameters<typeof startDesktop>[1]): Promise<string> {
   const { page: desk, context } = await desktopPage(browser);
-  // D-2227: the attribute panel of the editor page (AC-22, contract CP-14), with the values shown in its fields.
+  // D-2455: the attribute panel of the editor page (AC-22, contract CP-14), with the values shown in its fields.
   await startDesktop(desk, o);
   const region = await must(desk.getByRole('region', { name: 'Properties', exact: true }), 'desktop: the attribute panel (region Properties)', 5000);
   const text = flat(await region.evaluate((r) => {

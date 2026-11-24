@@ -170,7 +170,7 @@ export function PropertyRows({ rows, links, from, emails }: { rows: AttrRow[]; l
   );
 }
 
-/** Slice AND-2 (android-phone §9.2; FR-EDT-07 AC-23, CP-14 → D-2214): the phone's Properties strip (up to three of the
+/** Slice AND-2 (android-phone §9.2; FR-EDT-07 AC-23, CP-14 → D-2442): the phone's Properties strip (up to three of the
  *  type's preview keys) and the `Properties` sheet with every row of the attribute panel, read-only. */
 export function PhoneProperties({ text, links, type, onOpen, onTag, all = false }: {
   /** Image and PDF object pages list every row (FR-ATT-01 AC-17). */

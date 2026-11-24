@@ -301,7 +301,7 @@ pub struct Core {
     watch: Mutex<Option<WatchGuard>>,
     /// ms4-jobs §4: the job engine of this vault (stub until slice 4C is built).
     jobs_engine: tegg_jobs::Jobs,
-    /// `OpenExtras::bulk_jobs` (false on Android): no task-views migration either (D-2180, D-2205).
+    /// `OpenExtras::bulk_jobs` (false on Android): no task-views migration either (D-2408, D-2433).
     bulk_jobs: bool,
 }
 

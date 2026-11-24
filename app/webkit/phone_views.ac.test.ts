@@ -116,7 +116,7 @@ test('fr_qry_07_ac32_view_tabs_on_the_phone', async ({ browser }) => {
   assert.equal(await tl.evaluate((e) => getComputedStyle(e).overflowX), 'auto', 'the row scrolls sideways');
   assert.equal(await addView(page).count(), 0, 'no Add view');
   assert.equal(await page.locator('[data-command="views.menu"]').count(), 0, 'no tab chevron or menu');
-  assert.equal(nfc(await tab(page, 'Rozečtené').getAttribute('data-command') ?? ''), nfc('views.tab:Rozečtené'), 'a chip carries its own views.tab:<name> (D-2235)');
+  assert.equal(nfc(await tab(page, 'Rozečtené').getAttribute('data-command') ?? ''), nfc('views.tab:Rozečtené'), 'a chip carries its own views.tab:<name> (D-2463)');
   await tab(page, 'Rozečtené').click();
   const b = board(page, 'Rozečtené');
   await must(b, 'Rozečtené shows its board');
@@ -227,7 +227,7 @@ test('fr_qry_05_ac32_vertical_board_on_the_phone', async ({ page }) => {
     const ln = e.querySelector('section[role="region"][data-lane]') as HTMLElement | null;
     return { row: !!row, type: row ? getComputedStyle(row).scrollSnapType : '', align: ln ? getComputedStyle(ln).scrollSnapAlign : '' };
   });
-  // D-2221: the lane row scrolls sideways freely, without snapping.
+  // D-2449: the lane row scrolls sideways freely, without snapping.
   assert.ok(snap.row, 'the lane row scrolls sideways');
   assert.doesNotMatch(snap.type, /mandatory|proximity/, `the lane row doesn't snap (scroll-snap-type: ${snap.type})`);
   assert.equal(await b.locator('[data-command="board.laneDrag"], [data-command="board.newIn"]').count(), 0, 'no grips or +');

@@ -1,5 +1,5 @@
 //! Slice AND-2, L1 (Mac host): docs/acceptance/android-phone.md NFR-SEC-01 AC-4 "The system opens web links; Tegg makes
-//! no connection" (AP-2056 → D-2192), the scheme check of `android_open_url` through docs/contracts/android-phone.md
+//! no connection" (AP-2056 → D-2420), the scheme check of `android_open_url` through docs/contracts/android-phone.md
 //! §4.4: `tegg_app_lib::phone::open_url_allowed` is true exactly when the trimmed URL parses and its scheme,
 //! case-insensitive, is `http`, `https`, `mailto` or `tel`. The same table as the TS twin `openUrlAllowed`
 //! (app/test/android_phone.ac.test.ts). The device half is app/e2e-android/android_phone.ac.test.ts.

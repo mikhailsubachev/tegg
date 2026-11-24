@@ -1,4 +1,4 @@
-// Slice AND-2 (docs/contracts/android-phone.md §4.2; FR-MMP-02 AC-33, D-2191): the scale rules of the phone's map.
+// Slice AND-2 (docs/contracts/android-phone.md §4.2; FR-MMP-02 AC-33, D-2419): the scale rules of the phone's map.
 export const MAP_MIN = 0.5, MAP_MAX = 2.5, MAP_STEP = 1.25, MAP_PAD = 24;
 
 const clamp = (s: number) => Math.min(MAP_MAX, Math.max(MAP_MIN, s));

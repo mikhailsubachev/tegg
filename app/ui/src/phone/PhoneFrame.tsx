@@ -31,7 +31,7 @@ export function useNative(): NativeState {
   return s;
 }
 
-/** The start screens (AND-1's access, opening and chooser screens; contract §8.2, §8.6, D-2240): the insets as CSS
+/** The start screens (AND-1's access, opening and chooser screens; contract §8.2, §8.6, D-2468): the insets as CSS
  *  variables, and the focused field kept in view after each viewport resize (the keyboard). They render before any
  *  `PhoneFrame`. */
 export function PhoneStartInsets(): null {
@@ -52,7 +52,7 @@ export type BarTab = 'search' | 'today' | null;
 export function PhoneFrame(props: {
   canBack: boolean;
   onBack: () => void;
-  /** `More actions` in the app bar (note routes and daily routes with a file, CP-10 → D-2210). */
+  /** `More actions` in the app bar (note routes and daily routes with a file, CP-10 → D-2438). */
   more: boolean;
   onMore: (anchor: HTMLElement) => void;
   moreOpen: boolean;
@@ -110,7 +110,7 @@ export function PhoneFrame(props: {
       document.removeEventListener('click', click, true);
     };
   }, []);
-  // §8.6: after each viewport resize the focused field stays in view; FR-UX-04 AC-7 (D-2189): a rotation keeps the first
+  // §8.6: after each viewport resize the focused field stays in view; FR-UX-04 AC-7 (D-2417): a rotation keeps the first
   // visible block at the top.
   useEffect(() => {
     const m = () => document.querySelector<HTMLElement>('main.phone-main');
@@ -126,7 +126,7 @@ export function PhoneFrame(props: {
         const r = el.getBoundingClientRect();
         if (r.height <= 0 || r.bottom <= top + 1) continue;
         // The innermost visible block (its own candidates come next in document order): a wrapper holding the whole
-        // page would keep only the scroll position (D-2239).
+        // page would keep only the scroll position (D-2467).
         if (el.querySelector(SEL)) continue;
         anchor = { el, offset: r.top - top, col: main.firstElementChild };
         break;
@@ -134,7 +134,7 @@ export function PhoneFrame(props: {
     };
     // Only a rotation moves the place: a new viewport size, and the insets the plugin sends after it (the app bar's top,
     // the side padding). The scrolls a reflow fires meanwhile aren't the reader's and don't move the anchor; route
-    // changes never restore it (D-2239).
+    // changes never restore it (D-2467).
     const sizeNow = () => `${innerWidth}x${innerHeight}`;
     let size = sizeNow();
     let pending = false;
@@ -169,7 +169,7 @@ export function PhoneFrame(props: {
     window.addEventListener('resize', f);
     return () => { window.removeEventListener('resize', f); document.removeEventListener('scroll', onScroll, true); offInsets(); cancelAnimationFrame(queued); };
   }, []);
-  // D-2246: the numbered commands of the controls inside the shown page's content.
+  // D-2474: the numbered commands of the controls inside the shown page's content.
   useEffect(() => watchContent(() => document.querySelector<HTMLElement>('main.phone-main')), []);
   const [indexing, setIndexing] = useState(false);
   const running = props.progress?.state === 'running';

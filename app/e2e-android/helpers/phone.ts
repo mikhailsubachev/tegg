@@ -117,7 +117,7 @@ export function tap(x: number, y: number): void {
 export function swipe(x1: number, y1: number, x2: number, y2: number, ms = 300): void {
   sh(`input swipe ${Math.round(x1)} ${Math.round(y1)} ${Math.round(x2)} ${Math.round(y2)} ${ms}`);
 }
-/** The edge back gesture (gesture navigation on, D-2200): `input swipe 1 <h/2> 400 <h/2>`. */
+/** The edge back gesture (gesture navigation on, D-2428): `input swipe 1 <h/2> 400 <h/2>`. */
 export function edgeBack(): void {
   const h = systemFrames().screen.height;
   swipe(1, h / 2, 400, h / 2, 250);
