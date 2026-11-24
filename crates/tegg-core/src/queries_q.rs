@@ -3053,6 +3053,14 @@ fn row_of(o: &QueryObject, def: &QueryDef, ctx: &Ctx, group_key: Option<&str>) -
         })
         .map(|(_, t, to)| crate::tasks5a::query_link(ctx.objs, &ctx.by_path, nfc(trim_ws(t)), *to))
         .collect();
+    // D-2221 (R222): the row also carries the values of the sort keys, columns or not, so the app's quick re-sort after
+    // a sort change gives this order. `title` is the row's own.
+    for x in &def.sort {
+        let k = nfc(trim_ws(&x.by));
+        if k != "title" && !cols.contains(&k) {
+            cols.push(k);
+        }
+    }
     let mut values = serde_json::Map::new();
     for k in cols {
         let v = match k.as_str() {

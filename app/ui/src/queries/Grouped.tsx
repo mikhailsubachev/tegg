@@ -13,6 +13,7 @@ import type { TypeDto } from '../ipc/types';
 import { Icon } from '../shell/Icon';
 import { lastFocused } from '../views/actions';
 import { groupModel, laneOrderForGroupDrop, type GroupView } from '../views/display';
+import { laneMovable } from './board/model';
 import { announceView, ensureViewsLive } from '../views/live';
 import { foldedOf, setFolded } from '../views/uiState';
 import { laneLabelKey } from './board/period';
@@ -107,37 +108,60 @@ export function useGrouped({ on, result, def, keep, foldKey, display, types, gri
   };
   const countText = (n: number) => (single ? t('board.laneCountOf', { count: n, name: single.name, plural: single.plural }) : t('board.laneCount', { count: n }));
 
-  // ---- header drags (§41.5): a drop on a header goes before that group, on a group's rows after it.
+  // ---- header drags (§41.5, D-2217): a drop on a header goes before that group, on a group's rows after it; a drop on
+  // `No <attribute>`, `Done` or another group without a grip (D-2218) goes after the last movable group.
   const canDrag = grips && !disabled;
+  const shownIds = new Set(groups.map((g) => g.id));
+  const lastMovable = [...groups].reverse().find((g) => g.grip) ?? null;
   const dropAt = (x: number, y: number, from: string): { id: string; before: boolean } | null => {
     const el = document.elementFromPoint(x, y) as HTMLElement | null;
     const root = rootRef.current;
     if (!el || !root || !root.contains(el)) return null;
     const head = el.closest<HTMLElement>('.group-header[data-group-id]');
     const id = nfc((head ?? el.closest<HTMLElement>('[data-group-id]'))?.getAttribute('data-group-id') ?? '');
-    if (!id || !groups.some((g) => g.id === id)) return null;
-    const g = groups.find((x) => x.id === id)!;
-    // Nothing drops after `No <attribute>` or `Done`: a drop there goes after the last movable group.
-    if (!g.grip) return { id, before: true };
+    const g = groups.find((x) => x.id === id);
+    if (!g) return null;
+    if (!g.grip) return lastMovable ? { id: lastMovable.id, before: false } : null;
     if (id === from) return { id, before: true };
     return { id, before: !!head };
   };
-  const beforeIdOf = (over: { id: string; before: boolean }): string | null => {
+  /** The `beforeId` that puts a group right after `id` as drawn (D-2217, D-2219): the next lane that is drawn or
+   *  doesn't move (unknown, unresolved), so hidden empty groups (D-2184) are stepped over; null at the end. */
+  const afterOf = (id: string): string | null => {
     if (!group) return null;
-    const g = groups.find((x) => x.id === over.id);
-    if (g && !g.grip) return null;
-    if (over.before) return over.id;
-    const i = laneIds.indexOf(over.id);
-    return i >= 0 && i + 1 < laneIds.length ? laneIds[i + 1]! : null;
+    const i = group.lanes.findIndex((l) => nfc(l.id) === id);
+    for (let j = i + 1; j < group.lanes.length; j++) {
+      const l = group.lanes[j]!;
+      if (l.kind === 'none' || l.kind === 'done' || l.value === null) continue;
+      const lid = nfc(l.id);
+      if (shownIds.has(lid) || !laneMovable(l)) return lid;
+    }
+    return null;
   };
-  const drop = (id: string, over: { id: string; before: boolean } | null) => {
-    if (!group || !over || !canDrag) return;
-    const order = laneOrderForGroupDrop(group, id, beforeIdOf(over));
+  const beforeIdOf = (over: { id: string; before: boolean }): string | null => (over.before ? over.id : afterOf(over.id));
+  /** The movable groups as drawn in an order (`lane_order` values) — a move that doesn't change them writes nothing. */
+  const drawnOrder = (order: string[]): string[] => {
+    if (!group) return [];
+    const byValue = new Map(group.lanes.filter((l) => l.value !== null).map((l) => [nfc(l.value!), nfc(l.id)]));
+    const listed = order.map((v) => byValue.get(nfc(v))).filter((x): x is string => !!x);
+    const rest = group.lanes.map((l) => nfc(l.id)).filter((x) => !listed.includes(x));
+    return [...listed, ...rest].filter((x) => groups.some((g) => g.grip && g.id === x));
+  };
+  const write = (id: string, beforeId: string | null) => {
+    if (!group) return;
+    const order = laneOrderForGroupDrop(group, id, beforeId);
     if (!order) return;
+    const now = groups.filter((g) => g.grip).map((g) => g.id);
+    const next = drawnOrder(order);
+    if (next.length === now.length && next.every((x, i) => x === now[i])) return;
     onLaneOrder(order);
     const g = groups.find((x) => x.id === id);
     ensureViewsLive();
     announceView(t('group.moved', { group: g ? labelOf(g) : id }));
+  };
+  const drop = (id: string, over: { id: string; before: boolean } | null) => {
+    if (!group || !over || !canDrag) return;
+    write(id, beforeIdOf(over));
   };
   const startDrag = (id: string) => (e: React.MouseEvent) => {
     if (e.button !== 0 || !canDrag) return;
@@ -183,22 +207,22 @@ export function useGrouped({ on, result, def, keep, foldKey, display, types, gri
     const id = el.closest<HTMLElement>('.group-header[data-group-id]')?.getAttribute('data-group-id');
     return id ? nfc(id) : null;
   };
+  /** The focused group when it can move (D-2218: none on `No …`, `Done`, unknown-value and unresolved groups). */
+  const focusedMovable = () => {
+    const id = focusedGroup();
+    return id && groups.some((g) => g.grip && g.id === id) ? id : null;
+  };
   const control: GroupControl = {
-    focused: () => focusedGroup() !== null,
+    focused: () => focusedMovable() !== null,
     move: (dir) => {
-      const id = focusedGroup();
+      const id = focusedMovable();
       if (!id || !group || !canDrag) return;
-      const movable = group.lanes.filter((l) => l.kind !== 'none' && l.kind !== 'done').map((l) => nfc(l.id));
+      // D-2219: past the next drawn movable group; hidden empty groups are stepped over, so every move shows.
+      const movable = groups.filter((g) => g.grip).map((g) => g.id);
       const i = movable.indexOf(id);
       const j = i + dir;
       if (i < 0 || j < 0 || j >= movable.length) return;
-      const before = dir < 0 ? movable[j]! : movable[j + 1] ?? null;
-      const order = laneOrderForGroupDrop(group, id, before);
-      if (!order) return;
-      onLaneOrder(order);
-      const g = groups.find((x) => x.id === id);
-      ensureViewsLive();
-      announceView(t('group.moved', { group: g ? labelOf(g) : id }));
+      write(id, dir < 0 ? movable[j]! : afterOf(movable[j]!));
     },
   };
   if (controlRef) controlRef.current = group ? control : null;

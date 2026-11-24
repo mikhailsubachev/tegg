@@ -6,7 +6,7 @@
 import { t } from '../i18n/catalog';
 import type { AllViewDto, TypeDto, UiStateDto } from '../ipc/types';
 import type { GroupingDto, LaneDto, LaneKindDto, LanesDto, QueryDefDto, QueryResultDto, QueryViewKind, SortDto, UsageRunDto } from '../ipc/queries';
-import { laneOrderAfterDrop } from '../queries/board/model';
+import { laneMovable, laneOrderAfterDrop } from '../queries/board/model';
 import { sortKeyName } from '../queries/SortPopover';
 import { clampWidth } from '../tables/widths';
 import { effectiveColumns } from '../types/columns';
@@ -97,7 +97,8 @@ export function groupName(choice: { key: string | null; period: boolean } | null
 }
 
 /** R225: the groups a grouped Table or List draws: the core's lanes with ≥ 1 row (D-2184), in group order; periods
- *  flat (the week lane's rows in `rows` order, D-2181); no grip on `none` and `done`. */
+ *  flat (the week lane's rows in `rows` order, D-2181); no grip on `none`, `done`, unknown-value and unresolved
+ *  relation groups (the wall's rule, `laneMovable`; D-2218). */
 export function groupModel(r: Pick<QueryResultDto, 'group'>, _display: Display): GroupView[] {
   const g = r.group;
   if (!g) return [];
@@ -109,7 +110,7 @@ export function groupModel(r: Pick<QueryResultDto, 'group'>, _display: Display):
     if (rows.length === 0) continue;
     out.push({
       id: nfc(l.id), kind: l.kind, label: nfc(l.label), value: l.value === null ? null : nfc(l.value), color: l.color, target: l.target === null ? null : nfc(l.target),
-      count: rows.length, rows, grip: l.kind !== 'none' && l.kind !== 'done',
+      count: rows.length, rows, grip: laneMovable(l),
     });
   }
   return out;

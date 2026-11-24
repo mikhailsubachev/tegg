@@ -1,16 +1,18 @@
 // Slice Q3: the ungrouped wall (docs/contracts/v1-views.md §40.1 `WallGrid.tsx`, §41.3, §42.1; R224; board W1;
 // D-2185): every result as its type's card in a wrapping grid (`grid.ts`: 220…300 px cards), in `rows` order, left to
-// right, row by row. No lanes, no `+` tile, no card drag, no `Move to`. Windowed against the page (or note) scroller with
+// right, row by row. No lanes, no `+` tile, no card drag, no `Move to`; a Task card's `More actions` is R43's menu
+// without `Move to` and `Also add to` (D-2220). Windowed against the page (or note) scroller with
 // measured row heights (the visible rows ± 2, never more than 150 card elements); the container keeps the full height.
 // Keyboard: one roving Tab stop, →/← reading order, ↓/↑ the same column, ⏎ opens, Back gives the card the focus again.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactElement } from 'react';
-import { completeTask } from '@tegg/doc';
+import { applyTaskChange, completeTask } from '@tegg/doc';
 import { t } from '../../i18n/catalog';
 import { ipc } from '../../ipc/client';
 import type { QueryEnvDto, QueryRowDto } from '../../ipc/queries';
-import type { TaskDefsDto, TypeDto } from '../../ipc/types';
+import type { TaskDefsDto, TaskRowDto, TypeDto } from '../../ipc/types';
 import type { CardSlotProps } from '../../board/Board';
 import { ObjectCard, cardEnv } from '../../cards/ObjectCard';
+import { CardMenu } from '../../tasks/CardMenu';
 import { PopupMenu } from '../../shell/Menu';
 import { ensureViewsLive } from '../../views/live';
 import { queryAlert } from '../editorHost';
@@ -18,7 +20,7 @@ import { nowIso, queryEnv } from '../env';
 import { queryNav } from '../nav';
 import { GRID, gridNeighbour, gridOf, windowRows } from './grid';
 import { registerBoardSnapshot } from './QueryBoard';
-import { writeCardChange } from './write';
+import { taskStatusChange, writeCardChange } from './write';
 
 const nfc = (s: string) => s.normalize('NFC');
 const MAX_CARDS = 150;
@@ -169,19 +171,27 @@ export function WallGrid({ rows, title, name, types, readOnly, rerun, taskDefs, 
     openSource: (p: string, task: string) => queryNav()?.go({ id: 'note/<path>', param: nfc(p), selectEmbedOf: nfc(task) }),
     openDay: (d: string) => queryNav()?.go({ id: 'daily/YYYY-MM-DD', param: d }),
   }), [name]); // eslint-disable-line react-hooks/exhaustive-deps
-  const toggle = (row: QueryRowDto, done: boolean) => {
+  /** One write of a Task card's file (a toggle, R43's menu), then the run again. */
+  const taskWrite = (row: QueryRowDto, change: (text: string) => string | null) => {
     if (!taskDefs || readOnly) return;
-    void writeCardChange(row, (text) => { const a = completeTask(text, taskDefs as never, done, nowIso(Date.now())); return a === null ? null : { text: a, inlineKept: false }; })
+    void writeCardChange(row, (text) => { const a = change(text); return a === null ? null : { text: a, inlineKept: false }; })
       .then((r) => {
         if (r.outcome === 'conflict') queryAlert(t('board.changedOutside', { title: row.title }));
         else if (r.outcome === 'failed') queryAlert(t('query.saveFailed'));
         rerun();
       });
   };
+  const toggle = (row: QueryRowDto, done: boolean) => {
+    if (!taskDefs) return;
+    taskWrite(row, (text) => completeTask(text, taskDefs as never, done, nowIso(Date.now())));
+  };
+  // D-2220: a Task card's `More actions` (R43) opens R43's menu, as on a grouped wall, without `Move to` / `Also add to`.
+  const openMenu = (row: QueryRowDto, anchor: HTMLElement) => setMenu({ row, anchor });
+  const taskRowOf = (row: QueryRowDto): TaskRowDto | null => (row.taskRow && taskDefs ? { ...row.taskRow, readOnly: row.readOnly || row.taskRow.readOnly || !!readOnly } : null);
   const keyDown = (i: number, row: QueryRowDto) => (e: React.KeyboardEvent<HTMLElement>) => {
     if (e.target !== e.currentTarget) return;
     if (e.key === 'Enter') { e.preventDefault(); open(row.path); return; }
-    if (e.key === 'F10' && e.shiftKey) { e.preventDefault(); setMenu({ row, anchor: e.currentTarget }); return; }
+    if (e.key === 'F10' && e.shiftKey) { e.preventDefault(); openMenu(row, e.currentTarget); return; }
     if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
       const j = gridNeighbour(i, e.key, columns, count);
@@ -218,7 +228,7 @@ export function WallGrid({ rows, title, name, types, readOnly, rerun, taskDefs, 
               nav={taskNav} onToggle={(done) => toggle(r, done)}
               hideKey={null} readOnly={r.readOnly} slot={slot}
               onOpen={(p) => open(p)}
-              onMenu={(anchor) => setMenu({ row: r, anchor })} />
+              onMenu={(anchor) => openMenu(r, anchor)} />
           );
         })}
       </div>,
@@ -229,7 +239,21 @@ export function WallGrid({ rows, title, name, types, readOnly, rerun, taskDefs, 
     <div ref={root} role="group" aria-label={title} data-user-content="" data-wall="" data-grouped="false" data-columns={columns}
       data-board-name={name ?? undefined} className="wall-grid" style={{ position: 'relative', height: Math.max(0, total - GRID.gap) }}>
       {drawn}
-      {menu && (
+      {menu && taskRowOf(menu.row) && taskDefs && (() => {
+        const row = menu.row;
+        const path = nfc(row.path);
+        return (
+          <CardMenu target={{ row: taskRowOf(row)!, anchor: menu.anchor, opener: menu.anchor.closest('article') }} defs={taskDefs}
+            onClose={() => setMenu(null)}
+            actions={{
+              open: () => open(path),
+              status: (_r, label) => taskWrite(row, taskStatusChange(taskDefs, row, label, nowIso(Date.now()))),
+              priority: (_r, label) => taskWrite(row, (text) => applyTaskChange(text, { kind: 'priority', to: label })?.text ?? null),
+              due: (_r, date) => taskWrite(row, (text) => applyTaskChange(text, { kind: 'due', to: date })?.text ?? null),
+            }} />
+        );
+      })()}
+      {menu && !taskRowOf(menu.row) && (
         <PopupMenu label={t('task.more', { title: menu.row.title })} anchor={menu.anchor} fit popupId="card.menu" onClose={() => setMenu(null)}
           entries={[{ kind: 'item', key: 'open', label: t('pinned.open'), content: <span className="menu-title">{t('pinned.open')}</span>, onChoose: () => { const p = menu.row.path; setMenu(null); open(p); } }]} />
       )}

@@ -556,7 +556,7 @@ export function QueryBlock(p: QueryBlockProps) {
         apply={inline ? (patch) => apply(patch) : wallApply} rerun={() => run.rerun()} controlRef={board} foldKey={uKey} />;
     }
     if (view === 'table' && def) {
-      const widthScope: WidthScope | null = isBlockUsage && !live && uKey ? { kind: 'usage', key: uKey, own: run.result?.usage?.own.widths ?? null, order: effColumns, write: (next) => { undo.current = null; return uw.widths(next); }, disabled: uw.disabled }
+      const widthScope: WidthScope | null = isBlockUsage && !live && uKey ? { kind: 'usage', key: uKey, own: run.result?.usage?.own.widths ?? null, ownBroken: !!run.result && ownKeys(run.result).widths === 'broken', order: effColumns, write: (next) => { undo.current = null; return uw.widths(next); }, disabled: uw.disabled }
         : isPage && uKey ? { kind: 'page', key: uKey } : null;
       return <ResultsTable def={def} rows={rows} types={types} typeOf={typeOf} typeName={typeName} title={title} onOpen={openRow}
         name={inline ? null : name} readOnly={usageDisabled} plain sort={effSort} columns={effColumns} widthKey={uKey} widthScope={widthScope}

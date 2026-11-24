@@ -20,7 +20,10 @@ export function clampWidth(key: string, px: number): number {
 export type WidthScope =
   | { kind: 'type'; key: string }
   | { kind: 'page'; key: string }
-  | { kind: 'usage'; key: string; own?: [string, number][] | null; order?: string[]; write?: (next: [string, number][] | null) => Promise<boolean>; disabled?: string | null };
+  | { kind: 'usage'; key: string; own?: [string, number][] | null;
+      /** The usage has a `widths` key that can't be read (§41.6): the 0.6.0 entry isn't read then, only when it's absent. */
+      ownBroken?: boolean;
+      order?: string[]; write?: (next: [string, number][] | null) => Promise<boolean>; disabled?: string | null };
 type Widths = Record<string, number>;
 type WidthsUi = Pick<UiStateDto, 'typeColumnWidths' | 'usageColumnWidths'>;
 
@@ -47,6 +50,10 @@ export function widthsChanged(): void {
   notify();
 }
 
+/** The 0.6.0 entry a vault scope reads (§41.6): only while the usage has no `widths` key (absent, not broken). */
+function legacyOf(scope: VaultScope): Widths | null {
+  return scope.own || scope.ownBroken ? null : legacyWidthsOf(scope.key);
+}
 /** The 0.6.0 entry of a usage (D-2190), read while the usage has no own `widths`. */
 export function legacyWidthsOf(usageKey: string): Widths | null {
   const m = impl?.get()?.usageColumnWidths?.[nfc(usageKey)];
@@ -66,7 +73,7 @@ export function dropLegacyWidths(usageKey: string): void {
 function stored(scope: WidthScope): Widths {
   if (inVault(scope)) {
     if (scope.own) return Object.fromEntries(scope.own.map(([k, w]) => [nfc(k), w]));
-    return legacyWidthsOf(scope.key) ?? {};
+    return legacyOf(scope) ?? {};
   }
   const u = impl?.get();
   const m = scope.kind === 'type' ? u?.typeColumnWidths?.[nfc(scope.key)] : u?.usageColumnWidths?.[nfc(scope.key)];
@@ -109,7 +116,7 @@ function writeVault(scope: VaultScope, next: [string, number][] | null): void {
 /** The widths after `changes` (only the changed widths clamped; others as stored, v1-views §45 choice 7). */
 function vaultNext(scope: VaultScope, changes: Widths): [string, number][] {
   const own = scope.own ? scope.own.map(([k, w]) => [nfc(k), w] as [string, number]) : null;
-  const base: [string, number][] = own ?? Object.entries(legacyWidthsOf(scope.key) ?? {}).map(([k, w]) => [nfc(k), w]);
+  const base: [string, number][] = own ?? Object.entries(legacyOf(scope) ?? {}).map(([k, w]) => [nfc(k), w]);
   const map = new Map(base);
   for (const [k, w] of Object.entries(changes)) map.set(nfc(k), clampWidth(nfc(k), w));
   return ordered(map, scope.order ?? [], base.map(([k]) => k));

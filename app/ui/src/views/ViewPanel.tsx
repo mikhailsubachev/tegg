@@ -190,7 +190,8 @@ export function ViewPanel({ name, typeKey, type, types, plural, filter, onFilter
   const isTable = display === 'table' && !draft;
   // §41.6: the tab's widths are its item's `widths` (D-2177), read from the 0.6.0 entry until it has its own (D-2190).
   const widthScope: WidthScope | null = uKey && !draft && !live ? {
-    kind: 'usage', key: uKey, own: run.result?.usage?.own.widths ?? null, order: effColumns, write: (next) => uw.widths(next), disabled,
+    kind: 'usage', key: uKey, own: run.result?.usage?.own.widths ?? null, ownBroken: !!run.result && ownKeys(run.result).widths === 'broken',
+    order: effColumns, write: (next) => uw.widths(next), disabled,
   } : null;
   const scopeRef = useRef(widthScope);
   scopeRef.current = widthScope;

@@ -68,8 +68,9 @@ export function ViewsSection({ type, send, reload, onAddView }: {
     }
     return () => { alive = false; };
   }, [stamp]); // eslint-disable-line react-hooks/exhaustive-deps
-  // The list waits for its first reads (a few ms), so a name never shows without its grouping.
-  const loaded = summaries !== null && tabNames.every((n) => n in defs);
+  // A tab's `ts-view-kind` waits for its query's read (a few ms), so it never shows without its grouping; the section
+  // itself always shows (also when `queries_list` fails, and while a new view's query is read).
+  const kindRead = (tab: (typeof tabs)[number]) => !tab.summary || tab.summary.name in defs;
   const choiceIds = new Set(groupChoices(type, [type.key]).map((c) => c.id));
   const kindText = (tab: (typeof tabs)[number]) => {
     if (!tab.kind) return null;
@@ -141,8 +142,7 @@ export function ViewsSection({ type, send, reload, onAddView }: {
   const restoreOff = !summaries || !restore.enabled;
   const [allA, allB] = t('views.all', { plural: '\u0000' }).split('\u0000');
   return (
-    <section id="ts-views" aria-labelledby="ts-views-h" className="ts-section views-section" aria-busy={loaded ? undefined : true}
-      style={loaded ? undefined : { visibility: 'hidden' }}>
+    <section id="ts-views" aria-labelledby="ts-views-h" className="ts-section views-section">
       <h2 id="ts-views-h">{t('ts.section.views')}</h2>
       <ul ref={listRef} role="list" aria-label={t('typeSettings.viewsList', { plural: type.plural })} className="ts-views-list">
         <li data-view-row="" className="ts-view-row fixed">
@@ -151,7 +151,7 @@ export function ViewsSection({ type, send, reload, onAddView }: {
           <span className="ts-view-kind hint">{t('typeSettings.viewDefault')}</span>
         </li>
         {tabs.map((x) => {
-          const kind = kindText(x);
+          const kind = kindRead(x) ? kindText(x) : null;
           const dropBefore = drag && drag.before !== null && nameKey(drag.before) === x.key && nameKey(drag.name) !== x.key;
           return (
             <li key={x.key} data-view-row={nfc(x.name)} className={`ts-view-row${drag && nameKey(drag.name) === x.key ? ' dragging' : ''}${dropBefore ? ' drop-before' : ''}`}

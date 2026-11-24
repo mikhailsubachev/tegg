@@ -48,6 +48,25 @@ export function laneOrderAfterDrop(group: GroupingDto, laneId: string, beforeId:
   return order.map((l) => l.value as string);
 }
 
+/** Whether a lane can be dragged or moved by `Move lane …` (R187, D-2218): option, tag and relation lanes (excluded
+ *  ones included) and period lanes; never `none`, `done`, an unknown-value or an unresolved relation lane. One rule for
+ *  the wall's lanes and a grouped Table's or List's groups. */
+export function laneMovable(l: Pick<LaneDto, 'kind' | 'dropTarget'>): boolean {
+  return (l.dropTarget || l.kind === 'period') && l.kind !== 'none' && l.kind !== 'done';
+}
+
+/** The `beforeId` that puts a lane right after the last movable lane (D-2217, D-2218): the first unknown-value or
+ *  unresolved lane after it, so those keep their place after the known ones; null when none follows (the end). */
+export function beforeAfterLastMovable(group: GroupingDto): string | null {
+  let last = -1;
+  group.lanes.forEach((l, i) => { if (laneMovable(l)) last = i; });
+  for (let i = last + 1; i < group.lanes.length; i++) {
+    const l = group.lanes[i]!;
+    if (ORDERED.has(l.kind) && l.value !== null) return l.id;
+  }
+  return null;
+}
+
 /** `Move card to next / previous lane` (D-1817): the nearest drop target in `dir` (+1 next, −1 previous); excluded
  *  lanes are targets (AP-1510); unknown, unresolved and `none` lanes are skipped; null at the ends. */
 export function neighbourDropLane(group: GroupingDto, laneId: string, dir: 1 | -1): LaneDto | null {

@@ -2837,6 +2837,11 @@ changed) and on its query file; a block re-runs when its fence source changes; n
   container keeps the full height so the page scrolls as if all were there; scrolling never goes sideways.
 - Keyboard: Tab focuses the first card; `gridNeighbour` moves; ⏎ opens; Back restores the focus (rendering the card's
   row first). `limit` is not applied (D-2189).
+- **(D-2220)** A Task card's `More actions` (and ⇧F10) is R43's menu (`CardMenu`: open, status, priority, due, trash),
+  as on a grouped wall, without `Move to` and `Also add to`.
+- **(D-2221)** The run's rows carry the values of every sort key (columns or not), and the quick re-sort after a sort
+  change (`allSort.ts`) follows the core's `sort_rows`: Select values matched after folding case and diacritics, numbers
+  only from numbers, the last tie-break the path's UTF-8 bytes; the order drawn within 300 ms is the run's.
 
 ### 41.4 The grouped wall (R224)
 
@@ -2857,6 +2862,16 @@ values `vertical` / `horizontal` (§45 choice 4).
 - Header drag: a drop writes `laneOrderForGroupDrop`; a drop at its own place writes nothing; no grip on `none`, `done`
   or `All <plural>`; nothing drops after `none`. Keyboard: `Move lane up` / `down` on a focused header (D-2194 (d)).
   Live text `group.moved`.
+- **(D-2217)** Where a dragged group lands (Table, List and Wall): on another group's header → before that group; on a
+  group's rows → after that group; on `No <attribute>`, `Done` (or a group without a grip) → after the last movable
+  group; nothing lands after `No …` or `Done`, and "after the last movable group" stays before the unknown-value and
+  unresolved groups (`beforeAfterLastMovable`, also on the wall). The wall keeps part one's geometry (the half of a
+  column, the place of a row) and R187's "nothing drops on `none`" (FR-QRY-05 AC-19); whether a wall drop on `No …` /
+  `Done` should instead land after the last movable lane is an open point for the owner.
+- **(D-2218)** Unknown-value and unresolved relation groups have no grip and no `Move lane up` / `down` (the wall's rule,
+  one predicate `laneMovable` in `queries/board/model.ts` for both); they keep their place after the known ones.
+- **(D-2219)** `Move lane up` / `down` moves a group past the next movable group that is drawn; empty groups the body
+  hides (D-2184) are stepped over, and a move or drop that leaves the drawn order as it is writes nothing (FR-SYN-06).
 - No row drags between groups, no `New <Type>` row or tile (D-2182, D-2183). Table windowing < 80 row elements, headers
   counted (FR-QRY-05 AC-9).
 

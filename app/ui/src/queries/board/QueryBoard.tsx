@@ -31,8 +31,8 @@ import type { TaskNav } from '../../tasks/TaskCard';
 
 /** What a Task card on a board needs (§29.5): the result's Task definitions and its nav and toggle. */
 type TaskCardContext = { defs: TaskDefsDto; nav: TaskNav; onToggle: (row: QueryRowDto, done: boolean) => void };
-import { cardMove, excludedValues, laneOrderAfterDrop, neighbourDropLane, prefillFor } from './model';
-import { writeCardChange, writeCardMove, writePeriodMove, type CardMoveResult } from './write';
+import { beforeAfterLastMovable, cardMove, excludedValues, laneMovable, laneOrderAfterDrop, neighbourDropLane, prefillFor } from './model';
+import { taskStatusChange, writeCardChange, writeCardMove, writePeriodMove, type CardMoveResult } from './write';
 import type { PeriodMove } from '@tegg/doc';
 
 const nfc = (s: string) => s.normalize('NFC');
@@ -184,7 +184,7 @@ export function QueryBoard({ result, name, title, readOnly, types, filter, apply
     return {
       id: l.id, kind: l.kind, label: labelOf(l), userLabel: !(l.kind === 'none' || l.kind === 'period' || l.kind === 'done'), color: l.color, cards, excluded: l.excluded,
       excludedText: def.lanes === 'rows' ? t('board.excludedLong', { values: listFormat(excludedValues(group)) }) : t('board.excluded'),
-      dropTarget: l.dropTarget, grip: (l.dropTarget || l.kind === 'period') && l.kind !== 'none' && l.kind !== 'done',
+      dropTarget: l.dropTarget, grip: laneMovable(l),
       newLabel: newOk ? t('board.newIn', { type: pageType!.name, lane: labelOf(l) }) : null,
       days, hint, tone, countLabel: countText(cards.length),
     };
@@ -368,9 +368,7 @@ export function QueryBoard({ result, name, title, readOnly, types, filter, apply
   const taskStatus = (row: QueryRowDto, label: string) => {
     const defs = result.taskDefs;
     if (!defs) return;
-    const stateOf = (l: string | null) => (defs.statuses.find((x) => x.label === l)?.state ?? 'open') as TaskState;
-    const firstOpen = defs.statuses.find((x) => x.state === 'open')?.label ?? defs.statuses[0]?.label ?? '';
-    taskWrite(row, (text) => applyTaskChange(text, { kind: 'status', to: label, toState: stateOf(label), fromState: stateOf(row.taskRow?.status ?? null), firstOpen, now: nowIso(Date.now()) })?.text ?? null);
+    taskWrite(row, taskStatusChange(defs, row, label, nowIso(Date.now())));
   };
 
   // ---- the card menu: Open, Move to ›, Also add to › (list kinds); the two submenus open beside their item (§20).
@@ -429,12 +427,13 @@ export function QueryBoard({ result, name, title, readOnly, types, filter, apply
   const moveLane = (dir: 1 | -1) => {
     const id = focusedLane();
     if (!id || readOnly) return;
-    const movable = group.lanes.filter((l) => l.kind !== 'none' && l.kind !== 'done');
+    // D-2218: unknown-value and unresolved lanes don't move and keep their place after the known ones.
+    const movable = group.lanes.filter(laneMovable);
     const i = movable.findIndex((l) => l.id === id);
     if (i < 0) return;
     const j = i + dir;
     if (j < 0 || j >= movable.length) return;
-    const before = dir < 0 ? movable[j].id : movable[j + 1]?.id ?? null;
+    const before = dir < 0 ? movable[j].id : movable[j + 1]?.id ?? beforeAfterLastMovable(group);
     const order = laneOrderAfterDrop(group, id, before);
     if (!order) return;
     apply({ laneOrder: order });
@@ -502,7 +501,8 @@ export function QueryBoard({ result, name, title, readOnly, types, filter, apply
         onCardDrop={(key, from, to, alt) => doMove(key, from, to, alt)}
         onLaneDrop={(id, before) => {
           if (readOnly) return;
-          const order = laneOrderAfterDrop(group, id, before);
+          // D-2217: "after the last movable lane" stays before the unknown-value and unresolved lanes.
+          const order = laneOrderAfterDrop(group, id, before ?? beforeAfterLastMovable(group));
           if (!order) return;
           apply({ laneOrder: order });
           const l = laneById(id);

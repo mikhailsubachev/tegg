@@ -1305,6 +1305,8 @@ export async function evaluate(def: QueryDefDto, host: string | null, env: Query
       if (at?.type !== 'relation' && k !== 'source') continue;
       for (const v of ([] as unknown[]).concat(values[k] as any ?? [])) { const l = linkOf(o.path, v); if (l) links.push(l); }
     }
+    // D-2221 (R222): the row also carries its sort keys' values, columns or not (the app's quick re-sort); `title` is the row's.
+    for (const l of def.sort) { const k = nfc(l.by.trim()); if (k !== 'title' && !(k in values)) values[k] = (o.attributes ?? {})[k] ?? null; }
     return {
       path: o.path, id: o.id, title: o.title, type: o.type, created: str(o.attributes?.created), modified: str(o.attributes?.modified), values, links: links as any,
       task: o.type === 'task' ? { status: str(o.attributes?.status), state: statusState(o, ctx) as any, due: localDate(o.attributes?.due, env.zone) } : null,
