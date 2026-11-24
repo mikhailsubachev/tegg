@@ -432,13 +432,13 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
 - **AC-1** **One command (D-2011; AP-2022).** `cd app && npm run app:release -- 0.5.0`, on a clean checkout of `main` with the signing config present (AC-3), does the following:
   - it builds `Tegg.app` as today (D-1512, D-1514) and a release APK (RA1);
   - it leaves `Tegg-0.5.0.dmg`, `Tegg-0.5.0.zip` and `Tegg-0.5.0.apk` in `app/src-tauri/target/release/bundle/release/`;
-  - it installs `~/Applications/Tegg.app` only after both builds and AC-6's check have passed.
+  - it installs `/Applications/Tegg.app` (D-2227) only after both builds and AC-6's check have passed.
 
   `--no-apk` builds only the Mac app, as today. A failed APK build exits non-zero, installs nothing and leaves no `.apk` in the release folder. *(L1 for the script's plan, with its build calls stubbed: the steps, their order, `--target aarch64`, `--features preview`, `TEGG_ANDROID_APP_ID=app.tegg.preview` (not the preview config, D-2045) and `TEGG_VERSION`; APK for the artifact)* Test: `ar_08_ac1_release_builds_the_apk`
 - **AC-2** **The version (RA7; F9).** The APK built for `0.5.0` has `versionName` `0.5.0` and `versionCode` `5000` (`aapt2 dump badging`). `version_code()` gives RA7's three examples. `0.1000.0` and `0.1.1000` exit with code 2 before any build, with the usage message. `app/src-tauri/tauri.conf.json` still says `0.0.0` after the release. *(L1; APK)* Test: `ar_08_ac2_apk_version`
 - **AC-3** **Signed with the owner's key, never unsigned (AP-2021).**
   - **Signature.** `apksigner verify --print-certs` passes with signature scheme v2 or later. The signer's SHA-256 equals the certificate of the key named by the signing config, and its subject is not `CN=Android Debug`.
-  - **No signing config.** Without the config file, the release exits non-zero before building with one line naming the expected file. No `.apk` is in the release folder, and `~/Applications/Tegg.app` is unchanged.
+  - **No signing config.** Without the config file, the release exits non-zero before building with one line naming the expected file. No `.apk` is in the release folder, and `/Applications/Tegg.app` is unchanged.
   - **Key inside the repo.** A config whose `storeFile` is inside the repository is refused the same way.
   - **Nothing committed.** No file matching `*.jks`, `*.keystore`, `keystore.properties` or `local.properties` is tracked (L0).
 

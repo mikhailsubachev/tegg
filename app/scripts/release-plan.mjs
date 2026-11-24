@@ -63,7 +63,8 @@ export function releasePlan({ version, apk = true, signing, repo }) {
     steps.push({ id: 'copy-apk', cmd: 'copy', args: [join(app, 'src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk'), apkOut], env: {} });
     steps.push({ id: 'apk-check', cmd: 'node', args: [join(repo, 'tools/qa/src/apk-check.ts'), apkOut, '--expect', 'release', '--version', version], env: {} });
   }
-  steps.push({ id: 'install-app', cmd: 'ditto', args: [join(bundle, 'macos/Tegg.app'), join(homedir(), 'Applications/Tegg.app')], env: {} });
+  // D-2227: the app is installed into /Applications, the one place the owner opens it from.
+  steps.push({ id: 'install-app', cmd: 'ditto', args: [join(bundle, 'macos/Tegg.app'), '/Applications/Tegg.app'], env: {} });
   const outputs = [join(out, `Tegg-${version}.dmg`), join(out, `Tegg-${version}.zip`), ...(apk ? [apkOut] : [])];
   return { steps, outputs };
 }
