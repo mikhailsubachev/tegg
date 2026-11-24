@@ -1,15 +1,15 @@
 // Slice AND-2, L5p (projects `phone-webkit`, `phone-chromium`): docs/acceptance/android-phone.md
-// - FR-UX-05 AC-26 (contrast on every phone surface, light and dark);
-// - NFR-OTH-02 AC-24 (L5p: the pseudo-locale wraps every phone text);
-// - FR-UX-03 AC-54 (every control is a registered command, no palette);
+// - FR-UX-05 AC-27 (contrast on every phone surface, light and dark);
+// - NFR-OTH-02 AC-25 (L5p: the pseudo-locale wraps every phone text);
+// - FR-UX-03 AC-56 (every control is a registered command, no palette);
 // - AR-03 AC-13 (L5p: no excluded action offered; not-offered routes land as an unknown route);
-// - FR-SYN-06 AC-51 (L5p: a reading tour writes nothing; T1).
+// - FR-SYN-06 AC-54 (L5p: a reading tour writes nothing; T1).
 // Contract docs/contracts/android-phone.md §2.3 (WRITE_COMMANDS), §7 (PHONE_NOT_OFFERED), §10 (PHONE_HIDDEN_COMMANDS),
 // §12.2, §14.1.
 // Red-test readings (reported): user content in the pseudo-locale check is what carries `data-user-content` (or sits in
 // a note body, a code block or a map), as in the desktop's pseudo-locale tests; the registered commands are
 // `__TEGG_TEST__.commands()` (ms3-shell §3.7); RA2's excluded commands are the AND-1 table (android-shell.md RA2).
-// FR-UX-03 AC-54's third part (D-2219, AC-Test-Change): `__TEGG_TEST__.run(id)` (§12.2) runs a registered command by
+// FR-UX-03 AC-56's third part (D-2219, AC-Test-Change): `__TEGG_TEST__.run(id)` (§12.2) runs a registered command by
 // id as a phone control does; for each control's command, a fresh page tapped and a fresh page run by id end with the
 // same route, the same open dialogs and menus, and the same IPC commands (perf marks aside). `run` rejects for an id the
 // phone doesn't list.
@@ -46,10 +46,14 @@ const HIDDEN = [
   'goto.duplicateTitles', 'goto.settings/shortcuts', 'goto.settings/menu-bar', 'goto.settings/trash-history', 'goto.settings/previews', 'settings.backups', 'job.*',
   'capture.*', 'import.open', 'inbox.*', 'duplicates.merge', 'vault.open', 'vault.addStarterTypes', 'app.about', 'nav.newTab', 'edit.copyBlockLink', 'typeSettings.*',
   'panel.editRecurrence', 'settings.font', 'settings.fontSize', 'settings.accentColor', 'settings.changeShortcut',
+  // D-2252: slice OC's card.edit (AC-Test-Change, approved by the owner).
+  'card.edit',
 ];
 const isFold = (id: string) => /^board\..*(fold|collapse|expand)/i.test(id);
 function hiddenCommand(id: string): boolean {
-  if (id === 'inbox.open' || isFold(id)) return false;
+  // D-2247: a board card's board.openCard:<path> and board.openSource:<path> are exceptions inside board.* (AC-Test-Change,
+  // approved by the owner).
+  if (id === 'inbox.open' || isFold(id) || id.startsWith('board.openCard:') || id.startsWith('board.openSource:')) return false;
   return HIDDEN.some((h) => (h.endsWith('*') ? id.startsWith(h.slice(0, -1)) : id === h));
 }
 const NOT_OFFERED_COMMANDS = ['goto.home', 'goto.graph', 'goto.trash', 'goto.help/shortcuts', 'goto.settings/shortcuts', 'goto.settings/menu-bar', 'goto.settings/trash-history', 'goto.settings/previews', 'goto.settings/backups', 'goto.broken-links', 'goto.duplicate-titles', 'object.newIn', 'graph.open'];
@@ -87,9 +91,9 @@ async function eachSurface(browser: Browser, fn: (page: Page, how: string) => Pr
   }
 }
 
-// ------------------------------------------------------------------------------------------------ FR-UX-05 AC-26
+// ------------------------------------------------------------------------------------------------ FR-UX-05 AC-27
 
-test('fr_ux_05_ac26_contrast_on_phone_surfaces', async ({ browser }) => {
+test('fr_ux_05_ac27_contrast_on_phone_surfaces', async ({ browser }) => {
   test.setTimeout(300_000);
   for (const theme of ['light', 'dark'] as const) {
     await eachSurface(browser, async (page, how) => {
@@ -100,9 +104,9 @@ test('fr_ux_05_ac26_contrast_on_phone_surfaces', async ({ browser }) => {
   }
 });
 
-// ------------------------------------------------------------------------------------------------ NFR-OTH-02 AC-24 (L5p)
+// ------------------------------------------------------------------------------------------------ NFR-OTH-02 AC-25 (L5p)
 
-test('nfr_oth_02_ac24_phone_strings', async ({ browser }) => {
+test('nfr_oth_02_ac25_phone_strings', async ({ browser }) => {
   test.setTimeout(240_000);
   await eachSurface(browser, async (page, how) => {
     for (const [what, loc] of [['the app bar', page.getByRole('banner')], ['the bottom bar', bottomBar(page)], ['main', main(page)], ['the drawer', drawer(page)], ['a sheet', page.getByRole('dialog')], ['a menu', page.getByRole('menu')]] as const) {
@@ -112,9 +116,9 @@ test('nfr_oth_02_ac24_phone_strings', async ({ browser }) => {
   }, { prelude: pseudoLocale });
 });
 
-// ------------------------------------------------------------------------------------------------ FR-UX-03 AC-54
+// ------------------------------------------------------------------------------------------------ FR-UX-03 AC-56
 
-test('fr_ux_03_ac54_commands_without_a_palette', async ({ browser }) => {
+test('fr_ux_03_ac56_commands_without_a_palette', async ({ browser }) => {
   test.setTimeout(1_800_000);
   await eachSurface(browser, async (page, how) => {
     for (const keys of ['Meta+k', 'Control+k', 'Meta+Shift+p']) {
@@ -213,9 +217,9 @@ test('ar_03_ac13_phone_offers_no_excluded_action', async ({ browser }) => {
   }
 });
 
-// ------------------------------------------------------------------------------------------------ FR-SYN-06 AC-51 (L5p)
+// ------------------------------------------------------------------------------------------------ FR-SYN-06 AC-54 (L5p)
 
-test('fr_syn_06_ac51_reading_on_the_phone_writes_nothing', async ({ page }) => {
+test('fr_syn_06_ac54_reading_on_the_phone_writes_nothing', async ({ page }) => {
   test.setTimeout(300_000);
   const core = await startPhone(page, { route: 'inbox', uiState: ui({ extra: { dateTime: { date: 'iso', time: '24', week: 'region' } } }) });
   const before = await fileStateOf(core);

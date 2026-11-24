@@ -2,7 +2,7 @@
 // contract docs/contracts/android-phone.md §12.1, §13.3, §14.2): docs/acceptance/android-phone.md "Real-app tests":
 // FR-UX-04 AC-3, AC-4, AC-7; FR-NAV-04 AC-14, AC-15; FR-NAV-03 AC-17, AC-18; FR-HOM-04 AC-1; FR-INB-01 AC-15;
 // FR-DLY-01 AC-13; FR-QRY-05 AC-32; FR-QRY-09 AC-9; FR-EDT-10 AC-10; FR-ATT-01 AC-17; FR-NAV-08 AC-3; FR-MMP-02 AC-33,
-// AC-34; FR-NAV-01 AC-24; FR-SET-01 AC-14; FR-SET-02 AC-11, AC-12; FR-UX-08 AC-26, AC-27; NFR-SEC-01 AC-4.
+// AC-34; FR-NAV-01 AC-24; FR-SET-01 AC-14; FR-SET-02 AC-11, AC-12; FR-UX-08 AC-27, AC-28; NFR-SEC-01 AC-4.
 // Each test pushes a fresh copy of its synthetic fixture to shared storage (D-62), starts the test APK with
 // `test-env.json` (`TEGG_VAULT`, `TEGG_ROUTE`, `TEGG_IPC_LOG`) and checks "untouched" with AND-1's `fileState` and "zero
 // writes" with the IPC log (§2.3). Every test starts with `ready()` (requireDevice): without an emulator it fails, never
@@ -597,9 +597,9 @@ test('fr_set_02_ac12_system_bars_follow_the_theme', async () => {
   nightMode(false);
 });
 
-// ------------------------------------------------------------------------------------------------ FR-UX-08 AC-26, AC-27
+// ------------------------------------------------------------------------------------------------ FR-UX-08 AC-27, AC-28
 
-test('fr_ux_08_ac26_talkback_reads_the_frame', async () => {
+test('fr_ux_08_ac28_talkback_reads_the_frame', async () => {
   ready();
   const vault = pushPhone();
   const { v } = await launchPhone(vault, { TEGG_ROUTE: 'inbox' }, views);

@@ -926,7 +926,7 @@ export function App() {
       const el = [...document.querySelectorAll<HTMLElement>(`[data-command="${CSS.escape(id)}"]`)].find((e) => e.getClientRects().length > 0);
       el?.click();
     },
-    // AND-2 (FR-UX-03 AC-54): a navigation run as a command closes the phone's drawer, as tapping its entry does.
+    // AND-2 (FR-UX-03 AC-56): a navigation run as a command closes the phone's drawer, as tapping its entry does.
     go: (r: Route) => { if (isPhone()) setDrawerOpen(false); void go(r); },
     openPalette: () => setDialog('palette'),
     openSearch: () => {

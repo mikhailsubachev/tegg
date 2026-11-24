@@ -1,5 +1,5 @@
 // Slice AND-2, L5p (projects `phone-webkit`, `phone-chromium`): docs/acceptance/android-phone.md
-// - FR-UX-03 AC-55 (controls inside a note's content on the phone; D-2246, QA review of AND-2).
+// - FR-UX-03 AC-57 (controls inside a note's content on the phone; D-2246, QA review of AND-2).
 // Contract docs/contracts/android-phone.md §10 ("Controls inside a note's content": `read.fold:<n>`,
 // `read.openEmbed:<n>`, `board.openCard:<path>`, `board.openSource:<path>` (D-2247); the edit-only embed controls are not rendered), §9.4 (the map's
 // `Map` / `List` buttons), §9.5 (type pages), §12.2 (`__TEGG_TEST__.run(id)`, `commands()`), §14.1.
@@ -7,7 +7,7 @@
 // clock (2026-10-14T12:00:00+02:00); `views/` + `new-empty/.tegg/` + `phone/` for Mapa výletu (phone-helpers'
 // `phoneVault`).
 // Red-test readings (reported):
-// - "the tap's effect": as FR-UX-03 AC-54's test, a fresh page tapped (the first control carrying the id) and a fresh
+// - "the tap's effect": as FR-UX-03 AC-56's test, a fresh page tapped (the first control carrying the id) and a fresh
 //   page run by id end with the same route, open dialogs and menus and IPC commands (perf marks aside), plus the
 //   in-page state the AC names (aria-expanded and `Skrytý text tipu.`, the map, the route, the pressed `Map` / `List`
 //   of every map on the page), and that state is the one the AC names;
@@ -74,7 +74,7 @@ async function runById(page: Page, id: string): Promise<string> {
   }, id);
 }
 
-/** FR-UX-03 AC-54's second part (its test's filter) and RA11's hidden list, on the page as it is. */
+/** FR-UX-03 AC-56's second part (its test's filter) and RA11's hidden list, on the page as it is. */
 async function ac54Holds(page: Page, how: string) {
   // The registry follows the page (§10: per-control commands are registered while their page is shown), so the probe
   // is repeated for up to 2 s after a tab change before the result is asserted.
@@ -92,7 +92,7 @@ async function ac54Holds(page: Page, how: string) {
   };
   const got = await eventually(probe, (r) => r.size > 0 && r.missing.length === 0 && r.hidden.length === 0 && r.ownCommands.length === 0, 2000);
   assert.ok(got.size > 0, `${how}: __TEGG_TEST__.commands() lists the registry`);
-  assert.deepEqual(got.missing, [], `${how}: every control carries the data-command of a registered command (FR-UX-03 AC-54)`);
+  assert.deepEqual(got.missing, [], `${how}: every control carries the data-command of a registered command (FR-UX-03 AC-56)`);
   assert.deepEqual(got.hidden, [], `${how}: no control carries a command of RA11's hidden list (PHONE_HIDDEN_COMMANDS)`);
   assert.deepEqual(got.ownCommands, [], `${how}: view-only task checkboxes carry no data-command (D-2247)`);
 }
@@ -220,9 +220,9 @@ async function openTab(page: Page, name: string, label: string) {
   await sleep(300);
 }
 
-// ------------------------------------------------------------------------------------------------ FR-UX-03 AC-55
+// ------------------------------------------------------------------------------------------------ FR-UX-03 AC-57
 
-test('fr_ux_03_ac55_content_controls_on_the_phone', async ({ page, browser }) => {
+test('fr_ux_03_ac57_content_controls_on_the_phone', async ({ page, browser }) => {
   test.setTimeout(300_000);
 
   // ---- note/Pages/Vložené.md: what is rendered

@@ -491,7 +491,7 @@ export async function texts(loc: Locator): Promise<string[]> {
 }
 
 /** Every visible text node outside user content (`[data-user-content]`) in `scope` that isn't wrapped in `⟦ ⟧`
- *  (NFR-OTH-02 AC-24 with the pseudo-locale). */
+ *  (NFR-OTH-02 AC-25 with the pseudo-locale). */
 export async function unwrappedTexts(scope: Locator): Promise<string[]> {
   return scope.first().evaluate((root) => {
     const out: string[] = [];

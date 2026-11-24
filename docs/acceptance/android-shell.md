@@ -35,7 +35,7 @@ Reference tables RA1…RA7 (the Android track numbers its tables `RA<n>`, so the
 - The owner's phone checks that AND-0 left open. They are listed under "Owner checks", not as criteria.
 
 **Risk tiers** (test-strategy §3).
-- **T1, data loss.** A bulk rewrite or tidy move on a partly synced vault (FR-SYN-06 AC-53). An edit lost when Android stops the app in the background (FR-EDT-08 AC-14). A second file written beside an NFD-named one (FR-FMT-12 AC-15). A write while access is off (FR-VLT-01 AC-22).
+- **T1, data loss.** A bulk rewrite or tidy move on a partly synced vault (FR-SYN-06 AC-53). An edit lost when Android stops the app in the background (FR-EDT-08 AC-14). A second file written beside an NFD-named one (FR-FMT-12 AC-16). A write while access is off (FR-VLT-01 AC-22).
 - **T2, silently wrong data.**
   - A vault shown empty because Android hides the files (F5; FR-VLT-01 AC-20…AC-22).
   - The index never settling (F1; FR-SYN-03 AC-33, AC-34, AC-37).
@@ -244,7 +244,7 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
   - (a) An L0 check over the AND-1 branch: no existing `*.ac.test.ts` or `tests/ac_*.rs` is changed or deleted, and none is changed except by a commit with an owner-approved `AC-Test-Change: <reason>; approved-by: owner` trailer (D-2052).
   - (b) `tauri.conf.json` (except a `bundle.android` block, and entries a branch adds under `bundle.macOS`, which only the Mac bundle reads, D-2169), `tauri.preview.conf.json` and `capabilities/capture.json` are equal to main at the merge-base (D-2053; AND-1's own `platforms` and `bundle.android` left out on both sides); every entry main has under `bundle.macOS` stays unchanged. The permission list of `capabilities/default.json` holds main's list at the merge-base, in its order, plus only the `allow-…` permissions of the branch's own added desktop commands, each classified for Android (D-2168); its other fields equal main's. The only other change in `default.json` and `capture.json` is their `platforms` field (D-2050).
   - (c) `./verify push` passes, and the `app-e2e` and `app-shell-test` steps pass on the built `Tegg.app`.
-  - (d) FR-STO-07 AC-15's macOS cases pass.
+  - (d) FR-STO-07 AC-16's macOS cases pass.
 
   *(L0; the gates)* Test: `ar_03_ac12_desktop_build_unchanged`
 
@@ -367,7 +367,7 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
 
 ### FR-STO-07 Machine-local data on Android (adds to AC-1…AC-11)
 
-- **AC-15** (was AC-12, D-2199) **Where machine-local data lives, from the platform (F7).** `app_dirs_for(platform)` (pure) gives:
+- **AC-16** (was AC-12, D-2199; AC-15, D-2252) **Where machine-local data lives, from the platform (F7).** `app_dirs_for(platform)` (pure) gives:
 
   | Platform | Result |
   | --- | --- |
@@ -378,7 +378,7 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
   | Android, platform data dir `/data/user/0/app.tegg.preview/files` | exactly that dir |
   | Android, `$HOME` set | still the platform data dir, never `$HOME` |
 
-  On Android the platform dir comes from Tauri's path API (`app_data_dir`), never from a constant. *(L1)* Test: `fr_sto_07_ac15_app_dirs_from_the_platform`
+  On Android the platform dir comes from Tauri's path API (`app_data_dir`), never from a constant. *(L1)* Test: `fr_sto_07_ac16_app_dirs_from_the_platform`
 - **AC-13** **Nothing machine-local in shared storage (T2).** On the test APK, the test opens the shell fixture, opens two notes, switches the theme, force-stops the app and starts it again.
   - The index, `ui-state.json` and the recent-vaults list are under `run-as <id> ls -R files/`.
   - The vault folder's listing (names, sizes, SHA-256, inodes, mtimes) is the same as before the first start.
@@ -389,7 +389,7 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
 
 ### FR-FMT-12 NFD file names on the phone (adds to AC-1…AC-14)
 
-- **AC-15** (was AC-14, D-2199) **A note stored in NFD bytes on a file system that doesn't normalise names (AP-2029; T1, T2).** Android's shared storage keeps the bytes of an NFD name, so AC-1 is checked again on the device (it compares NFC and NFD as one name, D-2052).
+- **AC-16** (was AC-14, D-2199; AC-15, D-2252) **A note stored in NFD bytes on a file system that doesn't normalise names (AP-2029; T1, T2).** Android's shared storage keeps the bytes of an NFD name, so AC-1 is checked again on the device (it compares NFC and NFD as one name, D-2052).
   - **Pure function (L1, Mac host).** `on_disk_name(listing, nfc_path)` returns the listed entry whose NFC form equals `nfc_path`, `None` when there is none, and `Ambiguous` when two entries share it.
   - **Device (LA).** The shell fixture plus the NFD note is on the test APK:
     - (a) Pages lists Poznámka once;
@@ -399,7 +399,7 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
     - (e) `[[Poznámka]]` in Úvodní resolves to it (AC-1).
   - **Both forms: not on the device (D-2052).** Android's shared storage treats the NFC and NFD spellings as one name (as APFS does), so the two files can't coexist there; the host layers keep AC-3's case. (d)'s file is read through `/data/media`, below the storage layer's per-spelling cache.
 
-  *(L1; LA)* Test: `fr_fmt_12_ac15_nfd_names_on_android`
+  *(L1; LA)* Test: `fr_fmt_12_ac16_nfd_names_on_android`
 
 ### FR-EDT-08 Autosave when the app leaves the screen (adds to AC-4…AC-13)
 
@@ -483,7 +483,7 @@ These come from AND-0's open items. They need the owner's phone or Google accoun
 
 `app/e2e-android/` (test APK on the emulator, `test-env.json`, a fresh vault copy in shared storage per test):
 - `android_shell.ac.test.ts`: AR-03 AC-8, AC-10; FR-VLT-01 AC-18…AC-22, AC-25…AC-28; FR-STO-07 AC-13; FR-EDT-08 AC-14; FR-UX-01 AC-7; AR-08 AC-5.
-- `android_watcher.ac.test.ts`: FR-SYN-03 AC-33; FR-SYN-06 AC-53 (device part); FR-FMT-12 AC-15.
+- `android_watcher.ac.test.ts`: FR-SYN-03 AC-33; FR-SYN-06 AC-53 (device part); FR-FMT-12 AC-16.
 - `nightly_android_watcher.ac.test.ts`: FR-SYN-03 AC-34.
 - NFR-SEC-01 AC-3 is the monitor that wraps the whole run.
 
@@ -499,8 +499,8 @@ The APK layer's tests are in `tools/qa/test/apk_check.ac.test.ts`. They run agai
 | FR-SYN-03 / NFR-REL-02 | AC-33, AC-34, AC-37 (3) | F1; AP-2028 |
 | FR-SYN-06 | AC-53 (1) | D-2007, D-805, D-819; AP-2025 |
 | FR-VLT-01 | AC-18…AC-28 (11) | D-2003, D-98, D-137, D-219; F2, F4, F5; AP-2013…AP-2017, AP-2035 |
-| FR-STO-07 | AC-13…AC-15 (3) | D-2003, D-1514; F7; AP-2030 |
-| FR-FMT-12 | AC-15 (1) | AP-2029 |
+| FR-STO-07 | AC-13, AC-14, AC-16 (3) | D-2003, D-1514; F7; AP-2030 |
+| FR-FMT-12 | AC-16 (1) | AP-2029 |
 | FR-EDT-08 | AC-14 (1) | D-196; AP-2027 |
 | NFR-SEC-01 | AC-1…AC-3 (3) | D-2002; F6; AP-2034 |
 | AR-08 (Android part) | AC-1…AC-6 (6) | D-2011, D-1512, D-1514; F9; AP-2019…AP-2023, AP-2032 |
@@ -528,7 +528,7 @@ Raised while writing these criteria. Each criterion that depends on one names it
 | AP-2016 | **The permission screen: when, what, and after.** F5: without the permission the vault silently looks empty. | The screen comes before anything else whenever access is off: at start, with or without a remembered vault, and on every return to the foreground. It has RA5's texts and one button, `Open settings`, which opens the app's own "All files access" page. On return the shell checks again and moves on within 2 s. If access was turned off while a vault was open, the vault is closed (core and watcher stopped), the screen shows, and nothing is written until access is back. Revoking needs leaving the app, and AP-2027's flush has saved by then. | Show the chooser with a banner instead; or check only at start | FR-VLT-01 AC-20…AC-22 |
 | AP-2017 | **How the page learns the vault is open (F2).** The spike opened the vault before creating the window. A large vault in shared storage took 1.6–5.0 s, which would be a blank screen. | An Android-only command `vault_start` and event `vault:start` with RA3's states (`needsAccess`, `opening`, `open`, `failed`, `none`). The shell checks access, then opens the remembered vault on a background thread, and the page shows `Opening <name>…`, never the chooser. The desktop keeps `vault_current` and its order unchanged (AR-03 AC-12). | Open before the window is created (simple, blank screen meanwhile); or change `vault_current` on both platforms | FR-VLT-01 AC-18, AC-19 |
 | AP-2018 | **Native code, and whether `gen/android` is committed.** The permission check (`Environment.isExternalStorageManager()`), the settings intent and the shared-storage root need Kotlin. Signing, the manifest and backup rules live in the generated Gradle project. | (a) A small local Tauri plugin, `app/src-tauri/tegg-android/` (Rust plus an `android/` Kotlin library), compiled only for Android, holds the Kotlin. (b) `app/src-tauri/gen/android/` is committed without `build/`, `.gradle/`, `local.properties`, keystores or `keystore.properties` (ignored; AR-08 AC-3's L0 rule). (c) `tauri android init` is not run again by scripts, so its extra Rust targets (F11) stay out. | Kotlin directly in `gen/android` and the folder regenerated and patched by a script | AR-03, AR-08 AC-3, NFR-SEC-01 AC-2 |
-| AP-2019 | **Application ids.** The desktop test build is `app.tegg.desktop` and the release is `app.tegg.preview` (D-1514). | The same on Android (RA1): the release APK is `app.tegg.preview` (one release config, `tauri.preview.conf.json`), and the test APK is `app.tegg.desktop`. They install side by side and never share private storage, as on the Mac. | `app.tegg.android` and `app.tegg.android.test` | AR-08 AC-4, FR-STO-07 AC-15 |
+| AP-2019 | **Application ids.** The desktop test build is `app.tegg.desktop` and the release is `app.tegg.preview` (D-1514). | The same on Android (RA1): the release APK is `app.tegg.preview` (one release config, `tauri.preview.conf.json`), and the test APK is `app.tegg.desktop`. They install side by side and never share private storage, as on the Mac. | `app.tegg.android` and `app.tegg.android.test` | AR-08 AC-4, FR-STO-07 AC-16 |
 | AP-2020 | **SDK levels and ABIs.** `MANAGE_EXTERNAL_STORAGE` and `isExternalStorageManager` exist from API 30; Tauri's template defaults to minSdk 24 and adds 32-bit and x86 targets. | minSdk 30 (Android 11), targetSdk 35 (Android 15, the emulator of AND-0), compileSdk 36, `arm64-v8a` only. | minSdk 24 with the older `WRITE_EXTERNAL_STORAGE` path below 30 | AR-08 AC-4 |
 | AP-2021 | **The signing key.** D-2011 says "the owner's own key" but not where it is kept or what happens without it. | A keystore the owner creates once and backs up, kept outside the repository. Its config is a properties file at `~/.config/tegg/android-signing.properties` (`storeFile`, `storePassword`, `keyAlias`, `keyPassword`; mode 600), overridable with `TEGG_ANDROID_SIGNING=<file>`. Without it, or with `storeFile` inside the repo, the release stops before building with one line naming the file. There is never an unsigned or debug-signed "release". Note: losing the key means the next APK can't update the installed one. It must be uninstalled, which deletes only the private data (index, UI state), never the vault. | Passwords in the macOS Keychain (`security find-generic-password`) instead of the properties file | AR-08 AC-3 |
 | AP-2022 | **The release command and the APK version.** D-2011: "built by `npm run app:release`". Unsettled: always or by a flag, where the APK goes, `versionCode`, the GitHub release. | `npm run app:release -- <v>` builds `Tegg.app` and the APK by default, `--no-apk` skips the APK, and nothing is installed unless both built and the APK check passed. The APK is `Tegg-<v>.apk` next to the DMG and zip and is attached to the GitHub release `Tegg <v>` as a third asset. `versionCode` = MAJOR·10⁶ + MINOR·10³ + PATCH (Tauri's own derivation), with MINOR and PATCH at most 999 (RA7). The sidebar shows `v<v>` (FR-UX-01 AC-7). | A separate `npm run app:release-android -- <v>`; or the APK not on GitHub (copied to the phone only) | AR-08 AC-1, AC-2, AC-6, FR-UX-01 AC-7 |
@@ -538,7 +538,7 @@ Raised while writing these criteria. Each criterion that depends on one names it
 | AP-2026 | **The desktop UI on Android in AND-1.** The UI calls commands RA2 removes (Import, Reveal, About, rename by title, view edits…). | The init script sets `window.__TEGG_PLATFORM__` (`android` or `macos`). On Android the IPC client refuses RA2's commands locally with `Unsupported`, and the page shows the existing `error.unsupported` as a non-modal alert. Only the chooser, the vault switcher's `Open folder as vault…`, the logo menu's `About Tegg` and the palette are adapted in AND-1; the rest waits for AND-2/AND-3. | Hide every control that needs an excluded command now; or leave the raw IPC error | AR-03 AC-11 |
 | AP-2027 | **The quit flow and the lifecycle on Android.** The desktop holds `ExitRequested` until the UI has saved (D-196), hides windows on close and has `app_quit`. Android has no quit; it stops a backgrounded app without asking. | On Android: no `ExitRequested`, `CloseRequested` or `Reopen` handling and no `app_quit`. The page flushes the open note's pending edit at once on `visibilitychange: hidden` (FR-EDT-08 AC-14); the desktop doesn't change. The system back gesture keeps Tauri's default until AND-2 designs navigation. | Leave the flush to AND-3 (AND-1 builds then risk losing the last second of typing during OC-2) | FR-EDT-08 AC-14, RA2 P5 |
 | AP-2028 | **Which read events to drop (F1).** The spike dropped every `EventKind::Access`. On Linux, `Access(Close(Write))` is the event that marks the end of another program's write. | Drop every `Access` kind except `Close(Write)`. Tegg's own reads give `Open` and `Close(Read)`, so no loop, and a sync app's last write is never missed. | Drop all `Access` events, as the spike did | FR-SYN-03 AC-37 |
-| AP-2029 | **NFD file names on Android.** `tegg-vault` lists names as NFC and opens `root.join(nfc)`. APFS finds an NFD file that way; Android's shared storage doesn't. A note whose name reached the phone in NFD (from a Mac, a zip or a sync app) would be listed but unreadable. An edit would write a second file beside it (T1), which then syncs back to the Mac as a conflict. | Fix it in AND-1. The local file system keeps the on-disk name of each listed entry and reads and writes existing files through it; new files are NFC (AC-2). An NFC and an NFD name for one note in a folder are a name conflict (FR-FMT-12 AC-3) and neither is written. AND-1 also checks on the emulator whether shared storage is case-insensitive and records it in the contract. | Leave it to AND-3 (editing), and in AND-1 only show such files as unreadable | FR-FMT-12 AC-15, FR-VLT-01 AC-24, AC-27 |
+| AP-2029 | **NFD file names on Android.** `tegg-vault` lists names as NFC and opens `root.join(nfc)`. APFS finds an NFD file that way; Android's shared storage doesn't. A note whose name reached the phone in NFD (from a Mac, a zip or a sync app) would be listed but unreadable. An edit would write a second file beside it (T1), which then syncs back to the Mac as a conflict. | Fix it in AND-1. The local file system keeps the on-disk name of each listed entry and reads and writes existing files through it; new files are NFC (AC-2). An NFC and an NFD name for one note in a folder are a name conflict (FR-FMT-12 AC-3) and neither is written. AND-1 also checks on the emulator whether shared storage is case-insensitive and records it in the contract. | Leave it to AND-3 (editing), and in AND-1 only show such files as unreadable | FR-FMT-12 AC-16, FR-VLT-01 AC-24, AC-27 |
 | AP-2030 | **Android backup.** By default Android backs up an app's private data to the user's Google Drive. That would upload the index, which holds note text, and the recent-vault paths. It is a network transfer of Tegg data that the owner didn't choose (NFR-SEC-01's spirit, FR-STO-07). | `android:allowBackup="false"` and data-extraction rules that exclude every domain, in both APKs. The index rebuilds from the files anyway (AR-01). | Allow backup of `ui-state.json` only | FR-STO-07 AC-14 |
 | AP-2031 | **The Android real-app layer in the gates.** D-382 needs real-app tests per slice. The emulator is heavy (boot about 1 min, an APK build 1.5–3 min), and one gate runs at a time (D-1330). | A step `app-android-e2e` at the `milestone` level, like `app-e2e`, and again in `nightly`. It builds the test APK, boots a headless emulator from a fixed AVD (`tegg-and-35`, created by `tools/android/avd.sh`), runs `app/e2e-android/` and `apk-check`, and shuts the emulator down. `realAppTests` gains `app/e2e-android/`, so TS-I7's coverage check requires an LA test for every AC whose layer names LA. | Run LA only in the `release` gate; or manually before merging AND-1 | test-strategy, `qa.config.json`, every LA criterion |
 | AP-2032 | **How test hooks reach the Android build.** Environment variables can't be set for an app that the launcher starts. | A **test APK** (RA1: `app.tegg.desktop`, debuggable, release-optimised Rust, version `0.0.1`). At start it reads `<private files>/test-env.json` (pushed with `run-as`), with the same keys as the desktop's `TEGG_*` variables (`TEGG_TEST`, `TEGG_VAULT`, `TEGG_PERF_LOG` as a private path, `TEGG_NOW`, `TEGG_TEST_TIDY`, `TEGG_TEST_QUIET_MS`). The code that reads it is compiled only without the `preview` feature, so the release APK can't read it (AR-08 AC-5). Perf marks on Android take their `ms` from the process start time in `/proc/self/stat` (today `NaN` off macOS). | Intent extras through `am start -e` (needs Kotlin to pass them to Rust) | AR-08 AC-5, every LA criterion |

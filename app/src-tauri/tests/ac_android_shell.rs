@@ -1,6 +1,6 @@
 //! Slice AND-1, L1 (Mac host, temporary folders): the shell's pure functions of docs/contracts/android-shell.md §4, §5.1,
 //! for docs/acceptance/android-shell.md
-//! - FR-STO-07 AC-15: `platform::app_dirs_for(&Platform)` (F7; CP-2 → D-2037: on Android the dir is
+//! - FR-STO-07 AC-16: `platform::app_dirs_for(&Platform)` (F7; CP-2 → D-2037: on Android the dir is
 //!   `Context.getFilesDir()`, passed in as `files_dir`);
 //! - FR-VLT-01 AC-24: `vaultfind::find_vaults(root)` (RA6);
 //! - FR-VLT-01 AC-25, L1 part: `vaultfind::resolve_typed_path(input, shared_root, private_root, need_vault)` (RA4);
@@ -80,10 +80,10 @@ fn listing(root: &Path) -> BTreeSet<String> {
     out
 }
 
-// ------------------------------------------------------------------------------------------------ FR-STO-07 AC-15
+// ------------------------------------------------------------------------------------------------ FR-STO-07 AC-16
 
 #[test]
-fn fr_sto_07_ac15_app_dirs_from_the_platform() {
+fn fr_sto_07_ac16_app_dirs_from_the_platform() {
     let mac = |preview: bool, test: bool, app_support: Option<&str>| Platform::MacOs {
         home: PathBuf::from("/Users/t"),
         preview,

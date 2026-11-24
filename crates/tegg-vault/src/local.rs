@@ -362,7 +362,7 @@ pub fn fs_change_of(ev: &notify::Event, base: &Path) -> Option<FsChange> {
     (!paths.is_empty()).then_some(FsChange::Paths(paths))
 }
 
-/// docs/contracts/android-shell.md §3.2 (FR-FMT-12 AC-15, D-2029): the on-disk entry of a folder listing for one NFC
+/// docs/contracts/android-shell.md §3.2 (FR-FMT-12 AC-16, D-2029): the on-disk entry of a folder listing for one NFC
 /// path component.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OnDiskName {

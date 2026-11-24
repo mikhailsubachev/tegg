@@ -504,7 +504,7 @@ export const en: Catalog = {
   'chooser.android.notAVault': "This folder isn't a Tegg vault.",
   'chooser.android.notAVaultHint': 'Open a folder that holds .tegg/vault.yml, or create a new vault.',
   'chooser.android.failed': 'Tegg couldn’t open the vault at {path}.',
-  // Slice AND-2 (android-phone §11, RA13; NFR-OTH-02 AC-24).
+  // Slice AND-2 (android-phone §11, RA13; NFR-OTH-02 AC-25).
   'phone.menu': 'Menu',
   'phone.search': 'Search',
   'phone.new': 'New',

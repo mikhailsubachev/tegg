@@ -1,6 +1,6 @@
 // Slice AND-2, L5p (projects `phone-webkit`, `phone-chromium`): docs/acceptance/android-phone.md RA11 (type and query
 // pages, views read-only, D-2006):
-// - FR-TYP-09 AC-37 (`All Books`), FR-QRY-07 AC-32 (tabs as chips), FR-QRY-05 AC-30…AC-33 (Table, List, vertical and
+// - FR-TYP-09 AC-37 (`All Books`), FR-QRY-07 AC-32 (tabs as chips), FR-QRY-05 AC-32…AC-35 (Table, List, vertical and
 //   horizontal boards), FR-QRY-06 AC-26…AC-28 (the Queries page, a query page, query blocks), FR-QRY-09 AC-9 (live
 //   views), FR-TSK-04 AC-30 (`type/task` with its views).
 // Contract docs/contracts/android-phone.md §4.3 (the view-only line), §9.5, §9.6, §14.1. Fixtures: views/ + phone/,
@@ -146,9 +146,9 @@ test('fr_qry_07_ac32_view_tabs_on_the_phone', async ({ browser }) => {
   await page.close();
 });
 
-// ------------------------------------------------------------------------------------------------ FR-QRY-05 AC-30
+// ------------------------------------------------------------------------------------------------ FR-QRY-05 AC-34
 
-test('fr_qry_05_ac30_table_read_only_on_the_phone', async ({ browser }) => {
+test('fr_qry_05_ac34_table_read_only_on_the_phone', async ({ browser }) => {
   let page = await phonePage(browser);
   const core = await startPhone(page, { route: 'type/book' });
   const before = await fileStateOf(core);
@@ -180,9 +180,9 @@ test('fr_qry_05_ac30_table_read_only_on_the_phone', async ({ browser }) => {
   await page.close();
 });
 
-// ------------------------------------------------------------------------------------------------ FR-QRY-05 AC-31
+// ------------------------------------------------------------------------------------------------ FR-QRY-05 AC-35
 
-test('fr_qry_05_ac31_list_on_the_phone', async ({ page, browser }) => {
+test('fr_qry_05_ac35_list_on_the_phone', async ({ page, browser }) => {
   const route = 'query/Seskupeno podle data';
   const { page: desk, context } = await desktopPage(browser);
   await startDesktop(desk, { route });

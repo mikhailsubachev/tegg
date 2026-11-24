@@ -3,13 +3,13 @@
 **Status: accepted, 2026-11-22** (owner: "Accept all"; CP-1…CP-16 → D-2201…D-2216).
 
 Public interfaces of slice AND-2, for the test author (D-61) and the build. ACs: `docs/acceptance/android-phone.md`
-(approved; RA8…RA13; FR-UX-04 AC-1…AC-7, FR-NAV-04 AC-13…AC-15, FR-NAV-03 AC-17…AC-19, FR-UX-03 AC-54, AR-03 AC-13,
+(approved; RA8…RA13; FR-UX-04 AC-1…AC-7, FR-NAV-04 AC-13…AC-15, FR-NAV-03 AC-17…AC-19, FR-UX-03 AC-56, AR-03 AC-13,
 AC-14, FR-UX-01 AC-8, FR-VLT-01 AC-29, FR-HOM-04 AC-1, FR-HOM-02 AC-32, FR-INB-01 AC-14…AC-16, FR-DLY-01 AC-13, FR-DLY-03
-AC-8, FR-TYP-09 AC-37, FR-QRY-07 AC-32, FR-QRY-05 AC-30…AC-33, FR-QRY-06 AC-26…AC-28, FR-QRY-09 AC-9, FR-TSK-04 AC-30,
-FR-TAG-07 AC-7, FR-TAG-06 AC-14, FR-EDT-10 AC-10, AC-11, FR-EDT-02 AC-26, FR-EDT-07 AC-22, FR-ATT-01 AC-17, FR-NAV-08 AC-3,
+AC-8, FR-TYP-09 AC-37, FR-QRY-07 AC-32, FR-QRY-05 AC-32…AC-35, FR-QRY-06 AC-26…AC-28, FR-QRY-09 AC-9, FR-TSK-04 AC-30,
+FR-TAG-07 AC-7, FR-TAG-06 AC-14, FR-EDT-10 AC-10, AC-11, FR-EDT-02 AC-26, FR-EDT-07 AC-23, FR-ATT-01 AC-17, FR-NAV-08 AC-3,
 FR-MMP-02 AC-32…AC-36, FR-SRC-03 AC-22, FR-NAV-01 AC-24, FR-SYN-04 AC-13, FR-SET-01 AC-14, FR-SET-02 AC-11, AC-12, FR-UX-05
-AC-26, FR-UX-08 AC-26, AC-27, NFR-OTH-02 AC-24, FR-UX-06 AC-1, FR-UX-07 AC-18, FR-SYN-06 AC-51, AC-52, FR-SYN-03 AC-35,
-AC-36, NFR-SEC-01 AC-4, NFR-PERF-05 AC-6). Decisions: D-2000…D-2012 (plan `docs/plans/android-mvp-plan.md`), D-2172…D-2200
+AC-27, FR-UX-08 AC-27, AC-28, NFR-OTH-02 AC-25, FR-UX-06 AC-1, FR-UX-07 AC-18, FR-SYN-06 AC-52, AC-54, FR-SYN-03 AC-36,
+AC-38, NFR-SEC-01 AC-4, NFR-PERF-05 AC-6). Decisions: D-2000…D-2012 (plan `docs/plans/android-mvp-plan.md`), D-2172…D-2200
 (the ACs' AP-2036…AP-2064, in order). Builds on [android-shell.md](android-shell.md) (AND-1: start flow, RA2, the plugin,
 `test-env.json`, the LA harness). Precedents: [ms3-shell.md](ms3-shell.md) (frame, history, test environment),
 [v1-views.md](v1-views.md) (views, usages), [mm-mindmap.md](mm-mindmap.md) (the map).
@@ -147,7 +147,7 @@ export function blockHeight(layoutHeight: number, s: number): number;           
 export function scrollAfterZoom(scroll: { left: number; top: number }, centre: { x: number; y: number }, s0: number, s1: number): { left: number; top: number };
 ```
 
-### 4.3 The view-only line (FR-TYP-09 AC-37, FR-QRY-05 AC-30, D-2196)
+### 4.3 The view-only line (FR-TYP-09 AC-37, FR-QRY-05 AC-34, D-2196)
 
 ```ts
 export function phoneSortLine(sort: readonly SortDto[], type: TypeDto | null | undefined): string;
@@ -171,7 +171,7 @@ pub fn open_url_allowed(url: &str) -> bool              // app/src-tauri/src/pho
 True exactly when the trimmed URL parses and its scheme, case-insensitive, is `http`, `https`, `mailto` or `tel`
 (`javascript:`, `file:`, `data:`, `content:`, `intent:`, relative and empty → false). Both have the same table test.
 
-### 4.5 The Properties strip (FR-EDT-07 AC-22, D-2185)
+### 4.5 The Properties strip (FR-EDT-07 AC-23, D-2185)
 
 ```ts
 export function stripRows(rows: readonly PanelRow[], preview: readonly string[]): { strip: PanelRow[]; more: number };
@@ -359,7 +359,7 @@ stays selectable.
 While `keyboard` is true the bottom bar is not rendered and the focused field is scrolled into view (`scrollIntoView({
 block: 'nearest' })` after each viewport resize). The chooser's and the New vault form's fields work the same way.
 
-### 8.7 Theme (FR-SET-02 AC-11, AC-12; FR-UX-05 AC-26)
+### 8.7 Theme (FR-SET-02 AC-11, AC-12; FR-UX-05 AC-27)
 
 `theme/apply.ts` gains `setSystemDark(dark: boolean | null)`. On Android the frame feeds it `nativeState().systemDark`;
 with choice `system` the theme is dark exactly when it is `true` (with `null`, the media query as today). After every
@@ -377,7 +377,7 @@ is `ReadView` as on the desktop. `More actions` opens the menu `More actions` wi
 view is the existing `SourceView`. Hidden: title and property editing, the review toggle, `Page width`, `Open in
 Preview`, `Reveal in Finder`, the Create offer. `note-ready` is marked once the read view's body has painted.
 
-### 9.2 Properties strip and sheet (FR-EDT-07 AC-22; CP-14)
+### 9.2 Properties strip and sheet (FR-EDT-07 AC-23; CP-14)
 
 Below the app bar, first in `main`: `div[role="group"][aria-label="Properties"].phone-strip` with `stripRows`' rows
 (each `label` + value) and `button "+<n> properties"` (`phone.properties`). The sheet `Properties` lists every row of
@@ -414,7 +414,7 @@ list style, checkboxes `disabled`. Scale and view are session state per block (D
 or the vault. Hidden: `Mindmap layout`, `Edit node`; `MindmapMap` is `readOnly` with no `onNode`. Each zoom step writes
 `perf_mark('mindmap-zoom', frame, ms)` (§11).
 
-### 9.5 Type pages and views (FR-TYP-09 AC-37, FR-QRY-07 AC-32, FR-QRY-05 AC-30…AC-33, FR-TSK-04 AC-30, FR-QRY-09 AC-9)
+### 9.5 Type pages and views (FR-TYP-09 AC-37, FR-QRY-07 AC-32, FR-QRY-05 AC-32…AC-35, FR-TSK-04 AC-30, FR-QRY-09 AC-9)
 
 `TypePage`, `TypeViews`, `ViewPanel`, `ResultsTable`, `QueryBoard` take `readOnly` from `isPhone()`:
 - The header: `h1 <plural>` (app bar), the count line, and `p.phone-sort-line` with `phoneSortLine` under the tabs.
@@ -478,7 +478,7 @@ The desktop's texts; a create or write button is never rendered on the phone (`N
 - No `nav "Settings sections"` of the desktop, no Shortcuts, Menu bar, Trash and history, Previews, Backups, Page
   width, outline or Sync.
 
-## 10. The command registry on the phone (FR-UX-03 AC-54, AR-03 AC-13; D-2177)
+## 10. The command registry on the phone (FR-UX-03 AC-56, AR-03 AC-13; D-2177)
 
 On the phone `commands(ctx)` returns `phoneCommands(desktopList)`: the desktop list minus `PHONE_HIDDEN_COMMANDS`,
 plus the phone's own commands. Every phone control carries a registered `data-command` (FR-UX-03 AC-8), except text
@@ -496,7 +496,7 @@ inputs and rows of object lists; running the command does what the tap does.
 `sidebar.pinned.toggle`, board folds). `mindmap.showMap` and `mindmap.showList` are the phone's own (the control's tap;
 the desktop's act on the editor, D-2245).
 
-Controls inside a note's content (D-2246, FR-UX-03 AC-55): the edit-only ones are not rendered on the phone (a note
+Controls inside a note's content (D-2246, FR-UX-03 AC-57): the edit-only ones are not rendered on the phone (a note
 embed's `Display as`; a task embed's status, priority and due buttons, whose values show as text). The others carry
 per-control commands, registered while their page is shown, each running its control's tap through `actions.phone(id)`:
 - `read.fold:<n>`: the n-th fold button (a foldable callout or mindmap) of the shown note, from 1 in document order;
@@ -505,7 +505,7 @@ per-control commands, registered while their page is shown, each running its con
   as `data-path`), and `board.openSource:<path>`: its source chip (D-2247); both exceptions inside `board.*`.
 
 View-only task checkboxes (`aria-disabled`, on boards, table rows, task embeds) carry no `data-command` on the phone
-(no `task.complete`); FR-UX-03 AC-54 and AC-55 exempt them (D-2247).
+(no `task.complete`); FR-UX-03 AC-56 and AC-57 exempt them (D-2247).
 
 `PHONE_HIDDEN_COMMANDS` (exact ids; prefixes end in `*`): `app.palette`, `help.shortcuts`, `nav.forward`,
 `view.toggleSidebar`, `view.toggleRightPanel`, `view.toggleFocus`, `note.toggleProperties`, `note.width.*`, `edit.*`,
@@ -520,13 +520,14 @@ View-only task checkboxes (`aria-disabled`, on boards, table rows, task embeds) 
 `goto.settings/menu-bar`, `goto.settings/trash-history`, `goto.settings/previews`, `settings.backups`, `job.*`,
 `capture.*`, `import.open`, `inbox.*` except `inbox.open`, `duplicates.merge`, `vault.open`, `vault.addStarterTypes`,
 `app.about`, and every R3 control command (`nav.newTab`, `edit.copyBlockLink`, `typeSettings.*`,
-`panel.editRecurrence`, `settings.font`, `settings.fontSize`, `settings.accentColor`, `settings.changeShortcut`).
+`panel.editRecurrence`, `settings.font`, `settings.fontSize`, `settings.accentColor`, `settings.changeShortcut`, `card.edit`
+(slice OC's command that opens type settings, D-2252).
 
 The AR-03 AC-13 L1 test: for a context on each RA9 route (Node, `__TEGG_PLATFORM__ = 'android'`), the ids contain every
 frame command available there, none of `PHONE_HIDDEN_COMMANDS`, and none whose `run` reaches an `ANDROID_EXCLUDED`
 command or a `PHONE_NOT_OFFERED` route. Palette keys (⌘K, Ctrl+K, ⇧⌘P) do nothing on the phone.
 
-## 11. Strings (RA13; NFR-OTH-02 AC-24)
+## 11. Strings (RA13; NFR-OTH-02 AC-25)
 
 All in `app/ui/src/i18n/catalog.ts`; no literal in `app/ui/src/phone/`. RA13's keys with their texts, plus:
 `phone.sortLineJoin` `{sort} · {viewOnly}` (CP-11); `phone.moreProperties` as a plural message
@@ -632,14 +633,14 @@ files: `android_phone.ac.test.ts`, `android_phone_sync.ac.test.ts`, `nightly_and
 | CP-4 | **A second new command.** The status-bar icons must follow the chosen theme, which only the page knows (FR-SET-02 AC-12). | `android_window { dark } → WindowStateDto` (§2.2); RA2 and AR-03 AC-9's test gain it with `android_open_url`, under the same `AC-Test-Change`. | Bars follow the system's night mode only (fails AC-12's Light-in-night case) | §2, FR-SET-02 AC-12 |
 | CP-5 | **Where the task-views migration is stopped (D-2180).** | The shell calls it only on the desktop, and the core answers `TaskViewsMigration::Off` with `bulk_jobs: false` (L4-testable, §3). | A new `OpenExtras { task_views }` field | §3, FR-SYN-06 AC-52 |
 | CP-6 | **AND-1's tests meet the phone layout.** AND-1's L5 tests run `'android'` at 1440 × 900 and expect the desktop frame (sidebar, palette, `Title`, the `alert`); its LA tests wait for `nav[aria-label="Sidebar"]` as "the vault is open" and read the version there. D-2188 gives Android the phone layout. | One `AC-Test-Change`: AND-1's L5 tests set `__TEGG_LAYOUT__ = 'desktop'` (they test the client and the start flow); its LA tests use `nav[aria-label="Main"]` as "the vault is open" and read the version button in the drawer (FR-UX-01 AC-8). | Rewrite AND-1's L5 tests for the phone frame as well | `app/webkit/android_shell.ac.test.ts`, `app/e2e-android/android_shell.ac.test.ts`, `android_watcher.ac.test.ts` |
-| CP-7 | **The drawer and the bottom bar.** FR-NAV-04 AC-14 has the page `inert` behind the drawer and also "`Menu` again" closing it. | The drawer and scrim cover the bottom bar; "`Menu` again" is a tap where `Menu` is, which lands on the scrim and closes; the command `phone.menu` toggles (§8.3). | The bottom bar stays above the scrim and active while the drawer is open | §8.3, FR-NAV-04 AC-14, FR-UX-08 AC-26 |
+| CP-7 | **The drawer and the bottom bar.** FR-NAV-04 AC-14 has the page `inert` behind the drawer and also "`Menu` again" closing it. | The drawer and scrim cover the bottom bar; "`Menu` again" is a tap where `Menu` is, which lands on the scrim and closes; the command `phone.menu` toggles (§8.3). | The bottom bar stays above the scrim and active while the drawer is open | §8.3, FR-NAV-04 AC-14, FR-UX-08 AC-28 |
 | CP-8 | **The drawer's first focus.** "its first entry": the vault switcher is first in RA10, but RA10 calls the rows below it "Entries". | Focus on `Inbox`. | The vault switcher | §8.3, FR-NAV-04 AC-14 |
 | CP-9 | **Routes RA9 doesn't list.** `broken-links` and `duplicate-titles` are palette-only desktop routes (D-284) and appear in neither RA9 list. | Not offered on the phone (`PHONE_NOT_OFFERED`). | Offered read-only, reached from nowhere | §7, AR-03 AC-13 |
 | CP-10 | **`More actions` on daily routes.** RA8 says "note pages only"; a day with a file is a note in the read view. | Shown on `note/<path>` and on a daily route with a file; not on a virtual day. | `note/<path>` only | §8.2, §9.1 |
 | CP-11 | **Small string choices.** RA13 joins the sort line and the view-only note with a literal ` · `; `Tegg {version} · Android` doesn't say which version text. | A catalog key `phone.sortLineJoin` `{sort} · {viewOnly}`; `{version}` is the version button's label (`dev`, `v0.5.0`). | Literal separator in code; the bare `0.5.0` | §4.3, §9.10, §11 |
 | CP-12 | **Repeated reading marks.** `note-ready` and `route-ready:*` are written once per process; AC-6 wants p95 over 20 opens. AC-6 also names `route-ready:type`, while the existing mark is `route-ready:type/page`. | On Android they repeat, with a new `nav-start:<route>` mark for durations; the type mark keeps its name `route-ready:type/page`. | 20 cold starts; or rename the mark | §12.3, NFR-PERF-05 AC-6 |
 | CP-13 | **A client-side write guard.** | None: phone controls that write are hidden or disabled, and tests see any attempt in the fake core / IPC log. | The client refuses `WRITE_COMMANDS` on the phone layout (hides attempts from the tests) | §2.3 |
-| CP-14 | **What the Properties sheet shows.** FR-EDT-07 AC-22 compares with "the attribute panel", whose read-only mode (`editable: false`) shows raw text without chips, while AC-22 taps a relation chip. | Rows and order from `panelRows`; values rendered by the read view's `PropertyRows` cells (chips); the test compares labels, order and visible value text with the desktop panel (§9.2). | `AttributePanel` with `editable: false` (no chips) | §4.5, §9.2 |
+| CP-14 | **What the Properties sheet shows.** FR-EDT-07 AC-23 compares with "the attribute panel", whose read-only mode (`editable: false`) shows raw text without chips, while AC-22 taps a relation chip. | Rows and order from `panelRows`; values rendered by the read view's `PropertyRows` cells (chips); the test compares labels, order and visible value text with the desktop panel (§9.2). | `AttributePanel` with `editable: false` (no chips) | §4.5, §9.2 |
 | CP-15 | **Phone regressions in Playwright.** | `bug_<issue>_<req-id>_…_phone.test.ts` run in the two phone projects only (§13.2). | A `phone/` subfolder | §13.2 |
 | CP-16 | **The system font size.** `font_scale` isn't in `configChanges`, so a change would recreate the activity and its WebView (Tauri doesn't restore one), and the WebView's text zoom doesn't follow it by itself. | `configChanges` gains `fontScale\|density`; the plugin sets `textZoom` from `fontScale` (§5.4, §5.6). | Let the activity restart (the app reloads) | §5.4, §5.6, FR-UX-08 AC-27 |
 

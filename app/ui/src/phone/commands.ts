@@ -1,4 +1,4 @@
-// Slice AND-2 (docs/contracts/android-phone.md §10; FR-UX-03 AC-54, AR-03 AC-13, D-2177): the command registry on the
+// Slice AND-2 (docs/contracts/android-phone.md §10; FR-UX-03 AC-56, AR-03 AC-13, D-2177): the command registry on the
 // phone. The phone has no palette; every control still runs a registered command, and none of RA11's hidden commands
 // is listed.
 import type { Command, ShellContext } from '../shell/commands';
@@ -31,6 +31,8 @@ export const PHONE_HIDDEN_COMMANDS: readonly string[] = [
   'settings.backups', 'job.*', 'capture.*', 'import.open', 'inbox.*', 'duplicates.merge', 'vault.open',
   'vault.addStarterTypes', 'app.about', 'nav.newTab', 'edit.copyBlockLink', 'typeSettings.*', 'panel.editRecurrence',
   'settings.font', 'settings.fontSize', 'settings.accentColor', 'settings.changeShortcut',
+  // Slice OC's card command that opens type settings, a route the phone doesn't offer (D-2252).
+  'card.edit',
 ];
 
 /** Exceptions inside hidden prefixes: `inbox.open` and the board's folds stay (§10). */
@@ -67,7 +69,7 @@ function own(ctx: ShellContext): Command[] {
     { id: 'mindmap.fit', title: 'cmd.mindmap.fit', section: 'view', needsVault: true, run: p('mindmap.fit') },
     { id: 'mindmap.fullScreen', title: 'cmd.mindmap.fullScreen', section: 'view', needsVault: true, run: p('mindmap.fullScreen') },
     { id: 'mindmap.closeFullScreen', title: 'cmd.mindmap.closeFullScreen', section: 'view', needsVault: true, run: p('mindmap.closeFullScreen') },
-    // Kept page controls (§10, FR-UX-03 AC-54): All tags' sort, the tag page's breadcrumb, sort and grouping, Search's
+    // Kept page controls (§10, FR-UX-03 AC-56): All tags' sort, the tag page's breadcrumb, sort and grouping, Search's
     // Type filter; each runs the control it is on.
     { id: 'tagsPage.c4', title: 'tag.sortMenu', section: 'view', needsVault: true, run: p('tagsPage.c4') },
     { id: 'tagPage.c12', title: 'tag.breadcrumbAll', section: 'navigate', needsVault: true, run: p('tagPage.c12') },
@@ -95,7 +97,7 @@ function own(ctx: ShellContext): Command[] {
 
 /** The desktop list minus the hidden commands and routes not offered, plus the phone's own commands. */
 /** Desktop commands whose action needs the editor, which the phone's read view doesn't have: the phone's own command of
- *  the same id (its control's tap) replaces them (FR-UX-03 AC-54, D-2219; QA review of AND-2). */
+ *  the same id (its control's tap) replaces them (FR-UX-03 AC-56, D-2219; QA review of AND-2). */
 const PHONE_REPLACES = new Set(['mindmap.showMap', 'mindmap.showList']);
 
 export function phoneCommands(list: readonly Command[], ctx: ShellContext = { vault: null, types: [], counts: {} }): Command[] {

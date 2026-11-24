@@ -1,6 +1,6 @@
 // Slice AND-2, LA (the test APK on the emulator; contract docs/contracts/android-phone.md §2.3, §3, §12.1, §14.2):
-// docs/acceptance/android-phone.md FR-SYN-06 AC-51 (a reading tour leaves the vault untouched; T1), AC-52 (no task-views
-// migration on Android; T1), FR-SYN-03 AC-35 (the sync app's changes reach every page; T2), AC-36 (a partly synced
+// docs/acceptance/android-phone.md FR-SYN-06 AC-54 (a reading tour leaves the vault untouched; T1), AC-52 (no task-views
+// migration on Android; T1), FR-SYN-03 AC-38 (the sync app's changes reach every page; T2), AC-36 (a partly synced
 // vault; T2).
 // Changes "from the sync app" are made with `adb shell`: a temporary file beside the target, then `mv`. "Untouched" is
 // AND-1's `fileState` (SHA-256, size, inode, mtime, no file created); "zero writes" is the IPC log (§12.1) without a
@@ -44,9 +44,9 @@ async function drawerGo(v: WebView, cmd: string) {
 }
 const privateListing = () => runAs(TEST_ID, 'cd files && find . -type f | sort', false);
 
-// ------------------------------------------------------------------------------------------------ FR-SYN-06 AC-51
+// ------------------------------------------------------------------------------------------------ FR-SYN-06 AC-54
 
-test('fr_syn_06_ac51_reading_on_the_phone_writes_nothing', async () => {
+test('fr_syn_06_ac54_reading_on_the_phone_writes_nothing', async () => {
   ready();
   const vault = pushPhone();
   const before = fileState(vault);
@@ -149,9 +149,9 @@ test('fr_syn_06_ac52_no_task_views_migration_on_android', async () => {
   assert.deepEqual(ipcWrites(), [], 'no write by Tegg');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-SYN-03 AC-35
+// ------------------------------------------------------------------------------------------------ FR-SYN-03 AC-38
 
-test('fr_syn_03_ac35_external_changes_on_the_phone', async () => {
+test('fr_syn_03_ac38_external_changes_on_the_phone', async () => {
   ready();
   const vault = pushPhone();
   const { v } = await launchPhone(vault, { TEGG_ROUTE: 'note/Pages/Dlouhá poznámka.md' }, views);

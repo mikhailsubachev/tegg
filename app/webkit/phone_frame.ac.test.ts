@@ -3,7 +3,7 @@
 // - FR-UX-04 AC-1 (L5p part: every RA9 route at 360 × 800, 412 × 915 and 915 × 412 has `data-layout="phone"` and RA8's
 //   frame, no desktop chrome), AC-2 (the frame), AC-3 (L5p: injected insets), AC-4 (L5p: the keyboard's emulation),
 //   AC-5 (touch targets), AC-6 (no sideways page scroll), AC-7 (L5p: the viewport turned to landscape and back);
-// - FR-UX-07 AC-18 (the indexing line under the app bar), FR-UX-08 AC-26 (L5p: modal drawer and sheet, names).
+// - FR-UX-07 AC-18 (the indexing line under the app bar), FR-UX-08 AC-28 (L5p: modal drawer and sheet, names).
 // Contract docs/contracts/android-phone.md §8 (DOM), §12.2 (hooks), §14.1 (harness ./phone-helpers.ts).
 // Red-test readings (reported): every route of RA9 is opened by a fresh start with `__TEGG_ROUTE__` (the phone has no
 // palette to `go` with); `today` is today's virtual daily route; the note route is Mapa výletu; "a sheet and a menu"
@@ -350,9 +350,9 @@ test('fr_ux_07_ac18_indexing_status_on_the_phone', async ({ page }) => {
   assert.equal(gone, 0, 'the line disappears within 1 s of done');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-UX-08 AC-26 (L5p)
+// ------------------------------------------------------------------------------------------------ FR-UX-08 AC-28 (L5p)
 
-test('fr_ux_08_ac26_talkback_reads_the_frame', async ({ page }) => {
+test('fr_ux_08_ac28_talkback_reads_the_frame', async ({ page }) => {
   await startPhone(page, { route: 'inbox' });
   const names = await bottomBar(page).getByRole('button').evaluateAll((bs) => bs.map((b) => ({ name: (b.getAttribute('aria-label') ?? (b as HTMLElement).innerText).trim(), disabled: b.getAttribute('aria-disabled') })));
   assert.deepEqual(names.map((n) => n.name), ['Menu', 'Search', 'New', 'Today'], 'the bottom bar reads Menu, Search, New, Today');

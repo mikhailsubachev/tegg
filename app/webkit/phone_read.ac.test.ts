@@ -1,6 +1,6 @@
 // Slice AND-2, L5p (projects `phone-webkit`, `phone-chromium`): docs/acceptance/android-phone.md, reading a note:
 // - FR-EDT-10 AC-10 (a note is the read view), AC-11 (links by tap);
-// - FR-EDT-02 AC-26 (wide blocks scroll in their own box), FR-EDT-07 AC-22 (the Properties strip and sheet);
+// - FR-EDT-02 AC-26 (wide blocks scroll in their own box), FR-EDT-07 AC-23 (the Properties strip and sheet);
 // - FR-ATT-01 AC-17 (L5p: media), FR-NAV-08 AC-3 (L5p: no previews), FR-SYN-03 AC-36 (L5p: a partly synced vault).
 // Contract docs/contracts/android-phone.md §4.5 (stripRows), §9.1…§9.3, §9.8, §14.1. Fixtures: views/ + phone/,
 // read-view/, trash-media/.
@@ -145,7 +145,7 @@ test('fr_edt_02_ac26_wide_blocks_on_the_phone', async ({ browser }) => {
   await page.close();
 });
 
-// ------------------------------------------------------------------------------------------------ FR-EDT-07 AC-22
+// ------------------------------------------------------------------------------------------------ FR-EDT-07 AC-23
 
 const strip = (page: Page) => main(page).locator('div.phone-strip[role="group"][aria-label="Properties"]');
 async function sheetRows(page: Page): Promise<{ label: string; value: string }[]> {
@@ -194,7 +194,7 @@ async function checkSheet(page: Page, deskText: string, how: string) {
   return rows;
 }
 
-test('fr_edt_07_ac22_properties_strip_and_sheet', async ({ browser }) => {
+test('fr_edt_07_ac23_properties_strip_and_sheet', async ({ browser }) => {
   const page = await phonePage(browser);
   const core = await startPhone(page, { route: `note/${B('Mapa bez severu')}` });
   const before = await fileStateOf(core);

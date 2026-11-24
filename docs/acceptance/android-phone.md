@@ -30,12 +30,12 @@ Reference tables RA8…RA13 continue AND-1's RA1…RA7.
 - **Phone performance targets** (D-2010): AND-2 reports numbers and bounds defects only (NFR-PERF-05 AC-6, AP-2062).
 
 **Risk tiers** (test-strategy §3).
-- **T1, data loss.** A write while reading on a partly synced vault: a tap on a checkbox, a fold, a view tab, the task-views migration (FR-SYN-06 AC-51, AC-52; FR-MMP-02 AC-36).
+- **T1, data loss.** A write while reading on a partly synced vault: a tap on a checkbox, a fold, a view tab, the task-views migration (FR-SYN-06 AC-52, AC-54; FR-MMP-02 AC-36).
 - **T2, silently wrong data.**
-  - A view shown with a different sort, filter or grouping than the saved one, or a lane missing (FR-QRY-05 AC-30…AC-33, FR-TSK-04 AC-30).
+  - A view shown with a different sort, filter or grouping than the saved one, or a lane missing (FR-QRY-05 AC-32…AC-35, FR-TSK-04 AC-30).
   - Inbox groups or dates in the wrong zone or in relative words that hide the date (FR-INB-01 AC-14).
   - A link to a note that hasn't synced yet shown as resolved to something else, or a missing object shown as an empty page (FR-SYN-03 AC-36).
-  - A list or count that doesn't follow the sync app's changes (FR-SYN-03 AC-35, FR-NAV-04 AC-15, FR-QRY-09 AC-9).
+  - A list or count that doesn't follow the sync app's changes (FR-SYN-03 AC-38, FR-NAV-04 AC-15, FR-QRY-09 AC-9).
   - A mindmap drawn with missing nodes (FR-MMP-02 AC-32).
 
   These criteria are marked **(T1)** or **(T2)**. The rest is T3/T4.
@@ -80,7 +80,7 @@ The layout is chosen by `layoutFor({ platform, width })`: `'phone'` for `android
 | Content | `main` | The only vertical scroller. Text is at least 16 px from the left and right edges of the viewport; elements that scroll sideways (tables, lanes, code, the map area) may reach the edges |
 | Bottom bar | `navigation` `Main` | Above the navigation-bar inset. Four `button`s in this order, each an icon with a visible label: `Menu` (`aria-haspopup="dialog"`, opens RA10), `Search` (→ `search`), `New` (`aria-disabled="true"`, description `phone.newLater`, AP-2037), `Today` (→ `daily/<today>`). `aria-current="page"` on `Search` on `search` and on `Today` on today's daily route. Shown on every route of RA9, also on notes; hidden while the on-screen keyboard is shown and while a full-screen map is open (AP-2037) |
 | Drawer | `dialog` `Navigation`, `aria-modal="true"` | RA10 |
-| Sheet | `dialog` named by its title, `aria-modal="true"` | A bottom sheet (the properties sheet, FR-EDT-07 AC-22); a tap on the scrim, `Close` or Back closes it |
+| Sheet | `dialog` named by its title, `aria-modal="true"` | A bottom sheet (the properties sheet, FR-EDT-07 AC-23); a tap on the scrim, `Close` or Back closes it |
 | Notice | `status` (polite) | Non-modal, above the bottom bar, 4 s: the broken-link notice (FR-EDT-10 AC-11), `error.unsupported` |
 | Indexing | `status` `Indexing progress` | Directly below the app bar while the core indexes (FR-UX-07 AC-18) |
 | Absent | | The title bar and its tab strip, `New tab`, the title-bar `Back` / `Forward`, the sidebar's `New object` / `Search` row, the right panel and its toggle, focus mode, the outline rail, the command palette (AP-2041), object previews (FR-NAV-08 AC-3), every R3 "Coming in" control |
@@ -244,20 +244,20 @@ Proposals for the contract:
 
 ### FR-UX-03 Commands on the phone (adds to AC-1…AC-53)
 
-- **AC-54** **Every control is a command, without a palette (AP-2041).** With `'android'`:
+- **AC-56** **Every control is a command, without a palette (AP-2041).** With `'android'`:
   - no element `Command palette` opens on any route, from ⌘K, Ctrl+K or ⌘⇧P (a hardware keyboard emulated by Playwright);
   - FR-UX-03 AC-8's rule holds on every route of RA9 at 412 × 915, with the drawer, a sheet and each menu open: every button, link, tab, menu item, checkbox, radio and switch carries the `data-command` of a registered command, except text inputs, the rows of object lists, links in a note's text, and view-only task checkboxes anywhere (`aria-disabled`; D-2230, D-2233, D-2247), which carry no hidden command either;
   - every command a phone control carries runs from the registry with the same effect as the tap (data-driven over those commands).
 
-  *(L5p)* Test: `fr_ux_03_ac54_commands_without_a_palette`
-- **AC-55** **Controls inside a note's content (D-2246; QA review of AND-2).** With `'android'` at 412 × 915, on the vault `tasks/` + `new-empty/.tegg/` + `views-tasks/` + the overlay `phone-content/` at the tasks clock:
+  *(L5p)* Test: `fr_ux_03_ac56_commands_without_a_palette`
+- **AC-57** **Controls inside a note's content (D-2246; QA review of AND-2).** With `'android'` at 412 × 915, on the vault `tasks/` + `new-empty/.tegg/` + `views-tasks/` + the overlay `phone-content/` at the tasks clock:
   - On `note/Pages/Vložené.md` no `Display as` control is rendered, and the task embed `Opravit kolo` has no status, priority or due button: its status `In progress` shows as text, and its checkbox is drawn `aria-disabled` (as RA11).
   - The callout's fold button carries `read.fold:1` and the mindmap's `read.fold:2`; every control of the note embed `Vložená stránka` that opens it (its chip, `Open Vložená stránka`) carries `read.openEmbed:1`, and those of the task embed `read.openEmbed:2` (numbers count from 1 in document order on the page).
-  - AC-54's second part holds on this note and on `type/task` with each of its tabs open (`All Tasks`, `Schedule`, `Kanban`, `Čeká na ostatní`), none of the commands is in RA11's hidden list, and every control of a board task card that opens its task (its title, the card) carries `board.openCard:<path>` and its source chip `board.openSource:<path>` (D-2247).
+  - AC-56's second part holds on this note and on `type/task` with each of its tabs open (`All Tasks`, `Schedule`, `Kanban`, `Čeká na ostatní`), none of the commands is in RA11's hidden list, and every control of a board task card that opens its task (its title, the card) carries `board.openCard:<path>` and its source chip `board.openSource:<path>` (D-2247).
   - Running a command by id has the tap's effect, also inside the page: `read.fold:1` flips the callout's `aria-expanded` and shows `Skrytý text tipu.`; `read.fold:2` shows the map `Složená mapa`; `read.openEmbed:1` opens `note/Pages/Vložená stránka.md`; on the `Kanban` tab `board.openCard:Tasks/Opravit kolo.md` opens `note/Tasks/Opravit kolo.md`; on `note/Pages/Mapa výletu.md` (the `phone/` vault) `mindmap.showList` shows the list and `mindmap.showMap` the map again (the pressed one of `Map` / `List`).
   - Zero writes.
 
-  *(L5p)* Test: `fr_ux_03_ac55_content_controls_on_the_phone`
+  *(L5p)* Test: `fr_ux_03_ac57_content_controls_on_the_phone`
 
 ### AR-03 The phone UI on the platform layer (adds to AC-1…AC-12)
 
@@ -349,13 +349,13 @@ Proposals for the contract:
 
 ### FR-QRY-05 List, Table and Board on the phone (adds to AC-1…AC-29)
 
-- **AC-30** **Table, as saved (T2).** `Přečtené 2026` shows R193's 8 rows in order, the headers `Title ↑³`, `Author`, `Rating ↑²`, `Finished ↓¹`, and the line `Finished: Newest first +2 · View only on the phone`.
+- **AC-34** **Table, as saved (T2).** `Přečtené 2026` shows R193's 8 rows in order, the headers `Title ↑³`, `Author`, `Rating ↑²`, `Finished ↓¹`, and the line `Finished: Newest first +2 · View only on the phone`.
   - The table scrolls sideways inside its container with Title sticky (as FR-TYP-09 AC-37).
   - There are no resize separators; a tap or long press on a header changes nothing; a tap on a row opens it.
   - (C) With `en-US`, Čarovná mapa comes before Cizí přístavy.
 
-  *(L5p)* Test: `fr_qry_05_ac30_table_read_only_on_the_phone`
-- **AC-31** **List.** `query/Seskupeno podle data` shows its 17 books by title (R193), each a row of at least 56 px, below the notice `The setting group_by can't be read, so its default is used.` A tap opens the book. *(L5p)* Test: `fr_qry_05_ac31_list_on_the_phone`
+  *(L5p)* Test: `fr_qry_05_ac34_table_read_only_on_the_phone`
+- **AC-35** **List.** `query/Seskupeno podle data` shows its 17 books by title (R193), each a row of at least 56 px, below the notice `The setting group_by can't be read, so its default is used.` A tap opens the book. *(L5p)* Test: `fr_qry_05_ac35_list_on_the_phone`
 - **AC-32** **Vertical board: lanes scroll, cards don't move (AP-2061; T2).** `Rozečtené` shows:
   - the lanes `Reading` 3, `To read` 2, `Read` 0 (hatched, `Not in this view`), R193's cards with R205's content, and no `No Status` lane;
   - lanes 300 px wide, so at 412 px the next lane shows at least 24 px; the lane row scrolls sideways freely, without snapping (D-2221).
@@ -370,7 +370,7 @@ Proposals for the contract:
 ### FR-QRY-06 Queries, query pages and query blocks on the phone (adds to AC-1…AC-25)
 
 - **AC-26** **The Queries page.** Drawer `Queries` opens `queries` with `9 queries` and one row per query, with R143's row content and the mark `Books page` on `Rozečtené`, `Přečtené 2026`, `Výborné knihy`. RA11's Queries controls are hidden. A tap opens `query/<name>`. *(L5p)* Test: `fr_qry_06_ac26_queries_page_on_the_phone`
-- **AC-27** **A query page.** `query/Přečtené 2026` shows the query's title, its results as its view (AC-30's table), and the view-only line. There is no `Edit query`, sort button or `View actions`. The query page of a `this` query (`Knihy odkazované odsud`) shows the desktop's state text for a page without a note. *(L5p)* Test: `fr_qry_06_ac27_query_page_on_the_phone`
+- **AC-27** **A query page.** `query/Přečtené 2026` shows the query's title, its results as its view (FR-QRY-05 AC-34's table), and the view-only line. There is no `Edit query`, sort button or `View actions`. The query page of a `this` query (`Knihy odkazované odsud`) shows the desktop's state text for a page without a note. *(L5p)* Test: `fr_qry_06_ac27_query_page_on_the_phone`
 - **AC-28** **Query blocks in a note.** In Čtení:
   - block 1 is the `Přečtené 2026` table, scrolling sideways inside the block;
   - block 2 is the `Rozečtené` board, its lanes scrolling sideways inside the block;
@@ -425,13 +425,13 @@ Proposals for the contract:
 
 ### FR-EDT-07 Properties on the phone (adds to AC-1…AC-21)
 
-- **AC-22** **The strip and the sheet (board N6, N15; AP-2049).**
+- **AC-23** **The strip and the sheet (board N6, N15; AP-2049).**
   - Mapa bez severu (Book, `preview: [author, status]`) shows below its title a strip with the author chip `Eva Lindová` and the `Status` value, then the button `+<n> properties`. Here n is the number of the attribute panel's rows not in the strip, with plural forms (`+1 property`).
   - The button opens the sheet `Properties`: every row the desktop's attribute panel shows for that note, in the same order and with the same displayed values (compared with the desktop rendering in the same test), with `Created` and `Modified`. No input, `contenteditable` or option list is in the sheet.
   - A relation chip in the sheet opens its target and closes the sheet. Back, the scrim and `Close` close the sheet.
   - read-view's Vlastnosti (every universal attribute) is the second case.
 
-  Zero writes. *(L5p)* Test: `fr_edt_07_ac22_properties_strip_and_sheet`
+  Zero writes. *(L5p)* Test: `fr_edt_07_ac23_properties_strip_and_sheet`
 
 ### FR-ATT-01 Media on the phone (adds to AC-1…AC-16)
 
@@ -477,7 +477,7 @@ Proposals for the contract:
 
   *(L5p; LA for Back)* Test: `fr_mmp_02_ac34_mindmap_pan_and_full_screen`
 - **AC-35** **Map and List (AP-2055).** The header has the group `Mindmap view` with `Map` and `List`. `List` shows the callout's list in the read view's list style, with the same items and nesting and disabled checkboxes, and no editor. The choice is session state as D-776 says. *(L5p)* Test: `fr_mmp_02_ac35_map_and_list_read_only`
-- **AC-36** **Zoom and views write nothing (T1).** Ten zooms, five pans, full screen opened and closed, and `Map` / `List` switched ten times on Mapa výletu send zero writes and leave the vault untouched and `ui-state.json` unchanged. On the runtime `Velká mapa` (500 nodes), each zoom step is reported as the perf mark `mindmap-zoom` (report-only). *(L5p; LA in FR-SYN-06 AC-51's tour)* Test: `fr_mmp_02_ac36_mindmap_on_the_phone_writes_nothing`
+- **AC-36** **Zoom and views write nothing (T1).** Ten zooms, five pans, full screen opened and closed, and `Map` / `List` switched ten times on Mapa výletu send zero writes and leave the vault untouched and `ui-state.json` unchanged. On the runtime `Velká mapa` (500 nodes), each zoom step is reported as the perf mark `mindmap-zoom` (report-only). *(L5p; LA in FR-SYN-06 AC-54's tour)* Test: `fr_mmp_02_ac36_mindmap_on_the_phone_writes_nothing`
 
 ### FR-SRC-03 Search on the phone (adds to AC-1…AC-21)
 
@@ -536,16 +536,16 @@ Proposals for the contract:
 
 ### FR-UX-05 Themes on the phone (adds to AC-1…AC-25)
 
-- **AC-26** **Contrast on every phone surface.** The axe-core `color-contrast` rule reports zero violations, and FR-UX-05 AC-5 (no light colour in dark) holds, on every route of RA9, with the drawer open, the properties sheet open and a full-screen map, in light and dark, at 412 × 915. *(L5p)* Test: `fr_ux_05_ac26_contrast_on_phone_surfaces`
+- **AC-27** **Contrast on every phone surface.** The axe-core `color-contrast` rule reports zero violations, and FR-UX-05 AC-5 (no light colour in dark) holds, on every route of RA9, with the drawer open, the properties sheet open and a full-screen map, in light and dark, at 412 × 915. *(L5p)* Test: `fr_ux_05_ac27_contrast_on_phone_surfaces`
 
 ### FR-UX-08 Accessibility on the phone (adds to AC-1…AC-25)
 
-- **AC-26** **TalkBack reads the frame.**
+- **AC-28** **TalkBack reads the frame.**
   - On the device, `uiautomator dump` on `inbox` lists the nodes `Menu`, `Search`, `New` (not enabled) and `Today` in the bottom bar, and `Back` in the app bar after one navigation.
   - With the drawer open, the elements behind it are not in the dump.
   - At L5p the drawer and the sheet are `aria-modal`, the page behind them is `inert`, and their names are RA13's.
 
-  *(LA; L5p)* Test: `fr_ux_08_ac26_talkback_reads_the_frame`
+  *(LA; L5p)* Test: `fr_ux_08_ac28_talkback_reads_the_frame`
 - **AC-27** **The system font size (AP-2054).** On the device with `settings put system font_scale 1.3` and then `2.0`:
   - the computed body font size grows by that factor (± 0.5 px, the WebView's text zoom);
   - `inbox`, a note, and `type/book`'s `All Books` have no sideways page scroll (the table scrolls in its container);
@@ -555,12 +555,12 @@ Proposals for the contract:
 
 ### NFR-OTH-02 Strings on the phone (adds to AC-1…AC-23)
 
-- **AC-24** **Catalog and pseudo-locale.**
+- **AC-25** **Catalog and pseudo-locale.**
   - Every string of RA13 is a catalog key, with no literal in the phone components (AC-1's L0 rule covers them).
   - With the pseudo-locale, every route of RA9, the drawer, the sheet, the map controls and the bottom bar show every visible text inside `⟦ ⟧`, except user content.
   - With the Czech test catalog, `+{count} properties` picks three forms for 1, 3 and 5.
 
-  *(L0; L1; L5p)* Test: `nfr_oth_02_ac24_phone_strings`
+  *(L0; L1; L5p)* Test: `nfr_oth_02_ac25_phone_strings`
 
 ### FR-UX-06 Empty states on the phone
 
@@ -582,7 +582,7 @@ Proposals for the contract:
 
 ### FR-SYN-06 Reading on the phone writes nothing (adds to AC-50)
 
-- **AC-51** **A reading tour leaves the vault untouched (AP-2050; T1).** On `views/` + `phone/` the tour does:
+- **AC-54** **A reading tour leaves the vault untouched (AP-2050; T1).** On `views/` + `phone/` the tour does:
   - every route of RA9 through the drawer and the bottom bar, every view tab, the `Rozečtené` lanes scrolled to their end, `Podle žánru` folded and unfolded;
   - five notes opened, their properties sheets and source views;
   - Mapa výletu zoomed, panned, full screen and List;
@@ -592,7 +592,7 @@ Proposals for the contract:
   - taps on every disabled task checkbox, on `New`, on `[[Neexistuje]]`, and the gestures of FR-NAV-03 AC-18;
   - (LA) the app sent to the background and back, and a cold start.
 
-  Throughout, the vault is untouched and there are zero writes. Only the private files dir changes. *(L5p; LA)* Test: `fr_syn_06_ac51_reading_on_the_phone_writes_nothing`
+  Throughout, the vault is untouched and there are zero writes. Only the private files dir changes. *(L5p; LA)* Test: `fr_syn_06_ac54_reading_on_the_phone_writes_nothing`
 - **AC-52** **No task-views migration on Android (AP-2044; T1).** The `views-tasks` base fixture has a `task.yml` without `views` (the migration's input, R202).
   - Opened on the device, and with the desktop's migration hook `TEGG_TEST_TASK_VIEWS=1` in `test-env.json`, nothing is written: no `Schedule.yml` or `Kanban.yml`, and `task.yml` untouched. `type/task` shows only `All Tasks`.
   - When the test then pushes the Mac's result (the two query files, then `task.yml` with `views: [Schedule, Kanban]`, each by temporary file and `mv`), the chips `Schedule` and `Kanban` appear within 2 s.
@@ -602,12 +602,12 @@ Proposals for the contract:
 
 ### FR-SYN-03 / NFR-REL-02 External changes on the phone (adds to AC-32…AC-34)
 
-- **AC-35** **The sync app's changes reach every page (T2).** On the device with `views/` + `phone/`, each change is made with `adb shell` (a temporary file, then `mv`):
+- **AC-38** **The sync app's changes reach every page (T2).** On the device with `views/` + `phone/`, each change is made with `adb shell` (a temporary file, then `mv`):
   - a paragraph appended to the open Dlouhá poznámka shows in the read view within 2 s, with the first visible block unchanged (± one line);
   - a new unreviewed Quick Note adds its Inbox row and raises the drawer count within 2 s;
   - the open note deleted shows `This note was moved or deleted` (read-view FR-SYN-03 AC-11).
 
-  Tegg writes nothing. These bound a defect; they are not phone targets (D-2010). *(LA)* Test: `fr_syn_03_ac35_external_changes_on_the_phone`
+  Tegg writes nothing. These bound a defect; they are not phone targets (D-2010). *(LA)* Test: `fr_syn_03_ac38_external_changes_on_the_phone`
 - **AC-36** **A partly synced vault (plan §7; T2).**
   - `[[Později]]` in Odkazy ven shows the broken-link style, and a tap shows AC-11's notice. When the test pushes `Pages/Později.md`, the link resolves within 2 s and opens it.
   - A view whose query file isn't there yet (a runtime `views:` entry `Chybí` in `book.yml`) shows the not-found state without `Remove from Books page`, and shows its results within 2 s of the file's arrival.
@@ -641,15 +641,15 @@ Proposals for the contract:
 These need the owner's phone. They are recorded in `qa/manual/and-2.md` and are not criteria (except FR-UX-01 AC-9). Each runs on an AND-2 test build (D-2042: unversioned, `dev`).
 - **OC-5** [manual] **Gestures on a real phone:** the back gesture from both edges, three-button navigation, the drawer, sideways scrolling of a table, lanes and a map, and pinch on a map (FR-NAV-03 AC-17, AC-18, FR-MMP-02 AC-33, AC-34).
 - **OC-6** [manual] **Gboard in Search:** Czech diacritics, suggestions, the search key (FR-NAV-01 AC-24), and the field never hidden by the keyboard (FR-UX-04 AC-4).
-- **OC-7** [manual] **The owner's synced copy:** with the sync app on a copy of a generated vault (never the real vault, D-62), the owner edits a note on the Mac and records how long the phone takes to show it (input for FR-SYN-03 AC-35 and D-2010).
+- **OC-7** [manual] **The owner's synced copy:** with the sync app on a copy of a generated vault (never the real vault, D-62), the owner edits a note on the Mac and records how long the phone takes to show it (input for FR-SYN-03 AC-38 and D-2010).
 
 ---
 
 ## Real-app tests (D-382)
 
 `app/e2e-android/` (test APK on the emulator, a fresh vault copy in shared storage per test):
-- `android_phone.ac.test.ts`: FR-UX-04 AC-3, AC-4, AC-7; FR-NAV-04 AC-14, AC-15; FR-NAV-03 AC-17, AC-18; FR-HOM-04 AC-1; FR-INB-01 AC-15; FR-DLY-01 AC-13; FR-QRY-05 AC-32; FR-QRY-09 AC-9; FR-EDT-10 AC-10; FR-ATT-01 AC-17; FR-NAV-08 AC-3; FR-MMP-02 AC-33, AC-34; FR-NAV-01 AC-24; FR-SET-01 AC-14; FR-SET-02 AC-11, AC-12; FR-UX-08 AC-26, AC-27; NFR-SEC-01 AC-4.
-- `android_phone_sync.ac.test.ts`: FR-SYN-06 AC-51, AC-52; FR-SYN-03 AC-35, AC-36.
+- `android_phone.ac.test.ts`: FR-UX-04 AC-3, AC-4, AC-7; FR-NAV-04 AC-14, AC-15; FR-NAV-03 AC-17, AC-18; FR-HOM-04 AC-1; FR-INB-01 AC-15; FR-DLY-01 AC-13; FR-QRY-05 AC-32; FR-QRY-09 AC-9; FR-EDT-10 AC-10; FR-ATT-01 AC-17; FR-NAV-08 AC-3; FR-MMP-02 AC-33, AC-34; FR-NAV-01 AC-24; FR-SET-01 AC-14; FR-SET-02 AC-11, AC-12; FR-UX-08 AC-27, AC-28; NFR-SEC-01 AC-4.
+- `android_phone_sync.ac.test.ts`: FR-SYN-06 AC-52, AC-54; FR-SYN-03 AC-36, AC-38.
 - `nightly_android_phone.ac.test.ts`: NFR-PERF-05 AC-6; FR-UX-07 AC-18 (LA part).
 
 The L5p tests are `app/webkit/phone_*.ac.test.ts`, run on WebKit and on Chromium (D-2009).
@@ -663,7 +663,7 @@ The L5p tests are `app/webkit/phone_*.ac.test.ts`, run on WebKit and on Chromium
 | FR-UX-04 | AC-1…AC-7 (7) | D-2000, plan §3.5; F8; AP-2037, AP-2038, AP-2052…AP-2054 |
 | FR-NAV-04 | AC-13…AC-15 (3) | D-219, D-1429, D-1430; AP-2045, AP-2046 |
 | FR-NAV-03 | AC-17…AC-19 (3) | D-165, D-1168, D-1511, D-2027; AP-2036, AP-2040 |
-| FR-UX-03 | AC-54 (1) | AP-2041 |
+| FR-UX-03 | AC-56, AC-57 (2) | AP-2041 |
 | AR-03 | AC-13, AC-14 (2) | D-2026; AP-2050 |
 | FR-UX-01 | AC-8, AC-9 [manual] (2) | D-1512 |
 | FR-VLT-01 | AC-29 (1) | D-219 |
@@ -673,25 +673,25 @@ The L5p tests are `app/webkit/phone_*.ac.test.ts`, run on WebKit and on Chromium
 | FR-DLY-01, FR-DLY-03 | AC-13; AC-8 (2) | D-763 |
 | FR-TYP-09 | AC-37 (1) | D-2006; AP-2060 |
 | FR-QRY-07 | AC-32 (1) | D-1765, D-2006 |
-| FR-QRY-05 | AC-30…AC-33 (4) | D-2006; AP-2060, AP-2061 |
+| FR-QRY-05 | AC-32…AC-35 (4) | D-2006; AP-2060, AP-2061 |
 | FR-QRY-06 | AC-26…AC-28 (3) | D-2006, plan §8 |
 | FR-QRY-09 | AC-9 (1) | — |
 | FR-TSK-04 | AC-30 (1) | D-1790; AP-2043 |
 | FR-TAG-07, FR-TAG-06 | AC-7; AC-14 (2) | D-2007; AP-2059 |
 | FR-EDT-10 | AC-10, AC-11 (2) | D-117, D-215; AP-2042, AP-2051 |
 | FR-EDT-02 | AC-26 (1) | — |
-| FR-EDT-07 | AC-22 (1) | AP-2049 |
+| FR-EDT-07 | AC-23 (1) | AP-2049 |
 | FR-ATT-01 | AC-17 (1) | AP-2056 |
 | FR-NAV-08 | AC-3 (1) | plan §8 |
 | FR-MMP-02 | AC-32…AC-36 (5) | owner 2026-11-22, D-776; AP-2055 |
 | FR-SRC-03, FR-NAV-01 | AC-22; AC-24 (2) | D-1343; AP-2048 |
 | FR-SYN-04 | AC-13 (1) | AP-2046 |
 | FR-SET-01, FR-SET-02 | AC-14; AC-11, AC-12 (3) | D-128, D-566; AP-2047 |
-| FR-UX-05, FR-UX-08 | AC-26; AC-26, AC-27 (3) | D-129; AP-2054 |
-| NFR-OTH-02 | AC-24 (1) | D-133 |
+| FR-UX-05, FR-UX-08 | AC-27; AC-27, AC-28 (3) | D-129; AP-2054 |
+| NFR-OTH-02 | AC-25 (1) | D-133 |
 | FR-UX-06, FR-UX-07 | AC-1; AC-18 (2) | AP-2058 |
-| FR-SYN-06 | AC-51, AC-52 (2) | D-2007, D-2025, D-1777; AP-2044, AP-2050 |
-| FR-SYN-03 / NFR-REL-02 | AC-35, AC-36 (2) | plan §7 |
+| FR-SYN-06 | AC-52, AC-54 (2) | D-2007, D-2025, D-1777; AP-2044, AP-2050 |
+| FR-SYN-03 / NFR-REL-02 | AC-36, AC-38 (2) | plan §7 |
 | NFR-SEC-01 | AC-4 (1) | D-2002; AP-2056 |
 | NFR-PERF-05 | AC-6 (1) | D-2010; AP-2062 |
 
@@ -717,7 +717,7 @@ Raised while writing these criteria from the boards' "to decide" lists and from 
 | AP-2038 | **The app bar's left button.** Board N12 says a top-level page shows the sidebar button and not Back, but "top-level" is undefined: a daily route is the same route however it is reached. A left-edge drawer button also sits where the back gesture starts. | The app bar shows `Back` whenever the history has an earlier entry, else nothing. The drawer opens only from the bottom bar's `Menu`. No page needs to be classified as top-level. | The board's split: a list of top-level routes that show a drawer button, other routes show Back | RA8, FR-UX-04 AC-2, FR-NAV-03 AC-17 |
 | AP-2039 | **Inbox swipes, converting, and dates.** Board N1 swipes right to mark reviewed and left to move to a type. Moving to a type is a type move that moves the file (D-834, FR-INB-02 AC-5), which D-2007 turns off on the phone. Swipes need a tap alternative and clash with sideways scrolling (AP-2040). N1 also shows relative times (`2 h`, `Mon`), which D-781 rules out. | AND-2's Inbox is a read-only list: R61's groups and order, rows with the type icon, the title and the date in the Date & time setting, no type filter and no actions. No swipes in any slice. AND-3 adds `Reviewed` as a tap on a checkbox in the row. `Convert to` is not offered on the phone, including for one note, because it is a type move. | Swipes with a tap alternative in AND-3; or a single-note `Convert to` allowed on the phone (no backup is made for one note today, FR-INB-02 AC-14) | FR-INB-01 AC-14…AC-16, RA11 |
 | AP-2040 | **Sideways swipes.** Row swipes (N1), sideways scrolling of tables, lanes and maps (N4, N5, N9), a drawer swipe (N2) and Android's back gesture all use the same direction. FR-NAV-03 AC-8 says a horizontal scroll never navigates. | Inside the WebView no horizontal touch gesture navigates, opens the drawer or acts on a row; it only scrolls what is under it. Only the system back gesture or key goes back. `nav_swipe_scroll` stays `false` on Android, so D-1511's swipe never runs. | A drawer swipe from the left edge, with an exclusion zone against the back gesture | RA12, FR-NAV-03 AC-18, FR-INB-01 AC-15, FR-NAV-04 AC-14 |
-| AP-2041 | **FR-UX-03 (every action in the palette) on a phone without a palette.** FR-NAV-02 and FR-UX-03 assume a keyboard. | An exception for the phone layout: no palette UI. Every action is reachable by touch and TalkBack (FR-UX-08), and every control still carries a registered `data-command` (FR-UX-03 AC-8 holds), so the registry stays the one list. A hardware keyboard gets nothing extra in AND-2. | A `Commands` row in the drawer that opens the palette; or Ctrl+K with a hardware keyboard | FR-UX-03 AC-54, FR-NAV-02, RA8 |
+| AP-2041 | **FR-UX-03 (every action in the palette) on a phone without a palette.** FR-NAV-02 and FR-UX-03 assume a keyboard. | An exception for the phone layout: no palette UI. Every action is reachable by touch and TalkBack (FR-UX-08), and every control still carries a registered `data-command` (FR-UX-03 AC-8 holds), so the registry stays the one list. A hardware keyboard gets nothing extra in AND-2. | A `Commands` row in the drawer that opens the palette; or Ctrl+K with a hardware keyboard | FR-UX-03 AC-56, FR-NAV-02, RA8 |
 | AP-2042 | **What the ⋯ menus hold (N3, N6).** D-2007 removes rename, type settings and moves; AND-2 writes nothing (AP-2050). | The note's ⋯ holds `Properties` and `Show Markdown source` / `Show formatted note` (FR-EDT-10). Type, query and tag pages have no ⋯ in AND-2. `Pin` and `Move to trash` (one file each, no bulk) are decided with AND-3. | `Pin` / `Unpin` in AND-2 (one write to `.tegg/pinned.yml`); or `Move to trash` in AND-2 | RA8, RA11, FR-EDT-10 AC-10 |
 | AP-2043 | **Tasks: Schedule and Kanban beyond the plan's "All tasks".** Plan §4 lists All tasks (read) only, while the board draws Kanban and Schedule (N5, N8). Since slice Q2-T, Schedule and Kanban are saved views of `type/task` (D-1776, D-1777, D-1790). | `type/task` on the phone is a type page like any other: `All Tasks` plus every tab of `task.yml`'s `views:`, read-only (D-2006). Task checkboxes are drawn `aria-disabled` until AND-3. Q2-T is on main (PR #150), so this holds from the start of AND-2. | `All Tasks` only, as the plan lists | FR-TSK-04 AC-30, RA9, RA11 |
 | AP-2044 | **The task-views migration on Android (gap).** Opening a vault whose `task.yml` has no `views` key creates `Schedule.yml` and `Kanban.yml` and writes `task.yml` (R202, D-1936). On the phone that is a write on open, against FR-SYN-06 AC-53 (AND-1; was AC-50) and D-2007. On a partly synced vault the phone could create the files before the Mac's arrive; the bytes are identical (D-1936), but the sync app may still make conflict copies. | The migration never runs on Android. `type/task` shows the tabs that `views:` lists, so only `All Tasks` until the Mac's migration syncs. In the core it is gated by the same `bulk_jobs: false` the Android shell passes, or by a new flag; the contract decides. | Run it on the phone too, relying on identical bytes | FR-SYN-06 AC-52, FR-TSK-04 AC-30 |
@@ -725,8 +725,8 @@ Raised while writing these criteria from the boards' "to decide" lists and from 
 | AP-2046 | **Conflicts before AND-4.** The sync app makes conflict copies from the first APK (Mobile2 E10). Resolving writes, and AND-2 writes nothing. | AND-2 shows the `Conflicts` entry while conflicts exist and lists them read-only: both versions one above the other with the differing lines marked, and no resolve action. AND-3 adds resolving (keep one, merge) under FR-SYN-04's rules. | Hide Conflicts until AND-3; or resolve on the phone already in AND-2 | FR-SYN-04 AC-13, RA10, RA11 |
 | AP-2047 | **The Settings list on the phone (N20).** The desktop has Appearance, Date & time, Vault, Shortcuts, Menu bar, Trash and history, Previews and Backups. Vault settings write `vault.yml`. | `settings`, a new Android-only list: `Appearance` (Theme only), `Date & time` (per machine, D-566), `Vault` (name, path, default type as text, `Switch vault…`), `Storage access` (state and `Open settings`, a new route `settings/storage`), and the footer `Tegg <version> · Android`. Nothing in it writes the vault. Sync is added with AND-4; Conflicts stays in the drawer. | N20 as drawn, with `Sync: from AND-4, Off` and `Conflicts` rows; or the default type editable on the phone (one write to `vault.yml`) | FR-SET-01 AC-14, RA9 |
 | AP-2048 | **Search create buttons on the phone (N19, D-1343).** N19 draws `Create Page` and `Create Quick Note`. D-1343 has `Create “<q>”` with the default type and `as…`. Creating is AND-3. | None in AND-2: the no-match state says `Nothing matches “<q>”.`. In AND-3, D-1343's two buttons unchanged (default type and `as…`), so the phone and the Mac create the same way. | N19's two fixed buttons (Page and Quick Note) on the phone | FR-SRC-03 AC-22, RA11 |
-| AP-2049 | **The properties strip and sheet (N6, N15).** The desktop shows the attribute panel at the top of the note (FR-EDT-07). N6 shows three properties inline and `+3 properties`; N15 shows a sheet. Which three, and editable or not? | The strip shows the type's `preview` keys (D-1240, at most 3), else the first three non-empty rows of the attribute panel, then `+<n> properties` (plural forms). The sheet lists every row of the attribute panel in its order, including Created and Modified, read-only in AND-2. AND-3 makes values editable there (N15, E9). | The desktop's collapsible attribute panel at the top of the note | FR-EDT-07 AC-22 |
-| AP-2050 | **What AND-2 writes (gap).** AND-1's build shows the desktop editor, so it can write. AND-2 is "reading" (plan §6), but the plan doesn't say whether the phone layout keeps any write. | AND-2's phone layout writes nothing to the vault. Every write control is hidden, or drawn `aria-disabled` where RA11 says (task checkboxes, `New`): editing, review toggles, checklist and task toggles, the Create offer, pinning, tag colour, view and type changes. Machine-local writes stay: theme, date format, last tab, folds, recent vaults, `nav_opened`. AND-3 brings the writes back one by one under its own criteria. | Keep AND-1's single-note writes (the desktop editor in the phone frame) until AND-3 | FR-SYN-06 AC-51, RA11, every "zero writes" |
+| AP-2049 | **The properties strip and sheet (N6, N15).** The desktop shows the attribute panel at the top of the note (FR-EDT-07). N6 shows three properties inline and `+3 properties`; N15 shows a sheet. Which three, and editable or not? | The strip shows the type's `preview` keys (D-1240, at most 3), else the first three non-empty rows of the attribute panel, then `+<n> properties` (plural forms). The sheet lists every row of the attribute panel in its order, including Created and Modified, read-only in AND-2. AND-3 makes values editable there (N15, E9). | The desktop's collapsible attribute panel at the top of the note | FR-EDT-07 AC-23 |
+| AP-2050 | **What AND-2 writes (gap).** AND-1's build shows the desktop editor, so it can write. AND-2 is "reading" (plan §6), but the plan doesn't say whether the phone layout keeps any write. | AND-2's phone layout writes nothing to the vault. Every write control is hidden, or drawn `aria-disabled` where RA11 says (task checkboxes, `New`): editing, review toggles, checklist and task toggles, the Create offer, pinning, tag colour, view and type changes. Machine-local writes stay: theme, date format, last tab, folds, recent vaults, `nav_opened`. AND-3 brings the writes back one by one under its own criteria. | Keep AND-1's single-note writes (the desktop editor in the phone frame) until AND-3 | FR-SYN-06 AC-54, RA11, every "zero writes" |
 | AP-2051 | **The note in AND-2: the read view or the editor (gap).** The read view (3B, D-117) is the editor's fallback and writes nothing. The editor brings ProseMirror and Gboard issues that are AND-3's work (plan §3.7). | AND-2 shows notes in the read view, with no editor loaded. AND-3 switches the note to the editor. | The editor with `editable: false` from AND-2 on, so that AND-3 only turns editing on | FR-EDT-10 AC-10, RA11 |
 | AP-2052 | **How the layout is chosen (gap).** Plan §3.5 says "chosen by window width so the same build also serves a narrow desktop window later". The Mac's minimum window is 800 × 500 pt (D-136), so a width rule never triggers there, and a phone in landscape (915 px) would get the desktop layout. The tablet layout is out (plan §8). | By platform: `android` always gets the phone layout, at every width and orientation; `macos` always gets the desktop layout. `layoutFor(platform, width)` keeps the width parameter for the later narrow-window case, and a test hook forces either layout. | By width (< 600 CSS px) on both platforms, as the plan words it | RA8, FR-UX-04 AC-1 |
 | AP-2053 | **Orientation (gap).** | Both orientations, with the phone layout in both. Rotation keeps the route and the reading position, and the activity is not recreated. | Portrait only | FR-UX-04 AC-7 |
@@ -736,7 +736,7 @@ Raised while writing these criteria from the boards' "to decide" lists and from 
 | AP-2057 | **The landing on the phone (gap).** Board N1 calls the Inbox the "start page"; the desktop opens the last note, else the Inbox (D-132, D-614), and FR-HOM-04 asks for the last state. | As the desktop: the last opened note, else `inbox`, never writing. | Always `inbox` on the phone; or always today's daily note | FR-HOM-04 AC-1 |
 | AP-2058 | **The other Mobile2 screens (proposal board).** S5 (a first-indexing count screen), N12 (today's daily note), N13 and N14 (tags), N17 (Find in note), N18 (empty Inbox) and N20 (Settings) are not owner-approved. | S5: no separate screen; the indexing status line under the app bar (FR-UX-07 AC-7's message). N12, N13, N14: the desktop pages read-only (FR-DLY-01 AC-13, FR-TAG-06 AC-14, FR-TAG-07 AC-7). N17 Find in note: not in AND-2 (not in plan §4). N18: the desktop's `Inbox zero` copy, without `Quick Capture`. N20: AP-2047. | S5 as drawn; Find in note in AND-2 | FR-UX-07 AC-18, FR-INB-01 AC-16, FR-UX-06 AC-1 |
 | AP-2059 | **Tag pages on the phone (gap).** The tag page has a Type filter remembered per machine (D-703), and the tag colour popover writes a Tag file. | All tags and the tag page read-only: no `New tag`, colour change, rename, delete or merge (D-2007 for rename), and no Type filter. | Keep the tag page's Type filter (machine-local, writes nothing to the vault) | FR-TAG-06 AC-14, FR-TAG-07 AC-7 |
-| AP-2060 | **Page-level filters, folds and the "view only" line (gap).** D-2006 says sort, columns, grouping and filters can't be changed. The type page's `Filter <plural>…` and `Filter by tag` narrow the shown results without saving them (D-1796, D-1893). Folding a row is machine-local (R190, R206). The board shows a line describing the sort (`Author A→Z · view only on the phone`). | Hide the page's text and tag filters on the phone, and the Queries page's find field and sort. Folds work and are kept per phone. The line is `<column>: <order>` of the first sort level, `+<n>` for more levels, then `· View only on the phone`; `All <plural>` uses its machine-local sort. | Keep the text and tag filters (they change no saved view) | FR-TYP-09 AC-37, FR-QRY-05 AC-30, AC-33, FR-QRY-06 AC-26, RA11, RA13 |
+| AP-2060 | **Page-level filters, folds and the "view only" line (gap).** D-2006 says sort, columns, grouping and filters can't be changed. The type page's `Filter <plural>…` and `Filter by tag` narrow the shown results without saving them (D-1796, D-1893). Folding a row is machine-local (R190, R206). The board shows a line describing the sort (`Author A→Z · view only on the phone`). | Hide the page's text and tag filters on the phone, and the Queries page's find field and sort. Folds work and are kept per phone. The line is `<column>: <order>` of the first sort level, `+<n>` for more levels, then `· View only on the phone`; `All <plural>` uses its machine-local sort. | Keep the text and tag filters (they change no saved view) | FR-TYP-09 AC-37, FR-QRY-05 AC-33, AC-34, FR-QRY-06 AC-26, RA11, RA13 |
 | AP-2061 | **Board lanes on the phone (gap).** The desktop's vertical lanes are 236 px; the owner's board N5 says 300 dp and "swipe sideways for more lanes". | 300 px lanes, so the next lane shows at 412 px, scroll-snapping to lane starts. Card drags are off (D-2006). | The desktop's 236 px; or one lane per screen width | FR-QRY-05 AC-32 |
 | AP-2062 | **Phone performance in AND-2 (gap).** D-2010 sets phone targets from AND-0 and the owner's OC-1. AND-2 adds the first reading pages, but no target exists yet. | Report-only marks on the emulator with defect bounds: `note-ready` p95 ≤ 1,000 ms, the first search page ≤ 1,000 ms, `type/page` ≤ 1,500 ms on the generated vault (nightly). Targets follow D-2010. | No bounds until D-2010's targets | NFR-PERF-05 AC-6 |
 | AP-2063 | **Duplicate AC numbers (housekeeping found while numbering).** views.md part three (Q2-T) and android-shell.md (AND-1) both have FR-SYN-06 AC-50, FR-SYN-03 AC-32 and FR-STO-07 AC-12, with different tests (`fr_syn_06_ac50_tasks_views_write_only_what_the_user_changes` and `fr_syn_06_ac50_no_writes_and_no_jobs_on_android`, and so on). This file starts after the highest number of either. Another session (Q2-T) may still add numbers while this file is reviewed. | Renumber AND-1's three to the next free numbers when this file is approved (its tests are in Android-only files), under one `AC-Test-Change`. Add a `tools/qa` check that fails on a criterion ID defined twice. Recheck this file's numbers at approval. | Renumber Q2-T's three instead | android-shell.md, views.md, `tools/qa` coverage |

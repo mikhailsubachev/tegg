@@ -6,14 +6,14 @@
 
 ## Findings
 
-1. **[major] `mindmap.showMap` / `mindmap.showList` do nothing when run by id on the phone** (FR-UX-03 AC-54, contract §10,
+1. **[major] `mindmap.showMap` / `mindmap.showList` do nothing when run by id on the phone** (FR-UX-03 AC-56, contract §10,
    D-2219). `phoneCommands` (`app/ui/src/phone/commands.ts`) keeps the desktop command when the phone's own command has
    the same id; the desktop one calls the editor (`noteApi.edit`), which the phone's read view doesn't have. The AC-54
    test compares only route, dialogs and IPC, so it misses it.
 2. **[major] The start screens never get the insets** (D-2240, contract §8.2, §8.6, FR-UX-04 AC-3). `useNative()` runs
    only in `PhoneFrame`; the access, opening and chooser screens render before it, so `--inset-*` stay 0 px on a cold
    start and the §8.6 resize handler isn't installed there.
-3. **[major] Controls inside a note's content carry no command or a phone-hidden one** (FR-UX-03 AC-54, AR-03 AC-13):
+3. **[major] Controls inside a note's content carry no command or a phone-hidden one** (FR-UX-03 AC-56, AR-03 AC-13):
    the callout and mindmap fold buttons (no `data-command`), note embeds (`edit.openEmbed`, `edit.displayEmbedAs`), task
    embeds (`task.setStatus`, `task.setPriority`, `task.setDue`), board task cards (`task.open`). The tests' notes and
    vaults don't contain them.
@@ -41,11 +41,11 @@
 
 ## Resolution (2026-11-23)
 
-1. Fixed: the phone registers `mindmap.showMap` / `mindmap.showList` itself (D-2245, `b7a74c13`); FR-UX-03 AC-55 also
+1. Fixed: the phone registers `mindmap.showMap` / `mindmap.showList` itself (D-2245, `b7a74c13`); FR-UX-03 AC-57 also
    checks the Map/List switch's in-page effect.
 2. Fixed: `PhoneStartInsets` gives the start screens the insets and the §8.6 keyboard rule (D-2245, `b7a74c13`).
 3. Decided and built: owner's "Hide edit, add commands" (D-2246) and the card and checkbox rules (D-2247); new
-   criterion FR-UX-03 AC-55 with overlay `phone-content/`, red test `214a4d2c` (`check-red` pass), build `e3c23559`.
+   criterion FR-UX-03 AC-57 with overlay `phone-content/`, red test `214a4d2c` (`check-red` pass), build `e3c23559`.
 4. Approved by the owner: D-2236, D-2239, D-2240 ("Approve all three"); RA10 names the left inset.
 5. Open: update `main` and run `./verify merge` before merging (needs the owner's word to merge).
 6. Fixed: the rotation anchor's walk runs at most once per frame (D-2245).

@@ -8,7 +8,7 @@
 //   PHONE_FRAME_COMMANDS, PHONE_NOT_OFFERED as tables in this test; `commands(ctx)` on Android on each RA9 route holds
 //   the frame commands, none of the hidden ones, and no `run` reaches an ANDROID_EXCLUDED command or a not-offered
 //   route; `app/ui/test/phone-writes.ts`'s two lists are disjoint and cover `DESKTOP ∪ ANDROID_ONLY` (§2.3);
-// - NFR-OTH-02 AC-24 (L0, L1): RA13's keys and texts and §11's in the catalog; `phone.moreProperties` has plural forms
+// - NFR-OTH-02 AC-25 (L0, L1): RA13's keys and texts and §11's in the catalog; `phone.moreProperties` has plural forms
 //   (the Czech test catalog picks three forms for 1, 3, 5); no UI literal in `app/ui/src/phone/`;
 // - AR-03 AC-14 (L0): the phone layout's modules import no `@tauri-apps/*` package directly.
 // Red-test readings (reported): `commands.json` is the AND-1 file (`node scripts/commands-json.mjs`, run by the
@@ -121,6 +121,8 @@ const HIDDEN_TABLE = [
   'goto.duplicateTitles', 'goto.settings/shortcuts', 'goto.settings/menu-bar', 'goto.settings/trash-history', 'goto.settings/previews', 'settings.backups', 'job.*',
   'capture.*', 'import.open', 'inbox.*', 'duplicates.merge', 'vault.open', 'vault.addStarterTypes', 'app.about', 'nav.newTab', 'edit.copyBlockLink', 'typeSettings.*',
   'panel.editRecurrence', 'settings.font', 'settings.fontSize', 'settings.accentColor', 'settings.changeShortcut',
+  // D-2252: slice OC's card.edit opens type settings, which the phone doesn't offer.
+  'card.edit',
 ];
 /** §10's PHONE_FRAME_COMMANDS (`goto.type:<key>` stands for each type entry). */
 const FRAME_TABLE = [
@@ -226,7 +228,7 @@ test('ar_03_ac13_phone_offers_no_excluded_action', async () => {
   assert.deepEqual(sorted(new Set([...W, ...R])), sorted(new Set([...lists.DESKTOP, ...lists.ANDROID_ONLY])), 'WRITE_COMMANDS ∪ READ_COMMANDS = DESKTOP ∪ ANDROID_ONLY (every command classified)');
 });
 
-// ------------------------------------------------------------------------------------------------ NFR-OTH-02 AC-24 (L0, L1)
+// ------------------------------------------------------------------------------------------------ NFR-OTH-02 AC-25 (L0, L1)
 
 /** RA13 and §11: key → English text. */
 const RA13: Record<string, string> = {
@@ -264,7 +266,7 @@ function files(dir: string): string[] {
   return readdirSync(dir).flatMap((n) => { const p = join(dir, n); return statSync(p).isDirectory() ? files(p) : /\.tsx?$/.test(n) ? [p] : []; });
 }
 
-test('nfr_oth_02_ac24_phone_strings', async () => {
+test('nfr_oth_02_ac25_phone_strings', async () => {
   const cat = await load('../ui/src/i18n/catalog.ts');
   assert.ok(cat, 'the catalog loads');
   const en = cat!.en as Record<string, unknown>;
