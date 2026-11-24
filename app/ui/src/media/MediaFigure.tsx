@@ -2,6 +2,7 @@
 // object's title, natural size up to the column width, `loading="lazy"`), loaded through the media URL (D-626). A
 // click selects (the editor), a double-click or ⌘-click opens the object; the context menu has Open, Open in Preview
 // and Reveal in Finder.
+import { isPhone } from '../phone/layout';
 import { useState } from 'react';
 import { t } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
@@ -34,7 +35,7 @@ export function MediaFigure({ path, title, object, onOpen }: { path: string; tit
     <figure className="media-figure" data-media-path={path.normalize('NFC')} data-media-object={object ?? undefined}
       onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); open(); }}>
       <img src={mediaUrl(path)} alt={title} loading="lazy" draggable={false}
-        onClick={(e) => { if (e.metaKey) { e.preventDefault(); e.stopPropagation(); open(); } }}
+        onClick={(e) => { if (e.metaKey || isPhone()) { e.preventDefault(); e.stopPropagation(); open(); } }}
         onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setMenu({ x: e.clientX, y: e.clientY }); }}
         onLoad={() => { void ipc.perfMark(`media-ready:${path.normalize('NFC')}`).catch(() => {}); }} />
       {menu && <MediaMenu at={menu} path={path} object={object} onOpen={(p) => onOpen?.(p)} onClose={() => setMenu(null)} />}

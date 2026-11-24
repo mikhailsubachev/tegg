@@ -200,6 +200,8 @@ fn mig(m: &TaskViewsMigration) -> String {
             format!("Done {{ created: {:?}, views: {views:?} }}", created.iter().map(|c| tegg_format::nfc(c)).collect::<Vec<_>>())
         }
         TaskViewsMigration::Stopped { created, reason } => format!("Stopped {{ created: {created:?}, reason: {reason} }}"),
+        // AND-2 (docs/contracts/android-phone.md §3, D-2433): the Android outcome; never expected in these tests.
+        TaskViewsMigration::Off => "Off".into(),
     }
 }
 fn rest(r: &Result<TaskViewsRestore, CoreError>) -> String {

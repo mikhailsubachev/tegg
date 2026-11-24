@@ -1,5 +1,7 @@
 // A popup menu opened from a button (D-219 vault switcher, D-220 logo menu; ms3-shell §12.5): arrow keys move,
 // Enter/Space choose, Esc or a click outside closes it and returns focus to the opener.
+import { isPhone } from '../phone/layout';
+import { pushLayer } from '../phone/back';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePopupPlacement, type PopupOpener } from './usePopupPlacement';
@@ -7,7 +9,7 @@ import { usePopupPlacement, type PopupOpener } from './usePopupPlacement';
 export type MenuEntry =
   | { kind: 'separator' }
   | { kind: 'note'; key: string; content: React.ReactNode }
-  | { kind: 'item' | 'radio' | 'checkbox'; key: string; content: React.ReactNode; label?: string; checked?: boolean; disabled?: boolean; description?: string; onChoose: () => void };
+  | { kind: 'item' | 'radio' | 'checkbox'; key: string; content: React.ReactNode; label?: string; checked?: boolean; disabled?: boolean; description?: string; onChoose: () => void; /** The item's registered command (FR-UX-03 AC-8). */ command?: string };
 
 export function PopupMenu({ label, anchor, entries, onClose, placement = 'below', restoreFocus = true, disabledFocusable = false, scrollable = false, fit = false, popupId, openerKind = 'menu', at, head, onItemHover, keepOpenOn, onKeyDownExtra }: {
   label: string;
@@ -39,6 +41,10 @@ export function PopupMenu({ label, anchor, entries, onClose, placement = 'below'
   onKeyDownExtra?: (e: React.KeyboardEvent, focused: HTMLElement | null) => boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  // Slice AND-2 (android-phone §8.5, RA12): on the phone, system Back closes an open menu first.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => (isPhone() ? pushLayer(() => closeRef.current()) : undefined), []);
   const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number }>({ left: 0, top: 0 });
 
   const opener: PopupOpener = openerKind === 'context' && at ? at : anchor;
@@ -108,6 +114,7 @@ export function PopupMenu({ label, anchor, entries, onClose, placement = 'below'
             aria-disabled={m.disabled || undefined}
             aria-description={m.description}
             aria-label={m.label}
+            data-command={m.command}
             tabIndex={-1}
             className={`menu-item${m.checked ? ' checked' : ''}`}
             onClick={choose}

@@ -5,7 +5,12 @@ import { parse } from '@tegg/doc';
 import { ipc } from '../ipc/client';
 import { t } from '../i18n/catalog';
 import { region } from '../i18n/collate';
-import type { LinkTargetDto } from '../ipc/types';
+import type { LinkTargetDto, TypeDto } from '../ipc/types';
+import { useEffect, useState } from 'react';
+import { panelRows, UNIVERSAL_KEYS } from '../types/panel';
+const UNIVERSAL = new Set<string>(UNIVERSAL_KEYS);
+import { stripRows } from '../phone/strip';
+import { Sheet } from '../phone/Sheet';
 import { Icon, typeIconName } from '../shell/Icon';
 import { chipIcon } from '../links/icons';
 import { requestOffer } from '../links/offer';
@@ -162,5 +167,58 @@ export function PropertyRows({ rows, links, from, emails }: { rows: AttrRow[]; l
         ))}
       </dl>
     </section>
+  );
+}
+
+/** Slice AND-2 (android-phone §9.2; FR-EDT-07 AC-23, CP-14 → D-2442): the phone's Properties strip (up to three of the
+ *  type's preview keys) and the `Properties` sheet with every row of the attribute panel, read-only. */
+export function PhoneProperties({ text, links, type, onOpen, onTag, all = false }: {
+  /** Image and PDF object pages list every row (FR-ATT-01 AC-17). */
+  all?: boolean;
+  text: string; links: Map<string, LinkTargetDto>; type: TypeDto | null | undefined; onOpen: (path: string) => void; onTag: (key: string) => void;
+}) {
+  const [sheet, setSheet] = useState(false);
+  useEffect(() => {
+    const f = () => setSheet(true);
+    window.addEventListener('tegg:phone-properties', f);
+    return () => window.removeEventListener('tegg:phone-properties', f);
+  }, []);
+  const doc = parse(text.replace(/^\uFEFF/, ''));
+  if (doc.frontmatter?.error || doc.frontmatterError || !type) return null;
+  const model = panelRows(doc, type);
+  const { strip, more } = all ? { strip: model.rows, more: 0 } : stripRows(model.rows, type.preview ?? []);
+  const values = new Map(attributeRows(doc).rows.map((r) => [r.key.normalize('NFC'), r]));
+  const p: Props = { text, links, open: true, onToggle: () => {}, onOpen: (x) => { setSheet(false); onOpen(x); }, onTag: (k) => { setSheet(false); onTag(k); } };
+  const cell = (key: string) => { const r = values.get(key.normalize('NFC')); return r ? <Value row={r} p={p} /> : null; };
+  return (
+    <>
+      {(strip.length > 0 || more > 0) && (
+        <div role="group" aria-label={t('phone.properties')} className="phone-strip">
+          {strip.map((r) => (
+            <div key={r.key} className="phone-strip-row">
+              <span className="phone-strip-label" data-user-content={UNIVERSAL.has(r.key) ? undefined : ''}>{r.label}</span>
+              <span className="phone-strip-value">{cell(r.key)}</span>
+            </div>
+          ))}
+          {more > 0 && (
+            <button type="button" className="phone-more-properties" data-command="phone.properties" onClick={() => setSheet(true)}>
+              {t('phone.moreProperties', { count: more })}
+            </button>
+          )}
+        </div>
+      )}
+      {sheet && (
+        <Sheet title={t('phone.properties')} onClose={() => setSheet(false)}>
+          <div className="phone-properties">
+            {model.rows.map((r) => (
+              <div key={r.key} role="group" aria-label={r.label} className="property">
+                <span className="phone-prop-label" data-user-content={UNIVERSAL.has(r.key) ? undefined : ''}>{r.label}</span>
+                <span className="phone-prop-value">{cell(r.key)}</span>
+              </div>
+            ))}
+          </div>
+        </Sheet>
+      )}
+    </>
   );
 }

@@ -28,7 +28,9 @@ const RA2: Record<string, string[]> = {
   V: ['query_apply', 'query_revert', 'query_create', 'query_duplicate', 'query_rename', 'query_trash', 'query_restore', 'task_views_restore'],
   O: ['graph_neighbourhood', 'graph_presets_get', 'graph_presets_apply', 'index_related', 'trash_restore', 'trash_delete', 'trash_empty'],
 };
-const ONLY = ['vault_start', 'vault_find', 'storage_access', 'storage_access_settings'];
+// Slice AND-2 (docs/contracts/android-phone.md §2.1, D-2420, D-2432): RA2's Android-only commands gain android_open_url
+// and android_window (AC-Test-Change, approved by the owner with the contract); neither is refused on Android.
+const ONLY = ['vault_start', 'vault_find', 'storage_access', 'storage_access_settings', 'android_open_url', 'android_window'];
 const COMMANDS_JSON = resolve(import.meta.dirname, '../src-tauri/target/commands.json');
 const sorted = (xs: Iterable<string>) => [...xs].sort();
 

@@ -6,6 +6,7 @@ import { t } from '../i18n/catalog';
 import { events, ipc } from '../ipc/client';
 import { PickDate } from '../dates/PickDate';
 import { localDate } from '../zone';
+import { isPhone } from '../phone/layout';
 
 export { longDate } from '../dates/PickDate';
 
@@ -29,5 +30,7 @@ export function Calendar({ selected, anchor, onChoose, onClose }: {
     ipc.dailyDates(month[0], month[1]).then((d) => { if (live) setMarks(new Set(d)); }, () => {});
     return () => { live = false; };
   }, [month?.[0], month?.[1], refresh]);
-  return <PickDate label={t('daily.calendar')} today={localDate(Date.now())} value={selected} anchor={anchor} marks={marks} onMonth={(y, m) => setMonth([y, m])} onPick={onChoose} onClose={onClose} />;
+  // Slice AND-2 (android-phone §9.8, FR-DLY-03 AC-8): on the phone the calendar is a modal dialog within the viewport.
+  const phone = isPhone();
+  return <PickDate modal={phone} className={phone ? 'phone-calendar' : undefined} label={t('daily.calendar')} today={localDate(Date.now())} value={selected} anchor={anchor} marks={marks} onMonth={(y, m) => setMonth([y, m])} onPick={onChoose} onClose={onClose} />;
 }

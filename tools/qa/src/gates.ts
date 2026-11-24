@@ -14,7 +14,7 @@ import {
   redFirst,
   type CheckResult,
 } from './checks.ts';
-import { l6Problems, milestoneCheck, milestones } from './coverage.ts';
+import { duplicateAcIds, l6Problems, milestoneCheck, milestones } from './coverage.ts';
 import { flakyCheck, readFlakyReports, recordFlaky, type FlakyTest } from './flaky.ts';
 import { loadStepMemo, reportNames, saveStepMemo, stepMemoKey } from './memo.ts';
 import { loadStepRuns, pendingAfter, planPartial, saveStepRuns, stepCommand, stepFingerprint, testFilesAt, type PartialPlan } from './partial.ts';
@@ -269,6 +269,13 @@ export async function runTreeGate(root: string, cfg: Config, gate: Gate, opts: G
     if (cfg.realAppTests.length > 0) {
       const messages = l6Problems(wt.dir, cfg.realAppTests);
       const c: CheckResult = { id: 'l6-coverage', result: messages.length > 0 ? 'fail' : 'pass', messages };
+      checks.push(c);
+      printCheck(c);
+    }
+    // D-2427: no criterion ID defined twice, on the committed tree.
+    {
+      const messages = duplicateAcIds(wt.dir);
+      const c: CheckResult = { id: 'ac-ids', result: messages.length > 0 ? 'fail' : 'pass', messages };
       checks.push(c);
       printCheck(c);
     }

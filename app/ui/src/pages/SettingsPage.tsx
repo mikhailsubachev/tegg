@@ -12,6 +12,7 @@ import { ROUTES, routeDef } from '../shell/registry';
 import type { DateTimeUiDto, TypeDefDto, VaultInfo } from '../ipc/types';
 import { DateTimeSettings, MenuBarSettings, ShortcutsSettings, VaultSettings } from './settings5b';
 import { BackupsSection } from './BackupsPage';
+import { PageHeading } from '../phone/PageHeading';
 import { SettingsLayout, SettingsRow } from '../settings/SettingsLayout';
 
 
@@ -27,7 +28,9 @@ const SECTIONS: [string, string][] = [
 ];
 const CHOICES: [ThemeChoice, string][] = [['system', 'settings.theme.system'], ['light', 'settings.theme.light'], ['dark', 'settings.theme.dark']];
 
-export function SettingsPage({ id, theme, heading, onSection, onTheme, vault, types, refresh, dateTime, onDateTime, onStarter, onOpenFolder, commandTitle, outlineRail = true, onOutlineRail }: {
+export function SettingsPage({ id, theme, heading, onSection, onTheme, vault, types, refresh, dateTime, onDateTime, onStarter, onOpenFolder, commandTitle, outlineRail = true, onOutlineRail, phone = false }: {
+  /** Slice AND-2 (android-phone §9.10, D-2411): no section list; Appearance has Theme only. */
+  phone?: boolean;
   id: string;
   theme: ThemeChoice;
   /** Slice OL (FR-SET-02 AC-10, D-1601): `Show outline rail` (machine-local). */
@@ -50,8 +53,9 @@ export function SettingsPage({ id, theme, heading, onSection, onTheme, vault, ty
   // R219 (D-2071, D-2106): the shared layout; every control in a `SettingsRow`, nothing added, removed or changed.
   return (
     <div className="page-column settings">
-      <h1 ref={heading} tabIndex={-1}>{id === 'settings/backups' ? t('backups.title') : id === 'settings/previews' ? t('settings.previews') : t(def.name)}</h1>
-      <SettingsLayout nav={SECTIONS.map(([sid, key]) => (
+      <PageHeading ref={heading} tabIndex={-1}>{id === 'settings/backups' ? t('backups.title') : id === 'settings/previews' ? t('settings.previews') : t(def.name)}</PageHeading>
+      {/* AND-2 (android-phone §9.10, D-2411): no section list on the phone. */}
+      <SettingsLayout nav={phone ? null : SECTIONS.map(([sid, key]) => (
         <a
           key={sid}
           href="#"
@@ -87,14 +91,14 @@ export function SettingsPage({ id, theme, heading, onSection, onTheme, vault, ty
                 ))}
               </div>
             </SettingsRow>
-            <SettingsRow label={t('settings.appearance.outlineRail')} labelId="outline-rail-label" note={t('settings.appearance.outlineRailNote')}>
+            {!phone && <SettingsRow label={t('settings.appearance.outlineRail')} labelId="outline-rail-label" note={t('settings.appearance.outlineRailNote')}>
               <button type="button" tabIndex={0} role="switch" aria-checked={outlineRail} aria-label={t('settings.appearance.outlineRail')} aria-labelledby="outline-rail-label"
                 aria-description={t('settings.appearance.outlineRailNote')} className={`switch${outlineRail ? ' on' : ''}`} data-command="outline.toggleRail"
                 onClick={() => onOutlineRail?.(!outlineRail)}>
                 <span className="switch-knob" aria-hidden="true" />
               </button>
-            </SettingsRow>
-            {(['ctl.font', 'ctl.fontSize', 'ctl.accentColor'] as const).map((c) => (
+            </SettingsRow>}
+            {!phone && (['ctl.font', 'ctl.fontSize', 'ctl.accentColor'] as const).map((c) => (
               <SettingsRow key={c} label={t(c)} labelId={`${c}-label`}>
                 <Disabled control={c} ariaLabel={t(c)} labelledBy={`${c}-label`} showDue />
               </SettingsRow>

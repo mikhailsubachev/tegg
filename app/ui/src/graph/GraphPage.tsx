@@ -24,6 +24,7 @@ import { PresetControl, type PresetActions } from './PresetControl';
 import { installCanvasInput, zoomCentre } from './canvasInput';
 import { DEBOUNCE, LOADING_AFTER, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP, fmt, kindsOf, reduceMotion, relationNames, stemOf, strings, targetOf, typesAfterAll, unknownHidden, validDepth } from './viewState';
 import type { EdgeKindDto, GraphPresetsDto, GraphRequestDto, GraphResultDto, GraphViewStateDto, NodeIdDto } from './types';
+import { PageHeading } from '../phone/PageHeading';
 
 const CAP = 150;
 const MAX_DRAWN = 1000;
@@ -624,19 +625,19 @@ export function GraphPage(p: GraphPageProps) {
     <div ref={root} className={`graph-page${narrow ? ' narrow' : ''}`}>
       {deleted ? (
         <div role="status" className="graph-deleted">
-          <h1 ref={p.heading} tabIndex={-1}>{t('graph.deleted')}</h1>
+          <PageHeading ref={p.heading} tabIndex={-1}>{t('graph.deleted')}</PageHeading>
           <p>{t(failure.kind === 'trash' ? 'graph.deleted.trash' : 'graph.deleted.gone', { title: failure.title })}</p>
           <button type="button" data-command="nav.back" className="button" onClick={p.nav.back}>{t('graph.back')}</button>
         </div>
       ) : (
-        <h1 ref={p.heading} tabIndex={-1} className="graph-heading">
+        <PageHeading ref={p.heading} tabIndex={-1} className="graph-heading">
           {t('graph.heading')}{' '}
           <span className="graph-centre-chip" data-user-content>
             {centre && centre.typeKey !== 'tag' && <Icon name={chipIcon(centre.typeKey).glyph} dataIcon={chipIcon(centre.typeKey).def} size={14} />}
             {title}
           </span>
           {result && <>{' · '}{headingCount(result)}</>}
-        </h1>
+        </PageHeading>
       )}
       <div className="graph-toolbar">
         <div role="group" aria-label={t('graph.depth')} className="graph-depth">

@@ -11,6 +11,7 @@ import { Icon } from '../shell/Icon';
 import { detailsText } from './DuplicateDetails';
 import { chipIcon } from './icons';
 import { orderDuplicates } from './order';
+import { PageHeading } from '../phone/PageHeading';
 
 export function DuplicateTitlesPage({ heading, refresh, types, onOpen, mergeRef }: {
   heading: RefObject<HTMLHeadingElement | null>; refresh: number; types: TypeDefDto[]; onOpen: (path: string) => void;
@@ -39,7 +40,7 @@ export function DuplicateTitlesPage({ heading, refresh, types, onOpen, mergeRef 
   const objects = groups.reduce((n, g) => n + g.objects.length, 0);
   return (
     <div className="page-column vault-check">
-      <h1 ref={heading} tabIndex={-1}>{t('duplicates.title')}</h1>
+      <PageHeading ref={heading} tabIndex={-1}>{t('duplicates.title')}</PageHeading>
       {data && <p className="summary">{groups.length ? t('duplicates.summary', { count: groups.length, objects }) : t('duplicates.none')}</p>}
       {groups.map((g) => (
         <section key={g.key} role="group" aria-label={`${g.label}, ${g.objects.length}`} className="check-group" data-group={g.key}>

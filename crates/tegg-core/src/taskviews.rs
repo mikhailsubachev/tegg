@@ -78,6 +78,9 @@ pub enum TaskViewsMigration {
     Done { created: Vec<String>, views: Vec<String> },
     /// A create or the views write failed; `reason` = the error kind. Files already created stay.
     Stopped { created: Vec<String>, reason: String },
+    /// docs/contracts/android-phone.md §3 (D-2408, CP-5 → D-2433): the core was opened with
+    /// `OpenExtras { bulk_jobs: false }` (Android); nothing was read or written. Returned before anything is read.
+    Off,
 }
 
 /// §25.3: the outcome of `Core::task_views_restore`.
@@ -142,6 +145,10 @@ impl Core {
     /// it for a newly opened core, tests call it directly. Skips (writes nothing) when unsure on a synced vault: no
     /// `task.yml` yet, or online-only placeholders. `_now` is unused: the default files carry no time stamps (D-1936).
     pub fn task_views_migrate(&self, _now: &str) -> TaskViewsMigration {
+        // AND-2 (android-phone §3, D-2408, D-2433): a core opened without bulk jobs (Android) never migrates.
+        if !self.bulk_jobs {
+            return TaskViewsMigration::Off;
+        }
         let file = match self.task_file() {
             Ok(f) => f,
             Err(e) => return TaskViewsMigration::Stopped { created: Vec::new(), reason: kind_of(&e) },

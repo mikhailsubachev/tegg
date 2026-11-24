@@ -675,4 +675,6 @@ export type CardExampleDto = { path: string, card: CardDataDto, };
 export type StartStateDto = { "state": "needsAccess", path?: string, } | { "state": "opening", name: string, path: string, } | { "state": "open", vault: VaultInfo, } | { "state": "failed", path: string, kind: string, } | { "state": "none" };
 export type FoundVaultDto = { name: string, path: string, rel: string, };
 export type StorageAccessDto = { granted: boolean, sharedRoot: string, };
+export type InsetsDto = { top: number, bottom: number, left: number, right: number, };
+export type WindowStateDto = { insets: InsetsDto, keyboard: boolean, systemDark: boolean, fontScale: number, };
 export type TypeDefDto = TypeDto;

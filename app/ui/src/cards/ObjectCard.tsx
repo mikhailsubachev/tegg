@@ -16,6 +16,7 @@ import { RefElement } from '../preview/useReference';
 import { useTagLook } from '../tags/store';
 import { Icon } from '../shell/Icon';
 import { Checkbox, SourceChip, type TaskNav } from '../tasks/TaskCard';
+import { isPhone } from '../phone/layout';
 import { CardItems, CardLinkChip, type LinkOpts } from './CardPill';
 import { cardParts, type CardParts } from './model';
 import { useTwoRows } from './overflow';
@@ -106,6 +107,8 @@ export function ObjectCard(p: ObjectCardProps) {
   const typeName = p.typeName ?? type?.name ?? card.type;
   // On a board the card is the roving Tab stop; a Task card's own controls stay Tab stops (FR-UX-03 AC-53).
   const inner = board && !task ? -1 : 0;
+  // Slice AND-2 (D-2475): on the phone a board card and its title carry `board.openCard:<path>`; no card menu.
+  const phoneBoard = board && isPhone();
 
   const openCard = (e: React.MouseEvent<HTMLElement>) => {
     if (example || p.surface === 'embed') return;
@@ -123,7 +126,7 @@ export function ObjectCard(p: ObjectCardProps) {
       ? <a href="#" tabIndex={-1} className="card-title-link" data-card-title="" data-embed-title="" data-command="edit.openEmbed" {...(p.titleRef ?? {})} onMouseDown={(e) => e.preventDefault()}><span data-user-content>{title}</span></a>
       : (
         <RefElement as="a" reference={{ target: { path, fragment: null, kind: 'note' }, kind: 'card', open: () => onOpen(path) }}
-          href="#" tabIndex={inner} draggable={false} data-card-title="" data-command={task ? 'task.open' : 'card.open'} className="card-title-link"
+          href="#" tabIndex={inner} draggable={false} data-card-title="" data-command={phoneBoard ? `board.openCard:${path}` : task ? 'task.open' : 'card.open'} className="card-title-link"
           // Slice PIN (R135, D-1381): a drag from a task's title can pin it (a drop on Pinned); the press also reaches the card.
           onMouseDown={task ? (e: React.MouseEvent) => { if (e.button === 0) startPinDrag(e.nativeEvent, { request: { kind: 'object', path }, label: title, icon: 'check-square' }); } : undefined}
           onClick={(e: React.MouseEvent) => { e.preventDefault(); e.stopPropagation(); }}>
@@ -146,6 +149,7 @@ export function ObjectCard(p: ObjectCardProps) {
       data-type={nfc(card.type)}
       data-surface={p.surface}
       {...(board ? { 'data-board-card': path, 'data-read-only': p.readOnly ? '' : undefined } : {})}
+      {...(phoneBoard ? { 'data-command': `board.openCard:${path}` } : {})}
       {...(task ? { 'data-task-card': '', 'data-state': task.state, 'data-overdue': overdue ? 'true' : 'false' } : {})}
       {...(example ? { inert: true, 'data-example': '' } : {})}
       // The Daily Note's Task cards (surface `tasks`) aren't a Tab stop themselves: Tab goes checkbox, title, source chip
@@ -157,7 +161,7 @@ export function ObjectCard(p: ObjectCardProps) {
       <span className="card-lead">{lead}</span>
       <div className="card-title">
         {titleEl}
-        {p.head ?? (!example && p.onMenu && (
+        {p.head ?? (!example && p.onMenu && !phoneBoard && (
           <button type="button" tabIndex={inner} className="icon-button small card-menu" data-command={task ? 'task.setStatus' : 'card.menu'} aria-label={t('task.more', { title })} aria-haspopup="menu"
             onClick={(e) => { e.stopPropagation(); p.onMenu?.(e.currentTarget); }}>
             <Icon name="more-horizontal" size={14} />

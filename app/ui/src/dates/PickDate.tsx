@@ -72,7 +72,7 @@ export function typedDate(text: string, today: string, loc: string): string | nu
   return null;
 }
 
-export function PickDate({ label, today, value, onPick, onClear, onClose, anchor, at, inline, marks, onMonth, field, className }: {
+export function PickDate({ label, today, value, onPick, onClear, onClose, anchor, at, inline, marks, onMonth, field, className, modal }: {
   /** The dialog's name: `Pick date`, the capture's `Pick a due date`, the Daily Notes `Calendar`. */
   label: string;
   /** Today's local date, `YYYY-MM-DD` (the app's zone, D-104). */
@@ -94,6 +94,8 @@ export function PickDate({ label, today, value, onPick, onClear, onClose, anchor
   /** The capture's own typed-date field (D-537); otherwise the picker's `Date` field. */
   field?: React.ReactNode;
   className?: string;
+  /** Slice AND-2 (android-phone §9.8): a modal dialog (the phone's calendar). */
+  modal?: boolean;
 }) {
   const loc = region() ?? undefined;
   const [focus, setFocus] = useState(isYmd(value) ? value : today);
@@ -173,7 +175,7 @@ export function PickDate({ label, today, value, onPick, onClear, onClose, anchor
     }
   }
   const dialog = (
-    <div ref={box} role="dialog" aria-label={label} className={`pick-date${inline ? '' : ' popover'}${className ? ` ${className}` : ''}`} style={style} onKeyDown={onKey}
+    <div ref={box} role="dialog" aria-modal={modal ? 'true' : undefined} aria-label={label} className={`pick-date${inline ? '' : ' popover'}${className ? ` ${className}` : ''}`} style={style} onKeyDown={onKey}
       onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
       {field ?? (
         <span className="pick-date-field">

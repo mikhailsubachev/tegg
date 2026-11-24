@@ -19,6 +19,8 @@ import { queryNav, takePendingEdit } from './nav';
 import { dayText } from './QueriesPage';
 import { isQueryPath } from './store';
 import './pages.css';
+import { PageHeading } from '../phone/PageHeading';
+import { isPhone } from '../phone/layout';
 
 export type QueryPageCommand = 'edit' | 'rename' | 'trash';
 export type QueryPageProps = {
@@ -118,10 +120,11 @@ export function QueryPage({ name, heading, onAll, commandRef, statusRef, onRenam
       <header className="page-header query-page-header">
         <span className="query-tile" aria-hidden="true"><Icon name="query" size={22} /></span>
         <div className="type-header-text">
-          <h1 ref={heading} tabIndex={-1} data-user-content>{title}</h1>
+          <PageHeading ref={heading} tabIndex={-1} data-user-content>{title}</PageHeading>
           {q?.created && <p className="type-count">{t('query.created', { date: dayText(q.created) })}</p>}
         </div>
-        <div className="page-actions">
+        {/* Slice AND-2 (android-phone §9.6, RA11): no Edit query or Query actions on the phone. */}
+        {!isPhone() && <div className="page-actions">
           <button ref={editBtn} tabIndex={0} type="button" className="text-button query-edit-button" aria-haspopup="dialog" data-command="query.edit"
             aria-disabled={editable ? undefined : 'true'} aria-description={state === 'newer' ? t('query.block.readOnly') : undefined}
             onClick={edit}>
@@ -131,7 +134,7 @@ export function QueryPage({ name, heading, onAll, commandRef, statusRef, onRenam
             onClick={(e) => setMenu(e.currentTarget)}>
             <Icon name="more-horizontal" size={16} />
           </button>
-        </div>
+        </div>}
       </header>
       {state === 'unreadable' && q
         ? <p className="query-page-message">{t('query.block.unreadable', { line: q.line ?? 1 })}</p>

@@ -21,6 +21,8 @@ import { tagChipStyle } from './chip';
 import { DEFAULT_TAG_PAGE, summary, tagPageRows, typeOptions, type TagPageSort, type TagPageUi } from './model';
 import { ColourPopover, DeleteTagDialog, RenameTagDialog } from './TagDialogs';
 import { useTags, syncTags } from './store';
+import { PageHeading } from '../phone/PageHeading';
+import { isPhone } from '../phone/layout';
 
 export type TagPageProps = {
   tagKey: string;
@@ -60,7 +62,8 @@ export function TagPage(p: TagPageProps) {
   const anchors = useRef<Record<string, HTMLElement | null>>({});
   const tile = useRef<HTMLButtonElement | null>(null);
   const tbody = useRef<HTMLTableElement | null>(null);
-  const ui: TagPageUi = { ...DEFAULT_TAG_PAGE, ...(p.ui ?? {}) };
+  // Slice AND-2 (AP-2059): the phone has no Type filter, so it shows every type.
+  const ui: TagPageUi = { ...DEFAULT_TAG_PAGE, ...(p.ui ?? {}), ...(isPhone() ? { type: null } : {}) };
 
   useEffect(() => {
     let live = true;
@@ -157,6 +160,9 @@ export function TagPage(p: TagPageProps) {
   const sortLabel = `${t(COLUMNS.find((c) => c.key === ui.sort.column)?.label ?? 'tag.col.modified')} ${ui.sort.dir === 'asc' ? '↑' : '↓'}`;
   const typeLabel = ui.type === null ? t('tag.typeAll') : t('tag.typeOne', { type: typeNames[ui.type] ?? ui.type });
 
+  // Slice AND-2 (android-phone §9.8, RA11; FR-TAG-06 AC-14): on the phone the page is read-only: the colour tile is a
+  // span, no Tag actions (rename, colour, delete), no Type filter, no drags.
+  const phone = isPhone();
   const pinEntry = usePinMenuEntry();
   const menuEntries = (): MenuEntry[] => {
     if (menu === 'actions') {
@@ -225,15 +231,15 @@ export function TagPage(p: TagPageProps) {
       <header className="page-header tag-header">
         {/* The tile comes after the heading in the focus order and before it on screen (`order: -1`). */}
         <div className="type-header-text">
-          <h1 ref={p.heading} tabIndex={-1}><span data-user-content>{name}</span></h1>
+          <PageHeading ref={p.heading} tabIndex={-1}><span data-user-content>{isPhone() ? `#${p.tagKey}` : name}</span></PageHeading>
           <p className="type-count">{t('tag.summary', { objects: s.objects, types: s.types })}</p>
         </div>
-        {row ? (
+        {row && !phone ? (
           <button data-command="tagPage.c11" ref={tile} tabIndex={0} type="button" className="tag-tile" aria-label={t('tag.colour')} aria-haspopup="dialog" data-color={row.color ?? 'none'}
             style={{ ...tagChipStyle(row.color), order: -1 }} onClick={() => setDialog('colour')}>#</button>
-        ) : <span className="tag-tile" aria-hidden="true" style={{ order: -1 }}>#</span>}
+        ) : <span className="tag-tile" aria-hidden="true" data-tag-colour={phone ? row?.color ?? 'none' : undefined} style={{ ...(phone && row ? tagChipStyle(row.color) : {}), order: -1 }}>#</span>}
         <div className="page-actions">
-          {row && (
+          {row && !phone && (
             <button data-command="tagPage.c10" tabIndex={0} type="button" className="icon-button bordered" aria-label={t('tag.actions')} title={t('tag.actions')} aria-haspopup="menu" aria-expanded={menu === 'actions'} onClick={open('actions')}>
               <Icon name="more-horizontal" size={16} />
             </button>
@@ -245,7 +251,7 @@ export function TagPage(p: TagPageProps) {
         <input data-command="tagPage.c8" type="text" className="type-filter" aria-label={t('tag.filter')} placeholder={t('tag.filterPlaceholder')} value={filter} spellCheck={false} autoComplete="off"
           onChange={(e) => setFilter(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setFilter(''); } else if (e.key === 'ArrowDown') { e.preventDefault(); focusRow(0); } }} />
-        <button data-command="tagPage.c7" tabIndex={0} type="button" className="text-button" aria-haspopup="menu" onClick={open('type')}>{typeLabel}</button>
+        {!phone && <button data-command="tagPage.c7" tabIndex={0} type="button" className="text-button" aria-haspopup="menu" onClick={open('type')}>{typeLabel}</button>}
         <button data-command="tagPage.c6" tabIndex={0} type="button" className="text-button" aria-haspopup="menu" onClick={open('sort')}>{sortLabel}</button>
         <button data-command="tagPage.c5" tabIndex={0} type="button" className="text-button" aria-haspopup="menu" onClick={open('group')}>{ui.grouping === 'type' ? t('tag.groupedByType') : t('tag.noGrouping')}</button>
       </div>
@@ -276,7 +282,7 @@ export function TagPage(p: TagPageProps) {
               return (
                 <RefElement as="tr" reference={{ target: { path: r.path.normalize('NFC'), fragment: null, kind: 'note' }, kind: 'row', open: () => p.onOpen(r.path) }}
                   key={r.path} className="type-row" data-index={i} data-path={r.path.normalize('NFC')} data-state={st.task?.state} tabIndex={i === Math.min(cursor, flat.length - 1) ? 0 : -1}
-                  {...pinDragSource({ request: { kind: 'object', path: r.path.normalize('NFC') }, label: r.title, icon: 'file' })}
+                  {...(phone ? {} : pinDragSource({ request: { kind: 'object', path: r.path.normalize('NFC') }, label: r.title, icon: 'file' }))}
                   onFocus={() => setCursor(i)}
                   onKeyDown={(e) => {
                     if (e.target !== e.currentTarget) return;

@@ -6,6 +6,7 @@
 import { useRef, useState } from 'react';
 import { t } from '../i18n/catalog';
 import { WIDTH, clampWidth } from './widths';
+import { isPhone } from '../phone/layout';
 import type { AttributeDto } from '../ipc/types';
 import { LucideIcon } from '../shell/Icon';
 
@@ -16,7 +17,15 @@ export type SortMarker = { arrow: '↑' | '↓'; n: number | null };
 const SUP: Record<string, string> = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
 const sup = (n: number) => String(n).split('').map((d) => SUP[d] ?? d).join('');
 
-export function HeaderCell({ col, first, width, sortable = true, ariaSort, marker, description, disabled, movable, keys = false, resizable = true,
+type HeaderCellProps = Parameters<typeof HeaderCellImpl>[0];
+
+/** Slice AND-2 (android-phone §9.5, RA11): on the phone a header cell is read-only: no sort on tap, no drag, no resize
+ *  separator. The desktop is unchanged (AR-03 AC-14). */
+export function HeaderCell(props: HeaderCellProps) {
+  return isPhone() ? <HeaderCellImpl {...props} sortable={false} movable={false} resizable={false} /> : <HeaderCellImpl {...props} />;
+}
+
+function HeaderCellImpl({ col, first, width, sortable = true, ariaSort, marker, description, disabled, movable, keys = false, resizable = true,
   plain = false, scroller, titleWidth = 0, onSort, onMove, onDrop, onWidth, onCancelWidth, resizeDisabled = null, onWidthBlur }: {
   col: HeaderColumn;
   /** The Title column: sticky, its own minimum width, never dragged (D-1798). */

@@ -5,6 +5,8 @@ import { Search } from '../Search';
 import type { DateTimeUiDto, SwitcherItemDto, TypeDto } from '../ipc/types';
 import type { SearchState } from '../shell/history';
 import type { Prepared } from '../types/create';
+import { PageHeading, useHeadingSlot } from '../phone/PageHeading';
+import { isPhone } from '../phone/layout';
 
 export function SearchPage({ refresh, heading, inputRef, onOpen, onCreate, onLeave, tag, types, dateTime, initial, onState }: {
   refresh: number;
@@ -26,11 +28,15 @@ export function SearchPage({ refresh, heading, inputRef, onOpen, onCreate, onLea
     // Back to an entry whose row was focused: the page focuses that row once it is shown (D-1217).
     if (!document.querySelector('[role="dialog"]') && !initial?.focusPath) inputRef.current?.focus({ preventScroll: true });
   }, []);
+  // Slice AND-2 (android-phone §8.2, §9.8; FR-SRC-03 AC-22): on the phone the field is in the app bar, the page's `h1`
+  // stays in `main` visually hidden, and the page creates nothing (`noCreate`).
+  const phone = isPhone();
+  const slot = useHeadingSlot();
   return (
     <div className="page-column">
-      <h1 ref={heading} tabIndex={-1}>{t('route.search')}</h1>
+      {phone ? <h1 ref={heading} tabIndex={-1} className="sr-only">{t('route.search')}</h1> : <PageHeading ref={heading} tabIndex={-1}>{t('route.search')}</PageHeading>}
       <Search onOpen={onOpen} onCreate={onCreate} onLeave={onLeave} refresh={refresh} inputRef={inputRef} tag={tag}
-        types={types} dateTime={dateTime} initial={initial} onState={onState} />
+        types={types} dateTime={dateTime} initial={initial} onState={onState} noCreate={phone} fieldSlot={phone ? slot : null} />
     </div>
   );
 }

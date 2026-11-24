@@ -262,7 +262,14 @@ export async function webview(id: string, ms = 30_000): Promise<WebView> {
     const msg = JSON.parse(String((e as MessageEvent).data));
     if (msg.id && pending.has(msg.id)) { pending.get(msg.id)!(msg); pending.delete(msg.id); }
   });
-  const send = (method: string, params: Record<string, unknown> = {}) => new Promise<any>((res) => { const i = ++seq; pending.set(i, res); ws.send(JSON.stringify({ id: i, method, params })); });
+  // A DevTools call fails after 30 s instead of waiting forever on a dead connection (AC-Test-Change, approved by the
+  // owner).
+  const send = (method: string, params: Record<string, unknown> = {}) => new Promise<any>((res, rej) => {
+    const i = ++seq;
+    const timer = setTimeout(() => { pending.delete(i); rej(new Error(`CDP ${method}: no answer in 30 s (a dead WebView connection?)`)); }, 30_000);
+    pending.set(i, (m) => { clearTimeout(timer); res(m); });
+    ws.send(JSON.stringify({ id: i, method, params }));
+  });
   const evaluate = async <T>(expr: string): Promise<T> => {
     const r = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true });
     assert.ok(!r.result?.exceptionDetails, `WebView eval failed: ${JSON.stringify(r.result?.exceptionDetails?.exception?.description ?? r.result?.exceptionDetails)}`);

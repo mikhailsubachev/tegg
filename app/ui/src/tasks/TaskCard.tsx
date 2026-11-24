@@ -7,6 +7,7 @@ import { t } from '../i18n/catalog';
 import type { TaskRowDto } from '../ipc/types';
 import { chipIcon } from '../links/icons';
 import { requestOffer } from '../links/offer';
+import { isPhone } from '../phone/layout';
 import { Icon } from '../shell/Icon';
 import { dueLabel, shortDate } from './views';
 
@@ -22,18 +23,22 @@ export const isDone = (r: TaskRowDto) => r.state === 'done';
 export function Checkbox({ row, onToggle, tabIndex = 0 }: { row: TaskRowDto; onToggle: (done: boolean) => void; tabIndex?: number }) {
   const done = isDone(row);
   const name = done ? t('task.uncomplete', { title: row.title }) : t('task.complete', { title: row.title });
+  // Slice AND-2 (android-phone §9.5, §9.8): on the phone every task checkbox is view only; a tap does nothing.
+  const phone = isPhone();
+  const off = row.readOnly || phone;
   return (
     <button
       type="button"
       role="checkbox"
       tabIndex={tabIndex}
-      data-command="task.complete"
+      // D-2475: a view-only checkbox on the phone carries no command.
+      data-command={phone ? undefined : 'task.complete'}
       className={`task-check${done ? ' checked' : ''}`}
       aria-checked={done}
       aria-label={name}
-      aria-disabled={row.readOnly || undefined}
-      aria-description={row.readOnly ? t('task.readOnly') : undefined}
-      onClick={(e) => { e.stopPropagation(); if (!row.readOnly) onToggle(!done); }}
+      aria-disabled={off || undefined}
+      aria-description={phone ? t('phone.viewOnly') : row.readOnly ? t('task.readOnly') : undefined}
+      onClick={(e) => { e.stopPropagation(); if (!off) onToggle(!done); }}
       onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') e.stopPropagation(); }}
     >
       {done && <Icon name="check" size={12} />}
@@ -76,7 +81,8 @@ export function SourceChip({ row, nav, tabIndex = 0, footer }: { row: TaskRowDto
       reference={{ target, kind: 'chip', open: () => open(document.activeElement as HTMLElement), createOffer: (el) => open(el) }}
       href="#"
       tabIndex={tabIndex}
-      data-command="task.openSource"
+      // D-2475: on the phone the source chip runs `board.openSource:<path>` (the card's task path).
+      data-command={isPhone() ? `board.openSource:${row.path.normalize('NFC')}` : 'task.openSource'}
       className={`chip link-chip kind-${kind} task-source`}
       data-link-kind={kind}
       data-attribute={footer ? 'source' : undefined}

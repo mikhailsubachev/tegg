@@ -1,4 +1,4 @@
-//! Slice AND-1, L4 (Mac host, APFS, temporary copy): docs/acceptance/android-shell.md FR-SYN-06 AC-50 "Opening a vault
+//! Slice AND-1, L4 (Mac host, APFS, temporary copy): docs/acceptance/android-shell.md FR-SYN-06 AC-53 "Opening a vault
 //! on Android writes nothing: no tidy job, no bulk job" (D-2007, AP-2025 → D-2025; T1), through
 //! `Core::open_ext(root, dirs, opts, OpenExtras { bulk_jobs: false })` (docs/contracts/android-shell.md §3.3; CP-1 →
 //! D-2036 reads the AC's `CoreOptions { bulk_jobs: false, .. }` as this call).
@@ -102,7 +102,7 @@ fn bulk_ops() -> Vec<(&'static str, JobOp)> {
 }
 
 #[test]
-fn fr_syn_06_ac50_no_writes_and_no_jobs_on_android() {
+fn fr_syn_06_ac53_no_writes_and_no_jobs_on_android() {
     std::env::set_var("TEGG_TEST_QUIET_MS", "200");
     let sb = sandbox();
 

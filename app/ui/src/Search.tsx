@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { PinContextMenu } from './pinned/PinMenu';
 import { pinDragSource } from './pinned/drag';
@@ -54,7 +55,10 @@ function withUser(key: string, vars: Record<string, string>, user: Record<string
  *  type, date, match line, snippet or body lead and tag chips, `Show next`, and the empty states. Quick switching is
  *  the results list (FR-NAV-01, D-1340): ↓ goes to the first row, ⏎ opens it, ⌥⏎ creates. Its state belongs to the
  *  history entry (D-1217): `initial` restores it, `onState` reports it. */
-export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, types, dateTime, initial, onState }: {
+/** The phone's last shown search (its query key, rows and total), for Back (FR-SRC-03 AC-22). */
+let phoneShown: { key: string; rows: SearchResultDto[]; total: number } | null = null;
+
+export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, types, dateTime, initial, onState, noCreate = false, fieldSlot = null }: {
   onOpen: (path: string) => void;
   /** Esc: back to the page Search was opened from, as the switcher closed (D-760); false when there is none. */
   onLeave: () => boolean;
@@ -66,6 +70,10 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
   dateTime?: DateTimeUiDto;
   initial?: SearchState;
   onState?: (s: SearchState) => void;
+  /** Slice AND-2 (android-phone §9.8): no create buttons, no ⌥⏎ create, the phone's no-match body, no ⇧⌘F hint. */
+  noCreate?: boolean;
+  /** Slice AND-2 (§8.2): where the search field is portalled (the phone's app bar). */
+  fieldSlot?: HTMLElement | null;
 }) {
   const [text, setText] = useState(initial?.text ?? '');
   const [type, setType] = useState<string | null>(initial?.type ?? null);
@@ -85,10 +93,12 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
   const typeName = (k: string) => typeNames[k || 'page'] ?? k;
 
   // Buttons carry tabIndex 0: WebKit's Tab reaches a button only with an explicit tabindex (as on the tag page).
-  const [rows, setRows] = useState<SearchResultDto[]>([]);
-  const [total, setTotal] = useState<number | null>(null);
+  // Slice AND-2 (FR-SRC-03 AC-22): on the phone Back to a search shows its last rows at once, then asks again.
+  const cached = noCreate && initial && phoneShown?.key === `${initial.text}\u0000${initial.type ?? ''}\u0000${initial.tags.join('\u0001')}` ? phoneShown : null;
+  const [rows, setRows] = useState<SearchResultDto[]>(cached?.rows ?? []);
+  const [total, setTotal] = useState<number | null>(cached?.total ?? null);
   const loaded = useRef(initial?.loaded ?? 0);
-  const totalRef = useRef<number | null>(null);
+  const totalRef = useRef<number | null>(cached?.total ?? null);
   const focusPath = useRef<string | null>(initial?.focusPath ?? null);
   const restoreFocus = useRef<string | null>(initial?.focusPath ?? null);
   const restored = useRef(!!initial);
@@ -158,6 +168,7 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
         }
         setRows(p.results);
         setTotal(p.total);
+        if (noCreate) phoneShown = { key: keyOf, rows: p.results, total: p.total };
         totalRef.current = p.total;
         loaded.current = p.results.length;
         rowsKey.current = keyOf;
@@ -267,7 +278,9 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
     if (hasText && hasFilter) {
       empty = { title: withUser('search.noResultsTitle', {}, { q }), label: t('search.noResultsTitle', { q }), body: withUser('search.noResultsBody', { filters: filterList() }, { q }), clear: true };
     } else if (hasText) {
-      empty = { title: withUser('search.noResultsTitle', {}, { q }), label: t('search.noResultsTitle', { q }), body: withUser('search.noMatchCreate', {}, { q }), clear: false, create: true };
+      empty = noCreate
+        ? { title: withUser('search.noResultsTitle', {}, { q }), label: t('search.noResultsTitle', { q }), body: withUser('phone.search.noMatch', {}, { query: q }), clear: false }
+        : { title: withUser('search.noResultsTitle', {}, { q }), label: t('search.noResultsTitle', { q }), body: withUser('search.noMatchCreate', {}, { q }), clear: false, create: true };
     } else {
       const f = filterList();
       empty = { title: t('search.noObjectsTitle', { filters: f }), label: t('search.noObjectsTitle', { filters: f }), body: t('search.noObjectsBody'), clear: true };
@@ -306,7 +319,7 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
     const r = button.getBoundingClientRect();
     setAsMenu({ left: r.left, top: r.bottom + 4, button });
   };
-  const createButtons = () => (
+  const createButtons = () => noCreate ? null : (
     <>
       <button type="button" tabIndex={0} className="text-button create" data-command="search.create" onClick={() => void createDefault()}>{withUser('search.create', {}, { q: createTitle() })}</button>
       <button type="button" tabIndex={0} className="text-button create-as" data-command="search.createAs" aria-haspopup="menu" aria-expanded={!!asMenu}
@@ -322,9 +335,10 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
   return (
     <section className="search"
       onFocus={(e) => { const a = (e.target as HTMLElement).closest<HTMLElement>('a.result'); focusPath.current = a?.dataset.path ?? null; report(); }}>
+      {(() => { const field = (
       <div role="search" className="search-field">
         <Icon name="search" />
-        <input ref={inputRef} type="search" autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} aria-label={t('search.label')} placeholder={t('search.placeholder')} value={text}
+        <input ref={inputRef} type="search" enterKeyHint={noCreate ? 'search' : undefined} autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} aria-label={t('search.label')} placeholder={t('search.placeholder')} value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'ArrowDown') {
@@ -332,7 +346,7 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
               if (first) { e.preventDefault(); first.focus(); }
             } else if (e.key === 'Enter' && e.altKey && !e.metaKey && !e.ctrlKey) {
               e.preventDefault();
-              if (hasText) void createDefault();
+              if (hasText && !noCreate) void createDefault();
             } else if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
               e.preventDefault();
               if (!hasText) return; // D-1352: ⏎ with only filters set does nothing (FR-NAV-01 AC-21)
@@ -343,8 +357,9 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
             } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (!onLeave()) setText(''); }
           }} />
         {text && <button type="button" tabIndex={0} className="clear-search" data-command="search.clear" aria-label={t('search.clear')} onClick={() => { setText(''); inputRef.current?.focus(); }}><Icon name="x" /></button>}
-        <span className="shortcut-hint" aria-hidden="true">{t('search.shortcut')}</span>
+        {!noCreate && <span className="shortcut-hint" aria-hidden="true">{t('search.shortcut')}</span>}
       </div>
+      ); return fieldSlot ? createPortal(field, fieldSlot) : field; })()}
       <div className="filters" role="group" aria-label={t('search.filters')}>
         <button ref={typeButton} type="button" tabIndex={0} className="type-filter" data-command="search.type" aria-haspopup="menu" aria-expanded={menuOpen} data-active={type !== null || undefined}
           aria-label={type === null ? t('search.typeAll') : t('search.typeOne', { type: typeName(type) })}

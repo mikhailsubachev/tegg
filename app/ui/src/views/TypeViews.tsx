@@ -27,6 +27,7 @@ import { lastTab, lastTabOf, setLastTab, setTagFilter, tagFilterOf } from './uiS
 import { tagFilterKey } from './tagFilter';
 import { lastFocused, useViewsHandler } from './actions';
 import { ViewPanel, type PanelApi, type TabFilter, type ViewState } from './ViewPanel';
+import { isPhone } from '../phone/layout';
 import { requestMark, useRowsReady } from './marks';
 import './views.css';
 
@@ -356,9 +357,17 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, op
       const b = v ? panel.current?.board() ?? null : null;
       return { typeKey: cur.key, tab: v, writable, viewWritable: !!v && !ro && !!panel.current?.def(), board: b ? b.status() : null, sortable: !!v && !!panel.current?.def(),
         usage: v ? panel.current?.usage() ?? null : null,
-        display: v ? (() => { const d = panel.current?.display(); if (!d) return null; const { resetLaneOrder: _r, ...rest } = d; void _r; return rest; })() : all.status?.() ?? null };
+        display: v ? (() => { const d = panel.current?.display(); if (!d) return null; const { resetLaneOrder: _r, ...rest } = d; void _r; return rest; })() : all.status?.() ?? null,
+        // D-2463: on the phone each tab runs its own command.
+        phoneTabs: isPhone() ? ['', ...items.filter((it) => !it.draft).map((it) => nfc(it.name))] : undefined };
     },
     run: (id) => {
+      if (id.startsWith('views.tab:')) {
+        const n = id.slice('views.tab:'.length);
+        const want = n === '' ? null : (items.find((it) => nfc(it.name) === nfc(n))?.name ?? undefined);
+        if (want !== undefined && viewName() !== want) select(want);
+        return;
+      }
       switch (id) {
         case 'views.new': if (writable) { setAddOpen(true); } return;
         case 'views.edit': editView(null); return;
@@ -410,6 +419,9 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, op
   };
 
   const selectedItem = shownName === null ? null : items.find((it) => it.name === shownName) ?? null;
+  // Slice AND-2 (android-phone §9.5, RA11): on the phone the tabs are chips that only select: no `Add view`, chevron,
+  // view menu or tab drag.
+  const phone = isPhone();
   // ---- Slice Q3: the toolbar shares the tab row while both fit; otherwise it goes below the tabs (as the row wrapped).
   const area = useRef<HTMLDivElement | null>(null);
   const [stacked, setStacked] = useState(false);
@@ -447,7 +459,7 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, op
                 step(e.key === 'ArrowRight' ? 1 : -1, true);
               }
             }}>
-            <div role="tab" id={tabId(null)} data-command="views.next" data-view-tab="" data-view-kind="table" aria-selected={shownName === null} tabIndex={shownName === null ? 0 : -1}
+            <div role="tab" id={tabId(null)} data-command={phone ? 'views.tab:' : 'views.next'} data-view-tab="" data-view-kind="table" aria-selected={shownName === null} tabIndex={shownName === null ? 0 : -1}
               aria-posinset={1} aria-setsize={items.length + 1} aria-controls={shownName === null ? 'view-panel' : undefined}
               className={`view-tab${shownName === null ? ' on' : ''}${tabDrag && tabDrag.before === (items[0]?.name ?? null) && tabDrag.name !== items[0]?.name ? '' : ''}`}
               onClick={() => { if (shownName !== null) select(null); }}
@@ -461,19 +473,19 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, op
               const dropBefore = tabDrag && tabDrag.name !== it.name && tabDrag.before !== undefined && tabDrag.before !== null && nfc(tabDrag.before) === nfc(it.name);
               const dropAfter = tabDrag && tabDrag.before === null && i === items.length - 1 && tabDrag.name !== it.name;
               return (
-                <div key={it.name} role="tab" id={tabId(it.name)} data-command="views.next" data-view-tab={it.draft ? t('views.newName') : nfc(it.name)} data-view-kind={it.kind ?? undefined}
+                <div key={it.name} role="tab" id={tabId(it.name)} data-command={phone && !it.draft ? `views.tab:${nfc(it.name)}` : 'views.next'} data-view-tab={it.draft ? t('views.newName') : nfc(it.name)} data-view-kind={it.kind ?? undefined}
                   data-view-state={st && (on || it.draft || st === 'trashed' || st === 'missing') ? st : undefined} aria-selected={on} aria-haspopup={it.draft ? undefined : 'menu'}
                   aria-posinset={i + 2} aria-setsize={items.length + 1} tabIndex={on ? 0 : -1}
                   className={`view-tab${on ? ' on' : ''}${tabDrag?.name === it.name ? ' dragging' : ''}${dropBefore ? ' drop-before' : ''}${dropAfter ? ' drop-after' : ''}`}
-                  onMouseDown={it.draft ? undefined : startTabDrag(it.name)}
+                  onMouseDown={it.draft || phone ? undefined : startTabDrag(it.name)}
                   onClick={() => { if (!on) select(it.name); }}
-                  onContextMenu={(e) => { e.preventDefault(); if (!it.draft) setMenu({ name: it.name, anchor: e.currentTarget, toolbar: false, at: { x: e.clientX, y: e.clientY } }); }}
+                  onContextMenu={(e) => { e.preventDefault(); if (!it.draft && !phone) setMenu({ name: it.name, anchor: e.currentTarget, toolbar: false, at: { x: e.clientX, y: e.clientY } }); }}
                   onKeyDown={(e) => {
-                    if (e.key === 'F10' && e.shiftKey && !it.draft) { e.preventDefault(); e.stopPropagation(); setMenu({ name: it.name, anchor: e.currentTarget, toolbar: false }); }
+                    if (e.key === 'F10' && e.shiftKey && !it.draft && !phone) { e.preventDefault(); e.stopPropagation(); setMenu({ name: it.name, anchor: e.currentTarget, toolbar: false }); }
                   }}>
                   <span data-icon={it.kind ?? 'table'} className="view-tab-icon" aria-hidden="true"><Icon name={it.kind ?? 'table'} size={14} /></span>
                   <span data-user-content={it.draft ? undefined : ''}>{it.label}</span>
-                  {on && !it.draft && (
+                  {on && !it.draft && !phone && (
                     <span className="view-chevron" data-view-chevron="" aria-hidden="true"
                       onMouseDown={(e) => e.stopPropagation()}
                       onClick={(e) => { e.stopPropagation(); setMenu({ name: it.name, anchor: e.currentTarget.parentElement as HTMLElement, toolbar: false }); }}>
@@ -484,11 +496,11 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, op
               );
             })}
           </div>
-          <button ref={addBtn} type="button" tabIndex={0} className="icon-button view-add" aria-label={t('views.add')} title={t('views.add')} aria-haspopup="menu" aria-expanded={addOpen}
+          {!phone && <button ref={addBtn} type="button" tabIndex={0} className="icon-button view-add" aria-label={t('views.add')} title={t('views.add')} aria-haspopup="menu" aria-expanded={addOpen}
             data-command="views.new" aria-disabled={writable ? undefined : 'true'} aria-description={writable ? undefined : reason ?? undefined}
             onClick={() => { if (writable) setAddOpen((o) => !o); }}>
             <Icon name="plus" size={14} />
-          </button>
+          </button>}
         </aside>
       </div>
       {shownName === null ? (

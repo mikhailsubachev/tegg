@@ -1,4 +1,4 @@
-//! Slice AND-1, L1 (Rust, Mac host): docs/acceptance/android-shell.md FR-SYN-03 AC-32 "Read events are not changes"
+//! Slice AND-1, L1 (Rust, Mac host): docs/acceptance/android-shell.md FR-SYN-03 AC-37 "Read events are not changes"
 //! (F1, D-2028, T2) through the pure `tegg_vault::fs_change_of(event, base)` of docs/contracts/android-shell.md §3.1 and
 //! RA6's table. The events are built here with `notify::Event::new(…).add_path(…)` (the `notify` re-export of
 //! `tegg_vault`, contract §1), so the test runs on the Mac. Written from the ACs and the contract only (D-61); the
@@ -34,7 +34,7 @@ fn one(rel: &str) -> Option<FsChange> {
 }
 
 #[test]
-fn fr_syn_03_ac32_watcher_maps_event_kinds() {
+fn fr_syn_03_ac37_watcher_maps_event_kinds() {
     let base = Path::new(BASE);
     assert_ne!(nfd(NOTE), NOTE, "setup: the NFD spelling differs in bytes");
 

@@ -1,0 +1,706 @@
+/* Slice AND-2 (docs/contracts/android-phone.md §8, §9): every phone rule, scoped to the phone layout. */
+html[data-layout="phone"] {
+  --inset-top: 0px;
+  --inset-bottom: 0px;
+  --inset-left: 0px;
+  --inset-right: 0px;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  -webkit-text-size-adjust: 100%;
+}
+html[data-layout="phone"] body,
+html[data-layout="phone"] #root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--bg);
+}
+html[data-layout="phone"] .app.phone {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* §8.5: a long press does nothing; running text stays selectable. */
+html[data-layout="phone"] a,
+html[data-layout="phone"] button,
+html[data-layout="phone"] [role="button"],
+html[data-layout="phone"] .chip,
+html[data-layout="phone"] .phone-row {
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------------------------------------------------------------- the app bar (RA8) */
+html[data-layout="phone"] .phone-appbar {
+  flex: none;
+  padding-top: var(--inset-top);
+  padding-left: var(--inset-left);
+  padding-right: var(--inset-right);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+html[data-layout="phone"] .phone-appbar-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 56px;
+  padding: 0 8px;
+}
+html[data-layout="phone"] .phone-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  padding-left: 8px;
+}
+html[data-layout="phone"] .phone-title h1 {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.3;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html[data-layout="phone"] .phone-title [role="search"] {
+  flex: 1;
+  min-width: 0;
+}
+html[data-layout="phone"] .phone-appbar .icon-button,
+html[data-layout="phone"] .phone-sheet-head .icon-button {
+  min-width: 48px;
+  min-height: 48px;
+}
+
+/* ---------------------------------------------------------------- content */
+html[data-layout="phone"] main.phone-main {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+html[data-layout="phone"] .page-column {
+  max-width: none;
+  width: auto;
+  margin: 0;
+  padding: 12px calc(16px + var(--inset-right)) 24px calc(16px + var(--inset-left));
+  box-sizing: border-box;
+}
+html[data-layout="phone"] img {
+  max-width: 100%;
+  height: auto;
+}
+html[data-layout="phone"] .table-wrap,
+html[data-layout="phone"] .read-view table {
+  max-width: 100%;
+}
+html[data-layout="phone"] .read-view table {
+  display: block;
+  overflow-x: auto;
+}
+html[data-layout="phone"] pre,
+html[data-layout="phone"] .code-block {
+  max-width: 100%;
+  overflow-x: auto;
+}
+html[data-layout="phone"] .phone-indexing {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 16px;
+  font-size: 13px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+html[data-layout="phone"] .phone-indexing progress {
+  flex: 1;
+}
+
+/* ---------------------------------------------------------------- the bottom bar */
+html[data-layout="phone"] .phone-bottombar {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding-bottom: var(--inset-bottom);
+  padding-left: var(--inset-left);
+  padding-right: var(--inset-right);
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+}
+html[data-layout="phone"] .phone-tab {
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 12px;
+}
+html[data-layout="phone"] .phone-tab[aria-current="page"] {
+  color: var(--accent);
+}
+html[data-layout="phone"] .phone-tab[aria-disabled="true"] {
+  opacity: 0.45;
+}
+
+/* ---------------------------------------------------------------- the notice */
+html[data-layout="phone"] .phone-notice {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: calc(var(--inset-bottom) + 72px);
+  z-index: 40;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 14px;
+}
+
+/* ---------------------------------------------------------------- the drawer and sheets */
+html[data-layout="phone"] .phone-drawer-layer,
+html[data-layout="phone"] .phone-sheet-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+}
+html[data-layout="phone"] .phone-scrim {
+  position: absolute;
+  /* Below the status bar: its area keeps the theme's bg while the drawer or a sheet is open (FR-UX-04 AC-3, D-2467). */
+  inset: var(--inset-top) 0 0 0;
+  background: var(--side);
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+html[data-layout="phone"] .phone-drawer-layer.open .phone-scrim,
+html[data-layout="phone"] .phone-sheet-layer .phone-scrim {
+  opacity: 0.75;
+}
+html[data-layout="phone"] .phone-drawer {
+  position: absolute;
+  left: 0;
+  top: var(--inset-top);
+  bottom: var(--inset-bottom);
+  /* A side cutout or bar in landscape: the drawer's background reaches the edge, its content starts after the inset
+     (FR-UX-04 AC-3, D-2468). */
+  width: calc(min(320px, calc(100vw - 56px)) + var(--inset-left));
+  padding-left: var(--inset-left);
+  display: flex;
+  flex-direction: column;
+  background: var(--side);
+  transform: translateX(-100%);
+  transition: transform 200ms ease;
+  overflow: hidden;
+}
+html[data-layout="phone"] .phone-drawer-layer.open .phone-drawer {
+  transform: none;
+}
+html[data-layout="phone"] .phone-drawer .vault-switcher {
+  min-height: 56px;
+  margin: 8px;
+}
+html[data-layout="phone"] .phone-drawer nav.sidebar {
+  flex: 1;
+  min-height: 0;
+  width: auto;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+}
+html[data-layout="phone"] .phone-drawer .sidebar-scroll {
+  flex: 1;
+  overflow-y: auto;
+}
+html[data-layout="phone"] .phone-drawer .logo {
+  min-width: 48px;
+}
+html[data-layout="phone"] .phone-drawer .entry,
+html[data-layout="phone"] .phone-drawer .logo,
+html[data-layout="phone"] .phone-drawer button {
+  min-height: 48px;
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-layout="phone"] .phone-drawer,
+  html[data-layout="phone"] .phone-scrim {
+    transition-duration: 0s;
+  }
+}
+html[data-layout="phone"] .phone-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--inset-bottom);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border-radius: 12px 12px 0 0;
+  /* Side cutouts and bars in landscape (FR-UX-04 AC-3, D-2468). */
+  padding-left: var(--inset-left);
+  padding-right: var(--inset-right);
+}
+html[data-layout="phone"] .phone-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px 4px 16px;
+}
+html[data-layout="phone"] .phone-sheet-head h2 {
+  margin: 0;
+  font-size: 17px;
+}
+html[data-layout="phone"] .phone-sheet-body {
+  overflow-y: auto;
+  padding: 0 16px 16px;
+}
+html[data-layout="phone"] [role="menu"] [role^="menuitem"] {
+  min-height: 48px;
+}
+
+/* ---------------------------------------------------------------- settings and lists */
+html[data-layout="phone"] .phone-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+html[data-layout="phone"] .phone-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 56px;
+  color: var(--text);
+  text-decoration: none;
+  border-bottom: 1px solid var(--border);
+}
+html[data-layout="phone"] .phone-button {
+  min-height: 48px;
+  padding: 0 16px;
+}
+html[data-layout="phone"] .phone-facts dd {
+  margin: 0 0 12px;
+  overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------- the mindmap (§9.4) */
+html[data-layout="phone"] .phone-map-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+html[data-layout="phone"] .phone-map-header .icon-button,
+html[data-layout="phone"] .phone-map-header [role="group"] button {
+  min-width: 48px;
+  min-height: 48px;
+}
+html[data-layout="phone"] .phone-map-area {
+  position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+  touch-action: pan-x pan-y;
+  max-width: 100%;
+}
+html[data-layout="phone"] .phone-map-inner .mindmap-canvas {
+  min-width: 0 !important;
+}
+html[data-layout="phone"] .phone-map-full {
+  position: fixed;
+  top: var(--inset-top);
+  bottom: var(--inset-bottom);
+  left: var(--inset-left);
+  right: var(--inset-right);
+  z-index: 55;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+html[data-layout="phone"] .phone-map-area.fill {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* ---------------------------------------------------------------- views (§9.5) */
+html[data-layout="phone"] [role="tablist"] {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+html[data-layout="phone"] .phone-sort-line {
+  margin: 4px 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ---------------------------------------------------------------- the note (§9.1; FR-UX-04 AC-2: the text column is the
+   viewport minus 16 px on each side) */
+html[data-layout="phone"] .note-column,
+html[data-layout="phone"] .note-column[data-width="wide"],
+html[data-layout="phone"] .note-root .note-column {
+  max-width: none;
+  margin: 0;
+  padding: 8px calc(16px + var(--inset-right)) 32px calc(16px + var(--inset-left));
+}
+html[data-layout="phone"] .phone-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0 12px;
+  font-size: 14px;
+}
+html[data-layout="phone"] .phone-strip-row {
+  display: flex;
+  gap: 8px;
+}
+html[data-layout="phone"] .phone-strip-label,
+html[data-layout="phone"] .phone-prop-label {
+  color: var(--muted);
+  min-width: 96px;
+}
+html[data-layout="phone"] .phone-more-properties {
+  align-self: flex-start;
+  min-height: 48px;
+}
+html[data-layout="phone"] .phone-properties .property {
+  display: flex;
+  gap: 12px;
+  min-height: 48px;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+html[data-layout="phone"] .view-bar {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  border-bottom: 0;
+  margin: 12px 0 4px;
+}
+html[data-layout="phone"] .view-tabs-wrap {
+  border-bottom: 1px solid var(--border);
+}
+html[data-layout="phone"] .view-tabs .view-tab {
+  flex: none;
+  min-height: 48px;
+  white-space: nowrap;
+}
+
+/* Tables (§9.5): the table itself scrolls sideways; the Title column stays at its left edge. */
+html[data-layout="phone"] .table-scroll,
+html[data-layout="phone"] .query-table-box {
+  overflow: visible;
+  max-width: 100%;
+}
+html[data-layout="phone"] table.type-table,
+html[data-layout="phone"] table.query-table {
+  display: block;
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: auto !important;
+  max-width: 100%;
+  touch-action: pan-x pan-y;
+}
+html[data-layout="phone"] .type-table th:first-child,
+html[data-layout="phone"] .type-table td:first-child,
+html[data-layout="phone"] .query-table th:first-child,
+html[data-layout="phone"] .query-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--bg);
+}
+html[data-layout="phone"] .query-table th,
+html[data-layout="phone"] .query-table td {
+  white-space: nowrap;
+}
+html[data-layout="phone"] .type-table td,
+html[data-layout="phone"] .query-table td {
+  height: 40px;
+}
+
+/* Lists (§9.5): rows at least 56 px. */
+html[data-layout="phone"] .query-list {
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+}
+html[data-layout="phone"] .query-list li {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Boards (§9.5): vertical lanes 300 px that scroll freely (D-2449); horizontal rows with 300 px card columns. */
+html[data-layout="phone"] .board-vertical .board-scroll,
+html[data-layout="phone"] .board-vertical .board-scroll:hover {
+  overflow-x: auto;
+  touch-action: pan-x pan-y;
+  padding-bottom: 4px;
+}
+html[data-layout="phone"] .board-vertical .board-lane {
+  width: 300px;
+}
+html[data-layout="phone"] .board-horizontal .board-cards,
+html[data-layout="phone"] .board-horizontal .board-days {
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+html[data-layout="phone"] .lane-fold {
+  min-width: 48px;
+  min-height: 48px;
+}
+html[data-layout="phone"] .type-page .type-table td:not(:first-child) *,
+html[data-layout="phone"] .query-table td:not(:first-child) * {
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------- the Inbox (§9.7) */
+html[data-layout="phone"] .inbox-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  box-sizing: content-box;
+}
+html[data-layout="phone"] .inbox-row {
+  box-sizing: border-box;
+  height: 64px;
+  overflow: hidden;
+}
+html[data-layout="phone"] .inbox-row-link {
+  box-sizing: border-box;
+  justify-content: flex-start;
+  gap: 12px;
+  height: 100%;
+  min-height: 56px;
+  padding: 0 4px;
+  color: var(--text);
+  text-decoration: none;
+}
+html[data-layout="phone"] .inbox-row-link > svg {
+  flex: none;
+  color: var(--muted);
+}
+html[data-layout="phone"] .inbox-row-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+html[data-layout="phone"] .inbox-row-title {
+  display: block;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html[data-layout="phone"] .inbox-row-date {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html[data-layout="phone"] .inbox-row[data-review="reviewed"] {
+  opacity: 0.6;
+}
+html[data-layout="phone"] .inbox-zero-actions button {
+  min-height: 48px;
+}
+
+/* ---------------------------------------------------------------- daily (§9.8) */
+html[data-layout="phone"] .daily-nav {
+  flex-wrap: wrap;
+}
+html[data-layout="phone"] .daily-nav button {
+  min-width: 48px;
+  min-height: 48px;
+}
+html[data-layout="phone"] .pick-date.phone-calendar {
+  position: fixed !important;
+  left: calc(16px + var(--inset-left)) !important;
+  right: calc(16px + var(--inset-right)) !important;
+  top: calc(var(--inset-top) + 72px) !important;
+  width: auto !important;
+  max-width: none;
+  max-height: calc(100% - var(--inset-top) - var(--inset-bottom) - 88px);
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+html[data-layout="phone"] .phone-calendar .cal-grid {
+  width: 100%;
+}
+html[data-layout="phone"] .phone-calendar .cal-day {
+  min-width: 36px;
+  min-height: 40px;
+}
+
+/* ---------------------------------------------------------------- conflicts (§9.8) */
+html[data-layout="phone"] .compare {
+  grid-template-columns: minmax(0, 1fr);
+}
+html[data-layout="phone"] .conflict-list a {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-height: 48px;
+}
+html[data-layout="phone"] .phone-drawer-layer.closing {
+  pointer-events: none;
+}
+html[data-layout="phone"] .phone-title .search-field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+html[data-layout="phone"] .phone-title .search-field input {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  min-height: 40px;
+}
+
+/* §9.1: the source view shows the file's bytes only (no line numbers on the phone). */
+html[data-layout="phone"] .source-gutter {
+  display: none;
+}
+
+/* §9.4: the map's drawing keeps its own width inside the scaled box. */
+html[data-layout="phone"] .phone-map-inner .mindmap-canvas {
+  max-width: none !important;
+}
+html[data-layout="phone"] .phone-map-inner {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* The search field in the app bar takes the theme's colours. */
+html[data-layout="phone"] .phone-title input {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-height: 40px;
+  padding: 0 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+html[data-layout="phone"] .phone-source {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 13px/1.5 ui-monospace, Menlo, monospace;
+}
+/* Rows of lists and tables open on a tap anywhere: their links fill the row's 48 px. */
+html[data-layout="phone"] main tr.type-row td a,
+html[data-layout="phone"] main tr.query-row td a {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+}
+
+/* FR-UX-04 AC-5: board card titles, card chips (also slice OC's ObjectCard on a board, D-2480), `Used on` chips and the query page's back link take a 48 px hit
+   area. Titles, the back link and the chips' boxes grow to 48 px; a chip's visible pill stays 22 px tall. */
+html[data-layout="phone"] .board-card-title,
+html[data-layout="phone"] .object-card.board-card .card-title-link,
+html[data-layout="phone"] .query-back {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  min-width: 48px;
+}
+html[data-layout="phone"] .board-card-foot,
+html[data-layout="phone"] .object-card.board-card .card-footer,
+html[data-layout="phone"] .query-usages li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-height: 48px;
+}
+html[data-layout="phone"] .board-card-foot .chip,
+html[data-layout="phone"] .object-card.board-card .card-footer .chip,
+html[data-layout="phone"] .query-usages .chip {
+  position: relative;
+  z-index: 0;
+  min-width: 48px;
+  min-height: 48px;
+  justify-content: center;
+  background: transparent;
+}
+/* The chip's own look (its colour, 22 px tall) is drawn behind its content. */
+html[data-layout="phone"] .board-card-foot .chip::before,
+html[data-layout="phone"] .object-card.board-card .card-footer .chip::before,
+html[data-layout="phone"] .query-usages .chip::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 22px;
+  transform: translateY(-50%);
+  border-radius: 5px;
+  background: var(--cbg, transparent);
+}
+html[data-layout="phone"] .board-card-foot .link-chip.kind-unresolved::before,
+html[data-layout="phone"] .object-card.board-card .card-footer .link-chip.kind-unresolved::before,
+html[data-layout="phone"] .query-usages .link-chip.kind-unresolved::before {
+  background: none;
+}
+html[data-layout="phone"] .board-card-foot .tag-chip::before,
+html[data-layout="phone"] .object-card.board-card .card-footer .tag-chip::before,
+html[data-layout="phone"] .query-usages .tag-chip::before {
+  background: var(--accent-bg);
+}
+
+/* FR-UX-04 AC-5: the remaining small controls (sort and grouping menus, the search Type filter, the Theme radios, the
+   tag page's breadcrumb link) are 48 px tall on the phone. */
+html[data-layout="phone"] main .text-button,
+html[data-layout="phone"] .type-filter,
+html[data-layout="phone"] main .segmented [role="radio"],
+html[data-layout="phone"] main .breadcrumb a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  min-width: 48px;
+}
+/* Rows of object lists are at least 56 px (a table row's height is its minimum). */
+html[data-layout="phone"] main tr.type-row,
+html[data-layout="phone"] main tr.query-row {
+  height: 56px;
+}
+/* §9.4, FR-MMP-02 AC-34: in full screen the map pans both ways, also when it is smaller than the screen: room for half
+   a screen beyond its right and bottom edges. */
+html[data-layout="phone"] .phone-map-area.fill .phone-map-sizer {
+  min-width: calc(100% + 50vw);
+  min-height: calc(100% + 50vh);
+}
+
+/* The start screens (AND-1's access, opening and chooser screens; contract §8): a scroller inside the insets, on the
+   theme's bg (the body's bg shows under the bars), so nothing sits under the system bars, also when the chooser is
+   taller than a landscape screen (FR-UX-04 AC-3, D-2468). */
+html[data-layout="phone"] .chooser {
+  background: var(--bg);
+  margin: var(--inset-top) var(--inset-right) var(--inset-bottom) var(--inset-left);
+  height: calc(100% - var(--inset-top) - var(--inset-bottom));
+  padding: 24px 16px;
+  overflow-y: auto;
+  align-items: safe center;
+}
