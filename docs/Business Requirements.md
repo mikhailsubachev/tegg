@@ -273,7 +273,7 @@
 
 Slice OC decisions and versions were renumbered on merging main (PR #154 used the same numbers): D-1942…D-2053 → D-2054…D-2165, v1.220…v1.229 → v1.238…v1.247. Commit messages before this renumbering use the old numbers (D-2166).
 
-Slice AND-2 decisions and versions were renumbered on merging main, twice: PR #155 (slice OC) and then PR #156 (slice Q3) used the same numbers. Final: D-2054…D-2132 → D-2400…D-2478, v1.238…v1.245 → v1.300…v1.307 (D-2479; the versions moved once more, from v1.260…v1.268, when PR #158 took v1.260). Commit messages before `f9a7b2ba` use the original numbers; those from `f9a7b2ba` until the second renumbering use D-2172…D-2252 (228 below the final ones).
+Slice AND-2 decisions and versions were renumbered on merging main, twice: PR #155 (slice OC) and then PR #156 (slice Q3) used the same numbers. Final: D-2054…D-2132 → D-2400…D-2478, v1.238…v1.245 → v1.300…v1.307 (D-2479; the versions moved once more, from v1.260…v1.268, when PR #158 took v1.260). Commit messages before `05a78c81` use the original numbers; those from `05a78c81` until the second renumbering use D-2172…D-2252 (228 below the final ones).
 
 ---
 
