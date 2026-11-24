@@ -119,7 +119,9 @@ test('fr_nav_04_ac14_drawer_open_and_close', async ({ browser }) => {
       ['a tap on the scrim', () => page.mouse.click(size.width - 10, size.height / 2)],
       ['Esc', () => page.keyboard.press('Escape')],
       ['system Back', () => systemBack(page)],
-      ['Menu again', async () => { const m = await rect(barButton(page, 'Menu').or(page.locator('div.phone-scrim'))); await page.mouse.click(m ? 30 : 30, size.height - 30); }],
+      // The open drawer covers Menu (and the scrim the bottom bar), so "Menu again" is Menu's command, run as its control
+      // does; a tap where Menu is lands on the drawer once it has slid in (AC-Test-Change, approved by the owner, D-2131).
+      ['Menu again', () => page.evaluate(() => (window as unknown as { __TEGG_TEST__: { run: (id: string) => Promise<void> } }).__TEGG_TEST__.run('phone.menu'))],
     ];
     for (const [how, close] of closeWith) {
       if (!(await seen(drawer(page), 200))) await barButton(page, 'Menu').click();
