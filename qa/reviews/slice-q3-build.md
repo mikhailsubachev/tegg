@@ -67,6 +67,12 @@ D-2222…D-2224 ("Accept all", 2026-11-24, BRD v1.258). All findings are resolve
 - **N3 Flaky under load.** `queries_block` FR-QRY-05 AC-7 and the first `views_menus` check failed once each under 6
   workers and passed on re-run; `./verify flaky` is checked before merge. `nfr_perf_11_ac2` (machine load) and
   `icon_picker` FR-TYP-01 AC-20 (dev server only) fail outside Q3's files and pass on the built app.
-- **N4 Real-app tests.** The L6 files `app/e2e/views_display.ac.test.ts` and `app/e2e/nfr_perf_07_wall.ac.test.ts`
-  (contract §44, D-2185) run in the milestone and nightly gates, not the push gate; their results are reported in the
-  PR.
+- **N4 Real-app tests.** `app/e2e/views_display.ac.test.ts` and `app/e2e/nfr_perf_07_wall.ac.test.ts` (contract §44,
+  D-2185) were run on the built app: 8 of 11 passed at first. One product bug: Table and List tabs never marked
+  `rows-request` / `rows-ready` (§42.5) → fixed in `77f6ccb2` with regression test
+  `app/webkit/bug_q3l6_nfr_perf_07_rows_marks.test.ts`. The other causes were test defects (no type files in the
+  generated vault, the tab lookup, a scroll without a point, an unscrolled virtualized Table, Mac2's missing `expanded`
+  attribute) → **D-2225**, approved `AC-Test-Change`. Then 11 of 11 pass. Measured, report-only before the release gate:
+  NFR-PERF-07 AC-7 p95 197 ms (ungrouped wall over Image, 2,000 objects), AC-8 p95 132 ms (grouped Table, 1,000 rows),
+  target 225 ms. Follow-ups outside Q3: `nfr_perf_07_board`, `nfr_perf_07_cards` and `nfr_perf_07_tasks_board` use the
+  same wrong tab lookup; the `All` tab and `query/<name>` pages mark neither `board-*` nor `rows-*`.
