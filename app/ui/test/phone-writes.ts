@@ -20,7 +20,7 @@ export const READ_COMMANDS: readonly string[] = [
   // the shell's desktop commands that are not writes, in commands::DESKTOP order
   'vault_current', 'vault_open', 'index_search', 'index_switcher', 'note_read', 'perf_mark', 'vault_pick_dir', 'vault_last', 'vault_recent',
   'app_about', 'vault_types', 'index_type_counts', 'index_list', 'nav_opened', 'nav_swipe_scroll', 'ui_state_get', 'ui_state_set',
-  'link_resolve', 'embed_load', 'index_path_by_id', 'open_external', 'index_tags', 'index_conflicts', 'app_quit', 'type_get', 'type_template',
+  'link_resolve', 'embed_load', 'index_path_by_id', 'open_external', 'index_tags', 'index_conflicts', 'app_quit', 'type_card_example', 'type_get', 'type_template',
   'type_usage', 'index_type_rows', 'starter_plan', 'index_backlinks', 'index_broken_links', 'index_duplicate_titles', 'link_create_plan',
   'daily_view', 'daily_dates', 'daily_draft', 'daily_context', 'daily_backlinks', 'job_report', 'job_interrupted', 'backups_list',
   'editor_open', 'editor_close', 'task_list', 'daily_tasks', 'capture_context', 'capture_ready', 'capture_hide', 'capture_resize',
