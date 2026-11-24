@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.257, for review                                            |
+| **Document status** | Draft v1.258, for review                                            |
 | **Date**            | 2026-11-23                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -258,6 +258,7 @@
 | v1.255  | 2026-11-23 | D-2215 (the few-cards wall test filters with `links_to`; owner: "Approve") |
 | v1.256  | 2026-11-24 | D-2216 (five Q3-c/d WebKit test fixes; owner: "Approve") |
 | v1.257  | 2026-11-24 | D-2217…D-2221 (slice Q3 QA review points; owner: "Accept all") |
+| v1.258  | 2026-11-24 | D-2222…D-2224 (slice Q3 QA fix points; owner: "Accept all") |
 
 Slice OC decisions and versions were renumbered on merging main (PR #154 used the same numbers): D-1942…D-2053 → D-2054…D-2165, v1.220…v1.229 → v1.238…v1.247. Commit messages before this renumbering use the old numbers (D-2166).
 
@@ -2238,6 +2239,9 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-2219 | Moving a group steps over shown groups only (owner, 2026-11-24: "Accept all"; slice Q3 QA review) | `Move lane up` / `Move lane down` on a grouped Table or List moves the group past the next group that is drawn; empty groups the Table hides (D-2184) are skipped, so every move changes what is seen and no write is invisible (FR-SYN-06). |
 | D-2220 | The ungrouped wall keeps the Task card menu (owner, 2026-11-24: "Accept all"; slice Q3 QA review) | On a wall without grouping, a Task card's `More actions` holds R43's items (status, priority, due), as on a grouped wall; only `Move to` and `Also add to` are left out (R224, contract §41.3). A new test covers it. |
 | D-2221 | The quick re-sort gives the core's order (owner, 2026-11-24: "Accept all"; slice Q3 QA review) | A view's rows carry the values of its sort keys (the core adds them to `values` even when they are not columns), and the app's quick re-sort after a sort change (R222) uses the core's rules: select values matched after folding case and diacritics, numbers only from numbers, the path tie-break by UTF-8 bytes. The order drawn within 300 ms is the final one. `views_wall` FR-QRY-05 AC-37's sort step checks the full order, with `AC-Test-Change: …; approved-by: owner`. |
+| D-2222 | A wall keeps R187 for drops on `No …` and `Done` (owner, 2026-11-24: "Accept all"; slice Q3 QA fixes) | D-2217's rule that a drop on `No …` or `Done` goes after the last movable group holds for a grouped Table and List only. On a wall such a drop writes nothing (R187, `views_board` FR-QRY-05 AC-19). Narrows D-2217. |
+| D-2223 | Reset column widths with a broken `widths` (owner, 2026-11-24: "Accept all"; slice Q3 QA fixes) | With a broken `widths` key on the usage, `Reset column widths` writes nothing: the columns already show their default widths and removing the key would be a write with no visible change (FR-SYN-06). The key stays until the user sets widths. |
+| D-2224 | The Views section test waits for the view names (owner, 2026-11-24: "Accept all"; slice Q3 QA fixes) | `views_display` FR-TYP-01 AC-29 waits (`eventually`) for each view's display name, since Type settings › Views now shows at once and only the names wait for their queries (D-2221's fix of the section). With `AC-Test-Change: …; approved-by: owner`. |
 
 ---
 

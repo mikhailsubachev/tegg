@@ -2866,8 +2866,8 @@ values `vertical` / `horizontal` (§45 choice 4).
   group's rows → after that group; on `No <attribute>`, `Done` (or a group without a grip) → after the last movable
   group; nothing lands after `No …` or `Done`, and "after the last movable group" stays before the unknown-value and
   unresolved groups (`beforeAfterLastMovable`, also on the wall). The wall keeps part one's geometry (the half of a
-  column, the place of a row) and R187's "nothing drops on `none`" (FR-QRY-05 AC-19); whether a wall drop on `No …` /
-  `Done` should instead land after the last movable lane is an open point for the owner.
+  column, the place of a row) and R187's "nothing drops on `none`" (FR-QRY-05 AC-19): a wall drop on `No …` / `Done` writes
+  nothing (D-2222).
 - **(D-2218)** Unknown-value and unresolved relation groups have no grip and no `Move lane up` / `down` (the wall's rule,
   one predicate `laneMovable` in `queries/board/model.ts` for both); they keep their place after the known ones.
 - **(D-2219)** `Move lane up` / `down` moves a group past the next movable group that is drawn; empty groups the body
@@ -2880,7 +2880,7 @@ values `vertical` / `horizontal` (§45 choice 4).
 - **Scopes**: a tab or block → `{ kind: 'usage', own: usage.own.widths, order, write: writer.widths }`; `query/<name>`
   → `{ kind: 'page', key: 'page:<name key>' }` (`usageColumnWidths`); `All <plural>` → `{ kind: 'type' }`.
 - **Read**: own valid widths; while the usage has no own `widths` key (absent, not broken), the 0.6.0 entry
-  `usageColumnWidths[<usage key>]` (D-2177); then R130's defaults; drawn clamped (R130).
+  `usageColumnWidths[<usage key>]` (D-2177); then R130's defaults; drawn clamped (R130). With a broken own `widths`, `Reset column widths` writes nothing (D-2223).
 - **Pointer**: during the drag only the live width changes (no write, no `ui_state_set`); on release one write of
   `widthsToWrite`, none when the released width equals the starting width.
 - **Keys** (←/→, ⇧←/⇧→, Home/End on a handle): live steps; one write when the handle loses the focus or 1,000 ms after
