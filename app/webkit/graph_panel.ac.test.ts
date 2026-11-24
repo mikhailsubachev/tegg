@@ -439,7 +439,8 @@ const runningIn = (page: Page) => graphPanel(page).evaluate((tp) => (document.ge
   return a.playState === 'running' && !!t && tp.contains(t);
 }).length).catch(() => -1);
 
-test('fr_grp_01_ac38_panel_loading_after_300_ms_and_while_indexing', async ({ page }) => {
+// Quarantined (@flaky, test-strategy §8.4, #157): flaky twice in push gates (2026-11-22…24) under load; not caused by D-2226.
+test('fr_grp_01_ac38_panel_loading_after_300_ms_and_while_indexing', { tag: ['@flaky'] }, async ({ page }) => {
   await watchLoading(page);
   const core = await openPanel(page, P.plan, { realTime: true });
   await waitIn(page, 10);

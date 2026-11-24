@@ -36,6 +36,7 @@ import { attributeOf, columnChoices, prefill, toggleColumn, UNIVERSAL } from './
 import { queryNav } from './nav';
 import { openQueryPicker } from './QueryPicker';
 import { blockMounted } from './ready';
+import { useRowsReady } from '../views/marks';
 import { clearSelectedQueryBlock, setSelectedQueryBlock, type SelectedBlock } from './selection';
 import { useQueryRun } from './useQueryRun';
 import './block.css';
@@ -349,6 +350,8 @@ export function QueryBlock(p: QueryBlockProps) {
   const firstBroken = broken[0] ?? null;
   const showResults = state === 'ok' || state === 'noResults';
   const view = display;
+  // §42.5 (D-2226): on the `query/<name>` page a Table or List marks `rows-ready` once its rows drew (a wall: `board-ready`).
+  useRowsReady(isPage && state !== 'loading' && view !== 'wall', isPage && name ? nfc(name) : null);
   // Slice Q3 (R224): a grouped wall draws its board; a wall without a valid grouping is the ungrouped wall.
   const isBoard = view === 'wall' && grouped;
   // Slice Q3 (R225, §41.5): a grouped Table or List draws the run's groups; group drags write the usage's `lane_order`

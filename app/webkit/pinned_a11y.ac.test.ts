@@ -95,7 +95,8 @@ test('fr_ux_03_ac40_pins_without_the_pointer', async ({ page }) => {
 
 // ------------------------------------------------------------------------------------------------ FR-UX-08 AC-16
 
-test('fr_ux_08_ac16_pins_for_voiceover', async ({ page }) => {
+// Quarantined (@flaky, test-strategy §8.4, #157): flaky twice in push gates (2026-11-22, 2026-11-24) under load; not caused by D-2226.
+test('fr_ux_08_ac16_pins_for_voiceover', { tag: ['@flaky'] }, async ({ page }) => {
   const core = await openPinned(page, { pins: { text: `${pinsFx('valid.yml')}  - id: ${ID('08')}\n    path: Pages/Starý plán.md\n` }, route: 'inbox' });
   await rowsAre(page, [...VALID_ROWS, 'Starý plán']);
   await sleep(500);

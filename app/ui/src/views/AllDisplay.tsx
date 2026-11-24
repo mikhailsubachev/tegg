@@ -29,6 +29,8 @@ export type AllDisplay = {
   view: AllViewDto;
   /** The body in place of the type table (null: the ungrouped Table, the page's own). */
   body: ReactNode | null;
+  /** This body is a Table or List that drew its rows (null: the page's own table decides; §42.5, D-2226). */
+  rowsDrawn: boolean | null;
   attrs: Record<string, string | undefined>;
   status: () => ViewsStatus['display'];
   run: (id: string) => boolean;
@@ -98,6 +100,7 @@ export function useAllDisplay({ type, typeKey, plural, sort, filterText, tags, t
   );
   return {
     controls: node, view: av, body,
+    rowsDrawn: body === null ? null : display !== 'wall' && !!result,
     attrs: { 'data-display': display, 'data-group': grouping ? grouping.key : undefined, 'data-group-period': grouping?.period ? '' : undefined },
     status: () => ({ value: display, grouped: grouping !== null, wall: display === 'wall', writable: true, ownView: false, ownGroup: false, laneOrder: false, groupFocused: false, all: true }),
     run: (id) => {
