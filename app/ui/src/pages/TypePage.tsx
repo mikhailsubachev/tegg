@@ -459,7 +459,7 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
           const ad = allDisplay;
           return <TypeViews typeKey={typeKey} type={type} types={types} plural={pluralName} tab={tab} tabNonce={tabNonce} openAdd={openAddView}
             all={{ toolbar: <div className="view-toolbar">{filterField}{tagControl}{ad.controls}{sortButton}{ad.view.view !== 'wall' && columnsButton}</div>,
-              body: ad.body ?? body, attrs: ad.attrs, status: ad.status, run: ad.run }} />;
+              body: ad.body ?? body, attrs: ad.attrs, status: ad.status, run: ad.run, rowsDrawn: ad.rowsDrawn ?? rows !== null }} />;
         }
         return (
           <>

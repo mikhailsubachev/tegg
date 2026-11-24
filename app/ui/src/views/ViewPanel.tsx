@@ -35,6 +35,7 @@ import { registerUsage } from './usageHook';
 import { useUsageWrite, type TypePatch } from './useUsageWrite';
 import { NewPropertyDialog } from '../pages/TypeSettingsPage';
 import type { ViewsStatus } from '../shell/commands';
+import { useRowsReady } from './marks';
 
 const nfc = (s: string) => s.normalize('NFC');
 const fold = (s: string) => nfc(s).toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').normalize('NFC');
@@ -354,19 +355,7 @@ export function ViewPanel({ name, typeKey, type, types, plural, filter, onFilter
   // The perf mark (§42.5, D-2185; NFR-PERF-07 AC-8): `rows-ready` two frames after a Table or List tab first drew its
   // rows and group headers (a wall marks `board-ready` itself). Once per panel: the panel is keyed by the tab.
   const rowsDrawn = body !== null && display !== 'wall';
-  const rowsMarked = useRef(false);
-  useEffect(() => {
-    if (!rowsDrawn || rowsMarked.current) return;
-    let a = 0, b = 0;
-    a = requestAnimationFrame(() => {
-      b = requestAnimationFrame(() => {
-        if (rowsMarked.current) return;
-        rowsMarked.current = true;
-        void ipc.perfMark('rows-ready').catch(() => {});
-      });
-    });
-    return () => { cancelAnimationFrame(a); cancelAnimationFrame(b); };
-  }, [rowsDrawn]);
+  useRowsReady(rowsDrawn, 'panel');
   const notices = showResults && usageRun && run.result ? noticeKeys(run.result) : [];
 
   return (

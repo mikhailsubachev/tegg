@@ -760,28 +760,61 @@ fn hold(point: &str) {
     }
 }
 
-/// A mark, or with `frame` a typing-latency record `{"mark":"key","frame","ms"}` (NFR-PERF-06 AC-3, D-199).
+/// A mark, or with `ms` a timed record written on every call: with `frame` a typing-latency record
+/// `{"mark":"key","frame","ms"}` (NFR-PERF-06 AC-3, D-199), without it a duration such as `board-card-moved` (one per
+/// drop, its `ms` from the drop to the card in the target lane's DOM; v1-views §4.8, D-1820, D-2226).
 #[tauri::command]
 fn perf_mark(app: AppHandle, name: String, frame: Option<u32>, ms: Option<f64>) {
-    match (frame, ms) {
-        (Some(frame), Some(ms)) => {
+    match ms {
+        Some(ms) => {
             let Some(log) = test_var("TEGG_PERF_LOG") else { return };
-            let line = serde_json::json!({ "mark": name, "frame": frame, "ms": ms });
+            let line = timed_line(&name, frame, ms);
             if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(&log) {
                 let _ = f.write_all(format!("{line}\n").as_bytes()); // one write per line: lines from parallel writers never interleave
             }
         }
-        _ if repeatable_ui_mark(&name) => mark_repeat(&name),
-        _ => mark(&app, &name),
+        None if repeatable_ui_mark(&name) => mark_repeat(&name),
+        None => mark(&app, &name),
+    }
+}
+
+/// A timed perf-log line: the caller's `ms` (a duration), with `frame` when given.
+fn timed_line(name: &str, frame: Option<u32>, ms: f64) -> serde_json::Value {
+    match frame {
+        Some(frame) => serde_json::json!({ "mark": name, "frame": frame, "ms": ms }),
+        None => serde_json::json!({ "mark": name, "ms": ms }),
     }
 }
 
 /// UI marks written on every occurrence; every other mark at most once per process (`mark`). v1-import-window §8:
 /// `import-step:<step>` once per step change (a step can be shown again), `import-done` per import (the shell also
 /// writes `import-done` itself). v1-related §1.13 (D-1759): `related-request` on every ask of the Related tab, which the
-/// typing benchmark (NFR-PERF-06 AC-7) counts after Saved.
+/// typing benchmark (NFR-PERF-06 AC-7) counts after Saved. v1-views §42.5 (D-2226): `board-*` / `rows-*` on every tab,
+/// page or `All` selection.
 fn repeatable_ui_mark(name: &str) -> bool {
-    name.starts_with("import-step:") || name == "import-done" || name == "related-request"
+    name.starts_with("import-step:")
+        || matches!(name, "import-done" | "related-request" | "board-request" | "board-ready" | "rows-request" | "rows-ready")
+}
+
+/// Bug perf07 (NFR-PERF-07 AC-4, AC-5, AC-8; D-2226): `board-card-moved` came without a `frame`, so it was a plain mark
+/// written once per process with the time since launch, and only a session's first drop reached the perf log; the
+/// view marks were once per process too, so a second selection in one session marked nothing.
+#[cfg(test)]
+mod bug_perf07_nfr_perf_07_marks_per_selection_and_drop {
+    use super::{repeatable_ui_mark, timed_line};
+
+    #[test]
+    fn bug_perf07_nfr_perf_07_board_card_moved_keeps_its_duration() {
+        assert_eq!(timed_line("board-card-moved", None, 12.5), serde_json::json!({ "mark": "board-card-moved", "ms": 12.5 }));
+        assert_eq!(timed_line("key", Some(3), 4.0), serde_json::json!({ "mark": "key", "frame": 3, "ms": 4.0 }));
+    }
+
+    #[test]
+    fn bug_perf07_nfr_perf_07_view_marks_on_every_selection() {
+        for m in ["board-request", "board-ready", "rows-request", "rows-ready"] {
+            assert!(repeatable_ui_mark(m), "{m} is written on every selection (§42.5)");
+        }
+    }
 }
 
 /// Bug QA REL (NFR-PERF-06 AC-7): `related-request` was written once per process, so the re-asks after Saved never
