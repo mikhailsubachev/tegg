@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tegg – Settings · Vault (dark)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&amp;display=swap" rel="stylesheet">
+<style>
+.tg{--brand:#0B44F0}.tg.dark{--brand:#8FAEFF}
+body{margin:0;background:#FFFFFF}
+body:has(.tg.dark){background:#1C1C1E}
+a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}
+.tg{--bg:#FFFFFF;--side:#F5F5F3;--panel:#FAFAF8;--text:#1C1C1E;--muted:#626268;--faint:#9A9AA0;--border:#E4E4E0;--hover:#ECECE8;--row:#F6F6F3;--link:#1D5CCB;--link-bg:#EAF0FB;--accent:#0B7564;--embed:#F7F7F5;--pop:#FFFFFF;--shadow:0 12px 32px rgba(20,20,30,.14),0 2px 6px rgba(20,20,30,.08);--o:#A04A06;--o-bg:#FCEBD9;--p:#6B3FB8;--p-bg:#EEE6FB;--t:#0B7564;--t-bg:#E3F3EF;--idea:#9A5B00;--idea-bg:#FBF0D9;--btn:#1C1C1E;--btn-fg:#FFFFFF;--danger:#B3261E;--unrev:#D98A00;--unrev-ring:#F2C46B}
+.tg.dark{--bg:#1C1C1E;--side:#161618;--panel:#19191B;--text:#ECECEE;--muted:#A6A6AC;--faint:#6E6E74;--border:#313134;--hover:#2A2A2D;--row:#232326;--link:#86AEFF;--link-bg:#1F2A3F;--accent:#4CC9B0;--embed:#232326;--pop:#262629;--shadow:0 12px 32px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.4);--o:#F2A25C;--o-bg:#3A2614;--p:#BC9BF5;--p-bg:#2D2240;--t:#4CC9B0;--t-bg:#17332E;--idea:#F0B34A;--idea-bg:#3A2C12;--btn:#ECECEE;--btn-fg:#1C1C1E;--danger:#FF8A85;--unrev:#F0B34A;--unrev-ring:#7A5A1E}
+.tg button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.tg{--c-green:#2E7D32;--c-green-bg:#E6F4EA;--btn:#1C1C1E;--btn-fg:#FFFFFF}.tg.dark{--c-green:#7ACB82;--c-green-bg:#1C3220;--btn:#ECECEE;--btn-fg:#1C1C1E}
+</style>
+</helmet>
+<div class="tg {{themeClass}}" style="min-height: 100vh; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif; font-size: 14px; line-height: 1.5; display: flex; flex-direction: column">
+
+<!-- Title bar with tabs -->
+<div style="display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; background: var(--side); border-bottom: 1px solid var(--border); overflow-x: auto">
+<div aria-hidden="true" style="display: flex; gap: 8px; padding: 0 8px 0 4px; flex: none">
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #FF5F57"></span>
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #FEBC2E"></span>
+<span style="width: 12px; height: 12px; border-radius: 6px; background: #28C840"></span>
+</div>
+<button aria-haspopup="menu" aria-label="Vault: Personal. Switch vault" title="Switch vault (⌘⌃1…3)" style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border-radius: 7px; background: var(--hover); font-size: 13px; font-weight: 600; flex: none"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 4px; background: #0B44F0"></span>Personal<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>
+<div style="display: flex; gap: 2px; flex: none">
+<button aria-label="Back" style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+<button aria-label="Forward" style="width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--faint)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+</div>
+<div role="tablist" style="display: flex; gap: 4px; align-items: center; flex: none">
+<button role="tab" aria-selected="false" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 7px; font-size: 13px; color: var(--muted)">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11a3 3 0 1 0 0-6a3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M18 15c2 .5 3 2.5 3 5"></path></svg>
+2026-10-07 Weekly Sync
+</button>
+<button role="tab" aria-selected="true" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 7px; background: var(--bg); border: 1px solid var(--border); font-size: 13px; font-weight: 500">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M4 7h10M18 7h2M4 17h4M12 17h8M14 4v6M8 14v6"></path></svg>
+{{tabLabel}}
+</button>
+<button aria-label="New tab (⌘T)" style="width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; color: var(--muted)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; flex: 1 0 auto; background: var(--bg)">
+
+<!-- Left sidebar -->
+<nav aria-label="Sidebar" style="flex: 1 1 232px; max-width: 100%; background: var(--side); border-right: 1px solid var(--border); padding: 12px 10px; display: flex; flex-direction: column; gap: 18px; box-sizing: border-box">
+<div style="display: flex; gap: 6px">
+<button style="display: flex; align-items: center; gap: 8px; height: 34px; flex: 1; min-width: 0; padding: 0 10px; border-radius: 8px; background: var(--text); color: var(--bg); font-size: 13px; font-weight: 600; text-align: left"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg><span style="flex: 1">New object</span><span style="font-size: 12px; font-weight: 400; opacity: .7">⌘N</span></button>
+<button aria-label="Search or jump to (⌘O)" title="Search or jump to · ⌘O" style="flex: none; width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14zM20 20l-4-4"></path></svg></button>
+</div>
+<div style="display: flex; flex-direction: column; gap: 1px">
+<sc-for list="{{nav}}" as="n" hint-placeholder-count="4">
+<a href="#" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 7px; font-size: 13px; background: {{n.bg}}; font-weight: {{n.weight}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.d}}"></path></svg>
+<span style="flex: 1">{{n.label}}</span>
+<span style="font-size: 12px; color: var(--muted)">{{n.meta}}</span>
+</a>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 1px">
+<div style="display: flex; align-items: center; padding: 0 4px 2px 10px"><span style="font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); flex: 1">Types</span><button aria-label="New type" title="New type" style="width: 26px; height: 26px; border-radius: 6px; color: var(--muted); display: flex; align-items: center; justify-content: center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button></div>
+<sc-for list="{{types}}" as="t" hint-placeholder-count="8">
+<a href="#" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 7px; font-size: 13px; background: {{t.bg}}; font-weight: {{t.weight}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{t.color}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.d}}"></path></svg>
+<span style="flex: 1">{{t.label}}</span>
+<span style="font-size: 12px; color: var(--muted)">{{t.count}}</span>
+</a>
+</sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 1px">
+<a href="TagsAll.dc.html" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 7px; background: {{allSideBg}}; font-size: 13px; font-weight: {{allSideWeight}}; color: var(--text); text-align: left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 9h14M5 15h14M10 4L8 20M16 4l-2 16"></path></svg><span style="flex: 1">Tags</span><span style="font-size: 12px; color: var(--muted)">{{tagTotal}}</span></a>
+<a href="QueriesAll.dc.html" style="display: flex; align-items: center; gap: 10px; height: 32px; padding: 0 10px; border-radius: 7px; background: transparent; font-size: 13px; font-weight: 400; color: var(--text); text-align: left"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--link)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M4 6h16l-6 7v6l-4-2v-4z"></path></svg><span style="flex: 1">Queries</span><span style="font-size: 12px; color: var(--muted)">9</span></a>
+</div>
+<!-- Version (bottom left): no logo inside the app -->
+<div style="margin-top: auto; border-top: 1px solid var(--border); padding-top: 8px">
+<button aria-haspopup="menu" aria-label="Tegg v0.xx: About and Settings" title="About Tegg · Settings" style="display: inline-flex; align-items: center; height: 28px; padding: 0 8px; border-radius: 6px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums">v0.xx</button>
+</div>
+</nav>
+
+<!-- Type page -->
+<!-- One query's page: like a tag page, but results need the note the query is used on -->
+<main style="flex: 999 1 560px; min-width: 0; padding: 32px 40px 64px; box-sizing: border-box"><div style="max-width: 940px"><div style="display: flex; flex-direction: column; gap: 18px"><h1 style="margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -.01em">Vault</h1><div style="display: flex; gap: 28px; align-items: flex-start"><nav aria-label="Settings sections" style="width: 168px; flex: none; display: flex; flex-direction: column; gap: 2px"><a href="#"  style="height: 30px; padding: 0 10px; border-radius: 7px; display: flex; align-items: center; font-size: 13px; background: transparent; font-weight: 400; color: var(--text)">Appearance</a><a href="#"  style="height: 30px; padding: 0 10px; border-radius: 7px; display: flex; align-items: center; font-size: 13px; background: transparent; font-weight: 400; color: var(--text)">Date & time</a><a href="#" aria-current="page" style="height: 30px; padding: 0 10px; border-radius: 7px; display: flex; align-items: center; font-size: 13px; background: var(--hover); font-weight: 600; color: var(--text)">Vault</a><a href="#"  style="height: 30px; padding: 0 10px; border-radius: 7px; display: flex; align-items: center; font-size: 13px; background: transparent; font-weight: 400; color: var(--text)">Shortcuts</a><a href="#"  style="height: 30px; padding: 0 10px; border-radius: 7px; display: flex; align-items: center; font-size: 13px; background: transparent; font-weight: 400; color: var(--text)">Menu bar and startup</a><a href="#"  style="height: 30px; padding: 0 10px; border-radius: 7px; display: flex; align-items: center; font-size: 13px; background: transparent; font-weight: 400; color: var(--text)">Backups</a><a href="#"  style="height: 30px; padding: 0 10px; border-radius: 7px; display: flex; align-items: center; font-size: 13px; background: transparent; font-weight: 400; color: var(--muted)">Trash and history</a><a href="#"  style="height: 30px; padding: 0 10px; border-radius: 7px; display: flex; align-items: center; font-size: 13px; background: transparent; font-weight: 400; color: var(--text)">Previews</a></nav><div style="flex: 1; min-width: 0; border-top: 1px solid var(--border)"><div style="display: flex; gap: 16px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--border)"><div style="width: 170px; flex: none; font-size: 13px; font-weight: 600; padding-top: 6px">Vault location</div><div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; align-items: flex-start"><span style="font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace">~/Documents/Tegg/Personal</span><div style="display: flex; gap: 8px"><span style="display: inline-flex; align-items: center; height: 28px; padding: 0 11px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg); font-size: 13px; color: var(--text); white-space: nowrap">Reveal in Finder</span><span style="display: inline-flex; align-items: center; height: 28px; padding: 0 11px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg); font-size: 13px; color: var(--text); white-space: nowrap">Open another vault…</span></div></div></div><div style="display: flex; gap: 16px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border)"><div style="width: 170px; flex: none; font-size: 13px; font-weight: 600; padding-top: 0">Default type for new notes</div><div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; align-items: flex-start"><span style="display: inline-flex; align-items: center; justify-content: space-between; gap: 8px; height: 30px; padding: 0 10px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg); font-size: 13px; width: 220px; box-sizing: border-box">Quick Note<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none"><path d="M6 9l6 6 6-6"></path></svg></span></div></div><div style="display: flex; gap: 16px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--border)"><div style="width: 170px; flex: none; font-size: 13px; font-weight: 600; padding-top: 6px">Daily notes folder</div><div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; align-items: flex-start"><span style="display: inline-flex; align-items: center; height: 30px; padding: 0 10px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg); font-size: 13px; width: 220px; box-sizing: border-box; ">Daily</span><div style="font-size: 12px; color: var(--muted); line-height: 1.45">Applies to new daily notes. Existing ones stay where they are.</div></div></div><div style="display: flex; gap: 16px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--border)"><div style="width: 170px; flex: none; font-size: 13px; font-weight: 600; padding-top: 6px">Daily note file name</div><div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; align-items: flex-start"><span style="display: inline-flex; align-items: center; height: 30px; padding: 0 10px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg); font-size: 13px; width: 220px; box-sizing: border-box; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px">YYYY-MM-DD</span><div style="font-size: 12px; color: var(--muted); line-height: 1.45">Example: Daily/2026-11-22.md</div></div></div><div style="display: flex; gap: 16px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--border)"><div style="width: 170px; flex: none; font-size: 13px; font-weight: 600; padding-top: 6px">Attachments folder</div><div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; align-items: flex-start"><span style="display: inline-flex; align-items: center; height: 30px; padding: 0 10px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg); font-size: 13px; width: 220px; box-sizing: border-box; ">_attachments</span><div style="font-size: 12px; color: var(--muted); line-height: 1.45">Applies to new attachments. Existing files aren’t moved.</div></div></div><div style="display: flex; gap: 16px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border)"><div style="width: 170px; flex: none; font-size: 13px; font-weight: 600; padding-top: 0">Page width</div><div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; align-items: flex-start"><div role="radiogroup" style="display: inline-flex; padding: 2px; gap: 2px; border-radius: 8px; background: var(--hover); font-size: 13px"><span role="radio" aria-checked="true" style="display: inline-flex; align-items: center; height: 26px; padding: 0 12px; border-radius: 6px; background: var(--bg); box-shadow: 0 1px 2px rgba(0,0,0,.12); font-weight: 600; color: var(--text)">Normal</span><span role="radio" aria-checked="false" style="display: inline-flex; align-items: center; height: 26px; padding: 0 12px; border-radius: 6px; background: transparent; box-shadow: none; font-weight: 400; color: var(--muted)">Wide</span></div><div style="font-size: 12px; color: var(--muted); line-height: 1.45">For notes without their own choice.</div></div></div><div style="padding: 14px 0"><span style="display: inline-flex; align-items: center; height: 28px; padding: 0 11px; border-radius: 7px; border: 1px solid var(--border); background: var(--bg); font-size: 13px; color: var(--text); white-space: nowrap">Add starter types…</span></div></div></div></div></div></main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+renderVals() {
+const dark = this.props.dark ?? true;
+const I = {
+inbox: 'M4 13l2-8h12l2 8M4 13v6h16v-6h-5a3 3 0 0 1-6 0z', cal: 'M5 6h14v14H5zM5 10h14M9 3v4M15 3v4',
+page: 'M7 3h7l5 5v13H7zM14 3v5h5', task: 'M5 5h14v14H5zM9 12l2 2 4-4', bolt: 'M13 3L5 14h6l-1 7 8-11h-6z',
+meet: 'M9 11a3 3 0 1 0 0-6a3 3 0 0 0 0 6zM3 20c0-3 3-5 6-5s6 2 6 5M16 5a3 3 0 0 1 0 6M18 15c2 .5 3 2.5 3 5',
+proj: 'M3 7h6l2 2h10v10H3z', person: 'M12 11a4 4 0 1 0 0-8a4 4 0 0 0 0 8zM4 21c0-4 4-6 8-6s8 2 8 6',
+idea: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z'
+};
+const nav = [{ label: 'Inbox', d: I.inbox, meta: '4' }, { label: 'Today', d: I.cal, meta: '⌘D' }, { label: 'Tasks', d: I.task, meta: '4' }].map((n) => ({ ...n, bg: 'transparent', weight: '400' }));
+const types = [
+{ label: 'Pages', d: I.page, color: 'var(--muted)', count: '128' }, { label: 'Quick Notes', d: I.bolt, color: 'var(--o)', count: '212' },
+{ label: 'Daily Notes', d: I.cal, color: 'var(--muted)', count: '340' }, { label: 'Ideas', d: I.idea, color: 'var(--idea)', count: '10' },
+{ label: 'Meetings', d: I.meet, color: 'var(--accent)', count: '58' }, { label: 'Projects', d: I.proj, color: 'var(--o)', count: '9' },
+{ label: 'People', d: I.person, color: 'var(--p)', count: '31' }
+].map((t) => ({ ...t, bg: 'transparent', weight: '400' }));
+return { themeClass: dark ? 'dark' : '', nav, types, tabLabel: 'Settings · Vault', allSideBg: 'transparent', allSideWeight: '400', tagTotal: '11', toAll: () => {} };
+}
+}
+</script>
+</body>
+</html>

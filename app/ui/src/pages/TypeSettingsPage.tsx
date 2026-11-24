@@ -5,31 +5,37 @@
 import { toggleColumn } from '../types/columns';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { checkFolder, checkTypeName, checkStatusOptions, COLORS, deriveAttrKey, ICONS, checkAttrKey, ATTR_TYPES, widerTypes, type AttrType } from '@tegg/schema';
+import { checkFolder, checkTypeName, checkStatusOptions, COLORS, deriveAttrKey, checkAttrKey, ATTR_TYPES, widerTypes, type AttrType } from '@tegg/schema';
 import { t } from '../i18n/catalog';
 import { confirmDelete, expectFolderMove, lastUndoable, planDelete, undoMove } from '../jobs/jobs';
 import { listen } from '@tauri-apps/api/event';
 import { ipc } from '../ipc/client';
 import type { AttributeChangeDto, AttributeDto, AttributeInputDto, JobPlanDto, OptionDto, TypeDto, TypeOpDto, TypeUsageDto } from '../ipc/types';
 import { Disabled } from '../shell/Disabled';
-import { Icon, typeIconName } from '../shell/Icon';
+import { Icon, LucideIcon } from '../shell/Icon';
+import { CardSection, type CardSectionApi } from '../cards/CardSection';
+import { useCardsHandler } from '../cards/actions';
+import { openIconPicker } from '../icons/IconPicker';
+import { SettingsLayout, SettingsRow } from '../settings/SettingsLayout';
+import { ViewsSection } from '../views/ViewsSection';
 import { PopupMenu } from '../shell/Menu';
 import { CheckboxControl, OptionsPopup, SelectControl } from '../types/controls/ChoiceControls';
 import { FieldError, useErrorId, type Value } from '../types/controls/common';
 import { DateControl } from '../types/controls/DateControls';
 import { TextControl, type TextKind } from '../types/controls/TextControl';
 import { attrTypeLabel, colorName, nfc, typeErrorMessage } from '../types/util';
-import { refreshQueries, useQueries } from '../queries/store';
-import { restoreDefaultViews, restoreState } from '../views/defaultViews';
 import { PageHeading } from '../phone/PageHeading';
 
 type Save = 'saved' | 'saving' | 'failed';
 const BUILT_IN_ROWS = ['title', 'description', 'aliases', 'tags', 'source', 'review', 'created', 'modified'];
-const UNIVERSAL_PREVIEW: [string, string][] = [['tags', 'attr.tags'], ['source', 'attr.source'], ['aliases', 'attr.aliases'], ['created', 'attr.created'], ['modified', 'attr.modified']];
-const SECTIONS = ['general', 'properties', 'builtIn', 'preview', 'hidden', 'embeds', 'review', 'templates', 'delete'] as const;
-const SECTION_LABEL: Record<(typeof SECTIONS)[number], string> = {
-  general: 'ts.general', properties: 'ts.properties', builtIn: 'ts.builtIn', preview: 'preview.properties', hidden: 'ts.hidden', embeds: 'typeSettings.embeds', review: 'ts.review', templates: 'ts.templates', delete: 'ts.delete',
+// Slice OC (types.md R12 after OC, FR-TYP-01 AC-22; D-2071): ten sections; Tag has no Card, Hidden or Views (D-693, D-728).
+const SECTIONS = ['general', 'properties', 'builtIn', 'card', 'hidden', 'embeds', 'review', 'templates', 'views', 'delete'] as const;
+type SectionId = (typeof SECTIONS)[number];
+const SECTION_LABEL: Record<SectionId, string> = {
+  general: 'ts.general', properties: 'ts.properties', builtIn: 'ts.builtIn', card: 'ts.section.card', hidden: 'ts.hidden', embeds: 'typeSettings.embeds', review: 'ts.review', templates: 'ts.templates',
+  views: 'ts.section.views', delete: 'ts.delete',
 };
+const TAG_SECTIONS = new Set<SectionId>(['card', 'hidden', 'views']);
 const NO_OPTIONS = new Set(['text', 'long-text', 'number', 'checkbox', 'date', 'date-time', 'date-range', 'url', 'email', 'relation']);
 
 /** Splits a catalog message around one user-content variable, so the variable can be marked `data-user-content`. */
@@ -76,8 +82,10 @@ export function Dialog({ label, onCancel, children, className, restore, role = '
 }
 
 /** A text setting committed with ⏎ or on leaving it; `check` returns a message to refuse it locally. */
-function TextSetting({ label, value, disabled, desc, descAsText, multiline, check, onCommit, error, inputRef, onDraft }: {
+function TextSetting({ label, value, disabled, desc, descAsText, multiline, check, onCommit, error, inputRef, onDraft, row }: {
   label: string;
+  /** Slice OC (R219): one `SettingsRow` (General); otherwise the label above the field (a property's body). */
+  row?: boolean;
   value: string;
   disabled?: boolean;
   desc?: string;
@@ -95,6 +103,7 @@ function TextSetting({ label, value, disabled, desc, descAsText, multiline, chec
   const [local, setLocal] = useState<string | null>(null);
   const editing = useRef(false);
   const errId = useErrorId();
+  const inputId = `${errId}-input`;
   useEffect(() => { if (!editing.current) setV(value); }, [value]);
   const shown = local ?? error ?? null;
   const commit = () => {
@@ -107,10 +116,9 @@ function TextSetting({ label, value, disabled, desc, descAsText, multiline, chec
     setLocal(null);
     onCommit(text);
   };
-  return (
-    <label className="ts-field">
-      <span className="ts-label">{label}</span>
-      <input ref={inputRef} type="text" aria-label={label} aria-description={desc} aria-describedby={shown ? errId : undefined} aria-invalid={shown ? true : undefined}
+  const field = (
+    <>
+      <input ref={inputRef} id={row ? inputId : undefined} type="text" aria-label={label} aria-description={desc} aria-describedby={shown ? errId : undefined} aria-invalid={shown ? true : undefined}
         disabled={disabled} value={v} spellCheck={false} autoComplete="off" className={multiline ? 'wide' : ''}
         onChange={(e) => { editing.current = true; setV(e.target.value); onDraft?.(e.target.value.normalize('NFC')); }}
         onBlur={commit}
@@ -121,6 +129,13 @@ function TextSetting({ label, value, disabled, desc, descAsText, multiline, chec
       {/* D-1515: the description also as hidden text, for the macOS tree (D-1424's way). */}
       {desc && descAsText && <span className="sr-only" data-description-text="">{desc}</span>}
       <FieldError id={errId} text={shown} />
+    </>
+  );
+  if (row) return <SettingsRow label={label} labelFor={inputId}>{field}</SettingsRow>;
+  return (
+    <label className="ts-field">
+      <span className="ts-label">{label}</span>
+      {field}
     </label>
   );
 }
@@ -167,8 +182,13 @@ function useTypeWriter(key: string, setType: (t: TypeDto) => void, latest: React
   return { send, save, setSave, conflict, setConflict, errors, setErrors, pending };
 }
 
-export function TypeSettingsPage({ typeKey, types, refresh, heading, onDeleted, onOpenTrash }: {
+export function TypeSettingsPage({ typeKey, types, refresh, heading, onDeleted, onOpenTrash, request, onAddView }: {
   typeKey: string;
+  /** Slice OC (v1-cards §11, `card.edit`): scroll this section's `h2` to the top, then focus the control whose
+   *  `data-command` is `focus`; `nonce` changes with each navigation. */
+  request?: { section?: string; focus?: string; nonce: number };
+  /** The `Views` section's `Add view`: the type page's menu (types.md FR-TYP-01 AC-26). */
+  onAddView?: () => void;
   types: TypeDto[];
   refresh: number;
   heading: React.RefObject<HTMLHeadingElement | null>;
@@ -211,31 +231,32 @@ export function TypeSettingsPage({ typeKey, types, refresh, heading, onDeleted, 
       </div>
     );
   }
-  return <Settings type={type} types={types} usage={usage} heading={heading} w={w} setType={setType} onDeleted={onDeleted} reload={reload} />;
+  return <Settings type={type} types={types} usage={usage} heading={heading} w={w} setType={setType} onDeleted={onDeleted} reload={reload} request={request} onAddView={onAddView} />;
 }
 
-/** Q2-T (§29.10, FR-TYP-01 AC-11): `type-settings/task` only: `Restore default views` (R202). */
-function DefaultViewsSection({ type, reload }: { type: TypeDto; reload: () => void }) {
-  const summaries = useQueries();
-  useEffect(() => { void refreshQueries(); }, []);
-  const st = restoreState(type, summaries ?? []);
-  const disabled = !summaries || !st.enabled;
+/** The nearest scrolling ancestor of `el` (the pane that holds the sections). */
+function scrollParent(el: HTMLElement | null): HTMLElement | null {
+  for (let p = el?.parentElement ?? null; p; p = p.parentElement) {
+    if (/(auto|scroll)/.test(getComputedStyle(p).overflowY)) return p;
+  }
+  return null;
+}
+
+/** A placeholder glyph without `data-icon` (a property with no known icon, types.md FR-TYP-01 AC-24). */
+function NoIconGlyph() {
   return (
-    <section id="ts-defaultViews" aria-labelledby="ts-defaultViews-h" className="ts-section">
-      <h2 id="ts-defaultViews-h">{t('typeSettings.defaultViews')}</h2>
-      <div className="ts-row">
-        <button type="button" tabIndex={0} className="text-button" data-command="types.restoreDefaultViews"
-          aria-disabled={disabled ? 'true' : undefined} aria-description={st.reason ?? t('typeSettings.restoreViewsHint')}
-          onClick={() => { if (!disabled) void restoreDefaultViews(type, reload); }}>
-          {t('typeSettings.restoreViews')}
-        </button>
-      </div>
-      <p className="hint" aria-hidden="true">{st.reason ?? t('typeSettings.restoreViewsHint')}</p>
-    </section>
+    <svg className="icon no-icon" width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeDasharray="2 3" aria-hidden="true">
+      <rect x="4" y="4" width="16" height="16" rx="4" />
+    </svg>
   );
 }
 
-function Settings({ type, types, usage, heading, w, setType, onDeleted, reload }: {
+/** Why a type file can't be changed here (AR-07 AC-3, AC-4), or null. */
+const readOnlyReason = (type: TypeDto) => (type.state === 'newer' ? t('ts.newer') : type.state !== 'ok' ? t('typePage.columnsInvalid') : null);
+
+function Settings({ type, types, usage, heading, w, setType, onDeleted, reload, request, onAddView }: {
+  request?: { section?: string; focus?: string; nonce: number };
+  onAddView?: () => void;
   reload?: () => void;
   type: TypeDto;
   types: TypeDto[];
@@ -247,8 +268,52 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted, reload }
 }) {
   const ro = type.state !== 'ok';
   const others = types.filter((x) => nfc(x.key) !== nfc(type.key));
-  const [iconOpen, setIconOpen] = useState(false);
   const iconBtn = useRef<HTMLButtonElement | null>(null);
+  const cardApi = useRef<CardSectionApi | null>(null);
+  const sections = SECTIONS.filter((x) => !(nfc(type.key) === 'tag' && TAG_SECTIONS.has(x)));
+  const roReason = readOnlyReason(type);
+  /** R215: the picker for the type icon (no `None`); the current icon writes nothing (D-2101). */
+  const openTypeIcon = (anchor?: HTMLElement | null) => {
+    const a = anchor ?? iconBtn.current;
+    if (!a || ro) return;
+    const current = type.resolvedIcon?.name ?? null;
+    openIconPicker({ anchor: a, title: type.name, current, allowNone: false, onChoose: (n) => { if (n && n !== current) set('icon', n, t('ts.icon')); } });
+  };
+  useCardsHandler({
+    add: () => cardApi.current?.openAdd(), reset: () => cardApi.current?.reset(), changeIcon: () => openTypeIcon(),
+    addDisabled: () => cardApi.current?.addDisabled() ?? null, resetDisabled: () => cardApi.current?.resetDisabled() ?? null,
+  });
+  // The section at the top of the pane has `aria-current="location"` (R219, D-2122).
+  const [current, setCurrent] = useState<SectionId>('general');
+  const layoutRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const pane = scrollParent(layoutRef.current);
+    const target: HTMLElement | Window = pane ?? window;
+    const on = () => {
+      const top = pane ? pane.getBoundingClientRect().top : 0;
+      let cur: SectionId = sections[0];
+      for (const x of sections) {
+        const h = document.querySelector(`#ts-${x} h2`);
+        if (h && h.getBoundingClientRect().top - top <= 24) cur = x;
+      }
+      setCurrent(cur);
+    };
+    on();
+    target.addEventListener('scroll', on, { passive: true });
+    return () => target.removeEventListener('scroll', on);
+  }, [sections.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+  const goSection = (x: string) => {
+    const el = document.getElementById(`ts-${x}`);
+    if (!el) return;
+    el.scrollIntoView({ block: 'start' });
+    if ((sections as readonly string[]).includes(x)) setCurrent(x as SectionId);
+  };
+  // `Edit card…` (v1-cards §11): the section's h2 at the top, then the focus.
+  useEffect(() => {
+    if (!request || (!request.section && !request.focus)) return;
+    if (request.section) goSection(request.section);
+    if (request.focus) (document.querySelector(`main [data-command="${CSS.escape(request.focus)}"]`) as HTMLElement | null)?.focus();
+  }, [request?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
   const [deleting, setDeleting] = useState(false);
   const objects = usage?.objects ?? 0;
   const color = colorName(type.color);
@@ -281,7 +346,7 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted, reload }
   return (
     <div className="page-column type-settings">
       <header className="ts-header">
-        <span className="type-badge" aria-hidden="true" style={{ ['--type' as string]: `var(--type-${color})` }}><Icon name={typeIconName(type.key, type.icon)} size={20} /></span>
+        <span className="type-badge" aria-hidden="true" style={{ ['--type' as string]: `var(--type-${color})` }}><LucideIcon icon={type.resolvedIcon} dataIcon={type.icon} size={20} /></span>
         <div>
           <PageHeading ref={heading} tabIndex={-1}>{withUser('ts.heading', 'name', type.name)}</PageHeading>
           <p className="ts-applies">{t('ts.applies', { count: objects, key: type.key })}</p>
@@ -300,34 +365,25 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted, reload }
           <button data-command="typeSettings.button0" type="button" className="text-button" onClick={() => w.setConflict(null)}>{t('ts.dismiss')}</button>
         </div>
       )}
-      <div className="ts-layout">
-        <nav aria-label={t('frame.settingsSections')} className="settings-sections ts-nav">
-          {SECTIONS.map((s) => (
-            <a data-command="typeSettings.a1" key={s} href={`#ts-${s}`} onClick={(e) => { e.preventDefault(); document.getElementById(`ts-${s}`)?.scrollIntoView({ block: 'start' }); }}>{t(SECTION_LABEL[s])}</a>
-          ))}
-        </nav>
-        <div className="ts-sections">
-          <section id="ts-general" aria-label={t('ts.general')} className="ts-section">
-            <h2>{t('ts.general')}</h2>
-            <TextSetting label={t('ts.name')} value={type.name} disabled={ro || type.system} desc={type.system ? t('ts.systemName') : undefined}
+      <div ref={layoutRef}>
+      <SettingsLayout className="type-settings-layout" nav={sections.map((x) => (
+        <a data-command="typeSettings.section" key={x} tabIndex={0} href={`#ts-${x}`} aria-current={current === x ? 'location' : undefined}
+          onClick={(e) => { e.preventDefault(); goSection(x); }}>{t(SECTION_LABEL[x])}</a>
+      ))}>
+          <section id="ts-general" aria-labelledby="ts-general-h" className="ts-section">
+            <h2 id="ts-general-h">{t('ts.general')}</h2>
+            <TextSetting row label={t('ts.name')} value={type.name} disabled={ro || type.system} desc={type.system ? t('ts.systemName') : undefined}
               error={w.errors.name} check={(v) => nameRule(v, type.plural, 'name')} onCommit={(v) => set('name', v, t('ts.name'))} />
-            <TextSetting label={t('ts.plural')} value={type.plural} disabled={ro || type.system} desc={type.system ? t('ts.systemName') : undefined}
+            <TextSetting row label={t('ts.plural')} value={type.plural} disabled={ro || type.system} desc={type.system ? t('ts.systemName') : undefined}
               error={w.errors.plural} check={(v) => nameRule(type.name, v, 'plural')} onCommit={(v) => set('plural', v, t('ts.plural'))} />
-            <div className="ts-field">
-              <span className="ts-label">{t('ts.icon')}</span>
-              <button data-command="typeSettings.button2" ref={iconBtn} type="button" className="icon-pick" aria-label={t('ts.changeIcon')} aria-haspopup="listbox" aria-expanded={iconOpen} disabled={ro}
-                onClick={() => setIconOpen((o) => !o)}>
-                <Icon name={typeIconName(type.key, type.icon)} size={16} />
+            <SettingsRow label={t('ts.icon')} labelId="ts-icon-label">
+              {/* R215 (types.md FR-TYP-01 AC-23): the picker for the type icon. */}
+              <button data-command="type.changeIcon" ref={iconBtn} type="button" tabIndex={0} className="icon-pick" aria-label={t('ts.changeIcon')} aria-haspopup="dialog"
+                aria-disabled={ro || undefined} aria-description={roReason ?? undefined} onClick={() => openTypeIcon()}>
+                <LucideIcon icon={type.resolvedIcon} dataIcon={type.icon} size={16} />
               </button>
-              {iconOpen && (
-                <OptionsPopup label={t('ts.icon')} anchor={iconBtn.current} current={type.icon}
-                  choices={ICONS.map((i) => ({ value: i, label: t(`icon.${i}`), icon: i }))}
-                  onClose={(refocus) => { setIconOpen(false); if (refocus) iconBtn.current?.focus(); }}
-                  onChoose={(c) => { setIconOpen(false); iconBtn.current?.focus(); if (c.value !== type.icon) set('icon', c.value, t('ts.icon')); }} />
-              )}
-            </div>
-            <div className="ts-field">
-              <span className="ts-label" id="ts-color-label">{t('ts.color')}</span>
+            </SettingsRow>
+            <SettingsRow label={t('ts.color')} labelId="ts-color-label">
               <div role="radiogroup" aria-label={t('ts.color')} className="color-group"
                 onKeyDown={(e) => {
                   if (ro || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
@@ -343,12 +399,12 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted, reload }
                     onClick={() => { if (!ro && c !== type.color) set('color', c, t('ts.color')); }} />
                 ))}
               </div>
-            </div>
-            <TextSetting label={t('ts.folder')} value={type.folder} disabled={ro} desc={folderHelp} descAsText error={w.errors.folder}
+            </SettingsRow>
+            <TextSetting row label={t('ts.folder')} value={type.folder} disabled={ro} desc={folderHelp} descAsText error={w.errors.folder}
               check={(v) => { const r = checkFolder(v, types as never, type.key); return r ? t(`typeRule.${r.reason}`) : null; }}
               onDraft={previewFolder}
               onCommit={(v) => { setMoving(null); expectFolderMove(type.key); set('folder', v, t('ts.folder')); }} />
-            <TextSetting label={t('ts.description')} value={type.description ?? ''} disabled={ro} multiline error={w.errors.description}
+            <TextSetting row label={t('ts.description')} value={type.description ?? ''} disabled={ro} multiline error={w.errors.description}
               onCommit={(v) => set('description', v.trim() === '' ? null : v, t('ts.description'))} />
           </section>
 
@@ -360,20 +416,20 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted, reload }
             </section>
           ) : <PropertiesSection type={type} types={types} usage={usage} ro={ro} w={w} setType={setType} />}
 
-          <section id="ts-builtIn" aria-label={t('ts.builtIn')} className="ts-section">
-            <h2>{t('ts.builtIn')}</h2>
+          <section id="ts-builtIn" aria-labelledby="ts-builtIn-h" className="ts-section">
+            <h2 id="ts-builtIn-h">{t('ts.builtIn')}</h2>
             <p className="hint">{t('ts.builtInHelp')}</p>
             <ul className="builtin-list">{BUILT_IN_ROWS.map((k) => <li key={k}><code data-user-content>{k}</code></li>)}</ul>
           </section>
 
-          {type.key !== 'tag' && <PreviewSection type={type} ro={ro} w={w} setType={setType} />}
+          {nfc(type.key) !== 'tag' && <CardSection type={type} ro={ro} send={w.send} apiRef={cardApi} />}
 
           {type.key !== 'tag' && <HiddenSection type={type} ro={ro} w={w} setType={setType} />}
 
           <EmbedsSection type={type} ro={ro} w={w} setType={setType} />
 
-          <section id="ts-review" aria-label={t('ts.review')} className="ts-section">
-            <h2>{t('ts.review')}</h2>
+          <section id="ts-review" aria-labelledby="ts-review-h" className="ts-section">
+            <h2 id="ts-review-h">{t('ts.review')}</h2>
             <div className="ts-field row">
               <button data-command="typeSettings.button4" type="button" role="switch" aria-label={t('ts.review')} aria-checked={type.review !== 'off'}
                 aria-disabled={ro || type.review === 'locked' || undefined} aria-description={type.review === 'locked' ? t('ts.reviewLocked') : undefined}
@@ -385,8 +441,8 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted, reload }
             </div>
           </section>
 
-          <section id="ts-templates" aria-label={t('ts.templates')} className="ts-section">
-            <h2>{t('ts.templates')}</h2>
+          <section id="ts-templates" aria-labelledby="ts-templates-h" className="ts-section">
+            <h2 id="ts-templates-h">{t('ts.templates')}</h2>
             <div className="ts-row">
               {type.template ? <><code data-user-content>{type.template}</code><span className="badge">{t('ts.defaultMark')}</span></> : <span className="hint">{t('ts.noTemplate')}</span>}
               <span className="spacer" />
@@ -395,8 +451,10 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted, reload }
             </div>
           </section>
 
-          <section id="ts-delete" aria-label={t('ts.delete')} className="ts-section">
-            <h2>{t('ts.delete')}</h2>
+          {nfc(type.key) !== 'tag' && <ViewsSection type={type} send={w.send} reload={() => reload?.()} onAddView={() => onAddView?.()} />}
+
+          <section id="ts-delete" aria-labelledby="ts-delete-h" className="ts-section">
+            <h2 id="ts-delete-h">{t('ts.delete')}</h2>
             {type.system ? <p className="hint">{t('ts.systemNoDelete')}</p> : (
               <>
                 {objects > 0 && <p className="hint">{t('deleteType.section', { name: type.name, n: objects, plural: typeWord(type, objects) })}</p>}
@@ -404,8 +462,7 @@ function Settings({ type, types, usage, heading, w, setType, onDeleted, reload }
               </>
             )}
           </section>
-          {nfc(type.key) === 'task' && <DefaultViewsSection type={type} reload={() => reload?.()} />}
-        </div>
+      </SettingsLayout>
       </div>
       {deleting && <DeleteTypeDialog type={type} objects={objects} onClose={() => setDeleting(false)} onDeleted={onDeleted} />}
     </div>
@@ -421,7 +478,8 @@ function attrInput(a: AttributeDto, change: Partial<AttributeInputDto> = {}): At
 function PropertiesSection({ type, types, usage, ro, w, setType }: {
   type: TypeDto; types: TypeDto[]; usage: TypeUsageDto | null; ro: boolean; w: ReturnType<typeof useTypeWriter>; setType: (t: TypeDto) => void;
 }) {
-  const [open, setOpen] = useState<Set<string>>(new Set());
+  // Slice OC (types.md FR-TYP-01 AC-24): one property open at a time.
+  const [open, setOpen] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   // FR-UX-03 AC-18: a property deleted by its job takes its group (and the dialog's opener) away: the focus waits here.
   const addBtn = useRef<HTMLButtonElement | null>(null);
@@ -444,12 +502,12 @@ function PropertiesSection({ type, types, usage, ro, w, setType }: {
     void w.send([{ op: 'moveAttribute', key, to }], a.name, `attr:${key}`);
   };
   return (
-    <section id="ts-properties" aria-label={t('ts.properties')} className="ts-section">
-      <h2>{t('ts.properties')}</h2>
+    <section id="ts-properties" aria-labelledby="ts-properties-h" className="ts-section">
+      <h2 id="ts-properties-h">{t('ts.properties')}</h2>
       <div className="prop-list">
         {type.attributes.map((a, i) => (
           <PropertyGroup key={a.key} attr={a as AttributeDto} index={i} type={type} types={types} usage={usage} ro={ro} w={w} setType={setType} onDeleting={() => addBtn.current?.focus()}
-            expanded={open.has(a.key)} onToggle={() => setOpen((s) => { const n = new Set(s); if (n.has(a.key)) n.delete(a.key); else n.add(a.key); return n; })}
+            expanded={open === a.key} onToggle={() => setOpen((o) => (o === a.key ? null : a.key))}
             onMove={(to) => move(a.key, to)}
             onDragStart={() => { dragKey.current = a.key; }}
             onDrop={() => { if (dragKey.current) move(dragKey.current, i); dragKey.current = null; }} />
@@ -577,6 +635,23 @@ function PropertyGroup({ attr: a, index, type, types, usage, ro, w, setType, exp
   const [typeOpen, setTypeOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const typeBtn = useRef<HTMLButtonElement | null>(null);
+  const editBtn = useRef<HTMLButtonElement | null>(null);
+  const iconBtn = useRef<HTMLButtonElement | null>(null);
+  /** R215 (types.md FR-TYP-01 AC-24, cards.md FR-TYP-01 AC-12): the property's icon, allowed on built-ins (D-2099);
+   *  the icon it already has (canonical) or None without one writes nothing. */
+  const pickIcon = () => {
+    if (ro || !iconBtn.current) return;
+    const current = a.resolvedIcon?.name ?? null;
+    openIconPicker({
+      anchor: iconBtn.current, title: a.name, current, allowNone: true,
+      onChoose: (n) => {
+        if (n === current && (n !== null || !a.icon)) return;
+        setType({ ...type, attributes: type.attributes.map((x) => (x.key === a.key ? { ...x, icon: n } as AttributeDto : x)) });
+        void w.send([{ op: 'attributeIcon', key: a.key, icon: n }], t('ts.icon'), fieldId);
+      },
+    });
+  };
+  const collapse = () => { onToggle(); editBtn.current?.focus(); };
   const update = (change: AttributeChangeDto, label: string) => {
     setType({ ...type, attributes: type.attributes.map((x) => (x.key === a.key ? { ...x, ...change } as AttributeDto : x)) });
     return w.send([{ op: 'updateAttribute', key: a.key, change }], label, fieldId);
@@ -604,9 +679,14 @@ function PropertyGroup({ attr: a, index, type, types, usage, ro, w, setType, exp
     }
   };
   return (
-    <div role="group" aria-label={a.name} className={`prop-group ${expanded ? 'open' : ''}`}
+    <div role="group" aria-label={a.name} className={`prop-group ts-prop ${expanded ? 'open' : ''}`} data-attribute={a.key}
+      onKeyDown={(e) => { if (e.key === 'Escape' && expanded && !e.defaultPrevented) { e.preventDefault(); e.stopPropagation(); collapse(); } }}
       onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); onDrop(); }}>
       <div className="prop-head">
+        <button ref={iconBtn} data-command="property.icon" type="button" tabIndex={0} className="icon-button small prop-icon" aria-label={t('typeSettings.propertyIcon', { name: a.name })} aria-haspopup="dialog"
+          aria-disabled={ro || undefined} aria-description={a.resolvedIcon ? undefined : t('typeSettings.noIcon')} onClick={pickIcon}>
+          {a.resolvedIcon ? <LucideIcon icon={a.resolvedIcon} dataIcon={a.icon ?? a.resolvedIcon.name} size={14} /> : <NoIconGlyph />}
+        </button>
         <button data-command="typeSettings.button10" type="button" className="icon-button small handle" aria-label={t('ts.drag', { name: a.name })} data-handle={a.key} disabled={ro}
           draggable={!ro} onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', a.key); onDragStart(); }}
           onKeyDown={(e) => {
@@ -621,8 +701,8 @@ function PropertyGroup({ attr: a, index, type, types, usage, ro, w, setType, exp
         <span className="prop-type">{attrTypeLabel(a.type)}</span>
         {locked && <span className="badge">{t('ts.builtInBadge')}</span>}
         <span className="spacer" />
-        <button data-command="typeSettings.button11" type="button" className="text-button small" aria-expanded={expanded} disabled={ro}
-          aria-label={t(expanded ? 'ts.collapse' : 'ts.edit', { name: a.name })} onClick={onToggle}>
+        <button ref={editBtn} data-command="typeSettings.button11" type="button" tabIndex={0} className="text-button small" aria-expanded={expanded} disabled={ro}
+          aria-label={t('ts.edit', { name: a.name })} onClick={(e) => { e.currentTarget.focus(); onToggle(); }}>
           <Icon name={expanded ? 'chevron-down' : 'chevron-right'} size={12} />
         </button>
       </div>
@@ -681,6 +761,8 @@ function PropertyGroup({ attr: a, index, type, types, usage, ro, w, setType, exp
             onCommit={(v) => void update({ description: v.trim() === '' ? null : v }, t('ts.description'))} />
           <div className="form-actions">
             <button data-command="typeSettings.button13" type="button" className="text-button danger" disabled={ro || locked} aria-description={lockedDesc} onClick={() => setDeleting(true)}>{t('ts.deleteProperty')}</button>
+            <span className="spacer" />
+            <button data-command="typeSettings.collapseProperty" type="button" tabIndex={0} className="text-button" onClick={collapse}>{t('ts.collapse', { name: a.name })}</button>
           </div>
         </div>
       )}
@@ -839,6 +921,7 @@ function OptionsEditor({ attr: a, type, usage, off: offAttr, locked, w, update }
       <button data-command="typeSettings.button21" type="button" className="text-button small" disabled={off} onClick={() => setDraft({ state: 'open', color: null })}><Icon name="plus" size={12} />{t('ts.addOption')}</button>
       {colorFor && createPortal(
         <PopupMenu label={t('ts.optionColors', { label: colorFor.label ?? '' })} anchor={colorFor.anchor}
+          placement={colorFor.anchor.getBoundingClientRect().top > window.innerHeight / 2 ? 'above' : 'below'}
           entries={COLORS.map((c) => ({
             kind: 'radio' as const, key: c, label: t(`color.${c}`), checked: colorName(colorFor.label === null ? draft?.color : a.options.find((o) => o.label === colorFor.label)?.color) === c,
             content: <><span className="option-dot" aria-hidden="true" style={{ background: `var(--type-${c})` }} />{t(`color.${c}`)}</>,
@@ -928,8 +1011,8 @@ function EmbedsSection({ type, ro, w, setType }: { type: TypeDto; ro: boolean; w
     choose(EMBED_MODES[(i + step + EMBED_MODES.length) % EMBED_MODES.length], true);
   };
   return (
-    <section id="ts-embeds" aria-label={t('typeSettings.embeds')} className="ts-section">
-      <h2>{t('typeSettings.embeds')}</h2>
+    <section id="ts-embeds" aria-labelledby="ts-embeds-h" className="ts-section">
+      <h2 id="ts-embeds-h">{t('typeSettings.embeds')}</h2>
       <div role="radiogroup" aria-label={t('typeSettings.embedMode')} className="ts-field row segmented ts-embed-modes" onKeyDown={onKey}>
         {EMBED_MODES.map((m, i) => (
           <span key={m} ref={(el) => { refs.current[i] = el; }} role="radio" aria-checked={m === mode} tabIndex={m === mode ? 0 : -1}
@@ -940,6 +1023,7 @@ function EmbedsSection({ type, ro, w, setType }: { type: TypeDto; ro: boolean; w
         ))}
       </div>
       <p className="hint">{t('typeSettings.embedHint', { plural: type.plural })}</p>
+      {nfc(type.key) !== 'tag' && <p className="hint">{t('typeSettings.embedCardNote')}</p>}
       {unknown && <p role="status" className="hint warn">{t('typeSettings.embedUnknown', { value: raw!, mode: t(`embed.mode.${mode}`) })}</p>}
     </section>
   );
@@ -964,8 +1048,8 @@ function HiddenSection({ type, ro, w, setType }: { type: TypeDto; ro: boolean; w
     void w.send([{ op: 'hidden', keys: next }], t('ts.hidden'), 'hidden');
   };
   return (
-    <section id="ts-hidden" aria-label={t('ts.hidden')} className="ts-section">
-      <h2>{t('ts.hidden')}</h2>
+    <section id="ts-hidden" aria-labelledby="ts-hidden-h" className="ts-section">
+      <h2 id="ts-hidden-h">{t('ts.hidden')}</h2>
       <p className="hint">{t('ts.hiddenHelp')}</p>
       <ul className="hidden-list">
         {rows.map(([key, name, user]) => (
@@ -977,71 +1061,6 @@ function HiddenSection({ type, ro, w, setType }: { type: TypeDto; ro: boolean; w
           </li>
         ))}
       </ul>
-    </section>
-  );
-}
-
-// ------------------------------------------------------------------------------------------------ preview
-
-function PreviewSection({ type, ro, w, setType }: { type: TypeDto; ro: boolean; w: ReturnType<typeof useTypeWriter>; setType: (t: TypeDto) => void }) {
-  const [menu, setMenu] = useState(false);
-  const addBtn = useRef<HTMLButtonElement | null>(null);
-  const focusKey = useRef<string | null>(null);
-  const label = (k: string) => type.attributes.find((a) => nfc(a.key) === nfc(k))?.name ?? (UNIVERSAL_PREVIEW.find(([u]) => u === k) ? t(UNIVERSAL_PREVIEW.find(([u]) => u === k)![1]) : k);
-  const keys = type.preview.filter((k) => !type.previewIgnored.includes(k));
-  const avail: [string, string][] = [
-    ...type.attributes.map((a): [string, string] => [a.key, a.name]),
-    ...UNIVERSAL_PREVIEW.map(([k, l]): [string, string] => [k, t(l)]),
-  ].filter(([k]) => !type.preview.map(nfc).includes(nfc(k)));
-  const full = keys.length >= 4;
-  useLayoutEffect(() => {
-    const k = focusKey.current;
-    if (!k) return;
-    focusKey.current = null;
-    (document.querySelector(`[data-preview="${CSS.escape(k)}"]`) as HTMLElement | null)?.focus();
-  });
-  const write = (next: string[], focus?: string) => {
-    const all = [...next, ...type.preview.filter((k) => type.previewIgnored.includes(k))];
-    if (focus) focusKey.current = focus;
-    setType({ ...type, preview: all });
-    void w.send([{ op: 'preview', keys: all }], t('preview.properties'), 'preview');
-  };
-  return (
-    <section id="ts-preview" aria-label={t('preview.properties')} className="ts-section">
-      <h2>{t('preview.properties')}</h2>
-      <ul aria-label={t('preview.properties')} className="preview-chips">
-        {keys.map((k, i) => (
-          <li key={k} tabIndex={0} className="chip preview-chip" data-preview={k}
-            onKeyDown={(e) => {
-              if (ro || !e.altKey || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
-              e.preventDefault();
-              const j = i + (e.key === 'ArrowLeft' ? -1 : 1);
-              if (j < 0 || j >= keys.length) return;
-              const n = [...keys];
-              [n[i], n[j]] = [n[j], n[i]];
-              write(n, k);
-            }}>
-            <span data-user-content>{label(k)}</span>
-            <button data-command="typeSettings.button24" type="button" tabIndex={-1} className="chip-remove" aria-label={t('ts.removePreview', { name: label(k) })} disabled={ro}
-              onClick={() => write(keys.filter((x) => x !== k))}>
-              <Icon name="x" size={11} />
-            </button>
-          </li>
-        ))}
-      </ul>
-      {full ? (
-        <button data-command="typeSettings.button25" ref={addBtn} type="button" className="text-button" aria-disabled="true" aria-description={t('ts.previewFull')}>{t('ts.addPreview', { count: 0 })}</button>
-      ) : (
-        <button data-command="typeSettings.button26" ref={addBtn} type="button" className="text-button" aria-haspopup="menu" aria-expanded={menu} disabled={ro} onClick={() => setMenu((m) => !m)}>
-          {t('ts.addPreview', { count: 4 - keys.length })}
-        </button>
-      )}
-      {menu && (
-        <PopupMenu label={t('ts.addPreviewMenu')} anchor={addBtn.current} onClose={() => setMenu(false)}
-          entries={avail.map(([k, l]) => ({ kind: 'item' as const, key: k, label: l, content: <span className="menu-title" data-user-content>{l}</span>,
-            onChoose: () => { setMenu(false); addBtn.current?.focus(); write([...keys, k]); } }))} />
-      )}
-      {type.previewIgnored.length > 0 && <p className="warning-text">{t('ts.previewIgnored', { keys: type.previewIgnored.join(', ') })}</p>}
     </section>
   );
 }

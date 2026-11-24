@@ -1,0 +1,38 @@
+/* The shared settings layout (docs/contracts/v1-cards.md §7.10, §8.4; app-shell R219; D-2071, D-2106; boards Settings,
+   CardSettings): the section list on the left, one label column, one control column, notes under the control. Tokens
+   only (FR-UX-05 AC-2). */
+:root { --settings-nav-width: 168px; --settings-label-width: 170px; --settings-max: 940px; }
+.settings-layout { display: grid; grid-template-columns: var(--settings-nav-width) minmax(0, 1fr); column-gap: 24px; max-width: var(--settings-max); align-items: start; margin-top: 20px; }
+.settings-layout > nav.settings-sections { position: sticky; top: 16px; display: flex; flex-direction: column; flex-wrap: nowrap; gap: 2px; margin: 0; }
+.settings-layout > nav.settings-sections a { padding: 5px 10px; border-radius: 6px; font-size: 13px; color: var(--text); text-decoration: none; }
+.settings-layout > nav.settings-sections a:hover { background: var(--hover); }
+.settings-layout > nav.settings-sections a[aria-current] { background: var(--hover); color: var(--text); font-weight: 600; }
+.settings-layout > nav.settings-sections a:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.settings-content { min-width: 0; }
+.settings-row { display: grid; grid-template-columns: var(--settings-label-width) minmax(0, 1fr); column-gap: 16px; align-items: start; margin: 0 0 12px; }
+.settings-row > .settings-label { padding-top: 6px; font-size: 13px; color: var(--text); overflow-wrap: anywhere; }
+.settings-row > .settings-control { grid-column: 2; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.settings-row > .settings-control > input[type='text'] { box-sizing: border-box; width: 100%; max-width: 420px; height: 30px; padding: 0 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); }
+.settings-row > .settings-control > input[type='text'].wide { max-width: 100%; }
+.settings-row > .settings-control > input:disabled { color: var(--muted); background: var(--row); }
+.settings-row > .settings-control > select { height: 30px; max-width: 100%; padding: 0 8px; }
+.settings-row > .settings-control > select:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; } /* AC-25: AC-13 (b)'s ring; a select isn't a text field */
+.settings-row > .settings-control > .setting-value { padding-top: 6px; font-size: 13px; overflow-wrap: anywhere; }
+.settings-row > .settings-control > .settings-table { width: 100%; }
+.settings-row > .settings-control > .hint, .settings-row > .settings-control > .backup-list { width: 100%; }
+.settings-group { margin: 0; font-size: 13px; font-weight: 650; }
+.settings-note { margin: 0; color: var(--muted); font-size: 12px; }
+.settings-row > .settings-note { grid-column: 2; margin-top: 4px; }
+.settings-row > .settings-control > .width-switch { margin: 0; }
+/* Type settings: the last sections can scroll to the top of the pane (types.md FR-TYP-01 AC-22). */
+.type-settings-layout > .settings-content { padding-bottom: 60vh; }
+.type-settings-layout .ts-section { scroll-margin-top: 0; }
+/* A narrow window (the minimum is 800 px, AC-18): the label goes above its control, wide tables scroll in their own
+   box, and nothing scrolls the pane sideways (app-shell FR-UX-02 AC-22). */
+@media (max-width: 900px) {
+  .settings-row { grid-template-columns: minmax(0, 1fr); }
+  .settings-row > .settings-control, .settings-row > .settings-note { grid-column: 1; }
+  .settings-row > .settings-label { padding-top: 0; margin-bottom: 4px; }
+  .settings-row > .settings-control > .settings-table { display: block; max-width: 100%; overflow-x: auto; }
+  .settings-row > .settings-control > .segmented { flex-wrap: wrap; }
+}

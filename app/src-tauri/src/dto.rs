@@ -135,6 +135,8 @@ pub struct EmbedNoteDto {
     pub utf8: bool,
     /// Resolution of the file's link targets from its own path, in `linkTargets` order.
     pub links: Vec<LinkTargetDto>,
+    /// Slice OC (v1-cards §3.3): the embedded object's card data; null unless `ok` and indexed.
+    pub card: Option<crate::shellcards::CardDataDto>,
 }
 
 /// A file version (ms3-shell §13.2): equality is `size` + `hash` (D-175).
@@ -325,6 +327,15 @@ pub struct TypeDto {
     /// Slice Q2.1 (v1-views §17.3, D-1852): the exact text of the `views` key's lines (key line through its last line, EOLs
     /// included); null when the key is absent.
     pub views_source: Option<String>,
+    /// Slice OC (v1-cards §4.2, R209): the card list (`card:` as written, else R210's default), whether it is the
+    /// default, the effective keys, the entries the section warns about and an unreadable `card` value.
+    pub card_list: Vec<String>,
+    pub card_default: bool,
+    pub card_keys: Vec<String>,
+    pub card_ignored: Vec<String>,
+    pub card_unreadable: bool,
+    /// Slice OC (v1-cards §5.4): `icon` resolved to a Lucide 0.460 drawing; null for an unknown name (R14's generic icon).
+    pub resolved_icon: Option<crate::shellcards::ResolvedIconDto>,
 }
 
 /// Slice Q2.1 (v1-views §17.3, R196): one item of a type file's `views:`, a plain name or a mapping with own values.
@@ -387,6 +398,10 @@ pub struct AttributeDto {
     pub multiple: bool,
     pub description: Option<String>,
     pub built_in: bool,
+    /// Slice OC (v1-cards §4.2, FR-TYP-01 AC-12): the item's `icon:` as written; null when absent.
+    pub icon: Option<String>,
+    /// Slice OC (v1-cards §5.4): `icon` resolved; null for no icon or an unknown name.
+    pub resolved_icon: Option<crate::shellcards::ResolvedIconDto>,
 }
 
 /// A new property (`addAttribute`).
@@ -481,6 +496,10 @@ pub enum TypeOpDto {
     ViewColumns { name: String, columns: Option<Vec<String>> },
     /// v1-views §17.3 (D-1852): the `views` key's lines replaced byte for byte (`TypeOp::SetViewsSource`).
     ViewsSource { source: String },
+    /// Slice OC (v1-cards §4.2, D-2076): the `card` line (`TypeOp::SetCard`); null removes it (`Reset to default`).
+    Card { keys: Option<Vec<String>> },
+    /// Slice OC (v1-cards §4.2, D-2070): an attribute's `icon:` line (`TypeOp::SetAttributeIcon`); null removes it.
+    AttributeIcon { key: String, icon: Option<String> },
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -637,6 +656,11 @@ pub struct UiStateDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub queries: Option<QueriesUiDto>,
+    /// Slice OC (v1-cards §10, R216, D-2066): the icon picker's Recent icons, canonical Lucide names, newest first, unique,
+    /// at most 12; missing reads as none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub recent_icons: Option<Vec<String>>,
     /// Slice OL (v1-outline §5, D-1601, FR-SET-02 AC-10): `Show outline rail`; missing reads as true.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
@@ -1195,6 +1219,8 @@ pub struct TaskRowDto {
     pub modified: Option<String>,
     pub version: VersionDto,
     pub read_only: bool,
+    /// Slice OC (v1-cards §3.3): the Task card's data with Task's keys.
+    pub card: crate::shellcards::CardDataDto,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -1242,7 +1268,7 @@ fn yes() -> bool {
 
 impl Default for UiStateDto {
     fn default() -> Self {
-        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None, type_column_widths: None, vaults: None, queries: None, outline_rail: None, related: None, type_views: None, query_column_widths: None, board_folded: None, usage_column_widths: None, usage_folded: None, tag_filter: None }
+        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None, type_column_widths: None, vaults: None, queries: None, outline_rail: None, recent_icons: None, related: None, type_views: None, query_column_widths: None, board_folded: None, usage_column_widths: None, usage_folded: None, tag_filter: None }
     }
 }
 
@@ -1768,6 +1794,9 @@ pub fn typescript() -> String {
         JobPlanDto::decl(),
         RelatedEntryDto::decl(),
         RelatedDto::decl(),
+        crate::shellcards::ResolvedIconDto::decl(),
+        crate::shellcards::CardDataDto::decl(),
+        crate::shellcards::CardExampleDto::decl(),
         StartStateDto::decl(),
         FoundVaultDto::decl(),
         StorageAccessDto::decl(),

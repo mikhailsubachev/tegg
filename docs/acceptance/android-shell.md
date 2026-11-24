@@ -89,7 +89,7 @@ Both APKs:
 
 ### RA2. IPC commands per platform (plan §3.2, §8; D-2006, D-2007; AP-2024)
 
-**Desktop:** the commands registered on main, unchanged by AND-1 (compared at the merge-base with main, D-2053; `7ff0fc0b` when AND-1 started). Every desktop command is classified for Android: in the Android list or in an excluded group below; slice Q2-T's `task_views_restore` is in V (D-2053). `type_misfits` is in `build.rs` and `capabilities/default.json` but not registered there (D-808); that also stays as it is.
+**Desktop:** the commands registered on main, unchanged by AND-1 (compared at the merge-base with main, D-2053; `7ff0fc0b` when AND-1 started); a later branch may add its own commands, never remove one (D-2168). Every desktop command is classified for Android: in the Android list or in an excluded group below; slice Q2-T's `task_views_restore` is in V (D-2053); slice OC's `type_card_example` is a read and stays on Android, like `type_get` and `type_usage` (D-2167). `type_misfits` is in `build.rs` and `capabilities/default.json` but not registered there (D-808); that also stays as it is.
 
 **Android:** the desktop set minus the groups below, plus the Android-only commands: the four of AND-1 and, from AND-2, `android_open_url` (D-2192). On Android, an excluded command's function is not compiled, it isn't in the invoke handler, and no capability that applies to Android allows it.
 
@@ -219,7 +219,7 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
   - every file in `capabilities/`.
 
   It checks:
-  - (a) `DESKTOP` equals the names in the desktop `generate_handler!` and equals the desktop set on main at the merge-base (D-2053); every desktop command is in `ANDROID` or an excluded group;
+  - (a) `DESKTOP` equals the names in the desktop `generate_handler!` and holds the desktop set on main at the merge-base (D-2053), plus only the branch's own added commands (D-2168); every desktop command, each added one included, is in `ANDROID` or an excluded group;
   - (b) `ANDROID` = `DESKTOP` − RA2's groups + RA2's four Android-only commands;
   - (c) every RA2-excluded command's `allow-…` permission is only in capability files whose `platforms` is `["macOS"]`;
   - (d) the capability for the `main` window on Android allows exactly `ANDROID`, and no capability on Android names the `capture` or `saved` windows;
@@ -242,7 +242,7 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
   With `'macos'`, the palette registry, the chooser and the logo menu are the same as on `main` at `7ff0fc0b` (snapshot). *(L5; L1 for the client's refusal list, which equals RA2)* Test: `ar_03_ac11_ui_skips_missing_commands_on_android`
 - **AC-12** **The macOS app is unchanged.**
   - (a) An L0 check over the AND-1 branch: no existing `*.ac.test.ts` or `tests/ac_*.rs` is changed or deleted, and none is changed except by a commit with an owner-approved `AC-Test-Change: <reason>; approved-by: owner` trailer (D-2052).
-  - (b) `tauri.conf.json` (except a `bundle.android` block), `tauri.preview.conf.json`, `capabilities/capture.json` and the permission list of `capabilities/default.json` are equal to main at the merge-base (D-2053; AND-1's own `platforms` and `bundle.android` left out on both sides). The only change in `default.json` and `capture.json` is their `platforms` field (D-2050).
+  - (b) `tauri.conf.json` (except a `bundle.android` block, and entries a branch adds under `bundle.macOS`, which only the Mac bundle reads, D-2169), `tauri.preview.conf.json` and `capabilities/capture.json` are equal to main at the merge-base (D-2053; AND-1's own `platforms` and `bundle.android` left out on both sides); every entry main has under `bundle.macOS` stays unchanged. The permission list of `capabilities/default.json` holds main's list at the merge-base, in its order, plus only the `allow-…` permissions of the branch's own added desktop commands, each classified for Android (D-2168); its other fields equal main's. The only other change in `default.json` and `capture.json` is their `platforms` field (D-2050).
   - (c) `./verify push` passes, and the `app-e2e` and `app-shell-test` steps pass on the built `Tegg.app`.
   - (d) FR-STO-07 AC-15's macOS cases pass.
 

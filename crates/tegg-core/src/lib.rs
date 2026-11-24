@@ -166,6 +166,10 @@ struct Shared {
     /// Type definitions by key for the index queries (rows, counts; 3D): read at open, after own type-file writes
     /// and on watched `.tegg/types/` changes, so a type page reads no file (D-233).
     type_defs: Mutex<std::collections::BTreeMap<String, tegg_schema::TypeFile>>,
+    /// v1-cards §3.1 (slice OC): each type's card list (`TypeInfo.card`), refreshed with `type_defs`.
+    type_cards: Mutex<std::collections::BTreeMap<String, tegg_schema::CardList>>,
+    /// The `.tegg/types/` files' stamps (name, mtime, size) as of the last `refresh_types` (`fresh_types`).
+    type_stamps: Mutex<Vec<(String, i128, u64)>>,
     /// ms6-trash-media §2, §3.2 (6A): the vault's non-note files and the trashed objects, read lazily from the file
     /// system and dropped on every change (part of the disposable index, AR-01).
     files: Mutex<Option<Arc<trash6a::FileCache>>>,
@@ -355,6 +359,8 @@ impl Core {
             placeholders: Mutex::new(Vec::new()),
             not_utf8: Mutex::new(Default::default()),
             type_defs: Mutex::new(Default::default()),
+            type_cards: Mutex::new(Default::default()),
+            type_stamps: Mutex::new(Vec::new()),
             files: Mutex::new(None),
             graph_ready,
             graph_flags: Mutex::new(HashMap::new()),
@@ -1236,6 +1242,8 @@ pub mod graph_presets;
 pub mod pinned;
 // docs/contracts/v1-queries.md §1: saved queries in `.tegg/queries/` and the evaluator (`queries_q.rs`).
 pub mod queries_q;
+/// Slice OC (docs/contracts/v1-cards.md §3.2): card data.
+pub mod cards;
 /// v1-views §25 (Q2-T, R202): the default task views, their migration and `Restore default views`.
 pub mod taskviews;
 mod yaml_text;

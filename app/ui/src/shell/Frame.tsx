@@ -347,6 +347,7 @@ export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, 
                   aria-label={drawer ? undefined : t('frame.typeEntry', { plural: e.plural, count: e.count })}
                   aria-description={!e.defined ? t('frame.noTypeDefinition') : e.invalid ? t('frame.invalidType') : undefined}
                   data-command={`goto.type:${e.key}`}
+                  data-type={e.key.normalize('NFC')}
                   style={{ ['--type' as string]: `var(--type-${e.color || 'gray'})` }}
                   onClick={(ev) => { ev.preventDefault(); onGo({ id: 'type/<type>', param: e.key }); }}
                   {...(drawer ? {} : {
@@ -355,7 +356,8 @@ export function Sidebar({ route, types, onGo, onSearch, onNewObject, onNewType, 
                     ...(typePinnable(e.key) ? pinDragSource({ request: { kind: 'type', key: e.key }, label: e.plural, icon: typeIconName(e.key, e.icon), color: e.color }) : {}),
                   })}
                 >
-                  <span className="type-icon"><Icon name={typeIconName(e.key, e.icon)} /></span>
+                  {/* Slice OC (D-2103, D-2110): `data-icon` is the type's icon as written. */}
+                  <span className="type-icon"><Icon name={typeIconName(e.key, e.icon)} dataIcon={e.icon || undefined} /></span>
                   <span className="entry-label" data-user-content title={e.plural}>
                     {e.plural}
                     {!e.defined && <span className="undefined-mark" aria-hidden="true" title={t('frame.noTypeDefinition')} />}

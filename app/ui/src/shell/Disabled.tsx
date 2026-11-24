@@ -5,7 +5,7 @@ import { t } from '../i18n/catalog';
 import { CONTROL_COMMANDS } from './commands';
 import { DISABLED_CONTROLS, showDue } from './registry';
 
-export function Disabled({ control, vars, children, className, role, ariaLabel }: {
+export function Disabled({ control, vars, children, className, role, ariaLabel, labelledBy, showDue: dueText }: {
   /** The R3 catalog key of the control. */
   control: string;
   vars?: Record<string, string>;
@@ -13,6 +13,9 @@ export function Disabled({ control, vars, children, className, role, ariaLabel }
   className?: string;
   role?: string;
   ariaLabel?: string;
+  /** R219 (slice OC): named by its settings row's label; with `showDue` the button reads `Coming in <due>`. */
+  labelledBy?: string;
+  showDue?: boolean;
 }) {
   const def = DISABLED_CONTROLS.find((c) => c.label === control)!;
   const [tip, setTip] = useState(false);
@@ -31,6 +34,7 @@ export function Disabled({ control, vars, children, className, role, ariaLabel }
         aria-disabled="true"
         aria-checked={role === 'radio' ? false : undefined}
         aria-label={ariaLabel}
+        aria-labelledby={labelledBy}
         aria-description={desc}
         data-command={CONTROL_COMMANDS[control]}
         onFocus={() => setTip(true)}
@@ -40,7 +44,7 @@ export function Disabled({ control, vars, children, className, role, ariaLabel }
           if (e.key === 'Enter' || e.key === ' ') swallow(e);
         }}
       >
-        {children ?? t(control, vars)}
+        {children ?? (dueText ? desc : t(control, vars))}
       </button>
       {tip && (
         <span role="tooltip" id={id} className="tooltip">

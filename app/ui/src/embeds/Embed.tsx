@@ -13,8 +13,7 @@ import { requestOffer } from '../links/offer';
 import { openDate } from '../daily/open';
 import { Icon } from '../shell/Icon';
 import { ReadView } from '../read/ReadView';
-import { formatDate } from '../read/PropertiesStrip';
-import { TypeCell, type TypeColumn } from '../types/cell';
+import { ObjectCard } from '../cards/ObjectCard';
 import type { EmbedNode } from './tree';
 import { isTaskCard, TaskEmbed } from './TaskEmbed';
 import { useReference } from '../preview/useReference';
@@ -39,7 +38,6 @@ export type EmbedProps = {
 };
 
 const nfc = (s: string) => s.normalize('NFC');
-const UNIVERSAL: Record<string, string> = { tags: 'attr.tags', aliases: 'attr.aliases', source: 'attr.source', created: 'attr.created', modified: 'attr.modified', review: 'attr.review' };
 
 /** The title an embed shows: the target's title, `<title> › <heading>` for a heading subpath (D-156). */
 function titleOf(node: EmbedNode): string {
@@ -231,40 +229,6 @@ function badFrontmatter(text: string): boolean {
   return !!d.frontmatterError || (!!d.frontmatter && d.frontmatter.data === null);
 }
 
-/** D-427: the type's preview properties that are set, in preview order, formatted as on the type page. */
-function CardStrip({ node, onOpen, onTag }: { node: EmbedNode; onOpen: EmbedProps['onOpen']; onTag?: (k: string) => void }) {
-  const text = node.note?.text;
-  if (!text) return null;
-  const data = (parse(text).frontmatter?.data ?? {}) as Record<string, unknown>;
-  const types: TypeDto[] = chipTypes() as TypeDto[];
-  const type = types.find((x) => nfc(x.key) === nfc(node.target.type ?? ''));
-  const cols: TypeColumn[] = [];
-  for (const k of type?.preview ?? []) {
-    const a = type?.attributes.find((x) => nfc(x.key) === nfc(k));
-    if (a) cols.push({ key: a.key, label: a.name, attr: a, userNamed: true });
-    else if (UNIVERSAL[k]) cols.push({ key: k, label: t(UNIVERSAL[k]), attr: null, userNamed: false });
-  }
-  const empty = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
-  const shown = cols.filter((c) => (c.attr?.type === 'date-range' ? !empty(data[`${c.key}-start`]) : !empty(data[c.key])));
-  if (shown.length === 0) return null;
-  const links: LinkTargetDto[] = node.note?.links ?? [];
-  const row = { path: node.note!.path, id: null, title: titleOf(node), created: null, modified: null, values: data, links, typeSingle: true, tags: [] };
-  return (
-    <ul className="embed-props" aria-label={t('embed.properties')}>
-      {shown.map((c) => (
-        <li key={c.key}>
-          <span className="embed-prop-name" data-user-content>{c.label}</span>{' '}
-          <span className="embed-prop-value">
-            {c.attr?.type === 'date' && typeof data[c.key] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(String(data[c.key]).trim())
-              ? <span data-user-content>{formatDate(String(data[c.key]).trim())}</span> // D-160 medium date (FR-EMB-02 AC-4)
-              : <TypeCell row={row} col={c} type={type} types={types} onOpen={(p) => onOpen(p)} onTag={onTag ?? (() => {})} typeKey={node.target.type ?? 'page'} />}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 function lineBefore(text: string, at: number): number {
   let n = 0;
   for (let i = text.indexOf('\n'); i >= 0 && i < at; i = text.indexOf('\n', i + 1)) n++;
@@ -410,8 +374,21 @@ export function Embed(props: EmbedProps): ReactNode {
     const msg = sub.startsWith('^') ? t('embed.noBlock', { id: sub.slice(1), title: node.target.title ?? node.target.target }) : t('embed.noHeading', { heading: sub, title: node.target.title ?? node.target.target });
     content = <p className="embed-message" data-embed-message>{msg}</p>;
   } else if (node.state === 'date-missing') content = <p className="embed-message" data-embed-message>{t('embed.noDay')}</p>;
-  else if (node.mode === 'card') content = <CardStrip node={node} onOpen={props.inPreview ? () => {} : props.onOpen} onTag={props.inPreview ? () => {} : props.onTag} />;
-  else if (node.note) {
+  else if (node.mode === 'card' && node.note) {
+    // Slice OC (D-2092, cards.md AP-1587): the frame holds the ObjectCard; its head is the lead, the title, `Open` and
+    // `Display as` (no `⋯`); the frame keeps opening the object on a click outside its buttons and links.
+    const types = chipTypes() as TypeDto[];
+    const typeKey = node.note.card?.type ?? node.target.type ?? 'page';
+    const type = types.find((x) => nfc(x.key) === nfc(typeKey)) ?? null;
+    const card = node.note.card ?? { type: typeKey, title, keys: [], values: {}, excerpt: null, links: [], unreviewed: false, file: null };
+    return (
+      <section {...common}>
+        <ObjectCard path={node.note.path} card={card} type={type} surface="embed" typeName={type?.name ?? typeKey} inertLinks={props.inPreview}
+          onOpen={props.inPreview ? undefined : (p) => props.onOpen(p)} titleRef={cardRef as unknown as Record<string, unknown>}
+          head={<><OpenButton props={props} /><ModeMenu mode={node.mode} disabled={props.modeDisabled ?? null} onMode={props.onMode} /></>} />
+      </section>
+    );
+  } else if (node.note) {
     const editable = props.editable && !node.readOnly && !!props.body;
     content = (
       <div className="embed-body" data-embed-body data-embed-editable={editable ? 'true' : 'false'}>

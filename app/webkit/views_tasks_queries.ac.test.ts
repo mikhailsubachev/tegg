@@ -93,8 +93,9 @@ test('fr_tsk_04_ac26_schedule_and_kanban_are_queries_in_a_reference_fence', asyn
 
 test('fr_typ_01_ac11_restore_default_views', async ({ page }) => {
   const core = await startTasksViews(page, { route: 'type-settings/task' });
-  const section = main(page).locator('section[aria-labelledby]').filter({ has: page.getByRole('heading', { level: 2, name: rx('Default views') }) });
-  await must(section, 'the section `Default views`', 8000);
+  // Slice OC (types.md FR-TYP-01 AC-27, AP-1595): the button moved into the `Views` section.
+  const section = main(page).locator('section[aria-labelledby]').filter({ has: page.getByRole('heading', { level: 2, name: rx('Views') }) });
+  await must(section, 'the section `Views`', 8000);
   const btn = await must(restoreButton(page), 'button `Restore default views`');
   assert.equal(flat(await btn.innerText()), 'Restore default views', 'its name');
   assert.equal(await isDisabled(btn), true, 'aria-disabled while both are listed and live');

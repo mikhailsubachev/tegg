@@ -749,9 +749,11 @@ test('fr_grp_06_ac1_preview_column_with_the_connections_line', async ({ page }) 
   const col = await must(previewCol(page), 'the Preview column');
   await must(col.locator(`[data-preview-path="${nfc(P.rozpocet)}"]`), 'data-preview-path="Projekty/Rozpočet 2027.md"');
   const text = flat(await col.innerText());
-  for (const part of ['Rozpočet 2027', 'Projekt', 'Projekt · 6 connections', 'Vlastník', 'Jana Nováková', 'Termín', 'Dec 31, 2026', 'Rozpočet na příští rok.']) {
+  for (const part of ['Rozpočet 2027', 'Projekt', 'Projekt · 6 connections', 'Jana Nováková', 'Termín', 'Dec 31, 2026', 'Rozpočet na příští rok.']) {
     assert.ok(text.includes(part), `the column shows ${JSON.stringify(part)}: ${text}`);
   }
+  // D-2136, D-2139: the link chip shows the target only; its accessible name carries the property's Name.
+  assert.ok(await col.getByLabel(nfc('Vlastník: Jana Nováková'), { exact: true }).count() >= 1, 'the link chip is named "Vlastník: Jana Nováková"');
   assert.ok(await col.locator('[data-icon="folder"]').count() >= 1, 'the folder icon');
   const btns = await col.getByRole('button').allInnerTexts();
   const ci = btns.findIndex((b) => b.includes('Center graph here')), oi = btns.findIndex((b) => /^Open/.test(b.trim()));
@@ -770,7 +772,7 @@ test('fr_grp_06_ac2_every_kind_of_node_previews', async ({ page }) => {
     [P.jana, ['Osoba · 3 connections', 'Firma', 'Alfa s.r.o.', 'Vede Projekt Beta.']],
     ['tag:účty', ['#Účty', 'Tag', 'Tag · 3 connections', '3 objects', 'Rozpočet 2027', 'Plán čtvrtletí', 'Faktury']],
     ['tag:nápad', ['#nápad', '2 objects']],
-    [P.den, ['Daily Note · 2 connections', 'Date', 'Oct 7, 2026', 'Ráno: Nákupní seznam.']],
+    [P.den, ['Daily Note · 2 connections', 'Ráno: Nákupní seznam.']], // no Date: the title is the date (D-2135)
     [P.graf, ['Image · 1 connection', 'Width', '64', 'Height', '48']],
     [P.chybna, ['Page · 1 connection', 'This note\'s properties can\'t be read.', 'Text s odkazem na Shrnutí.']],
   ];

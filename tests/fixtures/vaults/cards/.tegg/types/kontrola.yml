@@ -1,0 +1,13 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Kontrola
+plural: Kontroly
+system: false
+folder: Kontroly
+icon: check-square
+color: green
+review: false
+attributes:
+  - key: výsledek
+    name: Výsledek
+    type: checkbox

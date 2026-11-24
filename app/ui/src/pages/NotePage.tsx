@@ -66,7 +66,7 @@ export function scrollToFragment(root: HTMLElement | null, fragment: string, ed?
   if (!root) return;
   const f = nfc(fragment.replace(/^#/, ''));
   // The note body: the read view's article, else the editor (not the title field, which comes first).
-  const art = root.querySelector('article') ?? root.querySelector('.editor-host [contenteditable]');
+  const art = root.querySelector('article.read-view') ?? root.querySelector('.editor-host [contenteditable]');
   if (!art) return;
   // The read view gives a block its `^id` as the element id; the editor keeps the id in the block's text (D-1197).
   const block = () => art.querySelector(`[id="${CSS.escape(f)}"]`)
@@ -76,7 +76,7 @@ export function scrollToFragment(root: HTMLElement | null, fragment: string, ed?
     const main = root.closest('main') as HTMLElement | null;
     // The read view (a test fallback, D-215) keeps its own landing. In the editor the block lands at the viewport's top,
     // below the sticky note toolbar (D-1673), as far as the pane scrolls; `scrollIntoView` put it behind the toolbar.
-    if (!b || !main || !ed || root.querySelector('article')) { b?.scrollIntoView({ block: 'start' }); return; }
+    if (!b || !main || !ed || root.querySelector('article.read-view')) { b?.scrollIntoView({ block: 'start' }); return; }
     // Placed again on the next two frames, as the heading jump does: the toolbar can still be mounting and move it.
     const place = () => {
       if (!b.isConnected) return;
@@ -89,7 +89,7 @@ export function scrollToFragment(root: HTMLElement | null, fragment: string, ed?
   }
   const byText = () => [...art.querySelectorAll<HTMLElement>('[data-heading], h1, h2, h3, h4, h5, h6')].find((h) => nfc(h.dataset.heading ?? h.textContent ?? '').trim().toLowerCase() === f.toLowerCase()) ?? null;
   // The read view (a test fallback, D-215) keeps its own landing at the top (read-view FR-EDT-02 AC-7).
-  if (!ed || root.querySelector('article')) { byText()?.scrollIntoView({ block: 'start' }); return; }
+  if (!ed || root.querySelector('article.read-view')) { byText()?.scrollIntoView({ block: 'start' }); return; }
   const o = ed.outline();
   const i = headingForFragment(o.headings, f);
   const el = (i !== null ? rendered(ed.view.nodeDOM(o.pos[i]) as HTMLElement | null) : null) ?? byText();
@@ -606,8 +606,10 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   // Issue 102: once the reader scrolls, clicks, touches or presses a key, the late restores below stop; moving the page
   // back under the pointer sent a double-click's second click to another embed and closed an open preview.
   const readerActed = useRef(false);
+  // FR-EDT-02 AC-7: a `#^block` / `#Heading` open lands again once the read view's embeds have their height (below).
+  const fragmentAtOpen = useRef(restoreScroll === undefined ? fragment : undefined);
   useEffect(() => {
-    if (restoreAtOpen.current === undefined) return;
+    if (restoreAtOpen.current === undefined && !fragmentAtOpen.current) return;
     const acted = () => { readerActed.current = true; };
     const inputs = ['wheel', 'pointerdown', 'touchstart', 'keydown'] as const;
     for (const e of inputs) window.addEventListener(e, acted, { capture: true, passive: true });
@@ -635,6 +637,24 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       requestAnimationFrame(apply);
       for (const ms of [100, 300]) setTimeout(apply, ms);
       setTimeout(() => { apply(); restoreDone.current = true; }, 600);
+    });
+  }, [embedSnap.version]);
+  // FR-EDT-02 AC-7 (FR-LNK-11 AC-17): the read view lands on `#^block` / `#Heading` before its embeds have loaded; an
+  // embed below the target that gets its height later lets the pane scroll further, so the target is placed again
+  // (once per open, as Back's restore above), unless the reader has scrolled, clicked or typed since.
+  const landedAfterEmbeds = useRef(false);
+  useEffect(() => {
+    const f = fragmentAtOpen.current;
+    if (landedAfterEmbeds.current || !f || restoreAtOpen.current !== undefined || !embedSnap.tree || !loaded || loaded.mode === 'edit') return;
+    landedAfterEmbeds.current = true;
+    const apply = () => {
+      if (readerActed.current || nfc(liveFragment.current ?? '') !== nfc(f)) return;
+      scrollToFragment(root.current, f, null);
+    };
+    requestAnimationFrame(() => {
+      apply();
+      requestAnimationFrame(apply);
+      for (const ms of [100, 300, 600]) setTimeout(apply, ms);
     });
   }, [embedSnap.version]);
   // A type's default changed (FR-EMB-02 AC-7, AC-10).

@@ -81,6 +81,7 @@
     "allow-job-plan",
     "allow-pins-get",
     "allow-pins-apply",
+    "allow-type-card-example",
     "allow-queries-list",
     "allow-query-get",
     "allow-query-run",

@@ -126,6 +126,9 @@ export type ShellActions = {
   openImport?: () => void;
   /** Slice Q2 (v1-views §4.7, D-1771, D-1789): set by `TypeViews`, `QueryPage` and a selected `QueryBlock`. */
   views?: { status(): ViewsStatus | null; run(id: string): void };
+  /** Slice OC (v1-cards §11): the shown type settings' `Add property` and `Reset to default` (with why they can't run),
+   *  and the picker for the type icon (type settings or the type page header). */
+  cards?: { add(): void; reset(): void; changeIcon(): void; addDisabled?(): string | null; resetDisabled?(): string | null };
 };
 
 /** Slice Q2 (v1-views §4.7): what the view, sort and board commands depend on. */
@@ -198,6 +201,11 @@ export const CONTROL_COMMANDS: Record<string, string> = {
   'ctl.fontSize': 'settings.fontSize',
   'ctl.accentColor': 'settings.accentColor',
   'settings.shortcuts.change': 'settings.changeShortcut',
+  // Slice OC (v1-cards §11, D-2107): the Card section's and the property icons' controls, reached by Tab.
+  'card.move': 'card.move',
+  'property.icon': 'property.icon',
+  'card.add': 'card.add',
+  'card.reset': 'card.reset',
 };
 
 const NO_GOTO = new Set(['queries', 'query/<name>', 'tags', 'tag/<key>', 'settings/backups', 'help/shortcuts', 'tasks', 'tasks/kanban', 'chooser', 'type/<type>', 'type-settings/<type>', 'note/<path>', 'new/<type>', 'broken-links', 'duplicate-titles', 'today', 'daily/YYYY-MM-DD', 'graph/<path>']);
@@ -279,6 +287,26 @@ export function commands(ctx: ShellContext): Command[] {
     if (onTask) {
       list.push({ id: 'types.restoreDefaultViews', title: 'cmd.restoreDefaultViews', section: 'edit', needsVault: true,
         disabled: () => a(ctx)?.restoreDefaultViewsState?.() ?? null, run: (c) => a(c)?.restoreDefaultViews?.() });
+    }
+  }
+  // Slice OC (cards.md R217, v1-cards §11; D-2107): palette only, no shortcut.
+  {
+    const r = ctx.route ?? null;
+    const typeKey = !r ? '' : (r.id === 'note/<path>' ? (r.type ?? '') : r.id === 'type/<type>' || r.id === 'type-settings/<type>' ? (r.param ?? r.key ?? '') : '').normalize('NFC');
+    const def = typeKey ? ctx.types.find((x) => x.key.normalize('NFC') === typeKey) : undefined;
+    const onSettings = r?.id === 'type-settings/<type>';
+    if (def && typeKey !== 'tag' && (onSettings || r?.id === 'type/<type>' || r?.id === 'note/<path>')) {
+      list.push({ id: 'card.edit', title: 'cmd.card.edit', section: 'navigate', needsVault: true,
+        run: (c) => a(c)?.go({ id: 'type-settings/<type>', param: typeKey, section: 'card', focus: 'card.add' }) });
+    }
+    if (def && typeKey !== 'tag' && onSettings) {
+      list.push({ id: 'card.add', title: 'cmd.card.add', section: 'navigate', needsVault: true, disabled: () => a(ctx)?.cards?.addDisabled?.() ?? null, run: (c) => a(c)?.cards?.add() });
+      if (def.cardDefault === false && !def.cardUnreadable) {
+        list.push({ id: 'card.reset', title: 'cmd.card.reset', section: 'navigate', needsVault: true, disabled: () => a(ctx)?.cards?.resetDisabled?.() ?? null, run: (c) => a(c)?.cards?.reset() });
+      }
+    }
+    if (def && (onSettings || r?.id === 'type/<type>')) {
+      list.push({ id: 'type.changeIcon', title: 'cmd.type.changeIcon', section: 'navigate', needsVault: true, run: (c) => a(c)?.cards?.changeIcon() });
     }
   }
   // Slice PIN (R136): `Pin to sidebar` / `Unpin from sidebar` on a pinnable route (one of the two); ⌥⌘↑ / ⌥⌘↓ only while

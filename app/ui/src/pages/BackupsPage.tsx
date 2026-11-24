@@ -8,6 +8,7 @@ import { runConfirmed } from '../jobs/jobs';
 import { showAlert } from '../trash/toast';
 import { dateTimeText } from '../types/util';
 import { Dialog } from './TypeSettingsPage';
+import { SettingsRow } from '../settings/SettingsLayout';
 
 /** The label of a zip (AP-663): catalog key and arguments; a `restore` zip's time is shown in the D-160 format. */
 export function backupLabel(b: BackupDto): string {
@@ -34,6 +35,8 @@ export function BackupsSection() {
   };
   return (
     <div className="settings-body backups">
+      {/* R219: the list in the control column of one row. */}
+      <SettingsRow>
       <p className="hint">{t('backups.intro')}</p>
       {list && list.length === 0 && <p className="empty">{t('backups.empty')}</p>}
       <ul aria-label={t('backups.list')} className="backup-list">
@@ -50,6 +53,7 @@ export function BackupsSection() {
           );
         })}
       </ul>
+      </SettingsRow>
       {ask && (
         <Dialog role="alertdialog" label={t('backups.confirmTitle')} onCancel={() => setAsk(null)} className="tag-dialog">
           <h2>{t('backups.confirmTitle')}</h2>

@@ -1,0 +1,1015 @@
+{
+ "$comment": "docs/contracts/v1-cards.md §13: CardData of every object of tests/fixtures/vaults/views + new-empty/.tegg + this overlay, with the two attachments of the README copied in; test clock of cards.md. Written by the test author from cards.md R209…R212, R218 and the contract §3.2 (D-61). `file` lists target, kind and path only (title and type are not compared). Excerpts follow D-482 (tegg-index text::excerpt).",
+ "cards": {
+  ".trash/Books/Smazaná kniha.md": {
+   "type": "book",
+   "title": "Smazaná kniha",
+   "keys": [
+    "tags",
+    "body",
+    "author",
+    "status",
+    "modified"
+   ],
+   "values": {
+    "tags": [],
+    "author": "[[Tomáš Rybář]]",
+    "status": "Reading",
+    "modified": "2026-11-01T18:00:00+01:00"
+   },
+   "excerpt": "V koši: nikdy není kartou ani řádkem.",
+   "links": [
+    {
+     "target": "Tomáš Rybář",
+     "kind": "note",
+     "path": "Autoři/Tomáš Rybář.md",
+     "title": "Tomáš Rybář",
+     "type": "autor"
+    }
+   ],
+   "unreviewed": false,
+   "file": null
+  },
+  "Autoři/Eva Lindová.md": {
+   "type": "autor",
+   "title": "Eva Lindová",
+   "keys": [
+    "tags",
+    "body",
+    "poznámka",
+    "modified"
+   ],
+   "values": {
+    "tags": [],
+    "poznámka": "Píše o mapách a přístavech.",
+    "modified": "2026-08-01T09:00:00+02:00"
+   },
+   "excerpt": "Autorka cestopisů a esejů.",
+   "links": [],
+   "unreviewed": false,
+   "file": null
+  },
+  "Autoři/Jana Brázdová.md": {
+   "type": "autor",
+   "title": "Jana Brázdová",
+   "keys": [
+    "tags",
+    "body",
+    "poznámka",
+    "modified"
+   ],
+   "values": {
+    "tags": [],
+    "poznámka": "Cesty a kriminálky.",
+    "modified": "2026-08-01T09:20:00+02:00"
+   },
+   "excerpt": "Autorka cestopisů.",
+   "links": [],
+   "unreviewed": false,
+   "file": null
+  },
+  "Autoři/Lucie Horká.md": {
+   "type": "autor",
+   "title": "Lucie Horká",
+   "keys": [
+    "tags",
+    "body",
+    "poznámka",
+    "modified"
+   ],
+   "values": {
+    "tags": [],
+    "poznámka": "Poezie a příběhy z řek.",
+    "modified": "2026-08-01T09:15:00+02:00"
+   },
+   "excerpt": "Autorka básní.",
+   "links": [],
+   "unreviewed": false,
+   "file": null
+  },
+  "Autoři/Marek Sova.md": {
+   "type": "autor",
+   "title": "Marek Sova",
+   "keys": [
+    "tags",
+    "body",
+    "poznámka",
+    "modified"
+   ],
+   "values": {
+    "tags": [],
+    "poznámka": "Hory, čaj a detektivky.",
+    "modified": "2026-08-01T09:10:00+02:00"
+   },
+   "excerpt": "Autor detektivek.",
+   "links": [],
+   "unreviewed": false,
+   "file": null
+  },
+  "Autoři/Tomáš Rybář.md": {
+   "type": "autor",
+   "title": "Tomáš Rybář",
+   "keys": [
+    "tags",
+    "body",
+    "poznámka",
+    "modified"
+   ],
+   "values": {
+    "tags": [],
+    "poznámka": "Romány z nádraží a vlaků.",
+    "modified": "2026-08-01T09:05:00+02:00"
+   },
+   "excerpt": "Autor románů.",
+   "links": [],
+   "unreviewed": false,
+   "file": null
+  },
+  "Books/Cizí přístavy.md": {
+   "type": "book",
+   "title": "Cizí přístavy",
+   "keys": [
+    "tags",
+    "body",
+    "author",
+    "status",
+    "modified"
+   ],
+   "values": {
+    "tags": [],
+    "author": "[[Eva Lindová]]",
+    "status": "Read",
+    "modified": "2026-08-02T20:00:00+02:00"
+   },
+   "excerpt": "Deset přístavů a jejich lidé.",
+   "links": [
+    {
+     "target": "Eva Lindová",
+     "kind": "note",
+     "path": "Autoři/Eva Lindová.md",
+     "title": "Eva Lindová",
+     "type": "autor"
+    }
+   ],
+   "unreviewed": false,
+   "file": null
+  },
+  "Books/Dům u řeky.md": {
+   "type": "book",
+   "title": "Dům u řeky",
+   "keys": [
+    "tags",
+    "body",
+    "author",
+    "status",
+    "modified"
+   ],
+   "values": {
+    "tags": [
+     "doporučené"
+    ],
+    "author": "[[Lucie Horká]]",
+    "status": "To read",
+    "modified": "2026-11-16T08:00:00+01:00"
+   },
+   "excerpt": "Doporučila Jana. Příběh tří generací v jednom domě u Vltavy.",
+   "links": [
+    {
+     "target": "Lucie Horká",
+     "kind": "note",
+     "path": "Autoři/Lucie Horká.md",
+     "title": "Lucie Horká",
+     "type": "autor"
+    }
+   ],
+   "unreviewed": false,
+   "file": null
+  },
+  "Books/Kniha o horách.md": {
+   "type": "book",
+   "title": "Kniha o horách",
+   "keys": [
+    "tags",
+    "body",
+    "author",
+    "status",
+    "modified"
+   ],
+   "values": {
+    "tags": [],
+    "author": "[[Marek Sova]]",
+    "status": "To read",
+    "modified": "2026-11-03T18:00:00+01:00"
+   },
+   "excerpt": "Na cestu do Tater, kapitoly o chatách a starých stezkách.",
+   "links": [
+    {
+     "target": "Marek Sova",
+     "kind": "note",
+     "path": "Autoři/Marek Sova.md",
+     "title": "Marek Sova",
+     "type": "autor"
+    }
+   ],
+   "unreviewed": false,
+   "file": null
+  },
+  "Books/Kniha o čaji.md": {
+   "type": "book",
+   "title": "Kniha o čaji",
+   "keys": [
+    "tags",
+    "body",
+    "author",
+    "status",
+    "modified"
+   ],
+   "values": {
+    "tags": [],
+    "author": "[[Marek Sova]]",
+    "status": "Read",
+    "modified": "2026-06-19T21:00:00+02:00"
+   },
+   "excerpt": "Spíš katalog než kniha.",
+   "links": [
+    {
+     "target": "Marek Sova",
+     "kind": "note",
+     "path": "Autoři/Marek Sova.md",
+     "title": "Marek Sova",
+     "type": "autor"
+    }
+   ],
+   "unreviewed": false,
+   "file": null
+  },
+  "Books/Mapa bez severu.md": {
+   "type": "book",
+   "title": "Mapa bez severu",
+   "keys": [
+    "tags",
+    "body",
+    "author",
+    "status",
+    "modified"
+   ],
+   "values": {
+    "tags": [
+     "doporučené"
+    ],
+    "author": "[[Eva Lindová]]",
+    "status": "Read",
+    "modified": "2026-10-12T21:00:00+02:00"
+   },
+   "excerpt": "Cesta bez kompasu, krásně napsaná.",
+   "links": [
+    {
+     "target": "Eva Lindová",
+     "kind": "note",
+     "path": "Autoři/Eva Lindová.md",
+     "title": "Eva Lindová",
+     "type": "autor"
+    }
+   ],
+   "unreviewed": false,
+   "file": null
+  },
+  "Books/Noční vlak.md": {
+   "type": "book",
+   "title": "Noční vlak",
+   "keys": [
+    "tags",
+    "body",
+    "author",
+    "status",
+    "modified"
+   ],
+   "values": {
+    "tags": [],
+    "author": "[[Tomáš Rybář]]",
+    "status": "Reading",
+    "modified": "2026-11-18T22:00:00+01:00"
+   },
+   "excerpt": "Rozečteno, str. 120. Pomalý začátek, od druhé části skvělé.",
+   "links": [
+    {
+     "target": "Tomáš Rybář",
+     "kind": "note",
+     "path": "Autoři/Tomáš Rybář.md",
+     "title": "Tomáš Rybář",
+     "type": "autor"
+    }
+   ],
+   "unreviewed": false,
+   "file": null
+  },
+  "Books/Ostrov bez jména.md": {
+   "type": "book",
+   "title": "Ostrov bez jména",
+   "keys": [
+    "tags",
+    "body",
+    "author",
+    "status",
+    "modified"
+   ],
+   "values": {
+    "tags": [
+     "odloženo"
+    ],
+    "author": null,
+    "status": "To read",
+    "modified": "2026-10-30T18:00:00+01:00"
+   },
+   "excerpt": "Zatím odloženo, autora si nepamatuju.",
+   "links": [],
+   "unreviewed": false,
+   "file": null
+  },
+  "Books/Písně z dálky.md": {
+   "type": "book",
+   "title": "Písně z dálky",
+   "keys": [
+    "tags",
+    "body",
+    "author",
+    "status",
+    "modified"
+   ],
+   "values": {
+    "tags": [],
+    "author": "[[Eva Lindová]]",
+    "status": null,
+    "modified": "2026-10-01T18:00:00+02:00"
+   },
+   "excerpt": "Bez stavu: nevím, jestli ji ještě dočtu.",
+   "links": [
+    {
+     "target": "Eva Lindová",
+     "kind": "note",
+     "path": "Autoři/Eva Lindová.md",
+     "title": "Eva Lindová",
+     "type": "autor"
+    }
+   ],
+   "unreviewed": false,
+   "file": null
+  },
+  "Books/Sto zimních dní.md": {
+   "type": "book",
+   "title": "Sto zimních dní",
+   "keys": [
+    "tags",
+    "body",
+    "author",
+    "status",
+    "modified"
+   ],
+   "values": {
+    "tags": [],
+    "author": "[[Tomáš Rybář]]",
+    "status": "Read",
+    "modified": "2026-09-28T22:00:00+02:00"
+   },
+   "excerpt": "Krátké kapitoly, jedna na každý den zimy.",
+   "links": [
+    {
+     "target": "Tomáš Rybář",
+     "kind": "note",
+     "path": "Autoři/Tomáš Rybář.md",
+     "title": "Tomáš Rybář",
+     "type": "autor"
+    }
+   ],
+   "unreviewed": false,
+   "file": null
+  },
+  "Books/Světla přístavu.md": {
+   "type": "book",
+   "title": "Světla přístavu",
+   "keys": [
+    "tags",
+    "body",
+    "author",
+    "status",
+    "modified"
+   ],
+   "values": {
+    "tags": [
+     "večerní"
+    ],
+    "author": "[[Eva Lindová]]",
+    "status": "Reading",
+    "modified": "2026-11-14T20:00:00+01:00"
+   },
+   "excerpt": "Čtu po jednom textu večer. #večerní",
+   "links": [
+    {
+     "target": "Eva Lindová",
+     "kind": "note",
+     "path": "Autoři/Eva Lindová.md",
+     "title": "Eva Lindová",
+     "type": "autor"
+    }
+   ],
+   "unreviewed": false,
+   "file": null
+  },
+  "Books/Tiché město.md": {
+   "type": "book",
+   "title": "Tiché město",
+   "keys": [
+    "tags",
+    "body",
+    "author",
+    "status",
+    "modified"
+   ],
+   "values": {
+    "tags": [],
+    "author": "[[Tomáš Rybář]]",
+    "status": "Read",
+    "modified": "2026-03-11T22:00:00+01:00"
+   },
+   "excerpt": "Detektivka, kde nikdo nemluví nahlas.",
+   "links": [
+    {
+     "target": "Tomáš Rybář",
+     "kind": "note",
+     "path": "Autoři/Tomáš Rybář.md",
+     "title": "Tomáš Rybář",
+     "type": "autor"
+    }
+   ],
+   "unreviewed": false,
+   "file": null
+  },
+  "Books/Zahrada v dešti.md": {
+   "type": "book",
+   "title": "Zahrada v dešti",
+   "keys": [
+    "tags",
+    "body",
+    "author",
+    "status",
+    "modified"
+   ],
+   "values": {
+    "tags": [],
+    "author": "[[Lucie Horká]]",
+    "status": "Read",
+    "modified": "2026-01-20T21:00:00+01:00"
+   },
+   "excerpt": "Básně, které mě minuly.",
+   "links": [
+    {
+     "target": "Lucie Horká",
+     "kind": "note",
+     "path": "Autoři/Lucie Horká.md",
+     "title": "Lucie Horká",
+     "type": "autor"
+    }
+   ],
+   "unreviewed": false,
+   "file": null
+  },
+  "Books/Zápisník z Tater.md": {
+   "type": "book",
+   "title": "Zápisník z Tater",
+   "keys": [
+    "tags",
+    "body",
+    "author",
+    "status",
+    "modified"
+   ],
+   "values": {
+    "tags": [],
+    "author": "[[Jana Brázdová]]",
+    "status": "Rozečteno",
+    "modified": "2026-11-10T18:00:00+01:00"
+   },
+   "excerpt": "Stav napsaný ručně, není to žádná z možností.",
+   "links": [
+    {
+     "target": "Jana Brázdová",
+     "kind": "note",
+     "path": "Autoři/Jana Brázdová.md",
+     "title": "Jana Brázdová",
+     "type": "autor"
+    }
+   ],
+   "unreviewed": false,
+   "file": null
+  },
+  "Books/Účetní ze Žižkova.md": {
+   "type": "book",
+   "title": "Účetní ze Žižkova",
+   "keys": [
+    "tags",
+    "body",
+    "author",
+    "status",
+    "modified"
+   ],
+   "values": {
+    "tags": [],
+    "author": "[[Jana Brázdová]]",
+    "status": "Reading",
+    "modified": "2026-11-16T19:00:00+01:00"
+   },
+   "excerpt": "Kriminálka z kanceláře nad hospodou.",
+   "links": [
+    {
+     "target": "Jana Brázdová",
+     "kind": "note",
+     "path": "Autoři/Jana Brázdová.md",
+     "title": "Jana Brázdová",
+     "type": "autor"
+    }
+   ],
+   "unreviewed": false,
+   "file": null
+  },
+  "Books/Čarovná mapa.md": {
+   "type": "book",
+   "title": "Čarovná mapa",
+   "keys": [
+    "tags",
+    "body",
+    "author",
+    "status",
+    "modified"
+   ],
+   "values": {
+    "tags": [],
+    "author": "[[Lucie Horká]]",
+    "status": "Read",
+    "modified": "2026-08-03T09:00:00+02:00"
+   },
+   "excerpt": "Mapa, která se mění podle toho, kdo ji čte.",
+   "links": [
+    {
+     "target": "Lucie Horká",
+     "kind": "note",
+     "path": "Autoři/Lucie Horká.md",
+     "title": "Lucie Horká",
+     "type": "autor"
+    }
+   ],
+   "unreviewed": false,
+   "file": null
+  },
+  "Books/Čtvrtá zima.md": {
+   "type": "book",
+   "title": "Čtvrtá zima",
+   "keys": [
+    "tags",
+    "body",
+    "author",
+    "status",
+    "modified"
+   ],
+   "values": {
+    "tags": [],
+    "author": "[[Marek Sova]]",
+    "status": "Read",
+    "modified": "2025-12-02T21:00:00+01:00"
+   },
+   "excerpt": "Dočteno loni v prosinci.",
+   "links": [
+    {
+     "target": "Marek Sova",
+     "kind": "note",
+     "path": "Autoři/Marek Sova.md",
+     "title": "Marek Sova",
+     "type": "autor"
+    }
+   ],
+   "unreviewed": false,
+   "file": null
+  },
+  "Books/Šest cest k moři.md": {
+   "type": "book",
+   "title": "Šest cest k moři",
+   "keys": [
+    "tags",
+    "body",
+    "author",
+    "status",
+    "modified"
+   ],
+   "values": {
+    "tags": [],
+    "author": "[[Jana Brázdová]]",
+    "status": "Read",
+    "modified": "2026-06-20T10:00:00+02:00"
+   },
+   "excerpt": "Šest cest, každá jiným vlakem.",
+   "links": [
+    {
+     "target": "Jana Brázdová",
+     "kind": "note",
+     "path": "Autoři/Jana Brázdová.md",
+     "title": "Jana Brázdová",
+     "type": "autor"
+    }
+   ],
+   "unreviewed": false,
+   "file": null
+  },
+  "Images/Vyhlídka na Pálavě.md": {
+   "type": "image",
+   "title": "Vyhlídka na Pálavě",
+   "keys": [
+    "width",
+    "height",
+    "size",
+    "created"
+   ],
+   "values": {
+    "width": 64,
+    "height": 48,
+    "size": 1234,
+    "created": "2026-11-16T12:00:00+01:00"
+   },
+   "excerpt": null,
+   "links": [],
+   "unreviewed": false,
+   "file": {
+    "target": "vyhlidka.png",
+    "kind": "media",
+    "path": "_attachments/vyhlidka.png"
+   }
+  },
+  "Kontroly/Kontrola kola.md": {
+   "type": "kontrola",
+   "title": "Kontrola kola",
+   "keys": [
+    "tags",
+    "body",
+    "modified"
+   ],
+   "values": {
+    "tags": [
+     "kolo"
+    ],
+    "modified": "2026-11-17T18:00:00+01:00"
+   },
+   "excerpt": "Brzdy seřízené, řetěz namazaný.",
+   "links": [],
+   "unreviewed": false,
+   "file": null
+  },
+  "PDFs/Pravidla tábora.md": {
+   "type": "pdf",
+   "title": "Pravidla tábora",
+   "keys": [
+    "tags",
+    "pages",
+    "size",
+    "created"
+   ],
+   "values": {
+    "tags": [
+     "tábor"
+    ],
+    "pages": 2,
+    "size": 844,
+    "created": "2026-11-02T09:00:00+01:00"
+   },
+   "excerpt": null,
+   "links": [],
+   "unreviewed": false,
+   "file": {
+    "target": "pravidla-tabora.pdf",
+    "kind": "media",
+    "path": "_attachments/pravidla-tabora.pdf"
+   }
+  },
+  "Pages/Karty.md": {
+   "type": "page",
+   "title": "Karty",
+   "keys": [
+    "tags",
+    "body",
+    "modified"
+   ],
+   "values": {
+    "tags": [],
+    "modified": "2026-11-15T10:00:00+01:00"
+   },
+   "excerpt": "Před kartami. Po kartách.",
+   "links": [],
+   "unreviewed": false,
+   "file": null
+  },
+  "Pages/Čtení 2026.md": {
+   "type": "page",
+   "title": "Čtení 2026",
+   "keys": [
+    "tags",
+    "body",
+    "modified"
+   ],
+   "values": {
+    "tags": [],
+    "modified": "2026-11-01T09:00:00+01:00"
+   },
+   "excerpt": "Co jsem letos přečetl a co z toho mám. Nejlepší byla Mapa bez severu, teď čtu Noční vlak.",
+   "links": [],
+   "unreviewed": false,
+   "file": null
+  },
+  "Quick Notes/Nápad na výlet.md": {
+   "type": "quick-note",
+   "title": "Nápad na výlet",
+   "keys": [
+    "body",
+    "created"
+   ],
+   "values": {
+    "created": "2026-11-19T07:00:00+01:00"
+   },
+   "excerpt": "Zkusit Jizerky na běžkách, až napadne sníh.",
+   "links": [],
+   "unreviewed": true,
+   "file": null
+  },
+  "Výlety/Krkonošská magistrála.md": {
+   "type": "výlet",
+   "title": "Krkonošská magistrála",
+   "keys": [
+    "tags",
+    "description",
+    "stav",
+    "náročnost",
+    "kraj",
+    "vybavení",
+    "délka",
+    "termín",
+    "odkaz",
+    "průvodce",
+    "modified"
+   ],
+   "values": {
+    "tags": [
+     "hory"
+    ],
+    "description": null,
+    "stav": "Plánovaný",
+    "náročnost": "Těžká",
+    "kraj": null,
+    "vybavení": null,
+    "délka": null,
+    "termín": "2027-01-15",
+    "odkaz": null,
+    "průvodce": null,
+    "modified": "2026-11-16T20:00:00+01:00"
+   },
+   "excerpt": null,
+   "links": [],
+   "unreviewed": false,
+   "file": null
+  },
+  "Výlety/Okolo Máchova jezera.md": {
+   "type": "výlet",
+   "title": "Okolo Máchova jezera",
+   "keys": [
+    "tags",
+    "description",
+    "stav",
+    "náročnost",
+    "kraj",
+    "vybavení",
+    "délka",
+    "termín",
+    "odkaz",
+    "průvodce",
+    "modified"
+   ],
+   "values": {
+    "tags": [],
+    "description": null,
+    "stav": "—",
+    "náročnost": null,
+    "kraj": "—",
+    "vybavení": [],
+    "délka": null,
+    "termín": null,
+    "odkaz": "",
+    "průvodce": null,
+    "modified": "2026-11-12T10:00:00+01:00"
+   },
+   "excerpt": null,
+   "links": [],
+   "unreviewed": false,
+   "file": null
+  },
+  "Výlety/Pálava na kole.md": {
+   "type": "výlet",
+   "title": "Pálava na kole",
+   "keys": [
+    "tags",
+    "description",
+    "stav",
+    "náročnost",
+    "kraj",
+    "vybavení",
+    "délka",
+    "termín",
+    "odkaz",
+    "průvodce",
+    "modified"
+   ],
+   "values": {
+    "tags": [
+     "kolo"
+    ],
+    "description": null,
+    "stav": "Rozpracovaný",
+    "náročnost": "Lehká",
+    "kraj": "Jihomoravský",
+    "vybavení": null,
+    "délka": null,
+    "termín": null,
+    "odkaz": "https://example.org",
+    "průvodce": "[[Neexistující průvodce]]",
+    "modified": "2026-11-18T19:00:00+01:00"
+   },
+   "excerpt": null,
+   "links": [
+    {
+     "target": "Neexistující průvodce",
+     "kind": "unresolved",
+     "path": null,
+     "title": null,
+     "type": null
+    }
+   ],
+   "unreviewed": false,
+   "file": null
+  },
+  "Výlety/Sněžka z Pece.md": {
+   "type": "výlet",
+   "title": "Sněžka z Pece",
+   "keys": [
+    "tags",
+    "description",
+    "stav",
+    "náročnost",
+    "kraj",
+    "vybavení",
+    "délka",
+    "termín",
+    "odkaz",
+    "průvodce",
+    "modified"
+   ],
+   "values": {
+    "tags": [
+     "hory",
+     "zima",
+     "rodina",
+     "výhled"
+    ],
+    "description": "Zimní výstup s rodinou, vrchol v mlze.",
+    "stav": "Hotový",
+    "náročnost": "Střední",
+    "kraj": "Královéhradecký",
+    "vybavení": [
+     "Mapa",
+     "Čelovka",
+     "Pláštěnka",
+     "Termoska",
+     "Lékárnička",
+     "Hůlky",
+     "Rukavice",
+     "Čepice",
+     "Svačina",
+     "Nabíječka"
+    ],
+    "délka": 12,
+    "termín": "2026-02-14",
+    "odkaz": "https://www.example.com/trasy/snezka-z-pece?zdroj=rss#mapa",
+    "průvodce": "[[Eva Lindová]]",
+    "modified": "2026-11-19T08:30:00+01:00"
+   },
+   "excerpt": null,
+   "links": [
+    {
+     "target": "Eva Lindová",
+     "kind": "note",
+     "path": "Autoři/Eva Lindová.md",
+     "title": "Eva Lindová",
+     "type": "autor"
+    }
+   ],
+   "unreviewed": false,
+   "file": null
+  },
+  "Články/Bez zdroje.md": {
+   "type": "článek",
+   "title": "Bez zdroje",
+   "keys": [
+    "body",
+    "rubrika",
+    "source",
+    "created"
+   ],
+   "values": {
+    "rubrika": "—",
+    "source": "—",
+    "created": "2026-11-19T09:15:00+01:00"
+   },
+   "excerpt": "",
+   "links": [],
+   "unreviewed": true,
+   "file": null
+  },
+  "Články/Horské chaty.md": {
+   "type": "článek",
+   "title": "Horské chaty",
+   "keys": [
+    "body",
+    "rubrika",
+    "source",
+    "created"
+   ],
+   "values": {
+    "rubrika": "Cestování",
+    "source": "https://www.example.org/clanky/horske-chaty?ref=rss#uvod",
+    "created": "2026-11-18T07:45:00+01:00"
+   },
+   "excerpt": "Přehled chat na hřebenech, kde se dá přespat i v zimě.",
+   "links": [],
+   "unreviewed": true,
+   "file": null
+  },
+  "Články/Odkaz na výlet.md": {
+   "type": "článek",
+   "title": "Odkaz na výlet",
+   "keys": [
+    "body",
+    "rubrika",
+    "source",
+    "created"
+   ],
+   "values": {
+    "rubrika": null,
+    "source": "[[Sněžka z Pece]]",
+    "created": "2026-11-17T12:00:00+01:00"
+   },
+   "excerpt": "Trasa je popsaná v samostatné poznámce.",
+   "links": [
+    {
+     "target": "Sněžka z Pece",
+     "kind": "note",
+     "path": "Výlety/Sněžka z Pece.md",
+     "title": "Sněžka z Pece",
+     "type": "výlet"
+    }
+   ],
+   "unreviewed": false,
+   "file": null
+  },
+  "Články/Podklady k výletům.md": {
+   "type": "článek",
+   "title": "Podklady k výletům",
+   "keys": [
+    "body",
+    "rubrika",
+    "source",
+    "created"
+   ],
+   "values": {
+    "rubrika": "Příroda",
+    "source": "file:///Users/test/Dokumenty/Podklady%20k%20v%C3%BDlet%C5%AFm/",
+    "created": "2026-11-13T09:00:00+01:00"
+   },
+   "excerpt": "",
+   "links": [],
+   "unreviewed": false,
+   "file": null
+  },
+  "Články/Textový zdroj.md": {
+   "type": "článek",
+   "title": "Textový zdroj",
+   "keys": [
+    "body",
+    "rubrika",
+    "source",
+    "created"
+   ],
+   "values": {
+    "rubrika": "Cestování",
+    "source": "Kniha Krkonoše a Jizerky",
+    "created": "2026-11-10T08:00:00+01:00"
+   },
+   "excerpt": "první bod seznamu Odstavec za seznamem.",
+   "links": [],
+   "unreviewed": false,
+   "file": null
+  }
+ }
+}

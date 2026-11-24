@@ -19,6 +19,9 @@ export type Route = {
   /** Slice Q2-T (v1-views §29.1): a type page opens on this view tab when it is listed (name key); not part of the
    *  route string. */
   tab?: string;
+  /** Slice OC (v1-cards §11, `card.edit`): type settings scroll this section's `h2` to the top, then focus the control
+   *  whose `data-command` is `focus`; not part of the route string. */
+  section?: string; focus?: string;
 };
 
 const PARAM_ROUTES = ['type', 'type-settings', 'note', 'new', 'graph'];

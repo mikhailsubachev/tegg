@@ -50,7 +50,7 @@ export const ROUTES: RouteDef[] = [
   { id: 'tasks/kanban', name: 'route.tasks', purpose: 'purpose.tasks', status: { built: true, due: { milestone: 'MS5' }, alias: 'type/task' }, reqs: ['FR-TSK-04', 'FR-TSK-05'], design: 'TasksBoard' },
   { id: 'search', name: 'route.search', purpose: 'purpose.search', status: built, reqs: ['FR-SRC-01…04'], design: null },
   { id: 'type/<type>', name: 'route.type', purpose: 'purpose.type', status: built, reqs: ['FR-TYP-09'], design: 'Ideas' },
-  { id: 'type-settings/<type>', name: 'route.typeSettings', purpose: 'purpose.typeSettings', status: built, reqs: ['FR-TYP-01…03', '-05', '-11', '-12'], design: 'TypeSettings' }, // built in 3D (types.md R1)
+  { id: 'type-settings/<type>', name: 'route.typeSettings', purpose: 'purpose.typeSettings', status: built, reqs: ['FR-TYP-01…03', '-05', '-11', '-12'], design: 'CardSettings' }, // built in 3D (types.md R1); OC: board CardSettings (D-2106)
   // 4D-lite (tags.md R87): All tags, the tag page (D-703) and Settings › Backups (D-705).
   { id: 'tags', name: 'route.tags', purpose: 'purpose.tags', status: { built: true, due: { milestone: 'MS4' } }, reqs: ['FR-TAG-06', 'FR-TAG-07'], design: 'TagsAll' },
   { id: 'tag/<key>', name: 'route.tag', purpose: 'purpose.tag', status: { built: true, due: { milestone: 'MS4' } }, reqs: ['FR-TAG-06'], design: 'TagPage' },
@@ -69,16 +69,16 @@ export const ROUTES: RouteDef[] = [
   { id: 'duplicate-titles', name: 'route.duplicateTitles', purpose: 'purpose.duplicateTitles', status: { built: true, due: { milestone: 'MS4', slice: '4A' } }, reqs: ['FR-LNK-14'], design: null },
   { id: 'conflicts', name: 'route.conflicts', purpose: 'purpose.conflicts', status: built, reqs: ['FR-SYN-04', 'FR-SYN-05'], design: null },
   // 5B R62 (D-563): `capture` is a window, not a route.
-  { id: 'settings/appearance', name: 'route.settings.appearance', purpose: 'purpose.settings.appearance', status: built, reqs: ['FR-SET-02'], design: null },
-  { id: 'settings/date-time', name: 'route.settings.dateTime', purpose: 'purpose.settings.dateTime', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-03'], design: null },
-  { id: 'settings/vault', name: 'route.settings.vault', purpose: 'purpose.settings.vault', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-01'], design: null },
-  { id: 'settings/shortcuts', name: 'route.settings.shortcuts', purpose: 'purpose.settings.shortcuts', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-04'], design: null },
-  { id: 'settings/menu-bar', name: 'route.settings.menuBar', purpose: 'purpose.settings.menuBar', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-05'], design: null },
-  { id: 'settings/backups', name: 'route.settings.backups', purpose: 'purpose.settings.backups', status: { built: true, due: { milestone: 'MS4' } }, reqs: ['FR-HIS-04', 'NFR-REL-04'], design: null },
-  { id: 'settings/trash-history', name: 'route.settings.trashHistory', purpose: 'purpose.settings.trashHistory', status: tbd('v1.0'), reqs: ['FR-SET-06'], design: null },
+  { id: 'settings/appearance', name: 'route.settings.appearance', purpose: 'purpose.settings.appearance', status: built, reqs: ['FR-SET-02'], design: 'Settings' },
+  { id: 'settings/date-time', name: 'route.settings.dateTime', purpose: 'purpose.settings.dateTime', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-03'], design: 'Settings' },
+  { id: 'settings/vault', name: 'route.settings.vault', purpose: 'purpose.settings.vault', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-01'], design: 'Settings' },
+  { id: 'settings/shortcuts', name: 'route.settings.shortcuts', purpose: 'purpose.settings.shortcuts', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-04'], design: 'Settings' },
+  { id: 'settings/menu-bar', name: 'route.settings.menuBar', purpose: 'purpose.settings.menuBar', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-SET-05'], design: 'Settings' },
+  { id: 'settings/backups', name: 'route.settings.backups', purpose: 'purpose.settings.backups', status: { built: true, due: { milestone: 'MS4' } }, reqs: ['FR-HIS-04', 'NFR-REL-04'], design: 'Settings' }, // D-2106, D-2154
+  { id: 'settings/trash-history', name: 'route.settings.trashHistory', purpose: 'purpose.settings.trashHistory', status: tbd('v1.0'), reqs: ['FR-SET-06'], design: 'Settings' },
   // D-608: Help › Keyboard Shortcuts (FR-UX-03 AC-14).
   { id: 'help/shortcuts', name: 'route.help.shortcuts', purpose: 'purpose.help.shortcuts', status: { built: true, due: { milestone: 'MS5' } }, reqs: ['FR-UX-03'], design: null },
-  { id: 'settings/previews', name: 'route.settings.previews', purpose: 'purpose.settings.previews', status: built, reqs: ['FR-SET-07'], design: null },
+  { id: 'settings/previews', name: 'route.settings.previews', purpose: 'purpose.settings.previews', status: built, reqs: ['FR-SET-07'], design: 'Settings' },
 ];
 
 export const PANEL_TABS: TabDef[] = [

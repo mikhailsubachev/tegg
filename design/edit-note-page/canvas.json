@@ -12,10 +12,11 @@
     "CardAnatomy.dc.html": {
       "h": 1520,
       "is_interactive": true,
-      "title": "Universal object card · proposal",
+      "title": "Archive · Universal object card (replaced by Object cards, D-2057)",
       "w": 1680,
-      "x": 3280,
-      "y": 3500
+      "x": 0,
+      "y": 1910,
+      "page": "page-outline-archive"
     },
     "Graph.dc.html": {
       "expand": "fill",
@@ -459,12 +460,12 @@
       "y": 4640
     },
     "TypeCards.dc.html": {
-      "expand": "fill",
-      "h": 1200,
-      "title": "Object cards · system types + Idea",
+      "h": 1180,
       "w": 1680,
-      "x": 5040,
-      "y": 3500
+      "x": 0,
+      "y": 0,
+      "page": "page-cards",
+      "title": "Object cards · task-card style"
     },
     "TypeJobs.dc.html": {
       "h": 4300,
@@ -596,6 +597,82 @@
       "is_interactive": true,
       "page": "page-tasks-kanban",
       "title": "Tasks · Kanban as a query view (dark)"
+    },
+    "Settings.dc.html": {
+      "h": 3900,
+      "w": 1680,
+      "x": 0,
+      "y": 0,
+      "page": "page-settings",
+      "title": "Settings · all sections as built (FR-SET)"
+    },
+    "SettingsDark.dc.html": {
+      "h": 3900,
+      "w": 1680,
+      "x": 1760,
+      "y": 0,
+      "page": "page-settings",
+      "title": "Settings · all sections (dark)"
+    },
+    "SettingsApp.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "w": 1440,
+      "x": 0,
+      "y": 3980,
+      "is_interactive": true,
+      "page": "page-settings",
+      "title": "Settings › Vault · full app"
+    },
+    "SettingsAppDark.dc.html": {
+      "expand": "fill",
+      "h": 900,
+      "w": 1440,
+      "x": 1520,
+      "y": 3980,
+      "is_interactive": true,
+      "page": "page-settings",
+      "title": "Settings › Vault · full app (dark)"
+    },
+    "TypeCardsDark.dc.html": {
+      "h": 1180,
+      "w": 1680,
+      "x": 1760,
+      "y": 0,
+      "page": "page-cards",
+      "title": "Object cards (dark)"
+    },
+    "CardSettings.dc.html": {
+      "h": 7700,
+      "w": 1680,
+      "x": 0,
+      "y": 0,
+      "page": "page-card-settings",
+      "title": "Object settings · all type settings + card defaults"
+    },
+    "CardSettingsDark.dc.html": {
+      "h": 7700,
+      "w": 1680,
+      "x": 1760,
+      "y": 0,
+      "page": "page-card-settings",
+      "title": "Object settings (dark)"
+    },
+    "IconSet.dc.html": {
+      "h": 6920,
+      "w": 1680,
+      "x": 3520,
+      "y": 0,
+      "page": "page-card-settings",
+      "title": "Icon set · Lucide, all 1,539 icons"
+    },
+    "IconSetDark.dc.html": {
+      "h": 6920,
+      "w": 1680,
+      "x": 5280,
+      "y": 0,
+      "page": "page-card-settings",
+      "title": "Icon set (dark)"
     }
   },
   "createdOnFiles": {
@@ -625,6 +702,7 @@
     "Inbox.dc.html",
     "CardAnatomy.dc.html",
     "TypeCards.dc.html",
+    "TypeCardsDark.dc.html",
     "Tasks.dc.html",
     "TasksBoard.dc.html",
     "QuickCapture.dc.html",
@@ -675,7 +753,15 @@
     "TasksQSpec.dc.html",
     "TasksQSpecDark.dc.html",
     "TasksQKanban.dc.html",
-    "TasksQKanbanDark.dc.html"
+    "TasksQKanbanDark.dc.html",
+    "Settings.dc.html",
+    "SettingsDark.dc.html",
+    "SettingsApp.dc.html",
+    "SettingsAppDark.dc.html",
+    "CardSettings.dc.html",
+    "CardSettingsDark.dc.html",
+    "IconSet.dc.html",
+    "IconSetDark.dc.html"
   ],
   "pages": [
     {
@@ -737,6 +823,18 @@
     {
       "id": "page-tasks-kanban",
       "name": "Tasks · Kanban (views)"
+    },
+    {
+      "id": "page-settings",
+      "name": "Settings"
+    },
+    {
+      "id": "page-cards",
+      "name": "Object cards"
+    },
+    {
+      "id": "page-card-settings",
+      "name": "Object settings"
     },
     {
       "id": "page-outline-archive",

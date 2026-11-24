@@ -176,9 +176,7 @@ main:has(.editor-host), main:has(.read-view) { overflow-anchor: none; }
 .note-title-row .note-review { flex: none; margin-top: 16px; }
 
 /* settings */
-.settings-sections { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 20px; }
-.settings-sections a { padding: 4px 10px; border-radius: 6px; font-size: 13px; color: var(--muted); }
-.settings-sections a[aria-current='page'] { background: var(--hover); color: var(--text); font-weight: 600; }
+/* The section list and the rows: settings/layout.css (R219). */
 .setting { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
 .setting-label { font-weight: 600; min-width: 80px; }
 .setting-row { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -1478,6 +1476,8 @@ button.tag-tile { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .outline-chevron, .outline-rail, [data-outline-fade] { transition: none; }
 }
+.th-icon { flex: none; margin-right: 4px; vertical-align: -2px; color: var(--muted); }
+.attr-label .attr-icon { margin-right: 4px; vertical-align: -1px; color: var(--muted); }
 
 /* Slice AND-1 (android-shell §9): the phone's start screens, chooser and the refused-command alert. The phone layout
    itself is AND-2; these only keep the screens readable on a narrow window. */

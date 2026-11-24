@@ -13,6 +13,7 @@ import { parse as parseYaml } from 'yaml';
 import { computeAccessibleName } from 'dom-accessibility-api';
 import { need } from './read-helpers';
 import { resolveIn, type LinkTargetDto } from './embeds-helpers';
+import { cardsFor } from '../ui/test/fake-cards';
 
 export const REPO = resolve(import.meta.dirname, '../..');
 export const FIXTURE = join(REPO, 'tests/fixtures/vaults/previews');
@@ -185,7 +186,9 @@ export async function installIpc(opts: { uiState?: any; files?: Record<string, s
       if (t === undefined) { out.push({ path: p, state: 'missing', text: null, version: null, utf8: true, links: [] }); continue; }
       const targets = linkTargets(t);
       const res = resolvePreviews(p, targets);
-      out.push({ path: p, state: 'ok', text: t, version: { mtimeNs: '1793113200000000000', size: t.length, hash: 'ab' }, utf8: !ipc.invalidUtf8.has(p), links: targets.map((x) => res.get(x)!) });
+      // Slice OC (v1-cards §3.3, §13): the card data of the batch, as the fake core's `embed_load`.
+      const card = cardsFor(Object.fromEntries(files), [p])[p] ?? null;
+      out.push({ path: p, state: 'ok', text: t, version: { mtimeNs: '1793113200000000000', size: t.length, hash: 'ab' }, utf8: !ipc.invalidUtf8.has(p), links: targets.map((x) => res.get(x)!), card });
     }
     return out;
   };

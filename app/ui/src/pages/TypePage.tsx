@@ -33,6 +33,8 @@ import { attrTypeLabel, colorName, dateText, dateTimeText, nfc, rawText, wiki } 
 import { WIDTH, clampWidth, columnChoices, columnsRequest, defaultSort, dropColumn, effectiveColumns, moveColumn, toggleColumn } from '../types/columns';
 import { HeaderCell } from '../tables/HeaderCell';
 import { TypeViews, hasViews } from '../views/TypeViews';
+import { useCardsHandler } from '../cards/actions';
+import { openIconPicker } from '../icons/IconPicker';
 
 export type TypeSort = { column: string; dir: 'asc' | 'desc' };
 /** Column widths in px by column key (D-1241); a missing key is the R130 default. */
@@ -71,8 +73,10 @@ function sortValue(row: TypeRowDto, col: Column): number | string | null {
   }
 }
 
-export function TypePage({ typeKey, type, types, plural, refresh, heading, sort, onSort, widths, onWidths, onOpen, onSettings, onNew, onTag, onDefine, header, tab, tabNonce }: {
+export function TypePage({ typeKey, type, types, plural, refresh, heading, sort, onSort, widths, onWidths, onOpen, onSettings, onNew, onTag, onDefine, header, tab, tabNonce, openAddView }: {
   typeKey: string;
+  /** Slice OC (types.md FR-TYP-01 AC-26): type settings' `Add view` opens the views' `Add view` menu here. */
+  openAddView?: boolean;
   /** The definition, or undefined for a `type` value without one (D-121). */
   type: TypeDto | undefined;
   types: TypeDto[];
@@ -310,13 +314,31 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
       }
     });
   };
+  // Slice OC (v1-cards §11): `Change type icon…` opens the picker on the header's icon; one write of the `icon:` line.
+  const badge = useRef<HTMLSpanElement | null>(null);
+  useCardsHandler({
+    add: () => {}, reset: () => {}, addDisabled: () => null, resetDisabled: () => null,
+    changeIcon: () => {
+      const ty = latest.current ?? type;
+      if (!ty || ty.state !== 'ok' || !badge.current) return;
+      const current = ty.resolvedIcon?.name ?? null;
+      openIconPicker({
+        anchor: badge.current, title: ty.name, current, allowNone: false,
+        onChoose: (n) => {
+          if (!n || n === current) return;
+          void ipc.typePatch(ty.key, ty.exists ? ty.version : null, [{ op: 'set', field: 'icon', value: n }]).then((next) => { disk.current = next; latest.current = next; setLocal(next); },
+            (e) => { const x = e as { kind?: string }; setNotice({ text: x.kind === 'Conflict' ? t('ts.conflict', { field: t('ts.icon') }) : typeErrorMessage(e), alert: true }); });
+        },
+      });
+    },
+  });
   /** The type to build a write outside the queue on (`New property…`), once the queued writes are done. */
   const settled = async (): Promise<TypeDto | undefined> => { await queue.current; return disk.current ?? latest.current; };
 
   return (
     <div className="page-column page-wide type-page">
       {header ?? <header className="page-header type-header">
-        <span className="type-badge" aria-hidden="true" style={{ ['--type' as string]: `var(--type-${colorName(type?.color)})` }}>
+        <span ref={badge} className="type-badge" data-type-icon="" aria-hidden="true" style={{ ['--type' as string]: `var(--type-${colorName(type?.color)})` }}>
           <Icon name={typeIconName(typeKey, type?.icon)} size={20} />
         </span>
         <div className="type-header-text">
@@ -438,7 +460,7 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
               {st.more > 0 && <span className="sort-more">{t('sort.more', { count: st.more })}</span>}
             </button>
           );
-          return <TypeViews typeKey={typeKey} type={type} types={types} plural={pluralName} tab={tab} tabNonce={tabNonce}
+          return <TypeViews typeKey={typeKey} type={type} types={types} plural={pluralName} tab={tab} tabNonce={tabNonce} openAdd={openAddView}
             all={{ toolbar: <div className="view-toolbar">{filterField}{tagControl}{sortButton}{columnsButton}</div>, body }} />;
         }
         if (sortLine) return <>{sortLine}{body}</>;

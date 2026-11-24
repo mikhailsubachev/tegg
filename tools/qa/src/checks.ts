@@ -34,14 +34,15 @@ function check(id: string, messages: string[]): CheckResult {
 // Privacy (TS-P AC-1, CONTRACT §6)
 // ---------------------------------------------------------------------------
 
-export const MAX_FILE_BYTES = 1_048_576;
+// D-2075: 2 MiB (was 1 MiB), so a design board holding the whole icon set can be committed.
+export const MAX_FILE_BYTES = 2_097_152;
 
 function privacyViolations(file: string, size: number): string[] {
   const inFixtures = file.startsWith('tests/fixtures/');
   const out: string[] = [];
   if (file.startsWith('test exports/')) out.push(`${file}: path under test exports/ (real exports are never committed, D-50)`);
   if (/\.zip$/i.test(file) && !inFixtures) out.push(`${file}: .zip file outside tests/fixtures/`);
-  if (size > MAX_FILE_BYTES && !inFixtures) out.push(`${file}: larger than 1 MiB (${size} bytes) outside tests/fixtures/`);
+  if (size > MAX_FILE_BYTES && !inFixtures) out.push(`${file}: larger than 2 MiB (${size} bytes) outside tests/fixtures/`);
   return out;
 }
 

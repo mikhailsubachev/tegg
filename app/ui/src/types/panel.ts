@@ -31,7 +31,7 @@ const isEmpty = (v: unknown) => v === undefined || v === null || v === '' || (Ar
 /** The universal Source attribute: free text on every type (D-248; FR-TYP-08 AC-13). */
 export const SOURCE_ATTR: AttributeDto = {
   key: 'source', name: 'Source', type: 'text', supported: true, readOnlyReason: null, default: null, required: false,
-  options: [], to: null, multiple: false, description: null, builtIn: false,
+  options: [], to: null, multiple: false, description: null, builtIn: false, icon: null, resolvedIcon: null,
 };
 
 function lookup(data: Record<string, unknown>, key: string): unknown {

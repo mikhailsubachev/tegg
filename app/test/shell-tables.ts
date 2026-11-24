@@ -34,7 +34,7 @@ export const R1: R1Row[] = [
   { id: 'tasks/kanban', page: 'Tasks', built: true, due: d('MS5'), reqs: 'FR-TSK-04, FR-TSK-05', design: 'TasksBoard', goto: 'Show Kanban', alias: 'type/task' },
   { id: 'search', page: 'Search', built: true, due: d('MS2'), reqs: 'FR-SRC-01…04', design: null, goto: 'Go to Search' },
   { id: 'type/<type>', page: 'Type page', built: true, due: d('MS3'), reqs: 'FR-TYP-09', design: 'Ideas', goto: null },
-  { id: 'type-settings/<type>', page: 'Type settings', built: true, due: d('MS3', '3D'), reqs: 'FR-TYP-01…03, -05, -11, -12', design: 'TypeSettings', goto: null }, // built in 3D (types.md R1)
+  { id: 'type-settings/<type>', page: 'Type settings', built: true, due: d('MS3', '3D'), reqs: 'FR-TYP-01…03, -05, -11, -12', design: 'CardSettings', goto: null }, // built in 3D (types.md R1); OC: board CardSettings (D-2106)
   // 4D-lite (tags.md R87): All tags is built (board TagsAll); the tag page and Settings › Backups are new built routes.
   { id: 'tags', page: 'Tags', built: true, due: d('MS4'), reqs: 'FR-TAG-06, FR-TAG-07', design: 'TagsAll', goto: 'Go to Tags' },
   { id: 'tag/<key>', page: 'Tag page', built: true, due: d('MS4'), reqs: 'FR-TAG-06', design: 'TagPage', goto: null },
@@ -56,18 +56,18 @@ export const R1: R1Row[] = [
   { id: 'duplicate-titles', page: 'Duplicate titles', built: true, due: d('MS4', '4A'), reqs: 'FR-LNK-14', design: null, goto: 'Go to Duplicate titles' },
   { id: 'conflicts', page: 'Conflicts', built: true, due: d('MS3', '3C'), reqs: 'FR-SYN-04, FR-SYN-05', design: null, goto: 'Go to Conflicts' }, // built in 3C (editor.md R1)
   // 5B R62 (AP-491): `capture` is removed (capture is a window, not a route).
-  { id: 'settings/appearance', page: 'Settings: Appearance', built: true, due: d('MS3'), reqs: 'FR-SET-02', design: null, goto: 'Go to Settings: Appearance' },
+  { id: 'settings/appearance', page: 'Settings: Appearance', built: true, due: d('MS3'), reqs: 'FR-SET-02', design: 'Settings', goto: 'Go to Settings: Appearance' },
   // 5B R62: built (FR-SET-03 by D-565; settings/shortcuts read-only, D-71, editing is FR-SET-04 in v1.0).
-  { id: 'settings/date-time', page: 'Settings: Date & time', built: true, due: d('MS5'), reqs: 'FR-SET-03', design: null, goto: 'Go to Settings: Date & time' },
-  { id: 'settings/vault', page: 'Settings: Vault', built: true, due: d('MS5'), reqs: 'FR-SET-01', design: null, goto: 'Go to Settings: Vault' },
-  { id: 'settings/shortcuts', page: 'Settings: Shortcuts', built: true, due: d('MS5'), reqs: 'FR-SET-04', design: null, goto: 'Go to Settings: Shortcuts' },
+  { id: 'settings/date-time', page: 'Settings: Date & time', built: true, due: d('MS5'), reqs: 'FR-SET-03', design: 'Settings', goto: 'Go to Settings: Date & time' },
+  { id: 'settings/vault', page: 'Settings: Vault', built: true, due: d('MS5'), reqs: 'FR-SET-01', design: 'Settings', goto: 'Go to Settings: Vault' },
+  { id: 'settings/shortcuts', page: 'Settings: Shortcuts', built: true, due: d('MS5'), reqs: 'FR-SET-04', design: 'Settings', goto: 'Go to Settings: Shortcuts' },
   // v0.52 (D-608): Help › Keyboard Shortcuts; no `Go to` command (palette `Keyboard shortcuts`, ⇧⌘/).
   { id: 'help/shortcuts', page: 'Keyboard shortcuts', built: true, due: d('MS5'), reqs: 'FR-UX-03', design: null, goto: 'Keyboard shortcuts' },
-  { id: 'settings/menu-bar', page: 'Settings: Menu bar and startup', built: true, due: d('MS5'), reqs: 'FR-SET-05', design: null, goto: 'Go to Settings: Menu bar and startup' },
-  { id: 'settings/backups', page: 'Settings: Backups', built: true, due: d('MS4'), reqs: 'FR-HIS-04, NFR-REL-04', design: null, goto: 'Go to Settings: Backups' },
-  { id: 'settings/trash-history', page: 'Settings: Trash and history', built: false, due: d('v1.0'), reqs: 'FR-SET-06', design: null, goto: 'Go to Settings: Trash and history' },
+  { id: 'settings/menu-bar', page: 'Settings: Menu bar and startup', built: true, due: d('MS5'), reqs: 'FR-SET-05', design: 'Settings', goto: 'Go to Settings: Menu bar and startup' },
+  { id: 'settings/backups', page: 'Settings: Backups', built: true, due: d('MS4'), reqs: 'FR-HIS-04, NFR-REL-04', design: 'Settings', goto: 'Go to Settings: Backups' }, // D-2106, D-2154
+  { id: 'settings/trash-history', page: 'Settings: Trash and history', built: false, due: d('v1.0'), reqs: 'FR-SET-06', design: 'Settings', goto: 'Go to Settings: Trash and history' },
   // Built in slice P (previews.md R106, FR-SET-07 AC-1; D-943).
-  { id: 'settings/previews', page: 'Settings: Previews', built: true, due: d('v1.0'), reqs: 'FR-SET-07', design: null, goto: 'Go to Settings: Previews' },
+  { id: 'settings/previews', page: 'Settings: Previews', built: true, due: d('v1.0'), reqs: 'FR-SET-07', design: 'Settings', goto: 'Go to Settings: Previews' },
 ];
 
 export type R2Row = { id: 'backlinks' | 'related' | 'graph'; tab: string; built: boolean; due: Due; reqs: string };

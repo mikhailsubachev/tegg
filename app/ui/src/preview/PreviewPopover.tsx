@@ -8,7 +8,7 @@ import { onChipTypes } from '../links/icons';
 import { forgetPreviewCaches, loadPreview, type PreviewModel } from './load';
 import { PreviewContent, plainTitle, previewTitle } from './PreviewContent';
 import { DEFAULT_WIDTH, MAX_AUTO_HEIGHT, SIZE } from './state';
-import { close, getPrefs, insideDoubleClick, previewHost, setCloser, setInside, updatePrefs, type Current } from './store';
+import { close, getPrefs, insideDoubleClick, previewHost, setCloser, setInside, setInsideDepth, updatePrefs, type Current } from './store';
 import { keepHover, popoverGone, startGrace } from './hover';
 import type { PreviewTarget } from './types';
 
@@ -193,7 +193,8 @@ export function PreviewPopover({ cur }: { cur: Current }) {
       // took the focus back from a link the reader had reached meanwhile).
       if (originRef.current !== 'hover') box.current?.focus({ preventScroll: true });
     });
-    return () => setInside(null);
+    setInsideDepth(stack.length);
+    return () => { setInside(null); setInsideDepth(1); };
   }, [stack]);
   // Back forgets the link just followed: a later double-click doesn't open it (D-1190).
   const back = () => { insideDoubleClick(); setStack((s) => (s.length > 1 ? s.slice(0, -1) : s)); };

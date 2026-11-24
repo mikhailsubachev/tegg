@@ -7,7 +7,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { t } from '../i18n/catalog';
 import type { QueryDefDto, QueryRowDto } from '../ipc/queries';
-import type { TypeDto, TypeRowDto } from '../ipc/types';
+import type { AttributeDto, TypeDto, TypeRowDto } from '../ipc/types';
 import { chipIcon } from '../links/icons';
 import { RefElement } from '../preview/useReference';
 import { Icon, typeIconName } from '../shell/Icon';
@@ -23,7 +23,7 @@ const nfc = (s: string) => s.normalize('NFC');
 /** At most this many table rows in the DOM (§4.3, D-1482). */
 const MAX_ROWS = 60;
 
-type Col = { key: string; label: string; userNamed: boolean; sortable: boolean };
+type Col = { key: string; label: string; userNamed: boolean; sortable: boolean; attr?: AttributeDto | null };
 
 /** `columns` after a header drag: `key` right before `before` (null: last); null when nothing changes. */
 export function columnsAfterDrop(columns: string[], key: string, before: string | null): string[] | null {
@@ -63,7 +63,7 @@ export function ResultsTable({ def: fileDef, rows, types, typeOf, typeName, titl
       if (!choices.has(k) || out.some((c) => c.key === k)) continue; // unknown keys are kept in the file, not shown
       if (k === 'type') { out.push({ key: k, label: t('ts.type'), userNamed: false, sortable: false }); continue; }
       const a = one?.attributes.find((x) => nfc(x.key) === k);
-      if (a) { out.push({ key: k, label: a.name, userNamed: true, sortable: a.type !== 'date-range' }); continue; }
+      if (a) { out.push({ key: k, label: a.name, userNamed: true, sortable: a.type !== 'date-range', attr: a }); continue; }
       const u = UNIVERSAL.find((x) => x.key === k);
       out.push({ key: k, label: k === 'modified' ? t('typePage.modified') : t(u?.label ?? k), userNamed: false, sortable: true });
     }
@@ -114,7 +114,7 @@ export function ResultsTable({ def: fileDef, rows, types, typeOf, typeName, titl
               const level = m ? ls.findIndex((l) => l.by === c.key) : -1;
               const order = level >= 0 ? ls[level].order : null;
               return (
-                <HeaderCell key={c.key} col={{ key: c.key, label: c.label, userNamed: c.userNamed }} first={i === 0} width={widthOf(c.key)} sortable={c.sortable && saved}
+                <HeaderCell key={c.key} col={{ key: c.key, label: c.label, userNamed: c.userNamed, attr: c.attr }} first={i === 0} width={widthOf(c.key)} sortable={c.sortable && saved}
                   ariaSort={level === 0 ? (order === 'asc' ? 'ascending' : 'descending') : undefined}
                   marker={m} description={level > 0 ? t('sort.level', { n: level + 1, order: t(order === 'asc' ? 'sort.ascending' : 'sort.descending') }) : readOnly ?? undefined}
                   disabled={!!readOnly} movable={saved && i > 0} resizable={saved} plain={plain} scroller={box} titleWidth={widthOf('title')}
