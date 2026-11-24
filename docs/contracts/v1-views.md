@@ -2997,6 +2997,11 @@ wall, grouped or not (`board-ready` when the visible cards have painted, two fra
 `rows-request` / `rows-ready` for a Table or List tab or page (grouped or not), `rows-ready` when the visible rows and
 headers have painted. NFR-PERF-07 AC-3…AC-6 read the same marks as before.
 
+D-2226: these four marks are written on every selection, and `board-card-moved` on every drop with its own `ms`. Selecting
+`All <plural>` marks its request by its display on this Mac, and `rows-ready` for a Table or List. A page opened on `All`
+marks neither: its time is FR-TYP-09 AC-12's `route-ready`. A `query/<name>` page marks its request when the query first
+reads, and `rows-ready` for a Table or List; a wall marks `board-ready` itself.
+
 ## 43. Fake core, test hooks, tests and expected bytes
 
 ### 43.1 Fake core and hooks
