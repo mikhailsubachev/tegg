@@ -1,4 +1,4 @@
-// Slice AND-2, the L5p harness (docs/contracts/android-phone.md §14.1; layers in docs/test-strategy.md, D-2009, D-2082):
+// Slice AND-2, the L5p harness (docs/contracts/android-phone.md §14.1; layers in docs/test-strategy.md, D-2009, D-2200):
 // the phone layout with the fake core over mocked IPC, `__TEGG_PLATFORM__ = 'android'` and `__TEGG_LAYOUT__` unset, in
 // the Playwright projects `phone-webkit` and `phone-chromium` (412 × 915, device scale factor 2.625, touch, mobile).
 //
@@ -274,7 +274,7 @@ export async function hitArea(loc: Locator): Promise<{ width: number; height: nu
 
 /** A one-finger drag by (dx, dy) starting at `from` (viewport CSS px): CDP touch events on Chromium (real scrolling);
  *  synthetic pointer and touch events on WebKit (no native scrolling there, so scroll amounts are checked on Chromium). */
-/** D-2106: a drag of `want` px scrolls by want − 16 … want + 4 px (the engine's touch slop), 0 within ± 4 px. */
+/** D-2224: a drag of `want` px scrolls by want − 16 … want + 4 px (the engine's touch slop), 0 within ± 4 px. */
 export function byTheDrag(moved: number, want: number): boolean {
   if (want === 0) return Math.abs(moved) <= 4;
   const m = Math.sign(want) * moved;
@@ -291,7 +291,7 @@ export async function touchDrag(page: Page, from: { x: number; y: number }, dx: 
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(from.x + (dx * i) / steps, from.y + (dy * i) / steps) });
       await sleep(16);
     }
-    // D-2106: the finger rests before lifting, so the engine doesn't fling.
+    // D-2224: the finger rests before lifting, so the engine doesn't fling.
     await sleep(150);
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await cdp.detach();
@@ -449,7 +449,7 @@ export async function sidewaysOverflow(page: Page): Promise<{ scrollWidth: numbe
       if (e.scrollWidth <= e.clientWidth + 1) continue;
       const s = getComputedStyle(e);
       if (/(auto|scroll|hidden|clip)/.test(s.overflowX)) continue;
-      // D-2111: inside an ancestor that scrolls sideways (the map area) it scrolls in that box.
+      // D-2229: inside an ancestor that scrolls sideways (the map area) it scrolls in that box.
       let boxed = false;
       for (let a = e.parentElement; a && a.tagName !== 'MAIN'; a = a.parentElement) if (/(auto|scroll)/.test(getComputedStyle(a).overflowX) && a.getBoundingClientRect().right <= innerWidth + 1) { boxed = true; break; }
       if (boxed) continue;

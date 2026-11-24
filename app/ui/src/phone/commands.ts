@@ -1,4 +1,4 @@
-// Slice AND-2 (docs/contracts/android-phone.md §10; FR-UX-03 AC-54, AR-03 AC-13, D-2059): the command registry on the
+// Slice AND-2 (docs/contracts/android-phone.md §10; FR-UX-03 AC-54, AR-03 AC-13, D-2177): the command registry on the
 // phone. The phone has no palette; every control still runs a registered command, and none of RA11's hidden commands
 // is listed.
 import type { Command, ShellContext } from '../shell/commands';
@@ -75,7 +75,7 @@ function own(ctx: ShellContext): Command[] {
     { id: 'tagPage.c5', title: 'tag.noGrouping', section: 'view', needsVault: true, run: p('tagPage.c5') },
     { id: 'search.type', title: 'search.typeLabel', section: 'view', needsVault: true, run: p('search.type') },
   ];
-  // D-2128, D-2129: the page-local commands the shown page's controls carry (content folds and embeds, board cards,
+  // D-2246, D-2247: the page-local commands the shown page's controls carry (content folds and embeds, board cards,
   // lane folds, view tabs), each running its control's tap.
   const titles: Record<string, string> = { 'read.fold:': 'cmd.phone.fold', 'read.openEmbed:': 'cmd.phone.openEmbed', 'board.openCard:': 'cmd.phone.openCard', 'board.openSource:': 'cmd.phone.openSource', 'views.tab:': 'cmd.phone.viewTab', 'board.toggleLane': 'cmd.phone.foldLane' };
   const known = new Set(list.map((c) => c.id));
@@ -95,7 +95,7 @@ function own(ctx: ShellContext): Command[] {
 
 /** The desktop list minus the hidden commands and routes not offered, plus the phone's own commands. */
 /** Desktop commands whose action needs the editor, which the phone's read view doesn't have: the phone's own command of
- *  the same id (its control's tap) replaces them (FR-UX-03 AC-54, D-2101; QA review of AND-2). */
+ *  the same id (its control's tap) replaces them (FR-UX-03 AC-54, D-2219; QA review of AND-2). */
 const PHONE_REPLACES = new Set(['mindmap.showMap', 'mindmap.showList']);
 
 export function phoneCommands(list: readonly Command[], ctx: ShellContext = { vault: null, types: [], counts: {} }): Command[] {
@@ -103,6 +103,6 @@ export function phoneCommands(list: readonly Command[], ctx: ShellContext = { va
   const ids = new Set(kept.map((c) => c.id));
   const out = [...kept];
   for (const c of own(ctx)) if (!ids.has(c.id)) out.push(c);
-  // `object.new` stays listed but does nothing until AND-3 (D-2055).
+  // `object.new` stays listed but does nothing until AND-3 (D-2173).
   return out.map((c) => (c.id === 'object.new' ? { ...c, run: () => undefined, disabled: () => 'phone.newLater' } : c));
 }

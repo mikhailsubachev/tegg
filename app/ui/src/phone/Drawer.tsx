@@ -1,4 +1,4 @@
-// Slice AND-2 (docs/contracts/android-phone.md §8.3; RA10, FR-NAV-04 AC-13…AC-15; CP-7, CP-8 → D-2089, D-2090): the
+// Slice AND-2 (docs/contracts/android-phone.md §8.3; RA10, FR-NAV-04 AC-13…AC-15; CP-7, CP-8 → D-2207, D-2208): the
 // drawer from the left edge, over a scrim that covers the rest of the viewport (the bottom bar included). It holds the
 // vault switcher and the sidebar in its drawer variant. While it is open the rest of the app is inert.
 import { useEffect, useRef, useState, type ReactNode } from 'react';

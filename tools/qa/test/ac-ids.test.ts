@@ -1,4 +1,4 @@
-// D-2081: the push gate's `ac-ids` check: a criterion ID defined twice across docs/acceptance fails, unless it is on the
+// D-2199: the push gate's `ac-ids` check: a criterion ID defined twice across docs/acceptance fails, unless it is on the
 // list of older duplicates; a listed ID that is no longer a duplicate is reported so the list shrinks.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -45,7 +45,7 @@ test('ac_ids_known_duplicates_are_skipped_and_stale_ones_reported', (t) => {
 });
 
 test('ac_ids_known_duplicates_of_a_requirement_without_criteria_are_not_judged', (t) => {
-  // D-2126: a QA-tool test's fixture repository has no criteria of the listed requirements.
+  // D-2244: a QA-tool test's fixture repository has no criteria of the listed requirements.
   const dir = tmpDir(t);
   writeFiles(dir, { 'docs/acceptance/a.md': A, 'docs/acceptance/b.md': B });
   assert.deepEqual(duplicateAcIds(dir, ['FR-XYZ-09/AC-1']), []);

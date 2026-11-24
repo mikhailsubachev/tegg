@@ -233,7 +233,7 @@ export function addedAcTests(root: string, cfg: Config, sha: string): string[] {
 /**
  * The red-first verdict on one added AC test file's testcases: each must fail with an AssertionError. A skipped
  * testcase counts as red when the same test (name and classname) failed with an AssertionError in another run of the
- * report, e.g. a test a contract runs on one browser project only (D-2125).
+ * report, e.g. a test a contract runs on one browser project only (D-2243).
  */
 export function redCaseProblems(file: string, cases: TestCase[]): string[] {
   const out: string[] = [];

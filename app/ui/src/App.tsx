@@ -316,7 +316,7 @@ export function App() {
   const returnFocus = useRef<HTMLElement | null>(null);
   /** AND-2 (FR-NAV-03 AC-17): Back from a note to a list focuses that note's row on the phone. */
   const backRowFocus = useRef<string | null>(null);
-  /** The phone's Menu (button and `phone.menu`): set by the phone render, which owns the drawer's close (D-2131). */
+  /** The phone's Menu (button and `phone.menu`): set by the phone render, which owns the drawer's close (D-2249). */
   const menuToggle = useRef<(() => void) | null>(null);
   const pendingFocus = useRef(false);
   /** "G3 in the panel" (FR-UX-03 AC-33): an object opened by key from the panel graph focuses the page heading (D-130). */
@@ -917,7 +917,7 @@ export function App() {
   const actions: ShellActions = useMemo(() => ({
     // Slice AND-2 (android-phone §10): the phone's own commands run what their control does.
     phone: (id: string) => {
-      // Menu opens the drawer, or closes it as the other ways do (the focus back on Menu; FR-NAV-04 AC-14, D-2131).
+      // Menu opens the drawer, or closes it as the other ways do (the focus back on Menu; FR-NAV-04 AC-14, D-2249).
       if (id === 'phone.menu') { if (menuToggle.current) menuToggle.current(); else setDrawerOpen((o) => !o); return; }
       const el = [...document.querySelectorAll<HTMLElement>(`[data-command="${CSS.escape(id)}"]`)].find((e) => e.getClientRects().length > 0);
       el?.click();
@@ -1251,7 +1251,7 @@ export function App() {
   // Test hook (ms3-shell §10): registered command ids and route ids.
   useEffect(() => {
     const w = window as { __TEGG_TEST__?: Record<string, unknown> };
-    // On the phone the registry follows the shown page's controls (page-local commands, D-2117, D-2128), so it is read
+    // On the phone the registry follows the shown page's controls (page-local commands, D-2235, D-2246), so it is read
     // live rather than from the memoized list.
     w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), commands: () => (isPhone() ? commands(ctxRef.current) : list).map((c) => c.id), routes: () => ROUTES.map((r) => r.id) };
   }, [list]);
@@ -1369,7 +1369,7 @@ export function App() {
   const swipeStep = useRef(step);
   swipeStep.current = step;
   useEffect(() => {
-    // Slice AND-2 (android-phone §8.5, D-2058): no touch gesture navigates on the phone.
+    // Slice AND-2 (android-phone §8.5, D-2176): no touch gesture navigates on the phone.
     if (isPhone()) return;
     let on = false;
     let asked = 0;
@@ -1507,7 +1507,7 @@ export function App() {
       void ipc.perfMark(`route-ready:${routeKey}`).catch(() => {});
     };
     // On the phone the arrival runs at once (frames only while the page isn't ready), so a Back step's scroll position
-    // is set in the same flush as the page instead of one painted frame later (FR-INB-01 AC-14, D-2131).
+    // is set in the same flush as the page instead of one painted frame later (FR-INB-01 AC-14, D-2249).
     if (isPhone()) tick();
     else requestAnimationFrame(tick);
   }, [routeKey, meta, chooserShown]);
@@ -1518,7 +1518,7 @@ export function App() {
     // D-137: with no vault open, the palette offers only creating or opening a vault, Settings and the theme.
     const noVault = available_commands.filter((c) => c.id === 'vault.create' || c.id === 'vault.open' || c.id.startsWith('theme.') || c.id.startsWith('goto.settings'));
     const palette = dialog === 'palette' && <Palette list={noVault} onRun={(c) => { closeDialog(); run(c); }} onClose={closeDialog} />;
-    // D-2122: the start screens get the insets and the keyboard rule (§8.2, §8.6) before any PhoneFrame mounts.
+    // D-2240: the start screens get the insets and the keyboard rule (§8.2, §8.6) before any PhoneFrame mounts.
     const insets = isPhone() ? <PhoneStartInsets /> : null;
     if (start.state === 'needsAccess') return <>{insets}<AccessScreen path={start.path} rechecks={rechecks} /></>;
     if (start.state === 'opening') return <>{insets}{<OpeningScreen name={start.name} />}{palette}</>;
@@ -1776,7 +1776,7 @@ export function App() {
     const today = localDate(Date.now());
     const hasFile = route?.id === 'note/<path>' || (isDaily && !!dailyFile);
     const sourceShown = () => !!document.querySelector('main .source-view');
-    // Menu while the drawer is open closes it as the other ways do: the focus returns to Menu (FR-NAV-04 AC-14, D-2131).
+    // Menu while the drawer is open closes it as the other ways do: the focus returns to Menu (FR-NAV-04 AC-14, D-2249).
     menuToggle.current = () => { if (drawerOpen) closeDrawer(false); else setDrawerOpen(true); };
     const closeDrawer = (navigated: boolean) => {
       setDrawerOpen(false);

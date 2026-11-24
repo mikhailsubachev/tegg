@@ -91,7 +91,7 @@ Both APKs:
 
 **Desktop:** the commands registered on main, unchanged by AND-1 (compared at the merge-base with main, D-2053; `7ff0fc0b` when AND-1 started). Every desktop command is classified for Android: in the Android list or in an excluded group below; slice Q2-T's `task_views_restore` is in V (D-2053). `type_misfits` is in `build.rs` and `capabilities/default.json` but not registered there (D-808); that also stays as it is.
 
-**Android:** the desktop set minus the groups below, plus the Android-only commands: the four of AND-1 and, from AND-2, `android_open_url` (D-2074). On Android, an excluded command's function is not compiled, it isn't in the invoke handler, and no capability that applies to Android allows it.
+**Android:** the desktop set minus the groups below, plus the Android-only commands: the four of AND-1 and, from AND-2, `android_open_url` (D-2192). On Android, an excluded command's function is not compiled, it isn't in the invoke handler, and no capability that applies to Android allows it.
 
 | Group | Not registered on Android | Why |
 | --- | --- | --- |
@@ -250,7 +250,7 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
 
 ### FR-SYN-03 / NFR-REL-02 The watcher on Linux-family systems (adds to AC-1…AC-31)
 
-- **AC-37** (was AC-32, D-2081) **Read events are not changes (F1; T2).** `fs_change_of` maps the events of RA6 as listed. For the event's path `<base>/Pages/Úvodní stránka.md` (in NFD bytes where a case says so), the cases are:
+- **AC-37** (was AC-32, D-2199) **Read events are not changes (F1; T2).** `fs_change_of` maps the events of RA6 as listed. For the event's path `<base>/Pages/Úvodní stránka.md` (in NFD bytes where a case says so), the cases are:
   - `Access(Open(Any))`, `Access(Read)`, `Access(Close(Read))`, `Access(Any)` → `None`;
   - `Access(Close(Write))` → `Paths(["Pages/Úvodní stránka.md"])` (NFC);
   - `Modify(Data(Content))`, `Create(File)`, `Remove(File)`, `Modify(Metadata(Any))`, `Any`, `Other` → `Paths` with that path;
@@ -273,7 +273,7 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
 
 ### FR-SYN-06 Minimal writes on the phone (adds to AC-49)
 
-- **AC-53** (was AC-50, D-2081) **Opening a vault on Android writes nothing: no tidy job, no bulk job (D-2007; AP-2025; T1).**
+- **AC-53** (was AC-50, D-2199) **Opening a vault on Android writes nothing: no tidy job, no bulk job (D-2007; AP-2025; T1).**
   - **Core (L4, Mac host).** `Core::open` with `CoreOptions { bulk_jobs: false, .. }` is the option the Android shell always passes. It runs on a copy of the shell fixture plus the Stray, with `TEGG_TEST_QUIET_MS=200`. After the index is idle, `jobs().set_ui_ready()` is called, then the test waits 3 s and appends a line to Úvodní from outside (a watcher event). The test waits 3 s more.
     - Every file except Úvodní is untouched, and the Stray is still in `Pages/`.
     - `jobs().start(op)` returns `Unsupported`, starts nothing and writes nothing for each bulk `JobOp`: `FolderMove`, the rename, tag rename and delete, merge, type move, value remove and type delete ops, and the inbox bulk op.
@@ -367,7 +367,7 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
 
 ### FR-STO-07 Machine-local data on Android (adds to AC-1…AC-11)
 
-- **AC-15** (was AC-12, D-2081) **Where machine-local data lives, from the platform (F7).** `app_dirs_for(platform)` (pure) gives:
+- **AC-15** (was AC-12, D-2199) **Where machine-local data lives, from the platform (F7).** `app_dirs_for(platform)` (pure) gives:
 
   | Platform | Result |
   | --- | --- |
@@ -389,7 +389,7 @@ A typed name in NFC opens a folder stored in NFD bytes and the other way round. 
 
 ### FR-FMT-12 NFD file names on the phone (adds to AC-1…AC-14)
 
-- **AC-15** (was AC-14, D-2081) **A note stored in NFD bytes on a file system that doesn't normalise names (AP-2029; T1, T2).** Android's shared storage keeps the bytes of an NFD name, so AC-1 is checked again on the device (it compares NFC and NFD as one name, D-2052).
+- **AC-15** (was AC-14, D-2199) **A note stored in NFD bytes on a file system that doesn't normalise names (AP-2029; T1, T2).** Android's shared storage keeps the bytes of an NFD name, so AC-1 is checked again on the device (it compares NFC and NFD as one name, D-2052).
   - **Pure function (L1, Mac host).** `on_disk_name(listing, nfc_path)` returns the listed entry whose NFC form equals `nfc_path`, `None` when there is none, and `Ambiguous` when two entries share it.
   - **Device (LA).** The shell fixture plus the NFD note is on the test APK:
     - (a) Pages lists Poznámka once;

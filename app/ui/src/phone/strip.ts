@@ -1,4 +1,4 @@
-// Slice AND-2 (docs/contracts/android-phone.md §4.5; FR-EDT-07 AC-22, D-2067): the Properties strip of a note.
+// Slice AND-2 (docs/contracts/android-phone.md §4.5; FR-EDT-07 AC-22, D-2185): the Properties strip of a note.
 import type { PanelRow } from '../types/panel';
 
 const empty = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);

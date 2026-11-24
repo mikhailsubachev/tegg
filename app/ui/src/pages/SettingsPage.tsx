@@ -28,7 +28,7 @@ const SECTIONS: [string, string][] = [
 const CHOICES: [ThemeChoice, string][] = [['system', 'settings.theme.system'], ['light', 'settings.theme.light'], ['dark', 'settings.theme.dark']];
 
 export function SettingsPage({ id, theme, heading, onSection, onTheme, vault, types, refresh, dateTime, onDateTime, onStarter, onOpenFolder, commandTitle, outlineRail = true, onOutlineRail, phone = false }: {
-  /** Slice AND-2 (android-phone §9.10, D-2065): no section list; Appearance has Theme only. */
+  /** Slice AND-2 (android-phone §9.10, D-2183): no section list; Appearance has Theme only. */
   phone?: boolean;
   id: string;
   theme: ThemeChoice;

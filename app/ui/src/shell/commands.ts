@@ -133,7 +133,7 @@ export type ViewsStatus = {
   /** `writable`: the type file can be written (tab changes); `viewWritable`: the shown query can be (sort, lanes);
    *  missing = `writable`. */
   typeKey: string | null; tab: string | null; writable: boolean; viewWritable?: boolean;
-  /** AND-2 (D-2117): the view tabs' names on the phone ('' is `All <plural>`), each a `views.tab:<name>` command. */
+  /** AND-2 (D-2235): the view tabs' names on the phone ('' is `All <plural>`), each a `views.tab:<name>` command. */
   phoneTabs?: string[];
   /** Q2-T (§30.4): `taskFocused` = the focused card is a Task card (`task.complete`, `task.setStatus`). */
   board: { lanes: 'vertical' | 'horizontal'; laneOrder: boolean; cardFocused: boolean; laneFocused: boolean; taskFocused?: boolean } | null;
@@ -548,7 +548,7 @@ export function commands(ctx: ShellContext): Command[] {
   }
   // Slice AND-1 (AR-03 AC-11, D-2026): on Android, no command whose only action the shell refuses.
   const android = isAndroid() ? list.filter((c) => !ANDROID_HIDDEN_COMMANDS.has(c.id)) : list;
-  // Slice AND-2 (android-phone §10, D-2059): the phone layout's registry.
+  // Slice AND-2 (android-phone §10, D-2177): the phone layout's registry.
   if (isPhone()) return phoneCommands(android, ctx);
   if (isAndroid()) return android;
   return list;

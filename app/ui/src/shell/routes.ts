@@ -25,7 +25,7 @@ const PARAM_ROUTES = ['type', 'type-settings', 'note', 'new', 'graph'];
 
 export function parseRoute(s: string): Route | null {
   const r = parseAny(s);
-  // Slice AND-2 (android-phone §7, D-2091): on the phone a route it doesn't offer lands as an unknown one does.
+  // Slice AND-2 (android-phone §7, D-2209): on the phone a route it doesn't offer lands as an unknown one does.
   if (r && isPhone() && !phoneRouteOffered(r.id)) return null;
   return r;
 }

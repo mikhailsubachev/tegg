@@ -27,7 +27,7 @@ export const ipc = {
   vaultFind: () => invoke<FoundVaultDto[]>('vault_find'),
   storageAccess: () => invoke<StorageAccessDto>('storage_access'),
   storageAccessSettings: () => invoke<void>('storage_access_settings'),
-  // Slice AND-2 (android-phone §2.2; D-2074, D-2086).
+  // Slice AND-2 (android-phone §2.2; D-2192, D-2204).
   androidOpenUrl: (url: string) => invoke<void>('android_open_url', { url }),
   androidWindow: (dark: boolean) => invoke<WindowStateDto>('android_window', { dark }),
   vaultOpen: (path: string) => invoke<VaultInfo>('vault_open', { path }),

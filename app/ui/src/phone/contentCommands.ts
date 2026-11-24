@@ -1,4 +1,4 @@
-// Slice AND-2 (docs/contracts/android-phone.md §10; FR-UX-03 AC-55, D-2128): the commands of controls inside a note's
+// Slice AND-2 (docs/contracts/android-phone.md §10; FR-UX-03 AC-55, D-2246): the commands of controls inside a note's
 // content on the phone. Their numbers follow the shown page's document order, which React's render doesn't know, so a
 // pass over `main` sets them after each change: the n-th fold button gets `read.fold:<n>`, every control that opens
 // the n-th embed `read.openEmbed:<n>`. The registry lists the page-local ids it finds (`pageCommandIds`).

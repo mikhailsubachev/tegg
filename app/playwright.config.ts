@@ -44,7 +44,7 @@ export default defineConfig({
   expect: { timeout: 3_000 },
   reporter: [['list']],
   use: { baseURL: `http://localhost:${port}`, actionTimeout: 3_000, viewport: { width: 1440, height: 900 } },
-  // Slice AND-2 (docs/contracts/android-phone.md §13.2; D-2009, D-2082): the L5p projects. Phone-layout tests
+  // Slice AND-2 (docs/contracts/android-phone.md §13.2; D-2009, D-2200): the L5p projects. Phone-layout tests
   // (`phone_*.ac.test.ts`, phone regressions `bug_<issue>_<req-id>_…_phone.test.ts`, CP-15) run on WebKit and on Chromium
   // (Android's WebView) at 412 × 915, device scale factor 2.625, touch and mobile; every other test stays on `webkit`.
   projects: [

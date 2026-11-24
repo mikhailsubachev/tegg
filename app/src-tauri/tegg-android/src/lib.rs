@@ -20,7 +20,7 @@ mod android {
         pub shared_root: String,
     }
 
-    /// android-phone §2.2 (D-2086): the window as the plugin sees it; insets in CSS px.
+    /// android-phone §2.2 (D-2204): the window as the plugin sees it; insets in CSS px.
     #[derive(Deserialize, Clone, Debug)]
     #[serde(rename_all = "camelCase")]
     pub struct WindowState {
@@ -59,14 +59,14 @@ mod android {
         pub fn open_settings(&self) -> Result<(), String> {
             self.0.run_mobile_plugin::<Empty>("openSettings", ()).map(|_| ()).map_err(|e| e.to_string())
         }
-        /// android-phone §5.5 (D-2074): `ACTION_VIEW` for an allowed URL. `Err("NoHandler")` when no app takes it.
+        /// android-phone §5.5 (D-2192): `ACTION_VIEW` for an allowed URL. `Err("NoHandler")` when no app takes it.
         pub fn open_url(&self, url: &str) -> Result<(), String> {
             self.0
                 .run_mobile_plugin::<Empty>("openUrl", serde_json::json!({ "url": url }))
                 .map(|_| ())
                 .map_err(|e| if e.to_string().contains("NoHandler") { "NoHandler".into() } else { e.to_string() })
         }
-        /// android-phone §5.2 (D-2086): the bar icons for the resolved theme, then the window state.
+        /// android-phone §5.2 (D-2204): the bar icons for the resolved theme, then the window state.
         pub fn window(&self, dark: bool) -> Result<WindowState, String> {
             self.0.run_mobile_plugin::<WindowState>("window", serde_json::json!({ "dark": dark })).map_err(|e| e.to_string())
         }

@@ -1,7 +1,7 @@
 // Slice AND-2, L5p (projects `phone-webkit`, `phone-chromium`): docs/acceptance/android-phone.md
-// - FR-UX-03 AC-55 (controls inside a note's content on the phone; D-2128, QA review of AND-2).
+// - FR-UX-03 AC-55 (controls inside a note's content on the phone; D-2246, QA review of AND-2).
 // Contract docs/contracts/android-phone.md §10 ("Controls inside a note's content": `read.fold:<n>`,
-// `read.openEmbed:<n>`, `board.openCard:<path>`, `board.openSource:<path>` (D-2129); the edit-only embed controls are not rendered), §9.4 (the map's
+// `read.openEmbed:<n>`, `board.openCard:<path>`, `board.openSource:<path>` (D-2247); the edit-only embed controls are not rendered), §9.4 (the map's
 // `Map` / `List` buttons), §9.5 (type pages), §12.2 (`__TEGG_TEST__.run(id)`, `commands()`), §14.1.
 // Fixtures: `tasks/` + `new-empty/.tegg/` + `views-tasks/` + the overlay `phone-content/` (its README) at the tasks
 // clock (2026-10-14T12:00:00+02:00); `views/` + `new-empty/.tegg/` + `phone/` for Mapa výletu (phone-helpers'
@@ -15,15 +15,15 @@
 //   (`[data-embed-target]`, the frame itself when it is a link) except the task checkbox;
 // - the task embed's status is "text": `In progress` is visible in the frame and not inside a button, link or input;
 //   its checkbox is `aria-disabled="true"` (the AC names no description, so none is asserted);
-// - AC-54's second part is applied with AC-54's test's filter, plus D-2129: a view-only task checkbox
+// - AC-54's second part is applied with AC-54's test's filter, plus D-2247: a view-only task checkbox
 //   (`aria-disabled`) is exempt and carries no `data-command` of its own; "RA11's hidden list" is §10's
-//   PHONE_HIDDEN_COMMANDS with `board.openCard:` and `board.openSource:` excepted inside `board.*` (D-2128, D-2129);
-// - a board task card (D-2129): in every visible `article[data-board-card]` of the Schedule and Kanban tabs the card
+//   PHONE_HIDDEN_COMMANDS with `board.openCard:` and `board.openSource:` excepted inside `board.*` (D-2246, D-2247);
+// - a board task card (D-2247): in every visible `article[data-board-card]` of the Schedule and Kanban tabs the card
 //   itself carries `board.openCard:<data-board-card>` (NFC), the element holding the title resolves to that command,
 //   the source chip (the control named after the source note; in the fixture only Zavolat Janě's `Porada`) carries
 //   `board.openSource:<data-board-card>` (the card's task path, as `board.openCard:`), every other visible control of
 //   the card except the checkbox carries `board.openCard:<path>`, and the checkbox carries no `data-command`;
-// - `board.openSource:Tasks/Zavolat Janě.md` on the Kanban tab opens its source `note/Pages/Porada.md` (D-2129).
+// - `board.openSource:Tasks/Zavolat Janě.md` on the Kanban tab opens its source `note/Pages/Porada.md` (D-2247).
 // Written from the AC and the contract only (D-61).
 import { test, type Browser, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
@@ -56,7 +56,7 @@ const HIDDEN = [
   'panel.editRecurrence', 'settings.font', 'settings.fontSize', 'settings.accentColor', 'settings.changeShortcut',
 ];
 /** `board.*` except folds (§10): a fold is the command of a board's `Collapse <lane>` / `Expand <lane>` button (§9.5,
- *  R206), or an id that names a fold; `board.openCard:` and `board.openSource:` are the exceptions of D-2128, D-2129. */
+ *  R206), or an id that names a fold; `board.openCard:` and `board.openSource:` are the exceptions of D-2246, D-2247. */
 const isFold = (id: string, folds: Set<string>) => folds.has(id) || /^board\..*(fold|collapse|expand)/i.test(id);
 function hiddenCommand(id: string, folds: Set<string> = new Set()): boolean {
   if (id === 'inbox.open' || isFold(id, folds) || id.startsWith('board.openCard:') || id.startsWith('board.openSource:')) return false;
@@ -81,7 +81,7 @@ async function ac54Holds(page: Page, how: string) {
   const probe = async () => {
     const registered = await registry(page);
     const all = (await controls(page)).filter((c) => !c.inert);
-    // D-2129: a view-only task checkbox (`aria-disabled`) is exempt from carrying a command and carries none itself.
+    // D-2247: a view-only task checkbox (`aria-disabled`) is exempt from carrying a command and carries none itself.
     const ownCommands = await main(page).locator('[role="checkbox"][aria-disabled="true"], input[type="checkbox"][aria-disabled="true"]').evaluateAll((bs) => bs.filter((b) => b.getClientRects().length > 0 && b.hasAttribute('data-command')).map((b) => `${(b.getAttribute('aria-label') ?? '').normalize('NFC')} → ${b.getAttribute('data-command')}`));
     const viewOnly = new Set(await main(page).locator('[role="checkbox"][aria-disabled="true"], input[type="checkbox"][aria-disabled="true"]').evaluateAll((bs) => bs.map((b) => (b.getAttribute('aria-label') ?? (b as HTMLElement).innerText ?? '').replace(/\s+/g, ' ').trim().normalize('NFC'))));
     const ctl = all.filter((c) => !c.text && !c.row && !((c.role === 'link' || c.role === 'checkbox') && c.exempt) && !(c.role === 'checkbox' && viewOnly.has(c.name)) && ['button', 'link', 'tab', 'menuitem', 'menuitemradio', 'checkbox', 'radio', 'switch'].includes(c.role));
@@ -94,7 +94,7 @@ async function ac54Holds(page: Page, how: string) {
   assert.ok(got.size > 0, `${how}: __TEGG_TEST__.commands() lists the registry`);
   assert.deepEqual(got.missing, [], `${how}: every control carries the data-command of a registered command (FR-UX-03 AC-54)`);
   assert.deepEqual(got.hidden, [], `${how}: no control carries a command of RA11's hidden list (PHONE_HIDDEN_COMMANDS)`);
-  assert.deepEqual(got.ownCommands, [], `${how}: view-only task checkboxes carry no data-command (D-2129)`);
+  assert.deepEqual(got.ownCommands, [], `${how}: view-only task checkboxes carry no data-command (D-2247)`);
 }
 
 /** The embed frame of `path` in the note's body (R30: `data-embed-target`, NFC). */
@@ -193,7 +193,7 @@ async function once(browser: Browser, o: PhoneOptions, id: string, how: 'tap' | 
     if (how === 'tap') {
       await (await must(cmd(page, id), `${what}: a control carrying ${id}`)).first().click({ force: true });
     } else {
-      assert.equal(await runById(page, id), 'ok', `${what}: __TEGG_TEST__.run('${id}') resolves (contract §12.2, D-2128)`);
+      assert.equal(await runById(page, id), 'ok', `${what}: __TEGG_TEST__.run('${id}') resolves (contract §12.2, D-2246)`);
     }
     const eff = await effect(page, core, from);
     const state = await probe(page, core, from);
@@ -283,12 +283,12 @@ test('fr_ux_03_ac55_content_controls_on_the_phone', async ({ page, browser }) =>
       const cards = await boardCards(tasks);
       assert.ok(cards.length > 0, `${how}: the board shows task cards`);
       const want = (c: CardProbe) => `board.openCard:${c.path}`;
-      assert.deepEqual(cards.filter((c) => c.own !== want(c)).map((c) => `${c.path} → ${c.own}`), [], `${how}: each task card itself carries board.openCard:<path> (NFC, D-2129)`);
-      assert.deepEqual(cards.filter((c) => c.title !== want(c)).map((c) => `${c.path} → ${c.title}`), [], `${how}: each task card's title carries board.openCard:<path> (D-2129)`);
-      assert.deepEqual(cards.flatMap((c) => c.others.filter((o) => o.command !== want(c)).map((o) => `${c.path}: ${o.name} → ${o.command}`)), [], `${how}: every other control of a card that opens its task carries board.openCard:<path> (D-2129)`);
-      assert.deepEqual(cards.flatMap((c) => c.boxes.filter((b) => b !== null).map((b) => `${c.path}: ${b}`)), [], `${how}: a card's view-only checkbox carries no data-command (D-2129)`);
+      assert.deepEqual(cards.filter((c) => c.own !== want(c)).map((c) => `${c.path} → ${c.own}`), [], `${how}: each task card itself carries board.openCard:<path> (NFC, D-2247)`);
+      assert.deepEqual(cards.filter((c) => c.title !== want(c)).map((c) => `${c.path} → ${c.title}`), [], `${how}: each task card's title carries board.openCard:<path> (D-2247)`);
+      assert.deepEqual(cards.flatMap((c) => c.others.filter((o) => o.command !== want(c)).map((o) => `${c.path}: ${o.name} → ${o.command}`)), [], `${how}: every other control of a card that opens its task carries board.openCard:<path> (D-2247)`);
+      assert.deepEqual(cards.flatMap((c) => c.boxes.filter((b) => b !== null).map((b) => `${c.path}: ${b}`)), [], `${how}: a card's view-only checkbox carries no data-command (D-2247)`);
       const withSource = cards.filter((c) => SOURCES[c.path]);
-      assert.deepEqual(withSource.map((c) => ({ path: c.path, chip: c.chips })), withSource.map((c) => ({ path: c.path, chip: [`board.openSource:${c.path}`] })), `${how}: the source chip carries board.openSource:<path> (D-2129)`);
+      assert.deepEqual(withSource.map((c) => ({ path: c.path, chip: c.chips })), withSource.map((c) => ({ path: c.path, chip: [`board.openSource:${c.path}`] })), `${how}: the source chip carries board.openSource:<path> (D-2247)`);
     }
     await assertZeroWrites(tc, tBefore, 'type/task with each tab open');
   } finally {

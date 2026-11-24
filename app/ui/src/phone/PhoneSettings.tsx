@@ -1,4 +1,4 @@
-// Slice AND-2 (docs/contracts/android-phone.md §9.10; FR-SET-01 AC-14, D-2065): Settings on the phone. `settings` is a
+// Slice AND-2 (docs/contracts/android-phone.md §9.10; FR-SET-01 AC-14, D-2183): Settings on the phone. `settings` is a
 // list of four sections and the version; `settings/vault` shows the vault read-only; `settings/storage` shows whether
 // "All files access" is on, with a way to the system setting. Nothing here writes the vault.
 import { useEffect, useState } from 'react';

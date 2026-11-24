@@ -38,7 +38,7 @@ const J: &[&str] = &[
 ];
 const V: &[&str] = &["query_apply", "query_revert", "query_create", "query_duplicate", "query_rename", "query_trash", "query_restore", "task_views_restore"];
 const O: &[&str] = &["graph_neighbourhood", "graph_presets_get", "graph_presets_apply", "index_related", "trash_restore", "trash_delete", "trash_empty"];
-// Slice AND-2 (docs/contracts/android-phone.md §2.1, CP-4 → D-2086; AP-2056 → D-2074): RA2 gains `android_open_url` and
+// Slice AND-2 (docs/contracts/android-phone.md §2.1, CP-4 → D-2204; AP-2056 → D-2192): RA2 gains `android_open_url` and
 // `android_window`, so ANDROID_ONLY lists six commands (AC-Test-Change, approved by the owner with the contract).
 const ONLY: &[&str] = &["vault_start", "vault_find", "storage_access", "storage_access_settings", "android_open_url", "android_window"];
 

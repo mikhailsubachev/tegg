@@ -248,7 +248,7 @@ test('fr_tag_06_ac14_tag_page_on_the_phone', async ({ page, browser }) => {
   const { page: desk, context } = await desktopPage(browser);
   await startDesktop(desk, { vault: tagsVault(), route: `tag/${encodeURIComponent('účty')}`, now: TAGS_NOW });
   const paths = (p: Page) => p.getByRole('main').locator('[data-path]').evaluateAll((rs) => rs.map((r) => (r.getAttribute('data-path') ?? '').normalize('NFC')));
-  // D-2105: 6 objects (the tags fixture, R82).
+  // D-2223: 6 objects (the tags fixture, R82).
   const want = await eventually(() => paths(desk), (x) => x.length === 6, 3000);
   assert.equal(want.length, 6, 'setup: the desktop lists 6 objects');
   assert.deepEqual(await eventually(() => paths(page), (x) => x.length === 6, 3000), want, 'its 6 objects in the desktop\'s default order');
@@ -414,7 +414,7 @@ test('fr_set_01_ac14_settings_on_the_phone', async ({ page }) => {
   await systemBack(page);
   await main(page).getByRole('link', { name: 'Date & time', exact: true }).click();
   const combo = await must(main(page).getByRole('combobox', { name: 'Date format' }), 'Date format');
-  await combo.selectOption('long'); // D-2104: the Mac's native select, as contract §9.10 keeps it
+  await combo.selectOption('long'); // D-2222: the Mac's native select, as contract §9.10 keeps it
   await drawerEntry(page, 'Inbox');
   const line = await eventually(async () => flat(await main(page).locator('li').first().innerText().catch(() => '')), (t) => /November 2026|listopadu 2026/.test(t), 1000);
   assert.match(line, /November 2026|listopadu 2026/, `the Inbox's dates follow Long within 1 s: "${line}"`);

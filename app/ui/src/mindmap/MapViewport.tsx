@@ -1,4 +1,4 @@
-// Slice AND-2 (docs/contracts/android-phone.md §9.4; FR-MMP-02 AC-32…AC-36, D-2073): the read view's mindmap on the
+// Slice AND-2 (docs/contracts/android-phone.md §9.4; FR-MMP-02 AC-32…AC-36, D-2191): the read view's mindmap on the
 // phone. A header with `Map` / `List`, zoom out, zoom in, fit to width and full screen; the map area scrolls sideways
 // and the drawing is scaled from its top left. Scale and view are session state per block; nothing is stored.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';

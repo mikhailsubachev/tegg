@@ -9,7 +9,7 @@
 // Red-test readings (reported): user content in the pseudo-locale check is what carries `data-user-content` (or sits in
 // a note body, a code block or a map), as in the desktop's pseudo-locale tests; the registered commands are
 // `__TEGG_TEST__.commands()` (ms3-shell §3.7); RA2's excluded commands are the AND-1 table (android-shell.md RA2).
-// FR-UX-03 AC-54's third part (D-2101, AC-Test-Change): `__TEGG_TEST__.run(id)` (§12.2) runs a registered command by
+// FR-UX-03 AC-54's third part (D-2219, AC-Test-Change): `__TEGG_TEST__.run(id)` (§12.2) runs a registered command by
 // id as a phone control does; for each control's command, a fresh page tapped and a fresh page run by id end with the
 // same route, the same open dialogs and menus, and the same IPC commands (perf marks aside). `run` rejects for an id the
 // phone doesn't list.
@@ -125,13 +125,13 @@ test('fr_ux_03_ac54_commands_without_a_palette', async ({ browser }) => {
     const registered = new Set(await page.evaluate(() => ((window as any).__TEGG_TEST__?.commands?.() ?? []) as string[]));
     assert.ok(registered.size > 0, `${how}: __TEGG_TEST__.commands() lists the registry`);
     const scope = (await seen(drawer(page), 100)) ? drawer(page) : (await seen(sheet(page, 'Properties'), 100)) ? sheet(page, 'Properties') : (await seen(moreMenu(page), 100)) ? moreMenu(page) : undefined;
-    // D-2112, D-2115: links and read-only task checkboxes in a note's text are content, not controls.
+    // D-2230, D-2233: links and read-only task checkboxes in a note's text are content, not controls.
     const ctl = (await controls(page, scope)).filter((c) => !c.inert && !c.text && !c.row && !((c.role === 'link' || c.role === 'checkbox') && c.exempt) && ['button', 'link', 'tab', 'menuitem', 'menuitemradio', 'checkbox', 'radio', 'switch'].includes(c.role));
     const missing = ctl.filter((c) => !c.command || !registered.has(c.command.split(':')[0]) && !registered.has(c.command)).map((c) => `${c.role} "${c.name.slice(0, 30)}" → ${c.command ?? '(none)'}`);
     assert.deepEqual(missing, [], `${how}: every control carries the data-command of a registered command`);
   });
 
-  // every command a phone control carries runs from the registry with the same effect as the tap (D-2101)
+  // every command a phone control carries runs from the registry with the same effect as the tap (D-2219)
   type Effect = { route: string | null; open: string[]; ipc: string[] };
   const effect = async (page: Page, core: Awaited<ReturnType<typeof startPhone>>, from: number): Promise<Effect> => {
     await sleep(500);
@@ -158,7 +158,7 @@ test('fr_ux_03_ac54_commands_without_a_palette', async ({ browser }) => {
         const tapPage = await phonePage(browser);
         const c1 = await startPhone(tapPage, { route });
         await eventually(() => mainName(tapPage), (n) => !!n, 5000);
-        if (inDrawer) await drawerSettled(tapPage); // D-2116
+        if (inDrawer) await drawerSettled(tapPage); // D-2234
         const n1 = (await c1.calls()).length;
         await (inDrawer ? drawer(tapPage) : tapPage.locator('body')).locator(`[data-command="${id.replace(/"/g, '\\"')}"]`).first().click({ force: true });
         const byTap = await effect(tapPage, c1, n1);
@@ -167,9 +167,9 @@ test('fr_ux_03_ac54_commands_without_a_palette', async ({ browser }) => {
         const runPage = await phonePage(browser);
         const c2 = await startPhone(runPage, { route });
         await eventually(() => mainName(runPage), (n) => !!n, 5000);
-        if (inDrawer) await drawerSettled(runPage); // D-2116
+        if (inDrawer) await drawerSettled(runPage); // D-2234
         const hasRun = await runPage.evaluate(() => typeof (window as any).__TEGG_TEST__?.run === 'function');
-        assert.ok(hasRun, `${how}: window.__TEGG_TEST__.run(id) exists (contract §12.2, D-2101)`);
+        assert.ok(hasRun, `${how}: window.__TEGG_TEST__.run(id) exists (contract §12.2, D-2219)`);
         const n2 = (await c2.calls()).length;
         const ran = await runPage.evaluate((cmd) => (window as any).__TEGG_TEST__.run(cmd).then(() => 'ok', (e: unknown) => `rejected: ${String((e as Error)?.message ?? e)}`), id);
         assert.equal(ran, 'ok', `${how}: run(id) resolves for a command a phone control carries`);
@@ -250,7 +250,7 @@ test('fr_syn_06_ac51_reading_on_the_phone_writes_nothing', async ({ page }) => {
   // five notes, their sheets and source views
   for (const p of [PH.mapa, PH.siroky, PH.ven, PH.dlouha, B('Mapa bez severu')]) {
     await step(`the note ${p}`, async () => {
-      if (p.startsWith('Books/')) { await go('Books', 'Books'); await main(page).locator('[role="tab"][data-view-tab=""]').click(); /* D-2110: All Books */ await main(page).locator(`[data-query-result="${nfc(p)}"]`).first().click(); }
+      if (p.startsWith('Books/')) { await go('Books', 'Books'); await main(page).locator('[role="tab"][data-view-tab=""]').click(); /* D-2228: All Books */ await main(page).locator(`[data-query-result="${nfc(p)}"]`).first().click(); }
       else { await barButton(page, 'Search').click(); await page.getByRole('search').getByRole('searchbox').or(page.getByRole('search').getByRole('textbox')).first().fill(p.split('/').pop()!.replace(/\.md$/, '')); await page.keyboard.press('Enter'); }
       await eventually(h1, (t) => t === nfc(p.split('/').pop()!.replace(/\.md$/, '')), 3000);
       await moreButton(page).click();
@@ -316,7 +316,7 @@ test('fr_syn_06_ac51_reading_on_the_phone_writes_nothing', async ({ page }) => {
     await main(page).getByRole('radiogroup', { name: 'Theme' }).getByRole('radio', { name: 'Dark' }).click();
     await systemBack(page);
     await main(page).getByRole('link', { name: 'Date & time', exact: true }).click();
-    await main(page).getByRole('combobox', { name: 'Date format' }).selectOption('long'); // D-2113: the native select
+    await main(page).getByRole('combobox', { name: 'Date format' }).selectOption('long'); // D-2231: the native select
   });
   await assertZeroWrites(core, before, 'the reading tour');
   const calls = (await core.calls()).map((c) => c.cmd);
@@ -324,7 +324,7 @@ test('fr_syn_06_ac51_reading_on_the_phone_writes_nothing', async ({ page }) => {
   assert.equal(await page.getByText('This isn’t available yet.').count(), 0, 'error.unsupported is never shown');
 });
 
-/** D-2116: opens the drawer and waits until its 200 ms slide (contract §8) has ended: its left edge stays put. */
+/** D-2234: opens the drawer and waits until its 200 ms slide (contract §8) has ended: its left edge stays put. */
 async function drawerSettled(page: Page): Promise<void> {
   const d = await openDrawer(page);
   let last = NaN;

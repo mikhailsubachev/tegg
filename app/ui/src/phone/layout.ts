@@ -1,10 +1,10 @@
-// Slice AND-2 (docs/contracts/android-phone.md §4.1; FR-UX-04 AC-1, D-2070): the layout is chosen by platform, not by
+// Slice AND-2 (docs/contracts/android-phone.md §4.1; FR-UX-04 AC-1, D-2188): the layout is chosen by platform, not by
 // width: Android gets the phone layout at every width, macOS the desktop.
 import { platform } from '../platform';
 
 export type Layout = 'phone' | 'desktop';
 
-/** `width` is kept for a later narrow-window rule and ignored now (D-2070). */
+/** `width` is kept for a later narrow-window rule and ignored now (D-2188). */
 export function layoutFor(o: { platform: 'android' | 'macos'; width: number }): Layout {
   return o.platform === 'android' ? 'phone' : 'desktop';
 }

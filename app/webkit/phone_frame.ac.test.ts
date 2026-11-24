@@ -143,7 +143,7 @@ async function underBars(page: Page, insets = INSETS): Promise<string[]> {
       const role = e.getAttribute('role') ?? ({ BUTTON: 'button', A: 'link', H1: 'heading', H2: 'heading', H3: 'heading', INPUT: 'textbox', TEXTAREA: 'textbox' } as Record<string, string>)[e.tagName] ?? '';
       const ownText = [...e.childNodes].some((c) => c.nodeType === 3 && (c.textContent ?? '').trim());
       if (!ownText && !ROLE.test(role)) continue;
-      // D-2104: only the part not clipped by a scrolling or clipping ancestor (the drawer's own list) counts.
+      // D-2222: only the part not clipped by a scrolling or clipping ancestor (the drawer's own list) counts.
       const b = e.getBoundingClientRect();
       const r = { top: b.top, bottom: b.bottom, width: b.width, height: b.height };
       for (let a = e.parentElement; a && a !== document.body; a = a.parentElement) {

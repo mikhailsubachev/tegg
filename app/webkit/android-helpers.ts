@@ -12,7 +12,7 @@
 // must not ask it at all on Android). A `MutationObserver` installed before the app records whether the chooser
 // (`main[aria-label="Choose a vault"]`) or the permission screen ever entered the DOM.
 //
-// Slice AND-2 (docs/contracts/android-phone.md CP-6 → D-2088): `'android'` gets the phone layout (D-2070), so these
+// Slice AND-2 (docs/contracts/android-phone.md CP-6 → D-2206): `'android'` gets the phone layout (D-2188), so these
 // AND-1 tests of the client and the start flow force the desktop layout with `window.__TEGG_LAYOUT__ = 'desktop'`
 // (§4.1, §12.2), the default of `layout`. The phone harness (./phone-helpers.ts, §14.1) passes `layout: null` (unset)
 // and adds its own fake-core handlers through `beforeGoto`.

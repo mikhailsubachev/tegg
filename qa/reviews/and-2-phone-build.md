@@ -7,24 +7,24 @@
 ## Findings
 
 1. **[major] `mindmap.showMap` / `mindmap.showList` do nothing when run by id on the phone** (FR-UX-03 AC-54, contract §10,
-   D-2101). `phoneCommands` (`app/ui/src/phone/commands.ts`) keeps the desktop command when the phone's own command has
+   D-2219). `phoneCommands` (`app/ui/src/phone/commands.ts`) keeps the desktop command when the phone's own command has
    the same id; the desktop one calls the editor (`noteApi.edit`), which the phone's read view doesn't have. The AC-54
    test compares only route, dialogs and IPC, so it misses it.
-2. **[major] The start screens never get the insets** (D-2122, contract §8.2, §8.6, FR-UX-04 AC-3). `useNative()` runs
+2. **[major] The start screens never get the insets** (D-2240, contract §8.2, §8.6, FR-UX-04 AC-3). `useNative()` runs
    only in `PhoneFrame`; the access, opening and chooser screens render before it, so `--inset-*` stay 0 px on a cold
    start and the §8.6 resize handler isn't installed there.
 3. **[major] Controls inside a note's content carry no command or a phone-hidden one** (FR-UX-03 AC-54, AR-03 AC-13):
    the callout and mindmap fold buttons (no `data-command`), note embeds (`edit.openEmbed`, `edit.displayEmbedAs`), task
    embeds (`task.setStatus`, `task.setPriority`, `task.setDue`), board task cards (`task.open`). The tests' notes and
    vaults don't contain them.
-4. **[major] D-2118, D-2121, D-2122 change the contract without the owner's approval** (§5.1 insets rounding and the
+4. **[major] D-2236, D-2239, D-2240 change the contract without the owner's approval** (§5.1 insets rounding and the
    insets animation callback, §8.2 start screens, §8.3 scrim and drawer width `min(320, 100vw − 56) + --inset-left`).
 5. [minor] The review diff used a stale local `main` (merge-base before PRs #145–#154); update `main` and run
    `./verify merge` before merging.
-6. [minor] The rotation anchor walks the blocks on every scroll event, unthrottled (`PhoneFrame.tsx`, D-2121).
-7. [minor] D-2123 is missing from the decision table.
+6. [minor] The rotation anchor walks the blocks on every scroll event, unthrottled (`PhoneFrame.tsx`, D-2239).
+7. [minor] D-2241 is missing from the decision table.
 8. [minor] `qa/manual/and-2.md` (FR-UX-01 AC-9 manual design review) doesn't exist yet; CLAUDE.md's Status doesn't name
-   D-2099…D-2126.
+   D-2217…D-2244.
 
 ## Checks that passed
 
@@ -33,29 +33,29 @@
 - No network (NFR-SEC-01): one URL rule (http, https, mailto, tel) in `phone/links.ts`, `src-tauri/src/phone.rs` and
   the Kotlin plugin; the release manifest drops `INTERNET`; read-view images are placeholders.
 - Desktop unchanged: every phone rule is under `html[data-layout="phone"]`, phone branches behind `isPhone()`.
-- D-2125, D-2126: rules and tests match the decisions.
+- D-2243, D-2244: rules and tests match the decisions.
 - Test integrity: `ac-test-protection` passed for the range; the AC-test changes read match their owner-approved
-  decisions (D-2104, D-2111, D-2116, D-2117, D-2119, D-2120, D-2124).
+  decisions (D-2222, D-2229, D-2234, D-2235, D-2237, D-2238, D-2242).
 - Coverage: every automated AC in `docs/acceptance/android-phone.md` has a test named after it; FR-UX-01 AC-9 is manual
   and not yet recorded.
 
 ## Resolution (2026-11-23)
 
-1. Fixed: the phone registers `mindmap.showMap` / `mindmap.showList` itself (D-2127, `b7a74c13`); FR-UX-03 AC-55 also
+1. Fixed: the phone registers `mindmap.showMap` / `mindmap.showList` itself (D-2245, `b7a74c13`); FR-UX-03 AC-55 also
    checks the Map/List switch's in-page effect.
-2. Fixed: `PhoneStartInsets` gives the start screens the insets and the §8.6 keyboard rule (D-2127, `b7a74c13`).
-3. Decided and built: owner's "Hide edit, add commands" (D-2128) and the card and checkbox rules (D-2129); new
+2. Fixed: `PhoneStartInsets` gives the start screens the insets and the §8.6 keyboard rule (D-2245, `b7a74c13`).
+3. Decided and built: owner's "Hide edit, add commands" (D-2246) and the card and checkbox rules (D-2247); new
    criterion FR-UX-03 AC-55 with overlay `phone-content/`, red test `214a4d2c` (`check-red` pass), build `e3c23559`.
-4. Approved by the owner: D-2118, D-2121, D-2122 ("Approve all three"); RA10 names the left inset.
+4. Approved by the owner: D-2236, D-2239, D-2240 ("Approve all three"); RA10 names the left inset.
 5. Open: update `main` and run `./verify merge` before merging (needs the owner's word to merge).
-6. Fixed: the rotation anchor's walk runs at most once per frame (D-2127).
-7. Fixed: D-2123 recorded as not used.
-8. CLAUDE.md names D-2099…D-2130 (`be84a943`); `qa/manual/and-2.md` (FR-UX-01 AC-9) is the owner's manual review, open.
+6. Fixed: the rotation anchor's walk runs at most once per frame (D-2245).
+7. Fixed: D-2241 recorded as not used.
+8. CLAUDE.md names D-2217…D-2248 (`be84a943`); `qa/manual/and-2.md` (FR-UX-01 AC-9) is the owner's manual review, open.
 
 After the fixes (2026-11-24), the push gate's remaining failures were resolved:
 - FR-INB-01 AC-14 (Back kept the Inbox scroll one frame late) and FR-NAV-04 AC-14 ("Menu again"; Menu now closes the
-  drawer with the focus back on Menu): D-2131, `ef3368fa`, `7cf9673e` (60/60 and 30/30 under load).
-- FR-UX-07 AC-1 (the index's first progress gap under the browser suite's load): its own gate step, D-2132, `07596d6a`.
+  drawer with the focus back on Menu): D-2249, `ef3368fa`, `7cf9673e` (60/60 and 30/30 under load).
+- FR-UX-07 AC-1 (the index's first progress gap under the browser suite's load): its own gate step, D-2250, `07596d6a`.
 - `./verify push` PASS on `07596d6a`.
 
 Still open: the owner's manual design review (FR-UX-01 AC-9, `qa/manual/and-2.md`); `main` update and `./verify merge`

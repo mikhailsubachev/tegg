@@ -1,4 +1,4 @@
-// Slice AND-2 (docs/contracts/android-phone.md §2.3, D-2068; CP-13 → D-2095): the contract's two command lists for
+// Slice AND-2 (docs/contracts/android-phone.md §2.3, D-2186; CP-13 → D-2213): the contract's two command lists for
 // "zero writes", shared by the L5p tests (app/webkit/phone-*.ts) and the LA tests (app/e2e-android/). A call of a
 // `WRITE_COMMANDS` entry is a write whether or not it succeeds. `READ_COMMANDS` is every other command of
 // `commands::DESKTOP ∪ ANDROID_ONLY`; the private-storage writers among them (`ui_state_set`, `nav_opened`, `vault_open`,

@@ -444,7 +444,7 @@ pub(crate) fn open_vault(app: &AppHandle, path: PathBuf) -> Result<VaultInfo, Ip
 }
 
 /// v1-views §25.2 (D-1913, D-1919): the task-views migration runs unless `TEGG_TEST=1`, where it needs
-/// `TEGG_TEST_TASK_VIEWS=1`. Desktop only: the phone never migrates (android-phone §3, D-2062).
+/// `TEGG_TEST_TASK_VIEWS=1`. Desktop only: the phone never migrates (android-phone §3, D-2180).
 #[cfg(desktop)]
 fn task_views_enabled() -> bool {
     std::env::var("TEGG_TEST").as_deref() != Ok("1") || std::env::var("TEGG_TEST_TASK_VIEWS").as_deref() == Ok("1")
@@ -1851,7 +1851,7 @@ pub(crate) fn init_script(dirs: &AppDirs) -> String {
         ),
         None => String::new(),
     };
-    // android-phone §6.1, §12.1 (D-2084, D-2088): the media URL base the WebView can reach, the native bridge, and the
+    // android-phone §6.1, §12.1 (D-2202, D-2206): the media URL base the WebView can reach, the native bridge, and the
     // test APK's forced layout. Empty on macOS, so its script is byte-identical to before.
     let android = if cfg!(target_os = "android") {
         let layout = test_var("TEGG_LAYOUT").filter(|l| l == "phone" || l == "desktop");

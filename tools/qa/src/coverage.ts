@@ -89,7 +89,7 @@ export function parseAcs(root: string): Ac[] {
   return acs;
 }
 
-/** D-2081: criterion IDs already defined twice before the check existed (older slices; renumbering them changes their
+/** D-2199: criterion IDs already defined twice before the check existed (older slices; renumbering them changes their
  *  tests, which is the owner's call). They are reported only if they stop being duplicates, so the list shrinks. */
 export const KNOWN_DUPLICATE_AC_IDS: readonly string[] = [
   'FR-DLY-08/AC-1', 'FR-DLY-08/AC-2', 'FR-DLY-08/AC-3', 'FR-FMT-08/AC-5', 'FR-FMT-08/AC-6', 'FR-SYN-06/AC-10',
@@ -97,17 +97,17 @@ export const KNOWN_DUPLICATE_AC_IDS: readonly string[] = [
   'NFR-POR-01/AC-2',
 ];
 
-/** D-2081: every criterion ID defined more than once across docs/acceptance (a requirement's AC numbers continue
+/** D-2199: every criterion ID defined more than once across docs/acceptance (a requirement's AC numbers continue
  *  across files, so each number is defined once). One message per duplicate, naming the files; `known` IDs are
  *  skipped, and a known ID that is no longer a duplicate is reported so it leaves the list (only where its requirement
- *  has criteria, D-2126). */
+ *  has criteria, D-2244). */
 export function duplicateAcIds(root: string, known: readonly string[] = KNOWN_DUPLICATE_AC_IDS): string[] {
   const where = new Map<string, string[]>();
   for (const ac of parseAcs(root).filter((a) => !a.fromTable)) where.set(ac.id, [...(where.get(ac.id) ?? []), ac.file]);
   const dup = [...where].filter(([, files]) => files.length > 1);
   const out = dup.filter(([id]) => !known.includes(id)).map(([id, files]) => `${id} is defined ${files.length} times: ${files.join(', ')}; give the newer one the next free number`);
   // A known ID is judged only where its requirement has criteria: a repository without them (a QA-tool test's fixture)
-  // says nothing about the list (D-2126).
+  // says nothing about the list (D-2244).
   const reqs = new Set([...where.keys()].map(reqOf));
   for (const id of known) if (reqs.has(reqOf(id)) && !dup.some(([d]) => d === id)) out.push(`${id} is no longer defined twice; remove it from KNOWN_DUPLICATE_AC_IDS (tools/qa/src/coverage.ts)`);
   return out.sort();

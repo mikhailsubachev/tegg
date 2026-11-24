@@ -1,4 +1,4 @@
-// Slice AND-2 (docs/contracts/android-phone.md §8.5; RA12, FR-NAV-03 AC-17, CP-3 → D-2085): what system Back does.
+// Slice AND-2 (docs/contracts/android-phone.md §8.5; RA12, FR-NAV-03 AC-17, CP-3 → D-2203): what system Back does.
 // First match wins: close the topmost layer, else go back, else let the app go to the background.
 import { flushSync } from 'react-dom';
 
