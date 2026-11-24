@@ -10,7 +10,7 @@
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { FX, REPO, appiumDown, end, marksOf, session, shown, sleep, support, testEnv, waitFor, type Driver } from './helpers/capture.ts';
@@ -28,7 +28,8 @@ function prepare(base: string): string {
   const out = join(base, 'vault');
   execFileSync('cargo', ['run', '--release', '--quiet', '--manifest-path', join(REPO, 'tools/gen-vault/Cargo.toml'), '--', '--seed', '1', '--small-images', '--out', out], { stdio: 'ignore' });
   mkdirSync(join(out, '.tegg/queries'), { recursive: true });
-  mkdirSync(join(out, '.tegg/types'), { recursive: true });
+  // gen-vault writes no type files (system types are built in): a real vault's system type files, as D-2225.
+  cpSync(join(REPO, 'tests/fixtures/vaults/new-empty/.tegg/types'), join(out, '.tegg/types'), { recursive: true });
   for (const n of ['Schedule', 'Kanban']) writeFileSync(join(out, `.tegg/queries/${n}.yml`), readFileSync(join(FX, `views-tasks/.tegg/queries/${n}.yml`)));
   const yml = join(out, '.tegg/types/task.yml');
   const text = existsSync(yml) ? readFileSync(yml, 'utf8') : readFileSync(join(FX, 'new-empty/.tegg/types/task.yml'), 'utf8');
@@ -41,6 +42,25 @@ function taskCount(vault: string): number {
   const dir = join(vault, 'Tasks');
   if (!existsSync(dir)) return 0;
   return readdirSync(dir).filter((n) => n.endsWith('.md') && /^type: task$/im.test(readFileSync(join(dir, n), 'utf8'))).length;
+}
+/** The generated vault is indexed on each launch (a new Application Support): a board selected before `index-ready`
+ *  paints without cards, so the runs wait for it (D-2226). */
+const indexed = (log: string) => waitFor(() => marksOf(log).some((m) => m.mark === 'index-ready'), 120_000);
+/** The view tab (an XCUIElementTypeTab with its name in `title`); the window's page tab of the same name comes first (D-2226). */
+async function viewTab(d: Driver, name: string) {
+  const all = await d.$$(`-ios predicate string:title == "${name}" AND elementType == 80`);
+  return all[all.length - 1];
+}
+/** The board has settled after a drop: no new mark (the write, the watcher's index passes, the board's re-run) for
+ *  1.5 s. A drag during the board's refresh is lost (D-2226). */
+async function settled(log: string): Promise<boolean> {
+  let n = marksOf(log).length;
+  for (let quiet = 0, k = 0; quiet < 1500 && k < 100; quiet += 100, k++) {
+    await sleep(100);
+    const now = marksOf(log).length;
+    if (now !== n) { n = now; quiet = -100; }
+  }
+  return true;
 }
 /** The ms between the last `from` mark and the first `to` mark after it. */
 function between(log: string, from: string, to: string): number | null {
@@ -72,8 +92,9 @@ test('nfr_perf_07_ac5_tasks_boards', { timeout: 90 * 60_000 }, async () => {
         const d = await session(testEnv(support(base, { name: `s-${view}-${i}`, ui: { typeViews: { lastTab: { task: null } } } }), log, { TEGG_VAULT: vault, TEGG_ROUTE: 'type/task' }));
         try {
           assert.ok(await waitFor(() => marksOf(log).some((m) => m.mark === 'route-ready:type/task'), 60_000), `${view} run ${i}: route-ready:type/task`);
-          const t = await d.$(`-ios predicate string:label == "${view}" AND elementType == 59`);
-          assert.ok(await t.isDisplayed().catch(() => false), `${view} run ${i}: the tab`);
+          assert.ok(await indexed(log), `${view} run ${i}: index-ready`);
+          const t = await viewTab(d, view);
+          assert.ok(await t?.isDisplayed().catch(() => false), `${view} run ${i}: the tab`);
           await t.click();
           assert.ok(await waitFor(() => marksOf(log).some((m) => m.mark === 'board-ready'), 20_000), `${view} run ${i}: board-ready`);
           const ms = between(log, 'board-request', 'board-ready');
@@ -85,31 +106,37 @@ test('nfr_perf_07_ac5_tasks_boards', { timeout: 90 * 60_000 }, async () => {
       console.log(`NFR-PERF-07 AC-5: ${view} with ${n} tasks, board-request → board-ready p95 ${p(times, 0.95).toFixed(1)} ms (target 225 ms)`);
       if (enforce) assert.ok(p(times, 0.95) <= 225, `${view}: p95 ${p(times, 0.95).toFixed(1)} ms > 225 ms`);
     }
-    // A period drag: the card in its target lane within 100 ms p95 of 20 drops (`board-card-moved`).
+    // A period drag: the card in its target lane or day group within 100 ms p95 of 20 drops (`board-card-moved`). The
+    // Schedule's period lanes are rows (`lanes: horizontal`), stacked: `Today & overdue` (116 tasks at the test clock) is
+    // collapsed so `This week` shows, and each drop moves a card between its side-by-side day groups (D-2226): from
+    // `Saturday 17.` to `Friday 16.`, then back. The day groups follow from gen-vault `--seed 1` and the fixed TEGG_NOW.
     const log = join(base, 'perf-drag.jsonl');
     const d = await session(testEnv(support(base, { name: 's-drag', ui: { typeViews: { lastTab: { task: 'Schedule' } } } }), log, { TEGG_VAULT: vault, TEGG_ROUTE: 'type/task' }));
     const drops: number[] = [];
     try {
       assert.ok(await waitFor(() => marksOf(log).some((m) => m.mark === 'board-ready'), 60_000), 'the Schedule board is ready');
+      assert.ok(await indexed(log), 'index-ready');
+      assert.ok(await shown(d, 'Collapse Today & overdue', 20_000), 'the Schedule board shows its lanes once indexed');
+      await (await d.$('-ios predicate string:label == "Collapse Today & overdue"')).click();
+      assert.ok(await shown(d, 'Expand Today & overdue', 3000), 'Today & overdue collapsed');
       for (let i = 0; i < RUNS; i++) {
-        // Each drop moves the first card of `Not scheduled` onto `Later`, or back while Later has the moved ones.
-        const fromLane = i % 2 === 0 ? 'Not scheduled, ' : 'Later, ';
-        const toLane = i % 2 === 0 ? 'Later, ' : 'Not scheduled, ';
-        const lane = await rectOf(d, fromLane, true);
+        const fromDay = i % 2 === 0 ? 'Saturday 17., ' : 'Friday 16., ';
+        const toDay = i % 2 === 0 ? 'Friday 16., ' : 'Saturday 17., ';
+        const day = await rectOf(d, fromDay, true);
         let from: { x: number; y: number; width: number; height: number } | null = null;
         for (const c of await d.$$(`-ios predicate string:label BEGINSWITH "Task: "`)) {
           const r = await d.getElementRect(c.elementId).catch(() => null);
-          if (r && r.y > lane.y && r.y < lane.y + lane.height && r.x >= lane.x && r.x < lane.x + lane.width) { from = r; break; }
+          if (r && r.y > day.y && r.y < day.y + day.height && r.x >= day.x && r.x < day.x + day.width) { from = r; break; }
         }
-        assert.ok(from, `drop ${i}: a card in ${fromLane}`);
-        const to = await rectOf(d, toLane, true);
+        assert.ok(from, `drop ${i}: a card in ${fromDay}`);
+        const to = await rectOf(d, toDay, true);
         const before = marksOf(log).filter((m) => m.mark === 'board-card-moved').length;
-        await d.execute('macos: clickAndDrag', { startX: Math.round(from!.x + from!.width / 2), startY: Math.round(from!.y + 12), endX: Math.round(to.x + to.width / 2), endY: Math.round(to.y + 30), duration: 0.6 });
+        await d.execute('macos: clickAndDrag', { startX: Math.round(from!.x + from!.width / 2), startY: Math.round(from!.y + 12), endX: Math.round(to.x + to.width / 2), endY: Math.round(to.y + to.height / 2), duration: 0.6 });
         assert.ok(await waitFor(() => marksOf(log).filter((m) => m.mark === 'board-card-moved').length > before, 5000), `drop ${i}: board-card-moved`);
         const ms = marksOf(log).filter((m) => m.mark === 'board-card-moved').at(-1)?.ms ?? null;
         assert.ok(ms !== null, `drop ${i}: a time`);
         drops.push(ms!);
-        await sleep(300);
+        assert.ok(await settled(log), `drop ${i}: written and indexed`);
       }
     } finally { await end(d); }
     console.log(`NFR-PERF-07 AC-5: period drop → card in its lane p95 ${p(drops, 0.95).toFixed(1)} ms (target 100 ms)`);
