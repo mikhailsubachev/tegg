@@ -2,8 +2,8 @@
 // from `app/`, in a clean checkout of main) builds Tegg.app and its DMG with the release identity (feature `preview`,
 // tauri.preview.conf.json: bundle id `app.tegg.preview`, Application Support `Tegg Preview`) and, unless `--no-apk`, the
 // signed release APK with `--apk` (`app.tegg.preview`, the owner's key, D-2021; Mac only by default until AND-3, D-2043). It sets the version and the sidebar label
-// (`TEGG_VERSION`), checks the APK (tools/qa apk-check), then installs `~/Applications/Tegg.app` (removing the old
-// `Tegg Preview.app`) and leaves `Tegg-<v>.dmg`, `Tegg-<v>.zip` and `Tegg-<v>.apk` in
+// (`TEGG_VERSION`), checks the APK (tools/qa apk-check), then installs `/Applications/Tegg.app` (D-2227; removing the old
+// `Tegg Preview.app` and an earlier copy in `~/Applications`) and leaves `Tegg-<v>.dmg`, `Tegg-<v>.zip` and `Tegg-<v>.apk` in
 // `src-tauri/target/release/bundle/release/`. The steps are planned in release-plan.mjs.
 import { execFileSync, execSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
@@ -43,10 +43,11 @@ for (const step of plan.steps) {
     } else if (step.id === 'copy-apk') {
       copyFileSync(step.args[0], step.args[1]);
     } else if (step.id === 'install-app') {
-      const apps = join(homedir(), 'Applications');
-      mkdirSync(apps, { recursive: true });
-      rmSync(join(apps, 'Tegg Preview.app'), { recursive: true, force: true });
-      rmSync(join(apps, 'Tegg.app'), { recursive: true, force: true });
+      // D-2227: one copy, in /Applications. Earlier releases installed into ~/Applications; that copy is removed.
+      for (const apps of ['/Applications', join(homedir(), 'Applications')]) {
+        rmSync(join(apps, 'Tegg Preview.app'), { recursive: true, force: true });
+        rmSync(join(apps, 'Tegg.app'), { recursive: true, force: true });
+      }
       execFileSync('ditto', step.args, { stdio: 'inherit' });
     } else {
       execFileSync(step.cmd, step.args, { cwd: app, stdio: 'inherit', env: { ...env, ...step.env } });
@@ -58,4 +59,4 @@ for (const step of plan.steps) {
     process.exit(1);
   }
 }
-console.log(`Tegg ${version}: installed ~/Applications/Tegg.app; assets in ${out}`);
+console.log(`Tegg ${version}: installed /Applications/Tegg.app; assets in ${out}`);
