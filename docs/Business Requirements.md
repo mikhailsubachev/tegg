@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.256, for review                                            |
+| **Document status** | Draft v1.257, for review                                            |
 | **Date**            | 2026-11-23                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -257,6 +257,7 @@
 | v1.254  | 2026-11-23 | Slice Q3-b build (23b7648c): D-2214 (Q3-b test changes; owner: "Approve all") |
 | v1.255  | 2026-11-23 | D-2215 (the few-cards wall test filters with `links_to`; owner: "Approve") |
 | v1.256  | 2026-11-24 | D-2216 (five Q3-c/d WebKit test fixes; owner: "Approve") |
+| v1.257  | 2026-11-24 | D-2217…D-2221 (slice Q3 QA review points; owner: "Accept all") |
 
 Slice OC decisions and versions were renumbered on merging main (PR #154 used the same numbers): D-1942…D-2053 → D-2054…D-2165, v1.220…v1.229 → v1.238…v1.247. Commit messages before this renumbering use the old numbers (D-2166).
 
@@ -2232,6 +2233,11 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-2214 | Q3-b test changes (owner, 2026-11-23: "Approve all"; slice Q3-b build, commit 23b7648c) | With `AC-Test-Change: …; approved-by: owner`: `type_page` FR-TYP-09 AC-8 and `views_tabs` FR-QRY-07 AC-17 no longer assert the absence of a `Group` button; `views_usage` FR-QRY-07 AC-26 expects Duplicate's `viewCopy` op (CP-35, D-2200); `writtenPaths` counts a type-file write once; the usage `writes()` of FR-QRY-05 AC-33 (c), AC-35 and FR-QRY-06 AC-26 leave out query files, which `query/<name>` writes; FR-QRY-05 AC-33 (a) expects 2 wall columns in a 680 px note column (§40.1's formula); FR-QRY-07 AC-33 looks for `view.tagFilter`; FR-SYN-03 AC-36 waits for the block's first run before the outside change; FR-QRY-05 AC-37 finds card pills by `data-attribute`; the L1 FR-QRY-05 AC-43 keyboard resize expects 120 px (R130's minimum) |
 | D-2215 | The few-cards wall test filters with `links_to` (owner, 2026-11-23: "Approve"; slice Q3-b build) | `views_wall` FR-QRY-05 AC-37 (`…_few_cards_and_sort`) writes its relation filter as `author: { links_to: "[[Eva Lindová]]" }`: queries.md's rules allow only `links_to` or is (not) empty on a relation, so the shorthand was a broken filter. With `AC-Test-Change: …; approved-by: owner` |
 | D-2216 | Five WebKit test fixes found in the Q3-c/d build (owner, 2026-11-24: "Approve"; slice Q3-c/d build) | `views_display` FR-UX-08 AC-27 reads the first of the two live regions (`.first()`); `views_grouped` NFR-PERF-07 AC-8 scrolls the page's `<main>`, not the document; `views_wall` FR-QRY-05 AC-37 (`…_few_cards_and_sort`) picks `Oldest first`, since `Clear` writes Modified ↓ (AP-1502) and the order could not change; `views_writes` FR-SYN-03 AC-30 changes the query file after the page has drawn; `views_writes` FR-SYN-06 AC-48 expects the writes `[book.yml, the book]`, the type-file write included. With `AC-Test-Change: …; approved-by: owner` |
+| D-2217 | Where a dragged group lands (owner, 2026-11-24: "Accept all"; slice Q3 QA review) | In a grouped Table, List or Wall (FR-QRY-05 AC-42, R225), a group dropped on another group's header goes before that group; dropped on a group's rows it goes after that group; a drop on `No …` or `Done` goes after the last movable group, and nothing lands after `No …` or `Done` (R186). |
+| D-2218 | No grips on groups that take no drop (owner, 2026-11-24: "Accept all"; slice Q3 QA review) | A grouped Table or List gives no drag grip and no `Move lane up` / `Move lane down` to unknown-value groups and unresolved relation groups, the same as the wall (R187): such a group keeps its place after the known ones. Narrows R225. |
+| D-2219 | Moving a group steps over shown groups only (owner, 2026-11-24: "Accept all"; slice Q3 QA review) | `Move lane up` / `Move lane down` on a grouped Table or List moves the group past the next group that is drawn; empty groups the Table hides (D-2184) are skipped, so every move changes what is seen and no write is invisible (FR-SYN-06). |
+| D-2220 | The ungrouped wall keeps the Task card menu (owner, 2026-11-24: "Accept all"; slice Q3 QA review) | On a wall without grouping, a Task card's `More actions` holds R43's items (status, priority, due), as on a grouped wall; only `Move to` and `Also add to` are left out (R224, contract §41.3). A new test covers it. |
+| D-2221 | The quick re-sort gives the core's order (owner, 2026-11-24: "Accept all"; slice Q3 QA review) | A view's rows carry the values of its sort keys (the core adds them to `values` even when they are not columns), and the app's quick re-sort after a sort change (R222) uses the core's rules: select values matched after folding case and diacritics, numbers only from numbers, the path tie-break by UTF-8 bytes. The order drawn within 300 ms is the final one. `views_wall` FR-QRY-05 AC-37's sort step checks the full order, with `AC-Test-Change: …; approved-by: owner`. |
 
 ---
 
