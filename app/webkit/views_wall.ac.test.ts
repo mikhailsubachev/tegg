@@ -15,7 +15,7 @@ import {
 const flat = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim().normalize('NFC');
 import { lanes as boardLanes } from './views-helpers';
 import {
-  startTasksViews, TYPE_TASK, TASK_YML, overlayOriginal, kanbanLanes, kanbanBoard, laneGrip, menuItem, fileText as taskFile,
+  startTasksViews, TYPE_TASK, TASK_YML, overlayOriginal, overlayVault, kanbanLanes, kanbanBoard, laneGrip, menuItem, fileText as taskFile,
 } from './views-tasks-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
@@ -94,19 +94,79 @@ test('fr_qry_05_ac37_ungrouped_wall_few_cards_and_sort', async ({ page }) => {
   const boxes = await eventually(() => cardBoxes(tabRoot(page)), (b) => b.length === 2);
   assert.ok(boxes.length === 2 && boxes.every((b) => Math.abs(b.w - 300) <= 1), 'two 300 px cards');
   assert.ok(boxes[0].x < boxes[1].x, 'left-aligned in reading order');
-  // A sort change reorders within 300 ms, in one item write.
+  // A sort change reorders within 300 ms, in one item write, and the order drawn then is the final one (D-2221): the
+  // run is held back 1.5 s so the 300 ms order is the app's own re-sort, which must equal the run's.
+  // `Oldest first` on Finished: Finished ↑, then Rating ↑ (option order), then Title ↑.
+  const P26_OLDEST = ['Zahrada v dešti', 'Tiché město', 'Šest cest k moři', 'Kniha o čaji', 'Cizí přístavy', 'Čarovná mapa', 'Sto zimních dní', 'Mapa bez severu'];
   await selectTab(page, Q.p26);
+  await oldestFirst(page, core, P26_OLDEST, 'Přečtené 2026 (sort keys are columns)');
+  // D-2221: a wall whose query has `columns: []` (the sort key `finished` isn't a column): rows still carry it.
+  // `Oldest first` on Finished: Finished ↑, then Title ↑ (cs).
+  const bare = ['version: 1', 'title: Bez sloupců', 'types: [book]', 'match: all', 'filters:', '  - status: Read', '  - finished: { between: [2026-01-01, 2026-12-31] }',
+    'sort: { by: finished, order: desc }', 'limit: 50', 'view: wall', 'columns: []', 'created: 2026-11-18T20:00:00+01:00', 'modified: 2026-11-18T20:00:00+01:00', ''].join('\n');
+  await page.goto('about:blank');
+  const core2 = await startViews(page, { route: typeRoute('book'), vault: displayVault((f) => {
+    f['.tegg/queries/Bez sloupců.yml'] = bare;
+    f[BOOK_YML] = f[BOOK_YML].replace('  - Celá zeď\n', '  - Celá zeď\n  - Bez sloupců\n');
+  }) });
+  await must(tab(page, 'Bez sloupců'), 'tab Bez sloupců', 8000);
+  await selectTab(page, 'Bez sloupců');
+  const BARE_DESC = ['Mapa bez severu', 'Sto zimních dní', 'Cizí přístavy', 'Čarovná mapa', 'Kniha o čaji', 'Šest cest k moři', 'Tiché město', 'Zahrada v dešti'];
+  assert.deepEqual(await eventually(() => wallCards(tabRoot(page)), (c) => c.length === 8), paths(BARE_DESC), 'Bez sloupců: Finished ↓, then Title ↑');
+  await oldestFirst(page, core2, ['Zahrada v dešti', 'Tiché město', 'Kniha o čaji', 'Šest cest k moři', 'Cizí přístavy', 'Čarovná mapa', 'Sto zimních dní', 'Mapa bez severu'],
+    'Bez sloupců (the sort key is not a column)');
+  void fileText;
+});
+
+/** `Oldest first` on the first sort level of the selected wall tab, with the run held back: within 300 ms the wall shows
+ *  `want` in full, in one item write, and it stays so after the run answers (D-2221, R222). */
+async function oldestFirst(page: Page, core: Awaited<ReturnType<typeof startViews>>, want: string[], what: string) {
+  const before = await eventually(() => wallCards(tabRoot(page)), (c) => c.length === 8);
   const n = (await writtenPaths(core)).length;
+  await core.delayCommand('query_run', 1500);
   await click(tabRoot(page).locator('button[data-command="sort.open"]'), 'the sort button');
-  // `Clear` writes Modified ↓ (AP-1502), which keeps Mapa bez severu (the newest) first; `Oldest first` on Finished
-  // reorders the wall.
   await click(page.getByRole('dialog', { name: /^⟦?Sort/ }).getByRole('combobox', { name: /^⟦?Order/ }).first(), 'the first level\'s Order');
   await click(page.getByRole('option', { name: /Oldest first/ }).first(), 'Oldest first');
   await page.keyboard.press('Escape');
-  const after = await eventually(() => wallCards(tabRoot(page)), (c) => c.length === 8 && c[0] !== paths([P26_ROWS[0]])[0], 300);
-  assert.notEqual(after[0], paths([P26_ROWS[0]])[0], 'the wall reorders within 300 ms');
-  assert.equal((await writtenPaths(core)).length - n, 1, 'one item write');
-  void fileText;
+  const t0 = Date.now();
+  const after = await eventually(() => wallCards(tabRoot(page)), (c) => c.length === 8 && c.join('\n') !== before.join('\n'), 300);
+  assert.ok(Date.now() - t0 <= 400, `${what}: the wall reorders within 300 ms`);
+  assert.deepEqual(after, paths(want), `${what}: the order drawn within 300 ms is the full final order`);
+  await sleep(2000);
+  await core.delayCommand('query_run', 0);
+  assert.deepEqual(await wallCards(tabRoot(page)), paths(want), `${what}: the same order after the run answered`);
+  assert.equal((await writtenPaths(core)).length - n, 1, `${what}: one item write`);
+}
+
+// D-2220 (R224, contract §41.3): on a wall without grouping a Task card's `More actions` is R43's menu (status, priority,
+// due), as on a grouped wall; only `Move to` and `Also add to` are left out. A choice writes the task once.
+test('fr_qry_05_ac37_ungrouped_wall_task_card_menu', async ({ page }) => {
+  const wall = ['version: 1', 'title: Zeď úkolů', 'types: [task]', 'match: all', 'filters: []', 'sort: { by: title, order: asc }', 'limit: 50', 'view: wall',
+    'created: 2026-11-19T10:00:00+01:00', 'modified: 2026-11-19T10:00:00+01:00', ''].join('\n');
+  const core = await startTasksViews(page, { route: TYPE_TASK, vault: overlayVault((f) => {
+    f['.tegg/queries/Zeď úkolů.yml'] = wall;
+    f[TASK_YML] = f[TASK_YML].replace('views: [Schedule, Kanban, Čeká na ostatní]\n', 'views: [Schedule, Kanban, Čeká na ostatní, Zeď úkolů]\n');
+  }) });
+  await must(tab(page, 'Zeď úkolů'), 'tab Zeď úkolů', 8000);
+  await selectTab(page, 'Zeď úkolů');
+  const w = await must(wallIn(tabRoot(page)), 'the wall', 8000);
+  assert.equal(await w.getAttribute('data-grouped'), 'false', 'an ungrouped wall');
+  const path = nfc('Tasks/Zalít květiny.md');
+  const card = w.locator(`article[data-board-card="${path}"]`);
+  await must(card, 'the card of Zalít květiny', 3000);
+  await click(card.getByRole('button', { name: /^⟦?More actions/ }), 'More actions');
+  const menu = page.getByRole('menu', { name: /^⟦?More actions for "Zalít květiny"/ });
+  await must(menu, 'R43\'s menu', 2000);
+  const items = (await menu.getByRole('menuitem').allInnerTexts()).map((x) => flat(x));
+  for (const want of ['Open', 'Status', 'Priority', 'Due date…']) assert.ok(items.some((x) => x.replace(/[⟦⟧]/g, '') === want), `R43's \`${want}\` (in ${items.join(' | ')})`);
+  for (const not of ['Move to', 'Also add to']) assert.ok(!items.some((x) => x.replace(/[⟦⟧]/g, '') === not), `no \`${not}\` (in ${items.join(' | ')})`);
+  // Priority › High writes the task once.
+  const t0 = (await taskFile(core, path)) ?? '';
+  await click(menu.getByRole('menuitem', { name: /^⟦?Priority/ }), 'Priority');
+  await click(page.getByRole('menuitemradio', { name: /^High$/ }), 'High');
+  const t1 = (await eventually(() => taskFile(core, path), (t) => t !== t0)) ?? '';
+  assert.match(t1, /\npriority: High\n/, 'priority: High written');
+  assert.equal(t1.replace(/\npriority: High\n/, '\npriority: Low\n').replace(/\nmodified: [^\n]*\n/, '\n'), t0.replace(/\nmodified: [^\n]*\n/, '\n'), 'only `priority` (and `modified`) changed');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-QRY-05 AC-38

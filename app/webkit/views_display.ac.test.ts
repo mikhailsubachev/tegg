@@ -553,7 +553,8 @@ test('fr_typ_01_ac29_views_section_names_displays', async ({ page }) => {
   await startViews(page, { route: 'type-settings/book', vault: displayVault() });
   const section = main(page).getByRole('region', { name: rx('Views') }).or(main(page).locator('section[data-section="views"]'));
   await must(section, 'Views section', 8000);
-  const text = flat(await section.first().innerText());
+  // The section shows at once; each kind text once its query is read (slice Q3 QA review, point 7).
+  const text = flat(await eventually(() => section.first().innerText(), (t) => /Celá zeď\s*Wall/.test(flat(t)) && /Podle autora\s*Wall · by Author/.test(flat(t))));
   for (const [name, kind] of [[Q.roz, 'Wall'], [Q.p26, 'Wall'], [Q.vyb, 'Table · by Author'], [Q.zanr, 'List · by Genres'], [Q.autor, 'Wall · by Author'], [ZED, 'Wall']]) {
     assert.ok(new RegExp(`${name}\\s*${kind.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$)`).test(text), `${name}: ${kind} (in ${text})`);
   }
