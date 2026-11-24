@@ -119,13 +119,26 @@ test('fr_qry_05_ac42_group_order_and_folds', { timeout: 300_000 }, async () => {
   const c = fresh('q05ac42', true);
   try {
     const before = tree(c.vault);
+    // The Mac2 driver has no `expanded` attribute (aria-expanded isn't in XCUITest's attribute list), so a fold is read
+    // from what it hides: the Reading rows' titles in the accessibility tree, fewer once folded, as many after a relaunch.
+    const readingRows = async (dr: Driver) => {
+      const src = (await dr.getPageSource()).normalize('NFC');
+      return ['Světla přístavu', 'Noční vlak', 'Účetní ze Žižkova'].reduce((n, t) => n + src.split(`"${t}"`).length - 1, 0);
+    };
     let d = await launch(c, `note/${ZOB}`);
+    await need(d, 'Reading, 3 Books', 8000);
+    const open = await readingRows(d);
     await (await need(d, 'Reading, 3 Books', 8000)).click();
     const key = `block:id:${ZOB_ID}/rozečtené#1`;
     assert.ok(await waitFor(() => JSON.stringify(uiState(c)?.usageFolded?.[key]) === JSON.stringify(['option:Reading']), 3000), `usageFolded["${key}"] (${JSON.stringify(uiState(c)?.usageFolded)})`);
+    let folded = open;
+    for (let i = 0; i < 30 && folded >= open; i++) { await sleep(100); folded = await readingRows(d); }
+    assert.ok(folded < open, `the fold hides the Reading rows (${open} → ${folded})`);
     d = await relaunch(c, `note/${ZOB}`);
-    const btn = await need(d, 'Reading, 3 Books', 8000);
-    assert.equal(await d.getElementAttribute(btn.elementId, 'expanded').catch(() => null), 'false', 'folded after a relaunch');
+    await need(d, 'Reading, 3 Books', 8000);
+    let again = -1;
+    for (let i = 0; i < 30 && again !== folded; i++) { await sleep(100); again = await readingRows(d); }
+    assert.equal(again, folded, 'folded after a relaunch');
     assert.deepEqual(changedPaths(before, tree(c.vault)), [], 'no vault file changes');
   } finally { await cleanup(c); }
 });

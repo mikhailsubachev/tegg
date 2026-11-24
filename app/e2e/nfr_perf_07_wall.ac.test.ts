@@ -14,10 +14,10 @@
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { REPO, appiumDown, end, marksOf, session, shown, sleep, support, testEnv, waitFor, type Driver } from './helpers/capture.ts';
+import { REPO, appiumDown, end, firstShown, marksOf, session, shown, sleep, support, testEnv, waitFor, type Driver } from './helpers/capture.ts';
 import { p } from './perf_type_page.ts';
 
 after(appiumDown);
@@ -30,7 +30,9 @@ const OPTS = ['Jedna', 'Dvě', 'Tři', 'Čtyři', 'Pět', 'Šest'];
 function generate(base: string): string {
   const out = join(base, 'vault');
   execFileSync('cargo', ['run', '--release', '--quiet', '--manifest-path', join(REPO, 'tools/gen-vault/Cargo.toml'), '--', '--seed', '1', '--small-images', '--out', out], { stdio: 'ignore' });
-  mkdirSync(join(out, '.tegg/types'), { recursive: true });
+  // gen-vault writes no type files (system types are built in): the system types' files of a new vault give
+  // `largestType()` each type's `folder:` and a file to add `views:` to.
+  cpSync(join(REPO, 'tests/fixtures/vaults/new-empty/.tegg/types'), join(out, '.tegg/types'), { recursive: true });
   mkdirSync(join(out, '.tegg/queries'), { recursive: true });
   return out;
 }
@@ -59,9 +61,23 @@ function between(log: string, from: string, to: string): number | null {
   if (j < 0 || m[i].ms === undefined || m[j].ms === undefined) return null;
   return m[j].ms! - m[i].ms!;
 }
-async function scrollToEnd(d: Driver) {
+/** Scrolls the page down from a point under the view tabs (`macos: scroll` needs an element or a point). */
+/** Scrolls down 400 px at a time from under the view tabs until every label in `want` was shown (each is removed once seen). */
+async function scrollThrough(d: Driver, tabEl: { elementId: string }, want: Map<string, string>) {
+  const r = await d.getElementRect(tabEl.elementId);
+  const at = { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height + 250) };
+  for (let i = 0; i < 200 && want.size > 0; i++) {
+    for (const label of [...want.keys()]) if (await firstShown(d, label)) want.delete(label);
+    if (want.size === 0) break;
+    await d.execute('macos: scroll', { ...at, deltaX: 0, deltaY: -400 }).catch(() => undefined);
+    await sleep(150);
+  }
+}
+async function scrollToEnd(d: Driver, tabEl: { elementId: string }) {
+  const r = await d.getElementRect(tabEl.elementId);
+  const at = { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height + 250) };
   for (let i = 0; i < 120; i++) {
-    await d.execute('macos: scroll', { deltaX: 0, deltaY: -1500 }).catch(() => undefined);
+    await d.execute('macos: scroll', { ...at, deltaX: 0, deltaY: -1500 }).catch(() => undefined);
     await sleep(25);
   }
 }
@@ -83,7 +99,7 @@ test('nfr_perf_07_ac7_ungrouped_wall_largest_type', { timeout: 60 * 60_000 }, as
       const d = await session(testEnv(support(base, { name: `s-${i}`, ui: { typeViews: { lastTab: { [t.key]: null } } } }), log, { TEGG_VAULT: vault, TEGG_ROUTE: `type/${t.key}` }));
       try {
         assert.ok(await waitFor(() => marksOf(log).some((m) => m.mark === `route-ready:type/${t.key}`), 60_000), `run ${i}: route-ready`);
-        const tabEl = await d.$('-ios predicate string:label == "Zeď" AND elementType == 59');
+        const tabEl = await d.$('-ios predicate string:title == "Zeď" AND elementType == 80');
         assert.ok(await tabEl.isDisplayed().catch(() => false), `run ${i}: the tab Zeď`);
         await tabEl.click();
         assert.ok(await waitFor(() => marksOf(log).some((m) => m.mark === 'board-ready'), 20_000), `run ${i}: board-ready (a wall marks board-* too, §42.5)`);
@@ -91,7 +107,7 @@ test('nfr_perf_07_ac7_ungrouped_wall_largest_type', { timeout: 60 * 60_000 }, as
         assert.ok(ms !== null, `run ${i}: board-request → board-ready`);
         times.push(ms!);
         if (i === 0) {
-          await scrollToEnd(d);
+          await scrollToEnd(d, tabEl);
           assert.ok(await shown(d, `${t.name}: ${t.last}`, 5000), `the last card shows (${t.name}: ${t.last})`);
         }
       } finally { await end(d); }
@@ -126,7 +142,7 @@ test('nfr_perf_07_ac8_grouped_table_1000_rows', { timeout: 60 * 60_000 }, async 
       const d = await session(testEnv(support(base, { name: `s-${i}`, ui: { typeViews: { lastTab: { polozka: null } } } }), log, { TEGG_VAULT: vault, TEGG_ROUTE: 'type/polozka' }));
       try {
         assert.ok(await waitFor(() => marksOf(log).some((m) => m.mark === 'route-ready:type/polozka'), 60_000), `run ${i}: route-ready`);
-        const tabEl = await d.$('-ios predicate string:label == "Po stavech" AND elementType == 59');
+        const tabEl = await d.$('-ios predicate string:title == "Po stavech" AND elementType == 80');
         assert.ok(await tabEl.isDisplayed().catch(() => false), `run ${i}: the tab Po stavech`);
         await tabEl.click();
         assert.ok(await waitFor(() => marksOf(log).some((m) => m.mark === 'rows-ready'), 20_000), `run ${i}: rows-ready (§42.5)`);
@@ -134,9 +150,12 @@ test('nfr_perf_07_ac8_grouped_table_1000_rows', { timeout: 60 * 60_000 }, async 
         assert.ok(ms !== null, `run ${i}: rows-request → rows-ready`);
         times.push(ms!);
         if (i === 0) {
-          for (const [o, n] of OPTS.map((x, k) => [x, k < 4 ? 167 : 166] as const)) assert.ok(await shown(d, `${o}, ${n} Položky`, 3000), `the ${o} header with its true count`);
-          await scrollToEnd(d);
-          assert.ok(await shown(d, 'Položka 0995', 5000), 'the last group\'s last row reached');
+          // The Table draws only the rows near the viewport (< 80, D-2207), so the group headers further down exist
+          // only once scrolled to: each is looked for while scrolling down a screen at a time.
+          const want = new Map<string, string>(OPTS.map((x, k) => [`${x}, ${k < 4 ? 167 : 166} Položky`, `the ${x} header with its true count`] as const));
+          want.set('Položka 0995', 'the last group\'s last row');
+          await scrollThrough(d, tabEl, want);
+          assert.deepEqual([...want.values()], [], 'every group header and the last row reached while scrolling');
         }
       } finally { await end(d); }
     }
