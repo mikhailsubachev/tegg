@@ -38,6 +38,12 @@ export { hasViews };
 /** `attrs`: slice Q3's usage-root attributes of the `All` panel (`data-display`, `data-group`, §42.1). */
 export type AllTab = { toolbar: ReactNode; body: ReactNode; attrs?: Record<string, string | undefined>; status?: () => ViewsStatus['display']; run?: (id: string) => boolean };
 
+/** The request mark of a view tab's display (§42.5): `board-request` for a wall, `rows-request` for a Table or List. */
+function requestMark(kind: 'table' | 'list' | 'wall' | null | undefined) {
+  if (kind === 'wall') void ipc.perfMark('board-request').catch(() => {});
+  else if (kind === 'table' || kind === 'list') void ipc.perfMark('rows-request').catch(() => {});
+}
+
 export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, openAdd }: {
   typeKey: string;
   /** Q2-T (§29.1): the view tab the route asks for (selected and remembered when listed). */
@@ -88,16 +94,16 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, op
   const select = (name: string | null) => {
     setSelected(name);
     if (name !== DRAFT) setLastTab(typeKey, name);
-    // Slice Q3 (§42.5): every wall tab, grouped or not, asks for its board.
+    // Slice Q3 (§42.5): every wall tab, grouped or not, asks for its board; a Table or List tab for its rows.
     const k = name ? tabs.find((x) => x.key === nameKey(name))?.kind : null;
-    if (k === 'wall') void ipc.perfMark('board-request').catch(() => {});
+    requestMark(k);
   };
   // A remembered board tab opened with the page asks for its board too (D-1800).
   const opened = useRef(false);
   useEffect(() => {
     if (opened.current || !summaries || !shownName || shownName === DRAFT) return;
     opened.current = true;
-    if (tabs.find((x) => x.name === shownName)?.kind === 'wall') void ipc.perfMark('board-request').catch(() => {});
+    requestMark(tabs.find((x) => x.name === shownName)?.kind);
   }, [summaries, shownName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- per-tab state: the filter text and tags (D-1796) and the run state shown on the tab.
