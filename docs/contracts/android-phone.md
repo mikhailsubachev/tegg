@@ -16,7 +16,7 @@ AC-39, NFR-SEC-01 AC-4, NFR-PERF-05 AC-6). Decisions: D-2000…D-2012 (plan `doc
 
 The desktop does not change (AR-03 AC-14): every item below is Android-only, chosen by `currentLayout() === 'phone'`
 (§4.1), or a pure function both platforms share with unchanged desktop results. The phone layout writes nothing to the
-vault (D-2414). §15 lists the points for the owner (CP-1…CP-16), accepted as proposed (D-2429…D-2444, BRD v1.261; owner, 2026-11-22).
+vault (D-2414). §15 lists the points for the owner (CP-1…CP-16), accepted as proposed (D-2429…D-2444, BRD v1.301; owner, 2026-11-22).
 
 ## 1. Files
 

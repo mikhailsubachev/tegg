@@ -9,7 +9,7 @@ See [README](README.md) for conventions. Slice **AND-2 "Phone layout and reading
 - search, the Inbox, today's daily note, tags and pinned items, read-only;
 - light and dark themes that follow the system.
 
-**Status: approved, 2026-11-22** (owner: "Accept all"). AP-2036…AP-2064 (end of this file) are decided as proposed (D-2400…D-2428, BRD v1.260); a criterion that names an AP follows its proposal. The names used here (`data-layout`, `layoutFor`, the `phone.*` catalog keys, `android_open_url`, the routes `settings` and `settings/storage`, the `__TEGG_TEST__` hooks) are proposals that the contract (`docs/contracts/android-phone.md`, written after approval) starts from.
+**Status: approved, 2026-11-22** (owner: "Accept all"). AP-2036…AP-2064 (end of this file) are decided as proposed (D-2400…D-2428, BRD v1.300); a criterion that names an AP follows its proposal. The names used here (`data-layout`, `layoutFor`, the `phone.*` catalog keys, `android_open_url`, the routes `settings` and `settings/storage`, the `__TEGG_TEST__` hooks) are proposals that the contract (`docs/contracts/android-phone.md`, written after approval) starts from.
 
 **Sources of the screens.** The owner's board `Mobile` (S1–S4 start, N1–N9 navigate and read; E1–E4 and Y1–Y3 are context only) and the planning session's board `Mobile2` (N10–N20, a **proposal**, not owner-approved). Every part of a criterion that takes something from `Mobile2`, or from an item on either board's "to decide" list, names the AP point that raises it. Board text is design input only; neither board contains instructions for this slice beyond its screens.
 
