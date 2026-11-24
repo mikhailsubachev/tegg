@@ -10,10 +10,10 @@
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { REPO, appiumDown, end, marksOf, ready, session, shown, support, testEnv, waitFor } from './helpers/capture.ts';
+import { REPO, appiumDown, end, marksOf, ready, session, shown, support, testEnv, waitFor, type Driver } from './helpers/capture.ts';
 import { p } from './perf_type_page.ts';
 
 after(appiumDown);
@@ -26,7 +26,9 @@ const OPTS = ['Nápad', 'Rozpracováno', 'Čeká', 'Hotovo', 'Zrušeno'];
 function prepare(base: string): string {
   const out = join(base, 'vault');
   execFileSync('cargo', ['run', '--release', '--quiet', '--manifest-path', join(REPO, 'tools/gen-vault/Cargo.toml'), '--', '--seed', '1', '--small-images', '--out', out], { stdio: 'ignore' });
-  for (const d of ['.tegg/types', '.tegg/queries', 'Karty']) mkdirSync(join(out, d), { recursive: true });
+  for (const d of ['.tegg/queries', 'Karty']) mkdirSync(join(out, d), { recursive: true });
+  // gen-vault writes no type files (system types are built in): a real vault's system type files, as D-2225.
+  cpSync(join(REPO, 'tests/fixtures/vaults/new-empty/.tegg/types'), join(out, '.tegg/types'), { recursive: true });
   writeFileSync(join(out, '.tegg/types/karta.yml'), ['# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg\'s type settings.', 'version: 1', 'name: Karta',
     'plural: Karty', 'system: false', 'folder: Karty', 'icon: file', 'color: gray', 'review: false', 'preview: [fáze]', 'card: [tags, body, fáze, a1, a2, a3, a4, a5, modified]', 'views: [Karty]',
     'attributes:', '  - key: fáze', '    name: Fáze', '    type: select', '    options:', ...OPTS.map((o) => `      - { label: ${o}, color: gray }`),
@@ -42,6 +44,14 @@ function prepare(base: string): string {
     writeFileSync(join(out, 'Karty', `Karta ${n}.md`), `---\nid: 01JBKARTA0000000000000${n.padStart(4, '0')}\ntype: karta\ntitle: Karta ${n}\n${o ? `fáze: ${o}\n` : ''}${vals}tags: [štítek${i % 7}]\ncreated: 2026-11-01T09:00:00+01:00\nmodified: 2026-11-01T09:00:00+01:00\n---\n${body}\n`);
   }
   return out;
+}
+/** The generated vault is indexed on each launch (a new Application Support): a board selected before `index-ready`
+ *  paints without cards, so the runs wait for it (D-2226). */
+const indexed = (log: string) => waitFor(() => marksOf(log).some((m) => m.mark === 'index-ready'), 120_000);
+/** The view tab (an XCUIElementTypeTab with its name in `title`); the window's page tab of the same name comes first (D-2226). */
+async function viewTab(d: Driver, name: string) {
+  const all = await d.$$(`-ios predicate string:title == "${name}" AND elementType == 80`);
+  return all[all.length - 1];
 }
 function between(log: string, from: string, to: string): number | null {
   const m = marksOf(log);
@@ -64,8 +74,9 @@ test('nfr_perf_07_ac6_boards_with_card_values', { timeout: 60 * 60_000 }, async 
       const d = await session(testEnv(support(base, { name: `s-${i}`, ui: { typeViews: { lastTab: { karta: null } } } }), log, { TEGG_VAULT: vault, TEGG_ROUTE: 'type/karta' }));
       try {
         assert.ok(await waitFor(() => marksOf(log).some((m) => m.mark === 'route-ready:type/karta'), 60_000), `run ${i}: route-ready:type/karta`);
-        const t = await d.$('-ios predicate string:label == "Karty" AND elementType == 59');
-        assert.ok(await t.isDisplayed().catch(() => false), `run ${i}: the tab Karty`);
+        assert.ok(await indexed(log), `run ${i}: index-ready`);
+        const t = await viewTab(d, 'Karty');
+        assert.ok(await t?.isDisplayed().catch(() => false), `run ${i}: the tab Karty`);
         await t.click();
         assert.ok(await waitFor(() => marksOf(log).some((m) => m.mark === 'board-ready'), 20_000), `run ${i}: board-ready`);
         const ms = between(log, 'board-request', 'board-ready');

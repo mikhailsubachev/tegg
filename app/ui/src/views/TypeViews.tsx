@@ -28,6 +28,7 @@ import { tagFilterKey } from './tagFilter';
 import { lastFocused, useViewsHandler } from './actions';
 import { ViewPanel, type PanelApi, type TabFilter, type ViewState } from './ViewPanel';
 import { isPhone } from '../phone/layout';
+import { requestMark, useRowsReady } from './marks';
 import './views.css';
 
 const nfc = (s: string) => s.normalize('NFC');
@@ -37,13 +38,9 @@ const EMPTY: TabFilter = { text: '', tags: [] };
 export { hasViews };
 
 /** `attrs`: slice Q3's usage-root attributes of the `All` panel (`data-display`, `data-group`, §42.1). */
-export type AllTab = { toolbar: ReactNode; body: ReactNode; attrs?: Record<string, string | undefined>; status?: () => ViewsStatus['display']; run?: (id: string) => boolean };
-
-/** The request mark of a view tab's display (§42.5): `board-request` for a wall, `rows-request` for a Table or List. */
-function requestMark(kind: 'table' | 'list' | 'wall' | null | undefined) {
-  if (kind === 'wall') void ipc.perfMark('board-request').catch(() => {});
-  else if (kind === 'table' || kind === 'list') void ipc.perfMark('rows-request').catch(() => {});
-}
+/** `rowsDrawn`: a Table or List body has drawn its rows (§42.5: `rows-ready`; a wall marks `board-ready` itself). */
+export type AllTab = { toolbar: ReactNode; body: ReactNode; attrs?: Record<string, string | undefined>; status?: () => ViewsStatus['display']; run?: (id: string) => boolean;
+  rowsDrawn?: boolean };
 
 export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, openAdd }: {
   typeKey: string;
@@ -95,9 +92,10 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, op
   const select = (name: string | null) => {
     setSelected(name);
     if (name !== DRAFT) setLastTab(typeKey, name);
-    // Slice Q3 (§42.5): every wall tab, grouped or not, asks for its board; a Table or List tab for its rows.
-    const k = name ? tabs.find((x) => x.key === nameKey(name))?.kind : null;
-    requestMark(k);
+    // Slice Q3 (§42.5): every wall tab, grouped or not, asks for its board; a Table or List tab for its rows; selecting
+    // `All <plural>` asks by its display on this Mac (D-2226).
+    if (name === null) setAllAsked((n) => n + 1);
+    requestMark(name ? tabs.find((x) => x.key === nameKey(name))?.kind : all.status?.()?.value ?? 'table');
   };
   // A remembered board tab opened with the page asks for its board too (D-1800).
   const opened = useRef(false);
@@ -106,6 +104,10 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, op
     opened.current = true;
     requestMark(tabs.find((x) => x.name === shownName)?.kind);
   }, [summaries, shownName]); // eslint-disable-line react-hooks/exhaustive-deps
+  // `All <plural>`'s Table or List: `rows-ready` once per selection of it (§42.5, D-2226); a page opened on it marks
+  // none, as it marks no request (its `route-ready` is FR-TYP-09 AC-12's).
+  const [allAsked, setAllAsked] = useState(0);
+  useRowsReady(shownName === null && !!all.rowsDrawn, shownName === null && allAsked > 0 ? `all:${allAsked}` : null);
 
   // ---- per-tab state: the filter text and tags (D-1796) and the run state shown on the tab.
   const [filters, setFilters] = useState<Record<string, TabFilter>>({});

@@ -9,6 +9,7 @@ import { events, ipc } from '../ipc/client';
 import type { QueryDto, QueryUsageDto, ViewUsageDto } from '../ipc/queries';
 import { chipTypes } from '../links/icons';
 import { setLastTab } from '../views/uiState';
+import { requestMark } from '../views/marks';
 import { Icon } from '../shell/Icon';
 import { useReference } from '../preview/useReference';
 import { chipIcon } from '../links/icons';
@@ -63,9 +64,15 @@ export function QueryPage({ name, heading, onAll, commandRef, statusRef, onRenam
   const blockApi = useRef<QueryBlockApi | null>(null);
   useUndoQueryRename();
 
+  // §42.5 (D-2226): the page asks for its board or rows once per query, when the query first reads (its file's display).
+  const requested = useRef<string | null>(null);
   const load = useCallback(() => {
     let live = true;
-    void ipc.queryGet(name).then((r) => { if (live) setQ((o) => (JSON.stringify(o) === JSON.stringify(r) ? o : r)); }, () => {});
+    void ipc.queryGet(name).then((r) => {
+      if (!live) return;
+      if (requested.current !== name && r.def && (r.state === 'ok' || r.state === 'newer')) { requested.current = name; requestMark(r.def.view); }
+      setQ((o) => (JSON.stringify(o) === JSON.stringify(r) ? o : r));
+    }, () => {});
     void ipc.queryUsages(name).then((r) => { if (live) setUsages((o) => (JSON.stringify(o) === JSON.stringify(r) ? o : r)); }, () => {});
     // Slice Q2 (D-1804, FR-QRY-06 AC-24): the type pages showing it as a view, first in `Used on`.
     void ipc.queryViewUsages(name).then((r) => { if (live) setPages((o) => (JSON.stringify(o) === JSON.stringify(r) ? o : r)); }, () => {});

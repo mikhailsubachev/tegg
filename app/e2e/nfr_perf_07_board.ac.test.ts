@@ -10,7 +10,7 @@
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { REPO, appiumDown, end, marksOf, session, shown, sleep, support, testEnv, waitFor, type Driver } from './helpers/capture.ts';
@@ -26,9 +26,10 @@ const OPTS = ['Nápad', 'Rozpracováno', 'Čeká', 'Hotovo', 'Zrušeno'];
 function prepare(base: string): string {
   const out = join(base, 'vault');
   execFileSync('cargo', ['run', '--release', '--quiet', '--manifest-path', join(REPO, 'tools/gen-vault/Cargo.toml'), '--', '--seed', '1', '--small-images', '--out', out], { stdio: 'ignore' });
-  mkdirSync(join(out, '.tegg/types'), { recursive: true });
   mkdirSync(join(out, '.tegg/queries'), { recursive: true });
   mkdirSync(join(out, 'Karty'), { recursive: true });
+  // gen-vault writes no type files (system types are built in): a real vault's system type files, as D-2225.
+  cpSync(join(REPO, 'tests/fixtures/vaults/new-empty/.tegg/types'), join(out, '.tegg/types'), { recursive: true });
   writeFileSync(join(out, '.tegg/types/karta.yml'), ['# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg\'s type settings.', 'version: 1', 'name: Karta',
     'plural: Karty', 'system: false', 'folder: Karty', 'icon: file', 'color: gray', 'review: false', 'preview: [fáze]', 'views: [Karty]', 'attributes:', '  - key: fáze',
     '    name: Fáze', '    type: select', '    options:', ...OPTS.map((o) => `      - { label: ${o}, color: gray }`), ''].join('\n'));
@@ -41,6 +42,25 @@ function prepare(base: string): string {
     writeFileSync(join(out, 'Karty', `Karta ${n}.md`), `---\nid: 01JBKARTA0000000000000${n.padStart(4, '0')}\ntype: karta\ntitle: Karta ${n}\n${o ? `fáze: ${o}\n` : ''}tags: [štítek${i % 7}]\ncreated: 2026-11-01T09:00:00+01:00\nmodified: 2026-11-01T09:00:00+01:00\n---\nKarta číslo ${n}.\n`);
   }
   return out;
+}
+/** The generated vault is indexed on each launch (a new Application Support): a board selected before `index-ready`
+ *  paints without cards, so the runs wait for it (D-2226). */
+const indexed = (log: string) => waitFor(() => marksOf(log).some((m) => m.mark === 'index-ready'), 120_000);
+/** The view tab (an XCUIElementTypeTab with its name in `title`); the window's page tab of the same name comes first (D-2226). */
+async function viewTab(d: Driver, name: string) {
+  const all = await d.$$(`-ios predicate string:title == "${name}" AND elementType == 80`);
+  return all[all.length - 1];
+}
+/** The board has settled after a drop: no new mark (the write, the watcher's index passes, the board's re-run) for
+ *  1.5 s. A drag during the board's refresh is lost (D-2226). */
+async function settled(log: string): Promise<boolean> {
+  let n = marksOf(log).length;
+  for (let quiet = 0, k = 0; quiet < 1500 && k < 100; quiet += 100, k++) {
+    await sleep(100);
+    const now = marksOf(log).length;
+    if (now !== n) { n = now; quiet = -100; }
+  }
+  return true;
 }
 /** The ms between the last `from` mark and the first `to` mark after it in a perf log. */
 function between(log: string, from: string, to: string): number | null {
@@ -69,14 +89,15 @@ test('nfr_perf_07_ac3_board_500_cards_6_lanes', { timeout: 60 * 60_000 }, async 
       const d = await session(testEnv(support(base, { name: `s-${i}`, ui: { typeViews: { lastTab: { karta: null } } } }), log, { TEGG_VAULT: vault, TEGG_ROUTE: 'type/karta' }));
       try {
         assert.ok(await waitFor(() => marksOf(log).some((m) => m.mark === 'route-ready:type/karta'), 60_000), `run ${i}: route-ready:type/karta`);
-        const t = await d.$('-ios predicate string:label == "Karty" AND elementType == 59');
-        assert.ok(await t.isDisplayed().catch(() => false), `run ${i}: the tab Karty`);
+        assert.ok(await indexed(log), `run ${i}: index-ready`);
+        const t = await viewTab(d, 'Karty');
+        assert.ok(await t?.isDisplayed().catch(() => false), `run ${i}: the tab Karty`);
         await t.click();
         assert.ok(await waitFor(() => marksOf(log).some((m) => m.mark === 'board-ready'), 20_000), `run ${i}: board-ready`);
         const ms = between(log, 'board-request', 'board-ready');
         assert.ok(ms !== null, `run ${i}: board-request → board-ready`);
         times.push(ms!);
-        if (i === 0) for (const l of ['Nápad, 100 cards', 'Zrušeno, 50 cards', 'No Fáze, 50 cards']) assert.ok(await shown(d, l, 3000), `the lane ${l}`);
+        if (i === 0) for (const l of ['Nápad, 100 Karty', 'Zrušeno, 50 Karty', 'No Fáze, 50 Karty']) assert.ok(await shown(d, l, 3000), `the lane ${l}`);
       } finally { await end(d); }
     }
     console.log(`NFR-PERF-07 AC-3: 500 cards in 6 lanes, board-request → board-ready p95 ${p(times, 0.95).toFixed(1)} ms (target 225 ms)`);
@@ -97,6 +118,8 @@ test('nfr_perf_07_ac4_dragged_card_shows_within_100_ms', { timeout: 60 * 60_000 
     const times: number[] = [];
     try {
       assert.ok(await waitFor(() => marksOf(log).some((m) => m.mark === 'board-ready'), 60_000), 'the Karty board is ready');
+      assert.ok(await indexed(log), 'index-ready');
+      assert.ok(await shown(d, 'Karta: Karta 000', 20_000), 'the board shows its cards once indexed');
       for (let i = 0; i < 20; i++) {
         const title = `Karta ${String(i).padStart(3, '0')}`;
         const from = await rectOf(d, `Karta: ${title}`);
@@ -109,7 +132,7 @@ test('nfr_perf_07_ac4_dragged_card_shows_within_100_ms', { timeout: 60 * 60_000 
         const ms = marksOf(log).filter((m) => m.mark === 'board-card-moved').at(-1)?.ms ?? null;
         assert.ok(ms !== null, `drop ${i}: a time`);
         times.push(ms!);
-        await sleep(300);
+        assert.ok(await settled(log), `drop ${i}: written and indexed`);
       }
     } finally { await end(d); }
     console.log(`NFR-PERF-07 AC-4: drop → card in its lane p95 ${p(times, 0.95).toFixed(1)} ms (target 100 ms)`);
