@@ -2,7 +2,7 @@
 
 Public interfaces of slice AND-1, for the test author (D-61) and the build. ACs: `docs/acceptance/android-shell.md`
 (approved; RA1…RA7; AR-03 AC-6…AC-12, FR-SYN-03 AC-33, AC-34, AC-37, FR-SYN-06 AC-53, FR-VLT-01 AC-18…AC-28, FR-STO-07
-AC-13, AC-14, AC-16, FR-FMT-12 AC-16, FR-EDT-08 AC-14, NFR-SEC-01 AC-1…AC-3, AR-08 AC-1…AC-6, FR-UX-01 AC-7). Decisions:
+AC-13, AC-14, AC-17, FR-FMT-12 AC-17, FR-EDT-08 AC-14, NFR-SEC-01 AC-1…AC-3, AR-08 AC-1…AC-6, FR-UX-01 AC-7). Decisions:
 D-2000…D-2012 (plan `docs/plans/android-mvp-plan.md`), D-2013…D-2035 (the ACs' AP-2013…AP-2035, in order). Spike
 report: `spikes/android/FINDINGS.md` (F1…F11). Precedents: [ms2-shell.md](ms2-shell.md), [ms3-shell.md](ms3-shell.md)
 (IPC, perf marks, test environment), [ms5-capture.md](ms5-capture.md) §2.1 (the command manifest and capabilities).
@@ -89,7 +89,7 @@ The regression test `bug_and0f1_fr_syn_03_access_events_are_not_changes` lives i
 test module (it may call the function, which exists with today's behaviour once the red commit adds it as a stub that
 treats every event as a change). The AC test is `crates/tegg-vault/tests/ac_android_watcher.rs`.
 
-### 3.2 On-disk names (FR-FMT-12 AC-16, D-2029)
+### 3.2 On-disk names (FR-FMT-12 AC-17, D-2029)
 
 ```rust
 pub enum OnDiskName { Found(String), Missing, Ambiguous }
@@ -144,7 +144,7 @@ to the `IpcError` kind `Unsupported`) for every `JobOp` except `TestBackup`: `No
 
 ## 4. Shell pure functions (host-tested)
 
-### 4.1 `app_dirs_for` (FR-STO-07 AC-16)
+### 4.1 `app_dirs_for` (FR-STO-07 AC-17)
 
 ```rust
 pub enum Platform { MacOs { home: PathBuf, preview: bool, test: bool, app_support: Option<String> }, Android { files_dir: PathBuf } }
@@ -352,7 +352,7 @@ AC-1), backup (FR-STO-07 AC-14), version (RA7), ABIs, debuggable, signer not `CN
 | CP | Point | Proposal | Alternative | Affects |
 | --- | --- | --- | --- | --- |
 | CP-1 | **`CoreOptions { bulk_jobs }` breaks 69 test files.** `CoreOptions` is built as a struct literal (`CoreOptions { watch, sync: None }`) in 69 files, most of them AC tests. A new field stops them compiling, and AC tests may not change without a trailer. | `OpenExtras { bulk_jobs }` and `Core::open_ext(…)`; `Core::open` is unchanged. FR-SYN-06 AC-53 reads `CoreOptions { bulk_jobs: false, .. }` as `open_ext(…, OpenExtras { bulk_jobs: false })`. | Add the field and change the 69 files under one `AC-Test-Change` trailer | §3.3, FR-SYN-06 AC-53 |
-| CP-2 | **"Tauri's path API (`app_data_dir`)" is not the private files dir.** On Android Tauri's `app_data_dir` is `/data/user/0/<id>/<id>` (`dataDir` plus the identifier), while RA1 and FR-STO-07 AC-13, AC-16 name `/data/user/0/<id>/files` (`run-as … ls files/`). | Take `Context.getFilesDir()` from the plugin (§6): still the platform's own answer, never a constant. | Use `app_data_dir` and read AC-12/AC-13's paths as `<id>/<id>` | §4.1, §6 |
+| CP-2 | **"Tauri's path API (`app_data_dir`)" is not the private files dir.** On Android Tauri's `app_data_dir` is `/data/user/0/<id>/<id>` (`dataDir` plus the identifier), while RA1 and FR-STO-07 AC-13, AC-17 name `/data/user/0/<id>/files` (`run-as … ls files/`). | Take `Context.getFilesDir()` from the plugin (§6): still the platform's own answer, never a constant. | Use `app_data_dir` and read AC-12/AC-13's paths as `<id>/<id>` | §4.1, §6 |
 | CP-3 | **How the UI's refusal list is tied to the Rust lists.** | The Rust AC-9 test writes `commands.json` (`DESKTOP`, `ANDROID`) to `app/src-tauri/target/`; the TS test reads it and fails when it is missing. The `app-shell-test` step runs Rust before the UI tests. | A hand-kept copy checked only by review | §9.1, AR-03 AC-9, AC-11 |
 | CP-4 | **The LA layer without Appium.** The ACs name Appium UiAutomator2 "or the accessibility tree, as the contract decides". Appium needs the UiAutomator2 driver and a chromedriver matching WebView 124, both downloads. | Drive the device with `adb` (install, `am`, `input keyevent`, `appops`, `run-as`, `dumpsys`, `uiautomator dump` for native screens) and the WebView through the Chrome DevTools Protocol over `adb forward tcp:<port> localabstract:webview_devtools_remote_<pid>` (Node's built-in `WebSocket`); the test APK is debuggable and the plugin enables WebView debugging only then (§6). No new dependency. AC-18's "UiAutomator dump every 250 ms" becomes a CDP `MutationObserver` check (a `uiautomator dump` takes about 1 s). | Appium UiAutomator2 with chromedriver (`npm run e2e:setup-android` downloads both) | §12, every LA criterion |
 | CP-5 | **`generate_context!` needs `frontendDist`.** `cargo check` of the shell fails without `app/dist`. | The step creates an empty `app/dist` when missing; a check doesn't embed the UI. | Build the UI first in the step (about 20 s more) | §10.3, AR-03 AC-6 |

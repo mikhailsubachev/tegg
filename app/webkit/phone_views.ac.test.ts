@@ -1,13 +1,13 @@
 // Slice AND-2, L5p (projects `phone-webkit`, `phone-chromium`): docs/acceptance/android-phone.md RA11 (type and query
 // pages, views read-only, D-2006):
-// - FR-TYP-09 AC-37 (`All Books`), FR-QRY-07 AC-32 (tabs as chips), FR-QRY-05 AC-32…AC-35 (Table, List, vertical and
-//   horizontal boards), FR-QRY-06 AC-26…AC-28 (the Queries page, a query page, query blocks), FR-QRY-09 AC-9 (live
-//   views), FR-TSK-04 AC-30 (`type/task` with its views).
+// - FR-TYP-09 AC-38 (`All Books`), FR-QRY-07 AC-36 (tabs as chips), FR-QRY-05 AC-48…AC-51 (Table, List, vertical and
+//   horizontal boards), FR-QRY-06 AC-27…AC-29 (the Queries page, a query page, query blocks), FR-QRY-09 AC-10 (live
+//   views), FR-TSK-04 AC-31 (`type/task` with its views).
 // Contract docs/contracts/android-phone.md §4.3 (the view-only line), §9.5, §9.6, §14.1. Fixtures: views/ + phone/,
 // views-tasks/ (on tasks/ + new-empty/.tegg). Expected results: views.md R193, R208 (./views-helpers.ts,
 // ./views-tasks-helpers.ts).
 // Red-test readings (reported): the phone keeps the desktop's view marks (`data-views-tablist`, `data-view-tab`,
-// `data-query-result`, `data-board`, `data-lane`, `data-board-card`), so R193's probes apply; FR-QRY-09 AC-9's second
+// `data-query-result`, `data-board`, `data-lane`, `data-board-card`), so R193's probes apply; FR-QRY-09 AC-10's second
 // change sets `status: Read` with the 2026 `finished` date, as `Přečtené 2026` lists only Read books; FR-QRY-05
 // AC-32's drag of Noční vlak 320 px to the right starts from lanes scrolled 320 px in (at 0 a rightward drag has
 // nothing to scroll); scroll amounts are asserted on Chromium (CDP touch).
@@ -59,7 +59,7 @@ async function setScroll(scope: Locator, left: number) {
     if (e) e.scrollLeft = l;
   }, left);
 }
-/** Title stays at the table container's left edge after a 300 px sideways scroll (FR-TYP-09 AC-37). */
+/** Title stays at the table container's left edge after a 300 px sideways scroll (FR-TYP-09 AC-38). */
 async function titleSticky(page: Page, scope: Locator, how: string) {
   await setScroll(scope, 300);
   await sleep(150);
@@ -75,9 +75,9 @@ async function titleSticky(page: Page, scope: Locator, how: string) {
   await setScroll(scope, 0);
 }
 
-// ------------------------------------------------------------------------------------------------ FR-TYP-09 AC-37
+// ------------------------------------------------------------------------------------------------ FR-TYP-09 AC-38
 
-test('fr_typ_09_ac37_all_tab_read_only_on_the_phone', async ({ page, browser }) => {
+test('fr_typ_09_ac38_all_tab_read_only_on_the_phone', async ({ page, browser }) => {
   const core = await startPhone(page, { route: 'type/book' });
   const before = await fileStateOf(core);
   assert.equal(await h1Is(page, 'Books'), 'Books', 'the heading Books');
@@ -101,9 +101,9 @@ test('fr_typ_09_ac37_all_tab_read_only_on_the_phone', async ({ page, browser }) 
   await assertZeroWrites(core, before, 'All Books');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-QRY-07 AC-32
+// ------------------------------------------------------------------------------------------------ FR-QRY-07 AC-36
 
-test('fr_qry_07_ac32_view_tabs_on_the_phone', async ({ browser }) => {
+test('fr_qry_07_ac36_view_tabs_on_the_phone', async ({ browser }) => {
   let page = await phonePage(browser);
   const core = await startPhone(page, { route: 'type/book' });
   const before = await fileStateOf(core);
@@ -146,9 +146,9 @@ test('fr_qry_07_ac32_view_tabs_on_the_phone', async ({ browser }) => {
   await page.close();
 });
 
-// ------------------------------------------------------------------------------------------------ FR-QRY-05 AC-34
+// ------------------------------------------------------------------------------------------------ FR-QRY-05 AC-50
 
-test('fr_qry_05_ac34_table_read_only_on_the_phone', async ({ browser }) => {
+test('fr_qry_05_ac50_table_read_only_on_the_phone', async ({ browser }) => {
   let page = await phonePage(browser);
   const core = await startPhone(page, { route: 'type/book' });
   const before = await fileStateOf(core);
@@ -180,33 +180,43 @@ test('fr_qry_05_ac34_table_read_only_on_the_phone', async ({ browser }) => {
   await page.close();
 });
 
-// ------------------------------------------------------------------------------------------------ FR-QRY-05 AC-35
+// ------------------------------------------------------------------------------------------------ FR-QRY-05 AC-51
 
-test('fr_qry_05_ac35_list_on_the_phone', async ({ page, browser }) => {
+test('fr_qry_05_ac51_ungrouped_wall_on_the_phone', async ({ page, browser }) => {
+  // Slice Q3 (main's D-2179): a broken group_by draws an ungrouped wall (was a List). The phone draws only the cards in
+  // view, so they are gathered while scrolling (AC-Test-Change, approved by the owner, D-2480).
   const route = 'query/Seskupeno podle data';
   const { page: desk, context } = await desktopPage(browser);
   await startDesktop(desk, { route });
-  const want = await eventually(() => desk.getByRole('main').locator('[data-query-result]').evaluateAll((es) => es.map((e) => (e.getAttribute('data-query-result') ?? '').normalize('NFC'))), (x) => x.length === 17, 3000);
+  const want = await eventually(() => desk.getByRole('main').locator('[data-board-card]').evaluateAll((es) => es.map((e) => (e.getAttribute('data-board-card') ?? '').normalize('NFC'))), (x) => x.length === 17, 3000);
   await context.close();
   const core = await startPhone(page, { route });
   const before = await fileStateOf(core);
-  await must(main(page).getByText('The setting group_by can\'t be read, so its default is used.', { exact: true }), 'the notice');
-  const rows = main(page).locator('[data-query-result]');
-  const got = await eventually(() => rows.evaluateAll((es) => es.map((e) => (e.getAttribute('data-query-result') ?? '').normalize('NFC'))), (x) => x.length === 17, 3000);
-  assert.deepEqual(got, want, 'its 17 books by title (R193, as the desktop)');
-  const notice = await rect(main(page).getByText('The setting group_by can\'t be read, so its default is used.'));
-  const first = await rect(rows.first());
-  assert.ok(notice && first && notice.bottom <= first.top + 1, 'the rows are below the notice');
-  const hs = await rows.evaluateAll((es) => es.map((e) => (e.closest('li') ?? e).getBoundingClientRect().height));
-  assert.ok(hs.every((h) => h >= 56 - 0.5), `each row at least 56 px (${hs.map(Math.round)})`);
-  await rows.first().click();
+  const notice = await must(main(page).getByText('The setting group_by can\'t be read, so its default is used.', { exact: true }), 'the notice');
+  const cards = main(page).locator('[data-board-card]');
+  await must(cards, 'the wall\'s cards');
+  const nr = await rect(notice);
+  const first = await rect(cards.first());
+  assert.ok(nr && first && nr.bottom <= first.top + 1, 'the cards are below the notice');
+  const got: string[] = [];
+  for (let i = 0; i < 60 && got.length < 17; i++) {
+    for (const p of await cards.evaluateAll((es) => es.map((e) => (e.getAttribute('data-board-card') ?? '').normalize('NFC')))) if (!got.includes(p)) got.push(p);
+    const hs = await cards.evaluateAll((es) => es.filter((e) => e.getClientRects().length > 0).map((e) => e.getBoundingClientRect().height));
+    assert.ok(hs.every((h) => h >= 48 - 0.5), `each card at least 48 px (${hs.map(Math.round)})`);
+    await page.evaluate(() => { const m = [...document.querySelectorAll('main')].find((e) => e.getClientRects().length > 0) as HTMLElement; m.scrollTop += m.clientHeight / 2; });
+    await sleep(100);
+  }
+  assert.deepEqual(got, want, `its 17 books in R193's order, as the desktop wall`);
+  await page.evaluate(() => { const m = [...document.querySelectorAll('main')].find((e) => e.getClientRects().length > 0) as HTMLElement; m.scrollTop = 0; });
+  await sleep(200);
+  await cards.first().click();
   assert.equal(await eventually(() => mainName(page), (n) => n === titleOf(got[0]), 3000), titleOf(got[0]), 'a tap opens the book');
-  await assertZeroWrites(core, before, 'the List');
+  await assertZeroWrites(core, before, 'the ungrouped wall');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-QRY-05 AC-32
+// ------------------------------------------------------------------------------------------------ FR-QRY-05 AC-48
 
-test('fr_qry_05_ac32_vertical_board_on_the_phone', async ({ page }) => {
+test('fr_qry_05_ac48_vertical_board_on_the_phone', async ({ page }) => {
   const core = await startPhone(page, { route: 'type/book' });
   const before = await fileStateOf(core);
   await tab(page, 'Rozečtené').click();
@@ -250,9 +260,9 @@ test('fr_qry_05_ac32_vertical_board_on_the_phone', async ({ page }) => {
   assert.equal(await eventually(() => mainName(page), (n) => n === 'Noční vlak', 3000), 'Noční vlak', 'a tap on a card opens it');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-QRY-05 AC-33
+// ------------------------------------------------------------------------------------------------ FR-QRY-05 AC-49
 
-test('fr_qry_05_ac33_horizontal_board_and_folds_on_the_phone', async ({ page }) => {
+test('fr_qry_05_ac49_horizontal_board_and_folds_on_the_phone', async ({ page }) => {
   const core = await startPhone(page, { route: 'query/Podle žánru', viewport: SMALL });
   const before = await fileStateOf(core);
   const b = await must(board(page, 'Podle žánru'), 'the Podle žánru board');
@@ -287,9 +297,9 @@ test('fr_qry_05_ac33_horizontal_board_and_folds_on_the_phone', async ({ page }) 
   await assertZeroWrites(core, before, 'folds');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-QRY-06 AC-26
+// ------------------------------------------------------------------------------------------------ FR-QRY-06 AC-29
 
-test('fr_qry_06_ac26_queries_page_on_the_phone', async ({ page, browser }) => {
+test('fr_qry_06_ac29_queries_page_on_the_phone', async ({ page, browser }) => {
   const core = await startPhone(page, { route: 'inbox' });
   const before = await fileStateOf(core);
   await drawerEntry(page, 'Queries');
@@ -369,9 +379,9 @@ test('fr_qry_06_ac28_query_blocks_on_the_phone', async ({ page }) => {
   await assertZeroWrites(core, before, 'query blocks');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-QRY-09 AC-9
+// ------------------------------------------------------------------------------------------------ FR-QRY-09 AC-10
 
-test('fr_qry_09_ac9_live_views_on_the_phone', async ({ page }) => {
+test('fr_qry_09_ac10_live_views_on_the_phone', async ({ page }) => {
   const core: PhoneHandle = await startPhone(page, { route: 'type/book' });
   await tab(page, 'Rozečtené').click();
   const b = await must(board(page, 'Rozečtené'), 'the Rozečtené board');
@@ -393,9 +403,9 @@ test('fr_qry_09_ac9_live_views_on_the_phone', async ({ page }) => {
   assert.deepEqual(await core.writesTo(), [], 'nothing written');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-TSK-04 AC-30
+// ------------------------------------------------------------------------------------------------ FR-TSK-04 AC-31
 
-test('fr_tsk_04_ac30_tasks_read_only_on_the_phone', async ({ page }) => {
+test('fr_tsk_04_ac31_tasks_read_only_on_the_phone', async ({ page }) => {
   const core = await startPhone(page, { vault: overlayVault(), route: 'inbox', now: '2026-10-14T12:00:00+02:00', uiState: ui() });
   const before = await fileStateOf(core);
   await drawerEntry(page, 'Tasks');

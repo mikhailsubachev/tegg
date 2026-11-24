@@ -1,5 +1,5 @@
 //! Slice AND-1, Mac host: docs/acceptance/android-shell.md
-//! - FR-FMT-12 AC-16, L1 part: `tegg_vault::on_disk_name(listing, nfc_name)` (docs/contracts/android-shell.md §3.2,
+//! - FR-FMT-12 AC-17, L1 part: `tegg_vault::on_disk_name(listing, nfc_name)` (docs/contracts/android-shell.md §3.2,
 //!   D-2029) returns the listed entry whose NFC form equals the name, `Missing` when none does and `Ambiguous` when two
 //!   do;
 //! - FR-VLT-01 AC-27, L4 part: the recent-vaults list keeps the on-disk path of a vault folder stored in NFD bytes, with
@@ -27,7 +27,7 @@ fn describe(r: &OnDiskName) -> String {
 }
 
 #[test]
-fn fr_fmt_12_ac16_nfd_names_on_android() {
+fn fr_fmt_12_ac17_nfd_names_on_android() {
     let nfc_name = "Poznámka.md";
     let nfd_name = nfd(nfc_name);
     assert_ne!(nfc_name.as_bytes(), nfd_name.as_bytes(), "setup: the two spellings differ in bytes");

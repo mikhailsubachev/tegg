@@ -1,8 +1,8 @@
 // Slice AND-2, LA (the test APK on the arm64 emulator `tegg-and-35`, `pixel_7` profile, gesture navigation; adb + CDP;
 // contract docs/contracts/android-phone.md §12.1, §13.3, §14.2): docs/acceptance/android-phone.md "Real-app tests":
 // FR-UX-04 AC-3, AC-4, AC-7; FR-NAV-04 AC-14, AC-15; FR-NAV-03 AC-17, AC-18; FR-HOM-04 AC-1; FR-INB-01 AC-15;
-// FR-DLY-01 AC-13; FR-QRY-05 AC-32; FR-QRY-09 AC-9; FR-EDT-10 AC-10; FR-ATT-01 AC-17; FR-NAV-08 AC-3; FR-MMP-02 AC-33,
-// AC-34; FR-NAV-01 AC-24; FR-SET-01 AC-14; FR-SET-02 AC-11, AC-12; FR-UX-08 AC-27, AC-28; NFR-SEC-01 AC-4.
+// FR-DLY-01 AC-13; FR-QRY-05 AC-48; FR-QRY-09 AC-10; FR-EDT-10 AC-10; FR-ATT-01 AC-17; FR-NAV-08 AC-3; FR-MMP-02 AC-33,
+// AC-34; FR-NAV-01 AC-24; FR-SET-01 AC-14; FR-SET-02 AC-11, AC-12; FR-UX-08 AC-28, AC-29; NFR-SEC-01 AC-4.
 // Each test pushes a fresh copy of its synthetic fixture to shared storage (D-62), starts the test APK with
 // `test-env.json` (`TEGG_VAULT`, `TEGG_ROUTE`, `TEGG_IPC_LOG`) and checks "untouched" with AND-1's `fileState` and "zero
 // writes" with the IPC log (§2.3). Every test starts with `ready()` (requireDevice): without an emulator it fails, never
@@ -400,9 +400,9 @@ test('fr_dly_01_ac13_today_on_the_phone_writes_nothing', async () => {
   assert.deepEqual(ipcWrites(), [], 'zero writes');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-QRY-05 AC-32, FR-QRY-09 AC-9
+// ------------------------------------------------------------------------------------------------ FR-QRY-05 AC-48, FR-QRY-09 AC-10
 
-test('fr_qry_05_ac32_vertical_board_on_the_phone', async () => {
+test('fr_qry_05_ac48_vertical_board_on_the_phone', async () => {
   ready();
   const vault = pushPhone();
   const before = fileState(vault);
@@ -422,7 +422,7 @@ test('fr_qry_05_ac32_vertical_board_on_the_phone', async () => {
   assert.deepEqual(changed(before, fileState(vault)), [], 'the vault is untouched');
 });
 
-test('fr_qry_09_ac9_live_views_on_the_phone', async () => {
+test('fr_qry_09_ac10_live_views_on_the_phone', async () => {
   ready();
   const vault = pushPhone();
   const { v } = await launchPhone(vault, { TEGG_ROUTE: 'type/book' }, views);
@@ -597,7 +597,7 @@ test('fr_set_02_ac12_system_bars_follow_the_theme', async () => {
   nightMode(false);
 });
 
-// ------------------------------------------------------------------------------------------------ FR-UX-08 AC-27, AC-28
+// ------------------------------------------------------------------------------------------------ FR-UX-08 AC-28, AC-29
 
 test('fr_ux_08_ac28_talkback_reads_the_frame', async () => {
   ready();
@@ -619,7 +619,7 @@ test('fr_ux_08_ac28_talkback_reads_the_frame', async () => {
   assert.doesNotMatch(d2, /(text|content-desc)="New"/, 'with the drawer open, the elements behind it (the bottom bar) are not in the dump');
 });
 
-test('fr_ux_08_ac27_system_font_size', async () => {
+test('fr_ux_08_ac29_system_font_size', async () => {
   ready();
   const vault = pushPhone();
   fontScale(1);

@@ -124,9 +124,9 @@ test('fr_syn_06_ac54_reading_on_the_phone_writes_nothing', async () => {
   assert.ok(privateListing().length > 0, 'only the private files dir changes');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-SYN-06 AC-52
+// ------------------------------------------------------------------------------------------------ FR-SYN-06 AC-55
 
-test('fr_syn_06_ac52_no_task_views_migration_on_android', async () => {
+test('fr_syn_06_ac55_no_task_views_migration_on_android', async () => {
   ready();
   const vault = pushVault(['tests/fixtures/vaults/tasks', 'tests/fixtures/vaults/new-empty/.tegg'], 'Úkoly');
   sh(`rm -f ${quote(`${vault}/README.md`)}`, false);
@@ -180,9 +180,9 @@ test('fr_syn_03_ac38_external_changes_on_the_phone', async () => {
   assert.deepEqual(ipcWrites(), [], 'Tegg writes nothing');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-SYN-03 AC-36
+// ------------------------------------------------------------------------------------------------ FR-SYN-03 AC-39
 
-test('fr_syn_03_ac36_partly_synced_vault_on_the_phone', async () => {
+test('fr_syn_03_ac39_partly_synced_vault_on_the_phone', async () => {
   ready();
   const vault = pushPhone();
   const book = `${vault}/.tegg/types/book.yml`;

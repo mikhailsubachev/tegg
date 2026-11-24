@@ -1,4 +1,4 @@
-// Slice AND-2 (docs/contracts/android-phone.md §4.3; FR-TYP-09 AC-37, FR-QRY-05 AC-34, D-2424): the view-only line
+// Slice AND-2 (docs/contracts/android-phone.md §4.3; FR-TYP-09 AC-38, FR-QRY-05 AC-50, D-2424): the view-only line
 // under a type page's or query page's tabs.
 import { t } from '../i18n/catalog';
 import type { SortDto } from '../ipc/queries';

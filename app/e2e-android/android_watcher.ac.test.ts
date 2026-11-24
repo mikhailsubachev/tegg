@@ -3,14 +3,14 @@
 // - FR-SYN-06 AC-53, device part: the shell fixture plus the Stray, three notes opened, HOME and back, 60 s: the vault is
 //   untouched (D-2007; T1). The tidy job is allowed in the test environment (`TEGG_TEST_TIDY=1`,
 //   `TEGG_TEST_QUIET_MS=200`), so a tidy run on the phone would show;
-// - FR-FMT-12 AC-16, device part: a note stored in NFD bytes on a file system that doesn't normalise names (AP-2029;
+// - FR-FMT-12 AC-17, device part: a note stored in NFD bytes on a file system that doesn't normalise names (AP-2029;
 //   T1, T2). Both forms beside each other can't exist on Android shared storage, which treats NFC and NFD as one name;
 //   that part stays on the host layers (D-2052).
 // Red-test reading (reported): notes are "opened" with the app's own IPC (`note_read`, as the page does) or with
 // `TEGG_ROUTE`, as the LA harness has no navigation driver. Every test starts with `ready()` (requireDevice: fails,
 // never skips, without an emulator).
 // Slice AND-2 (docs/contracts/android-phone.md CP-6 → D-2434; AC-Test-Change approved by the owner): "the vault opens"
-// is the phone frame's bottom bar `nav[aria-label="Main"]`; FR-FMT-12 AC-16's edit types into the editor, so its second
+// is the phone frame's bottom bar `nav[aria-label="Main"]`; FR-FMT-12 AC-17's edit types into the editor, so its second
 // start sets `TEGG_LAYOUT=desktop` (contract §12.1), as the phone layout has no editor in AND-2 (D-2415).
 // Written from the ACs and the contract only (D-61).
 import { after, test } from 'node:test';
@@ -126,9 +126,9 @@ test('fr_syn_06_ac53_no_writes_and_no_jobs_on_android', async () => {
   assert.equal(sh(`ls ${quote(`${vault}/Tasks`)}`, false).includes('Zavolat Petrovi'), false, 'no tidy move to Tasks/');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-FMT-12 AC-16
+// ------------------------------------------------------------------------------------------------ FR-FMT-12 AC-17
 
-test('fr_fmt_12_ac16_nfd_names_on_android', async () => {
+test('fr_fmt_12_ac17_nfd_names_on_android', async () => {
   ready();
   const vault = pushShell();
   const nfc = 'Pages/Poznámka.md';

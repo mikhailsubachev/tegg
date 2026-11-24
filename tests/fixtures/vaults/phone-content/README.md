@@ -1,6 +1,6 @@
 # Overlay `phone-content/` (slice AND-2, D-2474)
 
-Synthetic overlay for FR-UX-03 AC-57 in `docs/acceptance/android-phone.md`: controls inside a note's content on the
+Synthetic overlay for FR-UX-03 AC-59 in `docs/acceptance/android-phone.md`: controls inside a note's content on the
 phone. Hand-written (D-50); every name and text is invented (D-62). LF, UTF-8 without BOM, NFC, one final `\n`.
 
 **How tests use it.** Copy `tests/fixtures/vaults/tasks/` (without its README), then `new-empty/.tegg/`, then

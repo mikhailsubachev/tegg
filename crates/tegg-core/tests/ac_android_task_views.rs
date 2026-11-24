@@ -1,4 +1,4 @@
-//! Slice AND-2, L4 (Mac host, temporary copy): docs/acceptance/android-phone.md FR-SYN-06 AC-52 "No task-views
+//! Slice AND-2, L4 (Mac host, temporary copy): docs/acceptance/android-phone.md FR-SYN-06 AC-55 "No task-views
 //! migration on Android" (AP-2044 → D-2408; T1), through docs/contracts/android-phone.md §3 (CP-5 → D-2433):
 //! `Core::task_views_migrate` answers `TaskViewsMigration::Off` before reading anything when the core was opened with
 //! `OpenExtras { bulk_jobs: false }` (the Android shell's extras); the desktop's default extras keep R202's behaviour.
@@ -31,7 +31,7 @@ fn outcome(m: &TaskViewsMigration) -> &'static str {
 }
 
 #[test]
-fn fr_syn_06_ac52_no_task_views_migration_on_android() {
+fn fr_syn_06_ac55_no_task_views_migration_on_android() {
     let sb = sandbox();
     let root = base_vault(&sb);
     let task = std::fs::read(root.join(TASK_YML)).expect("setup: task.yml");

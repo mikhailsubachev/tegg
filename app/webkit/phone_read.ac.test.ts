@@ -1,7 +1,7 @@
 // Slice AND-2, L5p (projects `phone-webkit`, `phone-chromium`): docs/acceptance/android-phone.md, reading a note:
 // - FR-EDT-10 AC-10 (a note is the read view), AC-11 (links by tap);
 // - FR-EDT-02 AC-26 (wide blocks scroll in their own box), FR-EDT-07 AC-23 (the Properties strip and sheet);
-// - FR-ATT-01 AC-17 (L5p: media), FR-NAV-08 AC-3 (L5p: no previews), FR-SYN-03 AC-36 (L5p: a partly synced vault).
+// - FR-ATT-01 AC-17 (L5p: media), FR-NAV-08 AC-3 (L5p: no previews), FR-SYN-03 AC-39 (L5p: a partly synced vault).
 // Contract docs/contracts/android-phone.md §4.5 (stripRows), §9.1…§9.3, §9.8, §14.1. Fixtures: views/ + phone/,
 // read-view/, trash-media/.
 // Red-test readings (reported): "the desktop's read view of Bloky" is a `macos` page with `__TEGG_TEST__.readView`
@@ -316,12 +316,12 @@ test('fr_nav_08_ac3_no_previews_on_the_phone', async ({ browser }) => {
   await page.close();
 });
 
-// ------------------------------------------------------------------------------------------------ FR-SYN-03 AC-36 (L5p)
+// ------------------------------------------------------------------------------------------------ FR-SYN-03 AC-39 (L5p)
 
 const POZDEJI = '---\nid: 01JBAN2000000000000000N301\ntype: page\ntitle: Později\ncreated: 2026-11-19T09:30:00+01:00\nmodified: 2026-11-19T09:30:00+01:00\n---\nDorazilo později ze synchronizace.\n';
 const CHYBI = '# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Chybí.\nversion: 1\ntitle: Chybí\ntypes: [book]\nmatch: all\nfilters: []\nsort: { by: title, order: asc }\nlimit: 50\nview: list\ncreated: 2026-11-19T09:00:00+01:00\nmodified: 2026-11-19T09:00:00+01:00\n';
 
-test('fr_syn_03_ac36_partly_synced_vault_on_the_phone', async ({ browser }) => {
+test('fr_syn_03_ac39_partly_synced_vault_on_the_phone', async ({ browser }) => {
   // [[Později]]: broken, then resolved when it arrives
   let page = await phonePage(browser);
   let core = await startPhone(page, { route: `note/${PH.ven}` });
@@ -352,7 +352,8 @@ test('fr_syn_03_ac36_partly_synced_vault_on_the_phone', async ({ browser }) => {
   await must(panel.getByText(/Chybí/), 'the not-found state');
   assert.equal(await main(page).getByRole('button', { name: 'Remove from Books page' }).count(), 0, 'without Remove from Books page');
   await core.setFile('.tegg/queries/Chybí.yml', CHYBI);
-  const n = await eventually(() => panel.locator('[data-query-result]').count(), (c) => c === 17, 2000);
+  // One per row: slice Q3 marks a List row's li and its chip (AC-Test-Change, approved by the owner, D-2480).
+  const n = await eventually(() => panel.locator('li[data-query-result], tr[data-query-result]').count(), (c) => c === 17, 2000);
   assert.equal(n, 17, 'its results within 2 s of the file\'s arrival');
   // a pin whose target hasn't arrived
   await openDrawer(page);

@@ -259,7 +259,9 @@ test('fr_ux_04_ac5_touch_targets', async ({ browser }) => {
   // List rows are at least 56 px high (board N1).
   const rowsOf: [string, string][] = [
     ['inbox', 'main li'], ['queries', 'main [data-query-row]'], ['tags', 'main [role="row"]:has([role="cell"]), main li'],
-    ['query/Seskupeno podle data', 'main [data-query-result]'],
+    // Slice Q3 (main's D-2179): a broken group_by draws an ungrouped wall; its cards are the rows here (AC-Test-Change,
+    // approved by the owner, D-2480).
+    ['query/Seskupeno podle data', 'main [data-board-card]'],
   ];
   for (const [route, sel] of rowsOf) {
     const page = await phonePage(browser);
