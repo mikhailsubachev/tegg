@@ -222,9 +222,10 @@ test('fr_qry_01_ac17_period_grouping_for_any_date', async () => {
   assert.equal(m.doneLaneOffered([PROJEKT]), false, 'no done lane for Projekt (no states)');
   assert.equal(m.doneLaneOffered([TASK]), true, 'Task: status carries states with a Done option');
   assert.equal(m.doneLaneOffered([TASK, PROJEKT]), false, 'every type must qualify');
-  // New view › Board: no columns, no period, no done lane (D-1910).
-  const board = m.newViewDef(BOOK, 'board', [BOOK]);
-  assert.deepEqual([board.columns, board.groupPeriod, board.doneLane], [[], false, null], 'a new Board writes no columns');
+  // New view › Wall: no columns, no period, no done lane (D-1910). Slice Q3 (AC-Test-Change, D-2196; D-2172): Wall
+  // replaces Board.
+  const board = m.newViewDef(BOOK, 'wall', [BOOK]);
+  assert.deepEqual([board.view, board.columns, board.groupPeriod, board.doneLane], ['wall', [], false, null], 'a new Wall writes no columns');
   assert.equal(m.hasViews('task', TASK), true, 'Task has views (D-1787\'s exception ends)');
 });
 

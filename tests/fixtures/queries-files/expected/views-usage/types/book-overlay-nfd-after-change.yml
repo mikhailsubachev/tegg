@@ -12,7 +12,7 @@ preview: [author, status]
 columns: [author, rating, status, modified]
 views:
   - Rozečtené
-  - name: Přečtené 2026
+  - name: Přečtené 2026
     sort: { by: finished, order: asc }
     columns: [author, rating, finished, genres]
   - Výborné knihy

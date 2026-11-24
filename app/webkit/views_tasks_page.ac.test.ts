@@ -57,19 +57,24 @@ test('fr_tsk_04_ac22_header_tabs_and_toolbar', async ({ page }) => {
   assert.equal(await tablist(page).getAttribute('aria-label').then((x) => (x ?? '').replace(/[⟦⟧]/g, '')), 'Views', 'the tablist is `Views`');
   const t = await eventually(() => tabs(page), (x) => x.length === 4, 5000);
   assert.deepEqual(t.map((x) => [x.name, x.text, x.kind, x.selected]),
-    [['', 'All Tasks', 'table', false], [SCHEDULE, SCHEDULE, 'board', true], [KANBAN, KANBAN, 'board', false], [CEKA, CEKA, 'table', false]],
+    // Slice Q3 (AC-Test-Change, D-2196; FR-TSK-04 AC-30): the icons are `wall`.
+    [['', 'All Tasks', 'table', false], [SCHEDULE, SCHEDULE, 'wall', true], [KANBAN, KANBAN, 'wall', false], [CEKA, CEKA, 'table', false]],
     'tabs `All Tasks` (table, as every `All <plural>`, D-1929), `Schedule` (board, selected on the first open), `Kanban` (board), `Čeká na ostatní` (table)');
   await must(addView(page), '`Add view` after the tabs');
   // The Schedule toolbar, in order.
   await must(scheduleBoard(page), 'the Schedule board', 5000);
   const field = filterTasks(page);
   const tags = toolbar(page).getByRole('button', { name: rx('Filter by tag') }).or(toolbar(page).getByRole('combobox', { name: rx('Filter by tag') })).first();
-  const lanes = lanesGroup(toolbar(page));
+  // Slice Q3 (AC-Test-Change, D-2196; R223): the display switch, then `Group` reading `Due date · by period`; no Lanes.
+  const sw = toolbar(page).locator('div[role="group"][data-display-switch]');
+  const grp = toolbar(page).locator('button[data-command="group.open"]');
   const sort = sortButton(toolbar(page));
   const menu = toolbarMenuButton(page);
-  for (const [what, loc] of [['Filter Tasks…', field], ['Filter by tag', tags], ['Lanes', lanes], ['the sort button', sort], ['View actions', menu]] as const) await must(loc, `toolbar: ${what}`);
-  assert.ok(await inDomOrder(page, [field, tags, lanes, sort, menu]), 'in order: `Filter Tasks…`, `Filter by tag`, `Lanes`, the sort button, `View actions`');
-  assert.equal(await laneRadio(toolbar(page), 'Horizontal').getAttribute('aria-checked'), 'true', '`Horizontal` checked');
+  for (const [what, loc] of [['Filter Tasks…', field], ['Filter by tag', tags], ['Display', sw], ['Group', grp], ['the sort button', sort], ['View actions', menu]] as const) await must(loc, `toolbar: ${what}`);
+  assert.ok(await inDomOrder(page, [field, tags, sw, grp, sort, menu]), 'in order: `Filter Tasks…`, `Filter by tag`, the display switch, `Group`, the sort button, `View actions`');
+  assert.equal(await sw.locator('button[aria-pressed="true"]').getAttribute('data-display'), 'wall', '`Wall` pressed');
+  assert.equal(flat(await textOf(grp)), 'Due date · by period', '`Group` reads `Due date · by period`');
+  assert.equal(await page.getByRole('radiogroup', { name: rx('Lanes') }).count(), 0, 'no `Lanes` radiogroup');
   assert.equal(flat(await textOf(sort)), 'Due date ↑ +1', 'the sort button `Due date ↑` `+1` (D-1922)');
   const g = gone(page);
   for (const [what, loc] of [['textbox `Add a task…`', g.quickAdd], ['[data-quick-add]', g.quickAddAttr], ['group `Filter`', g.dateFilter], ['tablist `Group by`', g.groupBy], ['tablist `Task views`', g.taskViews], ['an aria-disabled `Sort`', g.disabledSort]] as const) {

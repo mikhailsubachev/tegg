@@ -138,6 +138,8 @@ export type ViewsStatus = {
   /** Slice Q2.1 (v1-views §19.4): the shown tab's or selected block's usage (null or absent: `query/<name>`,
    *  `All <plural>`, inline blocks); `ownSort` / `ownColumns`: the usage has the key, valid or broken (D-1856). */
   usage?: { kind: 'tab' | 'block'; ownSort: boolean; ownColumns: boolean } | null;
+  /** Slice Q3 (v1-views §42.4): the shown display and grouping (null or absent: an inline block, nothing shown). */
+  display?: { value: 'list' | 'table' | 'wall'; grouped: boolean; wall: boolean; writable: boolean; ownView: boolean; ownGroup: boolean; laneOrder: boolean; groupFocused: boolean; all: boolean } | null;
 };
 
 /** Slice G1 and G3 (v1-graph §4, §16.3): the graph route's commands, run by the shown graph page. */
@@ -368,9 +370,18 @@ export function commands(ctx: ShellContext): Command[] {
     if (onType && vs.tab !== null && vs.writable) list.push(cmd('views.moveLeft', 'cmd.moveViewLeft'), cmd('views.moveRight', 'cmd.moveViewRight'));
     const b = vs.board;
     const vw = vs.viewWritable ?? vs.writable;
-    if (b && vw) list.push(cmd('board.switchLanes', 'cmd.switchLanes'));
+    // Slice Q3 (R227, v1-views §42.4; FR-UX-03 AC-56): display and grouping, palette only.
+    const d = vs.display ?? null;
+    if (d && d.writable && vw) {
+      for (const [v, title] of [['list', 'cmd.displayList'], ['table', 'cmd.displayTable'], ['wall', 'cmd.displayWall']] as const) if (d.value !== v) list.push(cmd(`display.${v}`, title));
+      list.push(cmd('group.open', 'cmd.groupBy'));
+      if (d.grouped) list.push(cmd('group.remove', 'cmd.removeGrouping'));
+      if (!d.all && vs.usage !== null && vs.usage !== undefined && d.ownView) list.push(cmd('display.useQuery', 'cmd.useQueryDisplay'));
+      if (!d.all && vs.usage !== null && vs.usage !== undefined && d.ownGroup) list.push(cmd('group.useQuery', 'cmd.useQueryGrouping'));
+    }
+    if (b && vw && (!d || (d.writable && d.wall && d.grouped))) list.push(cmd('board.switchLanes', 'cmd.switchLanes'));
     if (vs.sortable && vw) list.push(cmd('sort.addLevel', 'cmd.addSortLevel'));
-    if (b && b.laneOrder && vw) list.push(cmd('board.resetLaneOrder', 'cmd.resetLaneOrder'));
+    if (vw && !d?.all && (d ? d.writable && d.grouped && (d.laneOrder || !!b?.laneOrder) : !!b?.laneOrder)) list.push(cmd('board.resetLaneOrder', 'cmd.resetLaneOrder'));
     // Slice Q2.1 (R199, v1-views §19.4; D-1856, D-1864): on a usage that has the key and can be written; no shortcut.
     const u = vs.usage ?? null;
     if (u && vs.writable && vs.viewWritable !== false) {
@@ -382,6 +393,8 @@ export function commands(ctx: ShellContext): Command[] {
       if (b.lanes === 'vertical') list.push(cmd('board.laneLeft', 'cmd.laneLeft'), cmd('board.laneRight', 'cmd.laneRight'));
       else list.push(cmd('board.laneUp', 'cmd.laneUp'), cmd('board.laneDown', 'cmd.laneDown'));
     }
+    // Slice Q3 (§42.4, D-2194 (d)): a focused group header of a grouped Table or List.
+    if (!b && d && d.groupFocused && d.grouped && !d.wall && d.writable && vw && !d.all) list.push(cmd('board.laneUp', 'cmd.laneUp'), cmd('board.laneDown', 'cmd.laneDown'));
   }
   if (ctx.route?.id === 'duplicate-titles') {
     list.push({ id: 'duplicates.merge', title: 'duplicates.merge', section: 'edit', needsVault: true, run: (c) => a(c)?.mergeFocused?.() });

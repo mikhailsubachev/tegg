@@ -34,10 +34,10 @@
      }
     ],
     "limit": 50,
-    "view": "board",
+    "view": "wall",
     "groupBy": "due",
     "groupPeriod": true,
-    "lanes": "horizontal",
+    "lanes": "rows",
     "laneOrder": null,
     "doneLane": {
      "withinDays": 7,
@@ -78,10 +78,10 @@
      }
     ],
     "limit": 50,
-    "view": "board",
+    "view": "wall",
     "groupBy": "status",
     "groupPeriod": false,
-    "lanes": "vertical",
+    "lanes": "columns",
     "laneOrder": null,
     "doneLane": {
      "withinDays": 7,
@@ -121,7 +121,7 @@
     "view": "table",
     "groupBy": null,
     "groupPeriod": false,
-    "lanes": "vertical",
+    "lanes": "columns",
     "laneOrder": null,
     "doneLane": null,
     "columns": [
@@ -149,10 +149,10 @@
      }
     ],
     "limit": 50,
-    "view": "board",
+    "view": "wall",
     "groupBy": "due",
     "groupPeriod": true,
-    "lanes": "vertical",
+    "lanes": "columns",
     "laneOrder": null,
     "doneLane": null
    },
@@ -190,10 +190,10 @@
      }
     ],
     "limit": 50,
-    "view": "board",
+    "view": "wall",
     "groupBy": null,
     "groupPeriod": false,
-    "lanes": "horizontal",
+    "lanes": "rows",
     "laneOrder": null,
     "doneLane": {
      "withinDays": 7,
@@ -241,10 +241,10 @@
      }
     ],
     "limit": 50,
-    "view": "board",
+    "view": "wall",
     "groupBy": null,
     "groupPeriod": false,
-    "lanes": "horizontal",
+    "lanes": "rows",
     "laneOrder": null,
     "doneLane": {
      "withinDays": 7,
@@ -292,10 +292,10 @@
      }
     ],
     "limit": 50,
-    "view": "board",
+    "view": "wall",
     "groupBy": "priority",
     "groupPeriod": true,
-    "lanes": "horizontal",
+    "lanes": "rows",
     "laneOrder": null,
     "doneLane": {
      "withinDays": 7,
@@ -336,10 +336,10 @@
      }
     ],
     "limit": 50,
-    "view": "board",
+    "view": "wall",
     "groupBy": "neznámý",
     "groupPeriod": true,
-    "lanes": "horizontal",
+    "lanes": "rows",
     "laneOrder": null,
     "doneLane": {
      "withinDays": 7,
@@ -380,10 +380,10 @@
      }
     ],
     "limit": 50,
-    "view": "board",
+    "view": "wall",
     "groupBy": "due",
     "groupPeriod": true,
-    "lanes": "horizontal",
+    "lanes": "rows",
     "laneOrder": null,
     "doneLane": null
    },
@@ -428,10 +428,10 @@
      }
     ],
     "limit": 50,
-    "view": "board",
+    "view": "wall",
     "groupBy": "due",
     "groupPeriod": true,
-    "lanes": "horizontal",
+    "lanes": "rows",
     "laneOrder": null,
     "doneLane": null
    },
@@ -476,10 +476,10 @@
      }
     ],
     "limit": 50,
-    "view": "board",
+    "view": "wall",
     "groupBy": "due",
     "groupPeriod": true,
-    "lanes": "horizontal",
+    "lanes": "rows",
     "laneOrder": null,
     "doneLane": null
    },
@@ -524,10 +524,10 @@
      }
     ],
     "limit": 50,
-    "view": "board",
+    "view": "wall",
     "groupBy": "due",
     "groupPeriod": true,
-    "lanes": "horizontal",
+    "lanes": "rows",
     "laneOrder": null,
     "doneLane": {
      "withinDays": 7,
@@ -568,10 +568,10 @@
      }
     ],
     "limit": 50,
-    "view": "board",
+    "view": "wall",
     "groupBy": "due",
     "groupPeriod": true,
-    "lanes": "horizontal",
+    "lanes": "rows",
     "laneOrder": [
      "later",
      "today",
@@ -616,10 +616,10 @@
      }
     ],
     "limit": 50,
-    "view": "board",
+    "view": "wall",
     "groupBy": "due",
     "groupPeriod": true,
-    "lanes": "horizontal",
+    "lanes": "rows",
     "laneOrder": [
      "Later",
      "zítra"
@@ -649,10 +649,10 @@
      }
     ],
     "limit": 50,
-    "view": "board",
+    "view": "wall",
     "groupBy": "due",
     "groupPeriod": true,
-    "lanes": "vertical",
+    "lanes": "columns",
     "laneOrder": null,
     "doneLane": {
      "withinDays": 7,
@@ -679,10 +679,10 @@
      }
     ],
     "limit": 50,
-    "view": "board",
+    "view": "wall",
     "groupBy": "created",
     "groupPeriod": true,
-    "lanes": "vertical",
+    "lanes": "columns",
     "laneOrder": null,
     "doneLane": null
    },
@@ -1676,7 +1676,7 @@
   },
   {
    "query": "Rozvrh po měsících",
-   "note": "FR-QRY-01 AC-18: drawn as a List of the 17 non-Cancelled tasks",
+   "note": "FR-QRY-01 AC-18: drawn as an ungrouped wall of the 17 non-Cancelled tasks (slice Q3, D-2179)",
    "env": {
     "today": "2026-10-14",
     "zone": "Europe/Prague",
@@ -1712,7 +1712,7 @@
   },
   {
    "query": "Rozvrh dvě období",
-   "note": "FR-QRY-01 AC-18: drawn as a List of the 17 non-Cancelled tasks",
+   "note": "FR-QRY-01 AC-18: drawn as an ungrouped wall of the 17 non-Cancelled tasks (slice Q3, D-2179)",
    "env": {
     "today": "2026-10-14",
     "zone": "Europe/Prague",
@@ -1748,7 +1748,7 @@
   },
   {
    "query": "Rozvrh podle priority",
-   "note": "FR-QRY-01 AC-18: drawn as a List of the 17 non-Cancelled tasks",
+   "note": "FR-QRY-01 AC-18: drawn as an ungrouped wall of the 17 non-Cancelled tasks (slice Q3, D-2179)",
    "env": {
     "today": "2026-10-14",
     "zone": "Europe/Prague",
@@ -1784,7 +1784,7 @@
   },
   {
    "query": "Rozvrh neznámý klíč",
-   "note": "FR-QRY-01 AC-18: drawn as a List of the 17 non-Cancelled tasks",
+   "note": "FR-QRY-01 AC-18: drawn as an ungrouped wall of the 17 non-Cancelled tasks (slice Q3, D-2179)",
    "env": {
     "today": "2026-10-14",
     "zone": "Europe/Prague",

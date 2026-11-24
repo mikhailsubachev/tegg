@@ -45,9 +45,9 @@ test('fr_qry_05_ac10_board_by_select', async ({ page }) => {
   assert.equal(await b.locator('[data-attribute="status"]').count(), 0, 'no Status pill on any card');
   await click(toolbarMenuButton(page), '⋯');
   await click(menuItem(await must(viewMenu(page), 'menu'), 'Edit view'), 'Edit view');
-  const view = editor(page).getByRole('radiogroup', { name: rx('View') });
-  // D-1886: wait until the dialog shows its options before reading them (allInnerTexts doesn't wait).
-  assert.deepEqual(await eventually(() => view.getByRole('radio').allInnerTexts(), (t) => t.length === 3, 5000), ['Table', 'List', 'Board'], 'the View control offers Table, List, Board');
+  // Slice Q3 (AC-Test-Change, D-2196; FR-QRY-01 AC-21, D-2175): the editor has no View control.
+  await must(editor(page), 'Edit query', 5000);
+  assert.equal(await editor(page).getByRole('radiogroup', { name: rx('View') }).count(), 0, 'no View control in the editor');
   await page.keyboard.press('Escape');
   // A runtime lane_order: [To read] lists the others after it in option order.
   await core.setFile(qfile(Q.roz), swap(original(qfile(Q.roz)), 'lane_order: [Reading, To read, Read]\n', 'lane_order: [To read]\n'));
@@ -79,14 +79,18 @@ test('fr_qry_05_ac11_group_by_kinds', async ({ page }) => {
   assert.deepEqual(tl.map((l) => [l.id, l.cards.length]), [['tag:doporučené', 2], ['tag:odloženo', 1], ['tag:večerní', 1], ['none', 13]], 'Podle štítku: four lanes, the inline #večerní included');
   await selectTab(page, Q.datum);
   assert.ok(await seen(panelOf(page).getByText('The setting group_by can\'t be read, so its default is used.'), 3000), 'Seskupeno podle data: the notice');
-  assert.equal(await board(page).count(), 0, 'drawn as a List, no board');
-  assert.equal((await panelRows(page)).length, 17, 'the 17 books');
+  // Slice Q3 (AC-Test-Change, D-2196; D-2179): a broken group_by on a wall draws the ungrouped wall, not a List.
+  assert.equal(await board(page).count(), 0, 'no lanes');
+  const wall = panelOf(page).locator('div[role="group"][data-wall][data-grouped="false"]');
+  await must(wall, 'the ungrouped wall', 3000);
+  assert.equal(await wall.locator('article[data-board-card]').count(), 17, 'the 17 books as cards');
   assert.deepEqual(await writeCalls(core), [], 'no file is written');
-  // group_by on a view: table is kept and ignored, no notice.
+  // Slice Q3 (D-2173): group_by with view: table groups the Table, no notice.
   await core.setFile(qfile(Q.vyb), swap(original(qfile(Q.vyb)), 'view: table\n', 'view: table\ngroup_by: status\n'));
   await selectTab(page, Q.vyb);
   await sleep(500);
-  assert.equal(await panelOf(page).getByText('The setting group_by can\'t be read, so its default is used.').count(), 0, '`group_by` with `view: table`: ignored, no notice');
+  assert.equal(await panelOf(page).getByText('The setting group_by can\'t be read, so its default is used.').count(), 0, '`group_by` with `view: table`: no notice');
+  assert.ok(await seen(panelOf(page).locator('tr.group-header[data-group-id="option:Read"]'), 3000), 'the Table is grouped by Status (one group, Read)');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-QRY-05 AC-12
@@ -234,85 +238,91 @@ test('fr_qry_05_ac16_drop_on_an_excluded_lane', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ FR-QRY-05 AC-17, AC-18, AC-19
 
 test('fr_qry_05_ac17_lanes_switch_writes_once', async ({ page }) => {
-  const vault = withTabs([Q.zanr, Q.autor]);
-  const core = await startViews(page, { route: typeRoute('book'), vault });
+  // Slice Q3 (AC-Test-Change, D-2196; R222, D-2173, D-2179): there is no Lanes radiogroup; the Group menu's `Lanes` part
+  // replaces it. On a tab it writes the item; the query-file steps move to the query page, where the writer emits the new
+  // words. The checked `Lanes` item writes nothing.
+  const core = await startViews(page, { route: typeRoute('book') });
   const b = await openBoard(page, Q.roz);
-  await click(laneRadio(toolbar(page), 'Vertical'), 'the checked radio');
+  assert.equal(await page.getByRole('radiogroup', { name: rx('Lanes') }).count(), 0, 'no Lanes radiogroup');
+  const openLanes = async (scope: Locator) => {
+    await click(scope.locator('button[data-command="group.open"]'), 'Group');
+    return must(page.locator('div[role="menu"][data-popup="group"]'), 'menu Group by');
+  };
+  await click((await openLanes(toolbar(page))).locator('[role="menuitemradio"][data-lanes-choice="columns"]'), 'the checked Columns');
   await sleep(300);
-  assert.deepEqual(await writes(core), [], 'the checked radio writes nothing');
-  await click(laneRadio(toolbar(page), 'Horizontal'), 'Horizontal');
-  assert.equal(await fileWhen(core, qfile(Q.roz), (x) => x === expectedView('rozectene-lanes-horizontal.yml')), expectedView('rozectene-lanes-horizontal.yml'), 'line 15 and modified');
+  assert.equal(await fileText(core, BOOK_YML), original(BOOK_YML), 'the checked Lanes item writes nothing');
+  await click((await openLanes(toolbar(page))).locator('[role="menuitemradio"][data-lanes-choice="rows"]'), 'Rows');
+  const item = bookWithViews('views:\n  - name: Rozečtené\n    lanes: rows\n  - Přečtené 2026\n  - Výborné knihy\n');
+  assert.equal(await fileWhen(core, BOOK_YML, (x) => x === item), item, 'the tab writes its item: `    lanes: rows`');
+  assert.equal(await fileText(core, qfile(Q.roz)), original(qfile(Q.roz)), 'Rozečtené.yml untouched');
   assert.equal(await eventually(() => b.getAttribute('data-lanes'), (v) => v === 'horizontal'), 'horizontal', 'the same lanes as rows');
   assert.deepEqual((await lanes(b)).map((l) => l.id), ROZ.map((l) => l.id), 'the same lanes');
-  await openBoard(page, Q.autor);
-  await runCommand(page, 'Switch lanes');
-  assert.equal(await fileWhen(core, qfile(Q.autor), (x) => x === expectedView('podle-autora-lanes-horizontal.yml')), expectedView('podle-autora-lanes-horizontal.yml'), 'Podle autora: `lanes: horizontal` inserted after group_by');
-  await openBoard(page, Q.zanr);
-  await click(laneRadio(toolbar(page), 'Vertical'), 'Vertical');
-  assert.equal(await fileWhen(core, qfile(Q.zanr), (x) => x === expectedView('podle-zanru-lanes-vertical.yml')), expectedView('podle-zanru-lanes-vertical.yml'), 'Podle žánru: the comment and its spaces kept');
-  assert.deepEqual(await writes(core), [qfile(Q.roz), qfile(Q.autor), qfile(Q.zanr)], 'one write each');
+  // The query-file steps on the query pages.
+  for (const [name, choice, file] of [[Q.roz, 'rows', 'rozectene-lanes-horizontal.yml'], [Q.autor, 'rows', 'podle-autora-lanes-horizontal.yml'], [Q.zanr, 'columns', 'podle-zanru-lanes-vertical.yml']] as const) {
+    await page.goto('about:blank');
+    const c2 = await startViews(page, { route: queryRoute(name) });
+    await must(board(page, name), `query/${name} draws the grouped wall`, 8000);
+    await click((await openLanes(main(page))).locator(`[role="menuitemradio"][data-lanes-choice="${choice}"]`), `${name}: ${choice}`);
+    assert.equal(await fileWhen(c2, qfile(name), (x) => x === expectedView(file)), expectedView(file), `${name}: ${file} (the new word)`);
+    assert.deepEqual(await writes(c2), [qfile(name)], `${name}: one write`);
+  }
 });
 
 test('fr_qry_05_ac17_lanes_switch_writes_once_in_a_note_and_on_the_query_page', async ({ page }) => {
   const core = await startViews(page, { route: queryRoute(Q.roz) });
   const qb = await must(board(page, Q.roz), 'query/Rozečtené draws the board', 8000);
-  await click(laneRadio(main(page), 'Horizontal'), 'Horizontal on query/Rozečtené');
+  // Slice Q3 (AC-Test-Change, D-2196): the Group menu's `Lanes` part on the query page.
+  await click(main(page).locator('button[data-command="group.open"]'), 'Group');
+  await click(page.locator('div[role="menu"][data-popup="group"] [role="menuitemradio"][data-lanes-choice="rows"]'), 'Rows on query/Rozečtené');
   assert.equal(await fileWhen(core, qfile(Q.roz), (x) => x === expectedView('rozectene-lanes-horizontal.yml')), expectedView('rozectene-lanes-horizontal.yml'), 'the same write');
   assert.equal(await qb.getAttribute('data-lanes'), 'horizontal', 'rows');
   await openNote(page, 'Čtení 2026');
-  assert.equal(await eventually(() => board(page, Q.roz).getAttribute('data-lanes'), (v) => v === 'horizontal'), 'horizontal', 'Čtení\'s block opens the same way');
-});
-
-test('fr_qry_05_ac18_folding_rows_is_machine_local', async ({ page }) => {
-  const vault = withTabs([Q.zanr]);
-  const core = await startViews(page, { route: typeRoute('book'), vault });
-  const b = await openBoard(page, Q.zanr);
-  const chevron = (label: string, how: 'Collapse' | 'Expand') => lane(b, `option:${label}`).getByRole('button', { name: rx(`${how} ${label}`) });
-  await click(chevron('Román', 'Collapse'), 'Collapse Román');
-  const roman = (await lanes(b)).find((l) => l.id === 'option:Román');
-  assert.ok(roman?.folded, 'Román folded');
-  assert.equal(flat(await textOf(lane(b, 'option:Román').locator('span.count'))), '6', 'its header keeps the count 6');
-  assert.equal(await card(b, B('Dům u řeky'), 'option:Román').count(), 0, 'its cards are hidden');
-  // Q2.1 (AP-1526, R198): folds are per usage, the tab's key.
-  const ui = await eventually(() => uiState(core), (u) => Array.isArray(u?.usageFolded?.['tab:book/podle žánru']));
-  assert.deepEqual(ui?.usageFolded?.['tab:book/podle žánru'], ['option:Román'], 'usageFolded["tab:book/podle žánru"] in ui-state.json');
-  await chevron('Detektivka', 'Collapse').click({ modifiers: ['Alt'] });
-  assert.ok(await eventually(async () => (await lanes(b)).filter((l) => l.id !== 'none').every((l) => l.folded), (x) => x), '⌥-click folds every row');
-  await chevron('Detektivka', 'Expand').click({ modifiers: ['Alt'] });
-  assert.ok(await eventually(async () => (await lanes(b)).every((l) => !l.folded), (x) => x), 'again: unfolds every row');
-  assert.deepEqual(await writes(core), [], 'folding writes nothing to the vault');
-  await selectTab(page, Q.roz);
-  assert.equal(await board(page, Q.roz).getByRole('button', { name: /^⟦?(Collapse|Expand) / }).count(), 0, 'vertical lanes have no chevron');
+  assert.equal(await eventually(() => board(page, Q.roz).getAttribute('data-lanes'), (v) => v === 'horizontal'), 'horizontal', 'Čtení\'s block (no own lanes) opens the same way');
 });
 
 test('fr_qry_05_ac19_lane_order_by_drag_and_reset', async ({ page }) => {
+  // Slice Q3 (AC-Test-Change, D-2196; R222): on a tab a lane drag writes the item; the three drags and `Reset lane order`
+  // move to the query page with unchanged bytes.
   const vault = withTabs([Q.zanr, Q.autor]);
   const core = await startViews(page, { route: typeRoute('book') , vault });
   let b = await openBoard(page, Q.roz);
+  const book0 = await fileText(core, BOOK_YML);
   await drag(page, laneGrip(b, 'option:To read'), lane(b, 'option:Reading'), { at: 'left' });
-  assert.equal(await fileWhen(core, qfile(Q.roz), (x) => x === expectedView('rozectene-lane-order-to-read-first.yml')), expectedView('rozectene-lane-order-to-read-first.yml'), 'Rozečtené: line 16 only');
-  await runCommand(page, 'Reset lane order');
-  assert.equal(await fileWhen(core, qfile(Q.roz), (x) => x === expectedView('rozectene-lane-order-reset.yml')), expectedView('rozectene-lane-order-reset.yml'), 'Reset lane order removes the line');
-  assert.deepEqual((await eventually(() => lanes(b), (l) => l[0]?.id === 'option:To read')).map((l) => l.id), ['option:To read', 'option:Reading', 'option:Read'], 'option order');
-  b = await openBoard(page, Q.zanr);
-  await drag(page, laneGrip(b, 'option:Cestopis'), lane(b, 'option:Román'), { at: 'left' });
-  assert.equal(await fileWhen(core, qfile(Q.zanr), (x) => x === expectedView('podle-zanru-lane-order-cestopis.yml')), expectedView('podle-zanru-lane-order-cestopis.yml'), 'Podle žánru: lane_order inserted after line 14, comments kept');
-  assert.equal(await laneGrip(b, 'none').count(), 0, '`No Genres` has no grip');
+  const item = swap(book0, 'views: [Rozečtené, Přečtené 2026, Výborné knihy, Podle žánru, Podle autora]\n',
+    'views:\n  - name: Rozečtené\n    lane_order: [To read, Reading, Read]\n  - Přečtené 2026\n  - Výborné knihy\n  - Podle žánru\n  - Podle autora\n');
+  assert.equal(await fileWhen(core, BOOK_YML, (x) => x === item), item, 'the tab: its item\'s lane_order');
+  assert.equal(await fileText(core, qfile(Q.roz)), original(qfile(Q.roz)), 'Rozečtené.yml untouched');
+  for (const [name, from, to, file] of [
+    [Q.roz, 'option:To read', 'option:Reading', 'rozectene-lane-order-to-read-first.yml'],
+    [Q.zanr, 'option:Cestopis', 'option:Román', 'podle-zanru-lane-order-cestopis.yml'],
+    [Q.autor, 'relation:Autoři/Tomáš Rybář.md', 'relation:Autoři/Eva Lindová.md', 'podle-autora-lane-order-tomas.yml'],
+  ] as const) {
+    await page.goto('about:blank');
+    const c2 = await startViews(page, { route: queryRoute(name), vault });
+    const qb = await must(board(page, name), `query/${name}`, 8000);
+    await drag(page, laneGrip(qb, from), lane(qb, to), { at: 'left' });
+    assert.equal(await fileWhen(c2, qfile(name), (x) => x === expectedView(file)), expectedView(file), `query/${name}: ${file}`);
+    if (name === Q.roz) {
+      await runCommand(page, 'Reset lane order');
+      assert.equal(await fileWhen(c2, qfile(Q.roz), (x) => x === expectedView('rozectene-lane-order-reset.yml')), expectedView('rozectene-lane-order-reset.yml'), 'Reset lane order removes the line');
+    }
+    if (name === Q.zanr) assert.equal(await laneGrip(qb, 'none').count(), 0, '`No Genres` has no grip');
+  }
+  await page.goto('about:blank');
+  const c3 = await startViews(page, { route: typeRoute('book'), vault });
   b = await openBoard(page, Q.autor);
-  await drag(page, laneGrip(b, `relation:Autoři/Tomáš Rybář.md`), lane(b, `relation:Autoři/Eva Lindová.md`), { at: 'left' });
-  assert.equal(await fileWhen(core, qfile(Q.autor), (x) => x === expectedView('podle-autora-lane-order-tomas.yml')), expectedView('podle-autora-lane-order-tomas.yml'), 'Podle autora: relation link texts');
-  const n = (await writes(core)).length;
+  const n = (await writes(c3)).length + (await callsOf(c3, 'type_patch')).length;
   await drag(page, laneGrip(b, `relation:Autoři/Eva Lindová.md`), lane(b, 'none'), { at: 'left' });
   await sleep(300);
-  assert.equal((await writes(core)).length, n, 'nothing drops after `No Author`');
+  assert.equal((await writes(c3)).length + (await callsOf(c3, 'type_patch')).length, n, 'nothing drops after `No Author`');
   // The palette: Move lane left / right announce.
   b = await openBoard(page, Q.roz);
   await laneGrip(b, 'option:Reading').focus();
   await runCommand(page, 'Move lane right');
   assert.ok(await eventually(() => textOf(liveRegion(page)), (t) => t.includes('Moved lane ')), '`Moved lane <lane>`');
   // A new option `Abandoned` shows after Read.
-  await core.setFile(qfile(Q.roz), original(qfile(Q.roz)).replace('lane_order: [Reading, To read, Read]\n', ''));
-  await core.setFile(BOOK_YML, swap(original(BOOK_YML), '      - { label: Read, color: green }\n', '      - { label: Read, color: green }\n      - { label: Abandoned, color: red }\n'));
+  await c3.setFile(qfile(Q.roz), original(qfile(Q.roz)).replace('lane_order: [Reading, To read, Read]\n', ''));
+  await c3.setFile(BOOK_YML, swap(original(BOOK_YML), '      - { label: Read, color: green }\n', '      - { label: Read, color: green }\n      - { label: Abandoned, color: red }\n'));
   assert.deepEqual((await eventually(() => lanes(b), (l) => l.length === 4)).map((l) => l.id), ['option:To read', 'option:Reading', 'option:Read', 'option:Abandoned'], '`Abandoned` after Read');
 });
 

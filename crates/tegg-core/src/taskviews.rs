@@ -3,46 +3,67 @@
 //! replacing a file, a live query of the name is left alone), then `task.yml`'s `views:` is written with one minimal,
 //! base-checked write (`type_patch`). No restore point, no job. AR-03: platform-neutral (files through `Vault`).
 
-use serde_json::Value;
 use tegg_format::nfc;
 use tegg_schema::{Readability, RuleError, SchemaError, TypeOp, TYPES_DIR};
 use tegg_vault::VaultError;
 
-use crate::queries_q::{self, name_key, FilterItem, Lanes, Match, Op, Order, QueryDef, QueryError, Sort, View, DoneLane, QUERIES_DIR};
+use crate::queries_q::{self, name_key, QueryDef, QueryError, QUERIES_DIR};
 use crate::{Core, CoreError, FileVersion, TypeInfo};
 
 pub const TASK_VIEW_NAMES: [&str; 2] = ["Schedule", "Kanban"];
 
 const TASK_YML: &str = "task.yml";
 
-/// R202's def of `Schedule` or `Kanban` (None for any other name). `default_task_view_text` gives R202's bytes.
+/// R202's bytes of `Schedule` (D-1936, D-2195): constants, equal to
+/// tests/fixtures/queries-files/expected/views-tasks/queries/schedule-default.yml, so the new words of `create_text`
+/// (v1-views §34.3) never reach them.
+pub const SCHEDULE_TEXT: &str = "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Schedule.
+version: 1
+title: Schedule
+types: [task]
+match: all
+filters:
+  - status: { state_is_not: cancelled }
+sort:
+  - { by: due, order: asc }
+  - { by: priority, order: asc }
+limit: 50
+view: board
+group_by: { due: period }
+lanes: horizontal
+done_lane: { within_days: 7, folded: true }
+";
+/// R202's bytes of `Kanban` (D-2195), equal to expected/views-tasks/queries/kanban-default.yml.
+pub const KANBAN_TEXT: &str = "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Kanban.
+version: 1
+title: Kanban
+types: [task]
+match: all
+filters:
+  - status: { state_is_not: cancelled }
+sort:
+  - { by: due, order: asc }
+  - { by: priority, order: asc }
+limit: 50
+view: board
+group_by: status
+lanes: vertical
+done_lane: { within_days: 7, folded: false }
+";
+
+/// R202's def of `Schedule` or `Kanban` (None for any other name): `read` of `default_task_view_text` (D-2195).
 pub fn default_task_view(name: &str) -> Option<QueryDef> {
-    let (group_by, period, lanes, folded) = match name {
-        "Schedule" => ("due", true, Lanes::Horizontal, true),
-        "Kanban" => ("status", false, Lanes::Vertical, false),
-        _ => return None,
-    };
-    Some(QueryDef {
-        title: name.into(),
-        types: vec!["task".into()],
-        r#match: Match::All,
-        filters: vec![FilterItem::Filter { key: "status".into(), op: Op::StateIsNot, value: Value::String("cancelled".into()), src: None }],
-        sort: vec![Sort { by: "due".into(), order: Order::Asc }, Sort { by: "priority".into(), order: Order::Asc }],
-        limit: 50,
-        view: View::Board,
-        group_by: Some(group_by.into()),
-        lanes,
-        lane_order: None,
-        columns: Vec::new(),
-        group_period: period,
-        done_lane: Some(DoneLane { within_days: 7, folded }),
-    })
+    default_task_view_text(name).map(|t| queries_q::read(t.as_bytes()).def)
 }
 
-/// R202's bytes of `Schedule` or `Kanban` (D-1936): `queries_q::create_text_unstamped` of `default_task_view`, without
-/// `created` / `modified`, so every Mac writes the same bytes. None for any other name.
+/// R202's bytes of `Schedule` or `Kanban` (D-1936, D-2195): the constants, without `created` / `modified`, so every Mac
+/// writes the same bytes. None for any other name.
 pub fn default_task_view_text(name: &str) -> Option<String> {
-    default_task_view(name).map(|d| queries_q::create_text_unstamped(&d))
+    match name {
+        "Schedule" => Some(SCHEDULE_TEXT.to_string()),
+        "Kanban" => Some(KANBAN_TEXT.to_string()),
+        _ => None,
+    }
 }
 
 /// §25.2: the outcome of `Core::task_views_migrate`.

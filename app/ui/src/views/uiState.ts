@@ -2,10 +2,11 @@
 // D-1767, D-1797; FR-STO-07, never in the vault): the remembered tab per type, the column widths per saved query and
 // the folded lanes per board; Q2.1 keys widths and folds by usage (R198). The app owns the UI state and registers how to read and change it, so one writer keeps
 // the whole state and each change is one `ui_state_set`.
-import type { UiStateDto } from '../ipc/types';
+import type { AllViewDto, UiStateDto } from '../ipc/types';
+import { allViewOf as allViewIn } from './display';
 import { movedUsageState } from './usage';
 
-type ViewsUi = Pick<UiStateDto, 'typeViews' | 'usageColumnWidths' | 'usageFolded' | 'tagFilter'>;
+type ViewsUi = Pick<UiStateDto, 'typeViews' | 'usageColumnWidths' | 'usageFolded' | 'tagFilter' | 'allView'>;
 let impl: { get: () => ViewsUi | undefined; update: (f: <U extends ViewsUi>(u: U) => U) => void } | null = null;
 
 export function registerViewsUiState(i: typeof impl): void {
@@ -101,4 +102,20 @@ export function adoptTasksUi<U extends AdoptUi>(ui: U): U {
     out.usageFolded = { ...(ui.usageFolded ?? {}), [k]: cur.includes('!done') ? cur : [...cur, '!done'] };
   }
   return out;
+}
+
+// ---------------------------------------------------------------- slice Q3 (v1-views §40.2, §42.3; R226; D-2178)
+
+/** `All <plural>`'s display and grouping on this Mac (missing: a Table, not grouped). */
+export function allViewOf(typeKey: string): AllViewDto {
+  return allViewIn(impl?.get() ?? null, typeKey);
+}
+
+/** One `ui_state_set` per change; nothing when unchanged. */
+export function setAllView(typeKey: string, v: AllViewDto): void {
+  if (!impl) return;
+  const k = nfc(typeKey);
+  const cur = allViewOf(k);
+  if (cur.view === v.view && cur.groupBy === v.groupBy && cur.groupPeriod === v.groupPeriod && cur.lanes === v.lanes && impl.get()?.allView?.[k]) return;
+  impl.update((u) => ({ ...u, allView: { ...(u.allView ?? {}), [k]: { view: v.view, groupBy: v.groupBy === null ? null : nfc(v.groupBy), groupPeriod: v.groupBy !== null && v.groupPeriod, lanes: v.lanes } } }));
 }

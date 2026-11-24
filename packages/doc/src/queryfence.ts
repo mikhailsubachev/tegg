@@ -5,7 +5,7 @@
 // AC-9) and match case-insensitively (name key). Only the `saved:` value is ever rewritten; every other byte is kept.
 
 import type { Nodes } from 'mdast'
-import { parse as parseYaml } from 'yaml'
+import { isMap, isScalar, parseDocument, type Document } from 'yaml'
 import { flowList, formatScalar, type Patch } from './edit.js'
 import { parse } from './parse.js'
 
@@ -198,15 +198,40 @@ export function renameSavedQueryPatches(text: string, from: string, to: string):
   return patches
 }
 
-// ------------------------------------------------------------------------------------------------ usage settings (Q2.1)
+// ------------------------------------------------------------------------------------------------ usage settings (Q2.1, Q3)
 
 /** v1-views §13.1 (R195, D-1838): one sort level of a usage's own value. */
 export type UsageSort = { by: string; order: 'asc' | 'desc' }
-/** A reference body's own values (R195 with R185's read rules, NFC). `'broken'`: the key is present but its value has a
- *  shape R185 calls broken. `null`: the key is absent. Both null for a non-reference body (inline, empty, unreadable). */
-export type FenceUsage = { sort: UsageSort[] | 'broken' | null; columns: string[] | 'broken' | null }
-/** `undefined`: leave the key; `null`: remove it (`Use the query's …`); a value: set it. */
-export type UsageChange = { sort?: UsageSort[] | null; columns?: string[] | null }
+/** v1-views §37 (slice Q3, D-2172): a usage's own display; `board` reads as `wall` (D-2179). */
+export type UsageView = 'list' | 'table' | 'wall'
+/** v1-views §37: a usage's own lanes; `vertical` / `horizontal` read as `columns` / `rows`. */
+export type UsageLanes = 'columns' | 'rows'
+/** v1-views §37: a usage's own grouping (`group_by`): the word `none`, an attribute key, or `{ <key>: period }`. */
+export type UsageGroup = { none: true } | { none: false; key: string; period: boolean }
+/** v1-views §37: ordered pairs, keys NFC. */
+export type UsageWidths = [string, number][]
+/** A reference body's own values (R195, R220 with the read rules of §35, NFC). `'broken'`: the key is present but its
+ *  value has a broken shape. `null`: the key is absent. All null for a non-reference body (inline, empty, unreadable). */
+export type FenceUsage = {
+  sort: UsageSort[] | 'broken' | null
+  columns: string[] | 'broken' | null
+  view: UsageView | 'broken' | null
+  group: UsageGroup | 'broken' | null
+  lanes: UsageLanes | 'broken' | null
+  laneOrder: string[] | 'broken' | null
+  widths: UsageWidths | 'broken' | null
+}
+/** `undefined`: leave the key; `null`: remove it (`Use the query's …`); a value: set it. `Use the query's grouping` is
+ *  `{ group: null, lanes: null, laneOrder: null }` (one result, one write). */
+export type UsageChange = {
+  sort?: UsageSort[] | null
+  columns?: string[] | null
+  view?: UsageView | null
+  group?: UsageGroup | null
+  lanes?: UsageLanes | null
+  laneOrder?: string[] | null
+  widths?: UsageWidths | null
+}
 
 const trimWs = (s: string) => s.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, '')
 
@@ -225,29 +250,82 @@ function usageSortOf(v: unknown): UsageSort[] | 'broken' {
 function usageColumnsOf(v: unknown): string[] | 'broken' {
   return Array.isArray(v) && v.every((x) => typeof x === 'string') ? (v as string[]).map((x) => x.normalize('NFC')) : 'broken'
 }
-
-/** v1-views §13.1: a reference body's own `sort:` / `columns:` (R195). Whether a `by` or a column key exists is the
- *  core's run-time check (§17.2), not this reader's. */
-export function fenceUsage(body: string): FenceUsage {
-  const none: FenceUsage = { sort: null, columns: null }
-  if (savedName(body) === null) return none
-  let y: unknown
-  try { y = parseYaml(body) } catch { return none }
-  if (!y || typeof y !== 'object' || Array.isArray(y)) return none
-  const m = y as Record<string, unknown>
-  if (typeof m.saved !== 'string' || trimWs(m.saved) === '') return none
-  const has = (k: string) => Object.prototype.hasOwnProperty.call(m, k)
-  return { sort: has('sort') ? usageSortOf(m.sort) : null, columns: has('columns') ? usageColumnsOf(m.columns) : null }
+function usageViewOf(v: unknown): UsageView | 'broken' {
+  if (v === 'list' || v === 'table' || v === 'wall') return v
+  return v === 'board' ? 'wall' : 'broken'
 }
+function usageLanesOf(v: unknown): UsageLanes | 'broken' {
+  if (v === 'columns' || v === 'vertical') return 'columns'
+  if (v === 'rows' || v === 'horizontal') return 'rows'
+  return 'broken'
+}
+function usageGroupOf(v: unknown): UsageGroup | 'broken' {
+  if (v === 'none') return { none: true }
+  if (typeof v === 'string') return trimWs(v) === '' ? 'broken' : { none: false, key: trimWs(v).normalize('NFC'), period: false }
+  if (v && typeof v === 'object' && !Array.isArray(v)) {
+    const e = Object.entries(v as Record<string, unknown>)
+    if (e.length === 1 && trimWs(e[0]![0]) !== '' && e[0]![1] === 'period') return { none: false, key: trimWs(e[0]![0]).normalize('NFC'), period: true }
+  }
+  return 'broken'
+}
+/** `widths` from its YAML node, in file order: string keys, YAML integers 0…100,000 (a float, a string or a negative
+ *  value is broken). */
+function usageWidthsOf(node: unknown, body: string): UsageWidths | 'broken' {
+  if (!isMap(node)) return 'broken'
+  const out: UsageWidths = []
+  for (const pair of node.items) {
+    const k = isScalar(pair.key) ? pair.key.value : undefined
+    const v = pair.value
+    if (typeof k !== 'string' || !isScalar(v) || typeof v.value !== 'number') return 'broken'
+    const src = v.range ? body.slice(v.range[0], v.range[1]) : String(v.value)
+    if (!Number.isInteger(v.value) || !/^\+?[0-9]+$/.test(src.trim()) || v.value < 0 || v.value > 100_000) return 'broken'
+    out.push([k.normalize('NFC'), v.value])
+  }
+  return out
+}
+
+const NONE_USAGE: FenceUsage = { sort: null, columns: null, view: null, group: null, lanes: null, laneOrder: null, widths: null }
+
+/** v1-views §13.1, §37: a reference body's own `sort`, `columns`, `view`, `group_by`, `lanes`, `lane_order`, `widths`
+ *  (R195, R220). Whether a `by`, a column or a grouping key exists is the core's run-time check, not this reader's. */
+export function fenceUsage(body: string): FenceUsage {
+  if (savedName(body) === null) return { ...NONE_USAGE }
+  let d: Document.Parsed
+  let y: unknown
+  try {
+    d = parseDocument(body)
+    if (d.errors.length > 0) return { ...NONE_USAGE }
+    y = d.toJS()
+  } catch { return { ...NONE_USAGE } }
+  if (!y || typeof y !== 'object' || Array.isArray(y)) return { ...NONE_USAGE }
+  const m = y as Record<string, unknown>
+  if (typeof m.saved !== 'string' || trimWs(m.saved) === '') return { ...NONE_USAGE }
+  const has = (k: string) => Object.prototype.hasOwnProperty.call(m, k)
+  return {
+    sort: has('sort') ? usageSortOf(m.sort) : null,
+    columns: has('columns') ? usageColumnsOf(m.columns) : null,
+    view: has('view') ? usageViewOf(m.view) : null,
+    group: has('group_by') ? usageGroupOf(m.group_by) : null,
+    lanes: has('lanes') ? usageLanesOf(m.lanes) : null,
+    laneOrder: has('lane_order') ? usageColumnsOf(m.lane_order) : null,
+    widths: has('widths') ? usageWidthsOf(d.get('widths', true), body) : null,
+  }
+}
+
+/** A flow-context scalar (D-230 quoting), NFC. */
+const flowScalar = (s: string) => flowList([s.normalize('NFC')]).slice(1, -1)
 
 /** R185's write style for a usage `sort` (one level: one flow mapping; more: a block list; none: `[]`). */
 function sortLines(sort: UsageSort[]): string[] {
-  const lv = (l: UsageSort) => `{ by: ${flowList([l.by.normalize('NFC')]).slice(1, -1)}, order: ${l.order} }`
+  const lv = (l: UsageSort) => `{ by: ${flowScalar(l.by)}, order: ${l.order} }`
   if (sort.length === 0) return ['sort: []']
   if (sort.length === 1) return [`sort: ${lv(sort[0]!)}`]
   return ['sort:', ...sort.map((l) => `  - ${lv(l)}`)]
 }
 const columnsLines = (columns: string[]): string[] => [`columns: ${flowList(columns.map((c) => c.normalize('NFC')))}`]
+const groupLines = (g: UsageGroup): string[] =>
+  g.none ? ['group_by: none'] : g.period ? [`group_by: { ${flowScalar(g.key)}: period }`] : [`group_by: ${formatScalar(g.key.normalize('NFC'))}`]
+const widthsLines = (w: UsageWidths): string[] => [`widths: { ${w.map(([k, v]) => `${flowScalar(k)}: ${v}`).join(', ')} }`]
 
 /** The trailing comment of a key line (from the blanks before `#`, outside quotes), or ''. */
 function trailingComment(line: string): string {
@@ -270,9 +348,20 @@ function trailingComment(line: string): string {
 }
 
 type Ln = { text: string; eol: string }
+type FileKey = 'view' | 'group_by' | 'lanes' | 'lane_order' | 'sort' | 'columns' | 'widths'
+/** R221's order of a reference body's keys (after `saved`). */
+const KEY_ORDER: FileKey[] = ['view', 'group_by', 'lanes', 'lane_order', 'sort', 'columns', 'widths']
 
-/** v1-views §13.1: the fence's source with R195's rules applied; null when the source has no `saved:` line or the
- *  result equals the source. A key whose current value already equals the change keeps its bytes. */
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+const sameWidths = (a: UsageWidths, b: UsageWidths) => {
+  const s = (w: UsageWidths) => JSON.stringify([...w].map(([k, v]) => [k.normalize('NFC'), v]).sort((x, y) => (x[0]! < y[0]! ? -1 : x[0]! > y[0]! ? 1 : 0)))
+  return s(a) === s(b)
+}
+const nfcGroup = (g: UsageGroup): UsageGroup => (g.none ? { none: true } : { none: false, key: trimWs(g.key).normalize('NFC'), period: g.period })
+
+/** v1-views §13.1, §37: the fence's source with R195 / R221's rules applied; null when the source has no `saved:` line
+ *  or the result equals the source. A key whose current value is valid and equals the change keeps its bytes (old
+ *  words included). */
 export function withUsage(fenceSource: string, change: UsageChange): string | null {
   const f = fenceLines(fenceSource)
   if (!f) return null
@@ -303,7 +392,6 @@ export function withUsage(fenceSource: string, change: UsageChange): string | nu
     for (let i = 1; i < end; i++) b.push(body(i).text)
     return fenceUsage(b.join('\n'))
   }
-  const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
   /** Replace [from, to) by `texts` (new lines get the saved line's prefix and the fence's EOL). */
   const splice = (from: number, to: number, texts: string[]) => {
     // A line inserted after a last line without EOL: that line gets one.
@@ -313,7 +401,16 @@ export function withUsage(fenceSource: string, change: UsageChange): string | nu
     lines.splice(from, to - from, ...add)
     end += add.length - (to - from)
   }
-  const setKey = (key: 'sort' | 'columns', value: string[] | null, after: () => number) => {
+  /** After the range of the nearest earlier key of R221's order that is present, else after the `saved:` line. */
+  const insertAt = (key: FileKey): number => {
+    for (const k of KEY_ORDER.slice(0, KEY_ORDER.indexOf(key)).reverse()) {
+      const r = rangeOf(k)
+      if (r) return r[1]
+    }
+    for (let i = 1; i < end; i++) if (savedValue(body(i).text)) return i + 1
+    return 1
+  }
+  const setKey = (key: FileKey, value: string[] | null) => {
     const r = rangeOf(key)
     if (value === null) { if (r) splice(r[0], r[1], []); return }
     if (r) {
@@ -322,21 +419,62 @@ export function withUsage(fenceSource: string, change: UsageChange): string | nu
       next[0] = next[0] + comment
       splice(r[0], r[1], next)
     } else {
-      const at = after()
+      const at = insertAt(key)
       splice(at, at, value)
     }
   }
   const now = current()
-  if (change.sort !== undefined && !(change.sort === null ? now.sort === null : now.sort !== 'broken' && same(now.sort, change.sort.map((l) => ({ by: l.by.normalize('NFC'), order: l.order }))))) {
-    setKey('sort', change.sort === null ? null : sortLines(change.sort), () => savedAt + 1)
-  }
-  if (change.columns !== undefined && !(change.columns === null ? now.columns === null : now.columns !== 'broken' && same(now.columns, change.columns.map((c) => c.normalize('NFC'))))) {
-    setKey('columns', change.columns === null ? null : columnsLines(change.columns), () => {
-      const s = rangeOf('sort')
-      if (s) return s[1]
-      for (let i = 1; i < end; i++) if (savedValue(body(i).text)) return i + 1
-      return 1
-    })
+  for (const key of KEY_ORDER) {
+    switch (key) {
+      case 'view': {
+        const c = change.view
+        if (c === undefined || (c === null ? rangeOf('view') === null : now.view === c)) break
+        setKey('view', c === null ? null : [`view: ${c}`])
+        break
+      }
+      case 'group_by': {
+        const c = change.group
+        if (c === undefined) break
+        if (c === null ? rangeOf('group_by') === null : now.group !== 'broken' && now.group !== null && same(now.group, nfcGroup(c))) break
+        setKey('group_by', c === null ? null : groupLines(nfcGroup(c)))
+        break
+      }
+      case 'lanes': {
+        const c = change.lanes
+        if (c === undefined || (c === null ? rangeOf('lanes') === null : now.lanes === c)) break
+        setKey('lanes', c === null ? null : [`lanes: ${c}`])
+        break
+      }
+      case 'lane_order': {
+        const c = change.laneOrder
+        if (c === undefined) break
+        const v = c === null ? null : c.map((x) => x.normalize('NFC'))
+        if (v === null ? rangeOf('lane_order') === null : now.laneOrder !== 'broken' && now.laneOrder !== null && same(now.laneOrder, v)) break
+        setKey('lane_order', v === null ? null : [`lane_order: ${flowList(v)}`])
+        break
+      }
+      case 'sort': {
+        const c = change.sort
+        if (c === undefined) break
+        if (c === null ? now.sort === null : now.sort !== 'broken' && now.sort !== null && same(now.sort, c.map((l) => ({ by: l.by.normalize('NFC'), order: l.order })))) break
+        setKey('sort', c === null ? null : sortLines(c))
+        break
+      }
+      case 'columns': {
+        const c = change.columns
+        if (c === undefined) break
+        if (c === null ? now.columns === null : now.columns !== 'broken' && now.columns !== null && same(now.columns, c.map((x) => x.normalize('NFC')))) break
+        setKey('columns', c === null ? null : columnsLines(c))
+        break
+      }
+      case 'widths': {
+        const c = change.widths === undefined ? undefined : change.widths === null || change.widths.length === 0 ? null : change.widths
+        if (c === undefined) break
+        if (c === null ? rangeOf('widths') === null : now.widths !== 'broken' && now.widths !== null && sameWidths(now.widths, c)) break
+        setKey('widths', c === null ? null : widthsLines(c.map(([k, v]) => [k.normalize('NFC'), v])))
+        break
+      }
+    }
   }
   const out = lines.map((l) => l.text + l.eol).join('')
   return out === fenceSource ? null : out
@@ -351,4 +489,70 @@ export function applyFenceUsage(text: string, range: [number, number], change: U
   const out = withUsage(src, change)
   if (out === null) return null
   return dec.decode(bytes.subarray(0, range[0])) + out + dec.decode(bytes.subarray(range[1]))
+}
+
+// ------------------------------------------------------------------------------------------------ renames (§38)
+
+/** D-184: a note's link text over `paths`, its stem unless another note shares the stem, then its path without `.md`. */
+function linkText(path: string, paths: string[]): string {
+  const stemOf = (p: string) => (p.split('/').pop() ?? p).replace(/\.md$/, '')
+  const stem = stemOf(path)
+  const n = paths.filter((x) => stemOf(x).toLowerCase() === stem.toLowerCase()).length
+  return n <= 1 ? stem : path.replace(/\.md$/, '')
+}
+
+/** D-291 from the vault root over `paths`: a path form, else the stem (root first, then the shortest path). */
+function resolveRoot(target: string, paths: string[]): string | null {
+  let t = trimWs(target).normalize('NFC').toLowerCase()
+  t = t.replace(/\.md$/, '')
+  if (t === '') return null
+  const noMd = (p: string) => p.replace(/\.md$/, '').toLowerCase()
+  const hit = paths.find((p) => noMd(p) === t)
+  if (hit !== undefined) return hit
+  if (t.includes('/')) return null
+  const c = paths.filter((p) => noMd(p.split('/').pop() ?? p) === t)
+  c.sort((a, b) => Number(a.includes('/')) - Number(b.includes('/')) || [...a].length - [...b].length || (a < b ? -1 : a > b ? 1 : 0))
+  return c[0] ?? null
+}
+
+/** v1-views §38 (D-2193; FR-LNK-03 AC-26): the `retarget-links` op's patches of reference fences' `lane_order` values:
+ *  each quoted `"[[…]]"` entry whose target resolves from the vault root (D-291, over `op.paths`) to `op.fromPath` gets
+ *  the D-184 link text of `op.toPath`, its `|alias` / `#heading` part kept; only that value token changes. */
+export function relinkFenceLaneOrderPatches(text: string, op: { fromPath: string; toPath: string; paths: string[] }): Patch[] {
+  const from = op.fromPath.normalize('NFC')
+  const to = op.toPath.normalize('NFC')
+  const before = op.paths.map((p) => p.normalize('NFC'))
+  const after = before.map((p) => (p === from ? to : p))
+  const toText = linkText(to, after)
+  const patches: Patch[] = []
+  for (const f of findFences(text)) {
+    if (f.saved === null || f.body === '') continue
+    const lo = fenceUsage(f.body).laneOrder
+    if (!Array.isArray(lo) || lo.length === 0) continue
+    let at = eolAt(text, f.at[0])
+    let inKey = false
+    for (const line of f.body.split(/\r?\n/)) {
+      if (at >= f.at[1]) break
+      const lineEnd = eolAt(text, at)
+      const bare = text.slice(at, lineEnd).replace(/\r?\n$/, '')
+      const start = at + bare.length - line.length
+      at = lineEnd
+      if (/^lane_order:(?=[ \t]|$)/.test(line)) inKey = true
+      else if (!(inKey && (/^[ \t]/.test(line) || line === '-' || line.startsWith('- ')))) { inKey = false; continue }
+      if (/^[ \t]*#/.test(line) || start < 0 || !text.startsWith(line, start)) continue
+      const code = line.slice(0, line.length - trailingComment(line).length)
+      const re = /"\[\[((?:[^\]"\\]|\\.)*)\]\]"|'\[\[([^\]']*)\]\]'/g
+      for (let m = re.exec(code); m; m = re.exec(code)) {
+        const inner = m[1] ?? m[2] ?? ''
+        const cut = inner.search(/[|#]/)
+        const target = cut < 0 ? inner : inner.slice(0, cut)
+        const rest = cut < 0 ? '' : inner.slice(cut)
+        if (resolveRoot(target, before) !== from) continue
+        const link = `[[${toText}${rest}]]`
+        const value = m[1] !== undefined ? JSON.stringify(link) : `'${link.replace(/'/g, "''")}'`
+        patches.push({ range: [start + m.index, start + m.index + m[0].length], text: value })
+      }
+    }
+  }
+  return patches
 }

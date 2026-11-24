@@ -1692,6 +1692,13 @@ impl Index {
         v
     }
 
+    /// Slice Q3 (v1-views §38, D-2193): every indexed note with at least one reference fence (`saved:`), sorted.
+    pub fn query_usage_paths_all(&self) -> Vec<String> {
+        let mut v: Vec<String> = self.metas.values().filter(|m| !m.s.queries.is_empty()).map(|m| m.path.clone()).collect();
+        v.sort();
+        v
+    }
+
     /// Slice Q (v1-queries §1.6, D-1448): every indexed object as the query evaluator reads it, borrowed for one call of
     /// `f` (one index lock for a whole evaluation), with a resolver of link targets from the vault root (FR-LNK-14).
     pub fn with_query_objects<R>(&self, f: impl FnOnce(&[QueryObject<'_>], &dyn Fn(&str) -> Option<String>) -> R) -> R {

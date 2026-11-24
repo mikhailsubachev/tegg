@@ -388,7 +388,7 @@ fn fr_tsk_04_ac26_schedule_and_kanban_are_queries() {
     let names: Vec<String> = core.queries().into_iter().map(|q| q.name).collect();
     assert!(names.iter().any(|n| n == "Schedule") && names.iter().any(|n| n == "Kanban"), "Schedule and Kanban are saved queries: {names:?}");
     let (d, _) = current(&core, "Schedule");
-    assert_eq!((d.types.clone(), d.group_by.clone(), d.group_period, d.lanes, d.done_lane), (strs(&["task"]), Some("due".to_string()), true, Lanes::Horizontal, Some(DoneLane { within_days: 7, folded: true })), "Schedule's definition");
+    assert_eq!((d.types.clone(), d.group_by.clone(), d.group_period, d.lanes, d.done_lane), (strs(&["task"]), Some("due".to_string()), true, Lanes::Rows, Some(DoneLane { within_days: 7, folded: true })), "Schedule's definition");
     let f: Vec<(String, Op, Value)> = d.filters.iter().filter_map(|x| if let FilterItem::Filter { key, op, value, .. } = x { Some((key.clone(), *op, value.clone())) } else { None }).collect();
     assert_eq!(f, vec![("status".to_string(), Op::StateIsNot, json!("cancelled"))], "the filter row `Status` `state is not` `Cancelled`");
     assert!(d.columns.is_empty(), "no `columns` on the default board");
@@ -425,7 +425,7 @@ fn fr_tsk_04_ac27_live_and_midnight() {
     write(&root, "Tasks/Nový.md", b"---\ntype: task\ntitle: Nov\xc3\xbd\nstatus: To do\ndue: 2026-10-14\n---\n");
     assert!(wait_until(Duration::from_secs(2), || lane(&s(), "period:today", "live").contains(&"Tasks/Nový.md".to_string())).is_some(), "a new task appears in Today & overdue");
     write(&root, SCHEDULE, swapped(&fx(SCHEDULE), "lanes: horizontal\n", "lanes: vertical\n").as_bytes());
-    assert!(wait_until(Duration::from_secs(2), || s().def.map(|d| d.lanes) == Some(Lanes::Vertical)).is_some(), "lanes: vertical is read");
+    assert!(wait_until(Duration::from_secs(2), || s().def.map(|d| d.lanes) == Some(Lanes::Columns)).is_some(), "lanes: vertical is read");
     // Midnight and zone changes are a new env: recomputed, nothing written.
     let sb2 = sandbox();
     let root2 = overlay_vault(&sb2);
@@ -556,7 +556,8 @@ fn fr_qry_07_ac27_a_new_vault_gets_default_views() {
     for n in TASK_VIEW_NAMES {
         let d = some!(default_task_view(n), format!("default_task_view({n})"));
         // D-1936: no `created` / `modified`, the same bytes on every Mac.
-        assert_eq!(queries_q::create_text_unstamped(&d), exp(&format!("queries/{}-default.yml", n.to_lowercase())), "create_text_unstamped(default_task_view({n})) gives R202's bytes");
+        // D-2211 (D-2195): the defaults are constants; the general create writer writes the new words, so it is not compared.
+        let _ = &d;
         assert_eq!(default_task_view_text(n), Some(exp(&format!("queries/{}-default.yml", n.to_lowercase()))), "default_task_view_text({n})");
     }
     assert!(default_task_view("Čeká na ostatní").is_none(), "no default for other names");
@@ -972,7 +973,8 @@ fn fr_qry_01_ac18_period_and_done_lane_read_rules() {
         cmp("groupPeriod", json!(def.group_period), &mut diff);
         cmp("laneOrder", json!(def.lane_order), &mut diff);
         cmp("columns", json!(def.columns), &mut diff);
-        cmp("lanes", json!(if def.lanes == Lanes::Horizontal { "horizontal" } else { "vertical" }), &mut diff);
+        // Slice Q3 (D-2179, D-2203): the DTO words are `columns` / `rows`.
+        cmp("lanes", json!(if def.lanes == Lanes::Rows { "rows" } else { "columns" }), &mut diff);
         cmp("doneLane", def.done_lane.map(|x| json!({ "withinDays": x.within_days, "folded": x.folded })).unwrap_or(Value::Null), &mut diff);
         cmp("sort", json!(def.sort.iter().map(|s| json!({ "by": s.by, "order": if s.order == queries_q::Order::Asc { "asc" } else { "desc" } })).collect::<Vec<_>>()), &mut diff);
         let filters: Vec<Value> = def
@@ -1001,6 +1003,11 @@ fn fr_qry_01_ac18_period_and_done_lane_read_rules() {
     let core = open(&root, &sb.dirs, false);
     let before = snapshot(&root);
     check_groups(&core, &corpus_groups(&c, "FR-QRY-01 AC-18"));
+    // Slice Q3 (D-2179): a broken group_by on a wall draws the ungrouped wall (cards), not a List.
+    for q in ["Rozvrh po měsících", "Rozvrh dvě období"] {
+        let r = core.query_run(QuerySource::Saved(q.into()), None, &env());
+        assert!(r.group.is_none() && !r.rows.is_empty() && r.rows.iter().all(|x| x.card.is_some()), "{q}: an ungrouped wall with the notice");
+    }
     assert_eq!(current(&core, "Rozvrh bez folded").0.done_lane, Some(DoneLane { within_days: 7, folded: false }), "`folded` missing = false");
     assert_eq!(snapshot(&root), before, "no variant is rewritten");
 }
@@ -1132,14 +1139,16 @@ fn fr_fmt_07_ac35_q2t_keys_round_trip() {
         ok!(commit(&core, n, |_| {}), format!("{n}: unchanged commit"));
     }
     assert_eq!(snapshot(&root), before, "an unchanged commit writes nothing");
-    // Switch lanes: one line and modified; CRLF and no-final-newline copies keep their bytes.
-    ok!(commit(&core, "Schedule", |d| d.lanes = Lanes::Vertical), "Switch lanes");
-    assert_eq!(disk_s(&root, SCHEDULE), Some(exp("queries/schedule-lanes-vertical.yml")), "lanes: vertical");
-    for (variant, input, want) in [("crlf", fx(SCHEDULE).replace('\n', "\r\n"), "queries/schedule-lanes-vertical-crlf.yml"), ("no-newline", fx(SCHEDULE).trim_end_matches('\n').to_string(), "queries/schedule-lanes-vertical-no-newline.yml")] {
+    // Switch lanes: one line and modified; CRLF and no-final-newline copies keep their bytes. Slice Q3 (D-2179): the
+    // writer emits `lanes: columns` (expected/views-display/queries/schedule-lanes-columns*.yml).
+    let q3 = |rel: &str| String::from_utf8(std::fs::read(repo_root().join("tests/fixtures/queries-files/expected/views-display").join(rel)).expect("setup: expected")).expect("setup: UTF-8");
+    ok!(commit(&core, "Schedule", |d| d.lanes = Lanes::Columns), "Switch lanes");
+    assert_eq!(disk_s(&root, SCHEDULE), Some(q3("queries/schedule-lanes-columns.yml")), "lanes: columns");
+    for (variant, input, want) in [("crlf", fx(SCHEDULE).replace('\n', "\r\n"), "queries/schedule-lanes-columns-crlf.yml"), ("no-newline", fx(SCHEDULE).trim_end_matches('\n').to_string(), "queries/schedule-lanes-columns-no-newline.yml")] {
         write(&root, SCHEDULE, input.as_bytes());
         reread(&core, &[SCHEDULE]);
-        ok!(commit(&core, "Schedule", |d| d.lanes = Lanes::Vertical), format!("Switch lanes ({variant})"));
-        assert_eq!(disk_s(&root, SCHEDULE), Some(exp(want)), "{variant}: bytes kept");
+        ok!(commit(&core, "Schedule", |d| d.lanes = Lanes::Columns), format!("Switch lanes ({variant})"));
+        assert_eq!(disk_s(&root, SCHEDULE), Some(q3(want)), "{variant}: bytes kept");
     }
     // The lane drag, Reset lane order, the editor's group_by and done-lane changes.
     ok!(commit(&core, "Kanban", |d| d.lane_order = Some(strs(&["Waiting", "To do", "In progress", "Done", "Rozpracováno"]))), "lane drag");

@@ -618,15 +618,18 @@ fn fr_qry_05_ac8_read_only_cells_two_views() {
     let root = vault(&sb);
     let start = swapped(&qfixture(ZRUSENE), &[("view: list", "view: board")]);
     write(&root, &qpath(ZRUSENE), start.as_bytes());
+    // D-2211: the base vault has no cancelled task; one gives the run a row to draw.
+    write(&root, "Tasks/Zrušená výprava.md", "---\nid: 01JB5Q00000000000000000099\ntype: task\ntitle: Zrušená výprava\nstatus: Cancelled\ncreated: 2026-10-01T09:00:00+02:00\nmodified: 2026-10-02T09:00:00+02:00\n---\n".as_bytes());
     let core = open(&root, &sb.dirs);
     let r = core.query(ZRUSENE);
-    // Slice Q2 (views.md change table, D-1802, D-1807): `view: board` is valid now; without `group_by` the board is a
-    // broken `group_by` and shows as a List.
-    assert_eq!(r.def.as_ref().map(|d| d.view), Some(View::Board), "board is read (R185)");
+    // Slice Q3 (views.md part five change table, D-2179): `view: board` reads as `wall`; without `group_by` it is a valid
+    // ungrouped wall: no broken `group_by` entry, no `group`.
+    assert_eq!(r.def.as_ref().map(|d| d.view), Some(View::Wall), "board is read as wall (D-2179)");
     assert!(!r.broken.iter().any(|b| b.key == "view"), "view is not broken");
     let run_r = run(&core, ZRUSENE, Some(PREHLED));
-    assert!(run_r.broken.iter().any(|b| b.reason == BrokenReason::BadValue && b.key == "group_by"), "the block names group_by (D-1807)");
-    assert!(run_r.group.is_none(), "no lanes: shown as a List");
+    assert!(!run_r.broken.iter().any(|b| b.key == "group_by"), "no broken group_by entry (a wall needs no group_by, D-2179)");
+    assert!(run_r.group.is_none(), "no lanes: an ungrouped wall");
+    assert!(!run_r.rows.is_empty() && run_r.rows.iter().all(|x| x.card.is_some()), "drawn as a wall: every row carries its card");
     ok!(commit(&core, ZRUSENE, NOW, |d| d.limit = 20), "commit limit 20");
     let want = swapped(&start, &[("limit: 50", "limit: 20"), ("modified: 2026-10-09T09:00:00+02:00", &format!("modified: {NOW}"))]);
     assert_eq!(disk_s(&root, &qpath(ZRUSENE)), Some(want), "`view: board` kept in the file");

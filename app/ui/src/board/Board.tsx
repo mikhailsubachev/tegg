@@ -49,6 +49,8 @@ export type CardSlotProps = {
 };
 
 export type BoardProps = {
+  /** Slice Q3 (v1-views §42.1): a grouped wall (`data-wall`, `data-grouped="true"`). */
+  wall?: boolean;
   label: string;
   name: string | null;
   groupBy: string;
@@ -371,7 +373,8 @@ export function Board(p: BoardProps) {
 
   return (
     <div ref={root} role="group" aria-label={p.label} data-user-content="" data-board="" data-lanes={p.lanes} data-group-by={p.groupBy}
-      data-board-name={p.name ?? undefined} className={`board board-${p.lanes}${drag ? ' dragging' : ''}`}>
+      data-board-name={p.name ?? undefined} data-wall={p.wall ? '' : undefined} data-grouped={p.wall ? 'true' : undefined}
+      className={`board board-${p.lanes}${drag ? ' dragging' : ''}`}>
       <div className="board-scroll">
         {p.data.map((l) => {
           const isFolded = !vertical && folded.has(l.id);

@@ -1,0 +1,2243 @@
+{
+ "$comment": "Slice Q3 L3 corpus (docs/contracts/v1-views.md §43.3; docs/acceptance/views.md R220, R228). `reads`: the QueryDefDto fields of Q3 (view, groupBy, groupPeriod, groupNone, lanes, laneOrder, limit, columns; §39.2 new words, `board` → wall, `vertical` / `horizontal` → columns / rows) and the syntactic broken keys of query files (`file`) and runtime texts (`text`). `items`: the overlay book.yml's `views:` items as ViewItemDto. `fences`: every query fence of the overlay's Zobrazení and of expected/views-display/fences/*.md with what a reader gives (null absent, \"broken\", or the value; §35 shapes). `results`: R228 on the overlay (`source` view = a tab, fence = the n-th fence of `file`, saved = query/<name>): the effective `display` (and `lanes` on a grouped wall), `group` null or { key, period, lanes } with only the lanes that hold a card (excluded or empty lanes left out; compare the core's lanes after dropping empty ones), `paths` the rows in order (null where the lanes say it), `broken` the keys of the usage's (or the query's) broken entries the run reports, compared as a set. Read by crates/tegg-core/tests/ac_views_display.rs, packages/doc/test/query_usage_display.ac.test.ts and app/test/fake_views_display.contract.test.ts.",
+ "reads": [
+  {
+   "name": "Celá zeď",
+   "file": "tests/fixtures/vaults/views-display/.tegg/queries/Celá zeď.yml",
+   "def": {
+    "view": "wall",
+    "groupBy": null,
+    "groupPeriod": false,
+    "groupNone": false,
+    "lanes": "rows",
+    "laneOrder": null,
+    "limit": 10,
+    "columns": [
+     "author",
+     "status"
+    ]
+   },
+   "broken": []
+  },
+  {
+   "name": "Rozečtené",
+   "file": "tests/fixtures/vaults/views/.tegg/queries/Rozečtené.yml",
+   "def": {
+    "view": "wall",
+    "groupBy": "status",
+    "groupPeriod": false,
+    "groupNone": false,
+    "lanes": "columns",
+    "laneOrder": [
+     "Reading",
+     "To read",
+     "Read"
+    ],
+    "limit": 50,
+    "columns": [
+     "author",
+     "rating"
+    ]
+   },
+   "broken": []
+  },
+  {
+   "name": "Podle žánru",
+   "file": "tests/fixtures/vaults/views/.tegg/queries/Podle žánru.yml",
+   "def": {
+    "view": "wall",
+    "groupBy": "genres",
+    "groupPeriod": false,
+    "groupNone": false,
+    "lanes": "rows",
+    "laneOrder": null,
+    "limit": 50,
+    "columns": [
+     "author",
+     "rating"
+    ]
+   },
+   "broken": []
+  },
+  {
+   "name": "Podle autora",
+   "file": "tests/fixtures/vaults/views/.tegg/queries/Podle autora.yml",
+   "def": {
+    "view": "wall",
+    "groupBy": "author",
+    "groupPeriod": false,
+    "groupNone": false,
+    "lanes": "columns",
+    "laneOrder": null,
+    "limit": 50,
+    "columns": [
+     "rating",
+     "genres"
+    ]
+   },
+   "broken": []
+  },
+  {
+   "name": "Seskupeno podle data",
+   "file": "tests/fixtures/vaults/views/.tegg/queries/Seskupeno podle data.yml",
+   "def": {
+    "view": "wall",
+    "groupBy": "finished",
+    "groupPeriod": false,
+    "groupNone": false,
+    "lanes": "columns",
+    "laneOrder": null,
+    "limit": 50,
+    "columns": [
+     "author"
+    ]
+   },
+   "broken": []
+  },
+  {
+   "name": "wall-rows",
+   "def": {
+    "view": "wall",
+    "groupBy": "status",
+    "groupPeriod": false,
+    "groupNone": false,
+    "lanes": "rows",
+    "laneOrder": null,
+    "limit": 50,
+    "columns": [
+     "author"
+    ]
+   },
+   "broken": [],
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Ruční.\nversion: 1\ntitle: Ruční\ntypes: [book]\nmatch: all\nfilters: []\nsort: { by: title, order: asc }\nlimit: 50\nview: wall\ngroup_by: status\nlanes: rows\ncolumns: [author]\ncreated: 2026-11-18T20:00:00+01:00\nmodified: 2026-11-18T20:00:00+01:00\n"
+  },
+  {
+   "name": "group-none",
+   "def": {
+    "view": "wall",
+    "groupBy": null,
+    "groupPeriod": false,
+    "groupNone": true,
+    "lanes": "rows",
+    "laneOrder": null,
+    "limit": 50,
+    "columns": [
+     "author"
+    ]
+   },
+   "broken": [],
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Ruční.\nversion: 1\ntitle: Ruční\ntypes: [book]\nmatch: all\nfilters: []\nsort: { by: title, order: asc }\nlimit: 50\nview: wall\ngroup_by: none\nlanes: rows\ncolumns: [author]\ncreated: 2026-11-18T20:00:00+01:00\nmodified: 2026-11-18T20:00:00+01:00\n"
+  },
+  {
+   "name": "wall-other-case",
+   "def": {
+    "view": "list",
+    "groupBy": null,
+    "groupPeriod": false,
+    "groupNone": false,
+    "lanes": "columns",
+    "laneOrder": null,
+    "limit": 50,
+    "columns": [
+     "author"
+    ]
+   },
+   "broken": [
+    "view"
+   ],
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Ruční.\nversion: 1\ntitle: Ruční\ntypes: [book]\nmatch: all\nfilters: []\nsort: { by: title, order: asc }\nlimit: 50\nview: Wall\ncolumns: [author]\ncreated: 2026-11-18T20:00:00+01:00\nmodified: 2026-11-18T20:00:00+01:00\n"
+  },
+  {
+   "name": "group-month",
+   "def": {
+    "view": "table",
+    "groupBy": null,
+    "groupPeriod": false,
+    "groupNone": false,
+    "lanes": "columns",
+    "laneOrder": null,
+    "limit": 50,
+    "columns": [
+     "author"
+    ]
+   },
+   "broken": [
+    "group_by"
+   ],
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Ruční.\nversion: 1\ntitle: Ruční\ntypes: [book]\nmatch: all\nfilters: []\nsort: { by: title, order: asc }\nlimit: 50\nview: table\ngroup_by: { finished: month }\ncolumns: [author]\ncreated: 2026-11-18T20:00:00+01:00\nmodified: 2026-11-18T20:00:00+01:00\n"
+  },
+  {
+   "name": "lanes-diagonal",
+   "def": {
+    "view": "wall",
+    "groupBy": "status",
+    "groupPeriod": false,
+    "groupNone": false,
+    "lanes": "columns",
+    "laneOrder": null,
+    "limit": 50,
+    "columns": [
+     "author"
+    ]
+   },
+   "broken": [
+    "lanes"
+   ],
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Ruční.\nversion: 1\ntitle: Ruční\ntypes: [book]\nmatch: all\nfilters: []\nsort: { by: title, order: asc }\nlimit: 50\nview: wall\ngroup_by: status\nlanes: diagonal\ncolumns: [author]\ncreated: 2026-11-18T20:00:00+01:00\nmodified: 2026-11-18T20:00:00+01:00\n"
+  },
+  {
+   "name": "period-list",
+   "def": {
+    "view": "list",
+    "groupBy": "finished",
+    "groupPeriod": true,
+    "groupNone": false,
+    "lanes": "columns",
+    "laneOrder": null,
+    "limit": 50,
+    "columns": [
+     "author"
+    ]
+   },
+   "broken": [],
+   "text": "# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Ruční.\nversion: 1\ntitle: Ruční\ntypes: [book]\nmatch: all\nfilters: []\nsort: { by: title, order: asc }\nlimit: 50\nview: list\ngroup_by: { finished: period }\ncolumns: [author]\ncreated: 2026-11-18T20:00:00+01:00\nmodified: 2026-11-18T20:00:00+01:00\n"
+  }
+ ],
+ "items": [
+  {
+   "name": "Rozečtené",
+   "sort": null,
+   "sortBroken": false,
+   "columns": null,
+   "columnsBroken": false,
+   "view": null,
+   "viewBroken": false,
+   "group": {
+    "none": true
+   },
+   "groupBroken": false,
+   "lanes": null,
+   "lanesBroken": false,
+   "laneOrder": null,
+   "laneOrderBroken": false,
+   "widths": null,
+   "widthsBroken": false,
+   "plain": false
+  },
+  {
+   "name": "Přečtené 2026",
+   "sort": null,
+   "sortBroken": false,
+   "columns": null,
+   "columnsBroken": false,
+   "view": "wall",
+   "viewBroken": false,
+   "group": null,
+   "groupBroken": false,
+   "lanes": null,
+   "lanesBroken": false,
+   "laneOrder": null,
+   "laneOrderBroken": false,
+   "widths": null,
+   "widthsBroken": false,
+   "plain": false
+  },
+  {
+   "name": "Výborné knihy",
+   "sort": null,
+   "sortBroken": false,
+   "columns": null,
+   "columnsBroken": false,
+   "view": null,
+   "viewBroken": false,
+   "group": {
+    "none": false,
+    "key": "author",
+    "period": false
+   },
+   "groupBroken": false,
+   "lanes": null,
+   "lanesBroken": false,
+   "laneOrder": [
+    "[[Lucie Horká]]"
+   ],
+   "laneOrderBroken": false,
+   "widths": [
+    [
+     "title",
+     260
+    ],
+    [
+     "author",
+     180
+    ]
+   ],
+   "widthsBroken": false,
+   "plain": false
+  },
+  {
+   "name": "Podle žánru",
+   "sort": null,
+   "sortBroken": false,
+   "columns": null,
+   "columnsBroken": false,
+   "view": "list",
+   "viewBroken": false,
+   "group": null,
+   "groupBroken": false,
+   "lanes": "columns",
+   "lanesBroken": false,
+   "laneOrder": null,
+   "laneOrderBroken": false,
+   "widths": null,
+   "widthsBroken": false,
+   "plain": false
+  },
+  {
+   "name": "Podle autora",
+   "sort": null,
+   "sortBroken": false,
+   "columns": null,
+   "columnsBroken": false,
+   "view": "wall",
+   "viewBroken": false,
+   "group": null,
+   "groupBroken": false,
+   "lanes": "rows",
+   "lanesBroken": false,
+   "laneOrder": null,
+   "laneOrderBroken": false,
+   "widths": null,
+   "widthsBroken": false,
+   "plain": false
+  },
+  {
+   "name": "Celá zeď",
+   "sort": null,
+   "sortBroken": false,
+   "columns": null,
+   "columnsBroken": false,
+   "view": null,
+   "viewBroken": false,
+   "group": null,
+   "groupBroken": false,
+   "lanes": null,
+   "lanesBroken": false,
+   "laneOrder": null,
+   "laneOrderBroken": false,
+   "widths": null,
+   "widthsBroken": false,
+   "plain": true
+  }
+ ],
+ "fences": [
+  {
+   "file": "tests/fixtures/vaults/views-display/Pages/Zobrazení knih.md",
+   "fence": 1,
+   "saved": "Přečtené 2026",
+   "view": "wall",
+   "group": {
+    "none": true
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/vaults/views-display/Pages/Zobrazení knih.md",
+   "fence": 2,
+   "saved": "Rozečtené",
+   "view": "table",
+   "group": null,
+   "lanes": null,
+   "laneOrder": [
+    "To read"
+   ],
+   "widths": [
+    [
+     "title",
+     240
+    ]
+   ],
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/vaults/views-display/Pages/Zobrazení knih.md",
+   "fence": 3,
+   "saved": "Seskupeno podle data",
+   "view": "list",
+   "group": {
+    "none": false,
+    "key": "finished",
+    "period": true
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/vaults/views-display/Pages/Zobrazení knih.md",
+   "fence": 4,
+   "saved": "Celá zeď",
+   "view": null,
+   "group": {
+    "none": false,
+    "key": "status",
+    "period": false
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/vaults/views-display/Pages/Zobrazení knih.md",
+   "fence": 5,
+   "saved": "Výborné knihy",
+   "view": "broken",
+   "group": {
+    "none": false,
+    "key": "finished",
+    "period": false
+   },
+   "lanes": "broken",
+   "laneOrder": null,
+   "widths": "broken",
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/vaults/views-display/Pages/Zobrazení knih.md",
+   "fence": 6,
+   "saved": "Výborné knihy",
+   "view": null,
+   "group": null,
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/callout-input.md",
+   "fence": 1,
+   "saved": "Přečtené 2026",
+   "view": "wall",
+   "group": {
+    "none": true
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/callout-input.md",
+   "fence": 2,
+   "saved": "Rozečtené",
+   "view": "table",
+   "group": null,
+   "lanes": null,
+   "laneOrder": [
+    "To read"
+   ],
+   "widths": [
+    [
+     "title",
+     240
+    ]
+   ],
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/callout-input.md",
+   "fence": 3,
+   "saved": "Seskupeno podle data",
+   "view": "list",
+   "group": {
+    "none": false,
+    "key": "finished",
+    "period": true
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/callout-input.md",
+   "fence": 4,
+   "saved": "Celá zeď",
+   "view": null,
+   "group": {
+    "none": false,
+    "key": "status",
+    "period": false
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/callout-input.md",
+   "fence": 5,
+   "saved": "Výborné knihy",
+   "view": "broken",
+   "group": {
+    "none": false,
+    "key": "finished",
+    "period": false
+   },
+   "lanes": "broken",
+   "laneOrder": null,
+   "widths": "broken",
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/callout-input.md",
+   "fence": 6,
+   "saved": "Výborné knihy",
+   "view": null,
+   "group": null,
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/callout.md",
+   "fence": 1,
+   "saved": "Přečtené 2026",
+   "view": "wall",
+   "group": {
+    "none": true
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/callout.md",
+   "fence": 2,
+   "saved": "Rozečtené",
+   "view": "table",
+   "group": null,
+   "lanes": null,
+   "laneOrder": [
+    "To read"
+   ],
+   "widths": [
+    [
+     "title",
+     240
+    ]
+   ],
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/callout.md",
+   "fence": 3,
+   "saved": "Seskupeno podle data",
+   "view": "list",
+   "group": {
+    "none": false,
+    "key": "finished",
+    "period": true
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/callout.md",
+   "fence": 4,
+   "saved": "Celá zeď",
+   "view": null,
+   "group": {
+    "none": false,
+    "key": "status",
+    "period": false
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/callout.md",
+   "fence": 5,
+   "saved": "Výborné knihy",
+   "view": "broken",
+   "group": {
+    "none": false,
+    "key": "finished",
+    "period": false
+   },
+   "lanes": "broken",
+   "laneOrder": null,
+   "widths": "broken",
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/callout.md",
+   "fence": 6,
+   "saved": "Výborné knihy",
+   "view": "wall",
+   "group": null,
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/comment-broken-input.md",
+   "fence": 1,
+   "saved": "Přečtené 2026",
+   "view": "wall",
+   "group": {
+    "none": true
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/comment-broken-input.md",
+   "fence": 2,
+   "saved": "Rozečtené",
+   "view": "table",
+   "group": null,
+   "lanes": null,
+   "laneOrder": [
+    "To read"
+   ],
+   "widths": [
+    [
+     "title",
+     240
+    ]
+   ],
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/comment-broken-input.md",
+   "fence": 3,
+   "saved": "Seskupeno podle data",
+   "view": "list",
+   "group": {
+    "none": false,
+    "key": "finished",
+    "period": true
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/comment-broken-input.md",
+   "fence": 4,
+   "saved": "Celá zeď",
+   "view": null,
+   "group": {
+    "none": false,
+    "key": "status",
+    "period": false
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/comment-broken-input.md",
+   "fence": 5,
+   "saved": "Výborné knihy",
+   "view": "broken",
+   "group": {
+    "none": false,
+    "key": "finished",
+    "period": false
+   },
+   "lanes": "broken",
+   "laneOrder": null,
+   "widths": "broken",
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/comment-broken-input.md",
+   "fence": 6,
+   "saved": "Výborné knihy",
+   "view": null,
+   "group": null,
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/comment-broken.md",
+   "fence": 1,
+   "saved": "Přečtené 2026",
+   "view": "wall",
+   "group": {
+    "none": true
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/comment-broken.md",
+   "fence": 2,
+   "saved": "Rozečtené",
+   "view": "table",
+   "group": null,
+   "lanes": null,
+   "laneOrder": [
+    "To read"
+   ],
+   "widths": [
+    [
+     "title",
+     240
+    ]
+   ],
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/comment-broken.md",
+   "fence": 3,
+   "saved": "Seskupeno podle data",
+   "view": "list",
+   "group": {
+    "none": false,
+    "key": "finished",
+    "period": true
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/comment-broken.md",
+   "fence": 4,
+   "saved": "Celá zeď",
+   "view": null,
+   "group": {
+    "none": false,
+    "key": "status",
+    "period": false
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/comment-broken.md",
+   "fence": 5,
+   "saved": "Výborné knihy",
+   "view": "broken",
+   "group": {
+    "none": false,
+    "key": "author",
+    "period": false
+   },
+   "lanes": "broken",
+   "laneOrder": null,
+   "widths": "broken",
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/comment-broken.md",
+   "fence": 6,
+   "saved": "Výborné knihy",
+   "view": null,
+   "group": null,
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/crlf-input.md",
+   "fence": 1,
+   "saved": "Přečtené 2026",
+   "view": "wall",
+   "group": {
+    "none": true
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/crlf-input.md",
+   "fence": 2,
+   "saved": "Rozečtené",
+   "view": "table",
+   "group": null,
+   "lanes": null,
+   "laneOrder": [
+    "To read"
+   ],
+   "widths": [
+    [
+     "title",
+     240
+    ]
+   ],
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/crlf-input.md",
+   "fence": 3,
+   "saved": "Seskupeno podle data",
+   "view": "list",
+   "group": {
+    "none": false,
+    "key": "finished",
+    "period": true
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/crlf-input.md",
+   "fence": 4,
+   "saved": "Celá zeď",
+   "view": null,
+   "group": {
+    "none": false,
+    "key": "status",
+    "period": false
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/crlf-input.md",
+   "fence": 5,
+   "saved": "Výborné knihy",
+   "view": "broken",
+   "group": {
+    "none": false,
+    "key": "finished",
+    "period": false
+   },
+   "lanes": "broken",
+   "laneOrder": null,
+   "widths": "broken",
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/crlf-input.md",
+   "fence": 6,
+   "saved": "Výborné knihy",
+   "view": null,
+   "group": null,
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/crlf.md",
+   "fence": 1,
+   "saved": "Přečtené 2026",
+   "view": "wall",
+   "group": {
+    "none": true
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/crlf.md",
+   "fence": 2,
+   "saved": "Rozečtené",
+   "view": "list",
+   "group": null,
+   "lanes": null,
+   "laneOrder": [
+    "To read"
+   ],
+   "widths": [
+    [
+     "title",
+     240
+    ]
+   ],
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/crlf.md",
+   "fence": 3,
+   "saved": "Seskupeno podle data",
+   "view": "list",
+   "group": {
+    "none": false,
+    "key": "finished",
+    "period": true
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/crlf.md",
+   "fence": 4,
+   "saved": "Celá zeď",
+   "view": null,
+   "group": {
+    "none": false,
+    "key": "status",
+    "period": false
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/crlf.md",
+   "fence": 5,
+   "saved": "Výborné knihy",
+   "view": "broken",
+   "group": {
+    "none": false,
+    "key": "finished",
+    "period": false
+   },
+   "lanes": "broken",
+   "laneOrder": null,
+   "widths": "broken",
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/crlf.md",
+   "fence": 6,
+   "saved": "Výborné knihy",
+   "view": null,
+   "group": null,
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/info-meta-input.md",
+   "fence": 1,
+   "saved": "Výborné knihy",
+   "view": null,
+   "group": null,
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": [
+    "author"
+   ]
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/info-meta.md",
+   "fence": 1,
+   "saved": "Výborné knihy",
+   "view": null,
+   "group": {
+    "none": false,
+    "key": "status",
+    "period": false
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": [
+    "author"
+   ]
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/insert-all-input.md",
+   "fence": 1,
+   "saved": "Výborné knihy",
+   "view": null,
+   "group": null,
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": [
+    {
+     "by": "title",
+     "order": "asc"
+    }
+   ],
+   "columns": [
+    "author"
+   ]
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/insert-all.md",
+   "fence": 1,
+   "saved": "Výborné knihy",
+   "view": "table",
+   "group": {
+    "none": false,
+    "key": "author",
+    "period": false
+   },
+   "lanes": "rows",
+   "laneOrder": [
+    "[[Lucie Horká]]"
+   ],
+   "widths": [
+    [
+     "title",
+     260
+    ]
+   ],
+   "sort": [
+    {
+     "by": "title",
+     "order": "asc"
+    }
+   ],
+   "columns": [
+    "author"
+   ]
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/insert-group-input.md",
+   "fence": 1,
+   "saved": "Výborné knihy",
+   "view": null,
+   "group": null,
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": [
+    {
+     "by": "title",
+     "order": "asc"
+    }
+   ],
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/insert-group-none-input.md",
+   "fence": 1,
+   "saved": "Rozečtené",
+   "view": null,
+   "group": null,
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": [
+    "author"
+   ]
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/insert-group-none.md",
+   "fence": 1,
+   "saved": "Rozečtené",
+   "view": null,
+   "group": {
+    "none": true
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": [
+    "author"
+   ]
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/insert-group-period-input.md",
+   "fence": 1,
+   "saved": "Přečtené 2026",
+   "view": "list",
+   "group": null,
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/insert-group-period.md",
+   "fence": 1,
+   "saved": "Přečtené 2026",
+   "view": "list",
+   "group": {
+    "none": false,
+    "key": "finished",
+    "period": true
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/insert-group.md",
+   "fence": 1,
+   "saved": "Výborné knihy",
+   "view": null,
+   "group": {
+    "none": false,
+    "key": "status",
+    "period": false
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": [
+    {
+     "by": "title",
+     "order": "asc"
+    }
+   ],
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/insert-lane-order-input.md",
+   "fence": 1,
+   "saved": "Rozečtené",
+   "view": null,
+   "group": {
+    "none": false,
+    "key": "status",
+    "period": false
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": [
+    [
+     "title",
+     240
+    ]
+   ],
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/insert-lane-order.md",
+   "fence": 1,
+   "saved": "Rozečtené",
+   "view": null,
+   "group": {
+    "none": false,
+    "key": "status",
+    "period": false
+   },
+   "lanes": null,
+   "laneOrder": [
+    "To read",
+    "Reading",
+    "Read"
+   ],
+   "widths": [
+    [
+     "title",
+     240
+    ]
+   ],
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/insert-lanes-input.md",
+   "fence": 1,
+   "saved": "Rozečtené",
+   "view": "wall",
+   "group": {
+    "none": false,
+    "key": "status",
+    "period": false
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": [
+    {
+     "by": "title",
+     "order": "asc"
+    }
+   ],
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/insert-lanes.md",
+   "fence": 1,
+   "saved": "Rozečtené",
+   "view": "wall",
+   "group": {
+    "none": false,
+    "key": "status",
+    "period": false
+   },
+   "lanes": "rows",
+   "laneOrder": null,
+   "widths": null,
+   "sort": [
+    {
+     "by": "title",
+     "order": "asc"
+    }
+   ],
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/insert-view-input.md",
+   "fence": 1,
+   "saved": "Přečtené 2026",
+   "view": null,
+   "group": null,
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/insert-view.md",
+   "fence": 1,
+   "saved": "Přečtené 2026",
+   "view": "wall",
+   "group": null,
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/insert-widths-input.md",
+   "fence": 1,
+   "saved": "Výborné knihy",
+   "view": "table",
+   "group": null,
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": [
+    "author",
+    "status"
+   ]
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/insert-widths.md",
+   "fence": 1,
+   "saved": "Výborné knihy",
+   "view": "table",
+   "group": null,
+   "lanes": null,
+   "laneOrder": null,
+   "widths": [
+    [
+     "title",
+     240
+    ],
+    [
+     "author",
+     180
+    ]
+   ],
+   "sort": null,
+   "columns": [
+    "author",
+    "status"
+   ]
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/list-item-input.md",
+   "fence": 1,
+   "saved": "Přečtené 2026",
+   "view": null,
+   "group": null,
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/list-item.md",
+   "fence": 1,
+   "saved": "Přečtené 2026",
+   "view": "wall",
+   "group": null,
+   "lanes": null,
+   "laneOrder": null,
+   "widths": [
+    [
+     "title",
+     300
+    ]
+   ],
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/nfd-saved-input.md",
+   "fence": 1,
+   "saved": "Přečtené 2026",
+   "view": null,
+   "group": null,
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/nfd-saved.md",
+   "fence": 1,
+   "saved": "Přečtené 2026",
+   "view": "wall",
+   "group": null,
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/old-word-kept-input.md",
+   "fence": 1,
+   "saved": "Podle žánru",
+   "view": "wall",
+   "group": null,
+   "lanes": "rows",
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/old-word-kept.md",
+   "fence": 1,
+   "saved": "Podle žánru",
+   "view": "wall",
+   "group": {
+    "none": false,
+    "key": "author",
+    "period": false
+   },
+   "lanes": "rows",
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/remove-display-input.md",
+   "fence": 1,
+   "saved": "Přečtené 2026",
+   "view": "wall",
+   "group": {
+    "none": true
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/remove-display.md",
+   "fence": 1,
+   "saved": "Přečtené 2026",
+   "view": null,
+   "group": {
+    "none": true
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/remove-grouping-input.md",
+   "fence": 1,
+   "saved": "Rozečtené",
+   "view": "table",
+   "group": {
+    "none": false,
+    "key": "genres",
+    "period": false
+   },
+   "lanes": "rows",
+   "laneOrder": [
+    "Román",
+    "Poezie"
+   ],
+   "widths": [
+    [
+     "title",
+     240
+    ]
+   ],
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/remove-grouping.md",
+   "fence": 1,
+   "saved": "Rozečtené",
+   "view": "table",
+   "group": null,
+   "lanes": null,
+   "laneOrder": null,
+   "widths": [
+    [
+     "title",
+     240
+    ]
+   ],
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/replace-view-input.md",
+   "fence": 1,
+   "saved": "Přečtené 2026",
+   "view": "table",
+   "group": {
+    "none": true
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/replace-view.md",
+   "fence": 1,
+   "saved": "Přečtené 2026",
+   "view": "wall",
+   "group": {
+    "none": true
+   },
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/tilde-input.md",
+   "fence": 1,
+   "saved": "Výborné knihy",
+   "view": null,
+   "group": null,
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  },
+  {
+   "file": "tests/fixtures/queries-files/expected/views-display/fences/tilde.md",
+   "fence": 1,
+   "saved": "Výborné knihy",
+   "view": "list",
+   "group": null,
+   "lanes": null,
+   "laneOrder": null,
+   "widths": null,
+   "sort": null,
+   "columns": null
+  }
+ ],
+ "results": [
+  {
+   "source": {
+    "kind": "view",
+    "type": "book",
+    "name": "Rozečtené"
+   },
+   "env": {
+    "today": "2026-11-19",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "display": "wall",
+   "group": null,
+   "broken": [],
+   "paths": [
+    "Books/Dům u řeky.md",
+    "Books/Kniha o horách.md",
+    "Books/Noční vlak.md",
+    "Books/Účetní ze Žižkova.md",
+    "Books/Světla přístavu.md"
+   ]
+  },
+  {
+   "source": {
+    "kind": "view",
+    "type": "book",
+    "name": "Přečtené 2026"
+   },
+   "env": {
+    "today": "2026-11-19",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "display": "wall",
+   "group": null,
+   "broken": [],
+   "paths": [
+    "Books/Mapa bez severu.md",
+    "Books/Sto zimních dní.md",
+    "Books/Cizí přístavy.md",
+    "Books/Čarovná mapa.md",
+    "Books/Šest cest k moři.md",
+    "Books/Kniha o čaji.md",
+    "Books/Tiché město.md",
+    "Books/Zahrada v dešti.md"
+   ]
+  },
+  {
+   "source": {
+    "kind": "view",
+    "type": "book",
+    "name": "Přečtené 2026"
+   },
+   "env": {
+    "today": "2026-11-19",
+    "zone": "Europe/Prague",
+    "weekStart": 0,
+    "locale": "en-US"
+   },
+   "display": "wall",
+   "group": null,
+   "broken": [],
+   "paths": [
+    "Books/Mapa bez severu.md",
+    "Books/Sto zimních dní.md",
+    "Books/Čarovná mapa.md",
+    "Books/Cizí přístavy.md",
+    "Books/Šest cest k moři.md",
+    "Books/Kniha o čaji.md",
+    "Books/Tiché město.md",
+    "Books/Zahrada v dešti.md"
+   ]
+  },
+  {
+   "source": {
+    "kind": "view",
+    "type": "book",
+    "name": "Výborné knihy"
+   },
+   "env": {
+    "today": "2026-11-19",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "display": "table",
+   "broken": [],
+   "paths": [
+    "Books/Cizí přístavy.md",
+    "Books/Čarovná mapa.md",
+    "Books/Mapa bez severu.md"
+   ],
+   "group": {
+    "key": "author",
+    "period": false,
+    "lanes": [
+     {
+      "id": "relation:Autoři/Lucie Horká.md",
+      "paths": [
+       "Books/Čarovná mapa.md"
+      ]
+     },
+     {
+      "id": "relation:Autoři/Eva Lindová.md",
+      "paths": [
+       "Books/Cizí přístavy.md",
+       "Books/Mapa bez severu.md"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "source": {
+    "kind": "view",
+    "type": "book",
+    "name": "Podle žánru"
+   },
+   "env": {
+    "today": "2026-11-19",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "display": "list",
+   "broken": [],
+   "paths": null,
+   "group": {
+    "key": "genres",
+    "period": false,
+    "lanes": [
+     {
+      "id": "option:Román",
+      "paths": [
+       "Books/Čarovná mapa.md",
+       "Books/Dům u řeky.md",
+       "Books/Mapa bez severu.md",
+       "Books/Noční vlak.md",
+       "Books/Sto zimních dní.md",
+       "Books/Účetní ze Žižkova.md"
+      ]
+     },
+     {
+      "id": "option:Detektivka",
+      "paths": [
+       "Books/Čtvrtá zima.md",
+       "Books/Tiché město.md",
+       "Books/Účetní ze Žižkova.md"
+      ]
+     },
+     {
+      "id": "option:Poezie",
+      "paths": [
+       "Books/Písně z dálky.md",
+       "Books/Zahrada v dešti.md"
+      ]
+     },
+     {
+      "id": "option:Eseje",
+      "paths": [
+       "Books/Kniha o čaji.md",
+       "Books/Sto zimních dní.md",
+       "Books/Světla přístavu.md"
+      ]
+     },
+     {
+      "id": "option:Cestopis",
+      "paths": [
+       "Books/Cizí přístavy.md",
+       "Books/Čarovná mapa.md",
+       "Books/Kniha o horách.md",
+       "Books/Šest cest k moři.md",
+       "Books/Zápisník z Tater.md"
+      ]
+     },
+     {
+      "id": "none",
+      "paths": [
+       "Books/Ostrov bez jména.md"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "source": {
+    "kind": "view",
+    "type": "book",
+    "name": "Podle žánru"
+   },
+   "env": {
+    "today": "2026-11-19",
+    "zone": "Europe/Prague",
+    "weekStart": 0,
+    "locale": "en-US"
+   },
+   "display": "list",
+   "broken": [],
+   "paths": null,
+   "group": {
+    "key": "genres",
+    "period": false,
+    "lanes": [
+     {
+      "id": "option:Román",
+      "paths": [
+       "Books/Čarovná mapa.md",
+       "Books/Dům u řeky.md",
+       "Books/Mapa bez severu.md",
+       "Books/Noční vlak.md",
+       "Books/Sto zimních dní.md",
+       "Books/Účetní ze Žižkova.md"
+      ]
+     },
+     {
+      "id": "option:Detektivka",
+      "paths": [
+       "Books/Čtvrtá zima.md",
+       "Books/Tiché město.md",
+       "Books/Účetní ze Žižkova.md"
+      ]
+     },
+     {
+      "id": "option:Poezie",
+      "paths": [
+       "Books/Písně z dálky.md",
+       "Books/Zahrada v dešti.md"
+      ]
+     },
+     {
+      "id": "option:Eseje",
+      "paths": [
+       "Books/Kniha o čaji.md",
+       "Books/Sto zimních dní.md",
+       "Books/Světla přístavu.md"
+      ]
+     },
+     {
+      "id": "option:Cestopis",
+      "paths": [
+       "Books/Čarovná mapa.md",
+       "Books/Cizí přístavy.md",
+       "Books/Kniha o horách.md",
+       "Books/Šest cest k moři.md",
+       "Books/Zápisník z Tater.md"
+      ]
+     },
+     {
+      "id": "none",
+      "paths": [
+       "Books/Ostrov bez jména.md"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "source": {
+    "kind": "view",
+    "type": "book",
+    "name": "Podle autora"
+   },
+   "env": {
+    "today": "2026-11-19",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "display": "wall",
+   "lanes": "rows",
+   "broken": [],
+   "paths": null,
+   "group": {
+    "key": "author",
+    "period": false,
+    "lanes": [
+     {
+      "id": "relation:Autoři/Eva Lindová.md",
+      "paths": [
+       "Books/Cizí přístavy.md",
+       "Books/Mapa bez severu.md",
+       "Books/Písně z dálky.md",
+       "Books/Světla přístavu.md"
+      ]
+     },
+     {
+      "id": "relation:Autoři/Jana Brázdová.md",
+      "paths": [
+       "Books/Šest cest k moři.md",
+       "Books/Účetní ze Žižkova.md",
+       "Books/Zápisník z Tater.md"
+      ]
+     },
+     {
+      "id": "relation:Autoři/Lucie Horká.md",
+      "paths": [
+       "Books/Čarovná mapa.md",
+       "Books/Dům u řeky.md",
+       "Books/Zahrada v dešti.md"
+      ]
+     },
+     {
+      "id": "relation:Autoři/Marek Sova.md",
+      "paths": [
+       "Books/Čtvrtá zima.md",
+       "Books/Kniha o čaji.md",
+       "Books/Kniha o horách.md"
+      ]
+     },
+     {
+      "id": "relation:Autoři/Tomáš Rybář.md",
+      "paths": [
+       "Books/Noční vlak.md",
+       "Books/Sto zimních dní.md",
+       "Books/Tiché město.md"
+      ]
+     },
+     {
+      "id": "none",
+      "paths": [
+       "Books/Ostrov bez jména.md"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "source": {
+    "kind": "view",
+    "type": "book",
+    "name": "Celá zeď"
+   },
+   "env": {
+    "today": "2026-11-19",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "display": "wall",
+   "group": null,
+   "broken": [],
+   "paths": [
+    "Books/Cizí přístavy.md",
+    "Books/Čarovná mapa.md",
+    "Books/Čtvrtá zima.md",
+    "Books/Dům u řeky.md",
+    "Books/Kniha o čaji.md",
+    "Books/Kniha o horách.md",
+    "Books/Mapa bez severu.md",
+    "Books/Noční vlak.md",
+    "Books/Písně z dálky.md",
+    "Books/Sto zimních dní.md",
+    "Books/Světla přístavu.md",
+    "Books/Šest cest k moři.md",
+    "Books/Tiché město.md",
+    "Books/Účetní ze Žižkova.md",
+    "Books/Zahrada v dešti.md",
+    "Books/Zápisník z Tater.md"
+   ]
+  },
+  {
+   "source": {
+    "kind": "view",
+    "type": "book",
+    "name": "Celá zeď"
+   },
+   "env": {
+    "today": "2026-11-19",
+    "zone": "Europe/Prague",
+    "weekStart": 0,
+    "locale": "en-US"
+   },
+   "display": "wall",
+   "group": null,
+   "broken": [],
+   "paths": [
+    "Books/Čarovná mapa.md",
+    "Books/Cizí přístavy.md",
+    "Books/Čtvrtá zima.md",
+    "Books/Dům u řeky.md",
+    "Books/Kniha o čaji.md",
+    "Books/Kniha o horách.md",
+    "Books/Mapa bez severu.md",
+    "Books/Noční vlak.md",
+    "Books/Písně z dálky.md",
+    "Books/Šest cest k moři.md",
+    "Books/Sto zimních dní.md",
+    "Books/Světla přístavu.md",
+    "Books/Tiché město.md",
+    "Books/Účetní ze Žižkova.md",
+    "Books/Zahrada v dešti.md",
+    "Books/Zápisník z Tater.md"
+   ]
+  },
+  {
+   "source": {
+    "kind": "fence",
+    "file": "tests/fixtures/vaults/views-display/Pages/Zobrazení knih.md",
+    "fence": 1
+   },
+   "env": {
+    "today": "2026-11-19",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "display": "wall",
+   "group": null,
+   "broken": [],
+   "paths": [
+    "Books/Mapa bez severu.md",
+    "Books/Sto zimních dní.md",
+    "Books/Cizí přístavy.md",
+    "Books/Čarovná mapa.md",
+    "Books/Šest cest k moři.md",
+    "Books/Kniha o čaji.md",
+    "Books/Tiché město.md",
+    "Books/Zahrada v dešti.md"
+   ]
+  },
+  {
+   "source": {
+    "kind": "fence",
+    "file": "tests/fixtures/vaults/views-display/Pages/Zobrazení knih.md",
+    "fence": 2
+   },
+   "env": {
+    "today": "2026-11-19",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "display": "table",
+   "broken": [],
+   "paths": null,
+   "group": {
+    "key": "status",
+    "period": false,
+    "lanes": [
+     {
+      "id": "option:To read",
+      "paths": [
+       "Books/Dům u řeky.md",
+       "Books/Kniha o horách.md"
+      ]
+     },
+     {
+      "id": "option:Reading",
+      "paths": [
+       "Books/Noční vlak.md",
+       "Books/Účetní ze Žižkova.md",
+       "Books/Světla přístavu.md"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "source": {
+    "kind": "fence",
+    "file": "tests/fixtures/vaults/views-display/Pages/Zobrazení knih.md",
+    "fence": 3
+   },
+   "env": {
+    "today": "2026-11-19",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "display": "list",
+   "broken": [],
+   "paths": null,
+   "group": {
+    "key": "finished",
+    "period": true,
+    "lanes": [
+     {
+      "id": "period:today",
+      "paths": [
+       "Books/Cizí přístavy.md",
+       "Books/Čarovná mapa.md",
+       "Books/Čtvrtá zima.md",
+       "Books/Kniha o čaji.md",
+       "Books/Mapa bez severu.md",
+       "Books/Sto zimních dní.md",
+       "Books/Šest cest k moři.md",
+       "Books/Tiché město.md",
+       "Books/Zahrada v dešti.md"
+      ]
+     },
+     {
+      "id": "none",
+      "paths": [
+       "Books/Dům u řeky.md",
+       "Books/Kniha o horách.md",
+       "Books/Noční vlak.md",
+       "Books/Ostrov bez jména.md",
+       "Books/Písně z dálky.md",
+       "Books/Světla přístavu.md",
+       "Books/Účetní ze Žižkova.md",
+       "Books/Zápisník z Tater.md"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "source": {
+    "kind": "fence",
+    "file": "tests/fixtures/vaults/views-display/Pages/Zobrazení knih.md",
+    "fence": 4
+   },
+   "env": {
+    "today": "2026-11-19",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "display": "wall",
+   "lanes": "rows",
+   "broken": [],
+   "paths": null,
+   "group": {
+    "key": "status",
+    "period": false,
+    "lanes": [
+     {
+      "id": "option:To read",
+      "paths": [
+       "Books/Dům u řeky.md",
+       "Books/Kniha o horách.md"
+      ]
+     },
+     {
+      "id": "option:Reading",
+      "paths": [
+       "Books/Noční vlak.md",
+       "Books/Světla přístavu.md",
+       "Books/Účetní ze Žižkova.md"
+      ]
+     },
+     {
+      "id": "option:Read",
+      "paths": [
+       "Books/Cizí přístavy.md",
+       "Books/Čarovná mapa.md",
+       "Books/Čtvrtá zima.md",
+       "Books/Kniha o čaji.md",
+       "Books/Mapa bez severu.md",
+       "Books/Sto zimních dní.md",
+       "Books/Šest cest k moři.md",
+       "Books/Tiché město.md",
+       "Books/Zahrada v dešti.md"
+      ]
+     },
+     {
+      "id": "unknown:Rozečteno",
+      "paths": [
+       "Books/Zápisník z Tater.md"
+      ]
+     },
+     {
+      "id": "none",
+      "paths": [
+       "Books/Písně z dálky.md"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "source": {
+    "kind": "fence",
+    "file": "tests/fixtures/vaults/views-display/Pages/Zobrazení knih.md",
+    "fence": 5
+   },
+   "env": {
+    "today": "2026-11-19",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "display": "table",
+   "group": null,
+   "broken": [
+    "view",
+    "group_by",
+    "lanes",
+    "widths"
+   ],
+   "paths": [
+    "Books/Cizí přístavy.md",
+    "Books/Čarovná mapa.md",
+    "Books/Mapa bez severu.md"
+   ]
+  },
+  {
+   "source": {
+    "kind": "fence",
+    "file": "tests/fixtures/vaults/views-display/Pages/Zobrazení knih.md",
+    "fence": 6
+   },
+   "env": {
+    "today": "2026-11-19",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "display": "table",
+   "group": null,
+   "broken": [],
+   "paths": [
+    "Books/Cizí přístavy.md",
+    "Books/Čarovná mapa.md",
+    "Books/Mapa bez severu.md"
+   ]
+  },
+  {
+   "source": {
+    "kind": "saved",
+    "name": "Celá zeď"
+   },
+   "env": {
+    "today": "2026-11-19",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "display": "wall",
+   "group": null,
+   "broken": [],
+   "paths": [
+    "Books/Cizí přístavy.md",
+    "Books/Čarovná mapa.md",
+    "Books/Čtvrtá zima.md",
+    "Books/Dům u řeky.md",
+    "Books/Kniha o čaji.md",
+    "Books/Kniha o horách.md",
+    "Books/Mapa bez severu.md",
+    "Books/Noční vlak.md",
+    "Books/Písně z dálky.md",
+    "Books/Sto zimních dní.md",
+    "Books/Světla přístavu.md",
+    "Books/Šest cest k moři.md",
+    "Books/Tiché město.md",
+    "Books/Účetní ze Žižkova.md",
+    "Books/Zahrada v dešti.md",
+    "Books/Zápisník z Tater.md"
+   ]
+  },
+  {
+   "source": {
+    "kind": "saved",
+    "name": "Rozečtené"
+   },
+   "env": {
+    "today": "2026-11-19",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "display": "wall",
+   "lanes": "columns",
+   "broken": [],
+   "paths": null,
+   "group": {
+    "key": "status",
+    "period": false,
+    "lanes": [
+     {
+      "id": "option:Reading",
+      "paths": [
+       "Books/Noční vlak.md",
+       "Books/Účetní ze Žižkova.md",
+       "Books/Světla přístavu.md"
+      ]
+     },
+     {
+      "id": "option:To read",
+      "paths": [
+       "Books/Dům u řeky.md",
+       "Books/Kniha o horách.md"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "source": {
+    "kind": "saved",
+    "name": "Seskupeno podle data"
+   },
+   "env": {
+    "today": "2026-11-19",
+    "zone": "Europe/Prague",
+    "weekStart": 1,
+    "locale": "cs"
+   },
+   "display": "wall",
+   "group": null,
+   "broken": [
+    "group_by"
+   ],
+   "paths": [
+    "Books/Cizí přístavy.md",
+    "Books/Čarovná mapa.md",
+    "Books/Čtvrtá zima.md",
+    "Books/Dům u řeky.md",
+    "Books/Kniha o čaji.md",
+    "Books/Kniha o horách.md",
+    "Books/Mapa bez severu.md",
+    "Books/Noční vlak.md",
+    "Books/Ostrov bez jména.md",
+    "Books/Písně z dálky.md",
+    "Books/Sto zimních dní.md",
+    "Books/Světla přístavu.md",
+    "Books/Šest cest k moři.md",
+    "Books/Tiché město.md",
+    "Books/Účetní ze Žižkova.md",
+    "Books/Zahrada v dešti.md",
+    "Books/Zápisník z Tater.md"
+   ]
+  }
+ ]
+}

@@ -4,7 +4,7 @@
 // `modified` (D-1936: the same bytes on every Mac, as the core's `create_text_unstamped`); the `views:` write is
 // fake-schema.ts's `type_patch` (the same minimal write as the core's `SetViews`). Test code, not product code.
 import { handle as schemaHandle, listTypes, type VersionDto } from './fake-schema';
-import { QUERIES_DIR, findLive, nameKey, queryCreateText, type QueryDefDto } from './fake-queries';
+import { QUERIES_DIR, findLive, nameKey, type QueryDefDto } from './fake-queries';
 
 type Files = Record<string, string>;
 const TASK_YML = '.tegg/types/task.yml';
@@ -17,8 +17,8 @@ export function defaultTaskView(name: string): QueryDefDto | null {
   return {
     title: name, types: ['task'], match: 'all',
     filters: [{ kind: 'filter', key: 'status', op: 'state_is_not', value: 'cancelled', src: null }],
-    sort: [{ by: 'due', order: 'asc' }, { by: 'priority', order: 'asc' }], limit: 50, view: 'board',
-    groupBy: schedule ? 'due' : 'status', groupPeriod: schedule, lanes: schedule ? 'horizontal' : 'vertical', laneOrder: null,
+    sort: [{ by: 'due', order: 'asc' }, { by: 'priority', order: 'asc' }], limit: 50, view: 'wall',
+    groupBy: schedule ? 'due' : 'status', groupPeriod: schedule, lanes: schedule ? 'rows' : 'columns', laneOrder: null,
     doneLane: { withinDays: 7, folded: schedule }, columns: [],
   };
 }
@@ -27,10 +27,42 @@ type Answer = { result?: unknown; error?: Record<string, unknown>; writes?: Reco
 const err = (kind: string, message: string, extra: Record<string, unknown> = {}) => ({ kind, message: `fake: ${message}`, ...extra });
 const taskType = (files: Files, vers: Record<string, VersionDto>) => listTypes(files, vers).find((t) => t.key === 'task') as any;
 
-/** §25.1 (D-1936): R202's bytes of a default view, with no time stamps (identical on every Mac). */
+/** §25.1 (D-1936, D-2195): R202's bytes of a default view, as constants (the old words `board`, `horizontal` /
+ *  `vertical` kept; v1-views §34.3), with no time stamps (identical on every Mac). */
+const SCHEDULE_TEXT = `# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Schedule.
+version: 1
+title: Schedule
+types: [task]
+match: all
+filters:
+  - status: { state_is_not: cancelled }
+sort:
+  - { by: due, order: asc }
+  - { by: priority, order: asc }
+limit: 50
+view: board
+group_by: { due: period }
+lanes: horizontal
+done_lane: { within_days: 7, folded: true }
+`;
+const KANBAN_TEXT = `# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Kanban.
+version: 1
+title: Kanban
+types: [task]
+match: all
+filters:
+  - status: { state_is_not: cancelled }
+sort:
+  - { by: due, order: asc }
+  - { by: priority, order: asc }
+limit: 50
+view: board
+group_by: status
+lanes: vertical
+done_lane: { within_days: 7, folded: false }
+`;
 export function defaultTaskViewText(name: string): string | null {
-  const def = defaultTaskView(name);
-  return def ? queryCreateText(def, '\u0000').replace(/^(created|modified): \u0000\n/gm, '') : null;
+  return name === 'Schedule' ? SCHEDULE_TEXT : name === 'Kanban' ? KANBAN_TEXT : null;
 }
 
 /** The default files missing as live queries (§25.2 step 2): `{ path: text }` in R202 order. */

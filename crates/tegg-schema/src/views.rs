@@ -1,10 +1,19 @@
-//! The type file's `views:` items (docs/contracts/v1-views.md §14, R196; D-1840, D-1843, D-1852, D-1857, D-1868): the
-//! ops `SetViews`, `SetViewSort`, `SetViewColumns`, `SetViewsSource`, the exact text of the key (`views_source`) and the
-//! query rename's patch (`rename_view`). Every write replaces only the `views` key's lines; in a block list an item whose
-//! value didn't change keeps its lines byte for byte, a changed item is re-emitted in NFC (name, `sort`, `columns`, then
-//! its unknown keys); the key is one flow line while every item is a plain name.
+//! The type file's `views:` items (docs/contracts/v1-views.md §14, §36; R196, R220, R221; D-1840, D-1843, D-1852,
+//! D-1857, D-1868, D-2200, D-2204): the ops `SetViews`, `SetViewSort`, `SetViewColumns`, `SetViewsSource`, Q3's
+//! `SetViewDisplay`, `SetViewGroup`, `SetViewLanes`, `SetViewLaneOrder`, `SetViewWidths`, `CopyViewSettings`, the exact
+//! text of the key (`views_source`), the query rename's patch (`rename_view`) and the 4C rename's lane-order patch
+//! (`relink_view_lane_orders`, §38). Every write replaces only the `views` key's lines. An item whose value didn't change
+//! keeps its lines byte for byte (a comment after it included, D-2204); in a changed item every field the op didn't touch
+//! keeps its lines (old words, comments on those lines, style; CP-35, D-2200), the changed key's lines are replaced
+//! (keeping a one-line key's trailing comment) or inserted at its R221 place, and full-line comments inside it go. The
+//! key is one flow line while every item is a plain name.
 
 use super::*;
+
+/// R221's key order inside an item; unknown keys stay where they are.
+const KEY_ORDER: [&str; 8] = ["name", "view", "group_by", "lanes", "lane_order", "sort", "columns", "widths"];
+/// The own keys `CopyViewSettings` copies (CP-35, D-2200; unknown keys aren't copied, D-1863).
+const OWN_KEYS: [&str; 7] = ["view", "group_by", "lanes", "lane_order", "sort", "columns", "widths"];
 
 /// One item while a views op runs.
 #[derive(Debug, Clone)]
@@ -12,10 +21,15 @@ struct Item {
     name: String,
     sort: UsageValue<Vec<UsageSort>>,
     columns: UsageValue<Vec<String>>,
-    /// Lines of a broken `sort` / `columns` and of the unknown keys, relative to the field indent, without EOL.
-    sort_raw: Vec<String>,
-    columns_raw: Vec<String>,
-    unknown: Vec<String>,
+    view: UsageValue<UsageView>,
+    group_by: UsageValue<UsageGroupBy>,
+    lanes: UsageValue<UsageLanes>,
+    lane_order: UsageValue<Vec<String>>,
+    widths: UsageValue<Vec<(String, u32)>>,
+    /// The item's fields as (key, lines relative to the field indent, without EOL), `name` included, in file order.
+    fields: Vec<(String, Vec<String>)>,
+    /// The field indent relative to the item indent's dash (`- ` = 2).
+    gap: usize,
     /// The item's lines as written (block style), EOLs as in the file; None for a new item or a flow list.
     lines: Option<Vec<String>>,
     changed: bool,
@@ -23,11 +37,68 @@ struct Item {
 
 impl Item {
     fn plain(&self) -> bool {
-        self.sort == UsageValue::Absent && self.columns == UsageValue::Absent && self.unknown.is_empty()
+        self.fields.iter().all(|(k, _)| k == "name")
     }
     fn new_plain(name: &str) -> Item {
-        Item { name: nfc(name), sort: UsageValue::Absent, columns: UsageValue::Absent, sort_raw: Vec::new(), columns_raw: Vec::new(), unknown: Vec::new(), lines: None, changed: true }
+        let name = nfc(name);
+        Item {
+            fields: vec![("name".into(), vec![format!("name: {}", scalar(&name, true))])],
+            name,
+            sort: UsageValue::Absent,
+            columns: UsageValue::Absent,
+            view: UsageValue::Absent,
+            group_by: UsageValue::Absent,
+            lanes: UsageValue::Absent,
+            lane_order: UsageValue::Absent,
+            widths: UsageValue::Absent,
+            gap: 2,
+            lines: None,
+            changed: true,
+        }
     }
+    fn has(&self, key: &str) -> bool {
+        self.fields.iter().any(|(k, _)| k == key)
+    }
+    /// Sets (Some) or removes (None) a field's lines: replaced in place (a one-line key keeps its trailing comment),
+    /// else inserted right after the nearest earlier key of R221's order.
+    fn set_field(&mut self, key: &str, new: Option<Vec<String>>) {
+        let at = self.fields.iter().position(|(k, _)| k == key);
+        match (at, new) {
+            (Some(i), None) => {
+                self.fields.remove(i);
+            }
+            (Some(i), Some(mut l)) => {
+                let old = &self.fields[i].1;
+                if old.len() == 1 && l.len() == 1 {
+                    if let Some(c) = trailing_comment(&old[0]) {
+                        l[0].push_str(&c);
+                    }
+                }
+                self.fields[i].1 = l;
+            }
+            (None, None) => return,
+            (None, Some(l)) => {
+                let rank = KEY_ORDER.iter().position(|k| *k == key).unwrap_or(KEY_ORDER.len());
+                // Right after the nearest earlier key of R221's order that is present (else after the name).
+                let after = KEY_ORDER[..rank.min(KEY_ORDER.len())].iter().rev().find_map(|k| self.fields.iter().position(|(x, _)| x == k));
+                let pos = after.map(|j| j + 1).unwrap_or(0);
+                self.fields.insert(pos, (key.to_string(), l));
+            }
+        }
+        self.changed = true;
+    }
+}
+
+/// The trailing comment of a one-line field (the blanks before ` #` included), outside quotes.
+fn trailing_comment(line: &str) -> Option<String> {
+    let colon = line.find(':')?;
+    let rest = &line[colon + 1..];
+    let c = comment_start(rest)?;
+    let mut s = colon + 1 + c;
+    while s > 0 && matches!(line.as_bytes()[s - 1], b' ' | b'\t') {
+        s -= 1;
+    }
+    Some(line[s..].to_string())
 }
 
 /// The `views` key as it is: its span, style and items. None: the key is absent (or `views:` null with no items).
@@ -42,9 +113,9 @@ fn strip_cr(l: &str) -> &str {
     l.strip_suffix('\r').unwrap_or(l)
 }
 
-/// The fields of a block-mapping item's lines: (key, lines relative to the field indent, without EOL). The first field
-/// sits on the `- ` line; full-line comments at the field indent belong to no field; deeper comments are dropped.
-fn block_fields(lines: &[String], ind: usize) -> Option<Vec<(String, Vec<String>)>> {
+/// The fields of a block-mapping item's lines: (field indent, [(key, lines relative to the field indent, without
+/// EOL)]). The first field sits on the `- ` line; full-line comments and blank lines belong to no field.
+fn block_fields(lines: &[String], ind: usize) -> Option<(usize, Vec<(String, Vec<String>)>)> {
     let first = strip_cr(lines.first()?);
     let after = first.get(ind..)?.strip_prefix('-')?;
     let fi = ind + 1 + (after.len() - after.trim_start_matches(' ').len());
@@ -71,12 +142,34 @@ fn block_fields(lines: &[String], ind: usize) -> Option<Vec<(String, Vec<String>
             return None;
         }
     }
-    Some(out)
+    Some((fi, out))
 }
 
 /// A value's lines as `key: value` (one flow line), for items read from a flow collection.
 fn json_lines(key: &str, v: &Value) -> Vec<String> {
     vec![format!("{}: {}", scalar(key, false), value_text(v, true))]
+}
+
+/// The fields of an item read from JSON: `name`, the known keys in R221's order, then the unknown keys.
+fn json_fields(v: &Value) -> Vec<(String, Vec<String>)> {
+    match v {
+        Value::String(s) => vec![("name".into(), vec![format!("name: {}", scalar(s, true))])],
+        Value::Object(map) => {
+            let mut out: Vec<(String, Vec<String>)> = Vec::new();
+            for k in KEY_ORDER {
+                if let Some(x) = map.get(k) {
+                    out.push((k.to_string(), json_lines(k, x)));
+                }
+            }
+            for (k, x) in map {
+                if !KEY_ORDER.contains(&k.as_str()) {
+                    out.push((k.clone(), json_lines(k, x)));
+                }
+            }
+            out
+        }
+        _ => Vec::new(),
+    }
 }
 
 fn model(lines: &[String]) -> Result<Model, RuleError> {
@@ -85,16 +178,20 @@ fn model(lines: &[String]) -> Result<Model, RuleError> {
     let Some((s, e)) = span else { return Ok(m) };
     // The `views` key's own lines read as the same value as in the whole file (they are one top-level key); the whole
     // file is read only when they don't parse alone (an alias of an anchor elsewhere). A tab's write reads less.
-    let alone = match tegg_format::parse_yaml_value(&join_lines(&lines[s..e], true)) {
+    let own_text = join_lines(&lines[s..e], true);
+    let alone = match tegg_format::parse_yaml_value(&own_text) {
         Ok(Some(Value::Object(t))) if t.len() == 1 && t.contains_key("views") => Some(t),
         _ => None,
     };
-    let top = match alone {
-        Some(t) => t,
-        None => match tegg_format::parse_yaml_value(&join_lines(lines, true)) {
-            Ok(Some(Value::Object(t))) => t,
-            _ => return Err(RuleError::ViewsUnreadable),
-        },
+    let (top, text) = match alone {
+        Some(t) => (t, own_text),
+        None => {
+            let all = join_lines(lines, true);
+            match tegg_format::parse_yaml_value(&all) {
+                Ok(Some(Value::Object(t))) => (t, all),
+                _ => return Err(RuleError::ViewsUnreadable),
+            }
+        }
     };
     let raw: Vec<Value> = match top.get("views") {
         None | Some(Value::Null) => Vec::new(),
@@ -103,57 +200,41 @@ fn model(lines: &[String]) -> Result<Model, RuleError> {
     };
     let head = strip_cr(&lines[s]);
     let rest = head.split_once(':').map(|(_, r)| r).unwrap_or("");
-    m.block = { let r = rest.trim(); r.is_empty() || r.starts_with('#') };
+    m.block = {
+        let r = rest.trim();
+        r.is_empty() || r.starts_with('#')
+    };
     let spans: Option<Vec<Vec<String>>> = if m.block {
         let (ind, sp) = item_spans(lines, (s, e));
         m.ind = ind;
-        (sp.len() == raw.len()).then(|| {
-            sp.iter()
-                .map(|&(a, b)| {
-                    // Trailing blank lines and comments at the item indent sit between items: not the item's.
-                    let mut end = b;
-                    while end > a + 1 && (lines[end - 1].trim().is_empty() || (strip_cr(&lines[end - 1]).trim_start().starts_with('#') && indent_of(&lines[end - 1]) <= ind)) {
-                        end -= 1;
-                    }
-                    lines[a..end].to_vec()
-                })
-                .collect()
-        })
+        // An item's span runs to the next item: a comment after it belongs to it (D-2204).
+        (sp.len() == raw.len()).then(|| sp.iter().map(|&(a, b)| lines[a..b].to_vec()).collect())
     } else {
         None
     };
-    for (n, v) in raw.iter().enumerate() {
-        let vi = view_item(v).ok_or(RuleError::ViewsUnreadable)?;
+    let mut parsed: Option<Vec<ViewItem>> = raw.iter().map(view_item).collect();
+    order_widths(&mut parsed, &text);
+    let parsed = parsed.ok_or(RuleError::ViewsUnreadable)?;
+    for (n, (v, vi)) in raw.iter().zip(parsed).enumerate() {
         let own = spans.as_ref().map(|sp| sp[n].clone());
-        let mut it = Item { name: vi.name, sort: vi.sort, columns: vi.columns, sort_raw: Vec::new(), columns_raw: Vec::new(), unknown: Vec::new(), lines: own.clone(), changed: false };
-        if let Value::Object(map) = v {
-            let fields = own.as_ref().and_then(|l| block_fields(l, m.ind));
-            let field = |k: &str| -> Vec<String> {
-                match fields.as_ref().and_then(|f| f.iter().find(|(fk, _)| fk == k)) {
-                    Some((_, l)) => l.iter().map(|x| nfc(x)).collect(),
-                    None => map.get(k).map(|v| json_lines(k, v)).unwrap_or_default(),
-                }
-            };
-            if it.sort == UsageValue::Broken {
-                it.sort_raw = field("sort");
-            }
-            if it.columns == UsageValue::Broken {
-                it.columns_raw = field("columns");
-            }
-            let mut unknown_keys: Vec<String> = match &fields {
-                Some(f) => f.iter().map(|(k, _)| k.clone()).filter(|k| map.contains_key(k)).collect(),
-                None => Vec::new(),
-            };
-            for k in map.keys() {
-                if !unknown_keys.contains(k) {
-                    unknown_keys.push(k.clone());
-                }
-            }
-            for k in unknown_keys.iter().filter(|k| !matches!(k.as_str(), "name" | "sort" | "columns")) {
-                it.unknown.extend(field(k));
-            }
-        }
-        m.items.push(it);
+        let (gap, fields) = match own.as_ref().and_then(|l| block_fields(l, m.ind)) {
+            Some((fi, f)) => (fi - m.ind, f),
+            None => (2, json_fields(v)),
+        };
+        m.items.push(Item {
+            name: vi.name,
+            sort: vi.sort,
+            columns: vi.columns,
+            view: vi.view,
+            group_by: vi.group_by,
+            lanes: vi.lanes,
+            lane_order: vi.lane_order,
+            widths: vi.widths,
+            fields,
+            gap,
+            lines: own,
+            changed: false,
+        });
     }
     Ok(m)
 }
@@ -162,30 +243,75 @@ fn sort_level_text(l: &UsageSort) -> String {
     format!("{{ by: {}, order: {} }}", scalar(&l.by, true), if l.order == UsageOrder::Asc { "asc" } else { "desc" })
 }
 
-/// R196's write style of a re-emitted item, without EOLs.
+fn sort_lines(l: &[UsageSort]) -> Vec<String> {
+    match l.len() {
+        0 => vec!["sort: []".into()],
+        1 => vec![format!("sort: {}", sort_level_text(&l[0]))],
+        _ => std::iter::once("sort:".to_string()).chain(l.iter().map(|x| format!("  - {}", sort_level_text(x)))).collect(),
+    }
+}
+
+fn view_word(v: UsageView) -> &'static str {
+    match v {
+        UsageView::List => "list",
+        UsageView::Table => "table",
+        UsageView::Wall => "wall",
+    }
+}
+
+fn lanes_word(l: UsageLanes) -> &'static str {
+    match l {
+        UsageLanes::Columns => "columns",
+        UsageLanes::Rows => "rows",
+    }
+}
+
+fn group_line(g: &UsageGroupBy) -> String {
+    match g {
+        UsageGroupBy::None => "group_by: none".into(),
+        UsageGroupBy::Key(k) => format!("group_by: {}", scalar(k, false)),
+        UsageGroupBy::Period(k) => format!("group_by: {{ {}: period }}", scalar(k, true)),
+    }
+}
+
+fn widths_line(w: &[(String, u32)]) -> String {
+    format!("widths: {{ {} }}", w.iter().map(|(k, v)| format!("{}: {v}", scalar(k, true))).collect::<Vec<_>>().join(", "))
+}
+
+fn nfc_group(g: &UsageGroupBy) -> UsageGroupBy {
+    match g {
+        UsageGroupBy::None => UsageGroupBy::None,
+        UsageGroupBy::Key(k) => UsageGroupBy::Key(nfc(k.trim_matches(char::is_whitespace))),
+        UsageGroupBy::Period(k) => UsageGroupBy::Period(nfc(k.trim_matches(char::is_whitespace))),
+    }
+}
+
+fn same_widths(a: &[(String, u32)], b: &[(String, u32)]) -> bool {
+    let mut x = a.to_vec();
+    let mut y = b.to_vec();
+    x.sort();
+    y.sort();
+    x == y
+}
+
+/// The lines of a changed item, without EOLs: a plain name, or its fields at the item's field indent.
 fn emit(it: &Item, ind: usize) -> Vec<String> {
     let sp = " ".repeat(ind);
     if it.plain() {
         return vec![format!("{sp}- {}", scalar(&it.name, true))];
     }
-    let fi = " ".repeat(ind + 2);
-    let mut out = vec![format!("{sp}- name: {}", scalar(&it.name, true))];
-    match &it.sort {
-        UsageValue::Set(l) if l.is_empty() => out.push(format!("{fi}sort: []")),
-        UsageValue::Set(l) if l.len() == 1 => out.push(format!("{fi}sort: {}", sort_level_text(&l[0]))),
-        UsageValue::Set(l) => {
-            out.push(format!("{fi}sort:"));
-            out.extend(l.iter().map(|x| format!("{fi}  - {}", sort_level_text(x))));
+    let gap = it.gap.max(2);
+    let fi = " ".repeat(ind + gap);
+    let mut out = Vec::new();
+    for (n, (_, l)) in it.fields.iter().enumerate() {
+        for (j, x) in l.iter().enumerate() {
+            if n == 0 && j == 0 {
+                out.push(format!("{sp}-{}{x}", " ".repeat(gap - 1)));
+            } else {
+                out.push(format!("{fi}{x}"));
+            }
         }
-        UsageValue::Broken => out.extend(it.sort_raw.iter().map(|x| format!("{fi}{x}"))),
-        UsageValue::Absent => {}
     }
-    match &it.columns {
-        UsageValue::Set(c) => out.push(format!("{fi}columns: {}", flow_list(c))),
-        UsageValue::Broken => out.extend(it.columns_raw.iter().map(|x| format!("{fi}{x}"))),
-        UsageValue::Absent => {}
-    }
-    out.extend(it.unknown.iter().map(|x| format!("{fi}{x}")));
     out
 }
 
@@ -228,6 +354,16 @@ fn write(lines: &mut Vec<String>, m: &Model) {
 fn find(m: &Model, name: &str) -> Result<usize, RuleError> {
     let want = view_name_key(name);
     m.items.iter().position(|i| view_name_key(&i.name) == want).ok_or(RuleError::ViewNotListed)
+}
+
+/// One own key's change on the item `name` (§36.2): None when it equals the current valid value (no write).
+fn change_item(lines: &mut Vec<String>, name: &str, f: impl FnOnce(&mut Item) -> bool) -> Result<(), SchemaError> {
+    let mut m = model(lines)?;
+    let i = find(&m, name)?;
+    if f(&mut m.items[i]) {
+        write(lines, &m);
+    }
+    Ok(())
 }
 
 /// Applies one views op to the lines; `def.views` follows. Unchanged values leave the lines alone (FR-SYN-06).
@@ -284,9 +420,12 @@ pub(crate) fn apply_views(def: &mut TypeFile, lines: &mut Vec<String>, op: &Type
                     Ok(i) => {
                         let mut it = m.items[i].clone();
                         if it.name != *n {
+                            it.name = n.clone();
+                            if it.has("name") {
+                                it.set_field("name", Some(vec![format!("name: {}", scalar(n, true))]));
+                            }
                             it.changed = true;
                         }
-                        it.name = n.clone();
                         it
                     }
                     Err(_) => Item::new_plain(n),
@@ -298,34 +437,140 @@ pub(crate) fn apply_views(def: &mut TypeFile, lines: &mut Vec<String>, op: &Type
             Ok(())
         }
         TypeOp::SetViewSort { name, sort } => {
-            let mut m = model(lines)?;
-            let i = find(&m, name)?;
             let v = match sort {
-                Some(l) => UsageValue::Set(l.iter().map(|x| UsageSort { by: nfc(x.by.trim_matches(char::is_whitespace)), order: x.order }).collect()),
+                Some(l) => UsageValue::Set(l.iter().map(|x| UsageSort { by: nfc(x.by.trim_matches(char::is_whitespace)), order: x.order }).collect::<Vec<_>>()),
                 None => UsageValue::Absent,
             };
-            if m.items[i].sort == v {
-                return Ok(());
-            }
-            m.items[i].sort = v;
-            m.items[i].sort_raw.clear();
-            m.items[i].changed = true;
-            write(lines, &m);
-            Ok(())
+            change_item(lines, name, |it| {
+                if it.sort == v {
+                    return false;
+                }
+                it.set_field("sort", if let UsageValue::Set(l) = &v { Some(sort_lines(l)) } else { None });
+                it.sort = v;
+                true
+            })
         }
         TypeOp::SetViewColumns { name, columns } => {
-            let mut m = model(lines)?;
-            let i = find(&m, name)?;
             let v = match columns {
-                Some(c) => UsageValue::Set(c.iter().map(|x| nfc(x)).collect()),
+                Some(c) => UsageValue::Set(c.iter().map(|x| nfc(x)).collect::<Vec<_>>()),
                 None => UsageValue::Absent,
             };
-            if m.items[i].columns == v {
+            change_item(lines, name, |it| {
+                if it.columns == v {
+                    return false;
+                }
+                it.set_field("columns", if let UsageValue::Set(c) = &v { Some(vec![format!("columns: {}", flow_list(c))]) } else { None });
+                it.columns = v;
+                true
+            })
+        }
+        TypeOp::SetViewDisplay { name, view } => {
+            let v = view.map(UsageValue::Set).unwrap_or(UsageValue::Absent);
+            change_item(lines, name, |it| {
+                if it.view == v || (v == UsageValue::Absent && !it.has("view")) {
+                    return false;
+                }
+                it.set_field("view", view.map(|x| vec![format!("view: {}", view_word(x))]));
+                it.view = v;
+                true
+            })
+        }
+        TypeOp::SetViewLanes { name, lanes } => {
+            let v = lanes.map(UsageValue::Set).unwrap_or(UsageValue::Absent);
+            change_item(lines, name, |it| {
+                if it.lanes == v || (v == UsageValue::Absent && !it.has("lanes")) {
+                    return false;
+                }
+                it.set_field("lanes", lanes.map(|x| vec![format!("lanes: {}", lanes_word(x))]));
+                it.lanes = v;
+                true
+            })
+        }
+        TypeOp::SetViewGroup { name, group_by } => change_item(lines, name, |it| match group_by {
+            Some(g) => {
+                let g = nfc_group(g);
+                if it.group_by == UsageValue::Set(g.clone()) {
+                    return false;
+                }
+                it.set_field("group_by", Some(vec![group_line(&g)]));
+                it.group_by = UsageValue::Set(g);
+                true
+            }
+            None => {
+                // `Use the query's grouping` (D-2192): group_by, lanes and lane_order together.
+                if !(it.has("group_by") || it.has("lanes") || it.has("lane_order")) {
+                    return false;
+                }
+                for k in ["group_by", "lanes", "lane_order"] {
+                    it.set_field(k, None);
+                }
+                it.group_by = UsageValue::Absent;
+                it.lanes = UsageValue::Absent;
+                it.lane_order = UsageValue::Absent;
+                true
+            }
+        }),
+        TypeOp::SetViewLaneOrder { name, lane_order } => {
+            let v = match lane_order {
+                Some(l) => UsageValue::Set(l.iter().map(|x| nfc(x)).collect::<Vec<_>>()),
+                None => UsageValue::Absent,
+            };
+            change_item(lines, name, |it| {
+                if it.lane_order == v || (v == UsageValue::Absent && !it.has("lane_order")) {
+                    return false;
+                }
+                it.set_field("lane_order", if let UsageValue::Set(l) = &v { Some(vec![format!("lane_order: {}", flow_list(l))]) } else { None });
+                it.lane_order = v;
+                true
+            })
+        }
+        TypeOp::SetViewWidths { name, widths } => {
+            let v = match widths {
+                Some(w) if !w.is_empty() => UsageValue::Set(w.iter().map(|(k, x)| (nfc(k), *x)).collect::<Vec<_>>()),
+                _ => UsageValue::Absent,
+            };
+            change_item(lines, name, |it| {
+                let same = match (&it.widths, &v) {
+                    (UsageValue::Set(a), UsageValue::Set(b)) => same_widths(a, b),
+                    (UsageValue::Absent, UsageValue::Absent) => !it.has("widths"),
+                    _ => false,
+                };
+                if same {
+                    return false;
+                }
+                it.set_field("widths", if let UsageValue::Set(w) = &v { Some(vec![widths_line(w)]) } else { None });
+                it.widths = v;
+                true
+            })
+        }
+        TypeOp::CopyViewSettings { from, to } => {
+            let mut m = model(lines)?;
+            let a = find(&m, from)?;
+            let b = find(&m, to)?;
+            if a == b {
                 return Ok(());
             }
-            m.items[i].columns = v;
-            m.items[i].columns_raw.clear();
-            m.items[i].changed = true;
+            let src = m.items[a].clone();
+            let dst = &mut m.items[b];
+            let mut any = false;
+            for k in OWN_KEYS {
+                let new = src.fields.iter().find(|(x, _)| x == k).map(|(_, l)| l.clone());
+                let old = dst.fields.iter().find(|(x, _)| x == k).map(|(_, l)| l.clone());
+                if new != old {
+                    any = true;
+                    dst.set_field(k, new);
+                }
+            }
+            if !any {
+                return Ok(());
+            }
+            dst.sort = src.sort.clone();
+            dst.columns = src.columns.clone();
+            dst.view = src.view;
+            dst.group_by = src.group_by.clone();
+            dst.lanes = src.lanes;
+            dst.lane_order = src.lane_order.clone();
+            dst.widths = src.widths.clone();
             write(lines, &m);
             Ok(())
         }
@@ -534,4 +779,146 @@ pub fn rename_view(text: &str, from: &str, to: &str) -> Option<String> {
     let after = parse("", &out);
     let expect: Vec<String> = parsed.def.views.as_ref()?.iter().map(|v| if view_name_key(v) == want { nfc(to) } else { v.clone() }).collect();
     (after.readability == Readability::Ok && after.def.views.as_ref() == Some(&expect)).then_some(out)
+}
+
+// ------------------------------------------------------------------------------------------------ 4C rename (§38)
+
+/// D-184: a note's link text, its stem unless another note shares the stem (case-insensitively), then its path.
+fn link_text(path: &str, paths: &[String]) -> String {
+    let stem_of = |p: &str| {
+        let n = p.rsplit('/').next().unwrap_or(p);
+        n.strip_suffix(".md").unwrap_or(n).to_string()
+    };
+    let stem = stem_of(path);
+    let same = paths.iter().filter(|x| stem_of(x).to_lowercase() == stem.to_lowercase()).count();
+    if same <= 1 {
+        stem
+    } else {
+        path.strip_suffix(".md").unwrap_or(path).to_string()
+    }
+}
+
+/// D-291 from the vault root over `paths`: a path form, else the stem (root first, then the shortest path).
+fn resolve_root(target: &str, paths: &[String]) -> Option<String> {
+    let t = nfc(target.trim_matches(char::is_whitespace)).to_lowercase();
+    let t = t.strip_suffix(".md").unwrap_or(&t).to_string();
+    if t.is_empty() {
+        return None;
+    }
+    let no_md = |p: &str| p.strip_suffix(".md").unwrap_or(p).to_lowercase();
+    if let Some(hit) = paths.iter().find(|p| no_md(p) == t) {
+        return Some(hit.clone());
+    }
+    if t.contains('/') {
+        return None;
+    }
+    let mut c: Vec<&String> = paths.iter().filter(|p| no_md(p.rsplit('/').next().unwrap_or(p)) == t).collect();
+    c.sort_by(|a, b| a.contains('/').cmp(&b.contains('/')).then(a.chars().count().cmp(&b.chars().count())).then(a.as_bytes().cmp(b.as_bytes())));
+    c.first().map(|s| (*s).clone())
+}
+
+/// Each quoted `"[[inner]]"` / `'[[inner]]'` token of `s` for which `f(inner, quote)` answers, replaced by its answer.
+fn replace_links(s: &str, f: impl Fn(&str, char) -> Option<String>) -> (String, bool) {
+    let mut out = String::new();
+    let mut rest = s;
+    let mut hit = false;
+    loop {
+        let found = ["\"[[", "'[["].iter().filter_map(|p| rest.find(p).map(|i| (i, p.as_bytes()[0] as char))).min_by_key(|x| x.0);
+        let Some((i, q)) = found else { break };
+        let after = &rest[i + 3..];
+        let close = format!("]]{q}");
+        match after.find(&close) {
+            Some(j) if !after[..j].contains(']') => {
+                out.push_str(&rest[..i]);
+                match f(&after[..j], q) {
+                    Some(r) => {
+                        out.push_str(&r);
+                        hit = true;
+                    }
+                    None => out.push_str(&rest[i..i + 3 + j + 3]),
+                }
+                rest = &after[j + 3..];
+            }
+            _ => {
+                out.push_str(&rest[..i + 1]);
+                rest = &rest[i + 1..];
+            }
+        }
+    }
+    out.push_str(rest);
+    (out, hit)
+}
+
+/// v1-views §38 (D-2193; FR-LNK-03 AC-26): the 4C rename's patch of a type file: in every `views:` item's
+/// `lane_order` (flow or block), each `"[[…]]"` entry that resolves from the vault root (D-291, over `paths` = the note
+/// paths before the job) to `from` gets the D-184 link text of `to` (D-230 quoting), its `|alias` / `#heading` part
+/// kept; every other byte kept. None when nothing matches, `views` is absent or unreadable, or the file is Newer or
+/// invalid.
+pub fn relink_view_lane_orders(text: &str, from: &str, to: &str, paths: &[String]) -> Option<String> {
+    let parsed = parse("", text);
+    if parsed.readability != Readability::Ok || parsed.views_unreadable || parsed.view_items.is_none() {
+        return None;
+    }
+    let (from, to) = (nfc(from), nfc(to));
+    let before: Vec<String> = paths.iter().map(|p| nfc(p)).collect();
+    let after: Vec<String> = before.iter().map(|p| if *p == from { to.clone() } else { p.clone() }).collect();
+    let to_text = link_text(&to, &after);
+    let moved = |inner: &str| -> Option<String> {
+        let cut = inner.find(['|', '#']);
+        let (target, rest) = match cut {
+            Some(i) => (&inner[..i], &inner[i..]),
+            None => (inner, ""),
+        };
+        (resolve_root(target, &before).as_deref() == Some(from.as_str())).then(|| format!("{to_text}{rest}"))
+    };
+    let (mut lines, final_nl) = split_lines(text);
+    let (s, e) = top_span(&lines, "views")?;
+    // The `lane_order` key's lines: its own line (`lane_order:` after an optional `- `) and the deeper lines after it.
+    let mut key_ind: Option<usize> = None;
+    let mut changed = false;
+    for line in lines[s + 1..e].iter_mut() {
+        let body = strip_cr(line).to_string();
+        let ind = indent_of(&body);
+        let t = body.trim_start_matches(' ');
+        if t.is_empty() || t.starts_with('#') {
+            continue;
+        }
+        let (field, fcol) = match t.strip_prefix("- ") {
+            Some(r) => (r.trim_start_matches(' '), body.len() - r.trim_start_matches(' ').len()),
+            None => (t, ind),
+        };
+        let starts = map_key(field).as_deref() == Some("lane_order");
+        match key_ind {
+            Some(k) if !starts && ind > k => {}
+            _ if starts => key_ind = Some(fcol),
+            _ => {
+                key_ind = None;
+                continue;
+            }
+        }
+        let cut = comment_start(&body).unwrap_or(body.len());
+        let (code, tail) = body.split_at(cut);
+        let (new, hit) = replace_links(code, |inner, q| {
+            moved(inner).map(|n| {
+                let link = format!("[[{n}]]");
+                if q == '\'' {
+                    format!("'{}'", link.replace('\'', "''"))
+                } else {
+                    serde_json::to_string(&link).unwrap_or_default()
+                }
+            })
+        });
+        if hit {
+            let cr = if line.ends_with('\r') { "\r" } else { "" };
+            *line = format!("{new}{tail}{cr}");
+            changed = true;
+        }
+    }
+    if !changed {
+        return None;
+    }
+    let out = join_lines(&lines, final_nl);
+    // Read back: still readable, the same view names.
+    let back = parse("", &out);
+    (back.readability == Readability::Ok && !back.views_unreadable && back.def.views == parsed.def.views).then_some(out)
 }

@@ -6,8 +6,6 @@ match: all
 filters: []
 sort: { by: modified, order: desc }
 limit: 50
-view: board
-group_by: status
-lanes: vertical
+view: wall
 created: 2026-11-19T10:00:00+01:00
 modified: 2026-11-19T10:00:00+01:00

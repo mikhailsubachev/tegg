@@ -242,11 +242,12 @@ pub fn def(types: &[&str], filters: Vec<FilterItem>) -> QueryDef {
         limit: 50,
         view: View::List,
         group_by: None,
-        lanes: Lanes::Vertical,
+        lanes: Lanes::Columns,
         lane_order: None,
         columns: vec!["type".into(), "modified".into()],
         group_period: false,
         done_lane: None,
+        group_none: false,
     }
 }
 pub fn sorted(mut d: QueryDef, by: &str, order: Order) -> QueryDef {

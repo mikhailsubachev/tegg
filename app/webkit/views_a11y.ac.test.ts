@@ -8,7 +8,7 @@
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
-  B, BOOK_YML, Q, addMenu, addView, allTab, board, bookWithViews, boardHook, card, click, editor, eventually, expectedView, fileText, fileWhen, lane, laneGrip,
+  B, BOOK_YML, Q, addMenu, addView, allTab, board, bookWithViews, boardHook, card, click, editor, eventually, expectedView, fileText, fileWhen, lane, laneGrip, original,
   laneRadio, lanes, lanesGroup, liveRegion, main, menuItem, must, openNote, paletteOptions, panelOf, qfile, rx, runCommand, seen, selectTab, sleep, sortButton,
   sortDialog, sortLevels, startViews, tab, tabMenu, tablist, textOf, toolbar, typeRoute, viewMenu, viewQuery, viewsOps, viewsVault, writes, drag,
 } from './views-helpers';
@@ -50,7 +50,9 @@ test('fr_ux_03_ac50_view_commands', async ({ page }) => {
   // FR-UX-03 AC-8: every control reachable on each tab, with the menus, the popover and the editor open.
   await allTab(page).focus();
   const stops = await tabStops(page);
-  for (const n of ['Add view', 'Filter Books…', 'Filter by tag', 'Sort', 'View actions', 'Vertical']) assert.ok(stops.has(n), `Rozečtené: ${n} is a Tab stop`);
+  // Slice Q3 (AC-Test-Change, D-2210; R223): the display switch and `Group` instead of the Lanes radios.
+  for (const n of ['Add view', 'Filter Books…', 'Filter by tag', 'Wall', 'Group', 'Sort', 'View actions']) assert.ok(stops.has(n), `Rozečtené: ${n} is a Tab stop`);
+  assert.ok(!stops.has('Vertical'), 'no `Vertical` radio');
   await click(sortButton(toolbar(page)), 'Sort');
   await must(sortDialog(page), 'Sort');
   const inSort = await tabStops(page, 20);
@@ -78,8 +80,11 @@ test('fr_ux_03_ac51_views_keyboard_only', async ({ page }) => {
   await runCommand(page, 'Next view');
   await runCommand(page, 'Previous view');
   assert.equal(await eventually(() => page.evaluate(() => document.querySelector('[data-views-tablist] [role="tab"][aria-selected="true"]')?.getAttribute('data-view-tab')?.normalize('NFC') ?? null), (s) => s === Q.autor), Q.autor, 'Next / Previous view reach it');
+  // Slice Q3 (AC-Test-Change, D-2196; FR-UX-03 AC-56): `Switch lanes` on a grouped wall writes the usage: the
+  // `Podle autora` tab's item in book.yml; Podle autora.yml is untouched.
   await runCommand(page, 'Switch lanes');
-  assert.ok(await fileWhen(core, qfile(Q.autor), (x) => x === expectedView('podle-autora-lanes-horizontal.yml')), 'Switch lanes: one write');
+  assert.ok(await fileWhen(core, BOOK_YML, (x) => !!x && x.includes(`  - name: ${Q.autor}\n    lanes: rows\n`)), 'Switch lanes: one write of the tab\'s item');
+  assert.equal(await fileText(core, qfile(Q.autor)), original(qfile(Q.autor)), 'Podle autora.yml untouched');
   // Tab to a card, Move card to previous lane (one book write).
   for (let i = 0; i < 40 && !(await page.evaluate(() => !!document.activeElement?.getAttribute('data-board-card'))); i++) await page.keyboard.press('Tab');
   const focused = await page.evaluate(() => document.activeElement?.getAttribute('data-board-card')?.normalize('NFC') ?? '');
@@ -126,8 +131,14 @@ test('fr_ux_08_ac24_views_for_voiceover', async ({ page }) => {
   assert.deepEqual((await lanes(b)).map((l) => l.label), ['Reading, 3 Books', 'To read, 2 Books', 'Read, 0 Books'], 'each lane a region `<lane>, <n> <plural>` on a single-type board (CP-28, D-1930)');
   assert.equal(await lane(b, 'option:Read').getAttribute('aria-description'), 'Not in this view', 'the excluded lane adds `Not in this view`');
   assert.equal(await card(b, B('Noční vlak')).getAttribute('aria-label'), 'Book: Noční vlak', 'each card an article `Book: <title>`');
-  const radios = await lanesGroup(toolbar(page)).getByRole('radio').evaluateAll((rs) => rs.map((r) => [(r as HTMLElement).innerText.trim(), r.getAttribute('aria-checked')]));
-  assert.deepEqual(radios, [['Vertical', 'true'], ['Horizontal', 'false']], 'the radiogroup `Lanes`');
+  // Slice Q3 (AC-Test-Change, D-2196; FR-UX-08 AC-27): the display switch and the Group menu are read instead of the
+  // radiogroup `Lanes`.
+  const sw = await must(toolbar(page).locator('div[role="group"][data-display-switch]'), 'the Display group');
+  assert.equal(await sw.getAttribute('aria-label'), 'Display', 'the group `Display`');
+  assert.deepEqual(await sw.locator('button').evaluateAll((bs) => bs.map((x) => [x.getAttribute('aria-label'), x.getAttribute('aria-pressed')])), [['List', 'false'], ['Table', 'false'], ['Wall', 'true']], 'List, Table, Wall pressed');
+  const gb = await must(toolbar(page).locator('button[data-command="group.open"]'), 'Group');
+  assert.deepEqual([await gb.getAttribute('aria-haspopup'), await gb.getAttribute('aria-description')], ['menu', 'Grouped by Status'], 'Group: a menu button, `Grouped by Status`');
+  assert.equal(await page.getByRole('radiogroup', { name: rx('Lanes') }).count(), 0, 'no radiogroup `Lanes`');
   await selectTab(page, Q.p26);
   await click(sortButton(toolbar(page)), 'Sort');
   const levels = await sortLevels(page).evaluateAll((ls) => ls.map((l) => l.getAttribute('aria-label')));

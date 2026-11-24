@@ -31,12 +31,18 @@ export type FilterItemDto =
   | { kind: 'group'; match: 'all' | 'any'; filters: FilterItemDto[]; src: number[] | null }
   | { kind: 'raw'; src: number[] };
 export type SortDto = { by: string; order: 'asc' | 'desc' };
-export type QueryViewKind = 'list' | 'table' | 'board';
+/** Slice Q3 (v1-views §39.2): `wall` replaces `board`; the old words are read (and accepted in a def) as the new ones. */
+export type QueryViewKind = 'list' | 'table' | 'wall';
+export type LanesDto = 'columns' | 'rows';
+export type UsageGroupDto = { none: true } | { none: false; key: string; period: boolean };
 export type QueryDefDto = {
   title: string; types: string[]; match: 'all' | 'any'; filters: FilterItemDto[];
-  sort: SortDto[]; limit: number; view: QueryViewKind;
-  groupBy: string | null; lanes: 'vertical' | 'horizontal'; laneOrder: string[] | null;
+  /** Input also accepts the old words `board`, `vertical`, `horizontal` (v1-views §39.1); outputs use the new ones. */
+  sort: SortDto[]; limit: number; view: QueryViewKind | 'board';
+  groupBy: string | null; lanes: LanesDto | 'vertical' | 'horizontal'; laneOrder: string[] | null;
   columns: string[];
+  /** Slice Q3 (CP-32, D-2197): `group_by: none`; with a null `groupBy` a commit removes a valid `group_by` line. */
+  groupNone?: boolean;
   /** Slice Q2-T (§24.1, CP-23): `group_by` was `{ <key>: period }`; false when `groupBy` is null. Missing = false. */
   groupPeriod?: boolean;
   /** Slice Q2-T: null = absent or broken. Missing = null. */
@@ -103,8 +109,11 @@ export type QueryResultDto = {
 };
 /** Slice Q2.1 (v1-views §17.3). */
 export type UsageRunDto = {
-  kind: 'tab' | 'block'; own: { sort: SortDto[] | null; columns: string[] | null };
+  kind: 'tab' | 'block';
+  own: { sort: SortDto[] | null; columns: string[] | null; view: QueryViewKind | null; group: UsageGroupDto | null; lanes: LanesDto | null; laneOrder: string[] | null; widths: [string, number][] | null };
   broken: BrokenDto[]; sort: SortDto[]; columns: string[];
+  /** Slice Q3 effective values (v1-views §39.2). */
+  view: QueryViewKind; groupBy: string | null; groupPeriod: boolean; lanes: LanesDto; laneOrder: string[] | null; widths: [string, number][];
 };
 export type QueryUsageDto = { path: string; title: string; type: string | null; template: boolean };
 /** §1.8 `QueryPatch` (only `objectMoved` has an emitter in this slice, D-1469). */
@@ -336,7 +345,7 @@ function itemsIn(T: string[], from: number, to: number, raw: unknown[]): ItemRan
  *  `colsFor`: the default `columns` for the effective `types` (the single type's effective type-page columns, else
  *  `[type, modified]`; contract §1.4 Create). */
 export function queryRead(text: string | null, utf8 = true, name = '', colsFor: (types: string[]) => string[] = defaultColumnsNoSchema): QueryReadTwin {
-  const defaults = (): QueryDefDto => ({ title: nfc(name), types: [], match: 'all', filters: [], sort: [{ ...DEFAULT_SORT }], limit: 50, view: 'list', groupBy: null, lanes: 'vertical', laneOrder: null, columns: colsFor([]), groupPeriod: false, doneLane: null });
+  const defaults = (): QueryDefDto => ({ title: nfc(name), types: [], match: 'all', filters: [], sort: [{ ...DEFAULT_SORT }], limit: 50, view: 'list', groupBy: null, lanes: 'columns', laneOrder: null, columns: colsFor([]), groupPeriod: false, doneLane: null });
   const unreadable = (line: number | null, reason: string): QueryReadTwin => ({ state: 'unreadable', line, reason, def: defaults(), broken: [], usesThis: false, created: null, modified: null, present: [], layout: null });
   if (text === null) return unreadable(null, 'no file');
   if (!utf8) return unreadable(null, 'The file isn\'t valid UTF-8.');
@@ -385,16 +394,19 @@ export function queryRead(text: string | null, utf8 = true, name = '', colsFor: 
     else badKey('sort');
   }
   if (has('limit')) { if (typeof y.limit === 'number' && Number.isInteger(y.limit) && y.limit >= 1 && y.limit <= 1000) def.limit = y.limit; else badKey('limit'); }
-  if (has('view')) { if (y.view === 'list' || y.view === 'table' || y.view === 'board') def.view = y.view; else badKey('view'); }
+  // v1-views §34.2 (D-2179): `board` reads as `wall`.
+  if (has('view')) { if (y.view === 'list' || y.view === 'table' || y.view === 'wall') def.view = y.view; else if (y.view === 'board') def.view = 'wall'; else badKey('view'); }
   if (has('group_by')) {
     const g = y.group_by;
     // Q2-T (§24.2, CP-23): a mapping with exactly one entry `{ <key>: period }` is a period grouping.
     const ents = g && typeof g === 'object' && !Array.isArray(g) ? Object.entries(g as Record<string, unknown>) : null;
-    if (typeof g === 'string' && trimWs(g) !== '') def.groupBy = nfc(trimWs(g));
+    // §34.2 (D-2191, CP-32): the exact string `none` is "not grouped".
+    if (g === 'none') def.groupNone = true;
+    else if (typeof g === 'string' && trimWs(g) !== '') def.groupBy = nfc(trimWs(g));
     else if (ents && ents.length === 1 && trimWs(ents[0][0]) !== '' && ents[0][1] === 'period' && isMapKeyString(top.get('group_by', true))) { def.groupBy = nfc(trimWs(ents[0][0])); def.groupPeriod = true; }
     else badKey('group_by');
   }
-  if (has('lanes')) { if (y.lanes === 'vertical' || y.lanes === 'horizontal') def.lanes = y.lanes; else badKey('lanes'); }
+  if (has('lanes')) { if (y.lanes === 'columns' || y.lanes === 'vertical') def.lanes = 'columns'; else if (y.lanes === 'rows' || y.lanes === 'horizontal') def.lanes = 'rows'; else badKey('lanes'); }
   if (has('lane_order')) { if (isStrList(y.lane_order)) def.laneOrder = y.lane_order.map(nfc); else badKey('lane_order'); }
   if (has('done_lane')) {
     // Q2-T (§24.2): `{ within_days: 1…366, folded?: bool }`, no other entry.
@@ -405,8 +417,8 @@ export function queryRead(text: string | null, utf8 = true, name = '', colsFor: 
     if (ok) def.doneLane = { withinDays: d!.within_days as number, folded: d!.folded === true }; else badKey('done_lane');
   }
   // Q2-T (§24.2, D-1927): a missing `columns` reads as `[]` on a board (a board never uses it).
-  if (has('columns')) { if (isStrList(y.columns)) def.columns = y.columns.map(nfc); else { badKey('columns'); def.columns = def.view === 'board' ? [] : colsFor(def.types); } }
-  else def.columns = def.view === 'board' ? [] : colsFor(def.types);
+  if (has('columns')) { if (isStrList(y.columns)) def.columns = y.columns.map(nfc); else { badKey('columns'); def.columns = def.view === 'wall' ? [] : colsFor(def.types); } }
+  else def.columns = def.view === 'wall' ? [] : colsFor(def.types);
   const filterBroken: BrokenDto[] = [];
   def.filters = (rawItems ?? []).map((r, i) => readItem(r, [i], false, filterBroken));
   // File order: the broken top-level keys and the broken items by where they stand.
@@ -557,8 +569,11 @@ export function queryPatch(text: string, read: QueryReadTwin, def: QueryDefDto, 
   if (read.state === 'unreadable' || !read.layout) return { error: { kind: 'Unreadable', message: 'fake: the query file can\'t be read' } };
   if (!(Number.isInteger(def.limit) && def.limit >= 1 && def.limit <= 1000)) return { error: { kind: 'Limit', message: 'fake: limit outside 1…1000' } };
   const L = read.layout;
-  // v1-views §1.4: effective values decide; `group_by: null` means unchanged (never removed by a commit).
-  const changed = COMMIT_KEYS.filter((k) => !(k === 'group_by' && def.groupBy === null) && effective(read.def, k) !== effective(def, k));
+  def = normDef(def);
+  // v1-views §1.4: effective values decide; `group_by: null` means unchanged, except §34.3 (D-2191, CP-32): with
+  // `groupNone` it removes a valid `group_by` line.
+  const removeGroup = def.groupBy === null && !!def.groupNone && read.def.groupBy !== null;
+  const changed = COMMIT_KEYS.filter((k) => !(k === 'group_by' && def.groupBy === null && !removeGroup) && effective(read.def, k) !== effective(def, k));
   if (!changed.length) return { text: null };
   const edits: { start: number; end: number; lines: string[]; order: number }[] = [];
   // `lane_order: null` while the file has the key: its line or block goes (Reset lane order, D-1792).
@@ -596,24 +611,32 @@ export function queryPatch(text: string, read: QueryReadTwin, def: QueryDefDto, 
   const next = joinLines(out);
   // Read-back check (D-1458): the new text must read as exactly `def` (the title aside).
   const back = queryRead(next, true, read.def.title);
-  const want = { ...def, title: read.def.title, groupBy: def.groupBy ?? read.def.groupBy, groupPeriod: def.groupBy === null ? read.def.groupPeriod : def.groupPeriod };
+  const want = { ...def, title: read.def.title, groupBy: def.groupBy ?? (removeGroup ? null : read.def.groupBy), groupPeriod: def.groupBy === null ? (removeGroup ? false : read.def.groupPeriod) : def.groupPeriod };
   const keys = COMMIT_KEYS.filter((k) => (k !== 'columns' || back.present.includes('columns')) && (k !== 'group_by' || want.groupBy !== null));
   const ok = back.state === 'ok' && keys.every((k) => effective(back.def, k, false) === effective(want, k, false));
   if (!ok) return { error: { kind: 'Unreadable', message: 'fake: the written file would not read back as the query' } };
   return { text: next === text ? null : next };
 }
 
+/** Slice Q3 (v1-views §39.1): a def's old words (`board`, `vertical`, `horizontal`) as the new ones. */
+function normDef(def: QueryDefDto): QueryDefDto {
+  const v = (def.view as string) === 'board' ? 'wall' : def.view;
+  const l = (def.lanes as string) === 'horizontal' ? 'rows' : (def.lanes as string) === 'vertical' ? 'columns' : def.lanes;
+  return v === def.view && l === def.lanes ? def : { ...def, view: v as QueryViewKind, lanes: l as LanesDto };
+}
+
 /** §1.4 `create_text`. */
 export function queryCreateText(def: QueryDefDto, now: string, tail?: string | null): string {
+  def = normDef(def);
   const L = [
     `${HEADER}${nfc(def.title)}.`, 'version: 1', `title: ${scalar(def.title)}`, ...topLine('types', def)!, ...topLine('match', def)!,
     ...(def.filters.length ? ['filters:', ...def.filters.flatMap((f) => itemLines(f, 2))] : ['filters: []']),
     ...topLine('sort', def)!, ...topLine('limit', def)!, ...topLine('view', def)!,
-    // v1-views §1.4 Create (D-1783): `group_by` and `lanes` only on a board, `lane_order` only when set.
-    ...(def.view === 'board' ? [...(topLine('group_by', def) ?? []), ...topLine('lanes', def)!] : []), ...(topLine('lane_order', def) ?? []),
+    // v1-views §34.3 Create (R221): `group_by` when set (any display), `lanes` only on a grouped wall, `lane_order` when set.
+    ...(topLine('group_by', def) ?? []), ...(def.view === 'wall' && def.groupBy !== null ? topLine('lanes', def)! : []), ...(topLine('lane_order', def) ?? []),
     // Q2-T (§24.3): `done_lane` when set (any view); a Board with empty `columns` writes none (D-1910).
     ...(topLine('done_lane', def) ?? []),
-    ...(def.view === 'board' && def.columns.length === 0 ? [] : topLine('columns', def)!), `created: ${now}`, `modified: ${now}`,
+    ...(def.view === 'wall' && def.columns.length === 0 ? [] : topLine('columns', def)!), `created: ${now}`, `modified: ${now}`,
   ];
   if (tail) L.push(...tail.replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n'));
   return `${L.join('\n')}\n`;
@@ -716,6 +739,40 @@ export function queriesJobPatch(text: string, patches: QueryPatchDto[]): string 
   if (!changed) return null;
   const next = joinLines(L);
   return next === text ? null : next;
+}
+/** v1-views §38 (D-2193): the 4C rename's (and 4E moves', D-2201) patch of a type file's `views:` items' `lane_order`
+ *  values (flow or block): each `"[[…]]"` entry resolving to a moved note gets its D-184 link text; other bytes kept. */
+export function viewLaneOrdersJobPatch(text: string, patches: QueryPatchDto[]): string | null {
+  const lines = text.split(/(?<=\n)/);
+  const start = lines.findIndex((l) => /^views:(?=[ \t\r\n]|$)/.test(l));
+  if (start < 0) return null;
+  let end = start + 1;
+  while (end < lines.length && (/^[ \t]+\S/.test(lines[end]) || /^-(?:[ \t]|\r?\n|$)/.test(lines[end]))) end++;
+  let changed = false;
+  for (const p of patches) {
+    if (p.kind !== 'objectMoved') continue;
+    const before = p.paths.map(nfc);
+    const after = before.map((x) => (x === nfc(p.from) ? nfc(p.to) : x));
+    const toText = linkText(nfc(p.to), after);
+    let keyInd = -1;
+    for (let i = start + 1; i < end; i++) {
+      const l = lines[i];
+      if (/^[ \t]*(#|\r?\n|$)/.test(l)) continue;
+      const ind = /^[ \t]*/.exec(l)![0].length;
+      const m = /^([ \t]*(?:-[ \t]+)?)lane_order:(?=[ \t\r\n]|$)/.exec(l);
+      if (m) keyInd = m[1].length;
+      else if (!(keyInd >= 0 && ind > keyInd)) { keyInd = -1; continue; }
+      lines[i] = l.replace(/(["'])\[\[([^\]]*)\]\]\1/g, (all, _q: string, inner: string) => {
+        const cut = inner.search(/[|#]/);
+        const target = cut < 0 ? inner : inner.slice(0, cut);
+        const rest = cut < 0 ? '' : inner.slice(cut);
+        if (resolveRoot(target, before) !== nfc(p.from)) return all;
+        changed = true;
+        return JSON.stringify(`[[${toText}${rest}]]`);
+      });
+    }
+  }
+  return changed ? lines.join('') : null;
 }
 /** D-184: the stem when it is unique among `paths`, else the path without `.md`. */
 function linkText(path: string, paths: string[]): string {
@@ -1194,7 +1251,8 @@ export async function evaluate(def: QueryDefDto, host: string | null, env: Query
   const str = (x: unknown) => (typeof x === 'string' ? x : null);
   // Q2-T (§24.4, D-1898): the done lane. Done rows outside `within_days` leave the rows before grouping.
   let done: Done | null = null;
-  if (def.view === 'board' && def.doneLane) {
+  // v1-views §34.4 (D-2188): the done lane applies whenever the usage has a grouping, in every display.
+  if ((def.groupBy !== null || ((def as any)._groupBroken && !def.groupNone)) && def.doneLane) {
     const statusOf = (t: string) => attrOf(ctx.types.find((x) => x.key === t), 'status');
     const ok = chosen.length > 0 && chosen.every((t) => { const a = statusOf(t); return carriesStates(a) && a!.options.some((o) => o.state === 'done'); });
     if (!ok) broken.push({ reason: 'badValue', at: null, key: 'done_lane', type: null });
@@ -1206,18 +1264,20 @@ export async function evaluate(def: QueryDefDto, host: string | null, env: Query
       relative = true;
     }
   }
-  // v1-views §1.6: a board groups its rows; the grouping key is in `values` too (D-1769).
+  // v1-views §34.4: every display groups its rows when it has a grouping; a grouped wall's rows carry the key (D-1769).
   const d = await doc();
   // D-185: a tag lane is named by the tag's most frequent spelling among the results (the first on a tie).
   const spell = (o: Obj): string[] => { try { return ((d.tags(d.parse(files[o.path] ?? '')) as { name: string }[]) ?? []).map((x) => nfc(String(x.name).replace(/^#/, ''))); } catch { return []; } };
   let group: GroupingDto | null = null;
-  if (def.view === 'board') {
+  if (def.groupBy !== null) {
     if (def.groupPeriod) {
       group = periodGrouping(def, sorted, chosen, ctx, broken, done);
       if (group) relative = true;
     } else group = grouping(def, sorted, chosen, active, ctx, broken, spell, done);
   }
-  const cols = [...new Set([...def.columns.map(nfc), ...(group ? [group.key] : []), 'type', 'tags'])];
+  const wall = def.view === 'wall';
+  const wallGroup = wall && !!group;
+  const cols = [...new Set([...def.columns.map(nfc), ...(wallGroup ? [group!.key] : []), 'type', 'tags'])];
   // Q2-T (CP-24, D-1916): a Task row's TaskRowDto from the 5A row builder; the defs once per result.
   const hasTask = sorted.some((o) => o.type === 'task');
   const tl = hasTask ? taskList(files) : null;
@@ -1233,11 +1293,11 @@ export async function evaluate(def: QueryDefDto, host: string | null, env: Query
   };
   // Slice OC (v1-cards §3.3): board runs carry each row's card data (its own type's keys; the excerpt only where `body`
   // is a key) and `excerpt` becomes the card's; List and Table runs carry none.
-  const cards = group ? cardsFor(files, sorted.map((o) => o.path), { bin: ctx.bin ?? [] }) : {};
+  const cards = wall ? cardsFor(files, sorted.map((o) => o.path), { bin: ctx.bin ?? [] }) : {};
   const rows: QueryRowDto[] = sorted.map((o) => {
     const values: Record<string, unknown> = {};
     const ty = ctx.types.find((t) => t.key === o.type);
-    const keys = group ? [...new Set([...cols, ...((ty?.preview ?? []) as string[]).map(nfc)])] : cols;
+    const keys = wallGroup ? [...new Set([...cols, ...((ty?.preview ?? []) as string[]).map(nfc)])] : cols;
     for (const k of keys) values[k] = k === 'type' ? o.type : k === 'tags' ? (o.tags ?? []) : (o.attributes ?? {})[k] ?? null;
     const links: unknown[] = [];
     for (const k of keys) {
@@ -1245,12 +1305,14 @@ export async function evaluate(def: QueryDefDto, host: string | null, env: Query
       if (at?.type !== 'relation' && k !== 'source') continue;
       for (const v of ([] as unknown[]).concat(values[k] as any ?? [])) { const l = linkOf(o.path, v); if (l) links.push(l); }
     }
+    // D-2221 (R222): the row also carries its sort keys' values, columns or not (the app's quick re-sort); `title` is the row's.
+    for (const l of def.sort) { const k = nfc(l.by.trim()); if (k !== 'title' && !(k in values)) values[k] = (o.attributes ?? {})[k] ?? null; }
     return {
       path: o.path, id: o.id, title: o.title, type: o.type, created: str(o.attributes?.created), modified: str(o.attributes?.modified), values, links: links as any,
       task: o.type === 'task' ? { status: str(o.attributes?.status), state: statusState(o, ctx) as any, due: localDate(o.attributes?.due, env.zone) } : null,
-      version: null, excerpt: group ? (cards[nfc(o.path)]?.excerpt ?? '') : bodyExcerpt(d, files[o.path]), readOnly: false,
+      version: null, excerpt: wall ? (cards[nfc(o.path)]?.excerpt ?? '') : bodyExcerpt(d, files[o.path]), readOnly: false,
       tags: tagKeysOf(o), taskRow: o.type === 'task' ? taskRows.get(o.path) ?? null : null,
-      card: group ? cards[nfc(o.path)] ?? null : null,
+      card: wall ? cards[nfc(o.path)] ?? null : null,
     };
   });
   return { state: 'ok', broken, targets: [...ctx.targets].sort(byBytes), usesRelative: relative, total: rows.length, rows, group, taskDefs: tl ? tl.defs : null };
@@ -1476,12 +1538,21 @@ export async function queryRun(source: QuerySourceDto, host: string | null, env:
   const tys = types ?? listTypes(files, {});
   const cols = columnsDefault(tys);
   const base: QueryResultDto & { _path?: string | null } = { form: 'def', name: null, lookup: null, line: null, version: null, def: null, state: 'ok', broken: [], targets: [], usesRelative: false, total: 0, rows: [], indexReady: o.indexReady ?? true, group: null, usage: null, taskDefs: null, _path: null };
-  /** v1-views §17.2: a usage's own values as read (`'broken'`: a broken shape). */
-  type Own = { kind: 'tab' | 'block'; sort: SortDto[] | 'broken' | null; columns: string[] | 'broken' | null };
-  const run = async (r: QueryResultDto & { _path?: string | null }, def: QueryDefDto, syntactic: BrokenDto[], own: Own | null = null) => {
-    // Q2.1 (§17.2): the rows follow the usage's effective sort and carry its effective columns; `def` stays the file's.
-    const usage = own ? usageRun(own, def, tys) : null;
-    const e = await evaluate(usage ? { ...def, sort: usage.sort, columns: usage.columns } : def, host, env, files, tys, o.bin ?? []);
+  const run = async (r: QueryResultDto & { _path?: string | null }, def: QueryDefDto, syntactic: BrokenDto[], own: Own | null = null, columnsSet = true) => {
+    // Q2.1 (§17.2), Q3 (§34.4): the usage's effective sort, columns, display and grouping run the query; `def` stays the file's.
+    def = normDef(def);
+    const usage = own ? usageRun(own, def, tys, columnsSet ? null : cols) : null;
+    const evalDef: QueryDefDto = usage
+      ? { ...def, sort: usage.sort, columns: usage.columns, view: usage.view, groupBy: usage.groupBy, groupPeriod: usage.groupPeriod, lanes: usage.lanes, laneOrder: usage.laneOrder }
+      : def;
+    // §34.4 (R220): a query's syntactic broken entry that a valid own value replaces is dropped in that usage's run.
+    if (usage) {
+      const ownOf: Record<string, unknown> = { view: usage.own.view, group_by: usage.own.group, lanes: usage.own.lanes, lane_order: usage.own.laneOrder };
+      syntactic = syntactic.filter((b) => b.at !== null || !(b.key in ownOf) || ownOf[b.key] === null);
+    }
+    // A `group_by` the file can't read still counts as a grouping for the done lane (the core's `group_broken`).
+    const groupBroken = evalDef.groupBy === null && syntactic.some((b) => b.at === null && b.key === 'group_by');
+    const e = await evaluate(groupBroken ? ({ ...evalDef, _groupBroken: true } as QueryDefDto) : evalDef, host, env, files, tys, o.bin ?? []);
     // The query's own run-time `sort` check (the evaluator saw the usage's effective sort instead).
     if (usage && !sortValid(def.sort, def.types, tys)) e.broken.push({ reason: 'badValue', at: null, key: 'sort', type: null });
     const rank = (b: BrokenDto) => (b.reason === 'noType' ? ORDER.indexOf('types') : b.at === null ? ORDER.indexOf(b.key as never) : ORDER.indexOf('filters')) * 10000 + (b.at?.[0] ?? 0) * 100 + (b.at?.[1] ?? 0);
@@ -1499,15 +1570,15 @@ export async function queryRun(source: QuerySourceDto, host: string | null, env:
     const read = queryRead(files[live], !(o.invalid ?? []).includes(live), stemOf(live), cols);
     const r = { ...base, form, name: stemOf(live), lookup: read.state as LookupDto, line: read.line, _path: live };
     if (read.state === 'unreadable') return r;
-    return run(r, read.def, read.broken, own);
+    return run(r, read.def, read.broken, own, read.present.includes('columns'));
   };
   if (source.kind === 'saved') return saved(source.name, 'reference');
   if (source.kind === 'view') {
     // Q2.1 (§17.2, D-1853): the first `views:` item named `name` (name key) of the type gives the tab's own values.
     const t = tys.find((x) => x.key === nfc(source.type));
-    const item = ((t?.viewItems ?? []) as { name: string; sort: SortDto[] | null; sortBroken: boolean; columns: string[] | null; columnsBroken: boolean }[])
-      .find((it) => nameKey(it.name) === nameKey(source.name));
-    const own: Own = { kind: 'tab', sort: item ? (item.sortBroken ? 'broken' : item.sort) : null, columns: item ? (item.columnsBroken ? 'broken' : item.columns) : null };
+    const item = ((t?.viewItems ?? []) as any[]).find((it) => nameKey(it.name) === nameKey(source.name));
+    const pick = (v: string, b: string) => (item ? (item[b] ? 'broken' : item[v] ?? null) : null);
+    const own: Own = { kind: 'tab', sort: pick('sort', 'sortBroken'), columns: pick('columns', 'columnsBroken'), view: pick('view', 'viewBroken'), group: pick('group', 'groupBroken'), lanes: pick('lanes', 'lanesBroken'), laneOrder: pick('laneOrder', 'laneOrderBroken'), widths: pick('widths', 'widthsBroken') };
     return saved(source.name, 'reference', own);
   }
   if (source.kind === 'def') {
@@ -1519,8 +1590,8 @@ export async function queryRun(source: QuerySourceDto, host: string | null, env:
   if (f.form === 'unreadable') return { ...base, form: 'unreadable', line: f.line ?? 1 };
   if (f.form === 'reference') {
     // Q2.1 (§13.1, §17.2): a reference body's own `sort:` / `columns:`, read by `@tegg/doc` (D-82).
-    const u = (await doc()).fenceUsage(source.body) as { sort: SortDto[] | 'broken' | null; columns: string[] | 'broken' | null };
-    return saved(f.name!, 'reference', { kind: 'block', sort: u.sort, columns: u.columns });
+    const u = (await doc()).fenceUsage(source.body) as Omit<Own, 'kind'>;
+    return saved(f.name!, 'reference', { kind: 'block', sort: u.sort, columns: u.columns, view: u.view, group: u.group, lanes: u.lanes, laneOrder: u.laneOrder, widths: u.widths });
   }
   const read = f.read!;
   if (read.state === 'unreadable') return { ...base, form: 'unreadable', line: read.line ?? 1 };
@@ -1542,21 +1613,57 @@ function sortValid(sort: SortDto[], types: string[], tys: TypeDto[]): boolean {
   });
 }
 
-/** v1-views §17.2 (R194): a usage's run. A broken shape or a `sort` level the query's types don't have is a `broken`
- *  entry and the query's effective value; an own `columns` keeps unknown keys; `sort: []` is valid. */
-function usageRun(own: { kind: 'tab' | 'block'; sort: SortDto[] | 'broken' | null; columns: string[] | 'broken' | null }, def: QueryDefDto, tys: TypeDto[]): UsageRunDto {
+/** v1-views §17.2, §34.4 (R194, R220): a usage's own values as read (`'broken'`: a broken shape). */
+type B<T> = T | 'broken' | null;
+type Own = { kind: 'tab' | 'block'; sort: B<SortDto[]>; columns: B<string[]>; view: B<QueryViewKind>; group: B<UsageGroupDto>; lanes: B<LanesDto>; laneOrder: B<string[]>; widths: B<[string, number][]> };
+
+/** §34.4: whether a grouping resolves for the chosen types (the evaluator's rules). */
+function groupOk(key: string, period: boolean, types: string[], tys: TypeDto[]): boolean {
+  const k = nfc(trimWs(key));
+  const chosen = types.map(nfc);
+  if (period && (k === 'created' || k === 'modified')) return true;
+  if (!period && k === 'tags') return true;
+  if (!chosen.length) return false;
+  const kinds = chosen.map((t) => {
+    const a = ((tys.find((x) => x.key === t)?.attributes ?? []) as any[]).find((x) => nfc(String(x.key)) === k);
+    return a ? `${a.type}${a.type === 'relation' && a.multiple ? '*' : ''}` : null;
+  });
+  const ok = period ? ['date', 'date-time'] : ['select', 'multi-select', 'relation'];
+  return kinds.every((x) => x !== null && x === kinds[0] && ok.includes(x.replace(/\*$/, '')));
+}
+
+/** v1-views §17.2, §34.4 (R194, R220): a usage's run. A broken shape, a `sort` level or a grouping the query's types
+ *  don't have is a `broken` entry and the query's effective value; an own `columns` keeps unknown keys; `sort: []` is
+ *  valid. `defaultCols`: the create default when the query file has no `columns` (CP-33, D-2198). */
+function usageRun(own: Own, def: QueryDefDto, tys: TypeDto[], defaultCols: ((types: string[]) => string[]) | null = null): UsageRunDto {
   const broken: BrokenDto[] = [];
+  const bad = (key: string) => broken.push({ reason: 'badValue', at: null, key, type: null });
   let sort: SortDto[] | null = null;
-  if (own.sort === 'broken') broken.push({ reason: 'badValue', at: null, key: 'sort', type: null });
+  if (own.sort === 'broken') bad('sort');
   else if (own.sort !== null) {
     if (sortValid(own.sort, def.types, tys)) sort = own.sort.map((l) => ({ by: nfc(l.by), order: l.order }));
-    else broken.push({ reason: 'badValue', at: null, key: 'sort', type: null });
+    else bad('sort');
   }
-  let columns: string[] | null = null;
-  if (own.columns === 'broken') broken.push({ reason: 'badValue', at: null, key: 'columns', type: null });
-  else if (own.columns !== null) columns = own.columns.map(nfc);
+  const shape = <T,>(v: B<T>, key: string): T | null => { if (v === 'broken') { bad(key); return null; } return v; };
+  const columns = shape(own.columns, 'columns')?.map(nfc) ?? null;
+  const view = shape(own.view, 'view');
+  let group: UsageGroupDto | null = null;
+  if (own.group === 'broken') bad('group_by');
+  else if (own.group !== null) {
+    if (own.group.none || groupOk(own.group.key, own.group.period, def.types, tys)) group = own.group.none ? { none: true } : { none: false, key: nfc(own.group.key), period: own.group.period };
+    else bad('group_by');
+  }
+  const lanes = shape(own.lanes, 'lanes');
+  const laneOrder = shape(own.laneOrder, 'lane_order')?.map(nfc) ?? null;
+  const widths = shape(own.widths, 'widths')?.map(([k, w]) => [nfc(k), w] as [string, number]) ?? null;
   const querySort = sortValid(def.sort, def.types, tys) ? def.sort : [{ ...DEFAULT_SORT }];
-  return { kind: own.kind, own: { sort, columns }, broken, sort: sort ?? querySort, columns: columns ?? def.columns };
+  const eView = view ?? def.view;
+  const [groupBy, groupPeriod] = group ? (group.none ? [null, false] : [group.key, group.period]) : [def.groupBy, !!def.groupPeriod];
+  const queryCols = defaultCols && def.view === 'wall' && eView !== 'wall' ? defaultCols(def.types) : def.columns;
+  return {
+    kind: own.kind, own: { sort, columns, view, group, lanes, laneOrder, widths }, broken, sort: sort ?? querySort, columns: columns ?? queryCols,
+    view: eView as QueryViewKind, groupBy, groupPeriod, lanes: (lanes ?? def.lanes) as LanesDto, laneOrder: laneOrder ?? def.laneOrder, widths: widths ?? [],
+  };
 }
 
 // ------------------------------------------------------------------------------------------------ §2 commands
@@ -1580,7 +1687,7 @@ export function querySummaries(files: Record<string, string>, invalid: string[])
   return liveQueryPaths(files).map((p) => {
     const r = queryRead(files[p], !invalid.includes(p), stemOf(p));
     const ok = r.state !== 'unreadable';
-    return { name: stemOf(p), title: ok ? r.def.title : stemOf(p), path: p, state: r.state, line: r.line, created: r.created, modified: r.modified, usesThis: r.usesThis, version: null, view: ok ? r.def.view : null, types: ok ? r.def.types : null };
+    return { name: stemOf(p), title: ok ? r.def.title : stemOf(p), path: p, state: r.state, line: r.line, created: r.created, modified: r.modified, usesThis: r.usesThis, version: null, view: ok ? (r.def.view as QueryViewKind) : null, types: ok ? r.def.types : null };
   });
 }
 /** v1-views §1.5 `query_view_usages` (D-1804): the readable, not newer type files whose `views:` lists `name`, by type key. */
@@ -1608,7 +1715,7 @@ export async function queryUsages(files: Record<string, string>, name: string): 
   return out;
 }
 
-const defaults = (title: string, columns: string[]): QueryDefDto => ({ title, types: [], match: 'all', filters: [], sort: [{ ...DEFAULT_SORT }], limit: 50, view: 'list', groupBy: null, lanes: 'vertical', laneOrder: null, columns, groupPeriod: false, doneLane: null });
+const defaults = (title: string, columns: string[]): QueryDefDto => ({ title, types: [], match: 'all', filters: [], sort: [{ ...DEFAULT_SORT }], limit: 50, view: 'list', groupBy: null, lanes: 'columns', laneOrder: null, columns, groupPeriod: false, doneLane: null });
 
 export type HandleAnswer = { result?: unknown; error?: QueriesErr; writes?: Record<string, string | null>; moves?: { from: string; to: string }[] };
 /** The Node side of the in-page fake (`__teggQueries`). Versions and base checks are the page's (it knows mtimes). */
@@ -1731,6 +1838,11 @@ export async function handle(cmd: string, a: any, files: Record<string, string>,
       for (const p of liveQueryPaths(files)) {
         if (invalid.includes(p)) continue;
         const out = queriesJobPatch(files[p], (a.patches ?? []) as QueryPatchDto[]);
+        if (out !== null && out !== files[p]) writes[p] = out;
+      }
+      // v1-views §38 (D-2193): then the type files' `views:` lane orders.
+      for (const p of Object.keys(files).filter((x) => /^\.tegg\/types\/[^/]+\.yml$/.test(x)).sort(byBytes)) {
+        const out = viewLaneOrdersJobPatch(files[p], (a.patches ?? []) as QueryPatchDto[]);
         if (out !== null && out !== files[p]) writes[p] = out;
       }
       return { result: Object.keys(writes), writes };

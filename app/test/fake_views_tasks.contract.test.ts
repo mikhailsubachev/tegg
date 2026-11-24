@@ -129,7 +129,8 @@ test('query writes give expected/views-tasks/queries/*.yml', () => {
   assert.equal(off, expected('queries/schedule-no-done-lane.yml'));
   assert.equal(commit(files, off, 'Schedule', (d) => ({ ...d, doneLane: { withinDays: 7, folded: true } })), expected('queries/schedule-done-lane-again.yml'));
   for (const [v, f] of [['', (t: string) => t], ['-crlf', crlf], ['-no-newline', noNewline]] as const) {
-    assert.equal(commit(files, f(sched), 'Schedule', (d) => ({ ...d, lanes: 'vertical' })), expected(`queries/schedule-lanes-vertical${v}.yml`), `lanes-vertical${v}`);
+    // Slice Q3 (D-2179): the writer emits `lanes: columns` (expected/views-display/queries/schedule-lanes-columns*.yml).
+    assert.equal(commit(files, f(sched), 'Schedule', (d) => ({ ...d, lanes: 'vertical' })), readFileSync(join(QFX, `expected/views-display/queries/schedule-lanes-columns${v}.yml`), 'utf8'), `lanes-columns${v}`);
   }
   const kan = files[qfile('Kanban')];
   const wait = commit(files, kan, 'Kanban', (d) => ({ ...d, laneOrder: ['Waiting', 'To do', 'In progress', 'Done', 'Rozpracováno'] }));

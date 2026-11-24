@@ -176,11 +176,13 @@ test('fr_sto_07_ac10_view_state_is_machine_local', { timeout: 300_000 }, async (
     await dragFromTo(d, mid(handle), { x: mid(handle).x + 40, y: mid(handle).y });
     assert.ok(await waitFor(() => {
       const u = uiState(c);
-      // Q2.1 (R198, FR-STO-07 AC-11): folds and widths under the tabs' usage keys; `typeViews.lastTab` stands.
-      return u?.typeViews?.lastTab?.book === 'Přečtené 2026' && Array.isArray(u?.usageFolded?.['tab:book/podle žánru']) && typeof u?.usageColumnWidths?.['tab:book/přečtené 2026']?.title === 'number';
-    }, 3000), `ui-state.json holds the three keys (${JSON.stringify(uiState(c))})`);
+      // Q2.1 (R198, FR-STO-07 AC-11): folds under the tabs' usage keys; `typeViews.lastTab` stands. Slice Q3
+      // (AC-Test-Change, D-2196; D-2177): the tab's widths go into its views: item, not ui-state.json.
+      return u?.typeViews?.lastTab?.book === 'Přečtené 2026' && Array.isArray(u?.usageFolded?.['tab:book/podle žánru']) && u?.usageColumnWidths?.['tab:book/přečtené 2026'] === undefined;
+    }, 3000), `ui-state.json holds lastTab and the fold, no tab width (${JSON.stringify(uiState(c))})`);
     await sleep(800);
-    assert.deepEqual(changedPaths(before, tree(c.vault)), [], 'nothing under the vault (its .tegg/ included) is created or changed');
+    assert.ok(read(c, BOOK)?.includes('  - name: Přečtené 2026\n    widths: { title: '), 'the tab\'s widths in its book.yml item');
+    assert.deepEqual(changedPaths(before, tree(c.vault)), [BOOK], 'only book.yml (the widths); nothing machine-local under the vault');
   } finally { await cleanup(c); }
 });
 
@@ -289,9 +291,11 @@ test('fr_qry_05_ac23_widths_per_query_shared_by_tab_and_blocks', { timeout: 300_
     const h = await rectOf(d, 'Resize Title', 8000);
     const title = await rectOf(d, 'Title');
     await dragFromTo(d, mid(h), { x: mid(h).x + (200 - title.width), y: mid(h).y });
-    // Q2.1 (D-1836 amends D-1767; R198): widths are per usage, the block's key; the tab keeps its own.
+    // Q2.1 (D-1836 amends D-1767; R198): widths are per usage; the tab keeps its own. Slice Q3 (AC-Test-Change, D-2196;
+    // D-2177): the block's widths go into its fence once, when the drag ends (a vault write, not ui-state.json).
     const key = 'block:id:01JB5V00000000000000000029/přečtené 2026#1';
-    assert.ok(await waitFor(() => uiState(c)?.usageColumnWidths?.[key]?.title === 200, 3000), `usageColumnWidths["${key}"].title = 200 (${JSON.stringify(uiState(c)?.usageColumnWidths)})`);
+    assert.ok(await waitFor(() => !!read(c, CTENI)?.includes('saved: Přečtené 2026\nwidths: { title: 200 }\n'), 3000), `the fence gets \`widths: { title: 200 }\``);
+    assert.equal(uiState(c)?.usageColumnWidths?.[key], undefined, `no usageColumnWidths["${key}"]`);
     d = await relaunch(c, `note/${CTENI}`);
     const w = (await rectOf(d, 'Title', 8000)).width;
     assert.ok(Math.abs(w - 200) <= 2, `after a relaunch the block's Title is 200 px (${w})`);
@@ -299,7 +303,7 @@ test('fr_qry_05_ac23_widths_per_query_shared_by_tab_and_blocks', { timeout: 300_
     await selectTab(d, 'Přečtené 2026');
     const wt = (await rectOf(d, 'Title', 5000)).width;
     assert.ok(Math.abs(wt - 200) > 2, `the tab keeps its own Title width (${wt})`);
-    assert.deepEqual(changedPaths(before, tree(c.vault)), [], 'no vault file changes');
+    assert.deepEqual(changedPaths(before, tree(c.vault)), [CTENI.normalize('NFC')], 'only Čtení changes');
   } finally { await cleanup(c); }
 });
 
@@ -336,17 +340,20 @@ test('fr_syn_06_ac48_only_view_actions_write', { timeout: 600_000 }, async () =>
     // Then each action writes exactly its file, once.
     d = await relaunch(c, 'type/book');
     await selectTab(d, 'Rozečtené');
-    await (await need(d, 'Horizontal', 5000)).click();
-    assert.equal(await waitText(c, Q('Rozečtené'), (t) => t === expected('rozectene-lanes-horizontal.yml'), 5000), expected('rozectene-lanes-horizontal.yml'), 'Switch lanes writes Rozečtené.yml');
+    // Slice Q3 (AC-Test-Change, D-2196; FR-SYN-06 AC-52): the Group menu's `Lanes` writes the tab's item in book.yml.
+    await (await need(d, 'Group', 5000)).click();
+    await (await need(d, 'Rows', 3000)).click();
+    assert.ok(await waitText(c, BOOK, (t) => !!t && t.includes('  - name: Rozečtené\n    lanes: rows\n'), 5000), 'Rows writes the tab\'s item in book.yml');
     const mid1 = tree(c.vault);
-    assert.deepEqual(changedPaths(before, mid1), [Q('Rozečtené').normalize('NFC')], 'only that file');
-    await (await need(d, 'Vertical', 3000)).click();
-    await waitText(c, Q('Rozečtené'), (t) => !!t && t.includes('lanes: vertical\n'), 5000);
+    assert.deepEqual(changedPaths(before, mid1), [BOOK], 'only that file');
+    await (await need(d, 'Group', 5000)).click();
+    await (await need(d, 'Columns', 3000)).click();
+    await waitText(c, BOOK, (t) => !!t && t.includes('  - name: Rozečtené\n    lanes: columns\n'), 5000);
     const vyb = await rectOf(d, 'Výborné knihy');
     const roz = await rectOf(d, 'Rozečtené');
     await dragFromTo(d, mid(vyb), { x: roz.x + 4, y: roz.y + roz.height / 2 });
-    await waitText(c, BOOK, (t) => !!t && t.includes('views: [Výborné knihy, Rozečtené'), 5000);
-    assert.deepEqual(changedPaths(before, tree(c.vault)), [BOOK, Q('Rozečtené')].map((p) => p.normalize('NFC')).sort(), 'a tab drag adds only book.yml');
+    await waitText(c, BOOK, (t) => !!t && /views:\n  - Výborné knihy\n  - name: Rozečtené\n/.test(t), 5000);
+    assert.deepEqual(changedPaths(before, tree(c.vault)), [BOOK], 'a tab drag writes only book.yml');
     assert.ok(!Object.keys(tree(c.vault)).some((p) => /ui-state|\.sqlite|index/i.test(p)), 'no index or UI state in the vault');
   } finally { await cleanup(c); }
 });
@@ -361,7 +368,8 @@ test('fr_ux_08_ac24_views_for_voiceover', { timeout: 300_000 }, async () => {
     assert.ok(await shown(d, 'Views', 8000), 'the tab list `Views`');
     for (const t of ['All Books', 'Rozečtené', 'Přečtené 2026', 'Výborné knihy', 'Add view']) assert.ok(await shown(d, t, 3000), `${t} in the accessibility tree`);
     await selectTab(d, 'Rozečtené');
-    for (const l of ['Reading, 3 cards', 'To read, 2 cards', 'Read, 0 cards', 'Book: Noční vlak', 'Book: Účetní ze Žižkova', 'Lanes', 'Vertical', 'Horizontal']) {
+    // Slice Q3 (AC-Test-Change, D-2196; FR-UX-08 AC-27): the display switch and `Group` instead of the Lanes radios.
+    for (const l of ['Reading, 3 cards', 'To read, 2 cards', 'Read, 0 cards', 'Book: Noční vlak', 'Book: Účetní ze Žižkova', 'Display', 'List', 'Table', 'Wall', 'Group']) {
       assert.ok(await shown(d, l, 3000), `${l} by name`);
     }
     assert.ok(await inside(d, 'Book: Noční vlak', 'Reading, 3 cards'), 'Noční vlak is inside the Reading lane');

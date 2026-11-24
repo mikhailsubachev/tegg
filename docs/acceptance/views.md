@@ -1155,3 +1155,938 @@ Slice **OC** (plan `docs/plans/oc-object-cards-and-settings-plan.md` §4; D-2054
 
 - **AC-30** **Every board card is an `ObjectCard` of its own type's card list (cards.md R211…R213; T2).** On `Rozečtené` (Book has no `card:`, so R210's `tags, body, author, status, modified`; `status` groups): Účetní ze Žižkova's card is an `article` `Book: Účetní ze Žižkova` with `data-object-card`, the lead `svg[data-icon="book"]` (D-2056), the title and `More actions for "Účetní ze Žižkova"`, the text `Kriminálka z kanceláře nad hospodou.`, no pill (no `[data-attribute="status"]`, no `[data-attribute="rating"]`, no `No Rating`), and the footer `Jana Brázdová` (chip) and `Edited Mon`; Dům u řeky shows `#doporučené`. On `Podle autora` (relation grouping) the `author` chip is hidden and the footer holds only the date; on `Podle žánru` a book with two genres shows both genre pills (D-1769) though `genres` isn't on Book's card. `Výlety podle stavu` shows cards.md R218's Výlet cards without the `stav` pill. A runtime board over `[book, výlet]` grouped by `tags` draws each card by its own type's list. Adding `rating` through Book's `Card` section (one `book.yml` write of `card:`, cards.md FR-TYP-11 AC-21) adds a Rating pill to every Book card on every board within 2 s; no query file is written and `Rozečtené.yml`'s `columns: [author, rating]` stays byte for byte (D-1910). The board's drags, `+`, menus and keyboard (AC-12…AC-22) are unchanged. *(L5; L1 for the parts)* Test: `fr_qry_05_ac30_board_cards_are_object_cards`
 - **AC-31** **The Task card on boards follows Task's card list (D-1904, D-2054; cards.md R211 row `Task`; T2).** On part three's `Schedule`, `Kanban`, a board block in a note and a runtime board over `[task]` grouped by `priority`, every Task card is the `ObjectCard` of cards.md FR-TYP-11 AC-14: R43's checkbox, Task's default card list (cards.md R210) drawn with R43's chip rules and the grouping key hidden (AC-29's cases unchanged), the source chip `Porada` on Zavolat Janě in the footer, tags, two body lines, `More actions` with R43's items plus `Move to ›`. Adding `projekt` to Task's card in Type settings › `Card` writes `task.yml`'s `card:` line once (`card: [tags, body, status, due, priority, recurrence, source, projekt]`) and, within 2 s, adds a `projekt` link chip on Tasks whose `projekt` is set: in the pill area when the task has a `source` (the source chip, first on the list, keeps the footer), in the footer when it has none (cards.md AP-1579); removing `priority` hides every priority chip. *(L5; L1 for the parts)* Test: `fr_qry_05_ac31_task_card_follows_the_card_list`
+
+---
+---
+
+# Part five: slice Q3, display and grouping (0.7.0)
+
+Slice **Q3** (plan `docs/plans/q3-display-and-grouping-plan.md`; owner decisions D-2172…D-2187, BRD v1.249), planned as **0.7.0**. The plan calls this "part four"; it is **part five** here because part four is slice OC (0.6.0) above. Boards: `design/edit-note-page/Views.dc.html` (A, B, W1, D3, D1, D2, H1, H2, C, E, G, F), `ViewsDark`, `ViewsApp`, `ViewsAppDark`. Board F draws `view`, `group_by`, `lanes` and `lane_order` in the query file: they stay valid there as the **defaults** (D-2174). Board G's dot on a differing block is superseded by D-2176. Board D3's `Finished by month` isn't built (D-2180). `TasksQKanban`, `TasksQSpec` and `QueryBlock` are stale (D-2187). Where a board and a decision differ, the decision wins. Where neither decided, a point went to the owner (end of this part); a criterion that follows one names its AP and decision.
+
+**Status: approved, 2026-11-23.** AP-2050…AP-2058 at the end of this part are decided as D-2188…D-2196 (BRD v1.250). The problems the contract found (`docs/contracts/v1-views.md` part four §46) are fixed here as D-2203 (BRD v1.251).
+
+Decisions this part carries out:
+- **D-2172**: three displays, List, Table, Wall. Wall replaces Board and Kanban. The file key stays `view`.
+- **D-2173**: grouping in every display. `Lanes: Columns | Rows` sits in the Group menu.
+- **D-2174**: `view`, `group_by`, `lanes` and `lane_order` are per usage. **D-2175**: no View, Lanes or Group by row in the editor. **D-2176**: no dot on a differing usage; `Use the query's display` / `grouping` instead.
+- **D-2177**: a usage's column widths live in the vault. **D-2178**: `All <plural>` keeps its display and grouping on this Mac. **D-2179**: no migration.
+- **D-2180**: no month grouping. **D-2181**: period groups in a Table or List are flat. **D-2182**: no row drag between groups. **D-2183**: no `New <Type>` in a group. **D-2184**: only groups that have rows.
+- **D-2185**: an ungrouped wall is windowed and meets 225 ms p95. **D-2186**: FR-QRY-05 reworded. **D-2187**: stale boards.
+
+These amend D-1769, D-1770, D-1773, D-1776, D-1778, D-1836, D-1845 and D-1849.
+
+**Scope.**
+- **FR-QRY-05**:
+  - the display switch;
+  - the Group menu;
+  - the ungrouped wall;
+  - the grouped wall (today's board);
+  - grouped Tables and Lists;
+  - own and effective display and grouping;
+  - widths in the vault;
+  - old words.
+- **FR-QRY-07**:
+  - `New view`;
+  - tab icons and the toolbar;
+  - rename, duplicate, remove and trash carrying the new keys.
+- **FR-QRY-01**:
+  - the editor without View, Lanes and Group by;
+  - sort inside groups.
+- **FR-TYP-09**: `All <plural>` display and grouping on this Mac.
+- **FR-TYP-01**: Type settings › Views names.
+- **FR-TSK-04**, **FR-TSK-05**: Schedule and Kanban as walls.
+- **NFR-PERF-07**: the ungrouped wall and grouped Tables.
+- This part's pieces of FR-QRY-06, FR-QRY-08, FR-QRY-09, FR-FMT-06, FR-FMT-07, FR-FMT-12, AR-07, FR-LNK-03, FR-SYN-02, FR-SYN-03, FR-SYN-06, FR-STO-07, NFR-POR-01, FR-UX-03 (palette only, D-1771), FR-UX-05, FR-UX-08 and NFR-OTH-02.
+
+Reference tables R220…R228.
+
+**Out of scope:**
+- grouping by month (D-2180);
+- row drags between groups and `New <Type>` rows in a Table or List group (D-2182, D-2183);
+- a card per view (D-2055);
+- editable table cells;
+- a mark on a differing usage (D-2176);
+- the Calendar view (D-1778);
+- redrawing the stale boards (D-2187);
+- inline (unsaved) fences, which keep D-1810 (AP-2056, D-2194 (e)).
+
+**Risk tiers.** Q3 moves every display, grouping, lanes, lane-order and width change of a tab into the **type file**, and of a block into the **note** (D-2174, D-2177). A resize in a note now changes the note and its `modified:` (plan §4, accepted knowingly).
+
+**T1, data loss** is the top risk. Those criteria are marked **(T1)** and check bytes, mtime and inode. Examples:
+- a usage write that drops another item's own settings, an unknown item key, a comment, a fence line or a container prefix;
+- a write that rewrites an old word (`board`, `vertical`, `horizontal`) in a key that didn't change (D-2179);
+- a resize that writes once per pixel or per key press;
+- any of these over an external change;
+- a "migration" that rewrites files Tegg only reads.
+
+**T2, silently wrong data** is next. Those criteria are marked **(T2)** and are checked against R228 and the brute-force oracle of queries.md FR-QRY-02 AC-8. Examples:
+- a row in the wrong group, or a multi-value row shown only once;
+- groups out of `lane_order` or option order;
+- a group that has rows but is hidden, or an empty group shown in a Table;
+- a usage drawn with the query's display when it has its own (or the reverse);
+- `board` read as anything but `wall`;
+- NFC/NFD spellings that split a group or a usage.
+
+**Test layers** as in part one. New test files (proposal for the contract):
+
+| Layer | Files |
+| --- | --- |
+| L1 | `packages/doc/test/query_usage_display.ac.test.ts` (fence bytes, `@tegg/doc`, D-82); `app/test/views_display_model.ac.test.ts` (effective values, the Group menu's choices, the group model of Table and List, write routing); `app/test/views_display_catalog.ac.test.ts` |
+| L3 | `tests/fixtures/queries-files/expected-views-display.json` |
+| L4 | `crates/tegg-core/tests/ac_views_display.rs`; `crates/tegg-schema/tests/ac_views_display_type_file.rs`; `crates/tegg-jobs/tests/ac_views_display_jobs.rs` |
+| L5 | `app/webkit/views_display.ac.test.ts`; `app/webkit/views_grouped.ac.test.ts`; `app/webkit/views_wall.ac.test.ts` |
+| L6 | `app/e2e/views_display.ac.test.ts`; benchmark `app/e2e/nfr_perf_07_wall.ac.test.ts` |
+
+**Test clock** as in part one: `2026-11-19T10:00:00+01:00`, Europe/Prague, region `cs`, 1,440 × 900, sidebar open, right panel closed. `ui-state.json` holds no `typeViews`, `usageColumnWidths`, `usageFolded` or `allView` key unless a criterion says so. Tasks criteria use part three's clock and the `views-tasks` overlay.
+
+**Fixtures.**
+- Base `tests/fixtures/vaults/views/`, unchanged.
+- Criteria that say **overlay** copy the base, then the new overlay `tests/fixtures/vaults/views-display/` (synthetic, D-50; README there), then `new-empty/.tegg/`.
+- Tasks criteria: part three's `views-tasks` overlay.
+- Expected bytes after writes: `tests/fixtures/queries-files/expected/views-display/`, written by the test author with the red tests (contract part four §43.4).
+
+| Short | Path | Notes |
+| --- | --- | --- |
+| book.yml (overlay) | `.tegg/types/book.yml` | lines 13…28, a block `views:`: <br>• `Rozečtené` (14…15, `group_by: none`) <br>• `Přečtené 2026` (16…17, `view: wall`) <br>• `Výborné knihy` (18…21, `group_by: author`, `lane_order: ["[[Lucie Horká]]"]`, `widths: { title: 260, author: 180 }`) <br>• `Podle žánru` (22…24, `view: list`, `lanes: vertical`) <br>• `Podle autora` (25…27, `view: board`, `lanes: horizontal`) <br>• `Celá zeď` (28, plain) <br>`attributes:` on line 29 |
+| Celá zeď | `.tegg/queries/Celá zeď.yml` | `view: board` (line 10) with **no `group_by`**, `lanes: horizontal` (line 11), `limit: 10`, `has_none_of [odloženo]`, title ↑, `columns: [author, status]` |
+| Zobrazení | `Pages/Zobrazení knih.md` | id `…31`, modified `2026-11-18T09:00:00+01:00`. Six blocks: <br>• 1 (10…14): `Přečtené 2026`, `view: wall`, `group_by: none` <br>• 2 (18…23): `Rozečtené`, `view: table`, `lane_order: [To read]`, `widths: { title: 240 }` <br>• 3 (27…31): `Seskupeno podle data`, `view: list`, `group_by: { finished: period }` <br>• 4 (35…38): `Celá zeď`, `group_by: status` <br>• 5 (42…49): `Výborné knihy` with a comment and the broken `view: kanban`, `group_by: finished`, `lanes: diagonal`, `widths: široké` <br>• 6 (52…54): `Výborné knihy`, plain, in the callout `> [!tip] Na zeď` (line 51) |
+
+**Shared definitions** as in parts one to three, plus:
+- A **display** is `list`, `table` or `wall`.
+- A **usage** is R194's: a tab or a block. `query/<name>` sets the defaults; `All <plural>` is not a usage.
+- A usage's **own** and **effective** values follow R194, extended to `view`, `group_by`, `lanes`, `lane_order` and `widths` (R220).
+- A **grouped** usage has an effective `group_by` other than none.
+- A **group** is one group of a grouped Table or List: a header row and its rows. A **lane** is part one's, on a grouped wall.
+- **One minimal write** as in parts one and two. For a note it is one autosave through the editor (D-1839).
+
+---
+
+## Existing criteria this slice changes (part five)
+
+These criteria aren't edited here. Each test changes in the commit that builds Q3, with the trailer `AC-Test-Change: slice Q3 builds display and grouping per usage (D-2172…D-2187); approved-by: owner` (AP-2058). Expected-file and L3 corpus changes use a `Fixture-Change:` trailer.
+
+**"Moves to the query page"** means: the same steps and expected bytes, run on `query/<name>`, where they still write the query file (D-2174). The list comes from a search of `app/webkit`, `app/test`, `app/e2e`, `crates/*/tests`, `packages/*/test` and `tests/fixtures/queries-files` for:
+- the Board and Kanban display names, `views.kind.board`, `Board · by`;
+- the editor's `View`, `Group by` and `Lanes` controls;
+- the toolbar `Lanes` radiogroup and `Switch lanes`;
+- query-file writes of `view`, `group_by`, `lanes` and `lane_order` from a tab or block;
+- `usageColumnWidths` written by a tab or block resize;
+- `view: board` without `group_by`;
+- exact catalog key sets.
+
+The test author confirms it with `./verify coverage` before the build.
+
+| Criterion | Test(s) | Change | By |
+| --- | --- | --- | --- |
+| FR-QRY-07 AC-1 (tab icons follow the query's `view`) | `app/webkit/views_tabs.ac.test.ts` `fr_qry_07_ac1_tabs_come_from_views`; `app/test/views_model.ac.test.ts` `fr_qry_07_ac1_tabs_come_from_views` | The icon kind follows the tab's **effective** display; `board` becomes `wall` (D-2172). | FR-QRY-07 AC-33 |
+| FR-QRY-07 AC-3 (on `Rozečtené` the toolbar holds the `radiogroup` `Lanes` with `Vertical` checked) | `views_tabs.ac.test.ts` `fr_qry_07_ac3_a_view_tab_shows_its_query` | The toolbar follows R223: the display switch, then `Group` reading `Status`. There is no `Lanes` radiogroup (D-2173). | FR-QRY-07 AC-33 |
+| FR-QRY-07 AC-4 (c) and R185 `Create` (`Add view` › `Board`, hint `by Status`, writes `view: board`, `group_by`, `lanes: vertical`) | <br>• `views_tabs.ac.test.ts` `fr_qry_07_ac4_new_view_creates_a_query_and_a_tab_board_and_refusal` <br>• `crates/tegg-core/tests/ac_views_writes.rs` `fr_qry_07_ac4_new_view_creates_a_query_and_a_tab` <br>• `app/test/views_model.ac.test.ts` `fr_qry_07_ac4_new_view_creates_a_query_and_a_tab` (`newViewDef(BOOK, 'board')`) <br>• `app/test/views_tasks_model.ac.test.ts` `fr_qry_01_ac17_period_grouping_for_any_date` (its `newViewDef(BOOK, 'board')` line) <br>• `app/test/fake_views.contract.test.ts` `editor and column writes give the expected files` <br>• `app/webkit/views_cards.ac.test.ts` `fr_qry_05_ac28_cards_follow_preview_properties_new_board_writes_no_columns` <br>• expected file `tests/fixtures/queries-files/expected/views/new-view-board-book.yml` | There is no `Board` entry. `Wall` writes `view: wall` with no `group_by`, `lanes` or `columns` (board B). The (d) refusal part stands. | FR-QRY-07 AC-32 |
+| FR-QRY-05 AC-10 (the editor's View offers `Table`, `List`, `Board`) | `app/webkit/views_board.ac.test.ts` `fr_qry_05_ac10_board_by_select` (its editor step) | The editor has no View (D-2175). The lanes, colours and hatching stand. | FR-QRY-01 AC-21 |
+| FR-QRY-05 AC-11 and R185 `group_by` ("read only with `view: board`; kept and ignored with `list` / `table`"; a broken `group_by` "is drawn as a List") | `views_board.ac.test.ts` `fr_qry_05_ac11_group_by_kinds`; `ac_views_writes.rs` `fr_qry_05_ac11_group_by_kinds` | `group_by` with `view: table` now **groups** the Table (D-2173). A broken `group_by` on a wall draws the **ungrouped wall** with the notice, not a List (D-2179). `Seskupeno podle data` is then 17 cards, not 17 list rows. | FR-QRY-05 AC-36, AC-39 |
+| FR-QRY-05 AC-17 (the toolbar's lanes switch; `lanes` written to the query file from a tab) | <br>• `views_board.ac.test.ts` `fr_qry_05_ac17_lanes_switch_writes_once`, `fr_qry_05_ac17_lanes_switch_writes_once_in_a_note_and_on_the_query_page` <br>• `ac_views_writes.rs` `fr_qry_05_ac17_lanes_switch_writes_once` <br>• expected `rozectene-lanes-horizontal.yml`, `podle-autora-lanes-horizontal.yml`, `podle-zanru-lanes-vertical.yml`, `-crlf`, `-no-newline` | There is no radiogroup: the Group menu's `Lanes` part replaces it. On a tab it writes the item. The query-file steps move to the query page. There the writer emits the new words: `lanes: rows`, `lanes: columns            # vertical nebo horizontal` (D-2179). The checked radio becomes the checked `Lanes` item, which still writes nothing. | FR-QRY-05 AC-34, AC-46 |
+| FR-QRY-05 AC-19 (a lane drag on a tab writes the query file's `lane_order`) | `views_board.ac.test.ts` `fr_qry_05_ac19_lane_order_by_drag_and_reset` | On a tab a lane drag writes the item. The three drags and `Reset lane order` move to the query page, with unchanged bytes. The `No <attribute>` and `Abandoned` parts stand. The L4 test (`query_apply`) stands. | FR-QRY-05 AC-42, FR-QRY-06 AC-26 |
+| FR-QRY-05 AC-21 text (`Switch lanes` in a block) and part two's FR-QRY-05 AC-26 last sentence (`Switch lanes` in block 3 writes `Rozečtené.yml`) | none (neither test switches lanes in a block) | Text only: a block's `lanes` goes to its fence (D-2174). | FR-QRY-05 AC-33 |
+| FR-QRY-01 AC-12 (the editor for a view: `View`, `Group by`, `Lanes`; the `Genres` and `Table` commits) | `app/webkit/views_sort.ac.test.ts` `fr_qry_01_ac12_the_editor_for_a_view`; `ac_views_writes.rs` `fr_qry_01_ac12_the_editor_for_a_view` (type-only); expected `rozectene-group-by-genres.yml`, `rozectene-view-table.yml` (bytes stand) | The editor has none of these rows. The two commits move to `query/Rozečtené`'s Group menu and display switch, with the same bytes. Switching back writes `view: wall`. | FR-QRY-01 AC-21, FR-QRY-06 AC-26 |
+| FR-QRY-01 AC-13 (what the editor's `Group by` offers) | `views_sort.ac.test.ts` `fr_qry_01_ac13_group_by_choices`; `app/test/views_model.ac.test.ts` `fr_qry_01_ac13_group_by_choices` | The same choices appear in the Group menu, with `None` first and the period entries after (R223). | FR-QRY-05 AC-34 |
+| FR-QRY-05 AC-28 (part three: `New view` › `Board`; switching `Rozečtené` to `Table` in the editor) | `views_cards.ac.test.ts` `fr_qry_05_ac28_cards_follow_preview_properties` (its editor `View` step) and `…_new_board_writes_no_columns` | `New view` › `Wall`. `Table` comes from the display switch (an item write). | FR-QRY-07 AC-32 |
+| queries.md FR-QRY-05 AC-8 (the View control has `Table`, `List`, `Board`; in core, `view: board` without `group_by` is a broken `group_by` drawn as a List) | `app/webkit/queries_block.ac.test.ts` `fr_qry_05_ac8_read_only_cells_two_views`; `crates/tegg-core/tests/ac_queries.rs` `fr_qry_05_ac8_read_only_cells_two_views` | No View in the editor. `view: board` without `group_by` is a **valid ungrouped wall** (D-2179): no `group_by` broken entry, no `group`, drawn as a wall. The read-only cells part stands. | FR-QRY-05 AC-46 |
+| Slice Q tests that use the editor's View as a commit | <br>• `app/webkit/queries_editor.ac.test.ts` `fr_qry_01_ac6_editor_by_keyboard` (its `Table` step), `fr_qry_01_ac7_no_group_by_yet` (its `List` step; part one already superseded this criterion) <br>• `app/webkit/queries_a11y.ac.test.ts` `fr_ux_03_ac42_queries_without_the_pointer` <br>• `app/webkit/queries_live.ac.test.ts` `fr_syn_03_ac28_query_writes_check_the_base`, `fr_syn_06_ac44_only_query_actions_write` (their `viewChoice` steps) | The View step becomes the query page's display switch, with the same `view:` bytes, or is dropped where it only served as a commit. The rest stands. | FR-QRY-01 AC-21, FR-QRY-06 AC-26 |
+| Parts two and one: widths per usage on this Mac (FR-QRY-05 AC-25, FR-STO-07 AC-11, FR-FMT-12 AC-13; part one's FR-QRY-05 AC-23 and FR-STO-07 AC-10 as amended) | <br>• `app/webkit/views_usage.ac.test.ts` `fr_qry_05_ac25_widths_per_usage`, `fr_sto_07_ac11_usage_state_is_machine_local`, `fr_fmt_12_ac13_usage_settings_are_nfc` <br>• `app/webkit/views_sort.ac.test.ts` `fr_qry_05_ac23_widths_per_query_shared_by_tab_and_blocks` <br>• `app/e2e/views.ac.test.ts` `fr_qry_05_ac23_widths_per_query_shared_by_tab_and_blocks`, `fr_sto_07_ac10_view_state_is_machine_local` (its tab width key) <br>• `app/e2e/views_usage.ac.test.ts` `fr_qry_05_ac25_widths_per_usage`, `fr_sto_07_ac11_usage_state_is_machine_local` <br>• `app/test/views_usage_model.ac.test.ts` `fr_qry_05_ac25_widths_per_usage`, `fr_fmt_12_ac13_usage_settings_are_nfc`, only if they assert that the usage width scope writes `ui-state.json` <br>• `app/webkit/views_writes.ac.test.ts` `fr_sto_07_ac10_view_state_is_machine_local`, only if it resizes a tab or block | D-2177: a tab's or block's resize writes `widths` into its item or fence once, when the drag ends. It is a vault write, not a `ui-state.json` entry. `query/<name>` keeps `usageColumnWidths["page:…"]`. Title's minimum, the relaunch and per-usage separation stand. Tests that only seed 0.6.0 entries and check that they move on a rename stand (`fr_qry_07_ac8_*`, `fr_qry_07_ac26_*`, `fr_lnk_03_ac25_*`). | FR-QRY-05 AC-43, AC-44, FR-STO-07 AC-16, FR-FMT-12 AC-16 |
+| FR-SYN-06 AC-48, AC-49 (resizing writes nothing to the vault; the toolbar `Horizontal` radio writes `Rozečtené.yml`) | <br>• `views_usage.ac.test.ts` `fr_syn_06_ac49_each_usage_action_writes_one_file` (its tab resize) <br>• `app/e2e/views_usage.ac.test.ts` `fr_syn_06_ac49_each_usage_action_writes_one_file` <br>• `app/webkit/views_writes.ac.test.ts` `fr_syn_06_ac48_only_view_actions_write` (its `Horizontal` step) <br>• `app/e2e/views.ac.test.ts` `fr_syn_06_ac48_only_view_actions_write` (its `Horizontal` / `Vertical` steps) | A resize on a tab or block writes its type file or note once. `Lanes` from the Group menu writes the tab item (`book.yml`). The read-only tour stands without its resizes. | FR-SYN-06 AC-52 |
+| FR-SYN-03 AC-30 (`Switch lanes` and a lane drag on a tab are refused on a changed `Rozečtené.yml`) | `app/webkit/views_writes.ac.test.ts` `fr_syn_03_ac30_view_writes_check_the_base` (its tab steps) | On a tab these are `book.yml` writes, refused with `views.changedOutside`. The query-file refusals move to the query page. The L4 test stands. | FR-SYN-03 AC-36 |
+| FR-UX-03 AC-50, AC-51 (`Switch lanes` listed on a board; the keyboard tour's `Switch lanes` writes `Podle autora.yml`) | `app/webkit/views_a11y.ac.test.ts` `fr_ux_03_ac51_views_keyboard_only`; `app/test/views_registry.ac.test.ts` `fr_ux_03_ac50_view_commands` (exact id sets) | `Switch lanes` is listed on a grouped wall and writes the usage (the `Podle autora` tab writes `book.yml`). The id sets gain R227's commands. | FR-UX-03 AC-56, AC-57 |
+| FR-UX-08 AC-24 (the `radiogroup` `Lanes` read with its radios) | `app/webkit/views_a11y.ac.test.ts` `fr_ux_08_ac24_views_for_voiceover`; `app/e2e/views.ac.test.ts` `fr_ux_08_ac24_views_for_voiceover` (`Lanes`, `Vertical`, `Horizontal` in the tree) | The display switch and the Group menu are read instead. | FR-UX-08 AC-27 |
+| app-shell FR-UX-03 AC-13 (focus-indicator steps on the toolbar `Lanes` radios) | `app/webkit/focus_indicator.ac.test.ts` `fr_ux_03_ac13_no_focus_ring_after_a_pointer_click`, `fr_ux_03_ac13_keyboard_focus_shows_the_neutral_indicator` | The steps use the display switch's buttons. | FR-UX-03 AC-57 |
+| Part three FR-TSK-04 AC-22 (the Schedule toolbar holds `Lanes` with `Horizontal` checked; tab icons `board`) | `app/webkit/views_tasks_page.ac.test.ts` `fr_tsk_04_ac22_header_tabs_and_toolbar`; `app/e2e/views_tasks.ac.test.ts` `fr_tsk_04_ac22_header_tabs_and_toolbar` (`Lanes` in the tree); `app/test/views_tasks_model.ac.test.ts` `fr_tsk_04_ac22_header_tabs_and_toolbar`, only if it lists the toolbar | The toolbar follows R223, with `Group` reading `Due date · by period`. The icons are `wall`. | FR-TSK-04 AC-30 |
+| Part three FR-TSK-04 AC-26 (the editor from `Schedule` shows `View` Board, `Group by`, `Lanes`) | `app/webkit/views_tasks_queries.ac.test.ts` `fr_tsk_04_ac26_schedule_and_kanban_are_queries` | The editor has none of these rows. The done-lane checkbox and its writes stand (AP-2050). | FR-QRY-01 AC-21 |
+| Part three FR-QRY-01 AC-17 (the editor's `Group by` lists the period choices; `Created · by period` + `Done` writes `Projekty podle termínu.yml`) | `views_tasks_queries.ac.test.ts` `fr_qry_01_ac17_period_grouping_for_any_date`, `…_on_the_query_page`; `app/test/views_tasks_model.ac.test.ts` `fr_qry_01_ac17_period_grouping_for_any_date`; expected `views-tasks/queries/projekty-group-created.yml` (bytes stand) | The choices are in the Group menu. The write moves to `query/Projekty podle termínu`, with the same bytes; on a runtime tab it writes the item. The L4 test stands. | FR-QRY-05 AC-34 |
+| Part three FR-QRY-01 AC-18 and R201 (a broken period mapping is "drawn as a List"; `group_by` mapping and `done_lane` "read only with `view: board`") | `crates/tegg-core/tests/ac_views_tasks.rs` `fr_qry_01_ac18_period_and_done_lane_read_rules` (and any L5 twin); `tests/fixtures/queries-files/expected-views-tasks.json` | A broken `group_by` on a wall draws the ungrouped wall with the notice. A mapping `group_by` is read with every display. `done_lane` follows AP-2050. | FR-QRY-05 AC-36, AC-41 |
+| Part three FR-TSK-05 AC-20, FR-UX-03 AC-53, FR-SYN-03 AC-32, FR-SYN-06 AC-50 (a lane drag on the `Kanban` tab writes `Kanban.yml` and leaves `task.yml` untouched) | <br>• `app/webkit/views_tasks_kanban.ac.test.ts` `fr_tsk_05_ac20_kanban_drags_and_lane_order` <br>• `app/webkit/views_tasks_a11y.ac.test.ts` `fr_ux_03_ac53_tasks_views_by_keyboard` <br>• `app/webkit/views_tasks_writes.ac.test.ts` `fr_syn_03_ac32_q2t_writes_check_the_base_kanban_lane_drag`, `fr_syn_06_ac50_tasks_views_write_only_what_the_user_changes` (its `lane drag` step) <br>• `app/e2e/views_tasks.ac.test.ts` `fr_syn_06_ac50_tasks_views_write_only_what_the_user_changes`, if it drags a lane | On the tab, a lane drag, `Move lane …` and `Reset lane order` write the `Kanban` item of `task.yml`. The base is `task.yml`; the alert is `"Tasks" changed outside Tegg. The views weren't changed.` `Kanban.yml` stays untouched. The `Kanban.yml` bytes move to `query/Kanban`. The L4 test stands. | FR-TSK-05 AC-23 |
+| Part three FR-FMT-07 AC-35 (`Switch lanes` on `Schedule.yml` writes `lanes: vertical`) | `crates/tegg-core/tests/ac_views_tasks.rs` `fr_fmt_07_ac35_q2t_keys_round_trip`; expected `views-tasks/queries/schedule-lanes-vertical.yml`, `-crlf`, `-no-newline` | The writer emits `lanes: columns` (D-2179). | FR-FMT-07 AC-37 |
+| types.md FR-TYP-01 AC-25, AC-27, AC-28 (`Board · by Status`, `Board · by Due date`; the key `typeSettings.viewBoardBy`) | `app/webkit/type_settings_oc.ac.test.ts` `fr_typ_01_ac25_views_lists_the_real_views`, `fr_typ_01_ac27_restore_default_views_inside_views`; `app/test/cards_catalog.ac.test.ts` `nfr_oth_02_ac24_card_and_picker_strings`, `fr_typ_01_ac28_type_settings_strings_themes_keyboard` | The texts become `Wall · by Status` and `Wall · by Due date`; the key becomes `typeSettings.viewKindBy` (R227). | FR-TYP-01 AC-29 |
+| NFR-OTH-02 AC-17, AC-21, AC-23 (exact key sets) | `app/test/views_catalog.ac.test.ts` `nfr_oth_02_ac21_view_strings`; `app/test/queries_catalog.ac.test.ts` `nfr_oth_02_ac17_query_strings` (`R192_QUERY`, `R207_QUERY`); `app/test/views_tasks_registry.ac.test.ts` `nfr_oth_02_ac23_q2t_strings` | The sets lose R227's removed keys and gain its new ones. | NFR-OTH-02 AC-25 |
+| L3 corpora | `tests/fixtures/queries-files/expected-views.json`, `expected-views-tasks.json` and their readers (`app/test/fake_views.contract.test.ts` `the twin fills the Q2 fields of summaries and rows` with `roz.view` `board`; the Rust L3 tests) | The DTO's `view` reads `wall` for `board`, and `lanes` reads `columns` / `rows`, as the contract's part four names them (§39.2; D-2203). | AR-07 AC-12 |
+| Type-only (no behaviour change) | <br>• `crates/tegg-core/tests/`: `ac_queries_props.rs`, `queries_setup/mod.rs`, `cards_setup/mod.rs`, `ac_views.rs`, `ac_views_writes.rs`, `ac_views_round_trip_props.rs`, `ac_views_tasks.rs`, `ac_views_tasks_props.rs`, `ac_views_perf.rs`, `ac_cards_perf.rs` <br>• `app/webkit/views-helpers.ts`, `cards-helpers.ts` <br>• `app/e2e/nfr_perf_07_board.ac.test.ts`, `nfr_perf_07_cards.ac.test.ts` | Tests that build `View::Board` or `Lanes::Vertical` / `Horizontal` use the renamed variants. Hand-written `view: board` / `lanes: vertical` strings in their files stay valid (D-2179). | contract part four (D-2203) |
+| `data-lanes` values | `views_board.ac.test.ts` (AC-10, AC-11, AC-17); `views_tabs.ac.test.ts` `fr_qry_07_ac15_views_follow_external_changes`; `views_tasks_kanban.ac.test.ts` `fr_tsk_05_ac19_kanban_lanes`; `views_tasks_queries.ac.test.ts` `fr_qry_01_ac17_*`; `views_tasks_schedule.ac.test.ts` `fr_tsk_04_ac27_live_and_midnight` | No change: the contract keeps `data-lanes` `vertical` / `horizontal` (part four §45 choice 4; D-2203). | contract part four |
+| Part two's resizing in a block without an editor (R194, contract §13.3: "resizing and folding work"), now disabled (R222, FR-QRY-05 AC-45) | none: `app/webkit/views_usage.ac.test.ts` was searched (D-2203); no part-two test resizes in a block without an editor (`fr_qry_01_ac14_block_sort_is_its_own_without_an_editor` checks the sort only) | Text only: R194's "resizing works" for such blocks reads as "resizing is disabled". | FR-QRY-05 AC-45 |
+| Reference rules: <br>• queries.md R142 `View` <br>• part one R185 `view` and `lanes` values; R186 `Add view` menu and toolbar; R187's `Vertical` / `Horizontal` names; R189 `View`, `Group by`, `Lanes`, `Limit`; R191 `board.switchLanes`; R192 keys <br>• part two R194 (the shared row), R195 `Place` and `Where it can't be written` (resizing works), R197 (`Editor Done`; `Lanes switch, lane drag, Reset lane order`; resize), R198 widths <br>• part three R201 (`Read only with view: board`), R204 `Toolbar`, R207 `query.editor.groupByPeriod*` <br>• cards.md R213's "Board views" wording | the tests above | Read with R220…R227. | this part |
+
+Expected not to change:
+- FR-QRY-05 AC-12…AC-16, AC-18, AC-20, AC-22, AC-30, AC-31 (a grouped wall is the board, FR-QRY-05 AC-38);
+- FR-QRY-07 AC-2, AC-4 (a), (b), (d), AC-5…AC-15, AC-17…AC-31;
+- FR-QRY-08 AC-2, AC-3; FR-QRY-09 AC-6…AC-8;
+- FR-TSK-04 AC-23…AC-25, AC-27…AC-29; FR-TSK-05 AC-19, AC-21, AC-22;
+- part three's migration and restore criteria (FR-QRY-07 AC-27…AC-29, FR-TYP-01 AC-11; AP-2057, D-2195);
+- cards.md (the card itself is unchanged);
+- NFR-PERF-07 AC-3…AC-6 (their files keep `view: board`).
+
+---
+
+## Reference tables (part five)
+
+### R220. Display and grouping keys per usage (D-2174, D-2177, D-2178, D-2179; plan §3.1, §3.2)
+
+| Key | Query file | A tab (its `views:` item) | A block (its fence) | `query/<name>` writes | `All <plural>` |
+| --- | --- | --- | --- | --- | --- |
+| `view` | the default | own | own | the query file | this Mac (R226) |
+| `group_by` | the default | own; `none` = not grouped | own; `none` | the query file (`None`: AP-2053) | this Mac |
+| `lanes` | the default | own | own | the query file | this Mac |
+| `lane_order` | the default | own | own | the query file | none: option order, no drag (D-2178) |
+| `widths` | none (kept and ignored if hand-written) | own (D-2177) | own | this Mac (`page:` key, R226) | this Mac (`typeColumnWidths`) |
+| `sort`, `columns` | part two (R194) | | | | |
+| `title`, `types`, `match`, `filters`, `limit`, `done_lane` | shared | none | none | | |
+
+Values:
+
+| Key | Values and read rules |
+| --- | --- |
+| `view` | `list`, `table` or `wall`. `board` reads as `wall` (D-2179). Any other value is broken. Missing in the query file = `list` (R185). |
+| `group_by` | R185's attribute kinds and R201's `{ <date key>: period }`, now valid with **every** display (D-2173). `none`: not grouped (a usage's own value; in a query file, AP-2053). <br>Broken: another kind, an unknown key, `{ <key>: month }` (D-2180), a two-key mapping. A broken `group_by` on a wall draws the ungrouped wall with the notice (D-2179), not a List. |
+| `lanes` | `columns` or `rows`. `vertical` / `horizontal` read as `columns` / `rows` (D-2179). Missing = `columns`. Any other value is broken. Used only on a grouped wall; kept and ignored otherwise, with no notice. |
+| `lane_order` | as R185 and R201. It also orders the groups of a grouped Table or List. Values that name no group are kept and ignored. |
+| `widths` | a mapping of column key to a whole number of px. A value outside R130's limits is drawn clamped, not rewritten. An unknown column key is kept and ignored. A non-mapping or non-integer value is broken (R130's defaults apply). |
+
+| Rule | |
+| --- | --- |
+| Effective | the usage's own **valid** value, else the query file's effective value. An own value replaces the **whole** value; a `lane_order` is never merged with the query's. |
+| Broken own value | R194's rule: the query's effective value is used and nothing is rewritten until that setting changes there. The notice `The setting <key> can't be read, so its default is used.` (`query.block.brokenKey`) shows once per broken key **that the effective display uses** (AP-2056, D-2194 (g)): <br>• `view` and `group_by`: always; <br>• `lanes`: on a grouped wall; <br>• `lane_order`: when grouped; <br>• `widths`: on a Table. |
+| A query's broken key a usage replaces | no notice in that usage (R228 Zobrazení block 3) |
+| Equal values | as R194: an own value equal to the query's stays own; only `Use the query's …` removes it (AP-2054) |
+| A wall without `group_by` | valid: the ungrouped wall (D-2179) |
+| Version | `version` stays 1 everywhere. No file is rewritten to change a word (D-2179). |
+
+### R221. Where the keys go (FR-FMT-06, AR-07; plan §3.3; D-2179)
+
+| Rule | |
+| --- | --- |
+| Order | in a `views:` item and in a fence: `name` / `saved`, `view`, `group_by`, `lanes`, `lane_order`, `sort`, `columns`, `widths` (plan §3.3). This extends R195 / R196: the new keys go before `sort`, and `widths` goes last. |
+| Place | A missing key is inserted right after the nearest earlier key that is present, else right after `name:` / `saved:`. A present key is replaced in place (its line or block). A removed key loses its lines. |
+| Style | <br>• `view`, `lanes`: plain scalars. <br>• `group_by`: a plain scalar, `none`, or a one-line flow mapping (`group_by: { finished: period }`). <br>• `lane_order`: one flow line with D-230 quoting (`lane_order: ["[[Lucie Horká]]"]`). <br>• `widths`: one flow mapping line, keys in the table's column order with Title first (`widths: { title: 300, author: 180 }`). <br>• Everything NFC. A replaced one-line key keeps its trailing comment (D-1457). |
+| Words written | `wall`, `columns` and `rows`, only for the key being changed. An old word in another key, item, fence or file keeps its bytes (D-2179). |
+| Items (R196) | <br>• A plain name becomes `  - name: <name>` plus the item's own keys. <br>• An item left with only `name` becomes plain. <br>• The list stays the flow line while every item is plain. <br>• Unknown item keys stay after the known ones. <br>• An unchanged item keeps its lines byte for byte. <br>• A changed item keeps the lines of every key the change doesn't touch (old words and trailing comments included); only the changed key's lines are replaced, inserted or removed; full-line comments inside it go (D-2200, D-2203). |
+| Fences (R195) | <br>• Markers, info string, the `saved:` line (an NFD value too), comments, unknown lines, container prefixes and EOLs are kept. New lines get the `saved:` line's prefix. <br>• Written through the editor (D-1839): one transaction, one autosave, `modified:` per D-55, one undo step. |
+| Query file | R185's write style and create order (`… sort, limit, view, group_by, lanes, lane_order, done_lane, columns, created, modified`); `modified:` set on each change |
+| Older Tegg | 0.6.0 ignores unknown item keys (R196) and unknown fence lines (R195). It reads `view: wall` and `lanes: rows` in a query file as broken keys and keeps the file (D-1442). |
+
+### R222. What each action writes (plan §4; D-2174, D-2177, D-2178)
+
+| Action | Tab | Block | `query/<name>` | `All <plural>` |
+| --- | --- | --- | --- | --- |
+| Display switch | the item's `view` | the fence's `view` | the query file's `view` | `ui-state.json` (R226) |
+| Group menu: an attribute, `None` | the item's `group_by` | the fence's `group_by` | the query file (`None`: AP-2053) | `ui-state.json` |
+| Group menu: `Lanes`; `Switch lanes` | the item's `lanes` | the fence's `lanes` | the query file | `ui-state.json` |
+| Lane drag (wall), group-header drag (Table, List), `Move lane …` | the item's `lane_order` | the fence's `lane_order` | the query file | not offered (D-2178) |
+| `Reset lane order` | AP-2054 | AP-2054 | removes the line (D-1792) | not offered |
+| Column resize (drag end; keys, `⌫`, `Reset column widths`: AP-2052) | the item's `widths` | the fence's `widths` | `ui-state.json` `usageColumnWidths["page:<name key>"]` | `typeColumnWidths` |
+| `Use the query's display` | removes the item's `view` | removes the fence's `view` | not offered | not offered |
+| `Use the query's grouping` | removes the item's grouping keys (AP-2054) | the fence's | not offered | not offered |
+| Fold a group or lane (click, ⌥-click) | `ui-state.json` `usageFolded[<usage key>]` | same | same | `usageFolded["all:<type key>"]` |
+| Sort, Columns | R197 (unchanged) | | | |
+| Card drag between lanes, a lane's `+` | the object (unchanged) | | | |
+| Editor `Done` | the query file: title, `Show`, filters, `Limit`, the done-lane checkbox | | | |
+
+Every vault write here is **one** minimal write of one file, base-checked (FR-SYN-02, FR-SYN-03).
+
+There is **no** write when the result equals the disk. That covers:
+- choosing the pressed display, the checked grouping or the checked `Lanes` item;
+- a drop at its own place;
+- a resize that ends at its starting width.
+
+A usage that can't be written has these controls disabled (FR-QRY-05 AC-45).
+
+### R223. The display switch, the Group menu, the toolbar and the editor (boards A, C, D3, G, H1, H2; D-2172, D-2173, D-2175, D-2176)
+
+| Part | Rules |
+| --- | --- |
+| Display switch | <br>• **Where:** a view tab's toolbar, `All <plural>`, a saved-query block's header and `query/<name>`. <br>• **Element:** a `group` named `Display` with three `button`s, `List`, `Table` and `Wall`, in that order. Each shows its icon, with the name as its accessible name and tooltip. The effective display has `aria-pressed="true"`. <br>• **Keys:** moving the focus (Tab, ←/→) writes nothing; choosing (click, ⏎, Space) writes once. <br>• **Effect:** filters, sort, grouping, columns, widths and folds are kept; only the drawing changes (board A). |
+| `Group` button | <br>• **Place:** right of the display switch. <br>• **Element:** a `button` with `aria-haspopup="menu"` and `aria-expanded`. <br>• **Visible text:** the effective grouping's name when grouped (`Status`, `Due date · by period`; boards D1, H2), `Group` otherwise. <br>• **Names:** AP-2056, D-2194 (c). |
+| Group menu (board D3) | <br>• **Element:** the `menu` `Group by`, placed inside the window by FR-QRY-07 AC-19's rule (`data-popup="group"`). <br>• **Items, in order:** <br>&nbsp;&nbsp;– a scope line (R227); <br>&nbsp;&nbsp;– the `menuitemradio` `None`; <br>&nbsp;&nbsp;– the attributes that can group: Select, multi-select and relation attributes of the query's single type in schema order, then `Tags`, then `<Name> · by period` for each Date and Date-time attribute in schema order, then `Created · by period`, `Modified · by period` (FR-QRY-01 AC-13, AC-17); <br>&nbsp;&nbsp;– for a query over several types: `None`, `Tags`, `Created · by period`, `Modified · by period`. <br>The effective grouping has `aria-checked="true"`. No month entry (D-2180). <br>• **Lanes part:** only on a **grouped wall**. A separator, then a `group` `Lanes` with the `menuitemradio`s `Columns` and `Rows`. It isn't shown on a Table, a List or an ungrouped wall. <br>• **Usage part:** when the usage has the keys, a separator and `Use the query's grouping` and `Use the query's display` (AP-2054). <br>• **Keys:** choosing an item writes once and closes the menu. Esc writes nothing and returns the focus to `Group`. |
+| Toolbar (view tab) | <br>• **Order:** `Filter <plural>…`, `Filter by tag`, the display switch, `Group`, the sort button, `Columns`, `View actions` (boards A, H2). <br>• **`Columns`:** on Table, and on List where it is today; never on a Wall (D-1910). <br>• **No** `Lanes` radiogroup anywhere (D-2173). <br>• **`All <plural>`:** the same, with its machine-local sort and Columns (D-1240). |
+| Block header (board G) | <br>• The display switch and `Group` come before the sort icon; the rest is part two's. <br>• A block that differs from its query shows **no** dot, badge or other mark (D-2176). |
+| Editor (board C; D-2175) | <br>• **Rows:** `Show`, the filters and `Limit` (AP-2051). <br>• **No** `View`, `Lanes`, `Group by`, `Sort` or `On cards` row. <br>• **Done-lane checkbox:** shown when the query file's own `group_by` makes `done_lane` valid (R201; for which groupings, AP-2050). |
+
+### R224. The wall (boards W1, D1, D2; D-2172, D-2185)
+
+| Part | Rules |
+| --- | --- |
+| Ungrouped | <br>• **Cards:** every result as its own type's card (cards.md R211…R213). <br>• **Grid:** wraps, with as many columns as fit while each card is at least 220 px. Every card is 220…300 px wide (± 1 px); with fewer cards than columns they are 300 px and left-aligned. <br>• **Order:** the usage's effective sort, then title, then path; left to right, row by row. <br>• **Not drawn:** lanes, `No <attribute>`, hatching, the `+` tile, card drags and `Move to`. The hidden-grouping rule doesn't apply: every card key shows. <br>• **Scrolling:** with the page, never sideways. <br>• **Windowed:** at most 150 card elements in the DOM (D-2185). <br>• **`limit`:** AP-2051. |
+| Grouped | Today's board: R187, R201, R203 and R205 as amended by cards.md. <br>• `Columns` is R187's "Vertical" (236 px lanes, sideways scroll); `Rows` is R187's "Horizontal" (wrapping rows, chevrons, folds). <br>• Unchanged: hatched excluded lanes, card drags, the `+` tile, lane drags, no paging, the hidden grouping key (D-1769), and period lanes with the done lane. |
+| In a note | Ungrouped: the grid inside the note column. Grouped: D-1773. |
+
+### R225. Grouped Table and List (boards H1, H2; D-2181…D-2184)
+
+| Part | Rules |
+| --- | --- |
+| Groups | <br>• **Source:** the grouping's lanes by R187's and R203's rules (option groups, then unknown values, `No <attribute>` last; tags; relations; periods). <br>• **Order:** the effective `lane_order` first, then the default order. <br>• **Only groups that have rows** (D-2184): no hatched, empty or excluded groups, and no empty period groups. |
+| Group header | <br>• **Row:** full width, before its rows. It holds a chevron `button`, the value and the row count. <br>• **Value:** a Select option in its option colour (as R187's lane heading); a relation as the related object's chip (a reference, previewing per D-1164; board H2); a tag as `#<tag>`; a period as R203's label. <br>• **Button:** named `<value>, <count>` with `board.laneCountOf`'s forms (`Reading, 3 Books`), with `aria-expanded`. |
+| Rows | <br>• **Order:** the usage's effective sort inside each group, then title, then path. <br>• **Columns:** a Table keeps its columns as configured (AP-2056, D-2194 (a)). <br>• **Multi-value** (multi-select, tags, multiple relation): the whole row appears under each of its values (D-1769). A row with no value is under `No <attribute>`. <br>• **Elements:** each row keeps `data-query-result`. |
+| Period groups | Flat (D-2181): `today`, `week`, `later`, the no-value group and, with `done_lane`, `done` (AP-2050). R203's labels. The week group holds every remaining day, ordered by the sort; no day sub-headings. |
+| Fold | <br>• **Click** on the header, or ⏎ / Space on its button: folds that group; its header and count stay. <br>• **⌥-click:** folds or unfolds every group. <br>• **Stored:** on this Mac per usage (`usageFolded`, part one's lane ids `option:<label>`, `relation:<path>`, `tag:<key>`, `period:today`, `none`, `done`). <br>• One fold list per usage, so folds made on its wall's rows apply to its Table and List too. |
+| Header drag | <br>• **Grip:** `Drag to move the group`, shown on hover and focus. Not on `No <attribute>` or `done`, and not on `All <plural>` (D-2178). <br>• **Write:** a drop writes the usage's `lane_order`: every lane of the grouping as a wall would draw it (excluded and empty ones included), except `No <attribute>` and `done`, in the new order (D-1792's rule). A drop at its own place writes nothing. <br>• **Palette:** AP-2056 (d). |
+| Not in Q3 | Rows aren't dragged between groups (D-2182). No `New <Type>` row or tile in a group (D-2183). |
+| Windowing and `limit` | Windowing as FR-QRY-05 AC-9; `limit`: AP-2051. |
+
+### R226. Machine-local state (FR-STO-07; D-1845, D-2177, D-2178)
+
+| Key (proposal) | Holds |
+| --- | --- |
+| `allView[<type key>]` | `{ view, groupBy, lanes }` of `All <plural>` (D-2178). Missing = Table, not grouped. |
+| `usageFolded[<usage key>]` | as R198 and R206, now also the folded groups of a Table or List. `all:<type key>` for `All <plural>`. |
+| `usageColumnWidths[<usage key>]` | For a `tab:` or `block:` key: read only while that usage has no own `widths` (D-2177); 0.7.0 never writes it (first write: AP-2052). For a `page:` key: read and written as before. |
+| `typeColumnWidths`, `typeSort`, `tagFilter`, `typeViews.lastTab` | unchanged |
+
+The query rename still moves R198's keys (D-1797).
+
+### R227. Commands and strings (FR-UX-03, NFR-OTH-02; D-1771)
+
+Commands, palette only, no shortcut, `needsVault: true`, section `view`:
+
+| Id (proposal) | Title | Listed on | Does |
+| --- | --- | --- | --- |
+| `display.list`, `display.table`, `display.wall` | `Display as list`, `Display as table`, `Display as wall` | a view tab, `All <plural>`, `query/<name>`, a selected saved-query block, each writable; never for the effective display | as the switch |
+| `group.open` | `Group by…` | the same places | opens the Group menu at `Group`, with the checked item focused |
+| `group.remove` | `Remove grouping` | the same places, when grouped | as `None` |
+| `display.useQuery` | `Use the query's display` | a tab or a selected block with an own `view` (valid or broken) | R222 |
+| `group.useQuery` | `Use the query's grouping` | a tab or a selected block with own grouping keys (AP-2054) | R222 |
+| `board.switchLanes` (kept) | `Switch lanes` | a grouped wall (tab, `All <plural>`, page, selected block) | flips the usage's `lanes` |
+| `board.resetLaneOrder` (kept) | `Reset lane order` | a grouped usage or page with an effective `lane_order`; not `All <plural>` | R222 |
+| `board.lane*` (kept) | `Move lane left` / `right` / `up` / `down` | as part one; on a focused group header of a Table or List, AP-2056 (d) | R222 |
+
+Catalog keys (proposal; texts AP-2056, D-2194).
+
+New:
+- **Display:** `views.kind.wall` `Wall` · `display.switch` `Display`.
+- **Group button and menu:** `group.button` `Group` · `group.buttonBy` `Grouped by {grouping}` · `group.menu` `Group by` · `group.none` `None` · `group.byPeriod` `{attribute} · by period` · `group.lanes` `Lanes` · `group.columns` `Columns` · `group.rows` `Rows`.
+- **Scope lines:** `group.scope.tab` `This tab's display and grouping` · `group.scope.block` `This block's display and grouping` · `group.scope.default` `Default for tabs and blocks without their own` · `group.scope.thisMac` `Display and grouping of this page on this Mac`.
+- **Usage actions:** `group.useQuery` `Use the query's grouping` · `display.useQuery` `Use the query's display`.
+- **Groups:** `group.drag` `Drag to move the group` · `group.moved` `Moved group {group}`.
+- **Type settings:** `typeSettings.viewKindBy` `{display} · by {attribute}`.
+- **Editor:** `query.editor.limitHint` `Applies to a List or Table without grouping` (AP-2051).
+- **Commands:** `cmd.displayList` `Display as list` · `cmd.displayTable` `Display as table` · `cmd.displayWall` `Display as wall` · `cmd.groupBy` `Group by…` · `cmd.removeGrouping` `Remove grouping` · `cmd.useQueryDisplay` `Use the query's display` · `cmd.useQueryGrouping` `Use the query's grouping`.
+
+**Removed:**
+- `views.kind.board`, `views.kind.boardBy`, `typeSettings.viewBoardBy`;
+- `query.editor.board`, `query.editor.groupBy`, `query.editor.groupByHint`, `query.editor.lanes`, `query.editor.groupByPeriod`, `query.editor.groupByPeriodHint`;
+- `board.lanes`, `board.vertical`, `board.horizontal`, `board.verticalTitle`, `board.horizontalTitle`.
+
+After this no catalog text names `Board` or `Kanban` as a display. `cmd.tasks.kanban` `Show Kanban` and the typeSettings texts that name the default views `Kanban` and `Schedule` stay: they are file names.
+
+**Kept but not drawn** (AP-2056 (f)): `query.editor.view`, `query.editor.list`, `query.editor.table`, `query.editor.tableHint`.
+
+**Reused:** `query.block.brokenKey`, `query.block.usageNotEditable`, `query.block.readOnly`, `views.changedOutside`, `views.kind.table`, `views.kind.list`, `board.laneCountOf`, `board.collapse`, `board.expand`, `board.none`, `board.dragColumn`, `board.dragRow`, `board.laneMoved`, `cmd.switchLanes`, `cmd.resetLaneOrder`, `cmd.lane*`, the `board.period.*` labels.
+
+User content: query names, type names and plurals, attribute names, option labels, tag keys and titles.
+
+### R228. Expected results (T2; test clock, `cs`; (C) also `en-US`)
+
+On the overlay:
+
+| Where | Expected |
+| --- | --- |
+| `type/book` tabs | `All Books` (table icon), `Rozečtené` (wall), `Přečtené 2026` (wall), `Výborné knihy` (table), `Podle žánru` (list), `Podle autora` (wall), `Celá zeď` (wall), then `Add view`. `17 Books`. |
+| Tab `Rozečtené` | An ungrouped wall of 5 cards: Dům u řeky, Kniha o horách, Noční vlak, Účetní ze Žižkova, Světla přístavu (status ↑ by option order, then modified ↓). At 1,440 × 900, 4 per row. Each card shows its `Status` pill (`To read`, `To read`, `Reading`, `Reading`, `Reading`). `Group` reads `Group`; the menu has `None` checked, no `Lanes` part, and `Use the query's grouping`. |
+| Tab `Přečtené 2026` | An ungrouped wall of 8 cards in R193's order: Mapa bez severu, Sto zimních dní, Cizí přístavy, Čarovná mapa / Šest cest k moři, Kniha o čaji, Tiché město, Zahrada v dešti, 4 per row. (C) `en-US`: Čarovná mapa before Cizí přístavy. Sort button `Finished ↓` `+2`. |
+| Tab `Výborné knihy` | A Table grouped by Author: `Lucie Horká` 1 (Čarovná mapa), then `Eva Lindová` 2 (Cizí přístavy, Mapa bez severu). The headers are the authors' chips. Columns Title (260 px), Author (180 px), Status, Finished, with `Title ↑`. |
+| Tab `Podle žánru` | A List grouped by Genres, 20 rows for 17 books: <br>• `Román` 6: Čarovná mapa, Dům u řeky, Mapa bez severu, Noční vlak, Sto zimních dní, Účetní ze Žižkova <br>• `Detektivka` 3: Čtvrtá zima, Tiché město, Účetní ze Žižkova <br>• `Poezie` 2: Písně z dálky, Zahrada v dešti <br>• `Eseje` 3: Kniha o čaji, Sto zimních dní, Světla přístavu <br>• `Cestopis` 5: Cizí přístavy, Čarovná mapa, Kniha o horách, Šest cest k moři, Zápisník z Tater ((C) `en-US`: Čarovná mapa, Cizí přístavy, Kniha o horách, Šest cest k moři, Zápisník z Tater) <br>• `No Genres` 1: Ostrov bez jména |
+| Tab `Podle autora` | A grouped wall as rows (`lanes: horizontal` read as `rows`): R193's six lanes and counts, with chevrons. The Group menu has `Author` and `Rows` checked. |
+| Tab `Celá zeď` | An ungrouped wall of 16 cards by title (`limit: 10` not applied, AP-2051, D-2189), no notice. Order: <br>• `cs`: Cizí přístavy, Čarovná mapa, Čtvrtá zima, Dům u řeky, Kniha o čaji, Kniha o horách, Mapa bez severu, Noční vlak, Písně z dálky, Sto zimních dní, Světla přístavu, Šest cest k moři, Tiché město, Účetní ze Žižkova, Zahrada v dešti, Zápisník z Tater <br>• (C) `en-US`: Čarovná mapa, Cizí přístavy, Čtvrtá zima, Dům u řeky, Kniha o čaji, Kniha o horách, Mapa bez severu, Noční vlak, Písně z dálky, Šest cest k moři, Sto zimních dní, Světla přístavu, Tiché město, Účetní ze Žižkova, Zahrada v dešti, Zápisník z Tater |
+| Zobrazení block 1 | As tab `Přečtené 2026`, inside the note column, 3 per row |
+| Zobrazení block 2 | A Table grouped by Status: `To read` 2 (Dům u řeky, Kniha o horách), then `Reading` 3 (Noční vlak, Účetní ze Žižkova, Světla přístavu). No `Read` group (D-2184). Columns Title (240 px), Author, Rating. |
+| Zobrazení block 3 | A List grouped by the period of Finished, no day headings, no notice: <br>• `Today & earlier` 9: Cizí přístavy, Čarovná mapa, Čtvrtá zima, Kniha o čaji, Mapa bez severu, Sto zimních dní, Šest cest k moři, Tiché město, Zahrada v dešti <br>• `No Finished` 8: Dům u řeky, Kniha o horách, Noční vlak, Ostrov bez jména, Písně z dálky, Světla přístavu, Účetní ze Žižkova, Zápisník z Tater <br>No `This week` or `Later` group. |
+| Zobrazení block 4 | A grouped wall as rows (the query's `lanes: horizontal`), 16 cards, no hatched lane: <br>• `To read` 2: Dům u řeky, Kniha o horách <br>• `Reading` 3: Noční vlak, Světla přístavu, Účetní ze Žižkova <br>• `Read` 9: Cizí přístavy, Čarovná mapa, Čtvrtá zima, Kniha o čaji, Mapa bez severu, Sto zimních dní, Šest cest k moři, Tiché město, Zahrada v dešti <br>• `Rozečteno` 1: Zápisník z Tater <br>• `No Status` 1: Písně z dálky |
+| Zobrazení block 5 | A Table, not grouped: Cizí přístavy, Čarovná mapa, Mapa bez severu. Headers `Title ↑`, Author, Status, Finished at R130's default widths. Above it three notices in the order `view`, `group_by`, `widths`; no `lanes` notice. |
+| Zobrazení block 6 | R193's `Výborné knihy` table |
+| `type-settings/book` › `Views` | `Rozečtené` `Wall`, `Přečtené 2026` `Wall`, `Výborné knihy` `Table · by Author`, `Podle žánru` `List · by Genres`, `Podle autora` `Wall · by Author`, `Celá zeď` `Wall` (D-2194 (b), D-2203) |
+| `query/Celá zeď` | as tab `Celá zeď` |
+| `query/Rozečtené`, `query/Seskupeno podle data` | R193's board, and R193's notice for `Seskupeno podle data`. Under FR-QRY-05 AC-36, the latter becomes R193's 17 books as an **ungrouped wall** in the same order, with the notice. |
+| `queries` | 10 rows, `Celá zeď` first (Created ↓). Six rows carry `Books page`. |
+| Type settings › Views (`type-settings/book`) | `All Books` `Default · always first`, `Rozečtené` `Wall`, `Přečtené 2026` `Wall`, `Výborné knihy` `Table · by Author`, `Podle žánru` `List · by Genres`, `Podle autora` `Wall · by Author`, `Celá zeď` `Wall` (the Table and List forms are AP-2056, D-2194 (b)) |
+
+On the base fixture:
+
+| Where | Expected |
+| --- | --- |
+| `All Books`, Group › `Status`, Table | <br>• `To read` 3: Dům u řeky, Kniha o horách, Ostrov bez jména <br>• `Reading` 3: Noční vlak, Účetní ze Žižkova, Světla přístavu <br>• `Read` 9: Mapa bez severu, Sto zimních dní, Čarovná mapa, Cizí přístavy, Šest cest k moři, Kniha o čaji, Tiché město, Zahrada v dešti, Čtvrtá zima <br>• `Rozečteno` 1: Zápisník z Tater <br>• `No Status` 1: Písně z dálky <br>Modified ↓ inside each group; no grips. |
+| `All Books` as Wall | 17 cards in R193's `All Books` order |
+| Tab `Přečtené 2026`, Group › `Genres`, Table | 10 rows for 8 books, no `No Genres` group: <br>• `Román` 3: Mapa bez severu, Sto zimních dní, Čarovná mapa <br>• `Detektivka` 1: Tiché město <br>• `Poezie` 1: Zahrada v dešti <br>• `Eseje` 2: Sto zimních dní, Kniha o čaji <br>• `Cestopis` 3: Cizí přístavy, Čarovná mapa, Šest cest k moři ((C) `en-US`: Čarovná mapa, Cizí přístavy, Šest cest k moři) |
+
+On the `views-tasks` overlay (part three's clock; **(W)** `en-US` in brackets):
+
+| Where | Expected |
+| --- | --- |
+| `Schedule` switched to Table | Flat groups: <br>• `Today & overdue` 4: T01, T02, T03, T14 <br>• `This week` 4: Koupit dárek (T04), Nákup (T19), Cizí stav (T15), Úklid garáže (T05) [`en-US` 3, without T05] <br>• `Later` 2: T06, T07 [`en-US` 3: T05, T06, T07] <br>• `Not scheduled` 5: T08, T09, T17, T16, T18 <br>• `Done` 2, folded: T10, T12 (AP-2050, D-2188) <br>No day sub-headings. |
+| `Kanban` switched to List | <br>• `To do` 10: T01, T03, T19, T05, T06, T07, T08, T17, T16, T18 <br>• `In progress` 2: T02, T09 <br>• `Waiting` 1: T04 <br>• `Done` 2: T10, T12 (AP-2050, D-2188) <br>• `Rozpracováno` 1: T15 <br>• `No Status` 1: T14 |
+
+---
+
+### FR-QRY-05 Display and grouping (part five; D-2172…D-2186)
+
+- **AC-32** **The display switch on a tab writes its item (R222, R223; D-2172, D-2174; T1).** On the base fixture, on `type/book` › `Přečtené 2026`, the `Display` group has `Table` pressed.
+  1. Choosing `Wall` writes `book.yml` once. Line 13 is replaced by `views:` / `  - Rozečtené` / `  - name: Přečtené 2026` / `    view: wall` / `  - Výborné knihy`. `Přečtené 2026.yml` and Čtení stay byte-, mtime- and inode-identical.
+  2. Within 300 ms the tab draws R228's 8 cards. Filters and sort are kept; the sort button still reads `Finished ↓` `+2`.
+  3. `query/Přečtené 2026` and Čtení's block still draw the Table.
+  4. Choosing `Wall` again writes nothing.
+  5. `List` replaces only `    view: wall` by `    view: list`.
+  6. `Use the query's display` (AP-2054, D-2192) writes the flow line back: `book.yml` equals the fixture byte for byte.
+  7. On a grouped usage, switching displays keeps the grouping, `lane_order` and folds (FR-QRY-05 AC-39).
+
+  *(L5; L4 for the bytes; L1 for the routing)* Test: `fr_qry_05_ac32_display_switch_on_a_tab`
+- **AC-33** **In a block and on the query page (R222; D-2174, D-1839; T1).** On the base fixture:
+
+  (a) In Čtení's `Přečtené 2026` block, `Wall` writes one autosave:
+  - it inserts `view: wall` after line 11 and sets line 6 `modified:` per D-55; every other byte is kept;
+  - the query file and `book.yml` are untouched;
+  - the block draws the cards 3 per row inside the note column;
+  - ⌘Z right after it restores the fence's lines, in one more autosave.
+
+  (b) On the overlay's Zobrazení block 6, `Wall` inserts `> view: wall` after line 53.
+
+  (c) On `query/Přečtené 2026`, `Wall` writes once: line 14 `view: table` → `view: wall`, and `modified:`. Within 1 s the `Přečtené 2026` tab and Čtení's block (no own `view`) draw walls, and they write nothing.
+
+  (d) In Čtení's `Rozečtené` block, Group › `Lanes` › `Rows` inserts `lanes: rows` after line 15 of Čtení. `Rozečtené.yml` is untouched and the tab keeps columns. Then dragging `To read` before `Reading` inserts `lane_order: [To read, Reading, Read]` after the new `lanes: rows` line (expected `notes/cteni-2026-rozectene-lane-order.md`; D-2203).
+
+  *(L5; L1 for the fence bytes; L4 for the query file)* Test: `fr_qry_05_ac33_display_and_grouping_in_a_block_and_on_the_query_page`
+- **AC-34** **The Group menu (R223; boards D3, H1; D-2173, D-2175, D-2180; T1).** On the base `Výborné knihy` tab:
+  1. `Group` (text `Group`) opens the `menu` `Group by` with the scope line `This tab's display and grouping`, then: `None` (checked), `Author`, `Status`, `Rating`, `Genres`, `Tags`, `Finished · by period`, `Created · by period`, `Modified · by period`. No month entry and no `Lanes` part (a Table).
+  2. `Status` writes `book.yml` once: line 13 → `views:` / `  - Rozečtené` / `  - Přečtené 2026` / `  - name: Výborné knihy` / `    group_by: status`. `Group` then reads `Status`, and the Table shows one group, `Read` 3.
+  3. `Wall` inserts `    view: wall` before `    group_by: status`. The menu now has the `Lanes` part with `Columns` checked.
+  4. `Rows` inserts `    lanes: rows` after `group_by` and draws rows.
+  5. `None` replaces `    group_by: status` by `    group_by: none`. The `Lanes` part goes; `    lanes: rows` stays in the item.
+  6. `Status` again draws rows (the direction comes back).
+
+  The menu lists `None`, `Tags`, `Created · by period`, `Modified · by period`:
+  - on a runtime view over `[autor]` (only a Text attribute);
+  - on a runtime view over `[book, autor]`.
+
+  Other rules:
+  - choosing the checked item writes nothing;
+  - Esc closes the menu, writes nothing, and puts the focus back on `Group`;
+  - at FR-QRY-07 AC-19's four window sizes the menu opens inside the window (`data-popup="group"`), also from the last block of a scrolled note.
+
+  *(L5; L4 for the bytes; L1 for the choices)* Test: `fr_qry_05_ac34_group_menu`
+- **AC-35** **Own and effective values (R220; D-2174, D-2176; T2).** On the overlay:
+  1. Tabs and blocks draw R228; `query/Rozečtené` and Čtení's `Rozečtené` block draw R193's board.
+  2. No usage shows a dot, badge or text saying it differs from its query (D-2176).
+  3. On tab `Rozečtené`, `Use the query's grouping` (AP-2054) replaces lines 14…15 by `  - Rozečtené` in one write, and the tab draws R193's board.
+  4. On `Přečtené 2026`, `Use the query's display` replaces lines 16…17 by `  - Přečtené 2026`.
+  5. Neither action is offered on `Celá zeď` (plain), on `query/<name>` or on `All Books`.
+  6. Choosing `Status` on tab `Rozečtené` writes `    group_by: status`: an own value equal to the query's stays own.
+  7. On `query/Rozečtené`, Group › `Genres` changes the default. Within 1 s Čtení's block and Zobrazení block 2 (own `view: table`, no own `group_by`) regroup by Genres; block 2's own `lane_order: [To read]` names no genre, so its groups follow option order. Tab `Rozečtené` (own `none`) stays ungrouped. No usage file is written.
+
+  *(L5; L4 for the run; L1 for the effective values)* Test: `fr_qry_05_ac35_own_and_effective_values`
+- **AC-36** **Broken values (R220; T2).**
+
+  (a) Zobrazení block 5:
+  - It shows R228's Table with three notices in the order `view`, `group_by`, `widths`, and no `lanes` notice (AP-2056, D-2194 (g)). Opening, running, drawing and scrolling write nothing.
+  - Its Group menu shows `None` checked (the query's) and `Use the query's grouping`.
+  - Choosing `Author` replaces line 46 `group_by: finished` by `group_by: author` and that notice goes. Lines 44, 45, 47 and 48 keep their bytes.
+
+  (b) Runtime item values: `view: Wall`, `lane_order: Reading`, `group_by: { due: month }` (D-2180) and `group_by: { finished: period, created: period }`. Each draws the query's value with its notice, and the file isn't rewritten.
+
+  (c) Runtime `widths` values:
+  - `widths: { title: 90 }` draws Title at R130's minimum, 160 px, with no notice and no rewrite;
+  - `widths: { neznámý: 200 }` is kept and ignored.
+
+  (d) A broken `group_by` in a query file on a wall: `Seskupeno podle data` draws an **ungrouped wall** of its 17 books by title with `The setting group_by can't be read, so its default is used.` (D-2179; was a List). A runtime copy of `Schedule.yml` with `group_by: { due: month }` draws the 17 non-Cancelled tasks as an ungrouped wall with that notice.
+
+  *(L4; L5; L3)* Test: `fr_qry_05_ac36_broken_values`
+- **AC-37** **The ungrouped wall (R224; board W1; D-2172, D-2185; T2; (C)).** On the overlay's tab `Přečtené 2026`:
+  - **Cards:** 8 `article`s `Book: <title>` (cards.md R211) in R228's order.
+  - **Sizes:** at window widths 800, 1,024, 1,440 and 2,560 (sidebar open), every card is 220…300 px wide (± 1 px). The number of columns is the most that fits at 220 px or more. The page never scrolls sideways.
+  - **Few cards:** a runtime two-card wall at 1,440 shows two 300 px cards, left-aligned.
+  - **Nothing hidden:** on tab `Rozečtené` every card shows its `Status` pill.
+  - **Not drawn:** no lane, no `No <attribute>`, no `+` tile. A pointer drag on a card moves nothing and writes nothing. `More actions` has no `Move to`.
+  - **Sort:** a change in the sort popover reorders the wall within 300 ms, in one item write.
+  - **Limit:** tab `Celá zeď` shows all 16 cards (AP-2051, D-2189).
+  - **Keyboard** (D-1771's arrows): Tab focuses the first card. → / ← move in reading order, and ↓ / ↑ move to the same column of the next or previous row. ⏎ opens the card; Back returns with the focus on it.
+
+  *(L5; L1 for the grid model)* Test: `fr_qry_05_ac37_ungrouped_wall`
+- **AC-38** **A grouped wall is today's board (R224; D-2172; T1, T2).** These pass unchanged on grouped walls:
+  - FR-QRY-05 AC-12…AC-16, AC-18, AC-20, AC-22, AC-30, AC-31;
+  - FR-QRY-08 AC-2, AC-3; FR-QRY-09 AC-6, AC-7;
+  - FR-TSK-04 AC-23…AC-25; FR-TSK-05 AC-19, AC-21, AC-22.
+
+  On the overlay:
+  - tab `Podle autora` draws R193's six lanes as rows;
+  - Zobrazení block 4 draws R228's rows;
+  - a card drag in block 4 writes the book with FR-QRY-05 AC-13's rule (one write of the object) and never writes Zobrazení.
+
+  *(L5)* Test: `fr_qry_05_ac38_grouped_wall_is_the_board`
+- **AC-39** **The grouped Table (R225; board H1; D-2181…D-2184; T2; (C)).** On the overlay's tab `Výborné knihy` (R228):
+  - Each group header is a full-width row with its chevron button, the author's chip (previewing and opening as any chip) and its count.
+  - The `Author` column stays (AP-2056, D-2194 (a)).
+  - A click on `Title` sorts inside every group (`Eva Lindová`: Mapa bez severu, Cizí přístavy) and writes the item's `sort` once. The groups keep their order.
+  - There is no `New Book` row or tile in any group.
+  - Dragging a row onto another group's header moves nothing and writes nothing.
+
+  On Zobrazení block 2: R228, with no `Read` group, although `Read` is a hatched lane on the wall of the same query.
+
+  On the base tab `Přečtené 2026` grouped by `Genres`: R228's 10 rows. Sto zimních dní and Čarovná mapa each appear in two groups with identical cells (`Genres` shows both values in both rows).
+
+  *(L5; L4 for `group`; L1 for the group model)* Test: `fr_qry_05_ac39_grouped_table`
+- **AC-40** **The grouped List (R225; board H2; T2; (C)).**
+  - On the overlay's tab `Podle žánru` the groups and rows are R228's; each row is R141's list row.
+  - Choosing `List` on tab `Výborné knihy` shows chip headers. A runtime book `Dvě ruce` (`author: ["[[Eva Lindová]]", "[[Tomáš Rybář]]"]`) is listed under both.
+  - On `Podle žánru`, `Wall` replaces line 23 `    view: list` by `    view: wall` and draws **columns** (line 24 `    lanes: vertical` is read as `columns` and keeps its bytes).
+
+  *(L5)* Test: `fr_qry_05_ac40_grouped_list`
+- **AC-41** **Period groups in a Table or List are flat (R225; D-2181; T2).**
+  - Zobrazení block 3 is R228's: no element `div[role=group][data-day]` and no heading `sobota 21.`.
+  - With runtime books `Nová kniha` (`finished: 2026-11-21`) and `Pozdní kniha` (`finished: 2026-12-05`), the groups are `Today & earlier` 9, `This week` 1, `Later` 1, `No Finished` 8, in that order.
+  - With the clock on Sunday 2026-11-22 there is no `This week` group, and `Nová kniha` is in `Today & earlier`.
+  - Tasks: FR-TSK-04 AC-30.
+  - The `Done` group follows AP-2050.
+
+  *(L4 for `group`; L5)* Test: `fr_qry_05_ac41_period_groups_are_flat`
+- **AC-42** **Group order and folds (R225; D-2182, D-1845; T1).**
+
+  (a) Header drags:
+  - In Zobrazení block 2, dragging `Reading` by its grip above `To read` replaces line 21 by `lane_order: [Reading, To read, Read]` in one autosave (every lane of the grouping, the hidden `Read` included).
+  - On the overlay's tab `Výborné knihy`, dragging `Eva Lindová` above `Lucie Horká` replaces line 20 by `    lane_order: ["[[Eva Lindová]]", "[[Lucie Horká]]"]`.
+  - `No <attribute>` has no grip and nothing drops after it. A drop at its own place writes nothing.
+  - On `query/Rozečtené` shown as a Table, the same drag writes FR-QRY-05 AC-19's `rozectene-lane-order-to-read-first.yml`.
+  - `Reset lane order` follows AP-2054.
+
+  (b) Folds:
+  - A click on `Reading`'s header hides its rows, keeps the header and count, and sets `aria-expanded="false"`.
+  - `ui-state.json` gets `usageFolded["block:id:01JB5V00000000000000000031/rozečtené#1"]` = `["option:Reading"]` in one `ui_state_set`; no vault file changes.
+  - ⌥-click folds or unfolds every group. A relaunch keeps the folds.
+  - The same fold list applies when the block shows the query as a wall in rows.
+
+  *(L5; L1 for the fence bytes; L4 for the query file; L6 once for the relaunch)* Test: `fr_qry_05_ac42_group_order_and_folds`
+- **AC-43** **Column widths are stored with the usage (R221, R222; D-2177; T1).** On the base fixture:
+
+  (a) On tab `Přečtené 2026`:
+  - Dragging `Resize Title` to 300 px writes **nothing during the drag** (the write counter stays 0 until release) and `book.yml` **once on release**: line 13 → `views:` / `  - Rozečtené` / `  - name: Přečtené 2026` / `    widths: { title: 300 }` / `  - Výborné knihy`.
+  - Then `Resize Author` to 200 replaces it by `    widths: { title: 300, author: 200 }` (column order).
+  - `ui-state.json` gets no `usageColumnWidths` entry. A drag that ends at its starting width writes nothing.
+
+  (b) In Čtení's block, Title 200 inserts `widths: { title: 200 }` after line 11 in one autosave (`modified:` per D-55).
+
+  (c) Places that keep widths on this Mac:
+  - on `query/Přečtené 2026` a resize writes only `usageColumnWidths["page:přečtené 2026"]`, no vault file;
+  - `All Books` keeps `typeColumnWidths`.
+
+  (d) The overlay's tab `Výborné knihy` draws Title 260 and Author 180 with a fresh Application Support and on a second one (another Mac).
+
+  (e) A wall has no resize handles.
+
+  (f) Keyboard resizing, `⌫` on a handle and `Reset column widths` follow AP-2052, D-2190:
+  - keys: one write when the handle loses the focus or 1 s after the last key;
+  - `⌫` removes that column's entry;
+  - `Reset column widths` removes `widths`;
+  - each is one write.
+
+  *(L5; L4 for the type-file bytes; L1 for the fence bytes; L6 once)* Test: `fr_qry_05_ac43_widths_are_stored_with_the_usage`
+- **AC-44** **Widths kept on this Mac by 0.6.0 (D-2177; AP-2052, D-2190; T2).** On the base fixture, `ui-state.json` holds `usageColumnWidths["tab:book/přečtené 2026"] = { title: 200, author: 180 }` and `usageColumnWidths["block:id:01JB5V00000000000000000029/přečtené 2026#1"] = { title: 220 }`.
+  1. The tab draws Title 200 and Author 180; Čtení's block draws Title 220. Opening writes nothing.
+  2. The tab's first resize (Rating to 150) writes `    widths: { title: 200, author: 180, rating: 150 }`: the kept widths plus the new one, in column order.
+  3. In the same step that usage's `ui-state.json` entry is removed (one `ui_state_set`). From then on the tab reads only its own widths.
+  4. On the overlay, tab `Výborné knihy` (own widths) ignores a kept entry `{ title: 400 }`.
+
+  *(L5; L6 once)* Test: `fr_qry_05_ac44_widths_kept_by_0_6`
+- **AC-45** **Where display and grouping can't be written (R222; D-1839, D-1864; T1).**
+  - **Blocks without an editor:** Čtení in the read view, a note in the Trash view, and a block inside an embedded note. The display switch, `Group` and the resize handles are `aria-disabled` with `Open the note to change how this block shows.`. Own values still apply: Zobrazení in the read view still draws block 2 grouped, with Title 240.
+  - **A newer query file:** with a `version: 2` `Celá zeď.yml`, the switch, `Group`, group and lane grips and resize on its tab, page and blocks are `aria-disabled` with `Made by a newer version of Tegg. Read-only.`.
+  - **A newer type file:** with a `version: 2` `book.yml`, the same tab controls are `aria-disabled` with the reason `Remove` has (FR-QRY-07 AC-12 (e)). Folding still works (machine-local).
+  - **Inline fences:** no display switch and no `Group` (D-1810; AP-2056, D-2194 (e)).
+  - Nothing is written in any of these cases.
+
+  *(L5)* Test: `fr_qry_05_ac45_where_display_and_grouping_cant_be_written`
+- **AC-46** **No migration: old words keep reading (D-2179; T1).**
+
+  (a) **Reads.** `view: board` reads as `wall`, with `group_by` (`Rozečtené`) and without it (`Celá zeď`; queries.md FR-QRY-05 AC-8's file: no broken entry, no `group`). `vertical` / `horizontal` read as `columns` / `rows` in query files, items and fences.
+
+  (b) **No rewrites.** On the base fixture, the overlay and `views-tasks`, none of these write a file or replace `board`, `vertical` or `horizontal` (bytes, mtime, inode):
+  - opening, running and drawing every query, tab and block, and a relaunch;
+  - every action that doesn't change `view` or `lanes`.
+
+  (c) **A changed key gets the new word:**
+  - on `query/Rozečtené`, `Rows` replaces line 15 by `lanes: rows`;
+  - on `query/Podle žánru`, `Columns` replaces line 14 by `lanes: columns            # vertical nebo horizontal`;
+  - on `query/Rozečtené`, `Table` then `Wall` write `view: table`, then `view: wall`;
+  - on the overlay's `Podle autora` item, `Columns` replaces only line 27 by `    lanes: columns`; line 26 `    view: board` keeps its bytes.
+
+  (d) **Unchanged.** `version` never changes. R202's `Schedule.yml` and `Kanban.yml` keep `view: board` (AP-2057, D-2195).
+
+  *(L4; L5)* Test: `fr_qry_05_ac46_old_words_keep_reading`
+- **AC-47** [manual] **Design review.** The owner compares these with boards `Views` A, B, W1, D3, D1, D2, H1, H2, C, G, `ViewsApp` and their Dark variants, and records each deviation as an issue or accepts it:
+  - the overlay's `type/book` on every tab;
+  - the Group menu with and without the `Lanes` part;
+  - a grouped Table with a folded group and a header being dragged;
+  - Zobrazení with its six blocks;
+  - `All Books` as a grouped wall;
+  - `Schedule` as a Table.
+
+  *(manual)*
+
+### FR-QRY-07 Views per type (part five)
+
+- **AC-32** **`New view` offers Table, List, Wall (board B; D-2172; T1).**
+  1. On `type/autor`, the `Add view` menu's group `New view` holds exactly `Table`, `List`, `Wall`: no `Board` and no `by <attribute>` hint.
+  2. `Wall` + `Done` creates `New view.yml` with FR-QRY-07 AC-4 (b)'s bytes except that `view: table` becomes `view: wall` and there is no `columns` line (D-1910). It has no `group_by` or `lanes`.
+  3. Then `views: [New view]` is written as in AC-4 (b).
+  4. The tab draws an ungrouped wall, and `Group` reads `Group`.
+  5. On `type/book`, `Wall` creates `types: [book]`, `view: wall`, with no `group_by`, `lanes` or `columns`.
+
+  *(L5; L4 for the bytes; L1 for `newViewDef`)* Test: `fr_qry_07_ac32_new_view_offers_table_list_wall`
+- **AC-33** **Tab icons and the toolbar (R223; boards A, H2; T2).**
+  - On the overlay the tab icons are R228's: each tab's `data-view-kind` is its effective display (`table`, `wall`, `wall`, `table`, `list`, `wall`, `wall`).
+  - Each view tab's toolbar holds R223's controls in R223's order. The page has no `radiogroup` named `Lanes`.
+  - `Columns` shows on Table tabs and not on Wall tabs.
+  - Another program changing line 17 to `    view: list` changes the icon and the drawing within 2 s, with no write.
+
+  *(L5)* Test: `fr_qry_07_ac33_tab_icons_and_toolbar`
+- **AC-34** **Rename, Duplicate, Remove and Trash carry the new keys (plan §6; R196; T1).** On the overlay:
+
+  (a) **Rename.** `Rename…` on `Výborné knihy` to `Nejlepší knihy` runs the query rename job:
+  - it changes line 18 to `  - name: Nejlepší knihy` and Zobrazení's lines 43 and 53 to `saved: Nejlepší knihy` / `> saved: Nejlepší knihy`;
+  - lines 19…21 and Zobrazení's lines 44…48 keep their bytes;
+  - Undo restores every byte.
+
+  (b) **Duplicate.** `Duplicate` on that tab inserts after line 21 an item equal to lines 18…21 with the name `Výborné knihy (2)`: `group_by`, `lane_order` and `widths` are copied, folds aren't. The copy is selected.
+
+  (c) **Remove.** `Remove from Books page` on `Podle žánru` removes lines 22…24. `Show a saved query` adds it back as a plain name.
+
+  (d) **Trash.** `Move to trash` on `Podle autora` from its view menu removes lines 25…27. Undo restores them byte for byte (FR-QRY-07 AC-20, AC-21).
+
+  *(L4 for the bytes; L5)* Test: `fr_qry_07_ac34_rename_duplicate_remove_trash_carry_the_keys`
+- **AC-35** **Items with the new keys are read and kept (R220, R221; T1, T2).**
+  - Opening the overlay writes nothing.
+  - A sort change on tab `Celá zeď` turns line 28 into `  - name: Celá zeď` / `    sort: { by: title, order: desc }`; lines 14…27 keep their bytes.
+  - Runtime: `x-barva: modrá` in the `Výborné knihy` item survives a display change of that item, after the known keys.
+  - An NFD item name resolves as its NFC form.
+  - With `Výborné knihy` listed twice with different `view`s, the first item wins.
+  - A full-line comment between items goes on the next write (R196).
+
+  *(L4; L5)* Test: `fr_qry_07_ac35_items_with_display_keys_read_and_kept`
+
+### FR-QRY-01 The editor and sort inside groups (part five)
+
+- **AC-21** **The editor without View, Lanes and Group by (board C; D-2175).**
+  - From `Edit view` on `Rozečtené`, `Edit query` from Čtení's block, `query/Rozečtené`'s editor and `Edit view` on `Schedule`, the `dialog` `Edit query` has `Show`, the filters and `Limit` (AP-2051, D-2189).
+  - It has no `View` control, no `Group by` combobox, no `Lanes` control, no `Sort` row and no `On cards` row.
+  - On `Schedule` the checkbox `Done in its own lane, last 7 days` shows and writes as FR-TSK-04 AC-26. On `Rozečtené` it doesn't. On `Kanban`: AP-2050.
+  - A filter change + `Done` writes only the query file's filter lines and `modified:`, never a `view`, `group_by` or `lanes` line.
+
+  *(L5; L1)* Test: `fr_qry_01_ac21_editor_without_view_lanes_group_by`
+- **AC-22** **Sort inside groups (R225; D-2181; T2; (C)).**
+  - On the base tab `Přečtené 2026` grouped by `Genres` as a Table, the rows inside each group follow the tab's sort (R228).
+  - A click on `Title` reorders every group by title (`Román`: Čarovná mapa, Mapa bez severu, Sto zimních dní) in one item write; the groups keep their order.
+  - Ties: title, then path.
+  - The L2 oracle of queries.md FR-QRY-02 AC-8 gains random groupings × displays: for every group with rows, the rows of a grouped Table and List equal the cards of that lane on the wall, in the same order.
+
+  *(L4; L5; L2)* Test: `fr_qry_01_ac22_sort_inside_groups`
+
+### FR-QRY-06 The query page sets display and grouping defaults (part five)
+
+- **AC-26** **`query/<name>` writes the query file (R222; D-2174; T1).**
+  - On `query/Rozečtené` the Group menu's scope line is `Default for tabs and blocks without their own`; `Status` and `Columns` are checked; `Wall` is pressed.
+  - `Genres` writes `Rozečtené.yml` once, with `rozectene-group-by-genres.yml`'s bytes (D-2174; formerly the editor's).
+  - `Table` writes `rozectene-view-table.yml`'s bytes.
+  - On `query/Celá zeď`, `Status` inserts `group_by: status` after line 10 and the wall draws rows (line 11 `lanes: horizontal` is read).
+  - `None` follows AP-2053.
+  - Resizing on a query page follows FR-QRY-05 AC-43 (c).
+  - Usages without own values follow within 1 s (FR-QRY-05 AC-35).
+
+  *(L5; L4 for the bytes)* Test: `fr_qry_06_ac26_query_page_sets_display_and_grouping_defaults`
+
+### FR-QRY-08 New objects by display (part five; D-2183)
+
+- **AC-4** **Only wall lanes pre-fill (R224, R225).**
+  - Grouped walls keep `New <Type> in <lane>` (FR-QRY-08 AC-2, AC-3).
+  - A grouped Table or List has no `New <Type>` button, row or tile in or under any group.
+  - An ungrouped wall has no tile.
+  - The block's and the page's existing `New <Type>` (queries.md FR-QRY-08 AC-1) is unchanged in every display.
+
+  *(L5)* Test: `fr_qry_08_ac4_new_objects_by_display`
+
+### FR-QRY-09 Live display and grouping (part five)
+
+- **AC-9** **Own and default values follow external changes (T2; NFR-PERF-08).** On the overlay, each of these shows within 2 s and writes nothing:
+  - another program changing line 17 to `    view: table` redraws that tab as a Table;
+  - changing `Rozečtené.yml`'s `group_by: status` to `genres` regroups `query/Rozečtené`, Čtení's block and Zobrazení block 2, while tab `Rozečtené` stays ungrouped;
+  - editing Zobrazení's line 20 while it is open reloads it by the editor's rule and redraws block 2.
+
+  *(L5; L4 for the watcher; L6 once with the helper)* Test: `fr_qry_09_ac9_display_and_grouping_follow_external_changes`
+
+### FR-TYP-09 `All <plural>` (part five; D-2178)
+
+- **AC-37** **Display and grouping of `All <plural>` on this Mac (R226; T2).** On the base `All Books`:
+  - **Controls:** the display switch and `Group` work as on a tab, with the scope line `Display and grouping of this page on this Mac`.
+  - **Wall:** 17 cards in R193's order.
+  - **Group › `Status`:** R228's groups, with no grips; `Reset lane order` isn't listed.
+  - **Grouped wall:** lanes in option order, with R187's card drag (one write of the object) and `+`.
+  - **Writes:** each choice writes `ui-state.json` `allView.book` once and no vault file; `book.yml` stays byte-identical. Folds write `usageFolded["all:book"]`.
+  - **Persistence:** choices survive a relaunch. A fresh Application Support opens a Table, not grouped.
+  - **Not offered:** `Use the query's …`.
+  - **Unchanged:** `Columns` still writes `book.yml`'s `columns` (D-1240), and the machine-local sort stands (FR-QRY-01 AC-20).
+
+  *(L5; L6 once for the relaunch)* Test: `fr_typ_09_ac37_all_tab_display_and_grouping_on_this_mac`
+
+### FR-TYP-01 Type settings names displays (part five; amends types.md AC-25, AC-27)
+
+- **AC-29** **`Views` lists each tab's display (plan §7).**
+  - On the overlay, `type-settings/book`'s `Views` list is R228's (`type-settings/book` row).
+  - On the base, `Rozečtené` reads `Wall · by Status`.
+  - On `views-tasks`: `Schedule` `Wall · by Due date`, `Kanban` `Wall · by Status`, `Čeká na ostatní` `Table`.
+  - The text comes from each tab's effective display and grouping; a change on the type page shows within 1 s.
+  - No text in the section says `Board`.
+
+  *(L5; L1)* Test: `fr_typ_01_ac29_views_section_names_displays`
+
+### FR-TSK-04 Schedule is a wall (part five; D-2172)
+
+- **AC-30** **Schedule is a wall grouped by the due period (T1, T2).** On the `views-tasks` overlay:
+  1. The `Schedule` tab has `Wall` pressed and `Group` reading `Due date · by period`. The menu has that item and `Rows` checked (from `lanes: horizontal`). R208 is unchanged.
+  2. `Table` writes `task.yml` once: line 11 → `views:` / `  - name: Schedule` / `    view: table` / `  - Kanban` / `  - Čeká na ostatní`. `Schedule.yml` and every task file are untouched.
+  3. The tab draws R228's flat groups, with no day sub-headings, no row drags and no `New Task` rows.
+  4. `Wall` brings the day groups back.
+  5. `Use the query's display` writes line 11 back byte for byte.
+
+  *(L5; L4 for the bytes)* Test: `fr_tsk_04_ac30_schedule_is_a_wall_grouped_by_due_period`
+
+### FR-TSK-05 Kanban is a wall (part five; D-2172, D-2174)
+
+- **AC-23** **Kanban is a wall grouped by Status; its lane order is the tab's (T1).** On the `views-tasks` overlay:
+  1. The `Kanban` tab has `Wall` pressed, `Group` reading `Status` and `Columns` checked, with R208's lanes.
+  2. Dragging `Waiting`'s grip before `To do` writes `task.yml` once: line 11 → `views:` / `  - Schedule` / `  - name: Kanban` / `    lane_order: [Waiting, To do, In progress, Done, Rozpracováno]` / `  - Čeká na ostatní`. `Kanban.yml` and every task file stay byte-, mtime- and inode-identical.
+  3. `Move lane left` / `right` write the same item. `Reset lane order` follows AP-2054.
+  4. On `query/Kanban` the same drag writes part three's FR-TSK-05 AC-20 bytes into `Kanban.yml`.
+  5. `List` draws R228's groups.
+  6. A `task.yml` changed on disk refuses the drag with `"Tasks" changed outside Tegg. The views weren't changed.`.
+
+  *(L5; L4 for the bytes)* Test: `fr_tsk_05_ac23_kanban_is_a_wall_lane_order_on_the_tab`
+
+### FR-LNK-03 Renames reach usage lane orders (part five; AP-2055, D-2193)
+
+- **AC-26** **The 4C rename patches relation values in usages' `lane_order` (D-1467; T1).** On the overlay, renaming `Lucie Horká` to `Lucie Horká-Nová` in Tegg:
+  - patches line 20 to `    lane_order: ["[[Lucie Horká-Nová]]"]`, and the `lane_order` line of a runtime fence `lane_order: ["[[Lucie Horká]]"]`;
+  - uses the job's base check, backup and Undo;
+  - changes nothing else in `book.yml` or the note, and leaves `book.yml` without a `modified:` change (D-1467).
+
+  *(L4; L5)* Test: `fr_lnk_03_ac26_renames_reach_usage_lane_order`
+
+### FR-FMT-06 The fence with display and grouping keys (part five)
+
+- **AC-8** **`@tegg/doc` reads and writes the new fence keys (R220, R221; T1).** `fenceUsage` reads `view`, `group_by` (a key, `none`, a period mapping), `lanes` (old and new words), `lane_order` and `widths` with R220's shapes (Absent / Set / Broken). `withUsage` writes each case byte-exact against `tests/fixtures/queries-files/expected/views-display/`:
+  - each key inserted into a plain fence in R221's order;
+  - a replace;
+  - a removal (`Use the query's display` / `grouping`);
+  - a `~~~query` fence, the info string `query meta`, a fence in a list item;
+  - block 6 (`> ` prefix);
+  - block 5 (comment kept; a broken value replaced in place);
+  - a CRLF copy;
+  - an NFD `saved:`, never rewritten;
+  - an old word in another key, never rewritten.
+
+  Every result parses with the `yaml` package to the intended values, and `micromark` reads one code block with info `query`. The Rust `fence_usage` reads the same values (L3).
+
+  *(L1; L3)* Test: `fr_fmt_06_ac8_fence_display_and_grouping_keys`
+
+### FR-FMT-07 Round-trip (part five)
+
+- **AC-37** **Display keys round-trip (T1).**
+  - Opening, running and drawing the overlay and `views-tasks` write nothing.
+  - Every type op other than the views ops keeps `book.yml`'s lines 13…28 byte for byte.
+  - Moving the cursor through Zobrazení's six blocks writes nothing, and a card drag in block 4 never writes Zobrazení.
+  - The query-file writer's `Switch lanes` on `Schedule.yml` writes `lanes: columns` (amends FR-FMT-07 AC-35's expected files).
+  - The property tests of FR-FMT-07 AC-32 and AC-34 gain `view`, `group_by`, `lanes`, `lane_order` and `widths` in old and new words, flow and block styles, comments, unknown keys, CRLF and NFD. For a random Q3 change:
+    - only the changed key's lines change;
+    - every other old word keeps its bytes;
+    - the result parses to the intended values;
+    - a no-op writes nothing.
+
+  *(L4; L1; L2)* Test: `fr_fmt_07_ac37_display_keys_round_trip`
+
+### FR-FMT-12 NFC (part five)
+
+- **AC-16** **Display keys and group values are NFC (T2).**
+  - An NFD item name, an NFD `lane_order` value (`"[[Lucie Horká]]"`, `Román`) and an NFD `widths` key resolve as their NFC forms: one usage, one group, one column.
+  - Every write of the new keys is NFC. An NFD value the user didn't change keeps its bytes.
+  - Fold keys and group ids are NFC.
+
+  *(L4; L1; L5)* Test: `fr_fmt_12_ac16_display_keys_are_nfc`
+
+### AR-07 Versioned type and query files (part five)
+
+- **AC-12** **The new keys are version 1 (R220, R221).**
+  - `tegg-schema` reads `views:` items with `view`, `group_by`, `lanes`, `lane_order` and `widths` (Absent / Set / Broken). Such a file with `version: 1` is `Ok`, never `Newer`; `CURRENT_VERSION` stays 1.
+  - Query files with `view: wall` and `lanes: rows` are version 1.
+  - The L3 corpus `expected-views-display.json` is read alike by TS and Rust, `board` as `wall` in both.
+  - New, starter and built-in type files are unchanged.
+
+  *(L4; L3)* Test: `ar_07_ac12_display_keys_are_version_1`
+
+### FR-SYN-02 Atomic writes (part five)
+
+- **AC-15** **Display, grouping and width writes are atomic (T1).** The data-safety AC-3 harness kills the process at random points, 200 times each, during:
+  - alternating display switches of the overlay's `Přečtené 2026` item (`view: wall` ↔ `view: table`, through `type_patch`);
+  - alternating fence writes of Zobrazení block 2 (`view: table` ↔ `view: list`, bytes from `@tegg/doc` through `note_write`);
+  - alternating `widths` writes.
+
+  Each time, each file equals its complete old or new bytes, and no temp file is left as a type, query or object.
+
+  *(L4)* Test: `fr_syn_02_ac15_display_writes_are_atomic`
+
+### FR-SYN-03 / NFR-REL-02 External changes (part five)
+
+- **AC-36** **Display writes check the base (T1).** With the file changed on disk without `vault:changed`:
+  - **On a tab:** the display switch, a Group choice, `Lanes`, a group-header drag, a lane drag, a resize end and `Use the query's …` are each refused with `Conflict`. Nothing is written, the tabs reload, and the alert says `"Books" changed outside Tegg. The views weren't changed.`.
+  - **In a block:** the editor's external-change rule applies.
+  - **On the query page:** `This query changed outside Tegg. Your change wasn't saved.`.
+  - **`All <plural>`:** only `ui-state.json` is written.
+  - The same bytes with only a new mtime are no conflict (D-175).
+
+  *(L4; L5)* Test: `fr_syn_03_ac36_display_writes_check_the_base`
+
+### FR-SYN-06 Minimal writes (part five)
+
+- **AC-52** **Each display action writes one file once; browsing writes nothing (T1).** In the built app on the overlay:
+
+  (a) This tour leaves every vault file byte-, mtime- and inode-identical:
+  - opening every `type/book` tab, `All Books`, Zobrazení and every `query/<name>`;
+  - opening and closing (Esc) the Group menu;
+  - moving the focus across the display switch;
+  - hovering resize handles;
+  - folding and unfolding groups and rows;
+  - scrolling walls;
+  - choosing the pressed display and the checked Group item;
+  - a resize that ends at its starting width;
+  - a relaunch.
+
+  (b) Then each display choice, Group choice, `Lanes` choice, header or lane drag, resize end and `Use the query's …` writes exactly one file once: a tab `book.yml`, a block its note, a page the query file, `All Books` none.
+
+  (c) A 300 px resize drag writes once (the write counter is 1).
+
+  *(L6; L5 counts the same writes)* Test: `fr_syn_06_ac52_display_actions_write_one_file_once`
+
+### FR-STO-07 Machine-local state (part five)
+
+- **AC-16** **What stays on this Mac (R226; D-2177, D-2178).**
+  - After FR-TYP-09 AC-37, FR-QRY-05 AC-42 and AC-43 (c), `ui-state.json` holds `allView.book`, the `usageFolded` entries and `usageColumnWidths["page:přečtené 2026"]`, written atomically.
+  - 0.7.0 never adds or changes a `usageColumnWidths["tab:…"]` or `["block:…"]` entry; it only removes a usage's 0.6.0 entry after that usage's first vault width write (FR-QRY-05 AC-44; D-2203).
+  - Nothing machine-local is written under `.tegg/`.
+
+  *(L5; L6 once)* Test: `fr_sto_07_ac16_display_state_on_this_mac`
+
+### NFR-POR-01 Obsidian and other tools (part five)
+
+- **AC-8** **Plain files.**
+  - Every type file and query file the suite writes with the new keys parses with the `yaml` package to what Tegg shows.
+  - A fence's new lines stay inside its code block (`micromark`), so Obsidian shows the fence as before.
+  - No Q3 action writes inside `.obsidian/`.
+
+  *(L4)* Test: `nfr_por_01_ac8_display_keys_are_plain`
+
+### NFR-PERF-07 Walls and grouped tables (part five; D-2185)
+
+- **AC-7** **An ungrouped wall over the largest type meets 225 ms p95.** On the reference machine (D-59) with the reference vault (`--seed 1 --small-images`), add a view `Zeď` (`view: wall`, no `group_by`, `sort: { by: title, order: asc }`) over the type with the most objects. The test reads that count from the index and reports it.
+  - Selecting the tab paints the visible cards within **225 ms p95** of 20 runs (part one's `board-request` → `board-ready`, or the contract's wall marks).
+  - Scrolling from top to bottom keeps at most 150 card elements in the DOM, and the last card shows.
+  - Report-only until the v1.0 release gate, enforced at it (as D-1800).
+
+  *(L6 benchmark `app/e2e/nfr_perf_07_wall.ac.test.ts`; L5 for the DOM count)* Test: `nfr_perf_07_ac7_ungrouped_wall_largest_type`
+- **AC-8** **A grouped Table of 1,000 results meets 225 ms p95 (NFR-PERF-07; D-59; AP-2051, D-2189).**
+  - A runtime query over 1,000 generated objects grouped by a Select with 6 options paints its first screen within **225 ms p95** of 20 runs.
+  - It keeps the row-element bound of FR-QRY-05 AC-9 while scrolling.
+  - Every group and row is reachable.
+  - Report-only until the v1.0 gate.
+
+  *(L6 benchmark; L5 for the DOM count)* Test: `nfr_perf_07_ac8_grouped_table_1000_rows`
+
+### FR-UX-03 Keyboard (part five; D-1771)
+
+- **AC-56** **Commands (R227).**
+  - The registry has R227's commands with their titles, no shortcut and `needsVault: true`, each listed exactly where R227 says.
+  - `Switch lanes` is listed only on grouped walls.
+  - FR-UX-03 AC-7 passes, and AC-8 passes on the overlay's tabs with the Group menu open, on a grouped Table and on Zobrazení.
+
+  *(L1; L5)* Test: `fr_ux_03_ac56_display_commands`
+- **AC-57** **A keyboard-only tour.** With no pointer event, on the base fixture, each step is checked by its effect and the file bytes:
+  1. `Go to type: Books`.
+  2. `Next view` to `Přečtené 2026`.
+  3. `Display as wall` (one write).
+  4. Tab to the display switch, → to `List`, ⏎ (one write).
+  5. `Group by…`, ↓ to `Status`, ⏎ (one write).
+  6. `Display as wall` (one write).
+  7. `Group by…`, then `Rows` (one write).
+  8. Tab to a lane header, `Move lane down` (one write).
+  9. `Use the query's grouping` (one write; AP-2054).
+  10. `Use the query's display` (one write).
+
+  Every focused element shows app-shell FR-UX-03 AC-13 (b)'s indicator.
+
+  *(L5)* Test: `fr_ux_03_ac57_display_keyboard_only`
+
+### FR-UX-05 Themes (part five)
+
+- **AC-27** **Both themes.** In light and dark, FR-UX-05 AC-4 and AC-5 pass and axe `color-contrast` reports zero violations on:
+  - the overlay's `Přečtené 2026` wall;
+  - `Výborné knihy`'s grouped Table;
+  - `Podle žánru`'s grouped List with a folded group;
+  - the Group menu with the `Lanes` part (on `Podle autora`);
+  - the display switch focused;
+  - Zobrazení.
+
+  Group header colours come from the option tokens (`--type-<colour>`), and every colour comes from tokens.
+
+  *(L5)* Test: `fr_ux_05_ac27_display_in_both_themes`
+
+### FR-UX-08 Accessibility (part five)
+
+- **AC-27** **What VoiceOver reads.**
+  - The display switch reads `Display, group` with `List, button` / `Table, button, pressed` / `Wall, button`.
+  - `Group` reads as a menu button with its description (AP-2056 (c)).
+  - The Group menu reads `Group by, menu`, its items as radio menu items with their state, and the `group` `Lanes`.
+  - A group header reads `Reading, 3 Books, expanded`.
+  - Wall cards read as `article`s `Book: <title>` in reading order.
+  - A group or lane move is announced once, politely (`Moved group <group>`).
+  - With `prefers-reduced-motion: reduce`, folds run no animation.
+  - In the built app the macOS accessibility tree shows the switch, the Group button, the group headers and the cards by name.
+
+  *(L5; L6 once)* Test: `fr_ux_08_ac27_display_for_voiceover`
+
+### NFR-OTH-02 Strings (part five)
+
+- **AC-25** **Catalog only (R227).**
+  - The catalog has R227's new keys with their texts and has lost R227's removed keys. No catalog text names `Board` or `Kanban` as a display.
+  - Group counts use `Intl.PluralRules`.
+  - With the pseudo-locale every new visible text, tooltip and accessible name is inside `⟦ ⟧`, except user content.
+
+  *(L1; L5)* Test: `nfr_oth_02_ac25_display_strings`
+
+---
+
+## Real-app tests (part five; D-382)
+
+`app/e2e/views_display.ac.test.ts` runs on the built app with `TEGG_TEST=1`, a temporary Application Support and a copy of the base or the overlay. Keys go only to Tegg (D-799). It covers:
+- FR-QRY-05 AC-32 (a real display click: `book.yml` bytes, mtime, inode);
+- FR-QRY-05 AC-42 (folds after a relaunch);
+- FR-QRY-05 AC-43 (a real resize drag: one write on release; widths read on a fresh Application Support);
+- FR-QRY-05 AC-44 (0.6.0 widths);
+- FR-TYP-09 AC-37 (`All Books` after a relaunch);
+- FR-QRY-09 AC-9 (helper edits);
+- FR-STO-07 AC-16;
+- FR-SYN-06 AC-52 (the tour);
+- FR-UX-08 AC-27 (the accessibility tree).
+
+`app/e2e/nfr_perf_07_wall.ac.test.ts` holds NFR-PERF-07 AC-7 and AC-8 (nightly, outside the push run).
+
+---
+
+## Points for the owner (part five; AP-2050…AP-2058 → D-2188…D-2196, decided 2026-11-23)
+
+D-2172…D-2187 set the direction; these points cover what they leave open. The owner accepted every proposal on 2026-11-23 ("Accept all"): AP-2050…AP-2058 are D-2188…D-2196 (BRD v1.250).
+
+| # | Issue | Proposal | Alternatives | Affects |
+| --- | --- | --- | --- | --- |
+| AP-2050 | **`done_lane` outside a grouped wall.** R201 reads `done_lane` only with `view: board` and ignores it with `list` / `table`. D-2181 names a `Done` group in a Table or List "with `done_lane`". Not said: <br>• a Table or List grouped by `status` (Kanban as a List); <br>• an ungrouped display (now also a wall); <br>• what `folded: true` means for a group; <br>• whether the editor's checkbox shows for `Kanban` (D-2175 says "for a period grouping"; Kanban groups by status); <br>• D-2181's `No date` against R203's `Not scheduled` / `No <Name>`. | `done_lane` applies whenever the usage is **grouped**, in every display, with R201's rules per grouping: <br>• period: a `Done` group or lane, last; <br>• `status`: Done-state groups limited to the last n days; <br>• others: older Done-state rows hidden. <br>An ungrouped usage ignores it and shows every Done-state row. `folded` is also the `Done` group's initial fold. The checkbox shows whenever R201 makes `done_lane` valid for the query's own grouping (period **or** `status` with states, as built in Q2-T). Labels are R203's. | (b) `done_lane` only on walls: Tables and Lists show every Done task and no `Done` group (against D-2181). <br>(c) Checkbox for period groupings only (D-2175 literally): Kanban's `done_lane` is then editable only in the file. | R222, R225, R228, FR-QRY-05 AC-41, FR-QRY-01 AC-21, FR-TSK-04 AC-30, FR-TSK-05 AC-23 |
+| AP-2051 | **`limit` and paging per display.** R185 doesn't apply `limit` on boards. D-2185 windows an ungrouped wall, which implies every result. Not said: <br>• whether an ungrouped wall honours `limit` (`Celá zeď`: 10 of 16); <br>• whether a grouped Table or List pages (paging per group or overall would make group counts wrong); <br>• what the editor's `Limit` row does, now that the editor doesn't know the display (R189 hid it for Board). | `limit` applies only to an **ungrouped List or Table** (R141's `Show more`). Ungrouped and grouped walls and grouped Tables and Lists show every result, windowed, with true counts. The editor always shows `Limit` with the hint `Applies to a List or Table without grouping`. | (b) Ungrouped walls page with `Show more`; grouped Tables page per group. <br>(c) `limit` cuts the whole result in every display. | R224, R225, FR-QRY-05 AC-37, NFR-PERF-07 AC-8, FR-QRY-01 AC-21 |
+| AP-2052 | **Width writes beyond a pointer drag, and 0.6.0's widths.** D-2177: written once when the drag ends; widths kept on this Mac are read until the usage has its own. Not covered: <br>• keyboard resizing (←/→, ⇧←/⇧→, Home/End; each key is a step); <br>• `⌫` on a handle; <br>• `Reset column widths`; <br>• what the first write does with 0.6.0's other widths for that usage; <br>• whether the 0.6.0 entry can come back after a reset. | <br>• Keys: one write when the handle loses the focus or 1 s after the last key, whichever comes first; never per key. <br>• `⌫` removes that column's entry, and `widths` goes when it is empty. <br>• `Reset column widths` removes `widths`. <br>• The first vault write of a usage's widths (resize or reset) writes the 0.6.0 widths plus the change, and **removes** that usage's `ui-state.json` entry in the same step, so it never comes back. | (b) The first resize writes only the resized column; the others fall back to defaults. <br>(c) Copy 0.6.0 widths into the vault on first open (a write by opening, against FR-SYN-06). <br>(d) Ignore 0.6.0 widths from 0.7.0. <br>(e) Write on every key press. | R222, R226, FR-QRY-05 AC-43, AC-44, FR-STO-07 AC-16 |
+| AP-2053 | **`None` on the query page and `group_by: none` in a query file.** D-2174 makes `none` a usage-only value, but `query/<name>` sets the defaults, so choosing `None` there needs a written form. D-1457 never removes keys, with two explicit exceptions (D-1792, D-1898 (e)). A hand-written `group_by: none` in a query file has no rule. | `None` on `query/<name>` **removes** the `group_by` line: a third explicit exception to D-1457. `lanes` and `lane_order` stay. A query file holding `group_by: none` reads as not grouped, with no notice, and is kept. | (b) Write `group_by: none` in the query file (0.6.0 then draws a List with a notice). <br>(c) No `None` on the query page. | R220, R222, FR-QRY-06 AC-26 |
+| AP-2054 | **`Use the query's …` and `Reset lane order` on a usage.** D-2176 names `Use the query's display` and `grouping`. Not said: <br>• where they are offered (sort's button is in its popover, columns' in its menu; the display switch has no menu); <br>• whether "grouping" covers `lanes` and `lane_order` (D-2173: lanes are part of grouping); <br>• what `Reset lane order` writes on a usage whose order comes from the query (D-1792 removes the query file's line). | <br>• Both actions sit at the end of the **Group menu** below a separator, shown when the usage has the key (valid or broken), and are in the palette. <br>• `Use the query's grouping` removes the usage's `group_by`, `lanes` and `lane_order` in one write. <br>• `Reset lane order` on a usage writes `lane_order: []` when the query file has a `lane_order`, else removes the usage's own key; either way the usage shows option order. | (b) `Use the query's grouping` removes only `group_by`. <br>(c) `Reset` on a usage only removes its own key, so the query's order returns. <br>(d) `Use the query's display` in the tab's `View actions` menu, and only the palette for blocks. | R222, R223, R227, FR-QRY-05 AC-32, AC-35, AC-42, FR-TSK-05 AC-23, FR-UX-03 AC-57 |
+| AP-2055 | **Relation values in a usage's `lane_order` when the object is renamed.** The 4C rename patches link texts in query files' `lane_order` (D-1467, FR-LNK-03 AC-24). D-2174 also puts `lane_order` into `views:` items and fences, which the 4C job doesn't scan: type files aren't notes, and fence bodies are code. A renamed author's group would silently lose its place (T2). | The 4C job also patches `"[[…]]"` entries in the `lane_order` of `views:` items (type files, no `modified:` change, D-1467) and in reference fences' `lane_order` lines (notes, by the job's usual note write), with its base check, backup and Undo. | (b) No patch: the group falls back to its default place. <br>(c) Store relation groups by the target's `id`. | FR-LNK-03 AC-26 |
+| AP-2056 | **UI details and strings the plan and boards don't give.** <br>(a) Whether a grouped Table hides its grouping attribute's column (board H1 draws none, but its columns may simply lack it). <br>(b) Type settings' text for a grouped Table or List. <br>(c) The `Group` button's accessible name. <br>(d) A keyboard path for group-header drags. <br>(e) Inline fences (plan: "every query block" has the switch; D-1810: inline fences have no usage settings). <br>(f) The editor's slice Q keys `query.editor.view`, `.list`, `.table`, `.tableHint` and the route text `purpose.tasks` ("as a list or board"). <br>(g) Notices for broken keys the display doesn't use (`lanes` on a Table). <br>(h) R227's texts. | (a) Columns stay as configured. <br>(b) `<Display> · by <attribute>` for every grouped display (`Table · by Author`), `<Display>` when ungrouped. <br>(c) Name `Group`, description `Grouped by <name>`. <br>(d) Part one's `Move lane up` / `Move lane down` act on a focused group header; no new commands. <br>(e) Inline fences keep D-1810: no switch, no `Group`. <br>(f) The four keys stay in the catalog undrawn (as D-1812 kept `query.editor.sort`); `purpose.tasks` becomes `All tasks as a list, table or wall, grouped by status or date.`. <br>(g) A notice only for keys the effective display uses (as D-1910). <br>(h) R227's texts. | (a′) Hide the grouping column. <br>(b′) Name only walls (`Table`). <br>(d′) New `Move group up` / `down` commands. <br>(e′) Inline fences get the switch, writing their own definition. <br>(f′) Remove the four keys. <br>(g′) A notice for every broken key. | R223, R225, R227, R228, FR-QRY-05 AC-36, AC-39, AC-45, FR-TYP-01 AC-29, FR-UX-08 AC-27, NFR-OTH-02 AC-25 |
+| AP-2057 | **The default task view files.** New vaults and `Restore default views` create `Schedule.yml` and `Kanban.yml` with R202's bytes, which hold `view: board` and `lanes: horizontal` / `vertical`. D-2179 says new words are written "when that key next changes" but not what a **create** writes. D-1936 wants identical bytes on every Mac. | Keep R202's bytes (old words): identical files across synced Macs on any version, valid forever (D-2179), and no change to FR-QRY-07 AC-27…AC-29 or FR-TYP-01 AC-11. `New view` and other creates write the new words. | (b) R202 with `view: wall`, `lanes: rows` / `columns`: a 0.6.0 Mac draws them as Lists with a notice until updated, and R202's expected bytes and four criteria change. | R202, FR-QRY-05 AC-46 |
+| AP-2058 | **Changed AC tests.** "Existing criteria this slice changes (part five)" lists them. | Approve them as one decision (as D-1802, D-1851, D-1912). Each changes in the commit that builds Q3 with `AC-Test-Change: slice Q3 builds display and grouping per usage (D-2172…D-2187); approved-by: owner`; expected files and L3 corpora with `Fixture-Change:`. | (b) Approve each at build time. | the change table of part five |

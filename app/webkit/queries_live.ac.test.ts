@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import {
   P, Q, TITLES, block, blockByMessage, blockEdit, blockInfo, blockNotice, blockStateIs, click, done, editor, editorBody, editorButton, eventually, isDisabled,
   main, must, mustBeOn, noteRoute, noteWrites, openEditor, openNote, qfile, queriesVault, queryFileText, queryRoute, queryRow, queryRows, queryText,
-  queryWrites, results, resultsAre, mustResults, rowMenu, runCommand, runsSince, seen, sleep, startQueries, textOf, viewChoice, writeCalls, menuItem, actionsMenu,
+  queryWrites, results, resultsAre, mustResults, rowMenu, runCommand, runsSince, seen, sleep, startQueries, textOf, viewChoice, writeCalls, menuItem, actionsMenu, limitField,
 } from './queries-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
@@ -209,8 +209,9 @@ test('fr_syn_03_ac28_query_writes_check_the_base', async ({ page }) => {
   const core = await startQueries(page, { route: noteRoute(P.prehled) });
   const b = block(page, Q.running);
   await mustResults(b, [P.cesta, P.cajovna, P.maly, P.lisabon], 'precondition', 8000);
+  // Slice Q3 (AC-Test-Change, D-2196; D-2175): the editor has no View; the change is the Limit (AP-2051).
   await openEditor(b, page);
-  await click(viewChoice(page, 'List'), 'List');
+  await (await must(limitField(page), 'Limit')).fill('30');
   const outside = (await queryFileText(core, Q.running))!.replace('limit: 50', 'limit: 40');
   await core.setFile(qfile(Q.running), outside, { silent: true });
   await click(editorButton(page, 'Done'), 'Done');
@@ -221,13 +222,13 @@ test('fr_syn_03_ac28_query_writes_check_the_base', async ({ page }) => {
   assert.ok(await seen(b.locator('table'), 1000), 'the block reloads from disk (still Table)');
   // Same bytes with only a new mtime isn't a conflict.
   await openEditor(b, page);
-  await click(viewChoice(page, 'List'), 'List');
+  await (await must(limitField(page), 'Limit')).fill('30');
   await core.setFile(qfile(Q.running), outside, { sameBytesTouch: true });
   await click(editorButton(page, 'Done'), 'Done');
-  assert.ok(await eventually(() => queryFileText(core, Q.running), (t) => !!t && t.includes('view: list')), 'an mtime-only change: the commit writes');
+  assert.ok(await eventually(() => queryFileText(core, Q.running), (t) => !!t && t.includes('limit: 30')), 'an mtime-only change: the commit writes');
   // Deleted meanwhile: Gone, nothing created.
   await openEditor(block(page, Q.running), page);
-  await click(viewChoice(page, 'Table'), 'Table');
+  await (await must(limitField(page), 'Limit')).fill('20');
   await core.setFile(qfile(Q.running), null, { silent: true });
   await click(editorButton(page, 'Done'), 'Done');
   await sleep(500);
@@ -302,9 +303,8 @@ test('fr_syn_06_ac44_only_query_actions_write', async ({ page }) => {
   await runCommand(page, 'Go to Queries');
   await click(menuItem(await rowMenu(page, Q.running), 'Duplicate'), 'Duplicate');
   assert.deepEqual(await eventually(() => core.writesTo(), (w) => w.length === 1), [qfile('Projekty v běhu (2)')], 'Duplicate: one file');
-  await click(main(page).getByRole('button', { name: /^⟦?Edit query⟧?$/ }), 'Edit query');
-  await click(viewChoice(page, 'List'), 'List');
-  await done(page);
+  // Slice Q3 (AC-Test-Change, D-2196; D-2175): the View step becomes the query page's display switch (same `view:` bytes).
+  await click(main(page).locator('div[role="group"][data-display-switch] button[data-display="list"]'), 'List (the display switch)');
   assert.deepEqual(await eventually(() => core.writesTo(), (w) => w.length === 2), [qfile('Projekty v běhu (2)'), qfile('Projekty v běhu (2)')], 'a commit: that file, once');
   assert.deepEqual((await noteWrites(core)), [], 'no note `modified` change');
   assert.ok(!(await core.writesTo()).some((p) => p.startsWith('.tegg/') && !p.startsWith('.tegg/queries/')), 'no index or UI state in the vault');

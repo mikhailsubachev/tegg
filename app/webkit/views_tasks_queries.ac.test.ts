@@ -43,13 +43,14 @@ test('fr_tsk_04_ac26_schedule_and_kanban_are_queries', async ({ page }) => {
   const t = flat(await textOf(e));
   assert.equal(await e.getByRole('button', { name: rx('Type') }).count(), 0, '`Show` fixed to Task');
   assert.ok(/Status/.test(t) && t.includes('state is not') && t.includes('Cancelled'), `the filter row \`Status\` \`state is not\` \`Cancelled\` (${t})`);
-  assert.equal(await e.getByRole('radiogroup', { name: rx('View') }).getByRole('radio', { name: rx('Board') }).getAttribute('aria-checked'), 'true', '`View` Board');
-  const gb = e.getByRole('combobox', { name: rx('Group by') });
-  assert.equal(flat(await gb.inputValue().catch(() => textOf(gb))), 'Due date · by period', '`Group by` `Due date · by period`');
+  // Slice Q3 (AC-Test-Change, D-2196; FR-QRY-01 AC-21, D-2175): the editor has no View, Group by or Lanes row; the
+  // done-lane checkbox and its writes stand (AP-2050).
+  assert.equal(await e.getByRole('radiogroup', { name: rx('View') }).count(), 0, 'no `View`');
+  assert.equal(await e.getByRole('combobox', { name: rx('Group by') }).count(), 0, 'no `Group by`');
   const box = await must(doneLaneBox(e), 'the done-lane checkbox');
   assert.equal(await box.isChecked(), true, 'checked');
   assert.equal(flat(await box.getAttribute('aria-label') ?? await e.getByText(/Done in its own lane/).first().innerText()), 'Done in its own lane, last 7 days', '`Done in its own lane, last 7 days`');
-  assert.equal(await e.getByRole('radiogroup', { name: rx('Lanes') }).getByRole('radio', { name: rx('Horizontal') }).getAttribute('aria-checked'), 'true', '`Lanes` Horizontal');
+  assert.equal(await e.getByRole('radiogroup', { name: rx('Lanes') }).count(), 0, 'no `Lanes`');
   assert.equal(await e.getByRole('group', { name: rx('On cards') }).count(), 0, 'no `On cards` row (D-1891)');
   // Unchecking and Done writes Schedule.yml once.
   await box.uncheck();
@@ -168,17 +169,21 @@ test('fr_qry_01_ac17_period_grouping_for_any_date', async ({ page }) => {
   await drag(page, taskCard(b, PR.web), lane(b, 'none'));
   const wn = expectedTasks('projekty/web-no-due.md');
   assert.equal(await fileWhen(core, PR.web, (x) => x === wn), wn, 'Web onto No Due date: its due line removed');
-  // The editor's Group by choices; Created · by period.
+  // Slice Q3 (AC-Test-Change, D-2196; FR-QRY-05 AC-34): the choices are in the Group menu; the write moves to
+  // query/Projekty podle termínu with the same bytes.
   const e = await editView(page);
-  await click(e.getByRole('combobox', { name: rx('Group by') }), 'Group by');
-  const opts = (await page.getByRole('option').allInnerTexts()).map(flat);
-  assert.deepEqual(opts.slice(-3), ['Due date · by period', 'Created · by period', 'Modified · by period'], `after R189's choices (${opts.join(', ')})`);
-  assert.equal(await description(page.getByRole('option', { name: rx('Created · by period') })), 'one lane per period', 'hint `one lane per period`');
-  await click(page.getByRole('option', { name: rx('Created · by period') }), 'Created · by period');
   assert.equal(await doneLaneBox(e).count(), 0, 'no done-lane checkbox for Projekt');
-  await click(e.getByRole('button', { name: rx('Done') }), 'Done');
+  await page.keyboard.press('Escape');
+  await runCommand(page, 'Go to Queries');
+  await click(queriesRow(page, PROJEKTY_BOARD).locator('a').first(), `query/${PROJEKTY_BOARD}`);
+  await click(main(page).locator('button[data-command="group.open"]'), 'Group');
+  const gm = await must(page.locator('div[role="menu"][data-popup="group"]'), 'menu Group by');
+  const opts = (await gm.locator('[role="menuitemradio"][data-group-choice]').allInnerTexts()).map(flat);
+  assert.deepEqual(opts.slice(-3), ['Due date · by period', 'Created · by period', 'Modified · by period'], `after the attribute choices (${opts.join(', ')})`);
+  await click(gm.locator('[role="menuitemradio"][data-group-choice="period:created"]'), 'Created · by period');
   const created = expectedTasks('queries/projekty-group-created.yml');
   assert.equal(await fileWhen(core, qfile(PROJEKTY_BOARD), (x) => x === created), created, 'only `group_by: { created: period }   # podle termínu` and modified');
+  await runCommand(page, 'Go to type: Projekty');
   const b2 = await openTasks(page, PROJEKTY_BOARD);
   const all = await eventually(() => laneCards(b2, 'period:today'), (c) => c.length === 4, 3000);
   assert.equal(all.length, 4, 'every project in `Today & earlier` (created 1 Oct)');
