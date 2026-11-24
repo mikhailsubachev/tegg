@@ -12,11 +12,11 @@
     "CardAnatomy.dc.html": {
       "h": 1520,
       "is_interactive": true,
-      "title": "Archive · Universal object card (replaced by Object cards, D-2057)",
+      "title": "Universal object card · earlier proposal (replaced?)",
       "w": 1680,
       "x": 0,
-      "y": 1910,
-      "page": "page-outline-archive"
+      "y": 1280,
+      "page": "page-cards"
     },
     "Graph.dc.html": {
       "expand": "fill",
@@ -507,7 +507,7 @@
       "title": "Related notes (dark)"
     },
     "Views.dc.html": {
-      "h": 3680,
+      "h": 5740,
       "w": 1680,
       "x": 0,
       "y": 0,
@@ -515,7 +515,7 @@
       "title": "Views on a type page (FR-QRY-07, slice Q2)"
     },
     "ViewsDark.dc.html": {
-      "h": 3680,
+      "h": 5740,
       "w": 1680,
       "x": 1760,
       "y": 0,
@@ -527,7 +527,7 @@
       "h": 900,
       "w": 1440,
       "x": 0,
-      "y": 3760,
+      "y": 5820,
       "is_interactive": true,
       "page": "page-views",
       "title": "Books type page with views · full app (main navigation)"
@@ -537,7 +537,7 @@
       "h": 900,
       "w": 1440,
       "x": 1520,
-      "y": 3760,
+      "y": 5820,
       "is_interactive": true,
       "page": "page-views",
       "title": "Books type page with views · full app (dark)"
@@ -673,6 +673,38 @@
       "y": 0,
       "page": "page-card-settings",
       "title": "Icon set (dark)"
+    },
+    "Mobile.dc.html": {
+      "h": 7480,
+      "w": 2000,
+      "x": 0,
+      "y": 0,
+      "page": "page-android",
+      "title": "Android · phone screens AND-1…AND-4"
+    },
+    "MobileDark.dc.html": {
+      "h": 7480,
+      "w": 2000,
+      "x": 2080,
+      "y": 0,
+      "page": "page-android",
+      "title": "Android · phone screens (dark)"
+    },
+    "Mobile2.dc.html": {
+      "h": 7300,
+      "w": 2000,
+      "x": 0,
+      "y": 7600,
+      "page": "page-android",
+      "title": "Android · more phone screens (review)"
+    },
+    "Mobile2Dark.dc.html": {
+      "h": 7300,
+      "w": 2000,
+      "x": 2080,
+      "y": 7600,
+      "page": "page-android",
+      "title": "Android · more phone screens (dark)"
     }
   },
   "createdOnFiles": {
@@ -761,7 +793,11 @@
     "CardSettings.dc.html",
     "CardSettingsDark.dc.html",
     "IconSet.dc.html",
-    "IconSetDark.dc.html"
+    "IconSetDark.dc.html",
+    "Mobile.dc.html",
+    "MobileDark.dc.html",
+    "Mobile2.dc.html",
+    "Mobile2Dark.dc.html"
   ],
   "pages": [
     {
@@ -835,6 +871,10 @@
     {
       "id": "page-card-settings",
       "name": "Object settings"
+    },
+    {
+      "id": "page-android",
+      "name": "Android"
     },
     {
       "id": "page-outline-archive",
