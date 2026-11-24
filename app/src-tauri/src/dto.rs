@@ -349,6 +349,24 @@ pub struct ViewItemDto {
     pub columns: Option<Vec<String>>,
     pub columns_broken: bool,
     pub plain: bool,
+    /// Slice Q3 (v1-views §39.2): the item's own display (`board` read as `wall`); null when absent or broken.
+    #[ts(type = "\"list\" | \"table\" | \"wall\" | null")]
+    pub view: Option<String>,
+    pub view_broken: bool,
+    /// Slice Q3: the item's own grouping (`group_by`); null when absent or broken.
+    #[ts(type = "{ none: true } | { none: false; key: string; period: boolean } | null")]
+    pub group: Option<serde_json::Value>,
+    pub group_broken: bool,
+    /// Slice Q3: `vertical` / `horizontal` read as `columns` / `rows`.
+    #[ts(type = "\"columns\" | \"rows\" | null")]
+    pub lanes: Option<String>,
+    pub lanes_broken: bool,
+    pub lane_order: Option<Vec<String>>,
+    pub lane_order_broken: bool,
+    /// Slice Q3 (D-2177): ordered pairs, keys NFC.
+    #[ts(type = "Array<[string, number]> | null")]
+    pub widths: Option<Vec<(String, u32)>>,
+    pub widths_broken: bool,
 }
 
 /// Slice Q2.1 (v1-views §17.3): one level of a usage's own `sort`.
@@ -496,6 +514,39 @@ pub enum TypeOpDto {
     ViewColumns { name: String, columns: Option<Vec<String>> },
     /// v1-views §17.3 (D-1852): the `views` key's lines replaced byte for byte (`TypeOp::SetViewsSource`).
     ViewsSource { source: String },
+    /// Slice Q3 (v1-views §39.2): a tab's own `view` (`TypeOp::SetViewDisplay`); null removes it.
+    ViewDisplay {
+        name: String,
+        #[ts(type = "\"list\" | \"table\" | \"wall\" | null")]
+        view: Option<String>,
+    },
+    /// Slice Q3: a tab's own grouping (`TypeOp::SetViewGroup`); null removes `group_by`, `lanes` and `lane_order`.
+    ViewGroup {
+        name: String,
+        #[ts(type = "{ none: true } | { none: false; key: string; period: boolean } | null")]
+        group: Option<serde_json::Value>,
+    },
+    /// Slice Q3: a tab's own `lanes` (`TypeOp::SetViewLanes`); null removes it.
+    ViewLanes {
+        name: String,
+        #[ts(type = "\"columns\" | \"rows\" | null")]
+        lanes: Option<String>,
+    },
+    /// Slice Q3: a tab's own `lane_order` (`TypeOp::SetViewLaneOrder`); `[]` writes `lane_order: []`, null removes it.
+    ViewLaneOrder {
+        name: String,
+        #[serde(rename = "laneOrder")]
+        #[ts(rename = "laneOrder")]
+        lane_order: Option<Vec<String>>,
+    },
+    /// Slice Q3 (D-2177, D-2190): a tab's own `widths` (`TypeOp::SetViewWidths`); null or `[]` removes it.
+    ViewWidths {
+        name: String,
+        #[ts(type = "Array<[string, number]> | null")]
+        widths: Option<Vec<(String, u32)>>,
+    },
+    /// Slice Q3 Duplicate (CP-35, D-2200): `from`'s own keys copied into `to`'s item (`TypeOp::CopyViewSettings`).
+    ViewCopy { from: String, to: String },
     /// Slice OC (v1-cards §4.2, D-2076): the `card` line (`TypeOp::SetCard`); null removes it (`Reset to default`).
     Card { keys: Option<Vec<String>> },
     /// Slice OC (v1-cards §4.2, D-2070): an attribute's `icon:` line (`TypeOp::SetAttributeIcon`); null removes it.
@@ -694,6 +745,25 @@ pub struct UiStateDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub tag_filter: Option<std::collections::BTreeMap<String, Vec<String>>>,
+    /// Slice Q3 (v1-views §39.2, §42.3; D-2178): `All <plural>`'s display and grouping per type key; missing reads as a
+    /// Table, not grouped.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub all_view: Option<std::collections::BTreeMap<String, AllViewDto>>,
+}
+
+/// Slice Q3 (v1-views §39.2): `All <plural>`'s machine-local display and grouping (D-2178).
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct AllViewDto {
+    #[ts(type = "\"list\" | \"table\" | \"wall\"")]
+    pub view: String,
+    pub group_by: Option<String>,
+    #[serde(default)]
+    pub group_period: bool,
+    #[ts(type = "\"columns\" | \"rows\"")]
+    pub lanes: String,
 }
 
 /// Slice Q2 (v1-views §4.7): `typeViews` of `ui-state.json`.
@@ -1268,7 +1338,7 @@ fn yes() -> bool {
 
 impl Default for UiStateDto {
     fn default() -> Self {
-        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None, type_column_widths: None, vaults: None, queries: None, outline_rail: None, recent_icons: None, related: None, type_views: None, query_column_widths: None, board_folded: None, usage_column_widths: None, usage_folded: None, tag_filter: None }
+        UiStateDto { version: 1, theme: "system".into(), sidebar_open: true, right_panel: RightPanelDto { open: false, tab: "backlinks".into(), width: None }, properties_open: true, type_sort: Default::default(), other_properties_open: false, tasks: None, convert: None, date_time: None, inbox: None, tag_page: None, tags_sort: None, note_width: None, preview: None, type_column_widths: None, vaults: None, queries: None, outline_rail: None, recent_icons: None, related: None, type_views: None, query_column_widths: None, board_folded: None, usage_column_widths: None, usage_folded: None, tag_filter: None, all_view: None }
     }
 }
 
@@ -1715,6 +1785,7 @@ pub fn typescript() -> String {
         TypeSortDto::decl(),
         QueriesUiDto::decl(),
         UiStateDto::decl(),
+        AllViewDto::decl(),
         LinkTargetDto::decl(),
         AtDto::decl(),
         ExcerptSegDto::decl(),

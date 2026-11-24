@@ -29,13 +29,13 @@ are each two commits at the same clock.
 | `schedule-default.yml`, `kanban-default.yml` | R202's bytes, no time stamps (D-1936; the migration, `Restore default views`, `taskviews::default_task_view_text(name)` = `create_text_unstamped(default_task_view(name))`) | FR-QRY-07 AC-27, AC-28, FR-TYP-01 AC-11 |
 | `schedule-no-done-lane.yml` | overlay `Schedule.yml`; the editor's done-lane checkbox unchecked, `Done`: line 15 removed | FR-TSK-04 AC-26 |
 | `schedule-done-lane-again.yml` | then checked again: `done_lane: { within_days: 7, folded: true }` back after `lanes:` | FR-TSK-04 AC-26 |
-| `schedule-lanes-vertical.yml` (+ `-crlf`, `-no-newline`) | overlay `Schedule.yml` (or its CRLF / no-final-newline copy); `Switch lanes`: line 14 only | FR-FMT-07 AC-35 |
+| (removed by slice Q3, D-2179, D-2196) `schedule-lanes-vertical*.yml` | `Switch lanes` now writes `lanes: columns`: `../views-display/queries/schedule-lanes-columns.yml` (+ `-crlf`, `-no-newline`) | FR-FMT-07 AC-35, AC-37 |
 | `kanban-lane-order-waiting.yml` | overlay `Kanban.yml`; the `Waiting` lane dragged before `To do`: `lane_order: [Waiting, To do, In progress, Done, Rozpracováno]` inserted after `lanes: vertical` (before `done_lane`, R201's order) | FR-TSK-05 AC-20 |
 | `kanban-lane-order-reset.yml` | then `Reset lane order`: the line removed | FR-TSK-05 AC-20 |
 | `projekty-group-created.yml` | overlay `Projekty podle termínu.yml`; `Group by` › `Created · by period`, `Done`: line 10 → `group_by: { created: period }   # podle termínu` (comment kept) | FR-QRY-01 AC-17, FR-FMT-07 AC-35 |
 
-`../views/new-view-board-book.yml` (part one's file, FR-QRY-05 AC-28: its `columns:` line goes, D-1910) is **not**
-changed by the red tests: it is an existing fixture and changes with a `Fixture-Change:` trailer in the build commit.
+`../views/new-view-board-book.yml` (part one's file, FR-QRY-05 AC-28) was removed by slice Q3 (D-2172, D-2196): `New view`
+› Wall writes `../views-display/queries/new-view-wall-book.yml`.
 
 ## `types/` (`.tegg/types/task.yml` after the action)
 

@@ -187,7 +187,17 @@ fn fr_qry_05_ac11_group_by_kinds() {
     assert_eq!(tl.iter().map(|(i, c)| (i.clone(), c.len())).collect::<Vec<_>>(), vec![("tag:doporučené".into(), 2), ("tag:odloženo".into(), 1), ("tag:večerní".into(), 1), ("none".into(), 13)], "four tag lanes");
     let gt = group(&t, "Podle štítku");
     assert_eq!(gt.lanes[2].cards.first().map(|c| c.raw.clone()), Some(vec![]), "the inline #večerní: raw is empty");
-    assert!(run(&core, DATUM, &env()).group.is_none(), "group_by: finished (a date): no group");
+    // Slice Q3 (D-2173, D-2179): a broken group_by on a wall draws the ungrouped wall with the notice; `group_by` with
+    // `view: table` groups the Table.
+    let d = run(&core, DATUM, &env());
+    assert!(d.group.is_none(), "group_by: finished (a date): no group");
+    assert!(d.broken.iter().any(|b| b.key == "group_by"), "with the group_by notice");
+    assert_eq!((d.rows.len(), d.rows.iter().all(|x| x.card.is_some())), (17, true), "17 cards on an ungrouped wall, not 17 list rows");
+    write(&root, &qpath("Tabulka podle stavu"), board_query("Tabulka podle stavu", &[], &["group_by: status"]).replace("view: board", "view: table").as_bytes());
+    core.notify_changed(&[qpath("Tabulka podle stavu")]);
+    let _ = core.wait_idle(Duration::from_secs(30));
+    let tb = run(&core, "Tabulka podle stavu", &env());
+    assert_eq!(tb.group.as_ref().map(|g| g.key.clone()), Some("status".to_string()), "a Table with group_by is grouped (D-2173)");
 }
 
 #[test]
@@ -273,20 +283,21 @@ fn fr_qry_05_ac17_lanes_switch_writes_once() {
     let root = vault(&sb);
     let core = open(&root, &sb.dirs, false);
     let before = snapshot(&root);
-    ok!(commit(&core, ROZ, |d| d.lanes = Lanes::Vertical), "the checked radio");
+    ok!(commit(&core, ROZ, |d| d.lanes = Lanes::Columns), "the checked radio");
     assert_eq!(snapshot(&root), before, "the checked radio writes nothing");
-    ok!(commit(&core, ROZ, |d| d.lanes = Lanes::Horizontal), "Rozečtené horizontal");
-    assert_eq!(disk_s(&root, &qpath(ROZ)), Some(expected("rozectene-lanes-horizontal.yml")), "line 15 and modified");
-    ok!(commit(&core, AUTOR_Q, |d| d.lanes = Lanes::Horizontal), "Podle autora horizontal");
+    // Slice Q3 (D-2179): the query page writes the new words (`rows`, `columns`) for the changed key.
+    ok!(commit(&core, ROZ, |d| d.lanes = Lanes::Rows), "Rozečtené rows");
+    assert_eq!(disk_s(&root, &qpath(ROZ)), Some(expected("rozectene-lanes-horizontal.yml")), "line 15 → lanes: rows, and modified");
+    ok!(commit(&core, AUTOR_Q, |d| d.lanes = Lanes::Rows), "Podle autora rows");
     assert_eq!(disk_s(&root, &qpath(AUTOR_Q)), Some(expected("podle-autora-lanes-horizontal.yml")), "inserted after group_by");
-    ok!(commit(&core, ZANR, |d| d.lanes = Lanes::Vertical), "Podle žánru vertical");
+    ok!(commit(&core, ZANR, |d| d.lanes = Lanes::Columns), "Podle žánru columns");
     assert_eq!(disk_s(&root, &qpath(ZANR)), Some(expected("podle-zanru-lanes-vertical.yml")), "the comment and its spaces kept");
     assert_eq!(changed(&before, &snapshot(&root)), {
         let mut v = vec![qpath(AUTOR_Q), qpath(ROZ), qpath(ZANR)].into_iter().map(|p| tegg_format::nfc(&p)).collect::<Vec<_>>();
         v.sort();
         v
     }, "only those three files");
-    assert_eq!(current(&core, ROZ).0.lanes, Lanes::Horizontal, "parses back to the intended lanes (D-1458)");
+    assert_eq!(current(&core, ROZ).0.lanes, Lanes::Rows, "parses back to the intended lanes (D-1458)");
 }
 
 #[test]
@@ -374,13 +385,13 @@ fn fr_qry_01_ac12_the_editor_for_a_view() {
     let root = vault(&sb);
     let core = open(&root, &sb.dirs, false);
     let (d, _) = current(&core, ROZ);
-    assert_eq!((d.view, d.group_by.clone(), d.lanes, d.lane_order.clone()), (View::Board, Some("status".into()), Lanes::Vertical, Some(strs(&["Reading", "To read", "Read"]))), "Rozečtené reads its board keys");
+    assert_eq!((d.view, d.group_by.clone(), d.lanes, d.lane_order.clone()), (View::Wall, Some("status".into()), Lanes::Columns, Some(strs(&["Reading", "To read", "Read"]))), "Rozečtené reads its board keys");
     ok!(commit(&core, ROZ, |d| d.group_by = Some("genres".into())), "Group by Genres");
     assert_eq!(disk_s(&root, &qpath(ROZ)), Some(expected("rozectene-group-by-genres.yml")), "only group_by and modified");
     ok!(commit(&core, ROZ, |d| d.view = View::Table), "Table");
     assert_eq!(disk_s(&root, &qpath(ROZ)), Some(expected("rozectene-view-table.yml")), "only view and modified; the board keys stay");
     let (d2, _) = current(&core, ROZ);
-    assert_eq!((d2.group_by, d2.lanes, d2.lane_order), (Some("genres".into()), Lanes::Vertical, Some(strs(&["Reading", "To read", "Read"]))), "and read back with view: table");
+    assert_eq!((d2.group_by, d2.lanes, d2.lane_order), (Some("genres".into()), Lanes::Columns, Some(strs(&["Reading", "To read", "Read"]))), "and read back with view: table");
 }
 
 #[test]
@@ -419,7 +430,7 @@ fn fr_fmt_07_ac32_query_files_with_q2_keys_round_trip() {
         };
         write(&root, &qpath(ZANR), enc(&fixture(&qpath(ZANR))).as_bytes());
         let core = open(&root, &sb.dirs, false);
-        ok!(commit(&core, ZANR, |d| d.lanes = Lanes::Vertical), format!("{variant}: Switch lanes"));
+        ok!(commit(&core, ZANR, |d| d.lanes = Lanes::Columns), format!("{variant}: Switch lanes"));
         let exp = match conv {
             1 => "podle-zanru-lanes-vertical-crlf.yml",
             2 => "podle-zanru-lanes-vertical-no-newline.yml",
@@ -446,7 +457,7 @@ fn new_def(core: &Core, types: &[&str], view: View, group_by: Option<&str>, colu
     d.limit = 50;
     d.view = view;
     d.group_by = group_by.map(str::to_string);
-    d.lanes = Lanes::Vertical;
+    d.lanes = Lanes::Columns;
     d.lane_order = None;
     d.columns = strs(columns);
     d
@@ -464,10 +475,11 @@ fn fr_qry_07_ac4_new_view_creates_a_query_and_a_tab() {
     assert_eq!(disk_s(&root, AUTOR), Some(expected("types/autor-views-new-view.yml")), "(b) autor.yml");
     std::fs::remove_file(root.join(qpath("New view"))).expect("setup: remove");
     reread(&core, &[&qpath("New view")]);
-    // D-1910, D-1929: `New view` › Board passes no columns.
-    let d = new_def(&core, &["book"], View::Board, Some("status"), &[]);
-    ok!(core.query_create(QueryCreate { title: "New view".into(), def: Some(d.clone()), fence: None, free: true }, NOW), "(c) query_create board");
-    assert_eq!(disk_s(&root, &qpath("New view")), Some(expected("new-view-board-book.yml")), "(c) group_by, lanes: vertical, no columns");
+    // Slice Q3 (FR-QRY-07 AC-32, D-2172): `New view` › Wall passes no group_by, lanes or columns.
+    let d = new_def(&core, &["book"], View::Wall, None, &[]);
+    ok!(core.query_create(QueryCreate { title: "New view".into(), def: Some(d.clone()), fence: None, free: true }, NOW), "(c) query_create wall");
+    let want = String::from_utf8(std::fs::read(repo_root().join("tests/fixtures/queries-files/expected/views-display/queries/new-view-wall-book.yml")).expect("setup: expected")).expect("setup: UTF-8");
+    assert_eq!(disk_s(&root, &qpath("New view")), Some(want), "(c) view: wall, no group_by, lanes or columns");
     ok!(set_views(&core, "book", &["Rozečtené", "Přečtené 2026", "Výborné knihy", "New view"]), "(c) type_patch");
     assert_eq!(disk_s(&root, BOOK), Some(expected("types/book-views-new-view.yml")), "(c) book.yml");
     ok!(core.query_create(QueryCreate { title: "New view".into(), def: Some(d), fence: None, free: true }, NOW), "a second New view");
@@ -588,7 +600,7 @@ fn fr_qry_07_ac15_views_follow_external_changes() {
     let v = wait_until(Duration::from_secs(2), || core.type_get("book").and_then(|t| t.def.views) == Some(strs(&["Výborné knihy", "Rozečtené"])));
     assert!(v.is_some(), "the views follow book.yml within 2 s");
     write(&root, &qpath(ROZ), swapped(&fixture(&qpath(ROZ)), "lanes: vertical\n", "lanes: horizontal\n").as_bytes());
-    let l = wait_until(Duration::from_secs(2), || core.query(ROZ).def.map(|d| d.lanes) == Some(Lanes::Horizontal));
+    let l = wait_until(Duration::from_secs(2), || core.query(ROZ).def.map(|d| d.lanes) == Some(Lanes::Rows));
     assert!(l.is_some(), "lanes: horizontal within 2 s");
 }
 
@@ -645,7 +657,7 @@ fn fr_syn_03_ac30_view_writes_check_the_base() {
     let (mut d, v) = current(&core, ROZ);
     let q = swapped(&fixture(&qpath(ROZ)), "title: Rozečtené\n", "title: Rozečtené\n# změna\n");
     write(&root, &qpath(ROZ), q.as_bytes());
-    d.lanes = Lanes::Horizontal;
+    d.lanes = Lanes::Rows;
     let r = core.query_apply(ROZ, &v, d, NOW);
     assert!(r.is_err(), "Switch lanes on a changed file is refused");
     assert_eq!(disk_s(&root, &qpath(ROZ)), Some(q), "nothing written");
@@ -705,7 +717,7 @@ fn nfr_por_01_ac6_view_files_are_plain() {
     let sb = sandbox();
     let root = vault(&sb);
     let core = open(&root, &sb.dirs, false);
-    ok!(commit(&core, ROZ, |d| d.lanes = Lanes::Horizontal), "Switch lanes");
+    ok!(commit(&core, ROZ, |d| d.lanes = Lanes::Rows), "Switch lanes");
     ok!(commit(&core, P26, |d| d.sort = lv(&[("rating", Order::Desc), ("finished", Order::Asc)])), "a two-level sort");
     ok!(commit(&core, AUTOR_Q, |d| d.lane_order = Some(strs(&["[[Tomáš Rybář]]", "[[Eva Lindová]]"]))), "a relation lane_order");
     ok!(set_views(&core, "book", &["Výborné knihy", "Rozečtené", "Přečtené 2026", "Čtu, až bude čas"]), "views");
@@ -722,7 +734,8 @@ fn nfr_por_01_ac6_view_files_are_plain() {
         .stderr(Stdio::inherit()).output();
     let out = ok!(out, "node runs");
     let v: serde_json::Value = ok!(serde_json::from_slice(&out.stdout), "the yaml package parses every file");
-    assert_eq!(v[qpath(ROZ)]["lanes"], "horizontal", "lanes as a plain scalar");
+    // Slice Q3 (AC-Test-Change, D-2210; D-2179): the changed key gets the new word.
+    assert_eq!(v[qpath(ROZ)]["lanes"], "rows", "lanes as a plain scalar");
     assert_eq!(v[qpath(P26)]["sort"], serde_json::json!([{ "by": "rating", "order": "desc" }, { "by": "finished", "order": "asc" }]), "sort as a list of mappings");
     assert_eq!(v[qpath(AUTOR_Q)]["lane_order"], serde_json::json!(["[[Tomáš Rybář]]", "[[Eva Lindová]]"]), "lane_order as link strings");
     assert_eq!(v[BOOK]["views"], serde_json::json!(["Výborné knihy", "Rozečtené", "Přečtené 2026", "Čtu, až bude čas"]), "views as a list of strings");
@@ -754,7 +767,7 @@ fn kill_child(root: &Path, app: &Path, ready: &Path, kind: &str) -> ! {
             "lanes" => {
                 let r = core.query(ROZ);
                 let (Some(mut d), Some(v)) = (r.def, r.version) else { fail("query() has no definition".into()) };
-                d.lanes = if i % 2 == 1 { Lanes::Horizontal } else { Lanes::Vertical };
+                d.lanes = if i % 2 == 1 { Lanes::Rows } else { Lanes::Columns };
                 if let Err(e) = core.query_apply(ROZ, &v, d, NOW) {
                     fail(format!("{e:?}"))
                 }

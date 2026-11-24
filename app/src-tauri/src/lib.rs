@@ -1462,7 +1462,20 @@ fn view_item_dto(i: tegg_schema::ViewItem) -> dto::ViewItemDto {
         UsageValue::Broken => (None, true),
         UsageValue::Absent => (None, false),
     };
-    dto::ViewItemDto { name: i.name, sort, sort_broken, columns, columns_broken, plain: i.plain }
+    // Slice Q3 (v1-views §39.2): the five display and grouping keys, each with its `…Broken` flag.
+    fn split<T, U>(v: UsageValue<T>, f: impl FnOnce(T) -> U) -> (Option<U>, bool) {
+        match v {
+            UsageValue::Set(x) => (Some(f(x)), false),
+            UsageValue::Broken => (None, true),
+            UsageValue::Absent => (None, false),
+        }
+    }
+    let (view, view_broken) = split(i.view, |v| shellq::usage_view_str(v).to_string());
+    let (group, group_broken) = split(i.group_by, shellq::usage_group_json);
+    let (lanes, lanes_broken) = split(i.lanes, |l| shellq::usage_lanes_str(l).to_string());
+    let (lane_order, lane_order_broken) = split(i.lane_order, |l| l);
+    let (widths, widths_broken) = split(i.widths, |w| w);
+    dto::ViewItemDto { name: i.name, sort, sort_broken, columns, columns_broken, plain: i.plain, view, view_broken, group, group_broken, lanes, lanes_broken, lane_order, lane_order_broken, widths, widths_broken }
 }
 
 /// v1-views §17.3: a usage sort level from the UI (`asc` | `desc`).
@@ -1578,6 +1591,13 @@ fn type_op(op: TypeOpDto) -> Result<TypeOp, IpcError> {
         TypeOpDto::ViewSort { name, sort } => TypeOp::SetViewSort { name, sort: sort.map(|l| l.into_iter().map(usage_sort).collect::<Result<Vec<_>, _>>()).transpose()? },
         TypeOpDto::ViewColumns { name, columns } => TypeOp::SetViewColumns { name, columns },
         TypeOpDto::ViewsSource { source } => TypeOp::SetViewsSource(source),
+        // Slice Q3 (v1-views §39.2): the old words are accepted too (D-2179).
+        TypeOpDto::ViewDisplay { name, view } => TypeOp::SetViewDisplay { name, view: view.map(|v| shellq::usage_view_from(&v)).transpose()? },
+        TypeOpDto::ViewGroup { name, group } => TypeOp::SetViewGroup { name, group_by: group.map(|g| shellq::usage_group_from(&g)).transpose()? },
+        TypeOpDto::ViewLanes { name, lanes } => TypeOp::SetViewLanes { name, lanes: lanes.map(|l| shellq::usage_lanes_from(&l)).transpose()? },
+        TypeOpDto::ViewLaneOrder { name, lane_order } => TypeOp::SetViewLaneOrder { name, lane_order },
+        TypeOpDto::ViewWidths { name, widths } => TypeOp::SetViewWidths { name, widths },
+        TypeOpDto::ViewCopy { from, to } => TypeOp::CopyViewSettings { from, to },
         TypeOpDto::Hidden { keys } => TypeOp::SetHidden(keys),
         TypeOpDto::Embed { mode } => TypeOp::SetEmbed(match tegg_schema::EmbedMode::parse(&mode) {
             Some(m) => m,

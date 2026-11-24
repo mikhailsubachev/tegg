@@ -2,11 +2,16 @@
 // FR-QRY-01 AC-20). Pure (L1). Part one §1.6's per-kind comparison: Select by option order then unknown values (by
 // collation), Date by its valid `YYYY-MM-DD` only (CP-31, D-1923), date-times, `created`, `modified` by instant, numbers
 // numerically, the rest by collation; an empty value is last at every level in both orders; ties by title, then path.
+// D-2221: the same rules as the core's `sort_rows`, so a view's quick re-sort (R222) draws the run's order: a Select
+// value matches its option after folding case and diacritics (the core's `fold`), a number sorts only from a number,
+// and the last tie-break is the path's UTF-8 bytes.
 import { parseDate, parseInstant } from '@tegg/doc';
 import type { SortDto } from '../ipc/queries';
 import type { TypeDto, TypeRowDto, TypeSortDto } from '../ipc/types';
 
 const nfc = (s: string) => s.normalize('NFC');
+/** The core's `fold` (`tegg_index::fold`): NFD, combining marks dropped, lower case, NFC. */
+const fold = (s: string) => nfc(s).normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().normalize('NFC');
 type Key = { rank: number; n: number | null; s: string | null } | null;
 
 function scalar(v: unknown): string | null {
@@ -33,8 +38,10 @@ function keyOf(row: TypeRowDto, by: string, type: TypeDto): Key {
     case 'select': {
       const s = scalar(raw);
       if (s === null) return null;
-      const i = (attr.options ?? []).findIndex((o) => nfc(o.label) === s);
-      return i >= 0 ? { rank: 0, n: i, s: null } : { rank: 1, n: null, s };
+      const f = fold(s);
+      const i = (attr.options ?? []).findIndex((o) => fold(o.label) === f);
+      // The core compares the option's place, then the value as written by collation.
+      return i >= 0 ? { rank: 0, n: i, s } : { rank: 1, n: null, s };
     }
     case 'date': {
       const d = typeof raw === 'string' ? parseDate(raw.trim()) : null;
@@ -45,7 +52,7 @@ function keyOf(row: TypeRowDto, by: string, type: TypeDto): Key {
       return ms === null ? null : { rank: 0, n: ms, s: null };
     }
     case 'number': {
-      const n = typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() !== '' && Number.isFinite(Number(raw)) ? Number(raw) : null;
+      const n = typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
       return n === null ? null : { rank: 0, n, s: null };
     }
     case 'checkbox':
@@ -59,11 +66,19 @@ function keyOf(row: TypeRowDto, by: string, type: TypeDto): Key {
 
 function cmpKey(a: NonNullable<Key>, b: NonNullable<Key>, c: Intl.Collator): number {
   if (a.rank !== b.rank) return a.rank - b.rank;
-  if (a.n !== null && b.n !== null) return a.n - b.n;
+  if (a.n !== null && b.n !== null && a.n !== b.n) return a.n < b.n ? -1 : 1;
   return c.compare(a.s ?? '', b.s ?? '');
 }
 
-const bytes = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+/** UTF-8 byte order (= code point order; a plain `<` compares UTF-16 units, which differs above U+FFFF). */
+function bytes(a: string, b: string): number {
+  const x = [...a], y = [...b];
+  for (let i = 0; i < Math.min(x.length, y.length); i++) {
+    const d = x[i]!.codePointAt(0)! - y[i]!.codePointAt(0)!;
+    if (d !== 0) return d < 0 ? -1 : 1;
+  }
+  return x.length - y.length < 0 ? -1 : x.length > y.length ? 1 : 0;
+}
 
 /** §28.1: the rows in `levels` order (a key used twice counts at its first level). */
 export function sortTypeRows(rows: TypeRowDto[], levels: SortDto[], type: TypeDto, collator: Intl.Collator): TypeRowDto[] {

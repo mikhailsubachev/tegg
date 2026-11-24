@@ -46,10 +46,10 @@ pub struct QueryDefDto {
     pub filters: Vec<FilterItemDto>,
     pub sort: Vec<SortDto>,
     pub limit: u32,
-    /// `list`, `table` or `board`.
+    /// `list`, `table` or `wall` (v1-views §39.2); input also accepts `board` (D-2179).
     pub view: String,
     pub group_by: Option<String>,
-    /// `vertical` or `horizontal`.
+    /// `columns` or `rows`; input also accepts `vertical` / `horizontal` (D-2179).
     pub lanes: String,
     pub lane_order: Option<Vec<String>>,
     pub columns: Vec<String>,
@@ -59,6 +59,10 @@ pub struct QueryDefDto {
     /// Slice Q2-T (R201): null = no `done_lane` (a commit with null removes the key, §24.3). Missing reads as null.
     #[serde(default)]
     pub done_lane: Option<DoneLaneDto>,
+    /// Slice Q3 (v1-views §39.2, CP-32, D-2197): the file says `group_by: none`; in a commit with a null `groupBy` it
+    /// removes a valid `group_by` line. Missing reads as false.
+    #[serde(default)]
+    pub group_none: bool,
 }
 
 /// Slice Q2-T (v1-views §27.2, R201).
@@ -144,7 +148,7 @@ pub struct QuerySummaryDto {
     pub modified: Option<String>,
     pub uses_this: bool,
     pub version: VersionDto,
-    /// v1-views §2: `list`, `table` or `board`; null when unreadable.
+    /// v1-views §39.2: `list`, `table` or `wall`; null when unreadable.
     pub view: Option<String>,
     /// v1-views §2: the query's types; null when unreadable.
     pub types: Option<Vec<String>>,
@@ -178,13 +182,22 @@ pub enum QuerySourceDto {
     View { r#type: String, name: String },
 }
 
-/// v1-views §17.3 (R194): a usage's own values, broken entries and effective values.
+/// v1-views §17.3, §39.2 (R194, R220): a usage's own values, broken entries and effective values.
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UsageOwnDto {
     pub sort: Option<Vec<SortDto>>,
     pub columns: Option<Vec<String>>,
+    /// Slice Q3: null = absent or broken.
+    pub view: Option<String>,
+    /// `{ none: true }` or `{ none: false, key, period }`.
+    pub group: Option<serde_json::Value>,
+    pub lanes: Option<String>,
+    pub lane_order: Option<Vec<String>>,
+    pub widths: Option<Vec<(String, u32)>>,
 }
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UsageRunDto {
     /// `tab` or `block`.
     pub kind: String,
@@ -192,6 +205,14 @@ pub struct UsageRunDto {
     pub broken: Vec<BrokenDto>,
     pub sort: Vec<SortDto>,
     pub columns: Vec<String>,
+    /// Slice Q3 effective values: `view`, the grouping flat (`groupBy` null = not grouped), `lanes`, `laneOrder`,
+    /// `widths` (the own valid widths, else none).
+    pub view: String,
+    pub group_by: Option<String>,
+    pub group_period: bool,
+    pub lanes: String,
+    pub lane_order: Option<Vec<String>>,
+    pub widths: Vec<(String, u32)>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -335,11 +356,12 @@ pub(crate) fn def_dto(d: QueryDef) -> QueryDefDto {
         limit: d.limit,
         view: view_str(d.view).into(),
         group_by: d.group_by,
-        lanes: if d.lanes == Lanes::Horizontal { "horizontal" } else { "vertical" }.into(),
+        lanes: lanes_str(d.lanes).into(),
         lane_order: d.lane_order,
         columns: d.columns,
         group_period: d.group_period,
         done_lane: d.done_lane.map(|x| DoneLaneDto { within_days: x.within_days, folded: x.folded }),
+        group_none: d.group_none,
     }
 }
 
@@ -363,13 +385,15 @@ pub(crate) fn def_from(d: QueryDefDto) -> Result<QueryDef, IpcError> {
         filters: d.filters.into_iter().map(item_from).collect::<Result<_, _>>()?,
         sort: d.sort.into_iter().map(|s| Sort { by: s.by, order: if s.order == "desc" { Order::Desc } else { Order::Asc } }).collect(),
         limit: d.limit,
+        // v1-views §39.1: the new words, and the old ones mapped (D-2179).
         view: match d.view.as_str() {
             "table" => View::Table,
-            "board" => View::Board,
+            "wall" | "board" => View::Wall,
             _ => View::List,
         },
+        group_none: d.group_none && d.group_by.is_none(),
         group_by: d.group_by,
-        lanes: if d.lanes == "horizontal" { Lanes::Horizontal } else { Lanes::Vertical },
+        lanes: if matches!(d.lanes.as_str(), "rows" | "horizontal") { Lanes::Rows } else { Lanes::Columns },
         lane_order: d.lane_order,
         columns: d.columns,
         // v1-views §24.3: `groupPeriod` with `groupBy`; a null `doneLane` removes the key when the file has one.
@@ -382,8 +406,59 @@ fn view_str(v: View) -> &'static str {
     match v {
         View::List => "list",
         View::Table => "table",
-        View::Board => "board",
+        View::Wall => "wall",
     }
+}
+
+fn lanes_str(l: Lanes) -> &'static str {
+    match l {
+        Lanes::Columns => "columns",
+        Lanes::Rows => "rows",
+    }
+}
+
+/// Slice Q3 (v1-views §39.2): a usage's own display, grouping and lanes in the DTO words, and back (old words accepted).
+pub(crate) fn usage_view_str(v: tegg_schema::UsageView) -> &'static str {
+    match v {
+        tegg_schema::UsageView::List => "list",
+        tegg_schema::UsageView::Table => "table",
+        tegg_schema::UsageView::Wall => "wall",
+    }
+}
+pub(crate) fn usage_lanes_str(l: tegg_schema::UsageLanes) -> &'static str {
+    match l {
+        tegg_schema::UsageLanes::Columns => "columns",
+        tegg_schema::UsageLanes::Rows => "rows",
+    }
+}
+pub(crate) fn usage_group_json(g: tegg_schema::UsageGroupBy) -> serde_json::Value {
+    match g {
+        tegg_schema::UsageGroupBy::None => serde_json::json!({ "none": true }),
+        tegg_schema::UsageGroupBy::Key(k) => serde_json::json!({ "none": false, "key": k, "period": false }),
+        tegg_schema::UsageGroupBy::Period(k) => serde_json::json!({ "none": false, "key": k, "period": true }),
+    }
+}
+pub(crate) fn usage_view_from(v: &str) -> Result<tegg_schema::UsageView, IpcError> {
+    Ok(match v {
+        "list" => tegg_schema::UsageView::List,
+        "table" => tegg_schema::UsageView::Table,
+        "wall" | "board" => tegg_schema::UsageView::Wall,
+        other => return Err(err("Io", format!("unknown display {other}"))),
+    })
+}
+pub(crate) fn usage_lanes_from(l: &str) -> Result<tegg_schema::UsageLanes, IpcError> {
+    Ok(match l {
+        "columns" | "vertical" => tegg_schema::UsageLanes::Columns,
+        "rows" | "horizontal" => tegg_schema::UsageLanes::Rows,
+        other => return Err(err("Io", format!("unknown lanes {other}"))),
+    })
+}
+pub(crate) fn usage_group_from(g: &serde_json::Value) -> Result<tegg_schema::UsageGroupBy, IpcError> {
+    if g.get("none").and_then(serde_json::Value::as_bool) == Some(true) {
+        return Ok(tegg_schema::UsageGroupBy::None);
+    }
+    let Some(key) = g.get("key").and_then(serde_json::Value::as_str) else { return Err(err("Io", "a grouping without a key".to_string())) };
+    Ok(if g.get("period").and_then(serde_json::Value::as_bool) == Some(true) { tegg_schema::UsageGroupBy::Period(key.into()) } else { tegg_schema::UsageGroupBy::Key(key.into()) })
 }
 
 fn lane_dto(l: Lane) -> LaneDto {
@@ -550,10 +625,24 @@ fn usage_run_dto(u: UsageRun) -> UsageRunDto {
             UsageKind::Block => "block",
         }
         .into(),
-        own: UsageOwnDto { sort: u.own.sort.map(sort_dtos), columns: u.own.columns },
+        own: UsageOwnDto {
+            sort: u.own.sort.map(sort_dtos),
+            columns: u.own.columns,
+            view: u.own.view.map(|v| view_str(v).into()),
+            group: u.own.group_by.map(usage_group_json),
+            lanes: u.own.lanes.map(|l| lanes_str(l).into()),
+            lane_order: u.own.lane_order,
+            widths: u.own.widths,
+        },
         broken: u.broken.into_iter().map(broken_dto).collect(),
         sort: sort_dtos(u.sort),
         columns: u.columns,
+        view: view_str(u.view).into(),
+        group_by: u.group_by,
+        group_period: u.group_period,
+        lanes: lanes_str(u.lanes).into(),
+        lane_order: u.lane_order,
+        widths: u.widths,
     }
 }
 
@@ -736,9 +825,9 @@ mod tests {
         }))
         .expect("def parses");
         let d = def_from(def).expect("def converts");
-        assert_eq!((d.r#match, d.view, d.filters.len(), d.sort.len(), d.lanes), (Match::Any, View::Board, 3, 2, Lanes::Horizontal));
+        assert_eq!((d.r#match, d.view, d.filters.len(), d.sort.len(), d.lanes), (Match::Any, View::Wall, 3, 2, Lanes::Rows));
         let v = serde_json::to_value(def_dto(d)).expect("serializes");
-        assert_eq!((v["sort"][1]["order"].as_str(), v["groupBy"].as_str(), v["laneOrder"][0].as_str(), v["view"].as_str()), (Some("desc"), Some("status"), Some("Done"), Some("board")), "{v}");
+        assert_eq!((v["sort"][1]["order"].as_str(), v["groupBy"].as_str(), v["laneOrder"][0].as_str(), v["view"].as_str()), (Some("desc"), Some("status"), Some("Done"), Some("wall")), "{v}");
         assert_eq!((v["filters"][0]["kind"].as_str(), v["filters"][0]["op"].as_str(), v["filters"][1]["match"].as_str()), (Some("filter"), Some("is_not"), Some("all")), "{v}");
         let src: QuerySourceDto = serde_json::from_value(serde_json::json!({ "kind": "fence", "body": "saved: A\n" })).expect("source");
         assert!(matches!(src, QuerySourceDto::Fence { .. }));

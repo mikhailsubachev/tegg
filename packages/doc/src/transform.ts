@@ -8,7 +8,7 @@ import { wikilinks } from './links.js'
 import { parse, type Doc, type FrontmatterEntry, type Range } from './parse.js'
 import { applyInboxChange, type InboxChange } from './inbox.js'
 import { mergeInto, removeTagPatches, renameTagPatches } from './tagops.js'
-import { renameSavedQueryPatches } from './queryfence.js'
+import { relinkFenceLaneOrderPatches, renameSavedQueryPatches } from './queryfence.js'
 import { importNew, importNote, importScan, type ImportNewSpec, type ImportNoteSpec } from './import.js'
 import { isAlias, isMap, isScalar, isSeq, parseDocument, visit, type Node as YamlNode, type Pair } from 'yaml'
 
@@ -119,7 +119,7 @@ export function transform(source: string, text: string, ops: TextOp[]): Transfor
       patches.push(...entryPatches(doc, vals))
     }
     if (op.op === 'set-title') patches.push(...titlePatches(doc, op.title, op.now))
-    else if (op.op === 'retarget-links') patches.push(...linkPatches(doc, source, op))
+    else if (op.op === 'retarget-links') patches.push(...linkPatches(doc, source, op), ...relinkFenceLaneOrderPatches(text, op))
     else if (op.op === 'rename-tag') patches.push(...renameTagPatches(doc, op.key, op.to))
     else if (op.op === 'remove-tag') patches.push(...removeTagPatches(doc, op.key))
     else if (op.op === 'remove-key') patches.push(...removeKeyPatches(doc, op.key))

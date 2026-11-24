@@ -23,7 +23,8 @@ afterEach(async () => {
 type Row = [string, Record<string, string | number>, string];
 const R192: Row[] = [
   ['views.all', { plural: 'Books' }, 'All Books'], ['views.add', {}, 'Add view'], ['views.addMenu', {}, 'Add view'], ['views.newGroup', {}, 'New view'],
-  ['views.kind.table', {}, 'Table'], ['views.kind.list', {}, 'List'], ['views.kind.board', {}, 'Board'], ['views.kind.boardBy', { attribute: 'Status' }, 'by Status'],
+  ['views.kind.table', {}, 'Table'], ['views.kind.list', {}, 'List'], // slice Q3 (AC-Test-Change, D-2196; R227): no `views.kind.board`, `views.kind.boardBy`
+  ['views.kind.wall', {}, 'Wall'],
   ['views.savedGroup', {}, 'Show a saved query'], ['views.reason.needsNote', {}, 'Needs the note it is used on'],
   ['views.reason.otherType', { type: 'Autor', thisType: 'Book' }, 'Shows Autor, not Book'],
   ['views.reason.severalTypes', { thisType: 'Book' }, 'Shows several types, not only Book'], ['views.reason.allTypes', { thisType: 'Book' }, 'Shows all types, not only Book'],
@@ -40,10 +41,10 @@ const R192: Row[] = [
   ['typePage.countPlural', { count: 17, plural: 'Books' }, '17 Books'], // D-1816
   ['query.editor.usedOnPage', { plural: 'Books', count: 1 }, 'Used on the Books page and 1 note. Changes apply everywhere.'],
   ['query.editor.usedOnPage', { plural: 'Books', count: 3 }, 'Used on the Books page and 3 notes. Changes apply everywhere.'],
-  ['query.editor.showFixed', { plural: 'Books' }, 'fixed: a view of the Books page'], ['query.editor.board', {}, 'Board'], ['query.editor.groupBy', {}, 'Group by'],
-  ['query.editor.groupByHint', {}, 'one lane per option'], ['query.editor.lanes', {}, 'Lanes'],
-  ['board.lanes', {}, 'Lanes'], ['board.vertical', {}, 'Vertical'], ['board.horizontal', {}, 'Horizontal'], ['board.verticalTitle', {}, 'Vertical lanes'],
-  ['board.horizontalTitle', {}, 'Horizontal lanes'], ['board.none', { attribute: 'Status' }, 'No Status'], ['board.excluded', {}, 'Not in this view'],
+  ['query.editor.showFixed', { plural: 'Books' }, 'fixed: a view of the Books page'],
+  // Slice Q3 (R227): `query.editor.board`, `.groupBy`, `.groupByHint`, `.lanes`, `board.lanes`, `.vertical`, `.horizontal`,
+  // `.verticalTitle`, `.horizontalTitle` removed (REMOVED below).
+  ['board.none', { attribute: 'Status' }, 'No Status'], ['board.excluded', {}, 'Not in this view'],
   ['board.excludedLong', { values: 'Reading and To read' }, 'Not in this view: its filter shows only Reading and To read.'],
   ['board.dragColumn', {}, 'Drag to move the column'], ['board.dragRow', {}, 'Drag to move the row'], ['board.collapse', { lane: 'Román' }, 'Collapse Román'],
   ['board.expand', { lane: 'Román' }, 'Expand Román'], ['board.newIn', { type: 'Book', lane: 'Reading' }, 'New Book in Reading'], ['board.newTile', { type: 'Book' }, 'New Book'],
@@ -71,7 +72,10 @@ const REUSED: Row[] = [
   ['typePage.views', {}, 'Views'], ['tasks.tagFilter', {}, 'Filter by tag'], ['task.more', { title: 'Dům u řeky' }, 'More actions for "Dům u řeky"'], ['pinned.open', {}, 'Open'],
 ];
 // Slice Q2-T (AC-Test-Change, D-1912; views.md part three, row NFR-OTH-02 AC-21; D-1891): `On cards` and `Change…` go.
-const REMOVED = ['typePage.allView', 'views.notReady', 'ctl.filter', 'ctl.group', 'ctl.addView', 'ctl.addViewSettings', 'ctl.editView', 'query.editor.onCards', 'query.editor.onCardsChange'];
+const REMOVED = ['typePage.allView', 'views.notReady', 'ctl.filter', 'ctl.group', 'ctl.addView', 'ctl.addViewSettings', 'ctl.editView', 'query.editor.onCards', 'query.editor.onCardsChange',
+  // Slice Q3 (AC-Test-Change, D-2196; R227).
+  'views.kind.board', 'views.kind.boardBy', 'query.editor.board', 'query.editor.groupBy', 'query.editor.groupByHint', 'query.editor.lanes', 'board.lanes', 'board.vertical',
+  'board.horizontal', 'board.verticalTitle', 'board.horizontalTitle'];
 const PREFIXES = ['views.', 'board.', 'sort.'];
 
 test('nfr_oth_02_ac21_view_strings', async () => {
@@ -89,7 +93,9 @@ test('nfr_oth_02_ac21_view_strings', async () => {
   // their texts.
   const R207 = ['board.period.today', 'board.period.todayEarlier', 'board.period.week', 'board.period.later', 'board.period.none', 'board.period.dropDate',
     'board.period.dropClear', 'board.done', 'board.doneHint', 'board.doneStatusHint', 'board.dropDone', 'board.laneCountOf', 'sort.scope.thisMac'];
-  const keys = new Set([...R192.map(([k]) => k), ...R199, ...R207]);
+  // Slice Q3 (AC-Test-Change, D-2196): the sets gain R227's new keys under these prefixes.
+  const R227 = ['views.kind.wall'];
+  const keys = new Set([...R192.map(([k]) => k), ...R199, ...R207, ...R227]);
   const extra = Object.keys(en).filter((k) => PREFIXES.some((p) => k.startsWith(p)) && !keys.has(k));
   assert.deepEqual(extra, [], 'no other `views.*`, `board.*`, `sort.*` key (exactly R192\'s, R199\'s and R207\'s)');
   for (const k of REMOVED) assert.ok(!(k in en), `${k} removed`);

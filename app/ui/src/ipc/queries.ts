@@ -14,18 +14,29 @@ export type FilterItemDto =
   | { kind: 'raw'; src: number[] };
 /** One sort level (v1-views §2, D-1768). */
 export type SortDto = { by: string; order: 'asc' | 'desc' };
-export type QueryViewKind = 'list' | 'table' | 'board';
+/** Slice Q3 (v1-views §39.2, D-2172): `wall` replaces `board` (the old word is read as `wall`, D-2179). */
+export type QueryViewKind = 'list' | 'table' | 'wall';
+/** Slice Q3: `columns` / `rows` replace `vertical` / `horizontal`. */
+export type LanesDto = 'columns' | 'rows';
+/** Slice Q3 (v1-views §39.2): a usage's own grouping. */
+/** The board component's direction (`data-lanes` keeps `vertical` / `horizontal`, v1-views §45 choice 4). */
+export const lanesDir = (l: LanesDto): 'vertical' | 'horizontal' => (l === 'rows' ? 'horizontal' : 'vertical');
+export const lanesOf = (d: 'vertical' | 'horizontal'): LanesDto => (d === 'horizontal' ? 'rows' : 'columns');
+export type UsageGroupDto = { none: true } | { none: false; key: string; period: boolean };
 export type QueryDefDto = {
   title: string; types: string[]; match: 'all' | 'any'; filters: FilterItemDto[];
   /** The levels as written (repeats kept); a missing or broken `sort` reads as `[modified desc]` (v1-views §1.2). */
   sort: SortDto[]; limit: number; view: QueryViewKind;
   /** Slice Q2 (v1-views §1.1): `group_by` as written (null: absent or broken), `lanes`, `lane_order` (null: absent). */
-  groupBy: string | null; lanes: 'vertical' | 'horizontal'; laneOrder: string[] | null;
+  groupBy: string | null; lanes: LanesDto; laneOrder: string[] | null;
   columns: string[];
   /** Slice Q2-T (v1-views §24.1, CP-23): `group_by` was the mapping `{ <key>: period }`; false when `groupBy` is null. */
   groupPeriod: boolean;
   /** Slice Q2-T (v1-views §24.1): null = absent or broken. */
   doneLane: DoneLaneDto | null;
+  /** Slice Q3 (CP-32, D-2197): the file says `group_by: none`; a commit with a null `groupBy` and `groupNone: true`
+   *  removes a valid `group_by` line. Missing reads as false. */
+  groupNone?: boolean;
 };
 /** Slice Q2 (v1-views §2): one card of a lane; `row` indexes `QueryResultDto.rows`, `raw` the values that placed it. */
 export type LaneCardDto = { row: number; raw: string[] };
@@ -101,13 +112,19 @@ export type TaskViewsRestoreDto = { created: string[]; names: string[] | null; b
 export type UsageRunDto = {
   kind: 'tab' | 'block';
   /** Own values as read: null = absent, or present with a broken shape (then in `broken`). */
-  own: { sort: SortDto[] | null; columns: string[] | null };
-  /** `{ reason: 'badValue', key: 'sort' | 'columns' }`, at most one per key. */
+  own: {
+    sort: SortDto[] | null; columns: string[] | null;
+    /** Slice Q3 (v1-views §39.2). */
+    view: QueryViewKind | null; group: UsageGroupDto | null; lanes: LanesDto | null; laneOrder: string[] | null; widths: [string, number][] | null;
+  };
+  /** `{ reason: 'badValue', key }`, at most one per key. */
   broken: BrokenDto[];
   /** Effective: the own valid value, else the query file's. */
   sort: SortDto[];
   /** Effective (unknown keys kept). */
   columns: string[];
+  /** Slice Q3 effective values: `groupBy` null = not grouped; `widths` the own valid widths, else none. */
+  view: QueryViewKind; groupBy: string | null; groupPeriod: boolean; lanes: LanesDto; laneOrder: string[] | null; widths: [string, number][];
 };
 export type QueryUsageDto = { path: string; title: string; type: string | null; template: boolean };
 /** `query:stale` (§1.7): the changed objects' types before and after, and their paths. */

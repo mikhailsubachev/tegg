@@ -5,10 +5,10 @@
 // Slice Q2-T (v1-views §26): `writeCardChange` is that path with the change as a parameter; card moves, period moves,
 // the Task card's checkbox and its menu's status, priority and due all go through it, so every write to one object from
 // a board shares one queue.
-import { applyBoardMove, applyPeriodMove, touchModified, type BoardMove, type PeriodMove } from '@tegg/doc';
+import { applyBoardMove, applyPeriodMove, applyTaskChange, touchModified, type BoardMove, type PeriodMove, type TaskState } from '@tegg/doc';
 import { ipc } from '../../ipc/client';
 import type { QueryRowDto } from '../../ipc/queries';
-import type { VersionDto } from '../../ipc/types';
+import type { TaskDefsDto, VersionDto } from '../../ipc/types';
 import { localIso } from '../../newNote';
 import { tasksWritten } from '../../tasks/write';
 
@@ -77,4 +77,12 @@ async function doWrite(row: QueryRowDto, change: CardChange): Promise<CardMoveRe
     const kind = (e as { kind?: string })?.kind;
     return { outcome: kind === 'Conflict' ? 'conflict' : kind === 'Gone' || kind === 'NotFound' ? 'gone' : 'failed' };
   }
+}
+
+/** R43's `Set status` on a Task card (§29.5; the grouped and the ungrouped wall, D-2220): the text change that sets
+ *  `label`, with its state's side effects (`completed`); null when nothing changes. */
+export function taskStatusChange(defs: TaskDefsDto, row: QueryRowDto, label: string, now: string): (text: string) => string | null {
+  const stateOf = (l: string | null) => (defs.statuses.find((x) => x.label === l)?.state ?? 'open') as TaskState;
+  const firstOpen = defs.statuses.find((x) => x.state === 'open')?.label ?? defs.statuses[0]?.label ?? '';
+  return (text) => applyTaskChange(text, { kind: 'status', to: label, toState: stateOf(label), fromState: stateOf(row.taskRow?.status ?? null), firstOpen, now })?.text ?? null;
 }

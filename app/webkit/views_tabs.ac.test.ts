@@ -6,12 +6,14 @@
 // contract only (D-61). Lookups go through `must` (TS-I1).
 import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   ALL_BOOKS, AUTOR_YML, B, BOOK_YML, CTENI, NFD, P26_ROWS, Q, ROZ_LANES, addMenu, addView, allTab, block, board, bookWithViews, callsOf, click, columnsButton,
   description, drag, editor, eventually, expectedView, fileText, fileWhen, filterField, isDisabled, lanesOf, main, menuItem, menuTexts, must, mustBeOn, mustLanes,
   near, nfc, noteRoute, original, panelHeaders, panelOf, panelRows, panelRowsAre, qfile, queriesRow, queryRoute, runCommand, seen, selectTab, selectedTab, sleep,
   sortButton, startViews, swap, tab, tabMenu, tablist, tabNames, tabs, tabsAre, tagFilterButton, textOf, toolbar, toolbarMenuButton, typeRoute, uiState, uiWrites,
-  viewMenu, viewQuery, viewsOps, viewsVault, writeCalls, writes, lanesGroup, laneRadio, rx, mainName, openNote, drag as dragTo,
+  viewMenu, viewQuery, viewsOps, viewsVault, writeCalls, writes, lanesGroup, laneRadio, rx, mainName, openNote, drag as dragTo, REPO,
 } from './views-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
@@ -25,7 +27,8 @@ test('fr_qry_07_ac1_tabs_come_from_views', async ({ page }) => {
   assert.equal(await tablist(page).getAttribute('aria-label'), 'Views', 'tablist named `Views`');
   assert.deepEqual(await tabsAre(page, VIEWS3), ['', ...VIEWS3], 'tabs All Books, Rozečtené, Přečtené 2026, Výborné knihy (R193)');
   const t = await tabs(page);
-  assert.deepEqual(t.map((x) => x.kind), ['table', 'board', 'table', 'table'], 'icons: table, board, table, table');
+  // Slice Q3 (AC-Test-Change, D-2196; FR-QRY-07 AC-33): the icon kind is the tab's effective display; `board` is `wall`.
+  assert.deepEqual(t.map((x) => x.kind), ['table', 'wall', 'table', 'table'], 'icons: table, wall, table, table');
   assert.equal(t[0].text, 'All Books', '`All Books` first');
   assert.equal(await selectedTab(page), '', '`All Books` selected on the first open');
   assert.equal(await addView(page).getAttribute('aria-haspopup'), 'menu', '`Add view` after the tabs, a menu button');
@@ -91,10 +94,14 @@ test('fr_qry_07_ac3_a_view_tab_shows_its_query', async ({ page }) => {
   assert.deepEqual(await panelRowsAre(page, ['Mapa bez severu', 'Čarovná mapa']), ['Mapa bez severu', 'Čarovná mapa'], '`mapa`: Mapa bez severu, Čarovná mapa (folded)');
   await selectTab(page, Q.roz);
   assert.ok(await seen(board(page, Q.roz), 3000), 'Rozečtené shows its board');
-  for (const [what, loc] of [['Filter Books…', filterField(page)], ['Filter by tag', tagFilterButton(page)], ['Lanes', lanesGroup(toolbar(page))], ['View actions', toolbarMenuButton(page)]] as const) {
-    assert.ok(await seen(loc, 2000), `board toolbar: ${what}`);
+  // Slice Q3 (AC-Test-Change, D-2196; R223): the display switch, then `Group` reading Status; no `Lanes` radiogroup.
+  const sw = toolbar(page).locator('div[role="group"][data-display-switch]');
+  for (const [what, loc] of [['Filter Books…', filterField(page)], ['Filter by tag', tagFilterButton(page)], ['Display', sw], ['Group', toolbar(page).locator('button[data-command="group.open"]')], ['View actions', toolbarMenuButton(page)]] as const) {
+    assert.ok(await seen(loc, 2000), `wall toolbar: ${what}`);
   }
-  assert.equal(await laneRadio(toolbar(page), 'Vertical').getAttribute('aria-checked'), 'true', '`Vertical` checked');
+  assert.equal(await sw.locator('button[aria-pressed="true"]').getAttribute('data-display'), 'wall', '`Wall` pressed');
+  assert.equal(flat(await textOf(toolbar(page).locator('button[data-command="group.open"]'))), 'Status', '`Group` reads Status');
+  assert.equal(await page.getByRole('radiogroup', { name: rx('Lanes') }).count(), 0, 'no `Lanes` radiogroup (D-2173)');
   assert.equal(await columnsButton(page).count(), 0, 'no `Columns` on a board');
   assert.ok(await seen(main(page).getByText('17 Books', { exact: true }), 500), '`17 Books` on every tab (R193, D-1816)');
   assert.equal(await filterField(page).inputValue(), '', 'Rozečtené keeps its own (empty) filter text');
@@ -153,11 +160,15 @@ test('fr_qry_07_ac4_new_view_creates_a_query_and_a_tab_board_and_refusal', async
   const core = await startViews(page, { route: typeRoute('book') });
   await click(addView(page), 'Add view');
   const menu = await must(addMenu(page), 'menu `Add view`');
-  const boardItem = menuItem(menu, 'Board');
-  assert.equal(await description(boardItem), 'by Status', '`Board` hint `by Status`');
-  await click(boardItem, 'Board');
+  // Slice Q3 (AC-Test-Change, D-2196; FR-QRY-07 AC-32): no `Board` entry; `Wall` writes `view: wall` with no group_by,
+  // lanes or columns (board B), and has no `by …` hint.
+  assert.equal(await menuItem(menu, 'Board').count(), 0, 'no `Board` entry');
+  const wallItem = menuItem(menu, 'Wall');
+  assert.equal(await description(wallItem), '', '`Wall` has no hint');
+  await click(wallItem, 'Wall');
   await click(editor(page).getByRole('button', { name: rx('Done') }), 'Done');
-  assert.equal(await fileWhen(core, qfile('New view'), (x) => x !== undefined), expectedView('new-view-board-book.yml'), '(c) New view.yml: board, group_by status, lanes vertical, no columns (D-1910; slice Q2-T AC-Test-Change, D-1912)');
+  const wantNew = readFileSync(join(REPO, 'tests/fixtures/queries-files/expected/views-display/queries/new-view-wall-book.yml'), 'utf8');
+  assert.equal(await fileWhen(core, qfile('New view'), (x) => x !== undefined), wantNew, '(c) New view.yml: view: wall, no group_by, lanes or columns');
   assert.equal(await fileWhen(core, BOOK_YML, (x) => x === expectedView('types/book-views-new-view.yml')), expectedView('types/book-views-new-view.yml'), '(c) views: [… , New view]');
   // A second New view is `New view (2)`; a refused type-file write leaves the query and alerts.
   // The type file changes on disk without `vault:changed`: the views write after the create is refused (Conflict).
@@ -501,7 +512,8 @@ test('fr_qry_07_ac15_views_follow_external_changes', async ({ page }) => {
 test('fr_qry_07_ac17_view_placeholders_removed', async ({ page }) => {
   await startViews(page, { route: typeRoute('book') });
   await must(tablist(page), 'tablist', 8000);
-  for (const n of ['Filter', 'Group']) assert.equal(await main(page).getByRole('button', { name: n, exact: true }).count(), 0, `no \`${n}\` control on the type page`);
+  // D-2214: slice Q3 builds `Group` (R223); only `Filter` stays absent.
+  for (const n of ['Filter']) assert.equal(await main(page).getByRole('button', { name: n, exact: true }).count(), 0, `no \`${n}\` control on the type page`);
   assert.equal(await isDisabled(addView(page)), false, 'Add view is built (not aria-disabled)');
   assert.equal(await main(page).getByText('Coming in v1.0').count(), 0, 'no `Coming in v1.0`');
   await click(main(page).getByRole('button', { name: 'Type settings', exact: true }), 'Type settings');

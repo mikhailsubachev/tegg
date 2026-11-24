@@ -156,7 +156,7 @@ fn fr_fmt_07_ac32_query_files_with_q2_keys_round_trip() {
             let mut d: QueryDef = d0.clone();
             let key = match change {
                 Change::Lanes => {
-                    d.lanes = if d.lanes == Lanes::Vertical { Lanes::Horizontal } else { Lanes::Vertical };
+                    d.lanes = if d.lanes == Lanes::Columns { Lanes::Rows } else { Lanes::Columns };
                     "lanes"
                 }
                 Change::LaneOrder => {
@@ -188,7 +188,7 @@ fn fr_fmt_07_ac32_query_files_with_q2_keys_round_trip() {
                     "group_by"
                 }
                 Change::View => {
-                    d.view = if d.view == View::Board { View::Table } else { View::Board };
+                    d.view = if d.view == View::Wall { View::Table } else { View::Wall };
                     "view"
                 }
                 Change::Noop => "",

@@ -221,8 +221,9 @@ export async function writtenPaths(core: FakeCoreHandle): Promise<string[]> {
   for (const c of await core.calls()) {
     if (c.ok === false) continue;
     const a = (c.args ?? {}) as any;
-    if (c.cmd === 'type_patch') out.push(`.tegg/types/${nfc(a.key ?? a.typeKey ?? '')}.yml`);
-    else if (['query_apply', 'query_create', 'query_duplicate', 'query_rename', 'query_trash', 'query_restore'].includes(c.cmd)) out.push(`${c.cmd}:${nfc(a.name ?? a.title ?? a.from ?? '')}`);
+    // D-2214: a `type_patch` that wrote is already in `writesTo()` (the fake records its file writes); count it once.
+    if (c.cmd === 'type_patch') continue;
+    if (['query_apply', 'query_create', 'query_duplicate', 'query_rename', 'query_trash', 'query_restore'].includes(c.cmd)) out.push(`${c.cmd}:${nfc(a.name ?? a.title ?? a.from ?? '')}`);
   }
   return [...out, ...(await core.writesTo())];
 }

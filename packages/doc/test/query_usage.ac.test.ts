@@ -31,6 +31,8 @@ type Change = { sort?: Sort[] | null; columns?: string[] | null }
 type Fence = { range: [number, number]; body: string; saved: string | null; nested: boolean; info: string }
 const S = (...xs: [string, 'asc' | 'desc'][]): Sort[] => xs.map(([by, order]) => ({ by, order }))
 
+/** D-2211: the Q2.1 fields only (Q3 adds view, group, lanes, laneOrder, widths to `fenceUsage`). */
+const sc = (u: { sort: unknown; columns: unknown }) => ({ sort: u.sort, columns: u.columns })
 function fn<T extends (...a: any[]) => any>(name: string): T {
   assert.equal(typeof D[name], 'function', `@tegg/doc exports ${name} (v1-views §13.1)`)
   return D[name] as T
@@ -137,7 +139,7 @@ test('fr_qry_01_ac14_block_sort_is_its_own', () => {
 test('fr_qry_01_ac16_effective_and_broken_usage_values', () => {
   // Block 4's sort has a valid shape; `neznámý` is a run-time check of the core (§13.1), so the reader returns it.
   const f4 = fences(CESTY)[3]
-  assert.deepEqual(fenceUsage(f4.body), { sort: S(['finished', 'desc'], ['neznámý', 'asc']), columns: null }, 'block 4: the two levels as written, no columns')
+  assert.deepEqual(sc(fenceUsage(f4.body)), { sort: S(['finished', 'desc'], ['neznámý', 'asc']), columns: null }, 'block 4: the two levels as written, no columns')
   // A click on Title (the only level of the effective sort) flips it: lines 35…37 → one line.
   assert.equal(write(CESTY, 4, { sort: S(['title', 'desc']) }), EXP('notes/knihy-na-cesty-b4-click-title.md'), 'block 4: lines 35…37 replaced by `sort: { by: title, order: desc }`')
   // Runtime shapes (R185 read rules).
@@ -151,7 +153,7 @@ test('fr_qry_01_ac16_effective_and_broken_usage_values', () => {
     ['title: Ruční dotaz\nsort: { by: title, order: asc }', { sort: null, columns: null }],
     ['', { sort: null, columns: null }],
   ]
-  for (const [body, want] of shapes) assert.deepEqual(fenceUsage(body), want, `fenceUsage(${JSON.stringify(body)})`)
+  for (const [body, want] of shapes) assert.deepEqual(sc(fenceUsage(body)), want, `fenceUsage(${JSON.stringify(body)})`)
 })
 
 // ------------------------------------------------------------------------------------------------ FR-QRY-05 AC-24, AC-26 (fence bytes)
@@ -179,7 +181,7 @@ test('fr_qry_05_ac26_on_cards_per_usage', () => {
 test('fr_fmt_12_ac13_usage_settings_are_nfc', () => {
   const nfd = (s: string) => s.normalize('NFD')
   // An NFD `by` and an NFD column key read as NFC.
-  assert.deepEqual(fenceUsage(`saved: ${nfd('Přečtené 2026')}\nsort: { by: ${nfd('hodnocení')}, order: asc }\ncolumns: [${nfd('poznámka')}, author]`),
+  assert.deepEqual(sc(fenceUsage(`saved: ${nfd('Přečtené 2026')}\nsort: { by: ${nfd('hodnocení')}, order: asc }\ncolumns: [${nfd('poznámka')}, author]`)),
     { sort: S(['hodnocení', 'asc']), columns: ['poznámka', 'author'] }, 'by and columns keys NFC')
   // A write is NFC; the NFD saved: line the user didn't change keeps its bytes.
   const input = EXP('fences/nfd-saved-input.md')

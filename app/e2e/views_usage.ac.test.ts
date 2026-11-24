@@ -197,13 +197,15 @@ test('fr_qry_05_ac25_widths_per_usage', { timeout: 300_000 }, async () => {
     const h = await rectOf(d, 'Resize Title', 8000);
     const title = await rectOf(d, 'Title');
     await dragFromTo(d, mid(h), { x: mid(h).x + (300 - title.width), y: mid(h).y });
-    assert.ok(await waitFor(() => uiState(c)?.usageColumnWidths?.['tab:book/přečtené 2026']?.title === 300, 3000), `usageColumnWidths["tab:book/přečtené 2026"].title = 300 (${JSON.stringify(uiState(c)?.usageColumnWidths)})`);
+    // Slice Q3 (AC-Test-Change, D-2196; D-2177): the tab's widths go into its views: item once, on release.
+    assert.ok(await waitFor(() => !!read(c, BOOK)?.includes('    widths: { title: 300 }\n'), 3000), 'book.yml: the item gets `    widths: { title: 300 }`');
+    assert.equal(uiState(c)?.usageColumnWidths?.['tab:book/přečtené 2026'], undefined, 'no ui-state.json entry');
     d = await relaunch(c, 'type/book');
     await selectTab(d, 'Přečtené 2026');
     assert.ok(Math.abs((await rectOf(d, 'Title', 5000)).width - 300) <= 2, 'after a relaunch the tab keeps 300 px');
     d = await relaunch(c, `note/${CESTY}`);
     assert.ok(Math.abs((await rectOf(d, 'Title', 5000)).width - 300) > 2, 'Cesty\'s blocks keep their own default');
-    assert.deepEqual(changedPaths(before, tree(c.vault)), [], 'no vault file changes');
+    assert.deepEqual(changedPaths(before, tree(c.vault)), [BOOK], 'only book.yml');
   } finally { await cleanup(c); }
 });
 
@@ -232,11 +234,13 @@ test('fr_sto_07_ac11_usage_state_is_machine_local', { timeout: 300_000 }, async 
     const d = await launch(c, `note/${CESTY}`);
     const h = await rectOf(d, 'Resize Title', 8000);
     await dragFromTo(d, mid(h), { x: mid(h).x + 40, y: mid(h).y });
+    // Slice Q3 (AC-Test-Change, D-2196; D-2177): the block's widths go into its fence (Cesty), never ui-state.json.
     const key = `block:id:${CESTY_ID}/přečtené 2026#1`;
-    assert.ok(await waitFor(() => !!uiState(c)?.usageColumnWidths?.[key], 3000), `usageColumnWidths["${key}"] (${JSON.stringify(uiState(c)?.usageColumnWidths)})`);
+    assert.ok(await waitFor(() => /widths: \{ title: \d+ \}/.test(read(c, CESTY) ?? ''), 3000), 'the block\'s fence gets its widths');
     const st = uiState(c);
+    assert.equal(st?.usageColumnWidths?.[key], undefined, `no usageColumnWidths["${key}"]`);
     assert.deepEqual([st?.queryColumnWidths, st?.boardFolded], [{ 'Přečtené 2026': { title: 200 } }, { 'Podle žánru': ['option:Román'] }], '0.4.0 keys unchanged');
-    assert.deepEqual(changedPaths(before, tree(c.vault)), [], 'nothing under the vault');
+    assert.deepEqual(changedPaths(before, tree(c.vault)), [CESTY], 'only the note; nothing machine-local under the vault');
   } finally { await cleanup(c); }
 });
 

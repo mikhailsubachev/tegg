@@ -1,0 +1,15 @@
+# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Celá zeď.
+version: 1
+title: Celá zeď
+types: [book]
+match: all
+filters:
+  - tags: { has_none_of: [odloženo] }
+sort: { by: title, order: asc }
+limit: 10
+view: board
+group_by: status
+lanes: horizontal
+columns: [author, status]
+created: 2026-11-18T20:00:00+01:00
+modified: 2026-11-19T10:00:00+01:00

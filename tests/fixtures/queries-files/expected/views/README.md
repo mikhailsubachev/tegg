@@ -25,7 +25,7 @@ the expected files keep their bytes.
 
 | File | Input → action | Criteria |
 | --- | --- | --- |
-| `new-view-autor.yml`, `new-view-board-book.yml` | `New view` › Table on `type/autor`, › Board on `type/book`, `Done` | FR-QRY-07 AC-4 (b), (c) |
+| `new-view-autor.yml` | `New view` › Table on `type/autor`, `Done` (slice Q3: › Wall on `type/book` is `../views-display/queries/new-view-wall-book.yml`; `new-view-board-book.yml` removed, D-2196) | FR-QRY-07 AC-4 (b), (c) |
 | `types/autor-views-new-view.yml`, `types/book-views-new-view.yml` | the type file after New view | AC-4 (b), (c) |
 | `types/book-views-podle-zanru.yml` | Show a saved query `Podle žánru` | AC-5 |
 | `types/book-views-dragged.yml` (+ `-crlf-`, `-no-newline-`), `types/book-views-move-right.yml` | `Výborné knihy` dragged before `Rozečtené`; `Move view right` on `Rozečtené` | AC-6, FR-FMT-07 AC-33 |
@@ -34,7 +34,7 @@ the expected files keep their bytes.
 | `types/book-views-removed.yml`, `types/book-views-empty.yml` | Remove `Přečtené 2026`; then the other two | AC-10 |
 | `types/book-views-block-to-flow.yml` | the block-list variant, Remove `Přečtené 2026` | AC-12 (c) |
 | `prectene-2026-columns-genres.yml`, `prectene-2026-columns-reordered.yml` | `Columns` › Genres; the `Finished` header dragged before `Author` | AC-3, AC-18 |
-| `rozectene-lanes-horizontal.yml`, `podle-autora-lanes-horizontal.yml`, `podle-zanru-lanes-vertical.yml` (+ `-crlf`, `-no-newline`) | lanes switch | FR-QRY-05 AC-17, FR-FMT-07 AC-32 |
+| `rozectene-lanes-horizontal.yml`, `podle-autora-lanes-horizontal.yml`, `podle-zanru-lanes-vertical.yml` (+ `-crlf`, `-no-newline`) | lanes switch on `query/<name>` (slice Q3, D-2179, D-2196: the files keep their names; the changed line is written in the new words `lanes: rows` / `lanes: columns`) | FR-QRY-05 AC-17, FR-FMT-07 AC-32 |
 | `rozectene-lane-order-to-read-first.yml`, `podle-zanru-lane-order-cestopis.yml`, `podle-autora-lane-order-tomas.yml`, `rozectene-lane-order-reset.yml` | lane drags; Reset lane order | FR-QRY-05 AC-19 |
 | `podle-zanru-sort-add-level.yml`, `podle-zanru-lane-order-reset-after-drag.yml` | `+ Add sort`; lane drag then Reset lane order | FR-QRY-01 AC-10 (c), FR-FMT-07 AC-32 |
 | `vyborne-knihy-sort-two-levels.yml`, `vyborne-knihy-sort-back-to-one.yml` | ⇧-click Finished; Remove that level | FR-QRY-01 AC-10 (a), (b) |

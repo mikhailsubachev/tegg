@@ -11,7 +11,7 @@ sort:
 limit: 50
 view: board
 group_by: { due: period }
-lanes: vertical
+lanes: columns
 done_lane: { within_days: 7, folded: true }
 created: 2026-10-13T08:00:00+02:00
 modified: 2026-10-14T12:00:00+02:00

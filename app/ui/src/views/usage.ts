@@ -107,10 +107,15 @@ export function scopeOf(u: Usage): 'tab' | 'block' | 'default' {
 
 /** D-1856: `Use the query's sort` / `columns` is offered when the usage has the key, valid or broken; never on the
  *  query page. */
-export function canUseQuery(result: RunLike, key: 'sort' | 'columns'): boolean {
+export function canUseQuery(result: RunLike, key: 'sort' | 'columns' | 'view' | 'grouping'): boolean {
   const u = result.usage;
   if (!u) return false;
-  return u.own[key] !== null || u.broken.some((b) => b.key === key);
+  const has = (own: unknown, k: string) => (own !== null && own !== undefined) || u.broken.some((b) => b.key === k);
+  // Slice Q3 (§40.2, D-2192): `Use the query's display` with an own `view`; `… grouping` with own `group_by`, `lanes`
+  // or `lane_order` (valid or broken).
+  if (key === 'view') return has(u.own.view, 'view');
+  if (key === 'grouping') return has(u.own.group, 'group_by') || has(u.own.lanes, 'lanes') || has(u.own.laneOrder, 'lane_order');
+  return has(u.own[key], key);
 }
 
 type UsageUi = Pick<UiStateDto, 'typeViews' | 'usageColumnWidths' | 'usageFolded' | 'tagFilter'>;

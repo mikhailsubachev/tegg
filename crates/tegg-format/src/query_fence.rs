@@ -79,7 +79,7 @@ pub fn query_fences(text: &str) -> Vec<QueryFence> {
 
 /// A reference body's own values (v1-views §13.2, R195): `Absent`/`Absent` for inline, empty and unreadable bodies.
 pub fn fence_usage(body: &str) -> crate::usage::UsageRaw {
-    let absent = crate::usage::UsageRaw { sort: crate::usage::UsageValue::Absent, columns: crate::usage::UsageValue::Absent };
+    let absent = crate::usage::UsageRaw::default();
     if saved_name(body).is_none() {
         return absent;
     }

@@ -11,6 +11,7 @@ import { applyTaskChange, completeTask, type TaskState } from '@tegg/doc';
 import { t, catalogLocale } from '../../i18n/catalog';
 import { ipc } from '../../ipc/client';
 import type { GroupingDto, LaneDto, QueryDefDto, QueryEnvDto, QueryResultDto, QueryRowDto } from '../../ipc/queries';
+import { lanesDir } from '../../ipc/queries';
 import type { TaskRowDto, TypeDto } from '../../ipc/types';
 import { CardMenu, type MoveTarget } from '../../tasks/CardMenu';
 import { shortDate } from '../../tasks/views';
@@ -30,8 +31,8 @@ import type { TaskNav } from '../../tasks/TaskCard';
 
 /** What a Task card on a board needs (§29.5): the result's Task definitions and its nav and toggle. */
 type TaskCardContext = { defs: TaskDefsDto; nav: TaskNav; onToggle: (row: QueryRowDto, done: boolean) => void };
-import { cardMove, excludedValues, laneOrderAfterDrop, neighbourDropLane, prefillFor } from './model';
-import { writeCardChange, writeCardMove, writePeriodMove, type CardMoveResult } from './write';
+import { beforeAfterLastMovable, cardMove, excludedValues, laneMovable, laneOrderAfterDrop, neighbourDropLane, prefillFor } from './model';
+import { taskStatusChange, writeCardChange, writeCardMove, writePeriodMove, type CardMoveResult } from './write';
 import type { PeriodMove } from '@tegg/doc';
 import { isPhone } from '../../phone/layout';
 
@@ -50,41 +51,24 @@ export type BoardFilter = { text: string; tags: string[] };
 /** The card a board should focus when it shows again (Back after ⏎ on a card, R191). */
 let returnTo: { name: string | null; key: string; lane: string } | null = null;
 
-// ------------------------------------------------------------------ `__TEGG_TEST__.board()` (contract §5)
+// ------------------------------------------------------------------ `__TEGG_TEST__.board()` (contract §5, v1-views §43.1)
 
-type Snapshot = { name: string | null; lanes: { id: string; cards: string[]; days: { date: string; cards: string[] }[]; folded: boolean }[]; domCards: number };
-const mounted = new Set<() => Snapshot>();
+type Snapshot = { name: string | null; display?: 'wall'; grouped?: boolean; lanes: { id: string; cards: string[]; days: { date: string; cards: string[] }[]; folded: boolean }[]; domCards: number };
+const mounted = new Set<() => unknown>();
 function installHook() {
   if (typeof window === 'undefined') return;
   const w = window as { __TEGG_TEST__?: Record<string, unknown> };
   if (typeof w.__TEGG_TEST__?.board === 'function') return;
   w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), board: () => [...mounted].map((f) => f()) };
 }
-
-/** The `Lanes` radiogroup (R187, §4.3): one `query_apply` with `lanes` flipped; the checked radio writes nothing. */
-export function LanesSwitch({ lanes, disabled, onSwitch }: { lanes: 'vertical' | 'horizontal'; disabled: string | null; onSwitch: (l: 'vertical' | 'horizontal') => void }) {
-  return (
-    <div role="radiogroup" aria-label={t('board.lanes')} data-command="board.switchLanes" className="segmented lanes-switch">
-      {(['vertical', 'horizontal'] as const).map((l) => (
-        <button key={l} type="button" role="radio" aria-checked={lanes === l} tabIndex={lanes === l ? 0 : -1} data-command="board.switchLanes"
-          title={t(l === 'vertical' ? 'board.verticalTitle' : 'board.horizontalTitle')}
-          aria-disabled={disabled ? 'true' : undefined} aria-description={disabled ?? undefined}
-          className={lanes === l ? 'on' : ''}
-          onClick={() => { if (!disabled && lanes !== l) onSwitch(l); }}
-          onKeyDown={(e) => {
-            if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-            e.preventDefault();
-            const next = lanes === 'vertical' ? 'horizontal' : 'vertical';
-            (e.currentTarget.parentElement?.querySelector<HTMLElement>(`[role="radio"]:nth-child(${next === 'vertical' ? 1 : 2})`))?.focus();
-            if (!disabled) onSwitch(next);
-          }}>
-          {t(l === 'vertical' ? 'board.vertical' : 'board.horizontal')}
-        </button>
-      ))}
-    </div>
-  );
+/** Slice Q3: a wall (grouped or not) adds its entry to `__TEGG_TEST__.board()` while mounted. */
+export function registerBoardSnapshot(f: () => unknown): () => void {
+  installHook();
+  mounted.add(f);
+  return () => { mounted.delete(f); };
 }
 
+/** Slice Q2's board, the grouped wall of slice Q3 (`QueryWall` draws it when the run has a grouping, v1-views §41.4). */
 export function QueryBoard({ result, name, title, readOnly: readOnlyProp, types, filter, apply, rerun, controlRef, foldKey = null, env: runEnv }: {
   result: QueryResultDto & { group: GroupingDto; def: QueryDefDto };
   /** The saved query's name (folds, the hook); null for an inline fence. */
@@ -202,8 +186,8 @@ export function QueryBoard({ result, name, title, readOnly: readOnlyProp, types,
     const tone = isPeriod && l.id === 'period:today' && isTaskDue ? 'danger' as const : isPeriod && l.kind === 'none' ? 'muted' as const : null;
     return {
       id: l.id, kind: l.kind, label: labelOf(l), userLabel: !(l.kind === 'none' || l.kind === 'period' || l.kind === 'done'), color: l.color, cards, excluded: l.excluded,
-      excludedText: def.lanes === 'horizontal' ? t('board.excludedLong', { values: listFormat(excludedValues(group)) }) : t('board.excluded'),
-      dropTarget: l.dropTarget, grip: (l.dropTarget || l.kind === 'period') && l.kind !== 'none' && l.kind !== 'done',
+      excludedText: def.lanes === 'rows' ? t('board.excludedLong', { values: listFormat(excludedValues(group)) }) : t('board.excluded'),
+      dropTarget: l.dropTarget, grip: laneMovable(l),
       newLabel: newOk ? t('board.newIn', { type: pageType!.name, lane: labelOf(l) }) : null,
       days, hint, tone, countLabel: countText(cards.length),
     };
@@ -228,14 +212,11 @@ export function QueryBoard({ result, name, title, readOnly: readOnlyProp, types,
 
   // ---- the test hook (contract §5).
   const snap = useRef<() => Snapshot>(() => ({ name, lanes: [], domCards: 0 }));
-  snap.current = () => ({ name, lanes: lanesShown.map((l) => ({ id: l.id, cards: l.cards, days: (l.days ?? []).map((d) => ({ date: d.date, cards: d.cards })), folded: folded.includes(l.id) && def.lanes === 'horizontal' })),
+  snap.current = () => ({ name, display: 'wall', grouped: true, lanes: lanesShown.map((l) => ({ id: l.id, cards: l.cards, days: (l.days ?? []).map((d) => ({ date: d.date, cards: d.cards })), folded: folded.includes(l.id) && def.lanes === 'rows' })),
     domCards: root.current?.querySelectorAll('article[data-board-card]').length ?? 0 });
   useEffect(() => {
     ensureViewsLive();
-    installHook();
-    const f = () => snap.current();
-    mounted.add(f);
-    return () => { mounted.delete(f); };
+    return registerBoardSnapshot(() => snap.current());
   }, []);
 
   // ---- the focus to restore (Back, a moved card) and the one the palette's commands act on.
@@ -390,9 +371,7 @@ export function QueryBoard({ result, name, title, readOnly: readOnlyProp, types,
   const taskStatus = (row: QueryRowDto, label: string) => {
     const defs = result.taskDefs;
     if (!defs) return;
-    const stateOf = (l: string | null) => (defs.statuses.find((x) => x.label === l)?.state ?? 'open') as TaskState;
-    const firstOpen = defs.statuses.find((x) => x.state === 'open')?.label ?? defs.statuses[0]?.label ?? '';
-    taskWrite(row, (text) => applyTaskChange(text, { kind: 'status', to: label, toState: stateOf(label), fromState: stateOf(row.taskRow?.status ?? null), firstOpen, now: nowIso(Date.now()) })?.text ?? null);
+    taskWrite(row, taskStatusChange(defs, row, label, nowIso(Date.now())));
   };
 
   // ---- the card menu: Open, Move to ›, Also add to › (list kinds); the two submenus open beside their item (§20).
@@ -451,12 +430,13 @@ export function QueryBoard({ result, name, title, readOnly: readOnlyProp, types,
   const moveLane = (dir: 1 | -1) => {
     const id = focusedLane();
     if (!id || readOnly) return;
-    const movable = group.lanes.filter((l) => l.kind !== 'none' && l.kind !== 'done');
+    // D-2218: unknown-value and unresolved lanes don't move and keep their place after the known ones.
+    const movable = group.lanes.filter(laneMovable);
     const i = movable.findIndex((l) => l.id === id);
     if (i < 0) return;
     const j = i + dir;
     if (j < 0 || j >= movable.length) return;
-    const before = dir < 0 ? movable[j].id : movable[j + 1]?.id ?? null;
+    const before = dir < 0 ? movable[j].id : movable[j + 1]?.id ?? beforeAfterLastMovable(group);
     const order = laneOrderAfterDrop(group, id, before);
     if (!order) return;
     apply({ laneOrder: order });
@@ -465,11 +445,11 @@ export function QueryBoard({ result, name, title, readOnly: readOnlyProp, types,
   const control: BoardControl = {
     status: () => {
       const c = focusedCard();
-      return { lanes: def.lanes, laneOrder: def.laneOrder !== null, cardFocused: !!c, laneFocused: focusedLane() !== null, taskFocused: !!c && !!rowsByPath.get(c.key)?.taskRow && !!taskCtx };
+      return { lanes: lanesDir(def.lanes), laneOrder: def.laneOrder !== null, cardFocused: !!c, laneFocused: focusedLane() !== null, taskFocused: !!c && !!rowsByPath.get(c.key)?.taskRow && !!taskCtx };
     },
     run: (id) => {
       switch (id) {
-        case 'board.switchLanes': if (!readOnly) apply({ lanes: def.lanes === 'vertical' ? 'horizontal' : 'vertical' }); return true;
+        case 'board.switchLanes': if (!readOnly) apply({ lanes: def.lanes === 'columns' ? 'rows' : 'columns' }); return true;
         case 'board.resetLaneOrder': if (!readOnly && def.laneOrder !== null) apply({ laneOrder: null }); return true;
         case 'task.complete': case 'task.setStatus': {
           const c = focusedCard();
@@ -517,14 +497,15 @@ export function QueryBoard({ result, name, title, readOnly: readOnlyProp, types,
   const row = (key: string) => rowsByPath.get(key);
   return (
     <div ref={root} className="query-board">
-      <Board label={title} name={name} groupBy={nfc(group.key)} lanes={def.lanes} data={lanesShown} folded={folded} onFold={onFold}
+      <Board wall label={title} name={name} groupBy={nfc(group.key)} lanes={lanesDir(def.lanes)} data={lanesShown} folded={folded} onFold={onFold}
         readOnly={readOnly}
         canDragCard={(key) => !!row(key) && !row(key)!.readOnly}
         dropLabel={dropLabel}
         onCardDrop={(key, from, to, alt) => doMove(key, from, to, alt)}
         onLaneDrop={(id, before) => {
           if (readOnly) return;
-          const order = laneOrderAfterDrop(group, id, before);
+          // D-2217: "after the last movable lane" stays before the unknown-value and unresolved lanes.
+          const order = laneOrderAfterDrop(group, id, before ?? beforeAfterLastMovable(group));
           if (!order) return;
           apply({ laneOrder: order });
           const l = laneById(id);

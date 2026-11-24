@@ -26,7 +26,7 @@ export function HeaderCell(props: HeaderCellProps) {
 }
 
 function HeaderCellImpl({ col, first, width, sortable = true, ariaSort, marker, description, disabled, movable, keys = false, resizable = true,
-  plain = false, scroller, titleWidth = 0, onSort, onMove, onDrop, onWidth, onCancelWidth }: {
+  plain = false, scroller, titleWidth = 0, onSort, onMove, onDrop, onWidth, onCancelWidth, resizeDisabled = null, onWidthBlur }: {
   col: HeaderColumn;
   /** The Title column: sticky, its own minimum width, never dragged (D-1798). */
   first: boolean;
@@ -52,6 +52,10 @@ function HeaderCellImpl({ col, first, width, sortable = true, ariaSort, marker, 
   onDrop?: (before: string | null) => void;
   onWidth?: (px: number | null, save: 'now' | 'later' | 'no') => void;
   onCancelWidth?: () => void;
+  /** Slice Q3 (FR-QRY-05 AC-45, §41.6): why the widths can't be written (the handle is `aria-disabled`), else null. */
+  resizeDisabled?: string | null;
+  /** Slice Q3 (§41.6): the handle lost the focus (keyboard steps are written then). */
+  onWidthBlur?: () => void;
 }) {
   const press = useRef<{ x: number; moved: boolean; moves: number } | null>(null);
   const dragged = useRef(false);
@@ -114,13 +118,16 @@ function HeaderCellImpl({ col, first, width, sortable = true, ariaSort, marker, 
       {resizable && (
         <span role="separator" aria-orientation="vertical" aria-label={t('typePage.resize', { column: col.label })} tabIndex={0} className="col-resize"
           aria-valuenow={Math.round(width)} aria-valuemin={min} aria-valuemax={WIDTH.max}
+          aria-disabled={resizeDisabled ? 'true' : undefined} aria-description={resizeDisabled ?? undefined}
           onFocus={(e) => reveal(e.currentTarget.parentElement as HTMLElement)}
+          onBlur={() => onWidthBlur?.()}
           onClick={(e) => e.stopPropagation()}
-          onDoubleClick={(e) => { e.stopPropagation(); if (resetByPress.current) { resetByPress.current = false; return; } onWidth?.(null, 'now'); }}
+          onDoubleClick={(e) => { e.stopPropagation(); if (resizeDisabled) return; if (resetByPress.current) { resetByPress.current = false; return; } onWidth?.(null, 'now'); }}
           onPointerDown={(e) => {
             if (e.button !== 0) return;
             e.stopPropagation();
             e.preventDefault();
+            if (resizeDisabled) return;
             // The second press of a double-click resets the width (D-1248); the click events after it may be held back
             // (the multi-click guard of D-1674 after a route change), the press never is.
             if (e.detail === 2) { resetByPress.current = true; onWidth?.(null, 'now'); return; }
@@ -149,6 +156,7 @@ function HeaderCellImpl({ col, first, width, sortable = true, ariaSort, marker, 
             if (r && r.last !== r.w) onWidth?.(r.last, 'now'); // a press without a move stores nothing
           }}
           onKeyDown={(e) => {
+            if (resizeDisabled) return;
             const step = e.shiftKey ? 50 : 10;
             const next = e.key === 'ArrowRight' ? width + step : e.key === 'ArrowLeft' ? width - step : e.key === 'Home' ? min : e.key === 'End' ? WIDTH.max
               : e.key === 'Backspace' || e.key === 'Delete' ? null : undefined;

@@ -343,7 +343,8 @@ test('fr_typ_01_ac25_views_lists_the_real_views', async ({ page }) => {
   const rows = await list.locator('li[data-view-row]').evaluateAll((ls) => ls.map((l) => [l.getAttribute('data-view-row'), (l.textContent ?? '').replace(/\s+/g, ' ').trim()]));
   assert.deepEqual(rows.map(([n]) => n), ['', 'Rozečtené', 'Přečtené 2026', 'Výborné knihy'], 'All Books, then views: in order');
   assert.ok(rows[0][1]?.includes('All Books') && rows[0][1].includes('Default · always first'), 'All Books: Default · always first');
-  assert.ok(rows[1][1]?.includes('Board · by Status') && rows[2][1]?.includes('Table') && rows[3][1]?.includes('Table'), 'kinds');
+  // Slice Q3 (AC-Test-Change, D-2196; FR-TYP-01 AC-29, R227): `Wall · by Status` (`typeSettings.viewKindBy`).
+  assert.ok(rows[1][1]?.includes('Wall · by Status') && rows[2][1]?.includes('Table') && rows[3][1]?.includes('Table'), 'kinds');
   assert.equal(await list.locator('li[data-view-row=""]').getByRole('button').count(), 0, 'All has no handle, Edit or remove');
   for (const n of ['Rozečtené', 'Přečtené 2026', 'Výborné knihy']) {
     const r = list.locator(`li[data-view-row="${n}"]`);
@@ -384,7 +385,8 @@ test('fr_typ_01_ac27_restore_default_views_inside_views', async ({ page }) => {
   const list = await must(viewsList(page, 'Tasks'), 'Views of Tasks');
   const rows = await list.locator('li[data-view-row]').evaluateAll((ls) => ls.map((l) => [l.getAttribute('data-view-row'), (l.textContent ?? '').replace(/\s+/g, ' ').trim()]));
   assert.deepEqual(rows.map(([n]) => n), ['', 'Schedule', 'Kanban', 'Čeká na ostatní'], 'All Tasks, Schedule, Kanban, Čeká na ostatní');
-  assert.ok(rows[1][1]?.includes('Board · by Due date') && rows[2][1]?.includes('Board · by Status') && rows[3][1]?.includes('Table'), 'their kinds');
+  // Slice Q3 (AC-Test-Change, D-2196; FR-TYP-01 AC-29, R227): `Wall · by Due date`, `Wall · by Status`.
+  assert.ok(rows[1][1]?.includes('Wall · by Due date') && rows[2][1]?.includes('Wall · by Status') && rows[3][1]?.includes('Table'), 'their kinds');
   const btns = await tsSection(page, 'views').getByRole('button').evaluateAll((bs) => bs.map((b) => (b.getAttribute('aria-label') ?? b.textContent ?? '').trim()));
   assert.equal(btns.at(-1)?.replace(/[⟦⟧]/g, ''), 'Restore default views', 'Restore default views last in the Views section');
   void STAV_Q; void queryRoute; void board; void typeRoute;

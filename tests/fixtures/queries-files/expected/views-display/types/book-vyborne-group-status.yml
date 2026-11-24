@@ -1,0 +1,49 @@
+# Tegg type definition (FR-TYP-01, FR-STO-06, D-90). Edit it in Tegg's type settings.
+version: 1
+name: Book
+plural: Books
+system: false
+folder: Books
+icon: book
+color: purple
+description: Knihy, které jsem četl, čtu nebo chci číst.
+review: false
+preview: [author, status]
+columns: [author, rating, status, modified]
+views:
+  - Rozečtené
+  - Přečtené 2026
+  - name: Výborné knihy
+    group_by: status
+attributes:
+  - key: author
+    name: Author
+    type: relation
+    to: [autor]
+  - key: status
+    name: Status
+    type: select
+    default: To read
+    options:
+      - { label: To read, color: gray }
+      - { label: Reading, color: blue }
+      - { label: Read, color: green }
+  - key: rating
+    name: Rating
+    type: select
+    options:
+      - { label: Excellent, color: green }
+      - { label: Good, color: blue }
+      - { label: Bad, color: red }
+  - key: genres
+    name: Genres
+    type: multi-select
+    options:
+      - { label: Román, color: purple }
+      - { label: Detektivka, color: orange }
+      - { label: Poezie, color: teal }
+      - { label: Eseje, color: yellow }
+      - { label: Cestopis, color: blue }
+  - key: finished
+    name: Finished
+    type: date

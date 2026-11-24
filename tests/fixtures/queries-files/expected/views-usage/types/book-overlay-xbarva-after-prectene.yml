@@ -13,9 +13,9 @@ columns: [author, rating, status, modified]
 views:
   - Rozečtené
   - name: Přečtené 2026
+    x-barva: modrá
     sort: { by: finished, order: asc }
     columns: [author, rating, finished, genres]
-    x-barva: modrá
   - name: Výborné knihy
     sort:
       - { by: title, order: asc }

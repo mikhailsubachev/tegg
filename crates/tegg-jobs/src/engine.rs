@@ -739,6 +739,9 @@ struct Run {
     kept_type: bool,
     /// v1-queries §1.8: the `query-rename` plan's query file (before and after).
     query: Option<QueryRenamePlan>,
+    /// v1-views §38 (D-2193): a note rename's type files whose `views:` lane orders name the note, at their planning
+    /// versions (the write's base; a change stops the job before any write).
+    types: Vec<(String, FileVersion)>,
 }
 
 impl Run {
@@ -753,7 +756,7 @@ impl Run {
     /// The pins file's row and the query files' link patch rows (v1-queries §1.8) are listed but not counted; a
     /// `query-rename`'s own file counts.
     fn side_row(&self, p: &str) -> bool {
-        p == PINS_PATH || (self.kind != JobKind::QueryRename && p.starts_with(".tegg/queries/"))
+        p == PINS_PATH || (self.kind != JobKind::QueryRename && (p.starts_with(".tegg/queries/") || p.starts_with(".tegg/types/")))
     }
     fn skip(&mut self, path: &str, reason: SkipReason) {
         self.skipped.push(Skipped {
@@ -840,6 +843,7 @@ impl Inner {
             type_base: None,
             kept_type: false,
             query: None,
+            types: Vec::new(),
         };
         let result = self.execute(&mut run, &op, from_title);
         if result.is_ok() {
@@ -1067,7 +1071,7 @@ impl Inner {
         let id = run.id;
         self.set_phase(id, Phase::Planning, 0, 0);
         let plan = match op {
-            JobOp::NoteRename { path, title } => self.plan_rename(id, path, title, from_title)?,
+            JobOp::NoteRename { path, title } => self.plan_rename(id, run, path, title, from_title)?,
             JobOp::Undo { job } | JobOp::Redo { job } => {
                 self.plan_undo(id, *job, matches!(op, JobOp::Undo { .. }))?
             }
@@ -1159,7 +1163,7 @@ impl Inner {
         }
         self.set_phase(id, Phase::Writing, 0, total);
         match op {
-            JobOp::NoteRename { .. } => self.write_rename(run, plan),
+            JobOp::NoteRename { .. } => self.write_rename(run, plan)?,
             JobOp::Undo { job } => self.write_undo(run, *job, true),
             JobOp::Redo { job } => self.write_undo(run, *job, false),
             JobOp::Inbox { .. } => {
@@ -1224,6 +1228,7 @@ impl Inner {
     fn plan_rename(
         &self,
         id: JobId,
+        run: &mut Run,
         path: &str,
         title: &str,
         from_title: Option<String>,
@@ -1263,6 +1268,16 @@ impl Inner {
         };
         let to_path = join(&folder, &to_stem);
         let paths = host.note_paths();
+        // v1-views §38 (D-2193): the type files whose `views:` lane orders name the note, at their versions now.
+        run.types = host
+            .type_files()
+            .into_iter()
+            .filter_map(|p| {
+                let (b, v) = host.read(&p).ok()?;
+                let t = std::str::from_utf8(&b).ok()?;
+                tegg_schema::relink_view_lane_orders(t, &path, &to_path, &paths).map(|_| (p, v))
+            })
+            .collect();
         let retarget = TextOp::RetargetLinks {
             from_path: path.clone(),
             from_stem: stem.clone(),
@@ -1284,6 +1299,12 @@ impl Inner {
             ],
         }];
         let mut linking = host.linking(&path);
+        // v1-views §38 (D-2193): notes whose reference fences' `lane_order` names the note, without another link to it.
+        for p in host.fence_lane_order_paths(&path) {
+            if p != path && !linking.contains(&p) {
+                linking.push(p);
+            }
+        }
         linking.sort();
         for p in linking {
             if let Some(v) = host.version(&p) {
@@ -1312,10 +1333,16 @@ impl Inner {
         })
     }
 
-    fn write_rename(&self, run: &mut Run, mut plan: JobPlan) {
+    fn write_rename(&self, run: &mut Run, mut plan: JobPlan) -> Result<(), String> {
         let host = self.host().clone();
         if plan.files.is_empty() {
-            return;
+            return Ok(());
+        }
+        // v1-views §38 (D-2193): a type file changed since planning stops the job before any write.
+        if let Some((p, _)) = run.types.iter().find(|(p, v)| !host.version(p).is_some_and(|now| now.same_content(v))) {
+            let p = p.clone();
+            run.skip(&p, SkipReason::Changed);
+            return Err(format!("Changed: {p}"));
         }
         let id = run.id;
         let note = plan.files[0].clone();
@@ -1332,12 +1359,12 @@ impl Inner {
             Ok(x) => x,
             Err(e) => {
                 run.skip(&note.path, read_reason(&e));
-                return;
+                return Ok(());
             }
         };
         if std::str::from_utf8(&pre).is_err() {
             run.skip(&note.path, SkipReason::ReadOnly); // D-180: never written
-            return;
+            return Ok(());
         }
         let mut to = plan.renames.first().map(|(_, t)| t.clone());
         let mut tries = 0;
@@ -1399,7 +1426,7 @@ impl Inner {
             Err(reason) => {
                 // The renamed note itself couldn't be written: no link may move to a name that doesn't exist.
                 run.skip(&note.path, reason);
-                return;
+                return Ok(());
             }
         }
         // The plan records the final target for every file (and for Retry).
@@ -1436,11 +1463,15 @@ impl Inner {
         }
         // v1-queries §1.8 (FR-LNK-03 AC-23): query files' link values follow the note, before its pins.
         if let (Some((from, to)), TextOp::RetargetLinks { paths, .. }) = (run.renamed.clone(), &ops[1]) {
-            self.write_queries(run, &[QueryPatch::ObjectMoved { from, to, paths: Arc::new(paths.clone()) }], true);
+            self.write_queries(run, &[QueryPatch::ObjectMoved { from: from.clone(), to: to.clone(), paths: Arc::new(paths.clone()) }], true);
+            // v1-views §38 (D-2193): then the type files' `views:` lane orders, against their planning versions.
+            let bases = std::mem::take(&mut run.types);
+            self.write_types(run, &[(from, to)], paths, Some(bases), true);
         }
         // v1-pinned §1.6 (FR-LNK-03 AC-22): last, the pin of the renamed note follows its final path and `id`.
         let patches = self.moved_patches(run.renamed.iter().cloned());
         self.write_pins(run, &patches, true);
+        Ok(())
     }
 
     // -------------------------------------------------------------------------------------------- query rename (slice Q)
@@ -1528,6 +1559,71 @@ impl Inner {
                 Ok(None) => {}
                 Err(e) => run.skip(&path, write_reason(&e)),
             }
+        }
+    }
+
+    /// v1-views §38 (D-2193, CP-36 = D-2201): the type files' `views:` lane orders follow the moves (`tegg_schema::
+    /// relink_view_lane_orders`), as the query files' row: listed in `written`, byte rows of the undo record (direct),
+    /// journal entries of a single-note job, a conflict skipped. `bases`: the files and versions the plan read (a note
+    /// rename); None reads every type file now (a move job).
+    fn write_types(&self, run: &mut Run, moves: &[(String, String)], paths: &[String], bases: Option<Vec<(String, FileVersion)>>, journal: bool) {
+        if moves.is_empty() {
+            return;
+        }
+        let host = self.host().clone();
+        let files: Vec<(String, Option<FileVersion>)> = match bases {
+            Some(b) => b.into_iter().map(|(p, v)| (p, Some(v))).collect(),
+            None => host.type_files().into_iter().map(|p| (p, None)).collect(),
+        };
+        let mut any = false;
+        for (p, base) in files {
+            let (pre, pre_v) = match host.read(&p) {
+                Ok(x) => x,
+                Err(e) => {
+                    if base.is_some() {
+                        run.skip(&p, read_reason(&e));
+                    }
+                    continue;
+                }
+            };
+            if base.as_ref().is_some_and(|b| !pre_v.same_content(b)) {
+                run.skip(&p, SkipReason::Changed);
+                continue;
+            }
+            let Ok(text) = std::str::from_utf8(&pre) else { continue };
+            // Each move in turn over the note paths as they are before it.
+            let mut now_paths: Vec<String> = paths.iter().map(|x| nfc(x)).collect();
+            let mut out = text.to_string();
+            for (from, to) in moves {
+                if let Some(next) = tegg_schema::relink_view_lane_orders(&out, from, to, &now_paths) {
+                    out = next;
+                }
+                let (f, t) = (nfc(from), nfc(to));
+                for x in now_paths.iter_mut().filter(|x| **x == f) {
+                    *x = t.clone();
+                }
+            }
+            if out == text {
+                continue;
+            }
+            let base_v = base.unwrap_or_else(|| pre_v.clone());
+            match host.write(&p, out.as_bytes(), &base_v) {
+                Ok(Wrote::Written(post_v)) => {
+                    if journal {
+                        let entry = crate::journal::Entry { at: p.clone(), to: p.clone(), pre: pre.clone(), target: Some(out.clone().into_bytes()) };
+                        crate::journal::add_entry(host.as_ref(), run.id, &entry);
+                        crate::journal::progress(host.as_ref(), run.id, &p, &p, &post_v);
+                    }
+                    run.written.push(p.clone());
+                    run.undo.files.push(Written { before: p.clone(), after: p, pre, pre_v, post: out.into_bytes(), post_v, via_op: false, direct: true, trashed: None });
+                    any = true;
+                }
+                Ok(Wrote::Unchanged) => {}
+                Err(e) => run.skip(&p, write_reason(&e)),
+            }
+        }
+        if any {
+            host.types_changed();
         }
     }
 

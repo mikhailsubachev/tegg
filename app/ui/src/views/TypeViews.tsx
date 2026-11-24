@@ -4,7 +4,7 @@
 // editor; Show a saved query), tab drags and `Move view left / right`, the view menu (chevron, right-click, ⇧F10, the
 // toolbar's `⋯`), rename / duplicate / remove / trash, the remembered tab (machine-local, no history entry) and the
 // per-tab filter text. Each tab change is one `type_patch` of the `views` line, refused on an outside change.
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { usePopupPlacement } from '../shell/usePopupPlacement';
 import { t } from '../i18n/catalog';
@@ -20,8 +20,9 @@ import { queryNav } from '../queries/nav';
 import { renameQuery } from '../queries/QueryMenu';
 import { trashView } from './trashView';
 import type { TypePatch } from './useUsageWrite';
+import type { ViewsStatus } from '../shell/commands';
 import { refreshQueries, useQueries } from '../queries/store';
-import { defaultGroupBy, hasViews, nameKey, newViewDef, savedOffers, viewTabs, viewsAfterDrop, viewsAfterInsert, viewsAfterMove, viewsAfterRemove, type OfferReason } from './model';
+import { hasViews, nameKey, newViewDef, savedOffers, viewTabs, viewsAfterDrop, viewsAfterInsert, viewsAfterMove, viewsAfterRemove, type OfferReason } from './model';
 import { lastTab, lastTabOf, setLastTab, setTagFilter, tagFilterOf } from './uiState';
 import { tagFilterKey } from './tagFilter';
 import { lastFocused, useViewsHandler } from './actions';
@@ -35,7 +36,14 @@ const EMPTY: TabFilter = { text: '', tags: [] };
 
 export { hasViews };
 
-export type AllTab = { toolbar: ReactNode; body: ReactNode };
+/** `attrs`: slice Q3's usage-root attributes of the `All` panel (`data-display`, `data-group`, §42.1). */
+export type AllTab = { toolbar: ReactNode; body: ReactNode; attrs?: Record<string, string | undefined>; status?: () => ViewsStatus['display']; run?: (id: string) => boolean };
+
+/** The request mark of a view tab's display (§42.5): `board-request` for a wall, `rows-request` for a Table or List. */
+function requestMark(kind: 'table' | 'list' | 'wall' | null | undefined) {
+  if (kind === 'wall') void ipc.perfMark('board-request').catch(() => {});
+  else if (kind === 'table' || kind === 'list') void ipc.perfMark('rows-request').catch(() => {});
+}
 
 export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, openAdd }: {
   typeKey: string;
@@ -81,28 +89,28 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, op
     const asked = tab ? tabs.find((x) => x.key === nameKey(tab)) : undefined;
     if (asked) { setSelected(asked.name); setLastTab(typeKey, asked.name); }
   }, [tab, tabNonce]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [draft, setDraft] = useState<{ kind: 'table' | 'list' | 'board'; def: QueryDefDto } | null>(null);
+  const [draft, setDraft] = useState<{ kind: 'table' | 'list' | 'wall'; def: QueryDefDto } | null>(null);
   const [live, setLive] = useState<QueryResultDto | null>(null);
   const shownName = selected === DRAFT ? (draft ? DRAFT : null) : selected !== null && tabs.some((x) => x.key === nameKey(selected)) ? tabs.find((x) => x.key === nameKey(selected))!.name : null;
   const select = (name: string | null) => {
     setSelected(name);
     if (name !== DRAFT) setLastTab(typeKey, name);
-    const s = name ? tabs.find((x) => x.key === nameKey(name))?.summary : null;
-    if (s?.view === 'board') void ipc.perfMark('board-request').catch(() => {});
+    // Slice Q3 (§42.5): every wall tab, grouped or not, asks for its board; a Table or List tab for its rows.
+    const k = name ? tabs.find((x) => x.key === nameKey(name))?.kind : null;
+    requestMark(k);
   };
   // A remembered board tab opened with the page asks for its board too (D-1800).
   const opened = useRef(false);
   useEffect(() => {
     if (opened.current || !summaries || !shownName || shownName === DRAFT) return;
     opened.current = true;
-    if (tabs.find((x) => x.name === shownName)?.summary?.view === 'board') void ipc.perfMark('board-request').catch(() => {});
+    requestMark(tabs.find((x) => x.name === shownName)?.kind);
   }, [summaries, shownName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- per-tab state: the filter text and tags (D-1796) and the run state shown on the tab.
   const [filters, setFilters] = useState<Record<string, TabFilter>>({});
   const [states, setStates] = useState<Record<string, ViewState>>({});
   const panel = useRef<PanelApi | null>(null);
-  const [slot, setSlot] = useState<HTMLDivElement | null>(null);
   const tablist = useRef<HTMLDivElement | null>(null);
   const addBtn = useRef<HTMLButtonElement | null>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -198,11 +206,10 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, op
     void refreshQueries();
     const next = viewsAfterInsert(names, q.name, name);
     if (!next) return;
-    // D-1843, D-1863: the copy gets the tab's own sort and columns in the same write (widths aren't copied).
+    // Slice Q3 (§36.3, CP-35, D-2200): the copy's item gets the original's own lines in the same write (`viewCopy`).
     const item = (cur.viewItems ?? []).find((x) => nameKey(x.name) === nameKey(name)) ?? null;
     const extra: TypeOpDto[] = [];
-    if (item?.sort && !item.sortBroken) extra.push({ op: 'viewSort', name: nfc(q.name), sort: item.sort });
-    if (item?.columns && !item.columnsBroken) extra.push({ op: 'viewColumns', name: nfc(q.name), columns: item.columns.map(nfc) });
+    if (item && !item.plain) extra.push({ op: 'viewCopy', from: nfc(item.name), to: nfc(q.name) });
     if (!extra.length) { void writeViews(next, { afterCreate: true, select: q.name }); return; }
     const base = disk.current ?? cur;
     if (!(base.state === 'ok' && !base.viewsUnreadable)) return;
@@ -219,7 +226,7 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, op
     const next = viewsAfterInsert(names, s.name, null);
     if (next) void writeViews(next, { select: s.name });
   };
-  const newView = (kind: 'table' | 'list' | 'board') => {
+  const newView = (kind: 'table' | 'list' | 'wall') => {
     if (!writable) return;
     const def = newViewDef(cur, kind, types);
     setDraft({ kind, def });
@@ -278,9 +285,10 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, op
   }); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---- the tab list as shown: All, the views, the draft.
-  type TabItem = { name: string; label: string; kind: 'table' | 'list' | 'board' | null; summary: QuerySummaryDto | null; draft: boolean };
+  type TabItem = { name: string; label: string; kind: 'table' | 'list' | 'wall' | null; summary: QuerySummaryDto | null; draft: boolean };
   const items: TabItem[] = [
-    ...tabs.map((x) => ({ name: x.name, label: x.name, kind: x.summary?.view ?? null, summary: x.summary, draft: false })),
+    // Slice Q3 (FR-QRY-07 AC-33): the icon and `data-view-kind` follow the tab's effective display.
+    ...tabs.map((x) => ({ name: x.name, label: x.name, kind: x.kind, summary: x.summary, draft: false })),
     ...(draft ? [{ name: DRAFT, label: t('views.newName'), kind: draft.kind, summary: null, draft: true }] : []),
   ];
   const order = [null, ...items.map((x) => x.name)];
@@ -347,6 +355,7 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, op
       const b = v ? panel.current?.board() ?? null : null;
       return { typeKey: cur.key, tab: v, writable, viewWritable: !!v && !ro && !!panel.current?.def(), board: b ? b.status() : null, sortable: !!v && !!panel.current?.def(),
         usage: v ? panel.current?.usage() ?? null : null,
+        display: v ? (() => { const d = panel.current?.display(); if (!d) return null; const { resetLaneOrder: _r, ...rest } = d; void _r; return rest; })() : all.status?.() ?? null,
         // D-2463: on the phone each tab runs its own command.
         phoneTabs: isPhone() ? ['', ...items.filter((it) => !it.draft).map((it) => nfc(it.name))] : undefined };
     },
@@ -367,7 +376,9 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, op
         case 'sort.addLevel': panel.current?.openSort(true); return;
         case 'sort.useQuery': panel.current?.useQuery('sort'); return;
         case 'columns.useQuery': panel.current?.useQuery('columns'); return;
-        default: panel.current?.board()?.run(id);
+        default:
+          if (viewName()) panel.current?.run(id);
+          else all.run?.(id);
       }
     },
   });
@@ -390,8 +401,9 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, op
       item('remove', t('views.remove', { plural }), () => remove(name), { description: writable ? t('views.removeHint') : reason ?? undefined, disabled: !writable }),
       // Slice Q2.1 (§15; D-1835): the tab goes too, in one Undo with the move.
       item('trash', t('views.trash'), () => { trash(name, summary?.name ?? name, summary?.title ?? name); }, { description: writable ? undefined : reason ?? undefined, disabled: !writable }),
-      ...(toolbar && isSel && def?.view === 'board' && def.laneOrder !== null
-        ? [item('reset', t('board.resetOrder'), () => panel.current?.board()?.run('board.resetLaneOrder'))] : []),
+      // Slice Q3 (§40.2): on any grouped usage with an effective `lane_order`.
+      ...(toolbar && isSel && def && panel.current?.display()?.resetLaneOrder
+        ? [item('reset', t('board.resetOrder'), () => panel.current?.run('board.resetLaneOrder'))] : []),
     ];
   };
 
@@ -403,14 +415,38 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, op
         : r === 'allTypes' ? t('views.reason.allTypes', { thisType: cur.name })
           : r === 'needsNote' ? t('views.reason.needsNote') : t('views.reason.unreadable');
   };
-  const groupName = (() => { const k = defaultGroupBy(cur); return k === 'tags' ? t('attr.tags') : cur.attributes.find((a) => nfc(a.key) === k)?.name ?? k; })();
 
   const selectedItem = shownName === null ? null : items.find((it) => it.name === shownName) ?? null;
   // Slice AND-2 (android-phone §9.5, RA11): on the phone the tabs are chips that only select: no `Add view`, chevron,
   // view menu or tab drag.
   const phone = isPhone();
+  // ---- Slice Q3: the toolbar shares the tab row while both fit; otherwise it goes below the tabs (as the row wrapped).
+  const area = useRef<HTMLDivElement | null>(null);
+  const [stacked, setStacked] = useState(false);
+  useLayoutEffect(() => {
+    const el = area.current;
+    if (!el) return;
+    const measure = () => {
+      const tabsEl = el.querySelector<HTMLElement>('.view-tabs');
+      const addEl = el.querySelector<HTMLElement>('.view-add');
+      const tb = el.querySelector<HTMLElement>('.view-toolbar');
+      if (!tabsEl || !tb) return;
+      const need = tabsEl.scrollWidth + (addEl?.offsetWidth ?? 0) + tb.scrollWidth + 24;
+      const next = need > el.clientWidth;
+      setStacked((cur) => (cur === next ? cur : next));
+    };
+    measure();
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    ro?.observe(el);
+    const tb = el.querySelector<HTMLElement>('.view-toolbar');
+    if (tb) ro?.observe(tb);
+    const tabsEl = el.querySelector<HTMLElement>('.view-tabs');
+    if (tabsEl) ro?.observe(tabsEl);
+    return () => ro?.disconnect();
+  });
+  // Slice Q3: each tab panel holds its own toolbar (display switch, Group, sort, …), drawn on the tab row (§42.1).
   return (
-    <>
+    <div ref={area} className={`view-area${stacked ? ' stacked' : ''}`}>
       <div className="view-bar">
         <aside className="view-tabs-wrap">
           <div ref={tablist} role="tablist" aria-label={t('typePage.views')} className="view-tabs" data-views-tablist=""
@@ -464,12 +500,14 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, op
             <Icon name="plus" size={14} />
           </button>}
         </aside>
-        <div className="view-toolbar-slot" ref={setSlot}>{shownName === null && all.toolbar}</div>
       </div>
       {shownName === null ? (
-        <div role="tabpanel" id="view-panel" aria-labelledby={tabId(null)} data-view-panel="" className="view-panel">{all.body}</div>
+        <div role="tabpanel" id="view-panel" aria-labelledby={tabId(null)} data-view-panel="" className="view-panel" {...(all.attrs ?? {})}>
+          <div className="view-toolbar-cell">{all.toolbar}</div>
+          <div className="view-body">{all.body}</div>
+        </div>
       ) : selectedItem && (
-        <ViewPanel key={selectedItem.name} name={selectedItem.draft ? t('views.newName') : selectedItem.name} typeKey={typeKey} type={cur} types={types} plural={plural} slot={slot}
+        <ViewPanel key={selectedItem.name} name={selectedItem.draft ? t('views.newName') : selectedItem.name} typeKey={typeKey} type={cur} types={types} plural={plural}
           filter={filters[selectedItem.name] ?? (selectedItem.draft ? EMPTY : { text: '', tags: tagFilterOf(tagFilterKey({ kind: 'tab', typeKey, name: selectedItem.name })) })}
           onFilter={(f) => setFilters((m) => ({ ...m, [selectedItem.name]: f }))}
           onTags={selectedItem.draft ? undefined : (tags) => setTagFilter(tagFilterKey({ kind: 'tab', typeKey, name: selectedItem.name }), tags)}
@@ -479,7 +517,7 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, op
           patch={usagePatch} />
       )}
       {addOpen && (
-        <AddViewMenu anchor={addBtn.current} boardBy={t('views.kind.boardBy', { attribute: groupName })}
+        <AddViewMenu anchor={addBtn.current}
           offers={offers} reasonText={reasonText}
           onKind={(k) => { setAddOpen(false); newView(k); }}
           onSaved={(s) => { setAddOpen(false); showSaved(s); }}
@@ -490,17 +528,17 @@ export function TypeViews({ typeKey, type, types, plural, all, tab, tabNonce, op
           onClose={() => setMenu(null)} fit popupId={menu.toolbar ? 'views.menu' : 'views.tabMenu'}
           openerKind={menu.at ? 'context' : 'menu'} at={menu.at ?? null} />
       )}
-    </>
+    </div>
   );
 }
 
-/** `Add view` (board B, §4.3): group `New view` (Table, List, Board `by <attribute>`), a separator, group `Show a saved
+/** `Add view` (board B, §4.3, §41.8): group `New view` (Table, List, Wall), a separator, group `Show a saved
  *  query` (enabled first by title, then greyed with their reasons). Arrow keys move over every item; ⏎ / a click
  *  chooses; a greyed item does nothing; Esc or a click outside closes it. */
-function AddViewMenu({ anchor, boardBy, offers, reasonText, onKind, onSaved, onClose }: {
-  anchor: HTMLElement | null; boardBy: string;
+function AddViewMenu({ anchor, offers, reasonText, onKind, onSaved, onClose }: {
+  anchor: HTMLElement | null;
   offers: ReturnType<typeof savedOffers>; reasonText: (r: OfferReason, s: QuerySummaryDto) => string;
-  onKind: (k: 'table' | 'list' | 'board') => void; onSaved: (s: QuerySummaryDto) => void; onClose: () => void;
+  onKind: (k: 'table' | 'list' | 'wall') => void; onSaved: (s: QuerySummaryDto) => void; onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   // Slice Q2.1 (§20): placed inside the window, in a body portal.
@@ -538,7 +576,7 @@ function AddViewMenu({ anchor, boardBy, offers, reasonText, onKind, onSaved, onC
         <div className="menu-group-head" aria-hidden="true">{t('views.newGroup')}</div>
         {item('table', t('views.kind.table'), <><Icon name="table" size={14} /><span className="menu-title">{t('views.kind.table')}</span></>, () => onKind('table'))}
         {item('list', t('views.kind.list'), <><Icon name="list" size={14} /><span className="menu-title">{t('views.kind.list')}</span></>, () => onKind('list'))}
-        {item('board', t('views.kind.board'), <><Icon name="board" size={14} /><span className="menu-title">{t('views.kind.board')}</span><span className="menu-hint" aria-hidden="true">{boardBy}</span></>, () => onKind('board'), { description: boardBy })}
+        {item('wall', t('views.kind.wall'), <><Icon name="wall" size={14} /><span className="menu-title">{t('views.kind.wall')}</span></>, () => onKind('wall'))}
       </div>
       <div role="separator" className="menu-sep" />
       <div role="group" aria-label={t('views.savedGroup')}>

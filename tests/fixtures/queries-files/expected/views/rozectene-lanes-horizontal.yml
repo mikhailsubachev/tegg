@@ -12,7 +12,7 @@ sort:
 limit: 50
 view: board
 group_by: status
-lanes: horizontal
+lanes: rows
 lane_order: [Reading, To read, Read]
 columns: [author, rating]
 created: 2026-11-02T20:00:00+01:00

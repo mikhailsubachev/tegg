@@ -33,7 +33,9 @@ function withTaskViews() {
     f['.tegg/types/task.yml'] = f['.tegg/types/task.yml'].replace(/^(preview: .*\n)/m, '$1views: [Schedule, Kanban]\n');
   });
 }
-const lanesRadio = (page: Page, name: 'Vertical' | 'Horizontal') => main(page).locator('div.view-toolbar [role="radiogroup"]').getByRole('radio', { name, exact: true });
+// Slice Q3 (AC-Test-Change, D-2196; FR-UX-03 AC-57): the steps use the display switch's buttons (the pressed `Wall`, which
+// writes nothing) instead of the removed Lanes radios.
+const displayButton = (page: Page, d: 'list' | 'table' | 'wall') => main(page).locator(`div.view-toolbar div[role="group"][data-display-switch] button[data-display="${d}"]`);
 const filterTasksField = (page: Page) => main(page).getByRole('searchbox', { name: 'Filter Tasks…', exact: true });
 
 test.use({ timezoneId: 'Europe/Prague' });
@@ -140,10 +142,10 @@ test('fr_ux_03_ac13_no_focus_ring_after_a_pointer_click', async ({ page }) => {
   await gotoInbox(page);
   states.push(...await pointer(page, main(page).getByRole('group', { name: 'Filter by type', exact: true }).getByRole('button').first(), 'Inbox filter button'));
   states.push(...await pointer(page, cardNamed(page, CARD.Q2), `Inbox card ${CARD.Q2}`));
-  // Tasks: the Lanes radios, the tabs Kanban and Schedule, a task card.
+  // Tasks: the display switch, the tabs Kanban and Schedule, a task card.
   await runCommand(page, 'Go to Tasks');
   await must(tasksHeading(page), 'heading "Tasks"', 5000);
-  states.push(...await pointer(page, lanesRadio(page, 'Horizontal'), 'radio Horizontal'));
+  states.push(...await pointer(page, displayButton(page, 'wall'), 'display button Wall'));
   states.push(...await pointer(page, viewTab(page, 'Kanban'), 'tab Kanban'));
   states.push(...await pointer(page, viewTab(page, 'Schedule'), 'tab Schedule'));
   states.push(...await pointer(page, viewTab(page, 'Kanban'), 'tab Kanban again'));
@@ -184,7 +186,7 @@ test('fr_ux_03_ac13_keyboard_focus_shows_the_neutral_indicator', async ({ page }
   states.push(await keyboard(page, cardNamed(page, CARD.Q2), `Inbox card ${CARD.Q2}`));
   await runCommand(page, 'Go to Tasks');
   await must(tasksHeading(page), 'heading "Tasks"', 5000);
-  states.push(await keyboard(page, lanesRadio(page, 'Horizontal'), 'radio Horizontal'));
+  states.push(await keyboard(page, displayButton(page, 'wall'), 'display button Wall'));
   states.push(await keyboard(page, viewTab(page, 'Schedule'), 'tab Schedule'));
   await page.keyboard.press('ArrowRight'); // arrows between tabs
   await sleep(80);

@@ -12,8 +12,9 @@ import { chipIcon } from '../links/icons';
 import { RefElement } from '../preview/useReference';
 import { Icon, typeIconName } from '../shell/Icon';
 import { HeaderCell } from '../tables/HeaderCell';
-import { WIDTH, useColumnWidths } from '../tables/widths';
+import { WIDTH, useColumnWidths, type WidthScope } from '../tables/widths';
 import { TypeCell } from '../types/cell';
+import type { Grouped } from './Grouped';
 import { columnChoices, UNIVERSAL } from './model';
 import { queryNav } from './nav';
 import { levels, markers } from './sort';
@@ -35,7 +36,7 @@ export function columnsAfterDrop(columns: string[], key: string, before: string 
   return out.every((c, i) => nfc(c) === nfc(columns[i])) ? null : out;
 }
 
-export function ResultsTable({ def: fileDef, rows, types, typeOf, typeName, title, name, readOnly, plain = false, onOpen, onSort, onColumns, sort, columns, widthKey }: {
+export function ResultsTable({ def: fileDef, rows, types, typeOf, typeName, title, name, readOnly, plain = false, onOpen, onSort, onColumns, sort, columns, widthKey, widthScope = null, grouped = null }: {
   def: QueryDefDto; rows: QueryRowDto[]; types: TypeDto[]; typeOf: (k: string) => TypeDto | undefined; typeName: (k: string) => string;
   title: string; onOpen: (path: string) => void;
   /** The saved query (widths, levels, drags); null for an inline fence (slice Q's behaviour, D-1810). */
@@ -51,6 +52,11 @@ export function ResultsTable({ def: fileDef, rows, types, typeOf, typeName, titl
   columns?: string[];
   /** Slice Q2.1 (R198): the usage key its widths are kept under (machine-local). */
   widthKey?: string | null;
+  /** Slice Q3 (§41.6; D-2177, D-2190): where the widths are kept: a usage's own `widths` in the vault, `query/<name>`'s
+   *  `page:` key or, without one, `widthKey` on this Mac. */
+  widthScope?: WidthScope | null;
+  /** Slice Q3 (R225, §41.5): a grouped Table: group header rows and each group's rows, windowed together. */
+  grouped?: Grouped | null;
 }) {
   const def = useMemo(() => ({ ...fileDef, sort: sort ?? fileDef.sort, columns: columns ?? fileDef.columns }), [fileDef, sort, columns]);
   const one = def.types.length === 1 ? typeOf(def.types[0]) : undefined;
@@ -71,17 +77,21 @@ export function ResultsTable({ def: fileDef, rows, types, typeOf, typeName, titl
   }, [def, types, one]);
   const body = useRef<HTMLTableSectionElement | null>(null);
   const box = useRef<HTMLDivElement | null>(null);
-  const win = useRowWindow(body, rows.length);
+  const items = grouped ? grouped.items : null;
+  const total = items ? items.length : rows.length;
+  const win = useRowWindow(body, total);
   const [cursor, setCursor] = useState(0);
   const saved = name !== null;
   const ls = levels(def.sort);
   const marks = markers(def.sort);
-  const shown = rows.slice(win.from, win.to);
   // Slice AND-2 (android-phone §9.5): on the phone a tap anywhere on a row opens it (the cells' values are inert).
   const phone = isPhone();
 
   // ---- widths per usage (R198, D-1845): stored per column; Title without one fills what the others leave.
-  const { widths, set } = useColumnWidths({ kind: 'usage', key: saved && widthKey ? widthKey : '\u0000inline' });
+  const scope: WidthScope = widthScope && saved ? widthScope : { kind: 'usage', key: saved && widthKey ? widthKey : '\u0000inline' };
+  const { widths, set, remove, flush, vault } = useColumnWidths(scope);
+  const canWidth = saved && (!!widthKey || !!widthScope);
+  const resizeDisabled = scope.kind === 'usage' && scope.disabled ? scope.disabled : null;
   const [boxWidth, setBoxWidth] = useState(0);
   useLayoutEffect(() => {
     const el = box.current;
@@ -91,20 +101,26 @@ export function ResultsTable({ def: fileDef, rows, types, typeOf, typeName, titl
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const stored = saved && widthKey ? widths : {};
+  const stored = canWidth ? widths : {};
   const others = cols.slice(1).reduce((n, c) => n + (stored[c.key] ?? WIDTH.default), 0);
   const widthOf = (key: string) => stored[key] ?? (key === 'title' ? Math.max(WIDTH.titleFill, boxWidth - others) : WIDTH.default);
   const fixed = saved && boxWidth > 0;
   const tableWidth = widthOf('title') + others;
 
+  // The roving tab stop: the cursor's row, kept inside the window; on a group header, the next row.
+  const tabStop = (() => {
+    let j = Math.min(Math.max(cursor, win.from), Math.min(win.to, total) - 1);
+    if (items) while (j < Math.min(win.to, total) && items[j]?.kind === 'header') j++;
+    return j;
+  })();
   const focusRow = (i: number) => {
-    const j = Math.max(0, Math.min(rows.length - 1, i));
+    const j = Math.max(0, Math.min(total - 1, i));
     setCursor(j);
     win.reveal(j);
     requestAnimationFrame(() => body.current?.querySelector<HTMLElement>(`tr[data-index="${j}"]`)?.focus());
   };
   return (
-    <div className="query-table-box" ref={box}>
+    <div className="query-table-box" ref={(el) => { box.current = el; if (grouped) grouped.rootRef.current = el; }}>
       <table className={`query-table${fixed ? ' fixed' : ''}`} aria-label={title} style={fixed ? { width: tableWidth } : undefined}>
         {fixed && <colgroup>{cols.map((c) => <col key={c.key} style={{ width: widthOf(c.key) }} />)}</colgroup>}
         <thead>
@@ -118,13 +134,15 @@ export function ResultsTable({ def: fileDef, rows, types, typeOf, typeName, titl
                   ariaSort={level === 0 ? (order === 'asc' ? 'ascending' : 'descending') : undefined}
                   marker={m} description={level > 0 ? t('sort.level', { n: level + 1, order: t(order === 'asc' ? 'sort.ascending' : 'sort.descending') }) : readOnly ?? undefined}
                   disabled={!!readOnly} movable={saved && i > 0} resizable={saved} plain={plain} scroller={box} titleWidth={widthOf('title')}
+                  resizeDisabled={resizeDisabled} onWidthBlur={flush}
                   onSort={(shift) => onSort(c.key, shift)}
                   onDrop={(before) => { const next = columnsAfterDrop(def.columns, c.key, before); if (next) onColumns(next); }}
                   onWidth={(px, save) => {
-                    if (!saved || !widthKey) return;
-                    if (px === null) { set(c.key, c.key === 'title' ? WIDTH.titleFill : WIDTH.default, true); return; }
-                    // Resizing one column never changes another's width: a filling Title keeps the width it has now.
-                    if (c.key !== 'title' && stored.title === undefined) set('title', widthOf('title'), false);
+                    if (!canWidth || resizeDisabled) return;
+                    if (px === null) { if (vault) remove(c.key); else set(c.key, c.key === 'title' ? WIDTH.titleFill : WIDTH.default, true); return; }
+                    // Resizing one column never changes another's width: a filling Title keeps the width it has now
+                    // (on this Mac; a usage's vault widths write only the changed column, D-2190).
+                    if (!vault && c.key !== 'title' && stored.title === undefined) set('title', widthOf('title'), false);
                     set(c.key, px, save === 'now' ? true : save === 'later' ? 'later' : false);
                   }} />
               );
@@ -133,13 +151,23 @@ export function ResultsTable({ def: fileDef, rows, types, typeOf, typeName, titl
         </thead>
         <tbody ref={body}>
           {win.top > 0 && <tr className="query-spacer" aria-hidden="true"><td colSpan={cols.length} style={{ height: win.top }} /></tr>}
-          {shown.map((r, k) => {
+          {(items ? items.slice(win.from, win.to) : rows.slice(win.from, win.to).map((row) => ({ kind: 'row' as const, row, g: null as string | null }))).map((it, k) => {
             const i = win.from + k;
+            if (it.kind === 'header') {
+              const { className, ...rest } = grouped!.attrs(it.g);
+              return (
+                <tr key={`group:${it.g.id}`} className={className} {...rest} data-index={i} tabIndex={-1}>
+                  <td colSpan={cols.length}><div className="group-header-cell">{grouped!.parts(it.g)}</div></td>
+                </tr>
+              );
+            }
+            const r = it.row;
             const rt = typeOf(r.type);
             const done = r.task ? r.task.state === 'done' || r.task.state === 'cancelled' : false;
             return (
-              <RefElement as="tr" key={r.path} data-query-result={nfc(r.path)} data-path={nfc(r.path)} data-title={r.title} data-index={i}
-                tabIndex={i === Math.min(Math.max(cursor, win.from), Math.min(win.to, rows.length) - 1) ? 0 : -1} className="query-row"
+              <RefElement as="tr" key={it.g === null ? r.path : `${it.g}\n${r.path}`} data-query-result={nfc(r.path)} data-path={nfc(r.path)} data-title={r.title} data-index={i}
+                data-group-id={it.g ?? undefined}
+                tabIndex={i === tabStop ? 0 : -1} className="query-row"
                 reference={{ target: { path: nfc(r.path), fragment: null, kind: 'note' }, kind: 'row', open: () => onOpen(r.path) }}
                 onFocus={() => setCursor(i)}
                 onKeyDown={(e: React.KeyboardEvent) => {

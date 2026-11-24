@@ -5,10 +5,12 @@
 // §4.3, §4.4, §4.7. Written from the ACs and the contract only (D-61). Lookups go through `must` (TS-I1).
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   CTENI, P26_ROWS, Q, block, bookWithViews, click, description, drag, editor, eventually, expectedView, fileText, fileWhen, main, menuItem, must, openNote,
   original, panelHeaders, panelOf, panelRowsAre, qfile, queryRoute, rx, runCommand, seen, selectTab, sleep, sortButton, sortDialog, sortLevels, startViews,
-  swap, tab, textOf, toolbar, toolbarMenuButton, typeRoute, uiState, uiWrites, viewMenu, viewQuery, viewsVault, writes, BOOK_YML, near,
+  swap, tab, textOf, toolbar, toolbarMenuButton, typeRoute, uiState, uiWrites, viewMenu, viewQuery, viewsVault, writes, BOOK_YML, near, REPO,
 } from './views-helpers';
 
 test.use({ timezoneId: 'Europe/Prague' });
@@ -215,26 +217,26 @@ test('fr_qry_01_ac12_the_editor_for_a_view', async ({ page }) => {
   assert.ok(t.includes('fixed: a view of the Books page'), 'the Show hint');
   assert.equal(await e.getByRole('button', { name: rx('Remove Book') }).count(), 0, 'no `Remove Book`');
   assert.equal(await e.getByRole('button', { name: rx('Type') }).count(), 0, 'no `Type` button');
-  const view = e.getByRole('radiogroup', { name: rx('View') });
-  assert.equal(await view.getByRole('radio', { name: rx('Board') }).getAttribute('aria-checked'), 'true', 'Board checked');
-  const gb = e.getByRole('combobox', { name: rx('Group by') });
-  assert.equal(flat(await gb.inputValue().catch(() => textOf(gb))), 'Status', '`Group by` Status');
-  assert.equal(await description(gb), 'one lane per option', 'hint');
-  assert.ok(await seen(e.getByRole('radiogroup', { name: rx('Lanes') }), 500), '`Lanes`');
+  // Slice Q3 (AC-Test-Change, D-2196; D-2175, FR-QRY-01 AC-21): the editor has no View, Group by or Lanes row; the two
+  // commits move to query/Rozečtené's Group menu and display switch, with the same bytes.
+  assert.equal(await e.getByRole('radiogroup', { name: rx('View') }).count(), 0, 'no View');
+  assert.equal(await e.getByRole('combobox', { name: rx('Group by') }).count(), 0, 'no Group by');
+  assert.equal(await e.getByRole('radiogroup', { name: rx('Lanes') }).count(), 0, 'no Lanes');
   // Slice Q2-T (AC-Test-Change, D-1912; D-1891): no `On cards` row; cards follow the type's Preview properties.
   assert.equal(await e.getByRole('group', { name: rx('On cards') }).count(), 0, 'no `On cards` row');
   assert.equal(await e.getByText('Sort', { exact: true }).count(), 0, 'no Sort row');
-  assert.equal(await e.getByRole('spinbutton', { name: rx('Limit') }).count() + await e.getByRole('textbox', { name: rx('Limit') }).count(), 0, 'no Limit with Board');
-  await click(gb, 'Group by');
-  await click(page.getByRole('option', { name: rx('Genres') }), 'Genres');
-  await click(e.getByRole('button', { name: rx('Done') }), 'Done');
-  assert.equal(await fileWhen(core, qfile(Q.roz), (x) => x === expectedView('rozectene-group-by-genres.yml')), expectedView('rozectene-group-by-genres.yml'), 'only group_by and modified');
-  await click(toolbarMenuButton(page), '⋯');
-  await click(menuItem(await must(viewMenu(page), 'menu'), 'Edit view'), 'Edit view');
-  await click(editor(page).getByRole('radiogroup', { name: rx('View') }).getByRole('radio', { name: rx('Table') }), 'Table');
-  await click(editor(page).getByRole('button', { name: rx('Done') }), 'Done');
-  assert.equal(await fileWhen(core, qfile(Q.roz), (x) => x === expectedView('rozectene-view-table.yml')), expectedView('rozectene-view-table.yml'), 'only view: table and modified; group_by, lanes, lane_order stay');
-  assert.equal((await writes(core)).filter((p) => p === qfile(Q.roz)).length, 2, 'one write per commit');
+  await page.keyboard.press('Escape');
+  await page.goto('about:blank');
+  const c2 = await startViews(page, { route: queryRoute(Q.roz) });
+  await click(main(page).locator('button[data-command="group.open"]'), 'Group');
+  await click(page.locator('div[role="menu"][data-popup="group"] [role="menuitemradio"][data-group-choice="genres"]'), 'Genres');
+  assert.equal(await fileWhen(c2, qfile(Q.roz), (x) => x === expectedView('rozectene-group-by-genres.yml')), expectedView('rozectene-group-by-genres.yml'), 'only group_by and modified');
+  await click(main(page).locator('div[data-display-switch] button[data-display="table"]'), 'Table');
+  assert.equal(await fileWhen(c2, qfile(Q.roz), (x) => x === expectedView('rozectene-view-table.yml')), expectedView('rozectene-view-table.yml'), 'only view: table and modified; group_by, lanes, lane_order stay');
+  assert.equal((await writes(c2)).filter((p) => p === qfile(Q.roz)).length, 2, 'one write per commit');
+  await click(main(page).locator('div[data-display-switch] button[data-display="wall"]'), 'Wall');
+  assert.ok(await fileWhen(c2, qfile(Q.roz), (x) => !!x?.includes('\nview: wall\n')), 'switching back writes `view: wall`');
+  void core;
   // Opened from Čtení's block, Show is editable.
   await openNote(page, 'Čtení 2026');
   await click(block(page, Q.roz).getByRole('button', { name: rx('Edit query') }), 'the block\'s Edit query');
@@ -249,21 +251,19 @@ test('fr_qry_01_ac13_group_by_choices', async ({ page }) => {
   await startViews(page, { route: typeRoute('book'), vault });
   await must(tab(page, Q.roz), 'tab Rozečtené', 8000);
   await selectTab(page, Q.roz);
-  await click(toolbarMenuButton(page), '⋯');
-  await click(menuItem(await must(viewMenu(page), 'menu'), 'Edit view'), 'Edit view');
-  await click(editor(page).getByRole('combobox', { name: rx('Group by') }), 'Group by');
-  const opts = (await page.getByRole('option').allInnerTexts()).map(flat);
+  // Slice Q3 (AC-Test-Change, D-2196; FR-QRY-05 AC-34, R223): the same choices in the Group menu, `None` first.
+  const groupTexts = async () => {
+    await click(toolbar(page).locator('button[data-command="group.open"]'), 'Group');
+    const m = await must(page.locator('div[role="menu"][data-popup="group"]'), 'menu Group by');
+    return (await m.locator('[role="menuitemradio"][data-group-choice]').allInnerTexts()).map(flat);
+  };
   // Q2-T (D-1929; D-1776, R201, v1-views §28.2): the date keys by period follow R189's choices.
-  assert.deepEqual(opts, ['Author', 'Status', 'Rating', 'Genres', 'Tags', 'Finished · by period', 'Created · by period', 'Modified · by period'],
-    'Book: Author, Status, Rating, Genres, then Tags; Finished only by period, then Created and Modified by period');
-  await page.keyboard.press('Escape');
+  assert.deepEqual(await groupTexts(), ['None', 'Author', 'Status', 'Rating', 'Genres', 'Tags', 'Finished · by period', 'Created · by period', 'Modified · by period'],
+    'Book: None, Author, Status, Rating, Genres, then Tags; Finished only by period, then Created and Modified by period');
   await page.keyboard.press('Escape');
   await runCommand(page, 'Go to type: Autoři');
   await selectTab(page, 'Autoři tabule');
-  await click(toolbarMenuButton(page), '⋯');
-  await click(menuItem(await must(viewMenu(page), 'menu'), 'Edit view'), 'Edit view');
-  await click(editor(page).getByRole('combobox', { name: rx('Group by') }), 'Group by');
-  assert.deepEqual((await page.getByRole('option').allInnerTexts()).map(flat), ['Tags', 'Created · by period', 'Modified · by period'], 'Autor: only Tags, then Created and Modified by period (D-1929)');
+  assert.deepEqual(await groupTexts(), ['None', 'Tags', 'Created · by period', 'Modified · by period'], 'Autor: None, Tags, then Created and Modified by period (D-1929)');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-QRY-05 AC-23
@@ -280,12 +280,12 @@ test('fr_qry_05_ac23_widths_per_query_shared_by_tab_and_blocks', async ({ page }
   const start = (await th.boundingBox())!;
   await drag(page, handle, { dx: 200 - start.width, dy: 0 });
   assert.ok(near((await th.boundingBox())!.width, 200), 'Title 200 px in the block');
-  // Q2.1 (D-1836 amends D-1767; R198): widths are per usage; the tab and the other block keep theirs.
-  const key = 'block:id:01JB5V00000000000000000029/přečtené 2026#1';
-  const ui = await eventually(() => uiState(core), (u) => u?.usageColumnWidths?.[key]?.title === 200);
-  assert.equal(ui?.usageColumnWidths?.[key]?.title, 200, `usageColumnWidths["${key}"].title = 200`);
-  assert.equal((await uiWrites(core)) - w0, 1, 'once on release');
-  assert.deepEqual(await writes(core), [], 'no vault file changes');
+  // Q2.1 (D-1836 amends D-1767; R198): widths are per usage; the tab and the other block keep theirs. Slice Q3
+  // (AC-Test-Change, D-2196; D-2177): the block's widths go into its fence, once, when the drag ends (a note write).
+  const want = readFileSync(join(REPO, 'tests/fixtures/queries-files/expected/views-display/notes/cteni-2026-prectene-widths-title-200.md'), 'utf8');
+  assert.equal(await fileWhen(core, CTENI, (t) => t === want), want, '`widths: { title: 200 }` in the block\'s fence (one autosave)');
+  assert.equal((await uiWrites(core)) - w0, 0, 'no ui_state_set for a block resize');
+  assert.deepEqual(await writes(core), [CTENI], 'one note write');
   await openNote(page, 'Druhá stránka');
   assert.ok(!near((await (await must(header(block(page, Q.p26), 'Title'), 'the second block', 5000)).boundingBox())!.width, 200), 'a second block of the query keeps its own width');
   await runCommand(page, 'Go to type: Books');

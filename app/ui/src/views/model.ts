@@ -1,7 +1,7 @@
 // Slice Q2: the pure model of a type page's views (docs/contracts/v1-views.md §4.2; R184, R186; D-1762, D-1763,
 // D-1781, D-1783, D-1787). A view is a saved query named in the type file's `views:`; every function answers the list
 // to write (null: unchanged), so the page sends one `type_patch` per change and none for a no-op.
-import type { QueryDefDto, QuerySummaryDto } from '../ipc/queries';
+import type { QueryDefDto, QuerySummaryDto, QueryViewKind } from '../ipc/queries';
 import type { TypeDto } from '../ipc/types';
 import { catalogLocale, t } from '../i18n/catalog';
 import { effectiveColumns } from '../types/columns';
@@ -11,7 +11,9 @@ const trimWs = (s: string) => s.replace(/^\p{White_Space}+|\p{White_Space}+$/gu,
 /** queries_q's `name_key` (D-1434, D-1818): trimmed, NFC, lower case. */
 export const nameKey = (s: string) => nfc(trimWs(s)).toLowerCase();
 
-export type ViewTab = { name: string; key: string; summary: QuerySummaryDto | null };
+/** Slice Q3 (§40.2): `kind` is the tab's effective display for its icon: the item's own valid `view`, else the
+ *  summary's (FR-QRY-07 AC-33). */
+export type ViewTab = { name: string; key: string; summary: QuerySummaryDto | null; kind: QueryViewKind | null };
 export type OfferReason = 'otherType' | 'severalTypes' | 'allTypes' | 'needsNote' | 'unreadable';
 
 /** D-1787, Q2-T §28.2: every defined type has views except Tag (Task included since Q2-T). */
@@ -42,7 +44,14 @@ function unique(names: readonly string[]): string[] {
 /** One tab per `views:` name (R184, R186): repeats dropped, a name with no query still a tab (summary null). */
 export function viewTabs(type: TypeDto | null | undefined, summaries: readonly QuerySummaryDto[]): ViewTab[] {
   if (!type || type.viewsUnreadable || !type.views) return [];
-  return unique(type.views).map((name) => ({ name, key: nameKey(name), summary: summaryOf(name, summaries) }));
+  const items = type.viewItems ?? [];
+  const asKind = (v: string | null | undefined): QueryViewKind | null => (v === 'board' ? 'wall' : v === 'list' || v === 'table' || v === 'wall' ? v : null);
+  return unique(type.views).map((name) => {
+    const summary = summaryOf(name, summaries);
+    const item = items.find((i) => nameKey(i.name) === nameKey(name));
+    const kind = asKind(item?.view ?? null) ?? asKind(summary?.view ?? null);
+    return { name, key: nameKey(name), summary, kind };
+  });
 }
 
 const same = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
@@ -139,18 +148,15 @@ export function defaultGroupBy(type: TypeDto | null | undefined): string {
   return sel ? nfc(sel.key) : 'tags';
 }
 
-/** `Add view › Table | List | Board` (D-1781, D-1783): the new view's definition. */
-export function newViewDef(type: TypeDto, kind: 'table' | 'list' | 'board', _typesAll?: readonly TypeDto[]): QueryDefDto {
-  const board = kind === 'board';
-  const groupBy = board ? defaultGroupBy(type) : null;
-  // Q2-T (D-1891, D-1910): a board's cards follow each type's `preview`, so a new Board writes no `columns`.
-  const columns = board ? [] : effectiveColumns(type);
-  // Q2-T: only a Board carries `groupPeriod` / `doneLane` here (views_model's exact Table def, FR-QRY-07 AC-4); the
-  // IPC reads a missing value as false / null.
+/** `Add view › Table | List | Wall` (D-1781, FR-QRY-07 AC-32): the new view's definition. A Wall has no `group_by`,
+ *  `lanes` or `columns` (board B; the query file's create rules write none of them). */
+export function newViewDef(type: TypeDto, kind: 'table' | 'list' | 'wall', _typesAll?: readonly TypeDto[]): QueryDefDto {
+  const wall = kind === 'wall';
+  const columns = wall ? [] : effectiveColumns(type);
   return {
     title: t('views.newName'), types: [nfc(type.key)], match: 'all', filters: [], sort: [{ by: 'modified', order: 'desc' }], limit: 50, view: kind,
-    groupBy, lanes: 'vertical', laneOrder: null, columns, ...(board ? { groupPeriod: false, doneLane: null } : {}),
-  } as QueryDefDto;
+    groupBy: null, groupPeriod: false, groupNone: false, lanes: 'columns', laneOrder: null, columns, doneLane: null,
+  };
 }
 
 // ---------------------------------------------------------------- slice Q2-T (v1-views §28.2; R201, R203; AP-1533)

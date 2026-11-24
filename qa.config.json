@@ -18,7 +18,7 @@
       "run": "npm run --silent --prefix packages/doc build && node tools/qa/src/cargo-junit.ts --junit \"$VERIFY_RESULTS/import-nightly.xml\" $(ls crates/tegg-import/tests/ac_*.rs 2>/dev/null) -- nfr_perf_ nightly_",
       "level": "nightly" },
     { "id": "core-perf-ac", "lane": "cargo", "dir": ".",
-      "run": "node tools/qa/src/cargo-junit.ts --junit \"$VERIFY_RESULTS/core-perf-ac.xml\" crates/tegg-core/tests/ac_perf.rs crates/tegg-core/tests/ac_perf_headroom.rs crates/tegg-core/tests/ac_pinned_perf.rs crates/tegg-index/tests/ac_nfr_perf_13.rs crates/tegg-core/tests/ac_related_perf.rs crates/tegg-core/tests/ac_views_perf.rs crates/tegg-core/tests/ac_views_tasks_perf.rs crates/tegg-core/tests/ac_cards_perf.rs",
+      "run": "node tools/qa/src/cargo-junit.ts --junit \"$VERIFY_RESULTS/core-perf-ac.xml\" crates/tegg-core/tests/ac_perf.rs crates/tegg-core/tests/ac_perf_headroom.rs crates/tegg-core/tests/ac_pinned_perf.rs crates/tegg-index/tests/ac_nfr_perf_13.rs crates/tegg-core/tests/ac_related_perf.rs crates/tegg-core/tests/ac_views_perf.rs crates/tegg-core/tests/ac_views_tasks_perf.rs crates/tegg-core/tests/ac_cards_perf.rs crates/tegg-core/tests/ac_views_display_perf.rs",
       "level": "nightly" },
     { "id": "core-perf-search-ac", "lane": "cargo", "dir": ".",
       "run": "node tools/qa/src/cargo-junit.ts --junit \"$VERIFY_RESULTS/core-perf-search-ac.xml\" crates/tegg-core/tests/ac_search_page.rs crates/tegg-core/tests/ac_search_title.rs -- fr_src_01_ac22_ fr_src_04_ac11_",

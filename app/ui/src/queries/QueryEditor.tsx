@@ -14,14 +14,14 @@ import { announceQuery, editorClosed, queryAlert, useEditorRequest, type EditorR
 import { queryEnv, nowIso } from './env';
 import { FLAG_OPS, UNIVERSAL, attributeGroups, attributeOf, columnsAfterTypes, defEquals, isValidRow, operatorsFor, parseLimit, type AttrItem } from './model';
 import { Chooser, type ListOption } from './Listbox';
-import { defaultGroupBy, doneLaneOffered, groupByChoices, periodChoices, stateOps } from '../views/model';
+import { doneLaneOffered, stateOps } from '../views/model';
 import { sortKeyName } from './SortPopover';
 import './editor.css';
 
 type Filter = Extract<FilterItemDto, { kind: 'filter' }>;
 const nfc = (s: string) => s.normalize('NFC');
 const stem = (p: string) => nfc((p.split('/').pop() ?? p).replace(/\.md$/i, ''));
-const DEFAULT_DEF = (): QueryDefDto => ({ title: t('query.editor.untitled'), types: [], match: 'all', filters: [], sort: [{ by: 'modified', order: 'desc' }], limit: 50, view: 'list', groupBy: null, lanes: 'vertical', laneOrder: null, columns: ['type', 'modified'], groupPeriod: false, doneLane: null });
+const DEFAULT_DEF = (): QueryDefDto => ({ title: t('query.editor.untitled'), types: [], match: 'all', filters: [], sort: [{ by: 'modified', order: 'desc' }], limit: 50, view: 'list', groupBy: null, lanes: 'columns', laneOrder: null, columns: ['type', 'modified'], groupPeriod: false, doneLane: null });
 
 /** Rows without an attribute and groups without rows are left out of runs and commits. */
 function clean(d: QueryDefDto): QueryDefDto {
@@ -193,14 +193,6 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
   const typeName = (k: string) => types.find((x) => nfc(x.key) === nfc(k))?.name ?? k;
   const update = (f: (d: QueryDefDto) => QueryDefDto) => setDef((d) => (d ? f(d) : d));
   const oneType = def.types.length === 1 ? (types.find((x) => nfc(x.key) === nfc(def.types[0])) as never as TypeDto | undefined) : undefined;
-  /** `<Name> · by period` (R201): the attribute's Name, `Created`, `Modified`. */
-  const periodLabel = (k: string) => t('query.editor.groupByPeriod', { attribute: sortKeyName(k, oneType).label });
-  const groupLabel = (k: string | null): { label: string; user: boolean } => {
-    if (k === null) return { label: '', user: false };
-    if (nfc(k) === 'tags') return { label: t('attr.tags'), user: false };
-    const a = oneType?.attributes.find((x) => nfc(x.key) === nfc(k));
-    return a ? { label: a.name, user: true } : { label: k, user: true };
-  };
   const setTypes = (next: string[]) => update((d) => ({ ...d, types: next, columns: columnsAfterTypes(d.columns, d.types, next, types) }));
 
   // ------------------------------------------------------------------ filter items, by their path
@@ -383,67 +375,29 @@ function QueryEditor({ req, types }: { req: EditorRequest; types: TypeDefDto[] }
         <button tabIndex={0} type="button" className="qe-add" onClick={addFilter}><Icon name="plus" size={12} />{t('query.editor.addFilter')}</button>
         <button tabIndex={0} type="button" className="qe-add" onClick={addGroup}><Icon name="plus" size={12} />{t('query.editor.addGroup')}</button>
       </div>
-      {def.view !== 'board' && (
-        // D-1795: no Sort row (sorting is on the view, R188); `Limit` hidden while View is Board.
-        <div className="qe-section qe-sort">
-          <label className="qe-limit">
-            <span>{t('query.editor.limit')}</span>
-            <input type="text" inputMode="numeric" aria-label={t('query.editor.limit')} value={limitText} aria-invalid={limitBad || undefined}
-              aria-describedby={limitBad ? 'qe-limit-error' : undefined}
-              onChange={(e) => { setLimitText(e.target.value); const n = parseLimit(e.target.value); if (n !== null) update((d) => ({ ...d, limit: n })); }} />
+      {/* D-1795: no Sort row (sorting is on the view, R188). D-2175: no View, Group by or Lanes rows (the display switch
+          and the Group menu set them); `Limit` always, with its hint (D-2189). */}
+      <div className="qe-section qe-sort">
+        <label className="qe-limit">
+          <span>{t('query.editor.limit')}</span>
+          <input type="text" inputMode="numeric" aria-label={t('query.editor.limit')} value={limitText} aria-invalid={limitBad || undefined}
+            aria-describedby={limitBad ? 'qe-limit-error qe-limit-hint' : 'qe-limit-hint'}
+            onChange={(e) => { setLimitText(e.target.value); const n = parseLimit(e.target.value); if (n !== null) update((d) => ({ ...d, limit: n })); }} />
+        </label>
+        <p id="qe-limit-hint" className="qe-hint qe-limit-hint">{t('query.editor.limitHint')}</p>
+      </div>
+      {limitBad && <p id="qe-limit-error" className="field-error">{t('query.editor.limitError')}</p>}
+      {doneLaneOffered(typeDtos as never) && def.groupBy !== null && (def.groupPeriod || def.groupBy.normalize('NFC') === 'status') && (
+        // Q2-T (§28.2, R201), D-2188: offered when the query file's own grouping is a period or a status with states;
+        // checked = the def has `done_lane`; checking sets 7 days, folded.
+        <div className="qe-section">
+          <label className="qe-check">
+            <input type="checkbox" data-done-lane="" checked={def.doneLane !== null}
+              aria-label={t('query.editor.doneLane', { count: def.doneLane?.withinDays ?? 7 })}
+              onChange={(e) => { const on = e.currentTarget.checked; update((d) => ({ ...d, doneLane: on ? { withinDays: 7, folded: true } : null })); }} />
+            <span>{t('query.editor.doneLane', { count: def.doneLane?.withinDays ?? 7 })}</span>
           </label>
         </div>
-      )}
-      {limitBad && <p id="qe-limit-error" className="field-error">{t('query.editor.limitError')}</p>}
-      <div className="qe-section">
-        <div className="qe-label">{t('query.editor.view')}</div>
-        <div className="qe-segment" role="radiogroup" aria-label={t('query.editor.view')}>
-          {(['table', 'list', 'board'] as const).map((v) => (
-            <button key={v} tabIndex={0} type="button" role="radio" aria-checked={def.view === v} className={def.view === v ? 'on' : ''}
-              onClick={() => update((d) => ({ ...d, view: v, groupBy: v === 'board' && d.groupBy === null && oneType ? defaultGroupBy(oneType) : d.groupBy }))}>
-              {t(v === 'list' ? 'query.editor.list' : v === 'table' ? 'query.editor.table' : 'query.editor.board')}
-            </button>
-          ))}
-        </div>
-        {def.view !== 'board' && <span className="qe-hint">{t('query.editor.tableHint')}</span>}
-      </div>
-      {def.view === 'board' && (
-        <>
-          <div className="qe-section">
-            <div className="qe-label">{t('query.editor.groupBy')}</div>
-            <Chooser label={t('query.editor.groupBy')}
-              display={def.groupPeriod && def.groupBy !== null ? periodLabel(def.groupBy) : <span data-user-content={groupLabel(def.groupBy).user ? '' : undefined}>{groupLabel(def.groupBy).label}</span>}
-              options={[
-                ...groupByChoices(oneType).map((k) => ({ id: k, label: groupLabel(k).label, userNamed: groupLabel(k).user, attrs: { 'data-group-by': k } })),
-                // Q2-T (§28.2, R201): every date key by period, after R189's choices.
-                ...periodChoices(oneType).map((k) => ({ id: `period:${k}`, label: periodLabel(k), description: t('query.editor.groupByPeriodHint'), attrs: { 'data-group-by': k, 'data-period': '' } })),
-              ]}
-              current={def.groupPeriod && def.groupBy !== null ? `period:${def.groupBy}` : def.groupBy}
-              onPick={(k) => update((d) => (k.startsWith('period:') ? { ...d, groupBy: k.slice(7), groupPeriod: true } : { ...d, groupBy: k, groupPeriod: false }))}
-              className="qe-groupby" describedBy="qe-groupby-hint" />
-            <span id="qe-groupby-hint" className="qe-hint">{t('query.editor.groupByHint')}</span>
-          </div>
-          <div className="qe-section">
-            <div className="qe-label">{t('query.editor.lanes')}</div>
-            <div className="qe-segment" role="radiogroup" aria-label={t('query.editor.lanes')}>
-              {(['vertical', 'horizontal'] as const).map((l) => (
-                <button key={l} tabIndex={0} type="button" role="radio" aria-checked={def.lanes === l} className={def.lanes === l ? 'on' : ''}
-                  onClick={() => update((d) => ({ ...d, lanes: l }))}>{t(l === 'vertical' ? 'board.vertical' : 'board.horizontal')}</button>
-              ))}
-            </div>
-          </div>
-          {doneLaneOffered(typeDtos as never) && (
-            // Q2-T (§28.2, R201): checked = the def has `done_lane`; checking sets 7 days, folded.
-            <div className="qe-section">
-              <label className="qe-check">
-                <input type="checkbox" data-done-lane="" checked={def.doneLane !== null}
-                  aria-label={t('query.editor.doneLane', { count: def.doneLane?.withinDays ?? 7 })}
-                  onChange={(e) => { const on = e.currentTarget.checked; update((d) => ({ ...d, doneLane: on ? { withinDays: 7, folded: true } : null })); }} />
-                <span>{t('query.editor.doneLane', { count: def.doneLane?.withinDays ?? 7 })}</span>
-              </label>
-            </div>
-          )}
-        </>
       )}
       <div className="qe-foot">
         <p className="qe-results">{count === null ? '' : t('query.editor.results', { count })}</p>

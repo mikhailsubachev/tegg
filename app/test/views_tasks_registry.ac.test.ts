@@ -100,7 +100,9 @@ const KEYS: Row[] = [
   ['board.period.none', {}, 'Not scheduled'], ['board.period.dropDate', { attribute: 'Due date', date: 'Fri 16 Oct' }, 'Drop to set Due date: Fri 16 Oct'],
   ['board.period.dropClear', { attribute: 'Due date' }, 'Drop to clear Due date'], ['board.done', {}, 'Done'],
   ['board.doneHint', { count: 7 }, 'Completed in the last 7 days'], ['board.doneStatusHint', { count: 7 }, 'Last 7 days'], ['board.dropDone', {}, 'Drop to mark done'],
-  ['query.editor.groupByPeriod', { attribute: 'Due date' }, 'Due date · by period'], ['query.editor.groupByPeriodHint', {}, 'one lane per period'],
+  // Slice Q3 (AC-Test-Change, D-2196; R227): `query.editor.groupByPeriod`, `.groupByPeriodHint` removed; the Group menu's
+  // `group.byPeriod` names a period grouping.
+  ['group.byPeriod', { attribute: 'Due date' }, 'Due date · by period'],
   ['query.editor.doneLane', { count: 7 }, 'Done in its own lane, last 7 days'], ['query.op.state_is', {}, 'state is'], ['query.op.state_is_not', {}, 'state is not'],
   ['board.laneCountOf', { count: 4, name: 'Task', plural: 'Tasks' }, '4 Tasks'], ['board.laneCountOf', { count: 1, name: 'Task', plural: 'Tasks' }, '1 Task'],
   ['sort.scope.thisMac', {}, 'Sort of this page on this Mac'], ['typeSettings.defaultViews', {}, 'Default views'], ['typeSettings.restoreViews', {}, 'Restore default views'],
@@ -119,6 +121,7 @@ const REMOVED = [
   'tasks.board.hintStatus', 'tasks.board.hintTag', 'tasks.moved', 'tasks.created', 'tasks.sort', 'tasks.sort.schedule', 'tasks.sort.kanban', 'tasks.doneMore', 'tasks.newIn',
   'cmd.tasks.groupStatus', 'cmd.tasks.groupTag', 'cmd.tasks.filterAll', 'cmd.tasks.filterToday', 'cmd.tasks.filterWeek', 'cmd.tasks.add', 'cmd.tasks.columnLeft',
   'cmd.tasks.columnRight', 'cmd.task.moveNext', 'cmd.task.movePrevious', 'query.editor.onCards', 'query.editor.onCardsChange',
+  'query.editor.groupByPeriod', 'query.editor.groupByPeriodHint',
 ];
 const KEPT = ['cmd.goto.tasks', 'cmd.tasks.schedule', 'cmd.tasks.kanban', 'cmd.tasks.search', 'cmd.task.complete', 'cmd.task.setStatus', 'tasks.summary.open', 'tasks.summary.overdue', 'tasks.tagFilter', 'typePage.filter', 'typePage.noMatch'];
 
