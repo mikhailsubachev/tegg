@@ -52,7 +52,12 @@
 7. Fixed: D-2123 recorded as not used.
 8. CLAUDE.md names D-2099…D-2130 (`be84a943`); `qa/manual/and-2.md` (FR-UX-01 AC-9) is the owner's manual review, open.
 
-Open after the fixes: two L5p load races flagged by the push gate's flaky reporter, both seen before the review:
-FR-NAV-04 AC-14 ("Menu again" taps where Menu is, which the open drawer covers, so it closes only while the drawer is
-still sliding in) and FR-INB-01 AC-14 (Back restores the Inbox scroll 200 → 0 in about 1 of 12 runs at 6 workers; the
-arrival routine finds no pending scroll; the cause isn't found yet).
+After the fixes (2026-11-24), the push gate's remaining failures were resolved:
+- FR-INB-01 AC-14 (Back kept the Inbox scroll one frame late) and FR-NAV-04 AC-14 ("Menu again"; Menu now closes the
+  drawer with the focus back on Menu): D-2131, `ef3368fa`, `7cf9673e` (60/60 and 30/30 under load).
+- FR-UX-07 AC-1 (the index's first progress gap under the browser suite's load): its own gate step, D-2132, `07596d6a`.
+- `./verify push` PASS on `07596d6a`.
+
+Still open: the owner's manual design review (FR-UX-01 AC-9, `qa/manual/and-2.md`); `main` update and `./verify merge`
+before merging; flaky marks outside this slice (desktop `outline` FR-EDT-11 AC-8, `pinned_file` FR-SYN-03 AC-26; LA
+FR-VLT-01 AC-20, AC-28 of AND-1).
