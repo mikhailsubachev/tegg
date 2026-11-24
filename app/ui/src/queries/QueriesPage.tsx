@@ -17,6 +17,8 @@ import { chipTypes, onChipTypes } from '../links/icons';
 import type { TypeDto } from '../ipc/types';
 import { nameKey, pageMarks } from '../views/model';
 import './pages.css';
+import { PageHeading } from '../phone/PageHeading';
+import { isPhone } from '../phone/layout';
 
 export type QueriesPageProps = {
   heading: RefObject<HTMLHeadingElement | null>;
@@ -73,9 +75,12 @@ export function QueriesPage({ heading, sort: sort0, onSort, onOpen }: QueriesPag
   const all = (list ?? []).filter((q, i, l) => l.findIndex((x) => x.name.normalize('NFC') === q.name.normalize('NFC')) === i);
   const f = fold(find.trim());
   const rows = sortQueries(all, sort).filter((q) => !f || fold(q.state === 'unreadable' ? q.name : q.title).includes(f));
+  // Slice AND-2 (android-phone §9.6, RA11): on the phone the list is view only: no find field, sort, New query, row
+  // menus or drags; the rows open their query.
+  const phone = isPhone();
   const header = (col: 'created' | 'updated') => {
     const on = sort === `${col}-desc` ? 'descending' : sort === `${col}-asc` ? 'ascending' : 'none';
-    const by = () => onSort(on === 'descending' ? `${col}-asc` : `${col}-desc`);
+    const by = () => { if (!phone) onSort(on === 'descending' ? `${col}-asc` : `${col}-desc`); };
     return (
       <th role="columnheader" tabIndex={0} aria-sort={on} className={on !== 'none' ? 'sorted' : ''}
         onClick={by} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); by(); } }}>
@@ -89,11 +94,11 @@ export function QueriesPage({ heading, sort: sort0, onSort, onOpen }: QueriesPag
       <header className="page-header query-page-header">
         <span className="query-tile" aria-hidden="true"><Icon name="query" size={22} /></span>
         <div className="type-header-text">
-          <h1 ref={heading} tabIndex={-1}>{t('queries.title')}</h1>
+          <PageHeading ref={heading} tabIndex={-1}>{t('queries.title')}</PageHeading>
           <p className="type-count">{t('queries.count', { count: all.length })}</p>
         </div>
       </header>
-      <div className="page-toolbar type-toolbar queries-toolbar">
+      {!phone && <div className="page-toolbar type-toolbar queries-toolbar">
         <input type="search" className="type-filter queries-find" aria-label={t('queries.find')} placeholder={t('queries.find')} value={find}
           spellCheck={false} autoComplete="off" onChange={(e) => setFind(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Escape' && find) { e.preventDefault(); e.stopPropagation(); setFind(''); } }} />
@@ -106,7 +111,7 @@ export function QueriesPage({ heading, sort: sort0, onSort, onOpen }: QueriesPag
           onClick={() => openNameDialog({ kind: 'new', returnFocus: newBtn.current })}>
           <Icon name="plus" size={14} />{t('queries.new')}
         </button>
-      </div>
+      </div>}
       {list && all.length === 0 && <p className="empty">{t('queries.empty')}</p>}
       {all.length > 0 && (
         <div className="table-scroll">
@@ -116,7 +121,7 @@ export function QueriesPage({ heading, sort: sort0, onSort, onOpen }: QueriesPag
                 <th role="columnheader" className="queries-col-title">{t('queries.col.query')}</th>
                 {header('created')}
                 {header('updated')}
-                <th role="columnheader" className="queries-col-menu" aria-hidden="true" />
+                {!phone && <th role="columnheader" className="queries-col-menu" aria-hidden="true" />}
               </tr>
             </thead>
             <tbody>
@@ -124,12 +129,12 @@ export function QueriesPage({ heading, sort: sort0, onSort, onOpen }: QueriesPag
                 const bad = q.state === 'unreadable';
                 return (
                   <tr key={q.name} className="type-row query-row" data-query-row={q.name} data-query-state={q.state} tabIndex={0}
-                    {...pinDragSource({ request: { kind: 'query', name: q.name }, label: q.title, icon: 'query' })}
+                    {...(phone ? {} : pinDragSource({ request: { kind: 'query', name: q.name }, label: q.title, icon: 'query' }))}
                     onClick={(e) => { if (!(e.target as HTMLElement).closest('button')) onOpen(q.name); }}
-                    onContextMenu={(e) => { e.preventDefault(); openMenu(q, e.currentTarget); }}
+                    onContextMenu={(e) => { e.preventDefault(); if (!phone) openMenu(q, e.currentTarget); }}
                     onKeyDown={(e) => {
                       if (e.target !== e.currentTarget) return;
-                      if (e.key === 'F10' && e.shiftKey) { e.preventDefault(); openMenu(q, e.currentTarget); return; }
+                      if (e.key === 'F10' && e.shiftKey && !phone) { e.preventDefault(); openMenu(q, e.currentTarget); return; }
                       if (e.key === 'Enter') { e.preventDefault(); onOpen(q.name); return; }
                       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
                         e.preventDefault();
@@ -149,12 +154,12 @@ export function QueriesPage({ heading, sort: sort0, onSort, onOpen }: QueriesPag
                     </td>
                     <td className="muted nowrap"><span data-user-content>{dayText(q.created)}</span></td>
                     <td className="muted nowrap"><span data-user-content>{dayText(q.modified)}</span></td>
-                    <td className="queries-col-menu">
+                    {!phone && <td className="queries-col-menu">
                       <button type="button" tabIndex={-1} className="icon-button small query-row-menu" data-command="queries.rowMenu" aria-label={t('queries.rowMenu')} aria-haspopup="menu"
                         aria-expanded={rowMenu?.q.name === q.name} onClick={(e) => openMenu(q, e.currentTarget)}>
                         <Icon name="more-horizontal" size={14} />
                       </button>
-                    </td>
+                    </td>}
                   </tr>
                 );
               })}

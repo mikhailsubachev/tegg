@@ -3,6 +3,7 @@
 // the vault chooser (FR-VLT-01) and the launch landing (D-132). The note route is the slice 3B read view (D-117).
 import { ShortcutsPage } from './pages/ShortcutsPage';
 import { resetMindmapViews } from './mindmap/mount';
+import { mapFullScreen, subscribeMapFullScreen } from './phone/fullScreen';
 import { registerConvertPrefs } from './convert/prefs';
 import { adoptTasksUi, registerViewsUiState } from './views/uiState';
 import { restoreDefaultViews, restoreState } from './views/defaultViews';
@@ -10,7 +11,7 @@ import { viewsActions, watchFocus } from './views/actions';
 import { cardsActions } from './cards/actions';
 import { registerRecentIcons } from './icons/recent';
 import { registerWidthsStore, widthsChanged } from './tables/widths';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { t } from './i18n/catalog';
 import { events, ipc } from './ipc/client';
 import type { ProgressDto, StartStateDto, SwitcherItemDto, TypeDefDto, UiStateDto, VaultInfo } from './ipc/types';
@@ -110,6 +111,16 @@ import { announce, closeCard, getCard, getOutline, openCard, requestFocus } from
 import { syncTracker } from './outline/tracker';
 import { setJumpHost } from './outline/jump';
 import { installMultiClickGuard, routeChanged } from './shell/multiClick';
+import { PageHeading } from './phone/PageHeading';
+import { isPhone } from './phone/layout';
+import { PhoneFrame, PhoneStartInsets } from './phone/PhoneFrame';
+import { Drawer } from './phone/Drawer';
+import { PhoneSettingsList, PhoneStorageSettings, PhoneVaultSettings } from './phone/PhoneSettings';
+import { installTestHooks, nativeState, onNative, syncWindow } from './phone/native';
+import { phoneRouteOffered } from './phone/routes';
+import { onResolved, setSystemDark, resolve as resolveTheme } from './theme/apply';
+import { VaultSwitcher } from './shell/Frame';
+import { PopupMenu } from './shell/Menu';
 
 const DAILY = 'daily/YYYY-MM-DD';
 /** The webview history mirror of the app's in-memory history (see the `popstate` effect in App). */
@@ -243,7 +254,8 @@ export function App() {
   const panelShowsGraph = useRef(false);
   /** "G3 in the panel" (D-1145): the panel's day file isn't known yet (R115 pending), for AP-972's reasons. */
   const panelPending = useRef(false);
-  useEffect(() => { setOfferHandler((r) => setOffer(r)); return () => setOfferHandler(null); }, []);
+  // Slice AND-2 (android-phone §9.3, FR-EDT-10 AC-11): on the phone a broken link only says there is no such note.
+  useEffect(() => { setOfferHandler((r) => { if (isPhone()) setPhoneNotice(t('phone.noNote', { name: r.target })); else setOffer(r); }); return () => setOfferHandler(null); }, []);
   useEffect(() => { setChipTypes(types); }, [types]);
   const [refresh, setRefresh] = useState(0);
   /** Slice G2 (v1-graph §15.7): the note page's own saves, which the watcher doesn't report; the panel graph re-asks.
@@ -264,6 +276,14 @@ export function App() {
   metaRef.current = meta;
   const [sourceToggle, setSourceToggle] = useState(0);
   const [conflicts, setConflicts] = useState(0);
+  // Slice AND-2 (android-phone §8): the phone's drawer, its `More actions` menu and the notice.
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [phoneMore, setPhoneMore] = useState<HTMLElement | null>(null);
+  const [phoneNotice, setPhoneNotice] = useState<string | null>(null);
+  const mapFull = useSyncExternalStore(subscribeMapFullScreen, mapFullScreen);
+  const phone = isPhone();
+  // Another vault opened from the drawer's switcher closes the drawer.
+  useEffect(() => { setDrawerOpen(false); }, [vault?.path]);
   const [quitAsk, setQuitAsk] = useState<'unsaved' | 'keepBoth' | null>(null);
   // The note page stays mounted through a rename (FR-SYN-03 AC-18): it is keyed by navigation, not by path.
   const [navKey, setNavKey] = useState(0);
@@ -281,7 +301,8 @@ export function App() {
     document.addEventListener('visibilitychange', f);
     return () => document.removeEventListener('visibilitychange', f);
   }, [flushNote]);
-  useEffect(() => onUnsupported(() => setUnsupported((n) => n + 1)), []);
+  // Slice AND-2 (android-phone §8.2): on the phone the refusal is the notice, not AND-1's alert.
+  useEffect(() => onUnsupported(() => { if (isPhone()) setPhoneNotice(t('error.unsupported')); else setUnsupported((n) => n + 1); }), []);
   // Back/forward (FR-NAV-03, D-165): in memory, one per window; `histTick` re-renders the title-bar buttons.
   const history = useRef(createHistory());
   const [, setHistTick] = useState(0);
@@ -295,6 +316,10 @@ export function App() {
   const heading = useRef<HTMLHeadingElement | null>(null);
   const searchInput = useRef<HTMLInputElement | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
+  /** AND-2 (FR-NAV-03 AC-17): Back from a note to a list focuses that note's row on the phone. */
+  const backRowFocus = useRef<string | null>(null);
+  /** The phone's Menu (button and `phone.menu`): set by the phone render, which owns the drawer's close (D-2477). */
+  const menuToggle = useRef<(() => void) | null>(null);
   const pendingFocus = useRef(false);
   /** "G3 in the panel" (FR-UX-03 AC-33): an object opened by key from the panel graph focuses the page heading (D-130). */
   const headingFocus = useRef(false);
@@ -576,6 +601,7 @@ export function App() {
     history.current.saveScroll(centreScroll(), centreCaret());
     const e = dir === 'back' ? history.current.back() : history.current.forward();
     if (!e) return;
+    backRowFocus.current = isPhone() && dir === 'back' && here?.route.id === 'note/<path>' && here.route.param ? here.route.param.normalize('NFC') : null;
     setChooser(null);
     setFocusMode(false);
     pendingReturn.current = null;
@@ -893,9 +919,18 @@ export function App() {
   trashRequest.current = () => { void trashHere(); };
 
   const actions: ShellActions = useMemo(() => ({
-    go: (r: Route) => { void go(r); },
+    // Slice AND-2 (android-phone §10): the phone's own commands run what their control does.
+    phone: (id: string) => {
+      // Menu opens the drawer, or closes it as the other ways do (the focus back on Menu; FR-NAV-04 AC-14, D-2477).
+      if (id === 'phone.menu') { if (menuToggle.current) menuToggle.current(); else setDrawerOpen((o) => !o); return; }
+      const el = [...document.querySelectorAll<HTMLElement>(`[data-command="${CSS.escape(id)}"]`)].find((e) => e.getClientRects().length > 0);
+      el?.click();
+    },
+    // AND-2 (FR-UX-03 AC-58): a navigation run as a command closes the phone's drawer, as tapping its entry does.
+    go: (r: Route) => { if (isPhone()) setDrawerOpen(false); void go(r); },
     openPalette: () => setDialog('palette'),
     openSearch: () => {
+      if (isPhone()) setDrawerOpen(false);
       void go({ id: 'search' });
       // Also when Search is already shown: the caret goes to its field with the query selected (D-760).
       requestAnimationFrame(() => { const i = searchInput.current; if (i && !live.current.dialog) { i.focus({ preventScroll: true }); i.select(); } });
@@ -1188,10 +1223,43 @@ export function App() {
     void c.run(ctx);
   }, [ctx]);
 
+  // Slice AND-2 (android-phone §8.7, §12.2): the theme follows Android's night mode; the bar icons follow the theme;
+  // `__TEGG_TEST__.run(id)` runs a command as its control does.
+  useEffect(() => {
+    if (!phone) return;
+    setSystemDark(nativeState().systemDark);
+    const offNative = onNative((n) => setSystemDark(n.systemDark));
+    const offTheme = onResolved((name) => { void syncWindow(name === 'dark'); });
+    void syncWindow(resolveTheme(ui.theme as ThemeChoice) === 'dark');
+    return () => { offNative(); offTheme(); };
+  }, [phone]); // eslint-disable-line react-hooks/exhaustive-deps
+  const listRef = useRef(list);
+  listRef.current = list;
+  const ctxRef = useRef(ctx);
+  ctxRef.current = ctx;
+  const runRef = useRef(run);
+  runRef.current = run;
+  useEffect(() => {
+    if (!isAndroid()) return;
+    installTestHooks(async (id) => {
+      // Built now: a page's own commands (its views) are listed once the page has registered them.
+      const c = commands(ctxRef.current).find((x) => x.id === id) ?? listRef.current.find((x) => x.id === id);
+      if (!c) throw new Error(`not a command on the phone: ${id}`);
+      runRef.current(c);
+    });
+  }, []);
+  useEffect(() => {
+    if (!phoneNotice) return;
+    const h = setTimeout(() => setPhoneNotice(null), 4000);
+    return () => clearTimeout(h);
+  }, [phoneNotice]);
+
   // Test hook (ms3-shell §10): registered command ids and route ids.
   useEffect(() => {
     const w = window as { __TEGG_TEST__?: Record<string, unknown> };
-    w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), commands: () => list.map((c) => c.id), routes: () => ROUTES.map((r) => r.id) };
+    // On the phone the registry follows the shown page's controls (page-local commands, D-2463, D-2474), so it is read
+    // live rather than from the memoized list.
+    w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), commands: () => (isPhone() ? commands(ctxRef.current) : list).map((c) => c.id), routes: () => ROUTES.map((r) => r.id) };
   }, [list]);
 
   // Focus returns to where it was as soon as the dialog is gone, before the next key (D-139).
@@ -1307,6 +1375,8 @@ export function App() {
   const swipeStep = useRef(step);
   swipeStep.current = step;
   useEffect(() => {
+    // Slice AND-2 (android-phone §8.5, D-2404): no touch gesture navigates on the phone.
+    if (isPhone()) return;
     let on = false;
     let asked = 0;
     const ask = () => {
@@ -1327,7 +1397,9 @@ export function App() {
   const def = route ? routeDef(route.id) : undefined;
   const typeEntry = route?.id === 'type/<type>' ? typeEntries(types, counts).find((e) => e.key === route.param) : undefined;
   const pageName: string =
-    route?.id === DAILY ? (route.param ?? '')
+    // Slice AND-2 (android-phone §9.10): on the phone the vault section is named `Vault`.
+    phone && route?.id === 'settings/vault' ? t('settings.vault')
+      : route?.id === DAILY ? (route.param ?? '')
       : route?.id === 'note/<path>' ? (meta?.title ?? (route.param ?? '').split('/').pop()!.replace(/\.md$/, ''))
       : route?.id === 'type/<type>' ? (typeEntry?.plural ?? route.param ?? '')
       : route?.id === 'tag/<key>' ? `#${tagList.find((x) => x.key === route.param)?.name ?? route.param ?? ''}`
@@ -1395,6 +1467,40 @@ export function App() {
           }
         }
       }
+      // AND-2 (FR-NAV-03 AC-17): the row of the note Back came from takes the focus once it is drawn.
+      const rowPath = backRowFocus.current;
+      backRowFocus.current = null;
+      if (rowPath && route.id !== 'note/<path>' && route.id !== DAILY) {
+        const key = routeKey;
+        const sel = `[data-query-result="${CSS.escape(rowPath)}"], [data-path="${CSS.escape(rowPath)}"]`;
+        // Rows drawn later (a view's run): focus the row the moment it is inserted, then keep the focus on it for ~30
+        // frames against a later render, unless the user touches or types meanwhile; give up after 2 s.
+        const m = document.querySelector('main');
+        let user = false;
+        let held = 0;
+        const stop = () => { user = true; };
+        window.addEventListener('pointerdown', stop, { capture: true, once: true });
+        window.addEventListener('keydown', stop, { capture: true, once: true });
+        const tryFocus = (): boolean => {
+          const row = m?.querySelector<HTMLElement>(sel);
+          if (!row) return false;
+          if (!row.contains(document.activeElement)) {
+            if (!row.hasAttribute('tabindex')) row.setAttribute('tabindex', '-1');
+            row.focus({ preventScroll: true });
+          }
+          return true;
+        };
+        const obs = new MutationObserver(() => { if (!user && shownRoute.current === key) tryFocus(); });
+        const done = () => { obs.disconnect(); window.removeEventListener('pointerdown', stop, true); window.removeEventListener('keydown', stop, true); };
+        if (m) obs.observe(m, { childList: true, subtree: true });
+        const t0 = performance.now();
+        const tick = () => {
+          if (shownRoute.current !== key || user || performance.now() - t0 > 2000) { done(); return; }
+          if (tryFocus() && held++ >= 30) { done(); return; }
+          requestAnimationFrame(tick);
+        };
+        tick();
+      }
       // The Tasks page marks itself once its cards have painted (FR-TSK-04 AC-14).
       // The Tasks page and the graph (v1-graph §3: after its first graph or state) mark themselves.
       if (route.id === 'graph/<path>') return;
@@ -1406,7 +1512,10 @@ export function App() {
       }
       void ipc.perfMark(`route-ready:${routeKey}`).catch(() => {});
     };
-    requestAnimationFrame(tick);
+    // On the phone the arrival runs at once (frames only while the page isn't ready), so a Back step's scroll position
+    // is set in the same flush as the page instead of one painted frame later (FR-INB-01 AC-14, D-2477).
+    if (isPhone()) tick();
+    else requestAnimationFrame(tick);
   }, [routeKey, meta, chooserShown]);
 
   if (isAndroid() && start && !(start.state === 'open' && vault)) {
@@ -1415,10 +1524,12 @@ export function App() {
     // D-137: with no vault open, the palette offers only creating or opening a vault, Settings and the theme.
     const noVault = available_commands.filter((c) => c.id === 'vault.create' || c.id === 'vault.open' || c.id.startsWith('theme.') || c.id.startsWith('goto.settings'));
     const palette = dialog === 'palette' && <Palette list={noVault} onRun={(c) => { closeDialog(); run(c); }} onClose={closeDialog} />;
-    if (start.state === 'needsAccess') return <AccessScreen path={start.path} rechecks={rechecks} />;
-    if (start.state === 'opening') return <>{<OpeningScreen name={start.name} />}{palette}</>;
+    // D-2468: the start screens get the insets and the keyboard rule (§8.2, §8.6) before any PhoneFrame mounts.
+    const insets = isPhone() ? <PhoneStartInsets /> : null;
+    if (start.state === 'needsAccess') return <>{insets}<AccessScreen path={start.path} rechecks={rechecks} /></>;
+    if (start.state === 'opening') return <>{insets}{<OpeningScreen name={start.name} />}{palette}</>;
     if (start.state === 'open') return null;
-    return <><AndroidChooser key={chooser ? `c${chooser.form}` : 'none'} onOpened={openedHere} failed={start.state === 'failed' ? start : null} startWithForm={chooser?.form ?? false} />{palette}</>;
+    return <>{insets}<AndroidChooser key={chooser ? `c${chooser.form}` : 'none'} onOpened={openedHere} failed={start.state === 'failed' ? start : null} startWithForm={chooser?.form ?? false} />{palette}</>;
   }
   if (vault === undefined) return withImport(null);
 
@@ -1642,16 +1753,23 @@ export function App() {
       onLeave={() => { if (!history.current.canBack()) return false; void step('back'); return true; }}
       tag={route.param?.startsWith('tag:') ? route.param.slice(4) : undefined}
       types={types} dateTime={ui.dateTime} initial={history.current.current()?.search} onState={(st) => history.current.setSearch(st)} />;
+  } else if (phone && route?.id === 'settings') {
+    body = <PhoneSettingsList heading={heading} onGo={(id) => { void go({ id }); }} />;
+  } else if (phone && route?.id === 'settings/storage') {
+    body = <PhoneStorageSettings heading={heading} />;
+  } else if (phone && route?.id === 'settings/vault' && vault) {
+    body = <PhoneVaultSettings heading={heading} vault={vault} types={types}
+      switcher={<VaultSwitcher label={t('phone.settings.switchVault')} vault={vault} onOpenPath={openVaultPath} onOpenFolder={actions.openFolder} onCreate={() => actions.openChooser(true)} onSettings={() => { void go({ id: 'settings/vault' }); }} />} />;
   } else if (route?.id.startsWith('settings/') && def) {
     body = <SettingsPage id={route.id} theme={ui.theme as ThemeChoice} heading={heading} onSection={(id) => go({ id })} onTheme={actions.setTheme}
       outlineRail={ui.outlineRail !== false} onOutlineRail={(on) => updateUi((u) => ({ ...u, outlineRail: on }))}
       vault={vault} types={types} refresh={refresh} dateTime={ui.dateTime} onDateTime={(dt) => updateUi((u) => ({ ...u, dateTime: dt }))}
-      onStarter={() => actions.addStarterTypes?.()} onOpenFolder={actions.openFolder}
+      onStarter={() => actions.addStarterTypes?.()} onOpenFolder={actions.openFolder} phone={phone}
       commandTitle={(id) => { const c = list.find((x) => x.id === id); return c ? t(c.title, c.vars ?? {}) : null; }} />;
   } else if (def) {
     body = (
       <div className="page-column">
-        <h1 ref={heading} tabIndex={-1}>{t(def.name)}</h1>
+        <PageHeading ref={heading} tabIndex={-1}>{t(def.name)}</PageHeading>
         <Placeholder def={def} />
       </div>
     );
@@ -1659,6 +1777,94 @@ export function App() {
 
   const tabIcon = route?.id === 'note/<path>' ? typeIconName(meta?.type ?? 'page', types.find((x) => x.key === meta?.type)?.icon) : route?.id === 'type/<type>' ? typeIconName(route.param ?? '', typeEntry?.icon) : routeIcon(route?.id ?? '');
   const named = userNamed ? <span data-user-content>{pageName}</span> : pageName;
+
+  if (phone && vault) {
+    // Slice AND-2 (android-phone §8): the phone frame instead of the title bar, sidebar, panel and palette.
+    if (route && !phoneRouteOffered(route.id)) body = null;
+    const today = localDate(Date.now());
+    const hasFile = route?.id === 'note/<path>' || (isDaily && !!dailyFile);
+    const sourceShown = () => !!document.querySelector('main .source-view');
+    // Menu while the drawer is open closes it as the other ways do: the focus returns to Menu (FR-NAV-04 AC-14, D-2477).
+    menuToggle.current = () => { if (drawerOpen) closeDrawer(false); else setDrawerOpen(true); };
+    const closeDrawer = (navigated: boolean) => {
+      setDrawerOpen(false);
+      // D-130: after a navigation from the drawer the new page's heading gets the focus once the page isn't inert.
+      if (navigated) {
+        // Once the drawer's inert is gone and the new route is shown (or after 1 s), its heading takes the focus.
+        const from = shownRoute.current;
+        const t0 = performance.now();
+        const tick = () => {
+          const h = heading.current;
+          const ready = shownRoute.current !== from || performance.now() - t0 > 1000;
+          if (ready && h && h.isConnected && !h.closest('[inert]')) { h.focus({ preventScroll: true }); return; }
+          if (performance.now() - t0 < 2000) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }
+      if (!navigated) setTimeout(() => document.querySelector<HTMLElement>('.phone-bottombar [data-command="phone.menu"]')?.focus(), 40);
+    };
+    return withImport(
+      <div className="app phone">
+        <PhoneFrame
+          canBack={history.current.canBack()}
+          onBack={actions.back}
+          more={hasFile}
+          moreOpen={!!phoneMore}
+          onMore={(a) => setPhoneMore((m) => (m ? null : a))}
+          progress={progress}
+          menuOpen={drawerOpen}
+          onMenu={() => menuToggle.current?.()}
+          onSearch={actions.openSearch}
+          onToday={() => { void go({ id: 'today' }); }}
+          current={route?.id === 'search' ? 'search' : isDaily && route?.param === today ? 'today' : null}
+          fullScreen={mapFull}
+          notice={phoneNotice}
+          mainName={(route?.id === 'note/<path>' || isDaily) && !noteShown ? undefined : pageName}
+          mainClass={route?.id === 'note/<path>' || isDaily ? 'note-main' : ''}
+          overlays={(
+            <>
+              <Drawer open={drawerOpen} onClose={closeDrawer}>
+                <VaultSwitcher vault={vault} onOpenPath={openVaultPath} onOpenFolder={actions.openFolder} onCreate={() => actions.openChooser(true)} onSettings={() => { setDrawerOpen(false); void go({ id: 'settings/vault' }); }} />
+                <Sidebar
+                  variant="drawer"
+                  route={route ?? { id: 'inbox' }}
+                  types={typeEntries(types, counts).filter((e) => e.key !== 'task')}
+                  onGo={(r) => { setDrawerOpen(false); if (route && sameRoute(r, route)) heading.current?.focus(); else void go(r); }}
+                  onSearch={actions.openSearch}
+                  onNewObject={() => {}}
+                  onNewType={() => {}}
+                  onAbout={() => {}}
+                  conflicts={conflicts}
+                  taskCount={taskBadge}
+                  inboxCount={inboxCount}
+                  onTasks={() => { setDrawerOpen(false); const r: Route = { id: 'type/<type>', param: 'task' }; if (route && sameRoute(r, route)) heading.current?.focus(); else void go(r); }}
+                  onOpenPinned={(r) => { setDrawerOpen(false); if (route && sameRoute(r, route)) heading.current?.focus(); else void go(r, { heading: true }); }}
+                  pinnedCollapsed={!!(ui.vaults?.[vault.path.normalize('NFC')] as { sidebar?: { pinnedCollapsed?: boolean } } | undefined)?.sidebar?.pinnedCollapsed}
+                  onPinnedCollapse={(c) => { const vp = vault.path.normalize('NFC'); updateUi((u) => ({ ...u, vaults: { ...(u.vaults ?? {}), [vp]: { ...(u.vaults?.[vp] ?? {}), sidebar: { ...((u.vaults?.[vp] as { sidebar?: object } | undefined)?.sidebar ?? {}), pinnedCollapsed: c } } } })); }}
+                />
+              </Drawer>
+              {phoneMore && (
+                <PopupMenu label={t('phone.more')} anchor={phoneMore} onClose={() => setPhoneMore(null)} entries={[
+                  { kind: 'item', key: 'properties', command: 'phone.properties', content: <span className="menu-title">{t('phone.properties')}</span>,
+                    onChoose: () => { setPhoneMore(null); window.dispatchEvent(new CustomEvent('tegg:phone-properties')); } },
+                  { kind: 'item', key: 'source', command: 'note.toggleSource', content: <span className="menu-title">{t(sourceShown() ? 'phone.showFormatted' : 'phone.showSource')}</span>,
+                    onChoose: () => { setPhoneMore(null); actions.toggleSource(); } },
+                ]} />
+              )}
+              {calendar && <Calendar selected={calendar.selected} anchor={calendar.anchor} onChoose={calendar.onChoose}
+                onClose={() => { const a = calendar.anchor; setCalendar(null); if (a?.isConnected) a.focus(); }} />}
+            </>
+          )}>
+          {vault.placeholders > 0 && (
+            <div className="banner" role="region" aria-label={t('banner.offline')}>
+              {t('banner.placeholders', { count: vault.placeholders })}
+            </div>
+          )}
+          {body}
+        </PhoneFrame>
+      </div>,
+    );
+  }
 
   return withImport(
     <PreviewProvider>

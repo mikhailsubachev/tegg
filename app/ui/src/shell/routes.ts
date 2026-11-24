@@ -1,5 +1,7 @@
 // Route strings (docs/contracts/ms3-shell.md §4.1, §11.2): the R1 ids with their parameter, NFC.
 // `type/čajovna`, `note/Schůzky/2026-10-07 Porada.md`, `note/Pages/Cíl.md#Druhá kapitola`, `search/tag:projekt`, `home`.
+import { isPhone } from '../phone/layout';
+import { PHONE_ROUTES, phoneRouteOffered } from '../phone/routes';
 import { parseDate } from '@tegg/doc';
 import { ROUTES } from './registry';
 
@@ -25,7 +27,15 @@ export type Route = {
 const PARAM_ROUTES = ['type', 'type-settings', 'note', 'new', 'graph'];
 
 export function parseRoute(s: string): Route | null {
+  const r = parseAny(s);
+  // Slice AND-2 (android-phone §7, D-2437): on the phone a route it doesn't offer lands as an unknown one does.
+  if (r && isPhone() && !phoneRouteOffered(r.id)) return null;
+  return r;
+}
+
+function parseAny(s: string): Route | null {
   const str = s.normalize('NFC');
+  if (isPhone() && PHONE_ROUTES.some((p) => p.id === str)) return { id: str };
   const slash = str.indexOf('/');
   if (slash > 0) {
     const head = str.slice(0, slash);

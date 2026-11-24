@@ -4,6 +4,7 @@ import type { RefObject } from 'react';
 import { t } from '../i18n/catalog';
 import { GROUPS, grouped, INBOX_KEYS, ROUTE_TITLES, TRIGGERS } from '../shell/shortcutGroups';
 import { useHotkeys } from './settings5b';
+import { PageHeading } from '../phone/PageHeading';
 
 export function ShortcutsPage({ heading, commandTitle }: { heading: RefObject<HTMLHeadingElement | null>; commandTitle: (id: string) => string | null }) {
   const hotkeys = useHotkeys();
@@ -25,7 +26,7 @@ export function ShortcutsPage({ heading, commandTitle }: { heading: RefObject<HT
   });
   return (
     <div className="page-column shortcuts-page">
-      <h1 ref={heading} tabIndex={-1}>{t('help.shortcuts')}</h1>
+      <PageHeading ref={heading} tabIndex={-1}>{t('help.shortcuts')}</PageHeading>
       {table(t('settings.shortcuts.global'), global)}
       {GROUPS.map((g) => {
         const rows: [string, string][] = (groups.get(g) ?? []).map((s) => [commandTitle(s.command) ?? (ROUTE_TITLES[s.command] ? t(ROUTE_TITLES[s.command]) : s.command), s.keys]);

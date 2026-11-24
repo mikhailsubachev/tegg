@@ -1721,6 +1721,28 @@ pub struct StorageAccessDto {
     pub shared_root: String,
 }
 
+/// android-phone §2.2 (D-2432): safe-area insets in CSS px.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct InsetsDto {
+    pub top: f64,
+    pub bottom: f64,
+    pub left: f64,
+    pub right: f64,
+}
+
+/// android-phone §2.2 (D-2432): `android_window`.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct WindowStateDto {
+    pub insets: InsetsDto,
+    pub keyboard: bool,
+    pub system_dark: bool,
+    pub font_scale: f64,
+}
+
 /// The generated `types.ts`, in a fixed order.
 pub fn typescript() -> String {
     let decls = [
@@ -1849,6 +1871,8 @@ pub fn typescript() -> String {
         StartStateDto::decl(),
         FoundVaultDto::decl(),
         StorageAccessDto::decl(),
+        InsetsDto::decl(),
+        WindowStateDto::decl(),
     ];
     let mut out = String::from("// Generated from app/src-tauri/src/dto.rs by ts-rs. Do not edit: run\n// `UPDATE_TYPES=1 cargo test --manifest-path app/src-tauri/Cargo.toml types_file_is_current`.\n\n");
     for d in decls {

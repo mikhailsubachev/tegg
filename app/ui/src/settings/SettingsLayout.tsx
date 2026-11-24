@@ -6,10 +6,10 @@ import type { ReactNode } from 'react';
 import { t } from '../i18n/catalog';
 import './layout.css';
 
-export function SettingsLayout({ nav, children, className }: { nav: ReactNode; children: ReactNode; className?: string }) {
+export function SettingsLayout({ nav, children, className }: { /** null: no section list (the phone, AND-2). */ nav: ReactNode | null; children: ReactNode; className?: string }) {
   return (
     <div className={`settings-layout${className ? ` ${className}` : ''}`}>
-      <nav className="settings-sections" aria-label={t('frame.settingsSections')}>{nav}</nav>
+      {nav !== null && <nav className="settings-sections" aria-label={t('frame.settingsSections')}>{nav}</nav>}
       <div className="settings-content">{children}</div>
     </div>
   );

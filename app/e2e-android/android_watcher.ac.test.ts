@@ -1,14 +1,18 @@
 // Slice AND-1, LA (the test APK on the arm64 emulator; contract §12): docs/acceptance/android-shell.md
 // - FR-SYN-03 AC-33 "The index settles and still sees changes, on the device" (F1; T2);
-// - FR-SYN-06 AC-50, device part: the shell fixture plus the Stray, three notes opened, HOME and back, 60 s: the vault is
+// - FR-SYN-06 AC-53, device part: the shell fixture plus the Stray, three notes opened, HOME and back, 60 s: the vault is
 //   untouched (D-2007; T1). The tidy job is allowed in the test environment (`TEGG_TEST_TIDY=1`,
 //   `TEGG_TEST_QUIET_MS=200`), so a tidy run on the phone would show;
-// - FR-FMT-12 AC-14, device part: a note stored in NFD bytes on a file system that doesn't normalise names (AP-2029;
+// - FR-FMT-12 AC-17, device part: a note stored in NFD bytes on a file system that doesn't normalise names (AP-2029;
 //   T1, T2). Both forms beside each other can't exist on Android shared storage, which treats NFC and NFD as one name;
 //   that part stays on the host layers (D-2052).
 // Red-test reading (reported): notes are "opened" with the app's own IPC (`note_read`, as the page does) or with
 // `TEGG_ROUTE`, as the LA harness has no navigation driver. Every test starts with `ready()` (requireDevice: fails,
-// never skips, without an emulator). Written from the ACs and the contract only (D-61).
+// never skips, without an emulator).
+// Slice AND-2 (docs/contracts/android-phone.md CP-6 → D-2434; AC-Test-Change approved by the owner): "the vault opens"
+// is the phone frame's bottom bar `nav[aria-label="Main"]`; FR-FMT-12 AC-17's edit types into the editor, so its second
+// start sets `TEGG_LAYOUT=desktop` (contract §12.1), as the phone layout has no editor in AND-2 (D-2415).
+// Written from the ACs and the contract only (D-61).
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -21,7 +25,8 @@ const EVA = 'Tasks/Zavolat Evě.md';
 const EVA_ID_RE = /^id:\s*(\S+)/m;
 const STRAY = 'Pages/Zavolat Petrovi.md';
 const STRAY_TEXT = '---\nid: 01JAND1STRAY00000000000000\ntype: task\ntitle: Zavolat Petrovi\nstatus: todo\n---\nZavolat Petrovi kvůli chalupě.\n';
-const SIDEBAR = 'nav[aria-label="Sidebar"]';
+/** AND-2 (CP-6): the phone frame's bottom bar, shown once a vault is open on the phone layout. */
+const FRAME = 'nav[aria-label="Main"]';
 
 let installed = false;
 const views: WebView[] = [];
@@ -42,7 +47,7 @@ async function launch(vault: string, env: Record<string, string> = {}): Promise<
   const pid = start(TEST_ID);
   const v = await webview(TEST_ID);
   views.push(v);
-  assert.ok(await v.waitFor(SIDEBAR, 30_000), 'the vault opens');
+  assert.ok(await v.waitFor(FRAME, 30_000), 'the vault opens');
   return { pid, v };
 }
 const idleMarks = () => perfMarks(TEST_ID).filter((m) => m.mark === 'index-idle');
@@ -101,9 +106,9 @@ test('fr_syn_03_ac33_index_settles_on_android', async () => {
   assert.deepEqual(changedFiles(before, after, [UVODNI, EVA, moved, 'Pages/Nová.md']), [], 'the vault\'s other files stay untouched');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-SYN-06 AC-50
+// ------------------------------------------------------------------------------------------------ FR-SYN-06 AC-53
 
-test('fr_syn_06_ac50_no_writes_and_no_jobs_on_android', async () => {
+test('fr_syn_06_ac53_no_writes_and_no_jobs_on_android', async () => {
   ready();
   const vault = pushShell();
   writeShared(`${vault}/${STRAY}`, STRAY_TEXT);
@@ -121,9 +126,9 @@ test('fr_syn_06_ac50_no_writes_and_no_jobs_on_android', async () => {
   assert.equal(sh(`ls ${quote(`${vault}/Tasks`)}`, false).includes('Zavolat Petrovi'), false, 'no tidy move to Tasks/');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-FMT-12 AC-14
+// ------------------------------------------------------------------------------------------------ FR-FMT-12 AC-17
 
-test('fr_fmt_12_ac14_nfd_names_on_android', async () => {
+test('fr_fmt_12_ac17_nfd_names_on_android', async () => {
   ready();
   const vault = pushShell();
   const nfc = 'Pages/Poznámka.md';
@@ -149,7 +154,7 @@ test('fr_fmt_12_ac14_nfd_names_on_android', async () => {
 
   // (d) an edit changes that same file.
   forceStop(TEST_ID);
-  writeTestEnv(TEST_ID, { TEGG_VAULT: vault, TEGG_ROUTE: `note/${nfc}` });
+  writeTestEnv(TEST_ID, { TEGG_VAULT: vault, TEGG_ROUTE: `note/${nfc}`, TEGG_LAYOUT: 'desktop' });
   start(TEST_ID);
   const w = await webview(TEST_ID);
   views.push(w);

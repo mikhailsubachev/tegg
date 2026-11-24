@@ -61,6 +61,7 @@ Test depth follows the cost of a bug, not the size of a feature.
   XC  Android cross-compile           cargo check --target aarch64-linux-android every push
   L6  Real-app E2E (Appium Mac2)      built .app, menu bar, hotkeys, capture   nightly / milestone
   L5  UI flows (Playwright, WebKit)   React UI, mocked core over IPC           every push
+  L5p phone UI (WebKit + Chromium)   phone layout, mocked core                 every push
   L4  Integration (real filesystem)   core in temp vaults, fault injection     every push (+ long runs nightly)
   L3  Conformance                     shared TS ↔ Rust expectations corpus     every push
   L2  Property / fuzz                 fast-check, proptest                     every push (short), nightly (long)
@@ -153,6 +154,8 @@ Core services against **temporary vaults on APFS** (`$TMPDIR`), never mocks of t
 - **XC:** the push step `android-check` runs `cargo check --target aarch64-linux-android` on the core crates and the shell, with the environment from `tools/android/env.sh`. It fails, never skips, when the SDK, NDK or JDK is missing (D-2033).
 - **APK:** `apk-check <apk>` reads a built APK's manifest, permissions, version, ABIs and signature with the SDK's `aapt2` and `apksigner`. The release command runs it on the release APK, `app-android-e2e` on the test APK.
 - **LA:** Appium with the UiAutomator2 driver on a headless arm64 emulator (AVD `tegg-and-35`) runs the test APK (`app.tegg.desktop`) through `app/e2e-android/`. Step `app-android-e2e` at milestone level and nightly (D-2031). Test hooks reach the test APK through `test-env.json` in its private folder (D-2032); the release APK never reads it. Synthetic fixtures and generated vaults only (D-62). An AC whose layer names LA gets an `app/e2e-android/` test in the slice's red commit (TS-I7).
+
+- **L5p (phone L5; D-2009, D-2428):** Playwright with the fake core and `__TEGG_PLATFORM__ = 'android'`, touch on, device scale factor 2.625, at **412 × 915** and **360 × 800** (landscape **915 × 412** where an AC names it). Each L5p test runs on **WebKit and Chromium**, as Android's WebView is Chromium; multi-touch (pinch) through CDP runs on Chromium only. Safe-area insets and the keyboard come from test hooks. Push gate. The LA emulator uses a fixed device profile (`pixel_7`, D-2428) so screen sizes in LA tests don't drift.
 
 ### L7 Claude exploratory sessions (TS-L7)
 

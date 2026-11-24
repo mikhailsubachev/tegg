@@ -1,5 +1,6 @@
 // Slice 6A (docs/contracts/ms6-trash-media.md §6.2; R76, D-622): above the body of an Image or PDF object's page: the
 // image at its natural size (or the PDF card), the file's name and metadata, `Open in Preview` and `Reveal in Finder`.
+import { isPhone } from '../phone/layout';
 import { useEffect, useState } from 'react';
 import { t } from '../i18n/catalog';
 import { ipc } from '../ipc/client';
@@ -29,7 +30,7 @@ export function MediaObjectView({ path, type, title, data }: { path: string; typ
       {file && (type === 'pdf' ? <PdfCard path={file} title={title} object={path} /> : <MediaFigure path={file} title={title} object={null} />)}
       {!file && <p className="media-missing">{t('media.missing', { name: target.split('/').pop() ?? target })}</p>}
       <p className="muted media-object-meta" data-user-content>{meta}</p>
-      {file && (
+      {file && !isPhone() && (
         <div className="media-object-actions">
           <button type="button" tabIndex={0} onClick={() => void ipc.mediaOpen(file).catch(() => {})}>{t('media.openPreview')}</button>
           <button type="button" tabIndex={0} onClick={() => void ipc.mediaReveal(file).catch(() => {})}>{t('media.reveal')}</button>

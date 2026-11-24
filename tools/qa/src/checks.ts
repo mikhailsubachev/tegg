@@ -231,6 +231,23 @@ export function addedAcTests(root: string, cfg: Config, sha: string): string[] {
     .filter((p) => isAcTestFile(cfg, p));
 }
 
+/**
+ * The red-first verdict on one added AC test file's testcases: each must fail with an AssertionError. A skipped
+ * testcase counts as red when the same test (name and classname) failed with an AssertionError in another run of the
+ * report, e.g. a test a contract runs on one browser project only (D-2471).
+ */
+export function redCaseProblems(file: string, cases: TestCase[]): string[] {
+  const out: string[] = [];
+  const passing = cases.filter((c) => c.failure === undefined && !c.skipped);
+  const other = cases.filter((c) => c.failure !== undefined && !isAssertionFailure(c));
+  const redElsewhere = (c: TestCase) => cases.some((o) => o !== c && o.name === c.name && o.classname === c.classname && isAssertionFailure(o));
+  const skipped = cases.filter((c) => c.failure === undefined && c.skipped && !redElsewhere(c));
+  if (passing.length > 0) out.push(`${file}: ${passing.length} testcase(s) pass before the implementation, e.g. "${passing[0].name}"`);
+  if (skipped.length > 0) out.push(`${file}: ${skipped.length} testcase(s) skipped`);
+  if (other.length > 0) out.push(`${file}: ${other.length} testcase(s) fail without an AssertionError (setup error?), e.g. "${other[0].name}"`);
+  return out;
+}
+
 export function checkRed(root: string, cfg: Config, sha: string): RedResult {
   const files = addedAcTests(root, cfg, sha);
   if (files.length === 0) return { ok: false, messages: [`${shortSha(sha)}: no AC tests added`] };
@@ -254,14 +271,7 @@ export function checkRed(root: string, cfg: Config, sha: string): RedResult {
         exec('sh', ['-c', cmd], { cwd: path.join(wt.dir, runner.dir), env: strippedEnv({ VERIFY_GATE: 'check-red', VERIFY_PORT_BASE: port }) });
         const cases = parseJunitDir(outDir);
         if (cases.length === 0) messages.push(`${file}: no testcases in the report (load or compile error?)`);
-        else {
-          const passing = cases.filter((c) => c.failure === undefined && !c.skipped);
-          const other = cases.filter((c) => c.failure !== undefined && !isAssertionFailure(c));
-          const skipped = cases.filter((c) => c.failure === undefined && c.skipped);
-          if (passing.length > 0) messages.push(`${file}: ${passing.length} testcase(s) pass before the implementation, e.g. "${passing[0].name}"`);
-          if (skipped.length > 0) messages.push(`${file}: ${skipped.length} testcase(s) skipped`);
-          if (other.length > 0) messages.push(`${file}: ${other.length} testcase(s) fail without an AssertionError (setup error?), e.g. "${other[0].name}"`);
-        }
+        else messages.push(...redCaseProblems(file, cases));
       } finally {
         fs.rmSync(outDir, { recursive: true, force: true });
       }
