@@ -11,7 +11,7 @@ See [README](README.md) for conventions. Slice **AND-3 "Editing and creating"** 
 - pinning and moving one note to the trash (D-2406, AP-2079);
 - the first released APK (D-2042, D-2043).
 
-**Status: draft, AP points open** (AP-2065…AP-2090, end of this file). A criterion that names an AP follows its **proposal**. The names used here (`phone-edit/`, the `edit.*` ids, the `phone.edit.*` keys, the test IME, the recovery folder) are proposals for the contract `docs/contracts/android-edit.md`, written after approval.
+**Status: approved, 2026-11-24** (owner: "Accept all proposals"). AP-2065…AP-2090 (end of this file) are decided as proposed (D-2500…D-2525, BRD v1.320). A criterion that names an AP follows its **proposal**. The names used here (`phone-edit/`, the `edit.*` ids, the `phone.edit.*` keys, the test IME, the recovery folder) are proposals for the contract `docs/contracts/android-edit.md`, written after approval.
 
 **Sources of the screens.** The owner's board `Mobile`, section 3 (E1 editing with the bar, E2 link completion, E3 New object, E4 changed on another device) and its "to decide" list ("Properties … editable there in AND-3?", "Merge on the phone: a banner … or the Conflicts page?"). The proposal board `Mobile2` is not available; D-2410 and D-2413 name its E9 and E10, so nothing here relies on them. Board text is design input only.
 
@@ -719,7 +719,7 @@ The L5p tests are `app/webkit/phone_edit_*.ac.test.ts`, run on WebKit and on Chr
 
 ---
 
-## Points for the owner (AP-2065…AP-2090, open)
+## Points for the owner (AP-2065…AP-2090 → D-2500…D-2525, accepted as proposed)
 
 Raised while writing these criteria. Each criterion that depends on one names it and follows its **proposal**. AP-2065 and AP-2066 are prerequisites; AP-2069…AP-2075 answer the board's "to decide" list and the plan's §3.7; the rest are gaps.
 
