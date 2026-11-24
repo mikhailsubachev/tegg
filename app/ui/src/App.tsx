@@ -316,6 +316,8 @@ export function App() {
   const returnFocus = useRef<HTMLElement | null>(null);
   /** AND-2 (FR-NAV-03 AC-17): Back from a note to a list focuses that note's row on the phone. */
   const backRowFocus = useRef<string | null>(null);
+  /** The phone's Menu (button and `phone.menu`): set by the phone render, which owns the drawer's close (D-2131). */
+  const menuToggle = useRef<(() => void) | null>(null);
   const pendingFocus = useRef(false);
   /** "G3 in the panel" (FR-UX-03 AC-33): an object opened by key from the panel graph focuses the page heading (D-130). */
   const headingFocus = useRef(false);
@@ -915,7 +917,8 @@ export function App() {
   const actions: ShellActions = useMemo(() => ({
     // Slice AND-2 (android-phone §10): the phone's own commands run what their control does.
     phone: (id: string) => {
-      if (id === 'phone.menu') { setDrawerOpen((o) => !o); return; }
+      // Menu opens the drawer, or closes it as the other ways do (the focus back on Menu; FR-NAV-04 AC-14, D-2131).
+      if (id === 'phone.menu') { if (menuToggle.current) menuToggle.current(); else setDrawerOpen((o) => !o); return; }
       const el = [...document.querySelectorAll<HTMLElement>(`[data-command="${CSS.escape(id)}"]`)].find((e) => e.getClientRects().length > 0);
       el?.click();
     },
@@ -1503,7 +1506,10 @@ export function App() {
       }
       void ipc.perfMark(`route-ready:${routeKey}`).catch(() => {});
     };
-    requestAnimationFrame(tick);
+    // On the phone the arrival runs at once (frames only while the page isn't ready), so a Back step's scroll position
+    // is set in the same flush as the page instead of one painted frame later (FR-INB-01 AC-14, D-2131).
+    if (isPhone()) tick();
+    else requestAnimationFrame(tick);
   }, [routeKey, meta, chooserShown]);
 
   if (isAndroid() && start && !(start.state === 'open' && vault)) {
@@ -1770,6 +1776,8 @@ export function App() {
     const today = localDate(Date.now());
     const hasFile = route?.id === 'note/<path>' || (isDaily && !!dailyFile);
     const sourceShown = () => !!document.querySelector('main .source-view');
+    // Menu while the drawer is open closes it as the other ways do: the focus returns to Menu (FR-NAV-04 AC-14, D-2131).
+    menuToggle.current = () => { if (drawerOpen) closeDrawer(false); else setDrawerOpen(true); };
     const closeDrawer = (navigated: boolean) => {
       setDrawerOpen(false);
       // D-130: after a navigation from the drawer the new page's heading gets the focus once the page isn't inert.
@@ -1797,7 +1805,7 @@ export function App() {
           onMore={(a) => setPhoneMore((m) => (m ? null : a))}
           progress={progress}
           menuOpen={drawerOpen}
-          onMenu={() => setDrawerOpen((o) => !o)}
+          onMenu={() => menuToggle.current?.()}
           onSearch={actions.openSearch}
           onToday={() => { void go({ id: 'today' }); }}
           current={route?.id === 'search' ? 'search' : isDaily && route?.param === today ? 'today' : null}
