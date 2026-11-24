@@ -60,9 +60,11 @@ test('fr_syn_03_ac30_view_writes_check_the_base', async ({ page }) => {
     assert.ok(await eventually(() => page.getByRole('alert').filter({ hasText: VIEWS_OUT }).count(), (c) => c > n, 3000), `${what} on a tab with a changed book.yml: the alert`);
     assert.equal(await fileText(core, BOOK_YML), d, `${what}: nothing written`);
   }
-  const q = await silently(core, qfile(Q.roz));
   await runCommand(page, 'Go to Queries');
   await click(main(page).locator(`tr[data-query-row="${Q.roz}"] a`).first(), 'query/Rozečtené');
+  await must(board(page, Q.roz), 'query/Rozečtené draws its board', 5000);
+  // The file changes after the page read it (opened after the change, the page writes on the version it read).
+  const q = await silently(core, qfile(Q.roz));
   await runCommand(page, 'Switch lanes');
   assert.ok(await seen(alertWith(page, QUERY_OUT), 3000), 'Switch lanes on query/Rozečtené with a changed Rozečtené.yml: refused');
   assert.equal(await fileText(core, qfile(Q.roz)), q, 'nothing written');
@@ -136,7 +138,7 @@ test('fr_syn_06_ac48_only_view_actions_write', async ({ page }) => {
   assert.equal((await callsOf(core, 'type_patch')).length - types0, 1, 'one type_patch');
   await drag(page, card(board(page, Q.roz), B('Kniha o horách')), lane(board(page, Q.roz), 'option:Reading'));
   assert.ok(await fileWhen(core, B('Kniha o horách'), (x) => x === expectedView('books/kniha-o-horach-reading.md')), 'a card drag writes the book');
-  assert.deepEqual(await writes(core), [B('Kniha o horách')], 'the book once; no query file');
+  assert.deepEqual(await writes(core), [BOOK_YML, B('Kniha o horách')], 'book.yml (Rows) and the book, once each; no query file');
   assert.equal(Object.keys(await core.files()).filter((k) => k.startsWith('.tegg/') && /ui-state|index/.test(k)).length, 0, 'no index or UI state in the vault');
 });
 

@@ -98,7 +98,10 @@ test('fr_qry_05_ac37_ungrouped_wall_few_cards_and_sort', async ({ page }) => {
   await selectTab(page, Q.p26);
   const n = (await writtenPaths(core)).length;
   await click(tabRoot(page).locator('button[data-command="sort.open"]'), 'the sort button');
-  await page.getByRole('dialog', { name: /^⟦?Sort/ }).getByRole('button', { name: /^⟦?Clear/ }).click().catch(() => undefined);
+  // `Clear` writes Modified ↓ (AP-1502), which keeps Mapa bez severu (the newest) first; `Oldest first` on Finished
+  // reorders the wall.
+  await click(page.getByRole('dialog', { name: /^⟦?Sort/ }).getByRole('combobox', { name: /^⟦?Order/ }).first(), 'the first level\'s Order');
+  await click(page.getByRole('option', { name: /Oldest first/ }).first(), 'Oldest first');
   await page.keyboard.press('Escape');
   const after = await eventually(() => wallCards(tabRoot(page)), (c) => c.length === 8 && c[0] !== paths([P26_ROWS[0]])[0], 300);
   assert.notEqual(after[0], paths([P26_ROWS[0]])[0], 'the wall reorders within 300 ms');

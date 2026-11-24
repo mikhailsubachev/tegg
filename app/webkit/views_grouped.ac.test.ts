@@ -240,7 +240,7 @@ test('nfr_perf_07_ac8_grouped_table_1000_rows', async ({ page }) => {
   let max = g!.domRows;
   const scroller = main(page);
   for (let i = 0; i < 40; i++) {
-    await scroller.evaluate((m) => { const s = (m.closest('[data-scroll]') ?? document.scrollingElement ?? m) as HTMLElement; s.scrollBy(0, 900); });
+    await scroller.evaluate((m) => { const s = (m.closest('[data-scroll]') ?? m) as HTMLElement; s.scrollBy(0, 900); });
     await sleep(50);
     const h = (await groupsHook(page))?.find((x) => x.groups.length === 6);
     max = Math.max(max, h?.domRows ?? 999);

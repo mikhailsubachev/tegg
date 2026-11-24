@@ -727,9 +727,9 @@ test('fr_ux_08_ac27_display_for_voiceover', async ({ page }) => {
   const names = await wallIn(tabRoot(page)).locator('article').evaluateAll((as) => as.map((a) => a.getAttribute('aria-label')));
   assert.equal(names[0], 'Book: Mapa bez severu', 'wall cards are articles `Book: <title>` in reading order');
   await selectTab(page, Q.vyb);
-  const live0 = await liveRegion(page).innerText().catch(() => '');
+  const live0 = await liveRegion(page).first().innerText().catch(() => '');
   await groupGripKeys(page);
-  assert.notEqual(await liveRegion(page).innerText().catch(() => ''), live0, 'a group move is announced');
+  assert.notEqual(await liveRegion(page).first().innerText().catch(() => ''), live0, 'a group move is announced');
 });
 async function groupGripKeys(page: Page) {
   const header = tabRoot(page).locator('.group-header[data-group-id] button.group-chevron').nth(1);
