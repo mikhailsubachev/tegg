@@ -1,7 +1,7 @@
 // Slice MM2 real-app test (L6, Appium mac2 on the built test app, D-382, TS-I7): docs/acceptance/mindmap.md
 // FR-SYN-06 AC-34 (browsing and navigating the map writes nothing: on a copy of the fixture, open Pavouk, Neznámé
 // metadata and Metadata; in each mindmap block move through every node with → then ↓ per level, and ←, open the field
-// with F2 and cancel with Esc, switch to List and back (slice MM3, D-2481, D-2486: ↓ moves among siblings, Space folds); every file's bytes, mtime and inode unchanged, no write reaches the
+// with F2 and cancel with Esc, switch to List and back (slice MM3, D-2600, D-2605: ↓ moves among siblings, Space folds); every file's bytes, mtime and inode unchanged, no write reaches the
 // vault). TEGG_TEST=1 with TEGG_NOW, a temporary Application Support and a temporary copy of the synthetic mindmap
 // fixture plus new-empty/.tegg (D-62). Interface: docs/contracts/mm-mindmap.md §6.3, §6.4 (the `Edit node` textbox,
 // the `Map` / `List` buttons, the tree `Map of <title>`), ms3-shell.md §1 (TEGG_ROUTE, `route-ready:` marks).
@@ -48,7 +48,7 @@ test('fr_syn_06_ac34_navigating_the_map_writes_nothing_in_the_real_app', { timeo
     const log = join(base, 'perf.jsonl');
     d = await session(testEnv(sup, log, { TEGG_VAULT: vault, TEGG_ROUTE: `note/${PAVOUK}`, TEGG_NOW: NOW_MM }));
     assert.ok(await waitMark(log, `route-ready:note/${PAVOUK}`, MARK_TIMEOUT), 'Pavouk shown');
-    // [note title, tree name, keys]: every node by → then ↓ per level (D-2481: ↓ moves among siblings, then cousins),
+    // [note title, tree name, keys]: every node by → then ↓ per level (D-2600: ↓ moves among siblings, then cousins),
     // then ← and → on each side (D-790); the walk ends on a node that isn't a synthesized root.
     const tour: [string, string, string[]][] = [
       ['Pavouk', 'Map of Pavouk', ['right', 'right', 'down', 'down', 'right', 'right', 'left', 'down', 'down', 'up']],
@@ -62,7 +62,7 @@ test('fr_syn_06_ac34_navigating_the_map_writes_nothing_in_the_real_app', { timeo
       await t.click();
       for (const k of keys) press(k);
       await sleep(300);
-      // the field: F2 opens it, Esc cancels (R95a; slice MM3, D-2486: Space folds, which writes nothing either)
+      // the field: F2 opens it, Esc cancels (R95a; slice MM3, D-2605: Space folds, which writes nothing either)
       press('f2');
       await sleep(400);
       assert.ok(await shown(d, 'Edit node', 3000), `${title}: F2 opens the textbox "Edit node"`);

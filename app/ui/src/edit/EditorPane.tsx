@@ -577,7 +577,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     const before = sel.empty && $f.parent.isTextblock ? $f.parent.textBetween(0, $f.parentOffset, undefined, '￼') : '';
     const key = `${$f.pos}`;
     // Slash menu: `/` at a block start or after a space (FR-EDT-03 AC-1); `+` at a block start or after whitespace,
-    // never in code, inline code or a link's text (new-object-menu.md R235; D-2491, D-2506, D-2507).
+    // never in code, inline code or a link's text (new-object-menu.md R235; D-2610, D-2625, D-2626).
     const sm = !inCode && sel.empty ? /(^|[\s.,;:!?)])\/([^\s/￼]*)$/.exec(before) : null;
     const pm0 = !sm && !inCode && sel.empty ? /(^|\s)\+([^\s+￼]*)$/.exec(before) : null;
     const pm = pm0 && !state.doc.resolve($f.pos - pm0[2].length).marks().some((m) => m.type.name === 'code' || m.type.name === 'link') ? pm0 : null;
@@ -896,8 +896,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     const e = edRef.current;
     const s = live.current.slash;
     if (!e || !s || row.disabled) return;
-    // new-object-menu.md R236 (D-2490): a New row opens the `New <type>` dialog; the trigger and query stay as typed
-    // (never autosaved while it is open, D-2512) until Create replaces them with the link or Cancel removes them.
+    // new-object-menu.md R236 (D-2609): a New row opens the `New <type>` dialog; the trigger and query stay as typed
+    // (never autosaved while it is open, D-2631) until Create replaces them with the link or Cancel removes them.
     if (row.group === 'newObject') {
       const ty = conv.current.types.find((x) => x.key === row.type);
       if (!ty) return;
@@ -952,7 +952,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     if (n.to > doc.content.size) return null;
     return doc.textBetween(n.from, n.to, '\n', '￼') === n.text ? [n.from, n.to] : null;
   };
-  /** Esc, Cancel or a click outside (D-2511): the dialog closes and the trigger and query go (outside the history);
+  /** Esc, Cancel or a click outside (D-2630): the dialog closes and the trigger and query go (outside the history);
    *  the caret returns to where the trigger was. */
   const cancelNewObject = (refocus = true) => {
     const e = edRef.current;
@@ -967,7 +967,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     }
     if (refocus) focusEditor();
   };
-  /** Create (R237; D-2484, D-2510, D-2513): the object through the one creation path (no `source`), then the link in
+  /** Create (R237; D-2603, D-2629, D-2632): the object through the one creation path (no `source`), then the link in
    *  place of the trigger and query as one undo step, naming the file the core actually created. A failed create
    *  inserts and writes nothing: the dialog closes, the alert shows and the trigger and query stay as typed text. */
   const createNewObject = async (title: string) => {
@@ -984,7 +984,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       focusEditor();
       return;
     }
-    newObjInserting.current = true; // QA (D-2512): the saver waits until the link is in
+    newObjInserting.current = true; // QA (D-2631): the saver waits until the link is in
     setNewObj(null);
     const stem = path.split('/').pop()!.replace(/\.md$/, '');
     const res = await ipc.linkResolve(pathRef.current, [stem]).catch(() => []);
@@ -1327,7 +1327,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
         return;
       }
       if (e.key === 'Enter' || e.key === 'Tab') {
-        // R235 (D-2506): `+` with no matching row closes, and the key does what it does without a menu.
+        // R235 (D-2625): `+` with no matching row closes, and the key does what it does without a menu.
         if (!items.length && L.slash.trigger === '+') { dismissed.current = `s${L.slash.from}`; setSlash(null); return; }
         stop();
         const pick = items[Math.min(L.slash.sel, items.length - 1)];

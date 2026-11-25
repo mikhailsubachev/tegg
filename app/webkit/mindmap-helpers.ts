@@ -492,7 +492,7 @@ export async function connectorStart(fig: Locator, from: string, to: string): Pr
   });
 }
 
-// ------------------------------------------------------------------------------------------------ slice MM3 (D-2481…D-2489)
+// ------------------------------------------------------------------------------------------------ slice MM3 (D-2600…D-2608)
 
 /** The MM3 note of the fixture (README: Bratranci, AP-2111). */
 export const MM3 = { bratranci: 'Pages/Bratranci.md' } as const;
@@ -548,7 +548,7 @@ export async function zonePoint(fig: Locator, name: string, zone: Zone, left = f
   if (zone === 'child') return { x: left ? b.x + b.width / 6 : b.x + (5 * b.width) / 6, y: b.y + b.height / 2 };
   return { x: b.x + b.width / 2, y: zone === 'before' ? b.y + b.height / 4 : b.y + (3 * b.height) / 4 };
 }
-/** Pointer down on node `from`, a move to `to` in `steps` (≥ 4 px, a drag, D-2489), an optional rest, then `release`
+/** Pointer down on node `from`, a move to `to` in `steps` (≥ 4 px, a drag, D-2608), an optional rest, then `release`
  *  (`false`: the button stays down for the caller). */
 export async function dragTo(page: Page, fig: Locator, from: string, to: { x: number; y: number }, o: { steps?: number; restMs?: number; release?: boolean } = {}) {
   const n = await needNode(fig, from);

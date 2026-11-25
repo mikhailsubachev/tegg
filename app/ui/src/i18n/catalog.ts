@@ -211,10 +211,10 @@ export const en: Catalog = {
   'slash.group.blocks': 'Blocks',
   'slash.group.media': 'Media',
   'slash.group.advanced': 'Advanced',
-  // new-object-menu.md R238 (D-2490…D-2492): the computed New object group.
+  // new-object-menu.md R238 (D-2609…D-2611): the computed New object group.
   'slash.group.newObject': 'New object',
   'slash.newObject': 'New {type}',
-  // R234 (D-2509): the heading rows' icons.
+  // R234 (D-2628): the heading rows' icons.
   'slash.heading1.icon': 'H1',
   'slash.heading2.icon': 'H2',
   'slash.heading3.icon': 'H3',
@@ -259,7 +259,7 @@ export const en: Catalog = {
   'mindmap.editNode': 'Edit node',
   'cmd.mindmap.layoutRight': 'Mindmap layout: right',
   'cmd.mindmap.layoutSpider': 'Mindmap layout: spider',
-  // Slice MM3 (R233, mm-mindmap §7.5; D-2487, D-2488, D-2504).
+  // Slice MM3 (R233, mm-mindmap §7.5; D-2606, D-2607, D-2623).
   'mindmap.collapseNode': 'Collapse {node}',
   'mindmap.expandNode': { one: 'Expand {node}, {count} hidden', other: 'Expand {node}, {count} hidden' },
   'mindmap.hiddenCount': '+{count}',
@@ -533,7 +533,7 @@ export const en: Catalog = {
   'phone.properties': 'Properties',
   'phone.moreProperties': { one: '+{count} property', other: '+{count} properties' },
   'phone.close': 'Close',
-  // The close button of alerts and notices (D-2548).
+  // The close button of alerts and notices (D-2667).
   'dialog.close': 'Close',
   'phone.showSource': 'Show Markdown source',
   'phone.showFormatted': 'Show formatted note',
@@ -590,7 +590,7 @@ export const en: Catalog = {
   'newObject.field': 'Title',
   'newObject.placeholder': 'Untitled',
   'newObject.type': 'Type',
-  // The `New <type>` dialog of the slash menu (new-object-menu.md R236, R238; D-2490, D-2511, D-2513).
+  // The `New <type>` dialog of the slash menu (new-object-menu.md R236, R238; D-2609, D-2630, D-2632).
   'newObject.dialog': 'New {type}',
   'newObject.title': 'Title',
   'newObject.hint': 'Creates {path} and links it here.',

@@ -94,7 +94,7 @@ test('fr_mmp_02_ac43_pavouk_spider_with_alfa_folded', async () => {
   assert.deepEqual(want.map(([n]) => byName(l, n)?.side ?? null), want.map(([, , s]) => s), 'sides kept');
   assert.deepEqual([foldOf(l, 'Alfa'), foldOf(l, 'Beta'), foldOf(l, 'Střed')], [[416, 16, true, 2], [78, 16, false, 1], [308, 36, false, 7]],
     'fold controls Alfa (416, 16) +2, Beta (78, 16), Střed on its right elbow (308, 36) (AP-2114)');
-  // RT-6: R230 gives the width as 386, but AP-2117 (D-2499) makes the layout contain every control: 416 + 8 = 424.
+  // RT-6: R230 gives the width as 386, but AP-2117 (D-2618) makes the layout contain every control: 416 + 8 = 424.
   assert.deepEqual([l.width, l.height], [424, 72], 'layout 424 × 72 (the rightmost control 416 + 8, AP-2117; RT-6)');
   assert.deepEqual([plusOf(l, 'Beta'), plusOf(l, 'Střed'), plusOf(l, 'Alfa')], [[115, 16], [278, 36], [386, 16]], '`+` on the outer edge: Beta\'s left edge, the spider root\'s right edge, Alfa\'s right edge (AP-2118)');
 });
@@ -152,7 +152,7 @@ test('fr_mmp_02_ac37_navigation_function_on_vyjezd_pavouk_and_vice_korenu', asyn
     '↑ from Lisabon': ['Plán 2027', 'Přehled Q4', '—'],
     '↑ ↓ on the root': ['—', '—'],
     'Home, End from Lisabon': ['Výjezd 2026', 'Doprava'],
-  }, 'Výjezd: siblings, then the cousin at the same depth (D-2481, AP-2111); nothing on the root (AP-2112)');
+  }, 'Výjezd: siblings, then the cousin at the same depth (D-2600, AP-2111); nothing on the root (AP-2112)');
   const p = await lay(PAVOUK(), null, 'spider');
   assert.deepEqual({
     '↓ from A2': await walk(p, 'A2', ['ArrowDown']),
@@ -199,7 +199,7 @@ test('fr_mmp_02_ac38_cousins_across_a_childless_parent_and_across_grandparents',
 });
 
 test('fr_mmp_02_ac41_folded_nodes_unfold_by_the_key_towards_their_children', async () => {
-  // R229 rows ← → (D-2486, AP-2113, AP-2114): the key towards the children of a folded node unfolds it.
+  // R229 rows ← → (D-2605, AP-2113, AP-2114): the key towards the children of a folded node unfolds it.
   const v = await lay(VYJEZD(), ['0.0']);
   assert.deepEqual(await walk(v, 'Program', ['ArrowRight']), ['unfold Program'], 'right: → on folded Program unfolds it');
   const p = await lay(PAVOUK(), ['0.1'], 'spider');

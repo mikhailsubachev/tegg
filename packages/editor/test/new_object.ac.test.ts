@@ -1,6 +1,6 @@
 // New objects from `/` and `+`, L1 and L2: the @tegg/editor side (docs/acceptance/new-object-menu.md R237; contract
 // docs/contracts/new-object-menu.md §3). FR-EDT-03 AC-14 (L1: the D-184 link text of N1…N8; titles with `|`, `[[`, `]]`
-// get no alias, D-2514), FR-EDT-03 AC-15 (L1: `insertObjectLink` is one transaction; ⌘Z leaves the text as before the
+// get no alias, D-2633), FR-EDT-03 AC-15 (L1: `insertObjectLink` is one transaction; ⌘Z leaves the text as before the
 // trigger, ⇧⌘Z puts the same link back), FR-FMT-12 AC-18 (L1: NFC titles and links; NFD host bytes kept), FR-FMT-07
 // AC-39 (L1: N1, N9, the NFD host; L2: a link at a random allowed caret position of a random host paragraph changes
 // only the bytes between the trigger's start and the caret; fixed seed plus one per run). Fixture:
@@ -70,7 +70,7 @@ test('fr_edt_03_ac14_link_text_of_n1_to_n8_and_titles_that_cant_be_an_alias', as
     [choice('Pages/konec.md', 'konec ]]'), 'konec', 'AP-2132: `]]` alone'],
   ];
   const got = cases.map(([c]) => linkText(c));
-  assert.deepEqual(got, cases.map(([, want]) => want), 'D-184 link texts (D-2514)');
+  assert.deepEqual(got, cases.map(([, want]) => want), 'D-184 link texts (D-2633)');
   assert.ok(got.every((s) => s === s.normalize('NFC')), 'every link text is NFC (FR-FMT-12 AC-18)');
 });
 
@@ -88,10 +88,10 @@ test('fr_edt_03_ac15_insert_object_link_is_one_undo_step_without_the_trigger', a
   assert.ok(before && before.type.name !== 'text', `the caret is right after the link chip (${before?.type.name})`);
   ed.commands.undo();
   const undone = await ed.save();
-  // D-2538: the trailing space typed before `+` is not saved (paragraph edges are normalized): the paragraph reads as
+  // D-2657: the trailing space typed before `+` is not saved (paragraph edges are normalized): the paragraph reads as
   // before the trigger, or nothing is written at all.
   assert.ok(undone === null || undone === orig || undone === touched(orig),
-    `⌘Z removes the link in one step and leaves \`Úvodní odstavec.\` (no \`+pa\`, D-2512, D-2538): ${JSON.stringify(undone?.slice(0, 200))}`);
+    `⌘Z removes the link in one step and leaves \`Úvodní odstavec.\` (no \`+pa\`, D-2631, D-2657): ${JSON.stringify(undone?.slice(0, 200))}`);
   if (undone !== null) ed.markSaved(undone);
   ed.commands.redo();
   assert.equal(await ed.save(), n1, '⇧⌘Z puts the same link back');

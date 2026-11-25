@@ -1,4 +1,4 @@
-// Slice MM3 (R233, mm-mindmap §7.5; D-2504): the palette's `Fold or unfold mindmap node` and `Add child to mindmap
+// Slice MM3 (R233, mm-mindmap §7.5; D-2623): the palette's `Fold or unfold mindmap node` and `Add child to mindmap
 // node` act on the focused node of the map that holds the focus, and do nothing elsewhere (no error). A map registers
 // itself when its tree takes the focus; the registration ends when the focus goes anywhere but a map or a dialog (the
 // palette, which gives the focus back to the map when it closes, D-139).

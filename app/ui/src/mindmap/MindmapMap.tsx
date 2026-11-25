@@ -5,7 +5,7 @@
 // the editor's `MindmapEdit` (⏎ sibling, Tab child, Space / F2 the text field, ⌫ a leaf, ⌥ + arrows move and nest,
 // ⌘Z / ⇧⌘Z), a click focuses, a double-click edits; a new node is pending (never in the file) until its first non-empty
 // commit.
-// Slice MM3 (R229…R233; D-2481…D-2489, D-2493…D-2505; mm-mindmap §7): ↑ / ↓ among siblings and cousins and the other
+// Slice MM3 (R229…R233; D-2600…D-2608, D-2612…D-2624; mm-mindmap §7): ↑ / ↓ among siblings and cousins and the other
 // keys through `navigateMindmap`; Space folds, F2 edits; the fold control and the `+` inside each treeitem; folds are
 // view state (the editor's `MindmapFolds`, or the map's own set in the read view); drag and drop of branches.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -100,9 +100,9 @@ const idOf = (path: number[] | null) => (path === null || path.length === 0 ? 'r
 /** The parent id of a layout node id (`'0.1'` → `'0'`, a top-level item → `'root'`); null for a root. */
 const parentId = (id: string, info: Map<string, Info>) => info.get(id)?.parent ?? null;
 
-/** R231: a drag starts after a move of ≥ 4 px with the button held (D-2489). */
+/** R231: a drag starts after a move of ≥ 4 px with the button held (D-2608). */
 const DRAG_PX = 4;
-/** R231: resting this long over a folded node unfolds it (D-2489). */
+/** R231: resting this long over a folded node unfolds it (D-2608). */
 const UNFOLD_MS = 600;
 type Zone = 'before' | 'after' | 'child';
 type Drag = { id: string; path: number[]; target: string | null; zone: Zone | null };
@@ -130,11 +130,11 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
   onFocusedNode?: (path: number[] | null | undefined) => void;
   /** Slice MM3 (mm-mindmap §7.3): the editor's folds of this block; without them (the read view) the map keeps its own. */
   folds?: MindmapFolds | null;
-  /** The live map below the List view: no folds, `+` or drag there (D-2502). */
+  /** The live map below the List view: no folds, `+` or drag there (D-2621). */
   underList?: boolean;
 }) {
   const info = useMemo(() => infos(tree), [tree]);
-  // Slice MM3 (D-2482, D-2503): folds; none on the phone yet.
+  // Slice MM3 (D-2601, D-2622): folds; none on the phone yet.
   const noFolds = isPhone() || underList;
   const [localFolds, setLocalFolds] = useState<ReadonlySet<string>>(() => new Set());
   const [, setTick] = useState(0);
@@ -181,7 +181,7 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
   const recordStep = (before: number[] | null, after: number[] | null) => { steps.current.length = stepAt.current; steps.current.push({ before, after }); stepAt.current++; };
   const order = layout.nodes.map((n) => n.id);
   const ids = new Set(order);
-  // The roving tab stop: the focused node, else its nearest shown ancestor (a fold hid it, D-2497), else the root (a map
+  // The roving tab stop: the focused node, else its nearest shown ancestor (a fold hid it, D-2616), else the root (a map
   // that was empty or lost its node).
   const shownAncestor = (id: string): string | undefined => {
     for (let a: string | null = id; a !== null; a = parentId(a, info)) if (ids.has(a)) return a;
@@ -197,7 +197,7 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
     return layoutMindmap(withPending(tree, editing.parent, editing.index), m, { chipExtra: extra, folded: foldedIds });
   }, [layout, pendingAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ---- drag and drop (R231, D-2489, D-2501, D-2502)
+  // ---- drag and drop (R231, D-2608, D-2620, D-2621)
   const [drag, setDragState] = useState<Drag | null>(null);
   const dragRef = useRef<Drag | null>(null);
   const setDrag = (d: Drag | null) => { dragRef.current = d; setDragState(d); };
@@ -226,7 +226,7 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
     if (dropIt && d.target && d.zone) live.current.drop(d);
     else live.current.go(d.id);
   };
-  // FR-SYN-03 AC-40 (D-2502): a reload of the block (another program changed the file) cancels a running drag.
+  // FR-SYN-03 AC-40 (D-2621): a reload of the block (another program changed the file) cancels a running drag.
   const sigRef = useRef(treeSig);
   useEffect(() => {
     if (sigRef.current !== treeSig && dragRef.current) endDrag(false);
@@ -288,7 +288,7 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
     }
   };
 
-  // ---- folds (R229, R230; D-2486, D-2487, D-2497)
+  // ---- folds (R229, R230; D-2605, D-2606, D-2616)
   /** Returns whether the node is folded afterwards. */
   const setFold = (id: string, f: boolean | null): boolean => {
     const now = foldedIds.has(id);
@@ -299,9 +299,9 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
     else setLocalFolds((prev) => { const s = new Set(prev); if (want) s.add(id); else s.delete(id); return s; });
     return want;
   };
-  /** Space, the fold control and the command: the node keeps (or takes) the focus (D-2497). */
+  /** Space, the fold control and the command: the node keeps (or takes) the focus (D-2616). */
   const toggleFold = (id: string) => { if (nodeOf(id)?.fold) go(id, setFold(id, null)); };
-  /** Tab, the `+` and `Add child to mindmap node` (D-2486, D-2488): a folded node unfolds first. */
+  /** Tab, the `+` and `Add child to mindmap node` (D-2605, D-2607): a folded node unfolds first. */
   const addChild = (id: string) => {
     if (!edit || editRef.current) return;
     const unfolding = foldedIds.has(id);
@@ -385,7 +385,7 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
     const k = e.key;
     const meta = e.metaKey || e.ctrlKey;
     if (dragRef.current) { e.preventDefault(); e.stopPropagation(); return; }
-    // R229 (D-2481, D-2485, D-2486): ↑ ↓ siblings then cousins, ← → as R95, Home / End; the key towards a folded
+    // R229 (D-2600, D-2604, D-2605): ↑ ↓ siblings then cousins, ← → as R95, Home / End; the key towards a folded
     // node's children unfolds it.
     if (NAV_KEYS.has(k) && !e.altKey) {
       const r = navigateMindmap(layout, n.id, k as MindNavKey);
@@ -394,7 +394,7 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
     }
     else if (k === 'Enter' && meta) openLink(e.currentTarget as HTMLElement);
     else if (k === ' ' && e.altKey && !meta) { e.preventDefault(); e.stopPropagation(); linkKey(e.currentTarget as HTMLElement, { key: ' ', code: 'Space', altKey: true }); }
-    // Space folds or unfolds (also in the read view and a read-only note; nothing on a leaf, D-2486).
+    // Space folds or unfolds (also in the read view and a read-only note; nothing on a leaf, D-2605).
     else if (k === ' ' && !meta) toggleFold(n.id);
     else if (!edit) { if (k === 'Enter' || k === 'F2' || k === 'Backspace' || k === 'Delete') { /* navigation only (D-786): swallowed, nothing happens */ } else return; }
     else if (k === 'z' && meta) {
@@ -413,7 +413,7 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
     e.stopPropagation();
   };
 
-  // ---- drag and drop (R231, D-2489)
+  // ---- drag and drop (R231, D-2608)
   /** The drop zone under a client point: a shown node other than the dragged one and its subtree, inside this map. */
   const zoneAt = (cx: number, cy: number, from: string): { target: string; zone: Zone } | null => {
     const canvas = box.current;
@@ -432,7 +432,7 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
     return { target: tn.id, zone: outer ? 'child' : y < tn.y + tn.h / 2 ? 'before' : 'after' };
   };
   const onPointerDown = (e: React.PointerEvent, n: MindLayoutNode) => {
-    // Not draggable: the root, a node being edited, anything in the read view or a read-only note (D-2489).
+    // Not draggable: the root, a node being edited, anything in the read view or a read-only note (D-2608).
     if (e.button !== 0 || !edit || n.depth === 0 || editRef.current || noFolds) return;
     if ((e.target as HTMLElement).closest('button, input, a, .chip, .embed-chip, .tag-chip')) return;
     const path = info.get(n.id)?.path;
@@ -491,7 +491,7 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
     if (to && to.join('.') !== d.path.join('.')) { recordStep(d.path, to); goPath(to); } else go(d.id);
   };
   live.current = { layout, drop, unfold: (id) => setFold(id, false), folded: foldedIds, go };
-  // R233 (D-2504): the palette's commands act on this map's focused node while it has the focus.
+  // R233 (D-2623): the palette's commands act on this map's focused node while it has the focus.
   commandRun.current = (c) => {
     if (editRef.current) return;
     if (c === 'toggleFold') toggleFold(stop);
@@ -542,7 +542,7 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
           const name = n.lines.join(' ');
           const desc = [item?.more ? t('mindmap.more') : null, item && item.checked !== null ? t(item.checked ? 'mindmap.checked' : 'mindmap.unchecked') : null].filter(Boolean).join(', ') || undefined;
           const isEditing = editing?.kind === 'text' && editing.id === n.id;
-          // R230 (D-2487, D-2488, D-2498…D-2500): the fold control on the elbow point and the `+` on the outer edge, both
+          // R230 (D-2606, D-2607, D-2617…D-2619): the fold control on the elbow point and the `+` on the outer edge, both
           // inside the treeitem, out of the Tab order; the treeitem's name stays its text (aria-label).
           const fold = noFolds ? undefined : n.fold;
           const control = (c: { x: number; y: number }): React.CSSProperties => ({ left: `calc(${c.x - n.x}px - var(--mm-bw, 0px))`, top: `calc(${c.y - n.y}px - var(--mm-bw, 0px))` });

@@ -1,4 +1,4 @@
-// The `New <type>` dialog's commands (new-object-menu.md R238; contract §4; D-2515): `newObject.create` and
+// The `New <type>` dialog's commands (new-object-menu.md R238; contract §4; D-2634): `newObject.create` and
 // `newObject.cancel` exist only while a dialog is open, so the palette never lists them elsewhere. The open dialog
 // registers its handlers here; the shell's registry reads them and re-lists its commands when they change.
 export type NewObjectHandlers = { create(): void; cancel(): void };

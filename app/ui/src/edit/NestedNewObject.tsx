@@ -1,7 +1,7 @@
 // `+` in a nested editor (an editable full embed or a Task card's body; new-object-menu.md R235, FR-EDT-03 AC-16;
-// D-2507): the same menu as the note's editor, where the New rows work and write the link into the embedded note;
+// D-2626): the same menu as the note's editor, where the New rows work and write the link into the embedded note;
 // the other rows need the note itself (`Not available in an embedded note`, as conversion there, D-494). The menu and
-// the `New <type>` dialog are drawn over the page; while either is open the nested editor doesn't save (D-2512).
+// the `New <type>` dialog are drawn over the page; while either is open the nested editor doesn't save (D-2631).
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { TeggEditor } from '@tegg/editor';
@@ -29,7 +29,7 @@ export function NestedNewObject({ editor, path, open }: {
   const dismissed = useRef<number | null>(null);
   const live = useRef({ slash, dialog, types });
   live.current = { slash, dialog, types };
-  // QA (D-2512): the saver also waits from a successful create until the link is in.
+  // QA (D-2631): the saver also waits from a successful create until the link is in.
   const inserting = useRef(false);
   open.current = !!slash || !!dialog || inserting.current;
   const rows = (q: string): MenuRow[] => menuRows({ types: live.current.types, query: q, trigger: '+' });

@@ -227,7 +227,7 @@ test('fr_ux_03_ac15_keyboard_only_run', async ({ page }) => {
   const fig = await needFigure(page, null);
   assert.equal(await viewWhen(fig, 'map'), 'map', 'Map from the palette');
   await focusedWhen(page, (x) => x.role === 'treeitem');
-  await page.keyboard.press('ArrowRight'); // slice MM3 (D-2481, AP-2112): ↓ on the root does nothing; → enters the map
+  await page.keyboard.press('ArrowRight'); // slice MM3 (D-2600, AP-2112): ↓ on the root does nothing; → enters the map
   assert.equal((await focusedWhen(page, (x) => x.name === 'Větev')).name, 'Větev', '→ to Větev');
   await runCommand(page, 'Show mindmap as list'); // slice MM2 (D-787): ⏎ edits the node; the palette returns to List
   assert.equal(await viewWhen(fig, 'list'), 'list', 'the palette returns to List');

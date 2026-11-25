@@ -1,6 +1,6 @@
 // The slash menu (FR-EDT-03; docs/acceptance/new-object-menu.md R234…R236; contract docs/contracts/new-object-menu.md
-// §4): the `Insert block` listbox with a `group` per group named by its header (shown while filtering too, D-2508),
-// R234's rows, `H1`…`H3` icons, `⇧⌘O` on `Turn into object…`, each New row's type icon (D-2509), 420 px high and
+// §4): the `Insert block` listbox with a `group` per group named by its header (shown while filtering too, D-2627),
+// R234's rows, `H1`…`H3` icons, `⇧⌘O` on `Turn into object…`, each New row's type icon (D-2628), 420 px high and
 // scrolling inside, the selected row always in view.
 import { useLayoutEffect, useRef } from 'react';
 import { t } from '../i18n/catalog';
@@ -18,9 +18,9 @@ function Due({ due }: { due: SlashDef['due'] }) {
   return due ? <span className="due">{t('due.coming', { milestone: showDue(due) })}</span> : null;
 }
 
-/** R234 (D-2509): the heading rows' icons. */
+/** R234 (D-2628): the heading rows' icons. */
 const HEADING_ICON: Record<string, string> = { heading1: 'slash.heading1.icon', heading2: 'slash.heading2.icon', heading3: 'slash.heading3.icon' };
-/** R234 (D-2492, D-126): the shortcut shown at a row's end. */
+/** R234 (D-2611, D-126): the shortcut shown at a row's end. */
 const ROW_SHORTCUT: Record<string, string> = { turnIntoObject: 'edit.turnIntoObject' };
 const GROUP_LABEL: Record<MenuRow['group'], string> = {
   blocks: 'slash.group.blocks', objects: 'slash.group.objects', media: 'slash.group.media', advanced: 'slash.group.advanced', newObject: 'slash.group.newObject',
@@ -30,7 +30,7 @@ export function SlashMenu({ slash, rows, pos, unavailable, onPick, onSel, fixed 
   slash: Slash;
   rows: MenuRow[];
   pos: { left: number; top: number };
-  /** Why a row can't run here now (5A-2: conversion, D-494; a nested editor, D-2507), or null. */
+  /** Why a row can't run here now (5A-2: conversion, D-494; a nested editor, D-2626), or null. */
   unavailable: (r: MenuRow) => string | null;
   onPick: (r: MenuRow) => void;
   onSel: (i: number) => void;

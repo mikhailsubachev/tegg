@@ -576,7 +576,7 @@ export function commands(ctx: ShellContext): Command[] {
     list.push({ id, title, section: 'edit', shortcut: shortcutOf(id), needsVault: true, run: (c) => a(c)?.edit?.(action),
       ...(convert && onNote ? { disabled: () => a(ctx)?.convertBlocked?.() ?? null } : {}) });
   }
-  // Slice MM3 (R233, D-2504): the map's fold control and `+` as commands, on the focused node of the focused map.
+  // Slice MM3 (R233, D-2623): the map's fold control and `+` as commands, on the focused node of the focused map.
   list.push(
     { id: 'mindmap.toggleFold', title: 'cmd.mindmap.toggleFold', section: 'edit', needsVault: true, run: () => runMapCommand('toggleFold') },
     { id: 'mindmap.addChild', title: 'cmd.mindmap.addChild', section: 'edit', needsVault: true, run: () => runMapCommand('addChild') },
@@ -590,7 +590,7 @@ export function commands(ctx: ShellContext): Command[] {
     { id: 'link.edit', title: 'cmd.link.edit', section: 'edit', shortcut: '⇧⌘K', needsVault: true, run: (c) => a(c)?.editLink?.() }, // ⇧⌘K at a chip (R4's edit.link)
     { id: 'link.remove', title: 'linkField.remove', section: 'edit', needsVault: true, run: (c) => a(c)?.removeLink?.() },
   );
-  // new-object-menu.md R238 (D-2515): the `New <type>` dialog's buttons, only while it is open; no shortcut.
+  // new-object-menu.md R238 (D-2634): the `New <type>` dialog's buttons, only while it is open; no shortcut.
   if (newObjectDialog()) {
     list.push(
       { id: 'newObject.create', title: 'newObject.create', section: 'edit', needsVault: true, run: () => newObjectDialog()?.create() },

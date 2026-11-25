@@ -178,7 +178,7 @@ export const SHORTCUTS: ShortcutDef[] = [
 export type SlashDef = { id: string; group: 'objects' | 'blocks' | 'media' | 'advanced'; label: string; status: RouteDef['status']; due?: Due; reqs: string[] };
 const slash = (id: string, group: SlashDef['group'], reqs: string[], due?: Due): SlashDef =>
   ({ id, group, label: `slash.${id}`, status: due ? { built: false, due } : built, ...(due ? { due } : {}), reqs });
-// R6 of editor.md as reordered by new-object-menu.md R234 (D-2492): Blocks (Mindmap after Checklist), Objects, Media,
+// R6 of editor.md as reordered by new-object-menu.md R234 (D-2611): Blocks (Mindmap after Checklist), Objects, Media,
 // Advanced. The New object rows are computed per vault (app/ui/src/edit/slashMenu.ts) and are never registry rows.
 export const SLASH_ITEMS: SlashDef[] = [
   slash('text', 'blocks', ['FR-EDT-02']),
@@ -188,7 +188,7 @@ export const SLASH_ITEMS: SlashDef[] = [
   slash('bulletList', 'blocks', ['FR-EDT-02']),
   slash('orderedList', 'blocks', ['FR-EDT-02']),
   slash('checklist', 'blocks', ['FR-EDT-02', 'FR-TSK-11']),
-  slash('mindmap', 'blocks', ['FR-MMP-01']), // moved from Advanced (D-2492)
+  slash('mindmap', 'blocks', ['FR-MMP-01']), // moved from Advanced (D-2611)
   slash('quote', 'blocks', ['FR-EDT-02']),
   slash('callout', 'blocks', ['FR-EDT-02']),
   slash('codeBlock', 'blocks', ['FR-EDT-02']),

@@ -42,7 +42,7 @@ export type MindmapCtl = {
   layout: () => MindmapLayout
   /** Slice MM2 (D-786): edits on the block; null when read-only. */
   edit: MindmapEdit | null
-  /** Slice MM3 (mm-mindmap §7.3, D-2482, D-2497): the block's folds, view state of the open editor (never written). */
+  /** Slice MM3 (mm-mindmap §7.3, D-2601, D-2616): the block's folds, view state of the open editor (never written). */
   folds?: MindmapFolds
 }
 /** Slice MM3 (mm-mindmap §7.3): paths in outline order; `null` is the synthesized root. */
@@ -59,7 +59,7 @@ export type MindmapEdit = {
   insert(at: number[] | null, where: 'sibling' | 'child', markdown: string): number[] | null
   remove(path: number[]): number[] | null
   move(path: number[], dir: 'up' | 'down' | 'in' | 'out'): number[] | null
-  /** Slice MM3 (mm-mindmap §7.4, D-2489): a drop, one transaction; the moved item's new path, `from` when nothing
+  /** Slice MM3 (mm-mindmap §7.4, D-2608): a drop, one transaction; the moved item's new path, `from` when nothing
    *  changes (no transaction), null when impossible. */
   moveMindmapItem?(from: number[], target: number[] | null, zone: 'before' | 'after' | 'child'): number[] | null
   undo(): boolean
@@ -1032,7 +1032,7 @@ class CalloutView implements NodeView {
   setView(v: 'map' | 'list', focus = false) {
     this.view = v
     this.folded = false
-    // D-2482: List and back shows the map unfolded.
+    // D-2601: List and back shows the map unfolded.
     const base = this.getPos()
     if (base !== undefined && foldedPaths(this.pm.state, base).length) this.pm.dispatch(clearFoldsMeta(this.pm.state.tr, base, base + this.node.nodeSize))
     this.ui.mindmapState?.set(String(this.index()), v)
@@ -1306,7 +1306,7 @@ class CalloutView implements NodeView {
     if (want !== now) this.pm.dispatch(setFoldMeta(this.pm.state.tr, pos, root, want))
     return true
   }
-  /** R231, R232 (D-2489, D-2501): `from` and its subtree become `target`'s last child (`null`: the synthesized root's)
+  /** R231, R232 (D-2608, D-2620): `from` and its subtree become `target`'s last child (`null`: the synthesized root's)
    *  or its previous / next sibling, in one transaction with the bytes of the ⌥ moves (the list's block rewrite). */
   moveItem(from: number[], target: number[] | null, zone: 'before' | 'after' | 'child'): number[] | null {
     const base = this.getPos()

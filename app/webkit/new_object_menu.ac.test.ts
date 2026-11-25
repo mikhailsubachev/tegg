@@ -115,7 +115,7 @@ test('fr_edt_03_ac7_new_rows_come_from_the_vaults_types', async ({ page }) => {
   await page.keyboard.press('Escape');
   await core.setFile('.tegg/types/projekt.yml', null);
   await sleep(2000);
-  // D-2539: the first `/` stays as text after Esc; a space makes the second `/` a valid trigger position.
+  // D-2658: the first `/` stays as text after Esc; a space makes the second `/` a valid trigger position.
   await page.keyboard.type(' /');
   assert.deepEqual((await needMenu(page, '/ after the delete')).names.slice(19), ['New Page', 'New Task', 'New Quick Note'], 'a deleted one is gone');
   await page.keyboard.press('Escape');
@@ -142,14 +142,14 @@ test('fr_edt_03_ac8_filtering_finds_new_rows', async ({ page }) => {
   assert.deepEqual(got, {
     '/task': ['New Task'], '/TASK': ['New Task'], '+task': ['New Task'],
     '/new': ['New Page', 'New Task', 'New Quick Note', 'New Cvičení', 'New Čaj', 'New Projekt'], '+pro': ['New Projekt'],
-  }, 'the New rows are found by every group\'s filter (D-2483)');
+  }, 'the New rows are found by every group\'s filter (D-2602)');
   assert.equal((await list('/quick')).names[0], 'New Quick Note', '/quick: New Quick Note first');
   assert.equal((await list('+caj')).names[0], 'New Čaj', '+caj: New Čaj first');
   assert.equal((await list('+čaj')).names[0], 'New Čaj', '+čaj');
   assert.equal((await list('/tab')).names[0], 'Table', '/tab: Table first');
   assert.equal((await list('/hea2')).names[0], 'Heading 2', '/hea2');
   const plus = await list('+ta');
-  assert.equal(plus.sel, 'New Task', '+ta selects New Task (D-2508)');
+  assert.equal(plus.sel, 'New Task', '+ta selects New Task (D-2627)');
   assert.ok(plus.names.indexOf('Table') > plus.names.indexOf('New Task'), 'Table is below it');
   assert.ok(plus.headers.includes('New object') && plus.headers.includes('Blocks'), `headers above each group with a match while filtering: ${plus.headers.join(', ')}`);
   assert.equal((await list('/ta')).sel, 'Table', '/ta selects Table first');
@@ -282,7 +282,7 @@ test('fr_edt_03_ac11_plus_doesnt_open_in_code_links_and_fields', async ({ page }
   const body = editorBody(page);
   await tryAt(body.locator('pre, code').filter({ hasText: 'kód();' }).first(), 'kód(', 'the js fence');
   await tryAt(body.locator('p').filter({ hasText: 'a dál' }).locator('code').first(), 'k', 'inline code');
-  // D-2539: the runtime paragraph holding the `[sál](…)` link (its whole text is "sál"), not the list item "Rezervovat sál".
+  // D-2658: the runtime paragraph holding the `[sál](…)` link (its whole text is "sál"), not the list item "Rezervovat sál".
   await tryAt(body.locator('p').filter({ hasText: /^sál$/ }).filter({ has: page.locator('a') }).last(), 's', 'the link text');
   const t = await saved(page, core, BLOKY, (x) => !!x && x.includes('[s+paál]'), 3000);
   for (const want of ['kód(+pa);', '`k+paód`', '[s+paál](https://example.com)']) if (!t?.includes(want)) bad.push(`not saved as typed: ${want}`);
@@ -315,7 +315,7 @@ test('fr_edt_03_ac11_plus_doesnt_open_in_code_links_and_fields', async ({ page }
   await page.keyboard.press('Enter');
   const web = await eventually(() => fileText(core, WEB), (x) => !!x && /poznámka: "?\+pa"?\n/.test(x), 4000);
   if (!web || !/poznámka: "?\+pa"?\n/.test(web)) bad.push(`the attribute field: not saved as typed (${JSON.stringify(web)})`);
-  assert.deepEqual(bad, [], 'no menu for `+` in code, inline code, a link\'s text, the Title, `Edit node`, an attribute field; the text is saved as typed (D-2491, AP-2125)');
+  assert.deepEqual(bad, [], 'no menu for `+` in code, inline code, a link\'s text, the Title, `Edit node`, an attribute field; the text is saved as typed (D-2610, AP-2125)');
 });
 
 // ------------------------------------------------------------------------------------------------ AC-12
@@ -372,7 +372,7 @@ test('fr_edt_03_ac13_the_new_object_dialog', async ({ page }) => {
   assert.equal(flat(await d.getByText(/^Creates /).first().innerText()), 'Creates Projekty/Spuštění webu.md and links it here.', 'the hint (AP-2129)');
   await page.keyboard.press('Escape');
   assert.equal(await seen(newDialog(page, 'Projekt'), 300), false, 'Esc closes the dialog');
-  // D-2538: the trailing space typed before `+` is not saved (paragraph edges are normalized): nothing changes.
+  // D-2657: the trailing space typed before `+` is not saved (paragraph edges are normalized): nothing changes.
   let t = await savedLine(page, core, line1(''));
   assert.equal(noMod(t), noMod(line1('')), 'Esc removes `+pro`; the trailing space typed before it is not saved, so the paragraph is unchanged');
   assert.deepEqual(await callsOf(core, 'note_create'), [], 'never note_create');
@@ -388,7 +388,7 @@ test('fr_edt_03_ac13_the_new_object_dialog', async ({ page }) => {
     else await page.mouse.click(1300, 860);
     assert.equal(await seen(newDialog(page, 'Projekt'), 300), false, `${how} closes the dialog`);
     t = await savedLine(page, core, line1(''));
-    assert.equal(noMod(t), noMod(line1('')), `${how}: as Esc (D-2538)`);
+    assert.equal(noMod(t), noMod(line1('')), `${how}: as Esc (D-2657)`);
     assert.deepEqual(await callsOf(core, 'note_create'), [], `${how}: never note_create`);
   }
 });

@@ -1,8 +1,8 @@
-// Slice MM3 (docs/contracts/mm-mindmap.md §7.2, docs/acceptance/mindmap.md R229; D-2481, D-2485, D-2486, D-2493…D-2496):
+// Slice MM3 (docs/contracts/mm-mindmap.md §7.2, docs/acceptance/mindmap.md R229; D-2600, D-2604, D-2605, D-2612…D-2615):
 // the map's keys as a pure function of the laid-out (visible) nodes. ↑ / ↓ go to the previous / next sibling, then to
-// the nearest visible node of the same depth in outline order (D-2493); nothing on a root (D-2494). Home / End: the
+// the nearest visible node of the same depth in outline order (D-2612); nothing on a root (D-2613). Home / End: the
 // root and the last visible node. ← / → as R95 (D-790 in `spider`); on a folded node the key towards its children
-// unfolds it (D-2486, D-2495), on a folded spider root either key does (D-2496).
+// unfolds it (D-2605, D-2614), on a folded spider root either key does (D-2615).
 import type { MindLayout } from './layout';
 
 export type MindNavKey = 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight' | 'Home' | 'End';

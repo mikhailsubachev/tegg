@@ -1,4 +1,4 @@
-// The `New <type>` dialog of the slash menu (docs/acceptance/new-object-menu.md R236; D-2490, D-2511; board
+// The `New <type>` dialog of the slash menu (docs/acceptance/new-object-menu.md R236; D-2609, D-2630; board
 // `ObjectMenu` E): an empty, focused `Title`, the hint `Creates <folder>/<stem>.md and links it here.` with the
 // planned free stem (hidden while the title is empty), `Cancel` and `Create` (default, `aria-disabled` while the title
 // is empty or spaces). ⏎ creates, Esc / Cancel / a click outside cancel; Tab cycles Title → Cancel → Create. Anchored
@@ -61,7 +61,7 @@ export function NewObjectDialog({ type, at, onCreate, onCancel, fixed = false }:
     input.current?.focus();
     const h = { create: () => create(), cancel: () => cancel() };
     setNewObjectDialog(h);
-    // A click outside the dialog cancels it, as Esc (D-2511).
+    // A click outside the dialog cancels it, as Esc (D-2630).
     const outside = (ev: PointerEvent) => { if (box.current && !box.current.contains(ev.target as Node)) cancel(); };
     document.addEventListener('pointerdown', outside, true);
     return () => {

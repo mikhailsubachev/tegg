@@ -1146,7 +1146,7 @@ button.tag-tile { cursor: pointer; }
 
 .slash-two-lines { display: flex; flex-direction: column; gap: 2px; }
 .slash-desc { font-size: 12px; color: var(--muted); }
-/* new-object-menu.md R234 (D-2492, D-2508, D-2509): a fixed 420 px menu that scrolls inside, group headers while
+/* new-object-menu.md R234 (D-2611, D-2627, D-2628): a fixed 420 px menu that scrolls inside, group headers while
    filtering, `H1`…`H3` and type icons, the shortcut at a row's end; R236: the `New <type>` dialog. Tokens only. */
 .slash-menu.popover { max-height: none; overflow: visible; padding: 0; }
 .slash-menu .slash-list { box-sizing: border-box; max-height: 420px; overflow-y: auto; overscroll-behavior: contain; padding: 4px; }

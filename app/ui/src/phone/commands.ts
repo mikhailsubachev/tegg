@@ -33,7 +33,7 @@ export const PHONE_HIDDEN_COMMANDS: readonly string[] = [
   'settings.font', 'settings.fontSize', 'settings.accentColor', 'settings.changeShortcut',
   // Slice OC's card command that opens type settings, a route the phone doesn't offer (D-2480).
   'card.edit',
-  // Slice MM3: no folds on the phone (D-2503, D-2536).
+  // Slice MM3: no folds on the phone (D-2622, D-2655).
   'mindmap.toggleFold', 'mindmap.addChild',
 ];
 

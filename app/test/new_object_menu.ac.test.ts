@@ -1,7 +1,7 @@
 // New objects from `/` and `+`, L1: the menu model and the strings (docs/acceptance/new-object-menu.md R234, R235, R238;
 // contract docs/contracts/new-object-menu.md §1, §2, §4). FR-EDT-03 AC-6 (the rows of R234 in order, 23 with the
 // fixture's types), AC-7 (the New rows from the vault's creatable types, D-122 order by region, never Daily Note, Tag,
-// Image, PDF or an unparsable type), AC-8 (filtering and the `+` ranking, D-2508), AC-9 (the `+` trigger rule, D-2506),
+// Image, PDF or an unparsable type), AC-8 (filtering and the `+` ranking, D-2627), AC-9 (the `+` trigger rule, D-2625),
 // NFR-OTH-02 AC-28 (R238's catalog keys, `slash.task` gone, the pseudo-locale). Modules load dynamically (TS-I1):
 // `app/ui/src/edit/slashMenu.ts` doesn't exist yet. Written from the ACs and the contract only (D-61).
 import { beforeEach, test } from 'vitest';
@@ -52,7 +52,7 @@ test('fr_edt_03_ac6_the_menu_model_lists_r234_in_order', async () => {
   const rows = menu.menuRows({ types: FIXTURE, query: '', trigger: '/' }) as Row[];
   assert.deepEqual(labels(rows), R234, 'the 23 options of R234 in order');
   assert.deepEqual([...new Set(rows.map((r) => r.group))], ['blocks', 'objects', 'media', 'advanced', 'newObject'], 'groups Blocks, Objects, Media, Advanced, New object');
-  assert.equal(rows.filter((r) => r.label === 'Task').length, 0, 'no `Task` row (D-2492)');
+  assert.equal(rows.filter((r) => r.label === 'Task').length, 0, 'no `Task` row (D-2611)');
   assert.deepEqual(rows.filter((r) => r.disabled).map((r) => r.label), ['Block embed'], 'only Block embed is disabled');
   const news = rows.filter((r) => r.group === 'newObject');
   assert.deepEqual(news.map((r) => [r.type, r.icon]), [['page', 'file-text'], ['task', 'check-square'], ['quick-note', 'zap'], ['projekt', 'folder']], 'each New row: its type key and the type file\'s icon');
@@ -87,7 +87,7 @@ test('fr_edt_03_ac8_filtering_and_the_plus_ranking', async () => {
   assert.equal(q('tab', '/')[0], 'Table', '/tab: Table first');
   assert.equal(q('hea2', '/')[0], 'Heading 2', '/hea2: Heading 2 first');
   const plusTa = q('ta', '+');
-  assert.equal(plusTa[0], 'New Task', '+ta: New Task first (D-2508)');
+  assert.equal(plusTa[0], 'New Task', '+ta: New Task first (D-2627)');
   assert.ok(plusTa.indexOf('Table') > 0, `+ta: Table below it (${plusTa.join(', ')})`);
   assert.equal(q('ta', '/')[0], 'Table', '/ta: Table first');
   assert.deepEqual(q('xyz', '/'), [], '/xyz: nothing');
@@ -101,7 +101,7 @@ test('fr_edt_03_ac9_the_plus_trigger_rule', async () => {
     ['Úvodní odstavec.', false], ['a', false], ['C', false], ['C+', false], ['1', false], ['(', false], ['.', false], [',', false], ['Úvodní odstavec. a', false],
   ];
   const got = cases.map(([before]) => [before, menu.plusOpens(before)]);
-  assert.deepEqual(got, cases, 'R235: `+` opens at a block start or after whitespace; never inside a word or after punctuation (D-2506)');
+  assert.deepEqual(got, cases, 'R235: `+` opens at a block start or after whitespace; never inside a word or after punctuation (D-2625)');
 });
 
 // ------------------------------------------------------------------------------------------------ NFR-OTH-02 AC-28 (L1)
@@ -126,7 +126,7 @@ test('nfr_oth_02_ac28_r238_texts_are_catalog_keys_and_slash_task_is_gone', async
   const en = cat!.en as Record<string, unknown>;
   assert.deepEqual(R238.filter(([k]) => !(k in en)).map(([k]) => k), [], 'every R238 key is in the catalog');
   assert.deepEqual(R238.map(([k, , v]) => cat!.t(k, v)), R238.map(([, text]) => text), 'their English texts');
-  assert.equal('slash.task' in en, false, '`slash.task` is gone (D-2492)');
+  assert.equal('slash.task' in en, false, '`slash.task` is gone (D-2611)');
   cat!.setCatalog(cat!.pseudo(cat!.en), 'en');
   const bare = R238.map(([k, , v]) => cat!.t(k, v) as string).filter((s) => !/^⟦.*⟧$/s.test(s));
   assert.deepEqual(bare, [], 'the pseudo-locale wraps each, user content (type names, titles, paths) inside the frame');

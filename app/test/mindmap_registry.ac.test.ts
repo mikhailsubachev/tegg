@@ -64,7 +64,7 @@ test('fr_mmp_01_ac8_slash_mindmap_is_built_without_a_milestone', async () => {
   assert.equal(mm.length, 1, 'one slash item Mindmap (R6)');
   const it = mm[0];
   assert.equal(it.id, 'mindmap');
-  assert.equal(it.group, 'blocks', 'Blocks › Mindmap (new-object-menu.md R234, D-2492)');
+  assert.equal(it.group, 'blocks', 'Blocks › Mindmap (new-object-menu.md R234, D-2611)');
   assert.equal(it.status ? it.status.built : !it.due, true, 'built (D-685)');
   assert.equal(it.due ?? it.status?.due ?? null, null, 'no milestone');
   assert.deepEqual(Array.isArray(it.reqs) ? it.reqs : String(it.reqs).split(/,\s*/), ['FR-MMP-01'], 'requirement FR-MMP-01');

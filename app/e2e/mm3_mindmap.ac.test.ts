@@ -79,7 +79,7 @@ test('fr_mmp_02_ac45_folds_end_with_a_relaunch_in_the_real_app', { timeout: 600_
     d = await session(testEnv(sup, log, { TEGG_VAULT: vault, TEGG_ROUTE: `note/${VYJEZD}`, TEGG_NOW: NOW_MM }));
     assert.ok(await waitMark(log, `route-ready:note/${VYJEZD}`, MARK_TIMEOUT), 'Výjezd 2026 shown after the relaunch');
     await need(d, 'Map of Výjezd 2026', 5000);
-    assert.ok(await shown(d, 'Přehled Q4', 3000) && (await shown(d, 'Lisabon', 3000)), 'after a relaunch the map shows unfolded (D-2482)');
+    assert.ok(await shown(d, 'Přehled Q4', 3000) && (await shown(d, 'Lisabon', 3000)), 'after a relaunch the map shows unfolded (D-2601)');
     assert.ok(!(await shown(d, 'Expand Program, 2 hidden', 500)), 'no folded control');
   } finally {
     await end(d);

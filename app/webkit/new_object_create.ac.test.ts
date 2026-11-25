@@ -70,7 +70,7 @@ async function runN(page: Page, cases: N[]) {
     if (c.n === 'N2' && masked(t) !== newBytes('task', 'Zavolat Petrovi')) bad.push(`N2: bytes ${JSON.stringify(t)}`);
     const h = await saved(page, core, BLOKY, (x) => noMod(x) === noMod(c.host(B0)), 3000);
     if (noMod(h) !== noMod(c.host(B0))) { bad.push(`${c.n}: host ${JSON.stringify(h)}`); continue; }
-    // D-2539: only embeds that are new compared with the host before count (Bloky already holds `![[Zasedačka]]`).
+    // D-2658: only embeds that are new compared with the host before count (Bloky already holds `![[Zasedačka]]`).
     const embeds = (x: string) => (x.match(/!\[\[[^\]]*\]\]/g) ?? []).join('\n');
     if (embeds(h ?? '') !== embeds(B0)) bad.push(`${c.n}: an embed in the host`);
     const linkText = c.host(B0).match(/\[\[([^\]]+)\]\]/g)!.find((l) => !B0.includes(l))!.slice(2, -2);
@@ -84,7 +84,7 @@ async function runN(page: Page, cases: N[]) {
     if ((await mainName(page)) !== 'Bloky') bad.push(`${c.n}: the route changed to ${await mainName(page)}`);
     if ((await navs(core)).length !== navs0) bad.push(`${c.n}: a navigation (history entry)`);
   }
-  assert.deepEqual(bad, [], 'R237: exactly the new file, a link chip in place of the trigger and query, the caret after it, no navigation (D-2484)');
+  assert.deepEqual(bad, [], 'R237: exactly the new file, a link chip in place of the trigger and query, the caret after it, no navigation (D-2603)');
 }
 
 // ------------------------------------------------------------------------------------------------ FR-EDT-03 AC-14, FR-VLT-05 AC-16
@@ -143,9 +143,9 @@ test('fr_edt_03_ac15_one_undo_step_and_the_object_stays', async ({ page }) => {
   const hostWrites = (await callsOf(core, 'note_write')).filter((c) => nfc(String((c.args as { path?: string }).path)) === BLOKY);
   assert.ok(hostWrites.length >= 1 && hostWrites.every((c) => String((c.args as { text?: string }).text).includes('[[Nový plán]]')), 'the host\'s only writes contain the link');
   await page.keyboard.press('Meta+z');
-  // D-2538: the trailing space typed before `+` is not saved (paragraph edges are normalized).
+  // D-2657: the trailing space typed before `+` is not saved (paragraph edges are normalized).
   const u = await saved(page, core, BLOKY, (x) => noMod(x) === noMod(line1('')));
-  assert.equal(noMod(u), noMod(line1('')), '⌘Z removes the link in one step and leaves `Úvodní odstavec.` (AP-2130, D-2538)');
+  assert.equal(noMod(u), noMod(line1('')), '⌘Z removes the link in one step and leaves `Úvodní odstavec.` (AP-2130, D-2657)');
   assert.ok((await fileText(core, 'Pages/Nový plán.md')) !== undefined, 'Pages/Nový plán.md stays (undo never deletes a file)');
   await page.keyboard.press('Meta+Shift+z');
   assert.equal(noMod(await saved(page, core, BLOKY, (x) => noMod(x) === noMod(n1))), noMod(n1), '⇧⌘Z puts the same link back');
@@ -206,7 +206,7 @@ test('fr_edt_03_ac16_a_task_card_body_a_template_and_read_views', async ({ page 
   await createVia(page, { after: 'Úkol v šabloně', trigger: ' +pa', type: 'Page', title: 'Nový plán' });
   const s = await eventually(() => fileText(core, C.sablona), (x) => !!x?.includes('[[Nový plán]]'), 3000);
   assert.ok(s?.includes('Úkol v šabloně [[Nový plán]]'), 'in a template the New rows work (AP-2125)');
-  // D-2539: the read view and the read-only note each start on a fresh page, so the template's route init script (and
+  // D-2658: the read view and the read-only note each start on a fresh page, so the template's route init script (and
   // the read view's flag) don't persist into them.
   for (const readView of [true]) {
     const rv = await page.context().newPage();

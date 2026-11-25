@@ -235,7 +235,7 @@ test('fr_mmp_02_ac40_f2_and_double_click_edit_and_a_folded_node_stays_folded', a
   await page.keyboard.press('F2');
   await t.dblclick();
   await sleep(300);
-  assert.equal(await nodeField(v).count(), 0, 'F2 and a double-click on Témata open nothing (D-2486)');
+  assert.equal(await nodeField(v).count(), 0, 'F2 and a double-click on Témata open nothing (D-2605)');
   assert.deepEqual(await treeNames(v), ['Témata', 'Rodina', 'Práce', 'Porady', 'Zdraví'], 'and fold nothing');
   assert.ok((await foldControl(v, 'Témata').count()) === 1, 'Témata has its fold control (R230)');
 });

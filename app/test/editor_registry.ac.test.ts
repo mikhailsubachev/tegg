@@ -27,7 +27,7 @@ beforeEach(async () => {
 });
 
 const d = (milestone: string): Due => ({ milestone });
-/** R6 of editor.md as reordered by new-object-menu.md R234 (D-2492): group, catalog label, milestone (null = built),
+/** R6 of editor.md as reordered by new-object-menu.md R234 (D-2611): group, catalog label, milestone (null = built),
  *  requirement IDs. Blocks first with `Mindmap` after `Checklist`, no `Task` row, Advanced `Query` then `Block embed`;
  *  the computed New object rows are not registry rows. */
 export const R6: [string, string, Due | null, string][] = [
@@ -38,7 +38,7 @@ export const R6: [string, string, Due | null, string][] = [
   ['blocks', 'Bulleted list', null, 'FR-EDT-02'],
   ['blocks', 'Numbered list', null, 'FR-EDT-02'],
   ['blocks', 'Checklist', null, 'FR-EDT-02, FR-TSK-11'],
-  ['blocks', 'Mindmap', null, 'FR-MMP-01'], // built in slice MM (R94, D-685); moved into Blocks (D-2492)
+  ['blocks', 'Mindmap', null, 'FR-MMP-01'], // built in slice MM (R94, D-685); moved into Blocks (D-2611)
   ['blocks', 'Quote', null, 'FR-EDT-02'],
   ['blocks', 'Callout', null, 'FR-EDT-02'],
   ['blocks', 'Code block', null, 'FR-EDT-02'],

@@ -1,4 +1,4 @@
-// Slice MM3 (docs/contracts/mm-mindmap.md §7.3; D-2482, D-2497, D-2517): the folds of the open note's mindmaps, view
+// Slice MM3 (docs/contracts/mm-mindmap.md §7.3; D-2601, D-2616, D-2636): the folds of the open note's mindmaps, view
 // state in a plugin: never part of the document, the saved bytes or the history. A fold belongs to its list item and
 // follows it through every transaction (⌥ moves, drops, undo and redo): the item is found again by identity (a moved
 // item is the same node), else by mapping its position; a fold whose item is gone is dropped. The synthesized root's

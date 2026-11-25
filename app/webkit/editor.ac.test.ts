@@ -485,7 +485,7 @@ test('fr_edt_03_ac1_slash_opens_only_where_it_should', async ({ page }) => {
   await caretIn(page, 5, null, true);
   await page.keyboard.type('/');
   const menu = await must(slashMenu(page), 'listbox "Insert block" at block start');
-  // new-object-menu.md R234 (D-2492): Blocks first, no `Task` row; the `H1`…`H3` icons are `aria-hidden` (AP-2127),
+  // new-object-menu.md R234 (D-2611): Blocks first, no `Task` row; the `H1`…`H3` icons are `aria-hidden` (AP-2127),
   // so the option's own label is read without them.
   const opts = await menu.getByRole('option').evaluateAll((os) => os.map((o) => {
     if (o.getAttribute('aria-label')) return o.getAttribute('aria-label')!.trim();

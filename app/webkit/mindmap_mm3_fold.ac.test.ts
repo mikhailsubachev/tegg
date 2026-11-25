@@ -206,7 +206,7 @@ test('fr_mmp_02_ac45_folds_write_nothing_and_end_with_the_view', async ({ page }
   assert.deepEqual(await treeNames(fig), ALL, 'List and back to Map: unfolded');
   await focusNode(fig, 'Program');
   await page.keyboard.press(' ');
-  // D-2534: open Lisabon from the map (⌘↩ on its node's link), so Back returns to Výjezd 2026, not to Search (D-1340).
+  // D-2653: open Lisabon from the map (⌘↩ on its node's link), so Back returns to Výjezd 2026, not to Search (D-1340).
   await focusNode(fig, 'Lisabon');
   await page.keyboard.press('Meta+Enter');
   await mustBeOn(page, 'Lisabon', '⌘↩ on Lisabon opens it');
@@ -285,7 +285,7 @@ test('fr_mmp_02_ac46_read_view_and_read_only_notes_fold_but_never_edit', async (
     if ((await writes(core)).length) bad.push(`${title}: ${(await writes(core)).length} note_write`);
     if ((await fileText(core, path)) !== original(path)) bad.push(`${title}: the file changed`);
   }
-  assert.deepEqual(bad, [], 'Space and the controls fold; no `+`; a drag moves nothing; no field; nothing written (D-2487…D-2489)');
+  assert.deepEqual(bad, [], 'Space and the controls fold; no `+`; a drag moves nothing; no field; nothing written (D-2606…D-2608)');
 });
 
 // ------------------------------------------------------------------------------------------------ AC-47
@@ -390,7 +390,7 @@ async function axeAll(page: Page, scope: Locator): Promise<string[]> {
   const el = await scope.elementHandle();
   return page.evaluate(async (node) => {
     const r = await (window as any).axe.run(node ?? document, { elementRef: true });
-    // D-2535: a folded node's treeitem stays named by its text ("Program") while its fold control shows the hidden count
+    // D-2654: a folded node's treeitem stays named by its text ("Program") while its fold control shows the hidden count
     // ("+2"), which axe's `label-content-name-mismatch` reports on the treeitem. Only that rule, only on a folded
     // treeitem that holds an `Expand <text>, <n> hidden` control, is skipped; every other rule and element is checked.
     const foldCount = (v: any, n: any) => v.id === 'label-content-name-mismatch' && n.element instanceof Element

@@ -138,7 +138,7 @@ test('fr_mmp_02_ac28_spider_navigation_on_pavouk', async ({ page }) => {
   const got: string[] = [];
   for (const [k] of steps) { await page.keyboard.press(k); got.push((await focused(page)).name); }
   assert.deepEqual(got, steps.map((s) => s[1]), '← / → follow the screen (D-790)');
-  // Slice MM3 (D-2481, AC-37): ↓ moves among siblings in outline order (whatever the side), then to cousins.
+  // Slice MM3 (D-2600, AC-37): ↓ moves among siblings in outline order (whatever the side), then to cousins.
   await focusNode(fig, 'Alfa');
   const down: string[] = [];
   for (let i = 0; i < 4; i++) { await page.keyboard.press('ArrowDown'); down.push((await focused(page)).name); }
@@ -381,7 +381,7 @@ for (const theme of ['light', 'dark'] as const) {
     const muted = await token(page, 'muted');
     const check = async (name: string, bg: string, fg: string) => {
       await focusNode(fig, name);
-      await page.keyboard.press('F2'); // slice MM3 (D-2486): F2 opens the field
+      await page.keyboard.press('F2'); // slice MM3 (D-2605): F2 opens the field
       const s = await fieldState(fig);
       if (!s) { bad.push(`${name}: no field`); return; }
       const got = await nodeField(fig).first().evaluate((el) => {

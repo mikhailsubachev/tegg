@@ -25,7 +25,7 @@ test('fr_edt_06_ac3_link_text_for_each_chosen_object', async () => {
   }
 });
 
-// new-object-menu.md R234 (D-2492): Blocks first with `Mindmap` after `Checklist`, no `Task` row, Advanced `Query`
+// new-object-menu.md R234 (D-2611): Blocks first with `Mindmap` after `Checklist`, no `Task` row, Advanced `Query`
 // then `Block embed`; the New object rows are computed per vault and are not `slashItems()`.
 const R6: [string, string, string | null][] = [
   ['blocks', 'Text', null], ['blocks', 'Heading 1', null], ['blocks', 'Heading 2', null], ['blocks', 'Heading 3', null],

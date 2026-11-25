@@ -1,4 +1,4 @@
-// The slash menu (table R6 of docs/acceptance/editor.md as reordered by new-object-menu.md R234, D-2492): Blocks
+// The slash menu (table R6 of docs/acceptance/editor.md as reordered by new-object-menu.md R234, D-2611): Blocks
 // (with Mindmap after Checklist), Objects, Media, Advanced; items of later milestones are listed disabled with their
 // milestone (FR-EDT-03 AC-5). The New object rows are computed per vault by the app and are never in this list.
 
@@ -13,7 +13,7 @@ const ITEMS: SlashItem[] = [
   { id: 'bulletList', group: 'blocks', label: 'Bulleted list', aliases: ['ul'] },
   { id: 'orderedList', group: 'blocks', label: 'Numbered list', aliases: ['ol'] },
   { id: 'checklist', group: 'blocks', label: 'Checklist', aliases: ['todo'] },
-  { id: 'mindmap', group: 'blocks', label: 'Mindmap' }, // moved from Advanced (D-2492)
+  { id: 'mindmap', group: 'blocks', label: 'Mindmap' }, // moved from Advanced (D-2611)
   { id: 'quote', group: 'blocks', label: 'Quote', aliases: ['blockquote'] },
   { id: 'callout', group: 'blocks', label: 'Callout' },
   { id: 'codeBlock', group: 'blocks', label: 'Code block' },

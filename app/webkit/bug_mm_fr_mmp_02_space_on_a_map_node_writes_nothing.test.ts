@@ -1,7 +1,7 @@
 // Regression (slice MM, FR-MMP-02 AC-15, D-770): Space or ⏎ on a map node while the mindmap block was selected
 // reached the editor pane's block keys, which replaced the selected block: the whole mindmap was deleted (T1).
 // A key on a node is the node's own action only; the file stays unchanged. Slice MM2 (D-787, D-795): ⏎ opens a
-// pending sibling and Space the node's text field; Esc cancels both, nothing is written. Slice MM3 (D-2486): Space
+// pending sibling and Space the node's text field; Esc cancels both, nothing is written. Slice MM3 (D-2605): Space
 // folds `Program` instead (the view stays Map, the block stays, nothing is written); the open field is ⏎'s only.
 import { test } from '@playwright/test';
 import assert from 'node:assert/strict';
@@ -21,7 +21,7 @@ for (const key of [' ', 'Enter']) {
     await page.keyboard.press(key);
     assert.equal(await viewOf(fig), 'map', 'the key on Program is the node\'s own action, the view stays Map (D-787)');
     if (key === 'Enter') assert.ok((await fieldState(fig))?.focused, 'the field is open (⏎: a pending sibling)');
-    else assert.deepEqual(await treeNames(fig), ['Výjezd 2026', 'Program', 'Místo', 'Lisabon', 'Doprava'], 'Space folds Program (D-2486): its children are hidden');
+    else assert.deepEqual(await treeNames(fig), ['Výjezd 2026', 'Program', 'Místo', 'Lisabon', 'Doprava'], 'Space folds Program (D-2605): its children are hidden');
     await page.keyboard.press('Escape');
     assert.equal(await page.getByRole('figure', { name: /Výjezd 2026/ }).count(), 1, 'the mindmap block is still there');
     await sleep(1500);

@@ -396,10 +396,10 @@ test('fr_mmp_02_ac15_tab_order_and_tree_keys', async ({ page }) => {
   await page.keyboard.press('Tab');
   let f = await focused(page);
   assert.deepEqual([f.role, f.node], ['treeitem', '0'], 'Tab: the tree, one stop, focus on the root');
-  // Slice MM3 (D-2481, AP-2112): ↓ on the root does nothing; → enters the map, ↓ / ↑ move among siblings.
+  // Slice MM3 (D-2600, AP-2112): ↓ on the root does nothing; → enters the map, ↓ / ↑ move among siblings.
   const seq: string[] = [];
   for (const k of ['ArrowRight', 'ArrowDown', 'ArrowDown']) { await page.keyboard.press(k); seq.push((await focused(page)).name); }
-  assert.deepEqual(seq, ['Program', 'Místo', 'Doprava'], '→ from the root: Program; ↓ Místo; ↓ Doprava (siblings, D-2481)');
+  assert.deepEqual(seq, ['Program', 'Místo', 'Doprava'], '→ from the root: Program; ↓ Místo; ↓ Doprava (siblings, D-2600)');
   await page.keyboard.press('ArrowUp');
   assert.equal((await focused(page)).name, 'Místo', '↑ back to the previous sibling');
   await page.keyboard.press('ArrowRight');
@@ -418,7 +418,7 @@ test('fr_mmp_02_ac15_tab_order_and_tree_keys', async ({ page }) => {
 });
 
 // Slice MM2 (D-787): ⏎ on a node adds a sibling and F2 opens the `Edit node` field (FR-MMP-02 AC-24) instead of
-// switching to List. Slice MM3 (D-2486): Space folds the node (FR-MMP-02 AC-40) and opens no field.
+// switching to List. Slice MM3 (D-2605): Space folds the node (FR-MMP-02 AC-40) and opens no field.
 test('fr_mmp_02_ac15_enter_space_and_cmd_enter_on_nodes', async ({ page }) => {
   const core = await openMm(page, MM.vyjezd);
   let fig = await needFigure(page, 'Výjezd 2026');
@@ -433,7 +433,7 @@ test('fr_mmp_02_ac15_enter_space_and_cmd_enter_on_nodes', async ({ page }) => {
   await p2.focus();
   await page.keyboard.press(' ');
   await sleep(300);
-  assert.equal(await nodeField(fig).count(), 0, 'Space on Program opens no field (D-2486)');
+  assert.equal(await nodeField(fig).count(), 0, 'Space on Program opens no field (D-2605)');
   assert.deepEqual(await treeNames(fig), ['Výjezd 2026', 'Program', 'Místo', 'Lisabon', 'Doprava'], 'Space on Program folds it: Přehled Q4 and Plán 2027 are hidden (AC-40)');
   assert.equal(await viewOf(fig), 'map', 'still Map');
   await page.keyboard.press('F2');

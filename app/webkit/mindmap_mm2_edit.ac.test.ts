@@ -74,7 +74,7 @@ test('fr_mmp_02_ac23_enter_and_tab_write_new_nodes_w15_w15a_w15b_w16', async ({ 
   await runCases(page, CASES.filter((c) => ['W15', 'W15a', 'W15b', 'W16'].includes(c.w)));
 });
 
-// Slice MM3 (D-2486): F2 opens the field; Space folds (AC-40).
+// Slice MM3 (D-2605): F2 opens the field; Space folds (AC-40).
 test('fr_mmp_02_ac23_f2_edits_the_text_w17_w17a_w22', async ({ page }) => {
   test.setTimeout(120_000);
   await runCases(page, CASES.filter((c) => ['W17', 'W17a', 'W22'].includes(c.w)));
@@ -115,7 +115,7 @@ test('fr_mmp_02_ac23_impossible_keys_change_nothing', async ({ page }) => {
   await focusNode(f2, 'Témata');
   await page.keyboard.press('Backspace');
   await page.keyboard.press('Delete');
-  await page.keyboard.press('F2'); // slice MM3 (D-2486): F2 here does nothing; Space folds Témata (AC-40)
+  await page.keyboard.press('F2'); // slice MM3 (D-2605): F2 here does nothing; Space folds Témata (AC-40)
   await sleep(1500);
   assert.deepEqual(await treeNames(f2), ['Témata', 'Rodina', 'Práce', 'Porady', 'Zdraví'], 'the synthesized root: ⌫, Delete and F2 do nothing');
   assert.equal(await nodeField(f2).count(), 0, 'no field on the synthesized root');
@@ -124,7 +124,7 @@ test('fr_mmp_02_ac23_impossible_keys_change_nothing', async ({ page }) => {
 
 // ------------------------------------------------------------------------------------------------ AC-24
 
-// Slice MM3 (D-2486): F2 and a double-click open the field; Space folds (AC-40).
+// Slice MM3 (D-2605): F2 and a double-click open the field; Space folds (AC-40).
 test('fr_mmp_02_ac24_f2_and_double_click_open_the_field_and_esc_cancels', async ({ page }) => {
   const core = await openMm(page, MM.vyjezd);
   const fig = await needFigure(page, 'Výjezd 2026');
@@ -284,7 +284,7 @@ test('fr_mmp_02_ac26_undo_and_redo_with_the_map_focused_w15_and_w19', async ({ p
   await page.keyboard.press('Alt+ArrowDown');
   const w19 = swap(original(MM.vyjezd), VY, '>   - Místo\n>     - [[Lisabon]]\n>   - Program\n>     - Přehled Q4\n>     - Plán 2027\n>   - Doprava\n');
   assert.equal(noModified(await savedAs(core2, MM.vyjezd, w19)), noModified(w19), 'W19');
-  await page.keyboard.press('F2'); // slice MM3 (D-2486): F2 opens the field
+  await page.keyboard.press('F2'); // slice MM3 (D-2605): F2 opens the field
   assert.ok(await fieldState(f2), 'the field opens');
   await page.keyboard.press('Escape');
   await page.keyboard.press('Meta+z');

@@ -95,7 +95,7 @@ test('bug_mm2fb_fr_mmp_02_a_click_on_the_empty_map_area_focuses_the_current_node
   assert.equal(await empty(), 'Výjezd 2026', 'with no node chosen the root takes the focus, not the note body');
   await (await needNode(fig, 'Místo')).click();
   assert.equal(await empty(), 'Místo', 'the focused node stays the current one');
-  await page.keyboard.press('F2'); // slice MM3 (D-2486): F2 opens the field
+  await page.keyboard.press('F2'); // slice MM3 (D-2605): F2 opens the field
   assert.ok(await seen(nodeField(fig), 2000), 'F2 opens the field: the map has the keyboard');
   await page.keyboard.type(' x');
   const box = (await fig.locator('[data-map-area]').first().boundingBox())!;

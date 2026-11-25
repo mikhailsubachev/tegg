@@ -54,8 +54,8 @@ test('fr_cnv_01_ac2_r6_task_and_turn_into_object_are_built', async () => {
   const items = reg.SLASH_ITEMS as Item[];
   const find = (l: string) => items.find((i) => label(cat, i.label) === l);
   const built = (i: Item) => (i.status ? i.status.built : !i.due);
-  // D-2541: no `Task` slash row any more (D-2492: `/task` lists `New Task`); `Turn into object…` stays built.
-  assert.equal(find('Task'), undefined, 'no slash row named Task (D-2492)');
+  // D-2660: no `Task` slash row any more (D-2611: `/task` lists `New Task`); `Turn into object…` stays built.
+  assert.equal(find('Task'), undefined, 'no slash row named Task (D-2611)');
   const turn = find('Turn into object…');
   assert.ok(turn, 'R6 row Turn into object…');
   assert.equal(built(turn!), true, 'Turn into object… is built (R53)');

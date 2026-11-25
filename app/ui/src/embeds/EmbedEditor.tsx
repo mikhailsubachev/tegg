@@ -44,7 +44,7 @@ export function EmbedEditor({ node, store, getPos, title, gone = false, taskCard
   const [merge, setMerge] = useState<Merge | null>(null);
   const [deleted, setDeleted] = useState(false);
   const path = node.note!.path;
-  /** new-object-menu.md (D-2507, D-2512): the `+` menu or its dialog is open; the saver waits. */
+  /** new-object-menu.md (D-2626, D-2631): the `+` menu or its dialog is open; the saver waits. */
   const newObjectOpen = useRef(false);
 
   useLayoutEffect(() => {

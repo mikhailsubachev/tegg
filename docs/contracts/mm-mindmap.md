@@ -231,10 +231,10 @@ Drag, collapse, zoom, pan, node → object, export, full screen, autocomplete on
 
 ---
 
-## 7. Slice MM3: navigation, folds, the mouse `+` and drag and drop (D-2481…D-2489, D-2493…D-2505)
+## 7. Slice MM3: navigation, folds, the mouse `+` and drag and drop (D-2600…D-2608, D-2612…D-2624)
 
 - **Status:** draft, 2026-11-25. Written by the red-test author before the slice MM3 red tests (D-61), from `docs/acceptance/mindmap.md` part three (R229…R233). The points marked *RT-n* are the red-test author's proposals, listed in the red-test report for the owner.
-- **Writes.** Still only the editor's save path (D-82). A drop is one editor transaction on the block's list (the bytes of the ⌥ moves, D-766). Folds are never written, never undo steps, never in `ui-state.json` (D-2482).
+- **Writes.** Still only the editor's save path (D-82). A drop is one editor transaction on the block's list (the bytes of the ⌥ moves, D-766). Folds are never written, never undo steps, never in `ui-state.json` (D-2601).
 
 Until a part is implemented it exists as a stub that compiles and returns a deliberately wrong result (no `fold` / `plus` on the layout nodes, `null` from the navigation and the drop, an empty fold list), so a test fails on its assertion, not on an import.
 
@@ -259,7 +259,7 @@ export type MindNavKey = 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight' | 
 export function navigateMindmap(layout: MindLayout, from: string, key: MindNavKey): { focus: string } | { unfold: string } | null
 ```
 
-Pure, on the laid-out (visible) nodes of 7.1: R229's rows for ↑ ↓ (siblings, then the nearest visible node of the same depth in outline order, D-2493; nothing on a root), Home / End, ← → (R95, by `side` in `spider`); on a folded node, the key towards its children returns `{ unfold: id }` (D-2486, D-2495, D-2496). `null`: nothing happens. The map uses it for its keys.
+Pure, on the laid-out (visible) nodes of 7.1: R229's rows for ↑ ↓ (siblings, then the nearest visible node of the same depth in outline order, D-2612; nothing on a root), Home / End, ← → (R95, by `side` in `spider`); on a folded node, the key towards its children returns `{ unfold: id }` (D-2605, D-2614, D-2615). `null`: nothing happens. The map uses it for its keys.
 
 ### 7.3 Fold state of an open note (`@tegg/editor`; RT-2)
 
@@ -273,7 +273,7 @@ folds: {
 }
 ```
 
-The editor keeps the set in plugin state, mapped through every transaction, so a fold follows its list item through ⌥ moves, drops, undo and redo (D-2497); it is never part of the document, the saved bytes or the history; it is cleared for a block that is reloaded from an external change, and it ends with the editor (reopening, another vault, a relaunch). Switching the block to List and back clears it (D-2482). The read view has no editor: its map keeps its own fold set while the note is shown.
+The editor keeps the set in plugin state, mapped through every transaction, so a fold follows its list item through ⌥ moves, drops, undo and redo (D-2616); it is never part of the document, the saved bytes or the history; it is cleared for a block that is reloaded from an external change, and it ends with the editor (reopening, another vault, a relaunch). Switching the block to List and back clears it (D-2601). The read view has no editor: its map keeps its own fold set while the note is shown.
 
 ### 7.4 The drop (`@tegg/editor`; RT-3)
 
@@ -298,4 +298,4 @@ moveMindmapItem(from: number[], target: number[] | null, zone: 'before' | 'after
 
 ### 7.6 Not in this slice
 
-Zoom, pan, auto-scroll while dragging (D-2502), drops between blocks or out of a map, folds on the phone (D-2503), folds remembered across visits (D-2482), node → object, export.
+Zoom, pan, auto-scroll while dragging (D-2621), drops between blocks or out of a map, folds on the phone (D-2622), folds remembered across visits (D-2601), node → object, export.

@@ -4,7 +4,7 @@
 // same title in NFC afterwards links `Pages/Čtení knih (2).md` (the path the core returned; the free stem itself is
 // L4); ` +pa` typed in the NFD host after `Úkol v NFD` inserts an NFC link and keeps the NFD bytes of `Úkol v NFD`.
 // The file name and `title:` bytes come from the one creation path (`note_create`, L4/L5). Its own named test by
-// D-2549 (6). Fixture: tests/fixtures/vaults/tasks (read only). Written from the AC and the contract only (D-61).
+// D-2668 (6). Fixture: tests/fixtures/vaults/tasks (read only). Written from the AC and the contract only (D-61).
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

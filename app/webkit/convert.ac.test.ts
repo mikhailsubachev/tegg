@@ -104,7 +104,7 @@ test('fr_cnv_01_ac2_slash_turn_opens_r50_and_esc_removes_the_typed_text', async 
   assert.deepEqual(await writeLog(core), [], 'nothing written');
 });
 
-// new-object-menu.md (D-2490, D-2492): `/task` lists `New Task` and opens the `New Task` dialog, never R50; the two
+// new-object-menu.md (D-2609, D-2611): `/task` lists `New Task` and opens the `New Task` dialog, never R50; the two
 // `/task` conversion tests are replaced by `fr_cnv_01_ac9_…` (new_object_create.ac.test.ts) and FR-EDT-03 AC-14 (N2).
 
 // ------------------------------------------------------------------------------------------------ FR-CNV-01 AC-3

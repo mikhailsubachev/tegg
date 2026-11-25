@@ -140,7 +140,7 @@ export const KEY: Record<string, number> = {
   home: 115, end: 119, // slice "G3 in the panel" (graph-panel-g3.md FR-UX-03 AC-38): the tree's Home / End
   s: 1, // slice I2 (import_run.ac.test.ts FR-UX-07 AC-15): ⌘S, kVK_ANSI_S
   f: 3, // slice Q (queries.ac.test.ts): ⇧⌘F, kVK_ANSI_F
-  f2: 120, // slice MM3 (mindmap.md R229, D-2486): F2 opens a node's field, kVK_F2
+  f2: 120, // slice MM3 (mindmap.md R229, D-2605): F2 opens a node's field, kVK_F2
   z: 6, // slice MM3: ⌘Z, kVK_ANSI_Z
 };
 export { osa } from './osa.ts'; // D-758: ⌘Q/⌘W only while Tegg is frontmost

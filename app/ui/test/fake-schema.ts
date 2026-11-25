@@ -875,7 +875,7 @@ function newTypeFile(name: string, plural: string, folder?: string): string {
 }
 
 /** Mirrors the real core's `sanitize_file_stem` (crates/tegg-format; D-51, D-52, D-80, FR-FMT-08): forbidden and control
- *  characters → space, runs of spaces collapsed, spaces and dots trimmed at both ends (D-2540), ≤ 200 UTF-8 bytes,
+ *  characters → space, runs of spaces collapsed, spaces and dots trimmed at both ends (D-2659), ≤ 200 UTF-8 bytes,
  *  `Untitled` when empty, `_` after a Windows reserved name. */
 function sanitize(title: string): string {
   // eslint-disable-next-line no-control-regex

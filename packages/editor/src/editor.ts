@@ -178,7 +178,7 @@ export interface TeggEditor {
     /** Replaces `from…to` (the typed `[[query` or `#tag`) with a link or tag, as its own undo step (FR-EDT-06 AC-6). */
     replaceWithLink(from: number, to: number, target: LinkChoice): boolean
     replaceWithTag(from: number, to: number, spelling: string): boolean
-    /** new-object-menu §3 (D-2484, D-2512): replaces `from…to` (the typed `/` or `+` trigger and its query, inside one
+    /** new-object-menu §3 (D-2603, D-2631): replaces `from…to` (the typed `/` or `+` trigger and its query, inside one
      *  text block) with the link chip for `c` (D-184, `linkText`); the caret goes right after it. One undo step that
      *  leaves the text as it was before the trigger (the trigger and query don't come back); false when the range is
      *  not inside one text block. */
@@ -1453,7 +1453,7 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       if (!$a.parent.isTextblock || $a.parent !== $b.parent || $a.parent.type.spec.code) return false
       // The trigger is `/` or `+`, never a space: a space typed before it stays (D-533's rule, FR-EDT-03 AC-13).
       while (from < to && /\s/.test(doc.textBetween(from, from + 1, '\n', '\ufffc'))) from++
-      // The trigger and query go outside the history (D-2512: undo never brings them back); the link is its own step.
+      // The trigger and query go outside the history (D-2631: undo never brings them back); the link is its own step.
       if (to > from) dispatch(editor.state.tr.delete(from, to).setMeta('addToHistory', false))
       const node = editor.schema.nodes.wikiLink.create({ value: linkText(c), embed: false })
       const tr = closeHistory(editor.state.tr).replaceWith(from, from, node)
