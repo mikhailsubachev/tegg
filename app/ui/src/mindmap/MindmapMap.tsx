@@ -226,7 +226,7 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
     if (dropIt && d.target && d.zone) live.current.drop(d);
     else live.current.go(d.id);
   };
-  // FR-SYN-03 AC-40 (D-2621): a reload of the block (another program changed the file) cancels a running drag.
+  // FR-SYN-03 AC-45 (D-2621): a reload of the block (another program changed the file) cancels a running drag.
   const sigRef = useRef(treeSig);
   useEffect(() => {
     if (sigRef.current !== treeSig && dragRef.current) endDrag(false);

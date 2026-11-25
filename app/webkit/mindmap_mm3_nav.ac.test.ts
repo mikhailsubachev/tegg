@@ -1,9 +1,9 @@
 // Slice MM3, L5 (WebKit, fake core): keys on the map (docs/acceptance/mindmap.md part three, R229, R230, R233; contract
-// docs/contracts/mm-mindmap.md §7). FR-MMP-02 AC-37 (↑ / ↓ among siblings, then cousins; nothing on a root; Home / End),
+// docs/contracts/mm-mindmap.md §7). FR-MMP-02 AC-54 (↑ / ↓ among siblings, then cousins; nothing on a root; Home / End),
 // AC-38 (Bratranci: cousins across a childless parent and across grandparents; hidden nodes never reached), AC-39 (← / →
 // unchanged on the MM3 build, editor and read view), AC-40 (Space folds; F2 and a double-click edit), AC-41 (→ and Tab
 // on a folded node, the spider sides), AC-44 (hidden nodes leave the tree, `aria-expanded`, the focus follows), and
-// FR-UX-03 AC-60 (the two palette commands, `data-command` on the buttons, a keyboard-only run to W19). Test clock
+// FR-UX-03 AC-62 (the two palette commands, `data-command` on the buttons, a keyboard-only run to W19). Test clock
 // 2026-10-22T10:00 Europe/Prague, region cs, 1440 × 900. Written from the ACs and the contract only (D-61); every
 // missing element fails an assertion (TS-I1).
 import { test, type Locator, type Page } from '@playwright/test';
@@ -55,7 +55,7 @@ async function foldText(fig: Locator, name: string): Promise<string | null> {
 
 // ------------------------------------------------------------------------------------------------ AC-37
 
-test('fr_mmp_02_ac37_up_and_down_among_siblings_then_cousins_on_vyjezd', async ({ page }) => {
+test('fr_mmp_02_ac54_up_and_down_among_siblings_then_cousins_on_vyjezd', async ({ page }) => {
   const core = await openMm(page, MM.vyjezd);
   const fig = await needFigure(page, 'Výjezd 2026');
   await needTree(fig, 'Výjezd 2026');
@@ -80,7 +80,7 @@ test('fr_mmp_02_ac37_up_and_down_among_siblings_then_cousins_on_vyjezd', async (
   assert.deepEqual(await writes(core), [], 'none of these keys writes');
 });
 
-test('fr_mmp_02_ac37_pavouk_and_vice_korenu', async ({ page }) => {
+test('fr_mmp_02_ac54_pavouk_and_vice_korenu', async ({ page }) => {
   await openMm(page, MM2.pavouk);
   const p = await needFigure(page, 'Pavouk');
   await needTree(p, 'Pavouk');
@@ -327,9 +327,9 @@ test('fr_mmp_02_ac44_hidden_nodes_leave_the_tree_and_the_focus_follows', async (
   assert.deepEqual(await steps(page, ['End', 'Home']), ['Doprava', 'Výjezd 2026'], 'End reaches Doprava, Home the root');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-UX-03 AC-60
+// ------------------------------------------------------------------------------------------------ FR-UX-03 AC-62
 
-test('fr_ux_03_ac60_palette_commands_fold_and_add_a_child', async ({ page }) => {
+test('fr_ux_03_ac62_palette_commands_fold_and_add_a_child', async ({ page }) => {
   const core = await openMm(page, MM.vyjezd);
   const fig = await needFigure(page, 'Výjezd 2026');
   await page.keyboard.press('Meta+k');
@@ -355,7 +355,7 @@ test('fr_ux_03_ac60_palette_commands_fold_and_add_a_child', async ({ page }) => 
   assert.deepEqual(await writes(core), [], 'nothing written');
 });
 
-test('fr_ux_03_ac60_buttons_carry_the_commands_on_every_hovered_node', async ({ page }) => {
+test('fr_ux_03_ac62_buttons_carry_the_commands_on_every_hovered_node', async ({ page }) => {
   await openMm(page, MM.vyjezd);
   const fig = await needFigure(page, 'Výjezd 2026');
   await needTree(fig, 'Výjezd 2026');
@@ -373,7 +373,7 @@ test('fr_ux_03_ac60_buttons_carry_the_commands_on_every_hovered_node', async ({ 
   assert.equal(await attrOf(foldControl(fig, 'Program'), 'data-command'), 'mindmap.toggleFold', 'the fold control carries mindmap.toggleFold');
 });
 
-test('fr_ux_03_ac60_keyboard_only_run_to_w19', async ({ page }) => {
+test('fr_ux_03_ac62_keyboard_only_run_to_w19', async ({ page }) => {
   const core = await openMm(page, MM.vyjezd);
   await page.evaluate(() => {
     (window as any).__pointer = 0;

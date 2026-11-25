@@ -4,7 +4,7 @@
 // hidden nodes, the layout equal again after unfolding), AC-37 and AC-38 (the navigation function: ↑ / ↓ among siblings,
 // then the nearest visible node of the same depth in outline order; nothing on a root; Home / End; hidden nodes never
 // reached), NFR-OTH-02 AC-27 (R233's catalog keys, the plural message, the pseudo-locale, a Czech test catalog), and the
-// registry side of FR-UX-03 AC-60 (the two commands). Modules load dynamically (TS-I1): the layout ignores `folded` and
+// registry side of FR-UX-03 AC-62 (the two commands). Modules load dynamically (TS-I1): the layout ignores `folded` and
 // has no `fold` / `plus`, and `nav.ts` doesn't exist yet, so every test fails on an assertion. Written from the ACs and
 // the contract only (D-61).
 import { beforeEach, test } from 'vitest';
@@ -135,7 +135,7 @@ async function walk(l: Layout, start: string, keys: string[]): Promise<string[]>
   return out;
 }
 
-test('fr_mmp_02_ac37_navigation_function_on_vyjezd_pavouk_and_vice_korenu', async () => {
+test('fr_mmp_02_ac54_navigation_function_on_vyjezd_pavouk_and_vice_korenu', async () => {
   const v = await lay(VYJEZD());
   const got: Record<string, string[]> = {
     '↓ from Program': await walk(v, 'Program', ['ArrowDown', 'ArrowDown', 'ArrowDown']),
@@ -209,7 +209,7 @@ test('fr_mmp_02_ac41_folded_nodes_unfold_by_the_key_towards_their_children', asy
   assert.deepEqual([await walk(r, 'Střed', ['ArrowLeft']), await walk(r, 'Střed', ['ArrowRight'])], [['unfold Střed'], ['unfold Střed']], 'a folded spider root: either key unfolds it');
 });
 
-// ------------------------------------------------------------------------------------------------ NFR-OTH-02 AC-27 (L1), FR-UX-03 AC-60 (registry)
+// ------------------------------------------------------------------------------------------------ NFR-OTH-02 AC-27 (L1), FR-UX-03 AC-62 (registry)
 
 async function catalog(): Promise<Mod> {
   const cat = await load('../ui/src/i18n/catalog.ts');
@@ -256,7 +256,7 @@ test('nfr_oth_02_ac27_czech_test_catalog_uses_the_plural_forms', async () => {
   assert.deepEqual(got, [1, 2, 5, 21].map((n) => `${rules.select(n).toUpperCase()} Program ${n}`), 'one / few / other by Intl.PluralRules(cs)');
 });
 
-test('fr_ux_03_ac60_toggle_fold_and_add_child_commands_are_registered', async () => {
+test('fr_ux_03_ac62_toggle_fold_and_add_child_commands_are_registered', async () => {
   const cat = await catalog();
   const cmd = await load('../ui/src/shell/commands.ts');
   assert.ok(cmd, 'commands module loads');

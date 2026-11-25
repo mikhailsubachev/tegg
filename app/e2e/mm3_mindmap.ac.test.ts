@@ -1,6 +1,6 @@
 // Slice MM3 real-app tests (L6, Appium mac2 on the built test app, D-382, TS-I7): docs/acceptance/mindmap.md part three.
 // FR-MMP-02 AC-45 (folds are view state: a fold doesn't survive a relaunch, writes nothing and adds no key to
-// ui-state.json) and FR-SYN-06 AC-56 (browsing, folding, hovering and cancelled drags in Výjezd, Pavouk, Bratranci and
+// ui-state.json) and FR-SYN-06 AC-58 (browsing, folding, hovering and cancelled drags in Výjezd, Pavouk, Bratranci and
 // Více kořenů, and folding in Výjezd's read view, change no vault file: bytes, mtime and inode; nothing created; no
 // `mindmap`, `fold` or `collapsed` key in ui-state.json). TEGG_TEST=1 with TEGG_NOW, a temporary Application Support
 // and a temporary copy of the synthetic mindmap fixture plus new-empty/.tegg (D-62). Interface: docs/contracts/
@@ -89,7 +89,7 @@ test('fr_mmp_02_ac45_folds_end_with_a_relaunch_in_the_real_app', { timeout: 600_
   rmSync(base, { recursive: true, force: true });
 });
 
-test('fr_syn_06_ac56_browsing_folding_and_cancelled_drags_write_nothing_in_the_real_app', { timeout: 900_000 }, async () => {
+test('fr_syn_06_ac58_browsing_folding_and_cancelled_drags_write_nothing_in_the_real_app', { timeout: 900_000 }, async () => {
   await ready();
   const base = tmp('mm3-ac56');
   const vault = mindmapCopy(base);

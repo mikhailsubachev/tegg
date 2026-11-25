@@ -1,6 +1,6 @@
 // New objects from `/` and `+`, real-app tests (L6, Appium mac2 on the built test app, D-382, TS-I7):
 // docs/acceptance/new-object-menu.md. FR-EDT-03 AC-11 (the capture window: `+` opens no menu and is saved as typed,
-// AP-2125) and FR-SYN-06 AC-57 (N1 on a copy of the fixture changes exactly `Pages/Nový plán.md` (new) and
+// AP-2125) and FR-SYN-06 AC-59 (N1 on a copy of the fixture changes exactly `Pages/Nový plán.md` (new) and
 // `Pages/Bloky.md` (temp file renamed: a new inode); every other vault file is untouched). TEGG_TEST=1 with TEGG_NOW,
 // a temporary Application Support and a temporary copy of the synthetic tasks fixture plus new-empty/.tegg (D-62).
 // Interface: docs/contracts/new-object-menu.md §4 (the listbox `Insert block`, the dialog `New <type>`), ms5-capture.md
@@ -28,7 +28,7 @@ function tasksCopy(base: string): string {
   return v;
 }
 
-test('fr_syn_06_ac57_n1_changes_exactly_two_files_in_the_real_app', { timeout: 600_000 }, async () => {
+test('fr_syn_06_ac59_n1_changes_exactly_two_files_in_the_real_app', { timeout: 600_000 }, async () => {
   await ready();
   const base = tmp('nom-ac57');
   const vault = tasksCopy(base);

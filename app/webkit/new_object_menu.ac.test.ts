@@ -1,5 +1,5 @@
 // New objects from `/` and `+`, L5 (WebKit + fake core): the menu (docs/acceptance/new-object-menu.md R234…R236;
-// contract docs/contracts/new-object-menu.md §4). FR-EDT-03 AC-6 (R234's groups and 23 options, shortcut, icons,
+// contract docs/contracts/new-object-menu.md §4). FR-EDT-03 AC-18 (R234's groups and 23 options, shortcut, icons,
 // descriptions, `Block embed` disabled), AC-7 (New rows from the vault's types, region order, live type changes, nothing
 // written), AC-8 (filtering, headers while filtering, the `+` ranking), AC-9 (where `+` opens: empty paragraph, after a
 // space, list item, quote, table cell, a mindmap item in List; never inside a word or after punctuation), AC-10 (`+`
@@ -57,7 +57,7 @@ async function inView(menu: Locator, labels: string[]): Promise<string[]> {
 
 // ------------------------------------------------------------------------------------------------ AC-6
 
-test('fr_edt_03_ac6_the_order_of_r234', async ({ page }) => {
+test('fr_edt_03_ac18_the_order_of_r234', async ({ page }) => {
   const core = await openConvert(page, BLOKY);
   await emptyParagraph(page);
   await page.keyboard.type('/');

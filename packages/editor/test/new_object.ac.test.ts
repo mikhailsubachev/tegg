@@ -1,7 +1,7 @@
 // New objects from `/` and `+`, L1 and L2: the @tegg/editor side (docs/acceptance/new-object-menu.md R237; contract
 // docs/contracts/new-object-menu.md §3). FR-EDT-03 AC-14 (L1: the D-184 link text of N1…N8; titles with `|`, `[[`, `]]`
 // get no alias, D-2633), FR-EDT-03 AC-15 (L1: `insertObjectLink` is one transaction; ⌘Z leaves the text as before the
-// trigger, ⇧⌘Z puts the same link back), FR-FMT-12 AC-18 (L1: NFC titles and links; NFD host bytes kept), FR-FMT-07
+// trigger, ⇧⌘Z puts the same link back), FR-FMT-12 AC-19 (L1: NFC titles and links; NFD host bytes kept), FR-FMT-07
 // AC-39 (L1: N1, N9, the NFD host; L2: a link at a random allowed caret position of a random host paragraph changes
 // only the bytes between the trigger's start and the caret; fixed seed plus one per run). Fixture:
 // tests/fixtures/vaults/tasks (read only). Written from the ACs and the contract only (D-61); the stub has no
@@ -53,7 +53,7 @@ function createLink(ed: Ed, pos: number, trigger: string, c: LinkChoice): boolea
 const BLOKY = 'Pages/Bloky.md';
 const choice = (path: string, title: string, fromPath = BLOKY): LinkChoice => ({ path, title, fromPath, stemResolves: true });
 
-// ------------------------------------------------------------------------------------------------ FR-EDT-03 AC-14 (L1), FR-FMT-12 AC-18 (L1)
+// ------------------------------------------------------------------------------------------------ FR-EDT-03 AC-14 (L1), FR-FMT-12 AC-19 (L1)
 
 test('fr_edt_03_ac14_link_text_of_n1_to_n8_and_titles_that_cant_be_an_alias', async () => {
   const { linkText } = await editorModule();
@@ -71,7 +71,7 @@ test('fr_edt_03_ac14_link_text_of_n1_to_n8_and_titles_that_cant_be_an_alias', as
   ];
   const got = cases.map(([c]) => linkText(c));
   assert.deepEqual(got, cases.map(([, want]) => want), 'D-184 link texts (D-2633)');
-  assert.ok(got.every((s) => s === s.normalize('NFC')), 'every link text is NFC (FR-FMT-12 AC-18)');
+  assert.ok(got.every((s) => s === s.normalize('NFC')), 'every link text is NFC (FR-FMT-12 AC-19)');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-EDT-03 AC-15 (L1)
@@ -101,9 +101,9 @@ test('fr_edt_03_ac15_insert_object_link_is_one_undo_step_without_the_trigger', a
   assert.equal(await ed2.save(), touched(orig.replace('Úvodní odstavec.\n', 'Úvodní odstavec. [[Nový plán]]X\n')), 'the next typed X lands after the link');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-FMT-07 AC-39 (L1), FR-FMT-12 AC-18 (L1)
+// ------------------------------------------------------------------------------------------------ FR-FMT-07 AC-41 (L1), FR-FMT-12 AC-19 (L1)
 
-test('fr_fmt_07_ac39_the_host_gains_only_the_link_in_lf_crlf_and_nfd_hosts', async () => {
+test('fr_fmt_07_ac41_the_host_gains_only_the_link_in_lf_crlf_and_nfd_hosts', async () => {
   const bad: string[] = [];
   const cases: [string, string, string][] = [['N1', BLOKY, 'Úvodní odstavec.'], ['N9', 'Pages/CRLF host.md', 'Úkol s CRLF'], ['NFD host', 'Pages/NFD host.md', 'Úkol v NFD']];
   for (const [what, path, para] of cases) {
@@ -120,7 +120,7 @@ test('fr_fmt_07_ac39_the_host_gains_only_the_link_in_lf_crlf_and_nfd_hosts', asy
   assert.deepEqual(bad, [], 'every other byte, the line endings and the final-newline state unchanged; the NFD bytes of `Úkol v NFD` kept and the link in NFC');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-FMT-07 AC-39 (L2)
+// ------------------------------------------------------------------------------------------------ FR-FMT-07 AC-41 (L2)
 
 const RUNS = Number(process.env.EDITOR_PROPERTY_RUNS ?? 60);
 const RANDOM = Number(process.env.QA_SEED ?? '') || Date.now() % 2 ** 31;
@@ -138,7 +138,7 @@ const hostArb = fc.record({
   at: fc.nat(8), crlf: fc.boolean(), finalNewline: fc.boolean(), nfd: fc.boolean(), before: fc.boolean(), afterPara: fc.boolean(),
 });
 
-test('fr_fmt_07_ac39_property_a_link_changes_only_the_bytes_of_the_trigger', { timeout: 600_000 }, async () => {
+test('fr_fmt_07_ac41_property_a_link_changes_only_the_bytes_of_the_trigger', { timeout: 600_000 }, async () => {
   const failures: string[] = [];
   for (const seed of SEEDS) {
     await fc.assert(

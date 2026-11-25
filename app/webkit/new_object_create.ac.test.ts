@@ -2,7 +2,7 @@
 // R238; contract docs/contracts/new-object-menu.md §3, §4). FR-EDT-03 AC-14 (N1…N8: the new file, the link chip, the
 // caret after it, no navigation, the link resolves), AC-15 (one undo step, the object stays, no autosave of the trigger),
 // AC-16 (N9 CRLF host, N10 no frontmatter, N11 virtual Daily Note, a Task card's body, a template; nothing in the read
-// view), AC-17 (a failed create, a double ⏎, a stem taken meanwhile), FR-VLT-05 AC-16 (the bytes of every create path,
+// view), AC-17 (a failed create, a double ⏎, a stem taken meanwhile), FR-VLT-05 AC-18 (the bytes of every create path,
 // no `source`, the row ignores the default type), FR-CNV-01 AC-9 (`/task` no longer converts; ⇧⌘T, ⇧⌘O and
 // `Turn into object…` do). The tasks fixture with the conversion notes, clock 2026-10-14T12:00 Europe/Prague, region cs.
 // Written from the ACs and the contract only (D-61); every missing element fails an assertion (TS-I1).
@@ -87,7 +87,7 @@ async function runN(page: Page, cases: N[]) {
   assert.deepEqual(bad, [], 'R237: exactly the new file, a link chip in place of the trigger and query, the caret after it, no navigation (D-2603)');
 }
 
-// ------------------------------------------------------------------------------------------------ FR-EDT-03 AC-14, FR-VLT-05 AC-16
+// ------------------------------------------------------------------------------------------------ FR-EDT-03 AC-14, FR-VLT-05 AC-18
 
 test('fr_edt_03_ac14_create_inserts_a_link_n1_to_n4', async ({ page }) => {
   test.setTimeout(150_000);
@@ -99,7 +99,7 @@ test('fr_edt_03_ac14_create_inserts_a_link_n5_to_n8', async ({ page }) => {
   await runN(page, NS.slice(4));
 });
 
-test('fr_vlt_05_ac16_the_same_bytes_as_every_create_path', async ({ page }) => {
+test('fr_vlt_05_ac18_the_same_bytes_as_every_create_path', async ({ page }) => {
   test.setTimeout(150_000);
   const bad: string[] = [];
   for (const [trigger, type, title, folder] of [[' +quick', 'Quick Note', 'Nápad na víkend', 'Quick Notes'], [' +pro', 'Projekt', 'Spuštění webu', 'Projekty']] as const) {

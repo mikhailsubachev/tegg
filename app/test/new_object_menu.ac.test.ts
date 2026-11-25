@@ -1,5 +1,5 @@
 // New objects from `/` and `+`, L1: the menu model and the strings (docs/acceptance/new-object-menu.md R234, R235, R238;
-// contract docs/contracts/new-object-menu.md §1, §2, §4). FR-EDT-03 AC-6 (the rows of R234 in order, 23 with the
+// contract docs/contracts/new-object-menu.md §1, §2, §4). FR-EDT-03 AC-18 (the rows of R234 in order, 23 with the
 // fixture's types), AC-7 (the New rows from the vault's creatable types, D-122 order by region, never Daily Note, Tag,
 // Image, PDF or an unparsable type), AC-8 (filtering and the `+` ranking, D-2627), AC-9 (the `+` trigger rule, D-2625),
 // NFR-OTH-02 AC-28 (R238's catalog keys, `slash.task` gone, the pseudo-locale). Modules load dynamically (TS-I1):
@@ -47,7 +47,7 @@ const R234 = [
   'Turn into object…', 'Embed object', 'Image', 'PDF', 'Query', 'Block embed', 'New Page', 'New Task', 'New Quick Note', 'New Projekt',
 ];
 
-test('fr_edt_03_ac6_the_menu_model_lists_r234_in_order', async () => {
+test('fr_edt_03_ac18_the_menu_model_lists_r234_in_order', async () => {
   const { menu } = await mods();
   const rows = menu.menuRows({ types: FIXTURE, query: '', trigger: '/' }) as Row[];
   assert.deepEqual(labels(rows), R234, 'the 23 options of R234 in order');

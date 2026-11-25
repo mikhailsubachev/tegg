@@ -3,7 +3,7 @@
 // §7.3, §7.4). FR-MMP-02 AC-48 (L1 for the move command: `MindmapEdit.moveMindmapItem` writes W23…W31 and W35 exactly,
 // W23…W25 byte-identical to W19…W21, one undo step, a drop that changes nothing writes nothing, the impossible drops),
 // FR-MMP-02 AC-45 (the fold state of the open note: `MindmapCtl.folds` follows its item through moves, drops and undo,
-// and never reaches the bytes or the history), FR-FMT-07 AC-38 (L1: W35 and a second drop change only the callout and
+// and never reaches the bytes or the history), FR-FMT-07 AC-40 (L1: W35 and a second drop change only the callout and
 // the moved lines; L2: random drops on random mindmap callouts, fixed seed plus one per run). Fixture:
 // tests/fixtures/vaults/mindmap (read only). Written from the ACs and the contract only (D-61); the stubs have no
 // `moveMindmapItem` and no `folds`, so every test fails on an assertion (TS-I1).
@@ -229,9 +229,9 @@ test('fr_mmp_02_ac45_an_external_reload_clears_the_folds', async () => {
   assert.deepEqual(foldsOf(log).folded(), [], 'a reload of the block from an external change shows it unfolded (AP-2115)');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-FMT-07 AC-38 (L1)
+// ------------------------------------------------------------------------------------------------ FR-FMT-07 AC-40 (L1)
 
-test('fr_fmt_07_ac38_a_drop_rewrites_only_the_callout', async () => {
+test('fr_fmt_07_ac40_a_drop_rewrites_only_the_callout', async () => {
   const log: Log = { ctls: [] };
   const orig = OBSIDIAN();
   const ed = await openMm(orig, log);
@@ -244,7 +244,7 @@ test('fr_fmt_07_ac38_a_drop_rewrites_only_the_callout', async () => {
   assert.equal(second, touched(sw(orig, calloutWas, '> [!mindmap] Z Obsidianu\n> - Kořen\n>   - List\n>   - Větev s tabulátorem\n')), 'a second drop changes only the moved lines');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-FMT-07 AC-38 (L2)
+// ------------------------------------------------------------------------------------------------ FR-FMT-07 AC-40 (L2)
 
 const RUNS = Number(process.env.EDITOR_PROPERTY_RUNS ?? 40);
 const RANDOM = Number(process.env.QA_SEED ?? '') || Date.now() % 2 ** 31;
@@ -326,7 +326,7 @@ function moved(roots: T[], from: number[], target: number[] | null, zone: Zone):
 type Item = { inline: { text?: string; target?: string }[]; children: Item[] };
 const treeOutline = (items: Item[], level = 1): string[] => items.flatMap((i) => [`${level}:${i.inline.map((r) => r.text ?? r.target ?? '').join('').normalize('NFC')}`, ...treeOutline(i.children, level + 1)]);
 
-test('fr_fmt_07_ac38_property_random_drops_rewrite_only_the_callout', { timeout: 600_000 }, async () => {
+test('fr_fmt_07_ac40_property_random_drops_rewrite_only_the_callout', { timeout: 600_000 }, async () => {
   const { mindmapTree } = await import('@tegg/doc');
   const failures: string[] = [];
   for (const seed of SEEDS) {

@@ -1,4 +1,4 @@
-// New objects from `/` and `+`, FR-FMT-12 AC-18 (L1): titles and links in NFC (docs/acceptance/new-object-menu.md;
+// New objects from `/` and `+`, FR-FMT-12 AC-19 (L1): titles and links in NFC (docs/acceptance/new-object-menu.md;
 // contract docs/contracts/new-object-menu.md §3: `linkText(c)` is NFC, `insertObjectLink(from, to, c)` replaces the
 // trigger and query with the link as one transaction). The L1 parts: N7's title typed in NFD gives an NFC link; the
 // same title in NFC afterwards links `Pages/Čtení knih (2).md` (the path the core returned; the free stem itself is
@@ -37,7 +37,7 @@ function afterExact(ed: Ed, needle: string): number {
   return pos;
 }
 
-test('fr_fmt_12_ac18_nfd_titles_give_nfc_links_and_the_nfd_host_keeps_its_bytes', async () => {
+test('fr_fmt_12_ac19_nfd_titles_give_nfc_links_and_the_nfd_host_keeps_its_bytes', async () => {
   const { linkText } = await editorModule();
   const titleNfc = 'Čtení knih';
   const titleNfd = titleNfc.normalize('NFD');

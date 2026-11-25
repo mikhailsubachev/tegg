@@ -2,7 +2,7 @@
 // accessibility and strings (docs/acceptance/mindmap.md part three, R230, R233; contract docs/contracts/mm-mindmap.md §7).
 // FR-MMP-02 AC-42 (the fold control), AC-43 (rendered boxes and controls within ±1 px of the layout with folds), AC-45
 // (folds are view state of the open note), AC-46 (read view and read-only notes), AC-47 (the mouse `+`, W33, W34), AC-52
-// (in an embedded note), FR-UX-08 AC-30 (VoiceOver: `aria-expanded`, names, not Tab stops, axe), FR-UX-05 AC-29 (both
+// (in an embedded note), FR-UX-08 AC-31 (VoiceOver: `aria-expanded`, names, not Tab stops, axe), FR-UX-05 AC-31 (both
 // themes), NFR-OTH-02 AC-27 (pseudo-locale). Test clock 2026-10-22T10:00 Europe/Prague, region cs, 1440 × 900. Written
 // from the ACs and the contract only (D-61); every missing element fails an assertion (TS-I1).
 import { test, type Locator, type Page } from '@playwright/test';
@@ -383,7 +383,7 @@ test('fr_mmp_02_ac52_in_an_embedded_note', async ({ page }) => {
   assert.deepEqual((await writes(core)).map((c) => String((c.args as { path?: string }).path).normalize('NFC')), [MM.vyjezd], 'only Pages/Výjezd 2026.md is written');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-UX-08 AC-30
+// ------------------------------------------------------------------------------------------------ FR-UX-08 AC-31
 
 async function axeAll(page: Page, scope: Locator): Promise<string[]> {
   await axeContrast(page); // loads axe into the page
@@ -400,7 +400,7 @@ async function axeAll(page: Page, scope: Locator): Promise<string[]> {
   }, el);
 }
 
-test('fr_ux_08_ac30_folds_are_exposed_to_voiceover', async ({ page }) => {
+test('fr_ux_08_ac31_folds_are_exposed_to_voiceover', async ({ page }) => {
   await openMm(page, MM.vyjezd);
   const fig = await needFigure(page, 'Výjezd 2026');
   await needTree(fig, 'Výjezd 2026');
@@ -423,10 +423,10 @@ test('fr_ux_08_ac30_folds_are_exposed_to_voiceover', async ({ page }) => {
   }
 });
 
-// ------------------------------------------------------------------------------------------------ FR-UX-05 AC-29
+// ------------------------------------------------------------------------------------------------ FR-UX-05 AC-31
 
 for (const theme of ['light', 'dark'] as const) {
-  test(`fr_ux_05_ac29_controls_indicators_and_drags_${theme}`, async ({ page }) => {
+  test(`fr_ux_05_ac31_controls_indicators_and_drags_${theme}`, async ({ page }) => {
     await openMm(page, MM.vyjezd, { theme });
     const fig = await needFigure(page, 'Výjezd 2026');
     await needTree(fig, 'Výjezd 2026');

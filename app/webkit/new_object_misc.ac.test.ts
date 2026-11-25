@@ -1,5 +1,5 @@
 // New objects from `/` and `+`, L5 (WebKit + fake core): writes, keyboard, themes and strings
-// (docs/acceptance/new-object-menu.md R236…R238; contract docs/contracts/new-object-menu.md §4). FR-SYN-06 AC-57 (L5:
+// (docs/acceptance/new-object-menu.md R236…R238; contract docs/contracts/new-object-menu.md §4). FR-SYN-06 AC-59 (L5:
 // browsing the menu and the dialog and a failed create write nothing; a create writes exactly the new object, then the
 // host), FR-UX-03 AC-61 (keyboard only: N8, then `/new` ↓ ↓ Tab … Space; `data-command` on the dialog's buttons; Esc
 // returns the caret), FR-UX-05 AC-30 (axe and tokens in both themes), NFR-OTH-02 AC-28 (L5: the pseudo-locale). The
@@ -42,9 +42,9 @@ function lum(rgb: string): number {
 }
 const contrast = (a: string, b: string) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
 
-// ------------------------------------------------------------------------------------------------ FR-SYN-06 AC-57 (L5)
+// ------------------------------------------------------------------------------------------------ FR-SYN-06 AC-59 (L5)
 
-test('fr_syn_06_ac57_browsing_the_menu_and_the_dialog_writes_nothing', async ({ page }) => {
+test('fr_syn_06_ac59_browsing_the_menu_and_the_dialog_writes_nothing', async ({ page }) => {
   const core = await openConvert(page, BLOKY);
   await emptyParagraph(page);
   for (const trigger of ['/', '+']) {
@@ -87,7 +87,7 @@ test('fr_syn_06_ac57_browsing_the_menu_and_the_dialog_writes_nothing', async ({ 
   assert.ok(hostWrites.every((t) => !/\+pro|\[\[/.test(t)), `no write holds a trigger or a link: ${JSON.stringify(hostWrites.map((t) => t.slice(0, 80)))}`);
 });
 
-test('fr_syn_06_ac57_a_create_writes_the_object_then_the_host', async ({ page }) => {
+test('fr_syn_06_ac59_a_create_writes_the_object_then_the_host', async ({ page }) => {
   const core = await openConvert(page, BLOKY);
   await caretAfter(page, 'Úvodní odstavec.');
   await page.keyboard.type(' +pa');

@@ -2,8 +2,8 @@
 // contract docs/contracts/mm-mindmap.md §7.4, §7.5). FR-MMP-02 AC-48 (W23…W31 by real pointer drags: bytes, Map kept,
 // the focus, one undo step, the indicator and the dashed outline while dragging, nothing written before the release),
 // AC-49 (what a drag can't do), AC-50 (drags and folds: the 600 ms unfold, a drop into a folded node), AC-51 (spider
-// drags mirrored), AC-53 (Velká mapa: fold re-layouts and the drag indicator, report-only), FR-SYN-03 AC-40 (an external
-// change during a drag), FR-SYN-06 AC-56 (L5: a browsing, folding and cancelled-drag tour sends zero writes). Test
+// drags mirrored), AC-53 (Velká mapa: fold re-layouts and the drag indicator, report-only), FR-SYN-03 AC-45 (an external
+// change during a drag), FR-SYN-06 AC-58 (L5: a browsing, folding and cancelled-drag tour sends zero writes). Test
 // clock 2026-10-22T10:00 Europe/Prague, region cs, 1440 × 900. Written from the ACs and the contract only (D-61); every
 // missing element fails an assertion (TS-I1).
 import { test, type Locator, type Page } from '@playwright/test';
@@ -231,11 +231,11 @@ test('fr_mmp_02_ac50_folded_dragged_nodes_and_drops_into_folded_nodes', async ({
   assert.equal((await focusedWhen(page, (x) => x.name === 'Doprava')).name, 'Doprava', 'the focus on Doprava');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-SYN-03 AC-40
+// ------------------------------------------------------------------------------------------------ FR-SYN-03 AC-45
 
 const HOTEL = (t: string) => swap(t, '>   - Doprava\n', '>   - Doprava\n>   - Hotel\n');
 
-test('fr_syn_03_ac40_an_external_change_cancels_the_drag', async ({ page }) => {
+test('fr_syn_03_ac45_an_external_change_cancels_the_drag', async ({ page }) => {
   for (const folded of [false, true]) {
     const core = await openMm(page, MM.vyjezd);
     const fig = await needFigure(page, 'Výjezd 2026');
@@ -256,7 +256,7 @@ test('fr_syn_03_ac40_an_external_change_cancels_the_drag', async ({ page }) => {
   }
 });
 
-test('fr_syn_03_ac40_without_the_event_a_drop_is_refused_by_the_base_version', async ({ page }) => {
+test('fr_syn_03_ac45_without_the_event_a_drop_is_refused_by_the_base_version', async ({ page }) => {
   const core = await openMm(page, MM.vyjezd);
   const fig = await needFigure(page, 'Výjezd 2026');
   await dragTo(page, fig, 'Program', await zonePoint(fig, 'Místo', 'after'), { release: false });
@@ -271,7 +271,7 @@ test('fr_syn_03_ac40_without_the_event_a_drop_is_refused_by_the_base_version', a
   assert.deepEqual(ok.map((c) => c.cmd), [], 'no successful write without the external bytes (Conflict, FR-SYN-03 AC-13)');
 });
 
-// ------------------------------------------------------------------------------------------------ FR-SYN-06 AC-56 (L5)
+// ------------------------------------------------------------------------------------------------ FR-SYN-06 AC-58 (L5)
 
 async function tour(page: Page, fig: Locator, title: string) {
   await needTree(fig, title);
@@ -291,7 +291,7 @@ async function tour(page: Page, fig: Locator, title: string) {
   }
 }
 
-test('fr_syn_06_ac56_browsing_folding_and_cancelled_drags_send_zero_writes', async ({ page }) => {
+test('fr_syn_06_ac58_browsing_folding_and_cancelled_drags_send_zero_writes', async ({ page }) => {
   test.setTimeout(180_000);
   const core = await openMm(page, MM.vyjezd);
   let dragged = 0;

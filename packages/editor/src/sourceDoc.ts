@@ -274,7 +274,7 @@ function checkboxPatch(original: PMNode, node: PMNode, raw: string): string | nu
  * `| cell | cell |`, so editing one cell never re-pads the whole table (FR-EDT-02 AC-20). Pipes in cells are escaped.
  */
 /**
- * FR-FMT-07 AC-39, FR-FMT-12 AC-18 (new-object-menu.md R237): an edited paragraph whose source is written as Tegg
+ * FR-FMT-07 AC-41, FR-FMT-12 AC-19 (new-object-menu.md R237): an edited paragraph whose source is written as Tegg
  * would render it (up to Unicode normalization and line endings) keeps its bytes outside the changed range: only the
  * span between the first and last rendered difference is replaced, so NFD text around an inserted link stays NFD and
  * the new text is NFC. Null when the source is written otherwise (another syntax): the paragraph is rendered.
