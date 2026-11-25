@@ -139,7 +139,7 @@ Every row checks its base (the version the view was loaded with) or creates excl
 | 12 | `Restore file` | the deleted alert | `note_create_exact` | the note's old path | FR-SYN-03 AC-43 |
 | 13 | Resolving a conflict pair | `conflicts` | `note_write`, `note_trash` (D-177) | the pair | FR-SYN-04 AC-14, AC-15 |
 | 14 | `Pin`, `Unpin` | `More actions` | `pins_apply` | `.tegg/pinned.yml` | FR-HOM-02 AC-33 |
-| 15 | `Move to trash`, its `Undo` | `More actions` | `note_trash`, `trash_restore` | one rename each | FR-HIS-01 AC-16 |
+| 15 | `Move to trash`, its `Undo` | `More actions` | `object_trash` (the desktop's `moveToTrash`, D-2527), `trash_restore` | one rename each | FR-HIS-01 AC-16 |
 
 **Machine-local only:** `ui-state.json` as in AND-2, and the recovery copies of AP-2076 (private storage). **Never on the phone:** RA2's groups J and V, `note_rename`, `type_patch`, `vault_settings_patch`, `media_add`, `media_add_paths` (AP-2083), `trash_delete`, `trash_empty`.
 
@@ -358,7 +358,7 @@ Removed (used nowhere after AND-3): `phone.newLater`, `phone.noNote`, `phone.sea
 
   *(L5p)* Test: `fr_edt_07_ac25_read_only_rows_on_the_phone`
 - **AC-26** **Property writes are safe (NFR-REL-02; T1).**
-  - Changing `místo` when Porada changed on disk without `vault:changed` is refused with `Conflict`: nothing is written, the sheet reloads within 2 s, and the alert `"Porada" changed outside Tegg. Your change wasn't saved.` appears.
+  - Changing `místo` when Porada changed on disk without `vault:changed` is refused with `Conflict`: nothing is written, and the merge banner (FR-SYN-03 AC-41) appears with the new value kept as `Your version`, as for a body edit (D-2528).
   - Closing the sheet (`Close`, the scrim, system Back) with a field typed but not committed commits it first, in one write.
   - A property change and a body edit made within 1 s are saved in one `note_write`.
 
@@ -437,7 +437,7 @@ Removed (used nowhere after AND-3): `phone.newLater`, `phone.noNote`, `phone.sea
   *(L5p; LA once for `Keep both`)* Test: `fr_syn_03_ac41_both_changed_banner_on_the_phone`
 - **AC-42** **Every phone write checks its base (T1).** For each RA17 row that writes an existing file (rows 1…5, 11, 13…15), when the file changed on disk without `vault:changed` (L5p: the fake core; L4: other bytes on disk between the read and the write):
   - the write is refused with `Conflict`, and nothing is written;
-  - the view reloads within 2 s and shows that surface's desktop alert (editor.md, types.md, tasks.md, inbox.md, pinned.md, trash-media.md);
+  - the view reloads within 2 s and shows that surface's desktop alert (editor.md, types.md, tasks.md, inbox.md, pinned.md, trash-media.md); rows 1 and 2 (the body and a property value) show the merge banner instead (FR-SYN-03 AC-41, D-2528);
   - the file keeps the external bytes.
 
   *(L5p; L4)* Test: `fr_syn_03_ac42_every_phone_write_checks_its_base`
@@ -492,7 +492,7 @@ Removed (used nowhere after AND-3): `phone.newLater`, `phone.noNote`, `phone.sea
 - **AC-17** **A choice opens an unsaved draft (D-520…D-523, D-2007; AP-2073; T1).**
   - A tap on `Nápad` opens `new/nápad`: `Title` in edit mode with the keyboard, the app bar's `h1` `New Nápad`, and `Not saved yet…`. Nothing is written until D-522's first write, which creates `Nápady/<title>.md` with `hodnocení: 3`, `oblast: osobní` and `review: unreviewed` (AC-2).
   - Leaving the draft untouched (Back) writes nothing and drops its history entry (D-521).
-  - `Task` opens `new/task` (not the desktop's quick-add row); its first write holds `status: To do` (D-470).
+  - `Task` opens `new/task`, as on the desktop since D-1906; its first write holds `status: To do` (D-470).
   - With `default-type: Daily Note`, the default row opens today's Daily Note (D-353).
 
   *(L5p; LA once for the first write)* Test: `fr_vlt_05_ac17_choice_opens_an_unsaved_draft`
@@ -562,7 +562,7 @@ Removed (used nowhere after AND-3): `phone.newLater`, `phone.noNote`, `phone.sea
 
 ### FR-HIS-01 Move to trash on the phone (adds to AC-1…AC-15)
 
-- **AC-16** **One note to the trash (D-2406; AP-2079; T1).** `More actions` › `Move to trash` on Psaní saves pending edits first (D-196), then calls `note_trash(path, base)`:
+- **AC-16** **One note to the trash (D-2406; AP-2079; T1).** `More actions` › `Move to trash` on Psaní saves pending edits first (D-196), then calls `object_trash(path, base)` through the desktop's `moveToTrash` (D-2527):
   - `Pages/Psaní.md` becomes `.trash/Pages/Psaní.md`, its bytes and mtime unchanged, and nothing else is written;
   - the app goes Back (to `inbox` without history), and the notice `Moved "Psaní" to the trash` shows `Undo` for 4 s. `Undo` calls `trash_restore` and returns to the note;
   - a file changed on disk gives AC-2's alert, and nothing moves;
@@ -667,7 +667,7 @@ These need the owner's phone, Google account or sync app. They are recorded in `
 - `android_edit_sync.ac.test.ts`: FR-SYN-03 AC-40, AC-41, AC-43, AC-44; FR-SYN-04 AC-14, AC-16; FR-SYN-06 AC-56, AC-57; FR-SYN-02 AC-17.
 - `nightly_android_edit.ac.test.ts`: FR-SYN-02 AC-16; NFR-PERF-06 AC-8; NFR-PERF-05 AC-7.
 
-The L5p tests are `app/webkit/phone_edit_*.ac.test.ts`, run on WebKit and on Chromium (D-2009). AR-08 AC-7 is in `tools/qa/test/` with the release script's L1 tests.
+The L5p tests are `app/webkit/phone_edit_*.ac.test.ts`, run on WebKit and on Chromium (D-2009). AR-08 AC-7 is in `app/test/release_plan.ac.test.ts` with the release script's L1 tests (D-2541).
 
 ---
 

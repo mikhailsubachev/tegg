@@ -1,6 +1,6 @@
 # Contract: Editing and creating on the phone (slice AND-3)
 
-**Status: draft, CP points open** (written 2026-11-25 under D-2526, before the owner's checks OC-2 and OC-3; §21 lists
+**Status: accepted, 2026-11-25** (owner: "Accept all proposals"; CP-1…CP-14 → D-2527…D-2540, AC fixes D-2541, BRD v1.322; written 2026-11-25 under D-2526, before the owner's checks OC-2 and OC-3; §21 lists
 what depends on them).
 
 Public interfaces of slice AND-3, for the test author (D-61) and the build. ACs: `docs/acceptance/android-edit.md`
@@ -912,7 +912,7 @@ AND-2's other tests (frame, drawer, Back, views, maps, themes, settings) don't c
   NFD-named file (§3.1 keeps such notes read-only either way). Whether the sync app writes by temp file and rename,
   which §17.2's `pushReplace` imitates.
 
-## 22. Points for the owner (CP-1…CP-14)
+## 22. Points for the owner (CP-1…CP-14 → D-2527…D-2540, accepted as proposed)
 
 | CP | Point | Proposal | Alternative | Affects |
 | --- | --- | --- | --- | --- |
