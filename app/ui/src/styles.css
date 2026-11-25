@@ -1166,6 +1166,25 @@ button.tag-tile { cursor: pointer; }
 .change-type-dialog select:disabled { color: var(--muted); }
 .change-type-dialog .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
+/* Slice MM3 (R230, R231; boards MindmapLayouts E, F and MindmapLayoutsDark): the fold control on the elbow point and
+   the `+` on the outer edge (16 px circles, inside the treeitem, placed from its border box), the drag's old place,
+   copy and drop indicators. */
+/* A focused node scrolls clear of the sticky note toolbar (its fold control and `+` stay under the pointer). */
+.mindmap-node { --mm-bw: 0px; scroll-margin-top: 56px; }
+.mindmap-node.tone-plain, .mindmap-node.pending { --mm-bw: 1px; }
+.mindmap-fold-control, .mindmap-add-child { position: absolute; z-index: 2; box-sizing: border-box; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 8px; transform: translate(-50%, -50%); display: inline-flex; align-items: center; justify-content: center; font-family: inherit; font-size: 10px; font-weight: 700; line-height: 14px; white-space: nowrap; cursor: pointer; }
+.mindmap-fold-control { background: var(--bg); color: var(--text); border: 1px solid var(--muted); visibility: hidden; }
+.mindmap-fold-control.folded { visibility: visible; }
+.mindmap-add-child { width: 16px; padding: 0; background: var(--accent); color: var(--bg); border: 0; visibility: hidden; }
+.mindmap-node:hover > .mindmap-fold-control, .mindmap-node:focus > .mindmap-fold-control,
+.mindmap-node:hover > .mindmap-add-child, .mindmap-node:focus > .mindmap-add-child { visibility: visible; }
+.mindmap-canvas.dragging .mindmap-fold-control:not(.folded) { visibility: hidden; }
+.mindmap-node.drag-source { opacity: .35; }
+.mindmap-drag-origin { position: absolute; box-sizing: border-box; border: 1.5px dashed var(--muted); border-radius: 8px; pointer-events: none; }
+.mindmap-drag-ghost { z-index: 3; pointer-events: none; opacity: .85; box-shadow: 0 8px 24px color-mix(in srgb, var(--text) 18%, transparent); }
+.mindmap-drop-line { position: absolute; z-index: 3; border-radius: 1px; background: var(--accent); pointer-events: none; }
+.mindmap-drop-line::before { content: ''; position: absolute; left: -6px; top: -4px; width: 10px; height: 10px; box-sizing: border-box; border-radius: 5px; border: 2px solid var(--accent); background: var(--bg); }
+.mindmap-drop-ring { position: absolute; z-index: 3; box-sizing: border-box; border: 2px solid var(--accent); border-radius: 10px; pointer-events: none; }
 /* Slice P: the object preview (previews.md R102; board ObjectPreview, D-921). Theme tokens only (FR-UX-05). */
 .preview-popover { position: fixed; z-index: 45; display: flex; flex-direction: column; box-sizing: border-box; min-width: 0; max-width: calc(100vw - 16px);
   background: var(--pop); color: var(--text); border: 1px solid var(--border); border-radius: 12px;

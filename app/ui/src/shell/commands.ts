@@ -1,5 +1,6 @@
 // The command registry (FR-UX-03, docs/contracts/ms3-shell.md §3.3, §10). Every action of the frame is a command;
 // controls reference theirs with `data-command`, and one key handler runs them by shortcut.
+import { runMapCommand } from '../mindmap/active';
 import { ANDROID_HIDDEN_COMMANDS } from '../ipc/android';
 import { isAndroid } from '../platform';
 import { phoneCommands } from '../phone/commands';
@@ -575,6 +576,11 @@ export function commands(ctx: ShellContext): Command[] {
       ...(convert && onNote ? { disabled: () => a(ctx)?.convertBlocked?.() ?? null } : {}) });
   }
   // Slice P (previews.md R106, D-928): ⌥Space acts only at a reference or a chip; the mode on every route with a vault.
+  // Slice MM3 (R233, D-2504): the map's fold control and `+` as commands, on the focused node of the focused map.
+  list.push(
+    { id: 'mindmap.toggleFold', title: 'cmd.mindmap.toggleFold', section: 'edit', needsVault: true, run: () => runMapCommand('toggleFold') },
+    { id: 'mindmap.addChild', title: 'cmd.mindmap.addChild', section: 'edit', needsVault: true, run: () => runMapCommand('addChild') },
+  );
   list.push(
     { id: 'preview.show', title: 'cmd.preview.show', section: 'navigate', shortcut: shortcutOf('preview.show'), needsVault: true, run: (c) => a(c)?.showPreview?.() },
     { id: 'preview.mode.click', title: 'cmd.preview.mode.click', section: 'view', needsVault: true, run: (c) => a(c)?.setPreviewMode?.('click') },

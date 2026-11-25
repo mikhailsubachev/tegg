@@ -44,7 +44,7 @@ export function mountMindmap(dom: HTMLElement, ctl: MindmapCtl, host: MindmapHos
     if (ctl.folded?.()) { root.render(null); return; }
     const md = ctl.markdown();
     root.render(<ReadView text={`${md}\n`} path={host.path()} links={links} bare noteTitle={host.title()}
-      mindmapOnly={{ onNode: ctl.onNode, readOnly: ctl.readOnly, edit: ctl.readOnly ? null : ctl.edit, onFocusedNode: (p) => { focusedPath = p; } }}
+      mindmapOnly={{ onNode: ctl.onNode, readOnly: ctl.readOnly, edit: ctl.readOnly ? null : ctl.edit, onFocusedNode: (p) => { focusedPath = p; }, folds: ctl.folds ?? null }}
       onOpen={host.onOpen} onTag={host.onTag} onExternal={host.onExternal} onScrollInNote={(f) => host.onOpen(host.path(), f)} />);
     const targets = [...new Set(wikilinks(parse(`${md}\n`)).map((l) => l.target))].sort();
     const key = targets.join('\u0000');

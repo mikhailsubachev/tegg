@@ -255,6 +255,13 @@ export const en: Catalog = {
   'cmd.mindmap.layoutSpider': 'Mindmap layout: spider',
   'due.coming': 'Coming in {milestone}',
   'toolbar.label': 'Formatting',
+  // Slice MM3 (R233, mm-mindmap §7.5; D-2487, D-2488, D-2504).
+  'mindmap.collapseNode': 'Collapse {node}',
+  'mindmap.expandNode': { one: 'Expand {node}, {count} hidden', other: 'Expand {node}, {count} hidden' },
+  'mindmap.hiddenCount': '+{count}',
+  'mindmap.addChild': 'Add child to {node}',
+  'cmd.mindmap.toggleFold': 'Fold or unfold mindmap node',
+  'cmd.mindmap.addChild': 'Add child to mindmap node',
   'toolbar.bold': 'Bold',
   'toolbar.italic': 'Italic',
   'toolbar.strike': 'Strikethrough',

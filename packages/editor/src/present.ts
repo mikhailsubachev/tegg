@@ -14,6 +14,7 @@ import type { JSONContent } from '@tiptap/core'
 import type { Transaction } from '@tiptap/pm/state'
 import { blockToPM, pmToBlock } from './convert'
 import { wikiLabel } from './schema'
+import { clearFoldsMeta, foldedPaths, foldPlugin, hasChildren, isFolded, itemPaths, setFoldMeta } from './mindmapFolds'
 
 export type LinkInfo = {
   /** 6A (ms6-trash-media §2, §3.2): `trashed` resolves only in `.trash/`; `media` is a file (an image, a PDF). */
@@ -41,6 +42,15 @@ export type MindmapCtl = {
   layout: () => MindmapLayout
   /** Slice MM2 (D-786): edits on the block; null when read-only. */
   edit: MindmapEdit | null
+  /** Slice MM3 (mm-mindmap §7.3, D-2482, D-2497): the block's folds, view state of the open editor (never written). */
+  folds?: MindmapFolds
+}
+/** Slice MM3 (mm-mindmap §7.3): paths in outline order; `null` is the synthesized root. */
+export type MindmapFolds = {
+  folded(): (number[] | null)[]
+  /** Folds or unfolds an item with children; false for a leaf or a missing path. */
+  toggle(path: number[] | null): boolean
+  set(path: number[] | null, folded: boolean): boolean
 }
 /** Slice MM2 (mm-mindmap §6.3): the map's edits on its block; null when read-only. STUBS until built. */
 export type MindmapEdit = {
@@ -49,6 +59,9 @@ export type MindmapEdit = {
   insert(at: number[] | null, where: 'sibling' | 'child', markdown: string): number[] | null
   remove(path: number[]): number[] | null
   move(path: number[], dir: 'up' | 'down' | 'in' | 'out'): number[] | null
+  /** Slice MM3 (mm-mindmap §7.4, D-2489): a drop, one transaction; the moved item's new path, `from` when nothing
+   *  changes (no transaction), null when impossible. */
+  moveMindmapItem?(from: number[], target: number[] | null, zone: 'before' | 'after' | 'child'): number[] | null
   undo(): boolean
   redo(): boolean
 }
@@ -742,6 +755,8 @@ class CalloutView implements NodeView {
   private handle: MindmapHandle | null = null
   /** Bug v0.123: the document's attributes changed in place (the note's title is the map's root); draw again. */
   redraw(): void { this.handle?.update() }
+  /** Slice MM3: a fold changed; the map draws at once. */
+  redrawNow(): void { this.handle?.update({ now: true }) }
   private titleEl: HTMLElement | null = null
   private mapBtn: HTMLButtonElement | null = null
   private listBtn: HTMLButtonElement | null = null
@@ -920,9 +935,15 @@ class CalloutView implements NodeView {
         insert: (at, where, md) => live().insert(at, where, md),
         remove: (path) => live().remove(path),
         move: (path, dir) => live().move(path, dir),
+        moveMindmapItem: (from, target, zone) => live().moveItem(from, target, zone),
         undo: () => undo(pm.state, pm.dispatch),
         redo: () => redo(pm.state, pm.dispatch),
       } : null,
+      folds: {
+        folded: () => live().foldedPaths(),
+        toggle: (path) => live().setFold(path, null),
+        set: (path, f) => live().setFold(path, f),
+      },
     }
     if (adopted && adopted.handle!.adopt!(this.mapBox)) {
       const handle = adopted.handle!
@@ -1011,6 +1032,9 @@ class CalloutView implements NodeView {
   setView(v: 'map' | 'list', focus = false) {
     this.view = v
     this.folded = false
+    // D-2482: List and back shows the map unfolded.
+    const base = this.getPos()
+    if (base !== undefined && foldedPaths(this.pm.state, base).length) this.pm.dispatch(clearFoldsMeta(this.pm.state.tr, base, base + this.node.nodeSize))
     this.ui.mindmapState?.set(String(this.index()), v)
     this.render()
     // The palette (`focus`) puts the caret in the root item (FR-UX-03 AC-15); the `List` button at the end of the
@@ -1256,6 +1280,83 @@ class CalloutView implements NodeView {
     const pi = parent.path[parent.path.length - 1]
     return [...parent.path.slice(0, -1), pi + 1]
   }
+  // ---------------------------------------------------------------------------------------- slice MM3 (§7.3, §7.4)
+
+  foldedPaths(): (number[] | null)[] {
+    const base = this.getPos()
+    return base === undefined ? [] : foldedPaths(this.pm.state, base)
+  }
+  /** Folds (`true`), unfolds (`false`) or toggles (`null`) an item with children or the synthesized root. */
+  setFold(path: number[] | null, folded: boolean | null): boolean {
+    const base = this.getPos()
+    if (base === undefined || this.kind !== 'mindmap') return false
+    let pos: number
+    let root = false
+    if (path === null || path.length === 0) {
+      if (this.rootIsItem() || this.node.childCount < 2) return false
+      pos = base
+      root = true
+    } else {
+      const loc = this.locate(path)
+      if (!loc || !hasChildren(loc.item)) return false
+      pos = loc.pos
+    }
+    const now = isFolded(this.pm.state, pos, root)
+    const want = folded ?? !now
+    if (want !== now) this.pm.dispatch(setFoldMeta(this.pm.state.tr, pos, root, want))
+    return true
+  }
+  /** R231, R232 (D-2489, D-2501): `from` and its subtree become `target`'s last child (`null`: the synthesized root's)
+   *  or its previous / next sibling, in one transaction with the bytes of the ⌥ moves (the list's block rewrite). */
+  moveItem(from: number[], target: number[] | null, zone: 'before' | 'after' | 'child'): number[] | null {
+    const base = this.getPos()
+    if (base === undefined || this.kind !== 'mindmap' || this.node.childCount < 2) return null
+    const rootItem = this.rootIsItem()
+    if (from.length === 0 || (from.length === 1 && rootItem)) return null
+    const loc = this.locate(from)
+    if (!loc) return null
+    if (target === null) {
+      if (rootItem || zone !== 'child') return null
+    } else {
+      if (target.length === 0) return null
+      if (target.length <= from.length ? false : from.every((x, i) => target[i] === x)) return null
+      if (target.length === from.length && from.every((x, i) => target[i] === x)) return null
+      if (zone !== 'child' && target.length === 1 && rootItem) return null
+    }
+    const tl = target === null ? null : this.locate(target)
+    if (target !== null && !tl) return null
+    const top = { n: this.node.child(1), pos: base + 1 + this.node.firstChild!.nodeSize }
+    // Already its parent's last child: nothing changes.
+    if (zone === 'child') {
+      const parent = target === null ? null : tl!
+      const same = target === null ? from.length === 1 : target.length === from.length - 1 && target.every((x, i) => from[i] === x)
+      const count = parent === null ? top.n.childCount : this.childCount(parent.item)
+      if (same && from[from.length - 1] === count - 1) return from
+    }
+    // Where the item goes, in the document before the move; a new list when the target has none.
+    let at: number
+    let wrap = false
+    if (target === null) at = top.pos + 1 + top.n.content.size
+    else if (zone === 'before') at = tl!.pos
+    else if (zone === 'after') at = tl!.pos + tl!.item.nodeSize
+    else {
+      const lists = this.innerLists(tl!.item, tl!.pos)
+      if (lists.length) { const last = lists[lists.length - 1]; at = last.pos + 1 + last.n.content.size }
+      else { at = tl!.pos + 1 + tl!.item.content.size; wrap = true }
+    }
+    const tr = this.pm.state.tr
+    if (loc.list.childCount === 1) tr.delete(loc.listPos, loc.listPos + loc.list.nodeSize)
+    else tr.delete(loc.pos, loc.pos + loc.item.nodeSize)
+    const ins = tr.mapping.map(at, zone === 'before' ? 1 : -1)
+    tr.insert(ins, wrap ? loc.list.type.create(loc.list.attrs, loc.item) : loc.item)
+    const itemAt = wrap ? ins + 1 : ins
+    const after = tr.doc.nodeAt(base)
+    // Nothing changes (the item dropped where it already is): no transaction (AC-49).
+    if (after && after.eq(this.node)) return from
+    const path = after ? itemPaths(after, base).get(itemAt) ?? null : null
+    this.applied(tr)
+    return path
+  }
   /** D-791, D-792 (W12…W13): the layout as callout metadata; false when already so. */
   setLayout(l: MindmapLayout): boolean {
     if (this.kind !== 'mindmap') return false
@@ -1328,6 +1429,8 @@ export function presentation(ui: EditorUi) {
     name: 'teggPresentation',
     addProseMirrorPlugins() {
       return [
+        // Slice MM3 (mm-mindmap §7.3): the folds; a change draws the editor's maps again at once.
+        foldPlugin((view) => { for (const v of liveMindmaps.get(view)?.values() ?? []) v.redrawNow() }),
         new Plugin({
           key: uiRefresh,
           state: {
