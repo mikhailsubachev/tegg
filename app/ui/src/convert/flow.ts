@@ -25,6 +25,8 @@ export type ConvertHost = {
   linkTitle: (target: string) => string | null;
   /** Flushes the source's save now (not after the 1 s autosave, FR-CNV-03 AC-6). */
   flush: () => Promise<void>;
+  /** Records the new object's link target before its embed is inserted (bug emptyconv). */
+  resolved?: (target: string, path: string, type: string) => void;
 };
 
 /** FR-CNV-04 AC-1 (D-184, D-527): the `source` link text from the new file's folder. */
@@ -100,6 +102,7 @@ export async function convert(host: ConvertHost, unit: ConvertUnit | null, title
     return false;
   }
   const target = await embedTargetFor(host.source, made.path, title);
+  host.resolved?.(target, made.path, key);
   const record: ConversionRecord = { path: made.path, created: made.text, type: key, title };
   if (unit) {
     const moved = !host.ed.view.state.selection.eq(startSel);

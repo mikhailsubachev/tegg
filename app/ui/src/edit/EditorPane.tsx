@@ -319,9 +319,13 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
 
   // Link chips: one link_resolve call for the note's targets, then one per new target (NFR-PERF-05 AC-3).
   const resolving = useRef(false);
+  /** A change arrived while a resolve was in flight: resolve once more when it ends (bug emptyconv: a target inserted
+   *  meanwhile, such as a conversion's new embed, was never resolved and its embed stayed broken until a reload). */
+  const resolveAgain = useRef(false);
   const resolveLinks = useCallback(async () => {
     const ed = edRef.current;
-    if (!ed || resolving.current) return;
+    if (!ed) return;
+    if (resolving.current) { resolveAgain.current = true; return; }
     const targets = new Set<string>();
     ed.view.state.doc.descendants((n) => {
       if (n.type.name === 'wikiLink' && (!n.attrs.embed || embeds)) {
@@ -350,6 +354,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     } catch { /* chips stay unresolved */ } finally {
       resolving.current = false;
     }
+    if (resolveAgain.current) { resolveAgain.current = false; void resolveLinks(); return; }
     buildEmbeds(false);
   }, []);
 
@@ -1142,6 +1147,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       source: pathRef.current,
       daily: conv.current.daily ?? null,
       linkTitle: (tg) => links.current.get(tg.normalize('NFC'))?.title ?? null,
+      // The new object's link is known before its embed lands, as for `+` (bug emptyconv).
+      resolved: (target, path, type) => { links.current.set(target.normalize('NFC'), { kind: 'note', path, type }); },
       flush: () => conv.current.flush?.() ?? Promise.resolve(),
     };
   }
