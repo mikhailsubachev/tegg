@@ -554,7 +554,7 @@ fn rename_no_clobber(from: &Path, to: &Path) -> io::Result<()> {
 /// and the rename would be replaced: Android's FUSE layer rejects `renameat2(RENAME_NOREPLACE)` (EINVAL, checked on the
 /// emulator); the window is accepted for AND-1 and revisited in AND-3 (D-2047).
 #[cfg_attr(target_os = "macos", allow(dead_code))]
-pub(crate) fn no_clobber_via(from: &Path, to: &Path, primitive: &dyn Fn(&Path, &Path) -> io::Result<()>) -> io::Result<()> {
+pub fn no_clobber_via(from: &Path, to: &Path, primitive: &dyn Fn(&Path, &Path) -> io::Result<()>) -> io::Result<()> {
     match primitive(from, to) {
         Err(e) if matches!(e.raw_os_error(), Some(libc::ENOSYS | libc::EACCES | libc::EPERM | libc::EOPNOTSUPP | libc::EXDEV)) => {
             if fs::symlink_metadata(to).is_ok() {
@@ -786,4 +786,16 @@ mod bug_and1la_fr_syn_02_create_without_hard_links {
         assert_eq!(e.kind(), io::ErrorKind::PermissionDenied);
         assert!(fs.abs_write("Pages/Nová.md").is_ok(), "a new NFC note may be written");
     }
+}
+
+/// Slice AND-3 (docs/contracts/android-edit.md §3.2, D-2513): true when `listing` (one folder's entry names as on disk)
+/// holds `name` under NFC and Unicode lower case. Stub for the red tests: always false; the build makes the check.
+pub fn name_taken(_listing: &[String], _name: &str) -> bool {
+    false
+}
+
+/// Slice AND-3 (red-test decision D-2546): a `LocalFs` that resolves names as on Android, for the host's L4 tests of
+/// FR-FMT-12 AC-18. Stub for the red tests: the macOS `LocalFs` (no resolution); the build returns the resolving one.
+pub fn resolving_fs(root: &Path) -> LocalFs {
+    LocalFs::new(root)
 }

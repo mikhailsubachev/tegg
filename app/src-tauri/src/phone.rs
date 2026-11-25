@@ -21,3 +21,9 @@ pub fn open_url_allowed(url: &str) -> bool {
         _ => false,
     }
 }
+
+/// Slice AND-3 (docs/contracts/android-edit.md §4.5, D-2511): the recovery copy's file key, lower-case hex SHA-256 of
+/// `vault + "\u{0}" + NFC(path)`. Stub for the red tests: an empty key; the build computes it.
+pub fn recovery_key(_vault: &str, _path: &str) -> String {
+    String::new()
+}

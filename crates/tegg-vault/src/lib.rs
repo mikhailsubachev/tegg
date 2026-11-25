@@ -23,6 +23,15 @@ pub use local::{
     write_local_file, LocalFs, BEFORE_RENAME,
 };
 pub use local::{fs_change_of, on_disk_name, on_disk_path, OnDiskName};
+/// Slice AND-3 (docs/contracts/android-edit.md §3.2): the create check's name test.
+pub use local::name_taken;
+/// Slice AND-3 (docs/contracts/android-edit.md §3.2): the create check's test seam (L4, FR-SYN-02 AC-17) and the
+/// resolving file system for the host's FR-FMT-12 AC-18 test.
+#[doc(hidden)]
+pub mod testing {
+    pub use crate::local::no_clobber_via;
+    pub use crate::local::resolving_fs;
+}
 pub use mem::MemFs;
 /// docs/contracts/android-shell.md §1: tests build `notify::Event`s through this re-export.
 pub use notify;
