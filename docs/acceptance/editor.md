@@ -55,13 +55,10 @@ See [README](README.md) for conventions. Milestone MS3 (BRD §11.2), slice **3C 
 
 ### R6. Slash menu items (FR-EDT-03, AP-133)
 
-Order and groups as in the Main board (Objects first). "Writes" is the Markdown of the new block in canonical dialect style (dialect §4); an item with a milestone is a disabled entry (D-116, D-130) and joins the registry checked by FR-UX-02 AC-13.
+Order and groups as in new-object-menu.md R234 (D-2492; was the Main board's "Objects first"): Blocks (with `Mindmap` after `Checklist`), Objects, Media, Advanced, then the computed New object group. The `Task` row is gone (D-2492): `/task` finds `New Task`, which creates a Task and links it (new-object-menu.md FR-CNV-01 AC-9). "Writes" is the Markdown of the new block in canonical dialect style (dialect §4); an item with a milestone is a disabled entry (D-116, D-130) and joins the registry checked by FR-UX-02 AC-13. The New object rows are computed per vault and are never registry rows.
 
 | Group | Item (catalog label) | Writes | Status | Requirement |
 | --- | --- | --- | --- | --- |
-| Objects | Task | — | MS5 | FR-TSK-01, FR-CNV-01 |
-| Objects | Turn into object… | — | MS5 | FR-CNV-01 |
-| Objects | Embed object | `![[…]]` | MS4 | FR-EMB-01 |
 | Blocks | Text | paragraph | built | FR-EDT-02 |
 | Blocks | Heading 1 | `# ` | built | FR-EDT-02 |
 | Blocks | Heading 2 | `## ` | built | FR-EDT-02 |
@@ -69,16 +66,19 @@ Order and groups as in the Main board (Objects first). "Writes" is the Markdown 
 | Blocks | Bulleted list | `- ` | built | FR-EDT-02 |
 | Blocks | Numbered list | `1. ` | built | FR-EDT-02 |
 | Blocks | Checklist | `- [ ] ` | built | FR-EDT-02, FR-TSK-11 |
+| Blocks | Mindmap | `> [!mindmap]` alone (mindmap.md W1: the empty item lives only in the editor until it has text, D-765; D-685; was a ```` ```mermaid ```` fence until D-679); description `Edit as a list, shown as a map` | built (slice MM) | FR-MMP-01 |
 | Blocks | Quote | `> ` | built | FR-EDT-02 |
 | Blocks | Callout | `> [!note] ` | built | FR-EDT-02 |
 | Blocks | Code block | ```` ``` ```` … ```` ``` ```` | built | FR-EDT-02 |
 | Blocks | Divider | `---` | built | FR-EDT-02 |
 | Blocks | Table | GFM table, 3 columns, header row and 2 body rows, empty cells | built | FR-EDT-02 |
+| Objects | Turn into object… | — | MS5 | FR-CNV-01 |
+| Objects | Embed object | `![[…]]` | MS4 | FR-EMB-01 |
 | Media | Image | — | MS6 | FR-ATT-01, FR-ATT-03 |
 | Media | PDF | — | MS6 | FR-ATT-02 |
-| Advanced | Block embed | `![[…#^…]]` | MS4 | FR-EMB-04 |
 | Advanced | Query | ```` ```query ```` | v1.0 | FR-QRY-06, FR-FMT-06 |
-| Advanced | Mindmap | `> [!mindmap]` alone (mindmap.md W1: the empty item lives only in the editor until it has text, D-765; D-685; was a ```` ```mermaid ```` fence until D-679); description `Edit as a list, shown as a map` | built (slice MM) | FR-MMP-01 |
+| Advanced | Block embed | `![[…#^…]]` | MS4 | FR-EMB-04 |
+| New object | `New <type>` per creatable type (new-object-menu.md R234) | a link `[[…]]` to the new object (R237) | built (new-object-menu.md) | FR-EDT-03, FR-VLT-05 |
 
 ### R7. Markdown shortcuts (FR-EDT-04)
 
@@ -153,7 +153,7 @@ The note toolbar's `status` element `Save state` (polite live region, never take
 - **AC-3** **Block handles.** Hovering a block, or putting the cursor in it, shows left of the block the buttons `Add block below` and `Drag to move, click for block menu` (Main board). `Add block below` inserts an empty paragraph after the block with the cursor in it; an empty paragraph is never written (it has no Markdown form): adding one and leaving it empty causes no `note_write` (AP-135). *(L5)*
 - **AC-4** **Move by drag and drop.** Dragging block 3 of Deset bloků (the `*` list) below block 8 (the table) saves a file whose body blocks are, in order, 1, 2, 4, 5, 6, 7, 8, 3, 9, 10, each byte-identical to its original source (moved blocks aren't re-rendered, dialect §1.5); gaps between blocks that were neighbours in the original are kept byte for byte (the whitespace-only line after block 5 included) and new neighbours are separated by one blank line (ADR 0002 §4); the frontmatter differs only in `modified`. *(L5)*
 - **AC-5** **Move by keyboard (AP-127).** With the cursor in a block, or with a block selection (FR-EDT-13), ⇧⌘↑ and ⇧⌘↓ move it one block up or down, with the same file rules as AC-4. At the first or last position nothing changes and nothing is written. *(L5; L1 for the transaction)*
-- **AC-6** **Block menu.** Clicking `Drag to move, click for block menu`, or ⌘/ (AP-127), opens the `menu` `Block actions` with `Turn into` (the built Blocks items of R6, plus `Mindmap` from slice MM, D-685), `Duplicate`, `Delete`, `Copy link to block` (disabled, `Coming in v1.0`, AP-131) and `Turn into object` (disabled, `Coming in MS5`). `Duplicate` inserts directly after the block a copy whose source equals the block's source byte for byte; `Delete` removes it; `Turn into` › `Heading 2` on block 5 writes `## Pátý blok, který test upraví.` within block 5's range only. Esc closes the menu and returns the cursor. Every item is reachable with ↑/↓ and ⏎. *(L5)*
+- **AC-6** **Block menu.** Clicking `Drag to move, click for block menu`, or ⌘/ (AP-127), opens the `menu` `Block actions` with `Turn into` (the built Blocks items of R6 as ordered by new-object-menu.md R234, `Mindmap` among them, D-685, D-2492), `Duplicate`, `Delete`, `Copy link to block` (disabled, `Coming in v1.0`, AP-131) and `Turn into object` (disabled, `Coming in MS5`). `Duplicate` inserts directly after the block a copy whose source equals the block's source byte for byte; `Delete` removes it; `Turn into` › `Heading 2` on block 5 writes `## Pátý blok, který test upraví.` within block 5's range only. Esc closes the menu and returns the cursor. Every item is reachable with ↑/↓ and ⏎. *(L5)*
 - **AC-7** **The two accepted exceptions (D-67).** In Seznamy, deleting the paragraph `Oddělovací odstavec.` saves the two lists as neighbours with one of them written with the marker `*` instead of `-` and its items' text unchanged; in Odsazený kód, deleting `Oddělovač.` saves a `<!-- -->` line between the list and the indented code. In both, every other byte outside the deleted block is unchanged, and the saved file parses to two lists (resp. a list and a code block). For every other operation of FR-FMT-07 AC-10, no byte outside the edited blocks changes. *(L1; L5 for the Seznamy case)*
 - **AC-8** **Source blocks and placeholders (AP-125).** In Surové bloky, the HTML block, footnote definition, `$$` math, comment block, `dataview` fence and the Mermaid `mindmap` fence (slice MM, D-679) are read-only source blocks (`group` named `Source block`, monospace, text exact, D-145); the query is the R5 placeholder of [read-view.md](read-view.md) (D-144); the note embed and the image embed are rendered as embeds (embeds.md, trash-media.md R77). Typing or pasting inside them changes nothing; each can be selected as a block, moved (AC-4, AC-5), duplicated and deleted. After editing the first and the last paragraph, each of them is byte-identical in the saved file (FR-FMT-07 AC-4). No image file is read. *(L5)*
 - **AC-9** **Empty body.** Prázdná shows one empty paragraph with the hint `Type here` (catalog, D-1365, `muted` token, D-129); the hint is shown in an empty paragraph that has the cursor and in an empty body, is never saved, and isn't copied by ⌘A ⌘C. Typing `Ahoj` saves the original bytes followed by `Ahoj` and one `\n`, with only `modified` changed in the frontmatter. *(L5)*
@@ -178,7 +178,7 @@ The note toolbar's `status` element `Save state` (polite live region, never take
 
 ### FR-EDT-03 Slash menu
 
-- **AC-1** **Opens where it should.** `/` typed at the start of a block or after a space opens the `listbox` `Insert block` below the caret, listing the items of R6 in that order under their group headers. `/` inside a word (`a/b`), in a code block, in inline code, in a link, in the title or in a source block doesn't open it. *(L5)*
+- **AC-1** **Opens where it should.** `/` typed at the start of a block or after a space opens the `listbox` `Insert block` below the caret, listing the items of R6 in new-object-menu.md R234's order under their group headers (D-2492). `/` inside a word (`a/b`), in a code block, in inline code, in a link, in the title or in a source block doesn't open it. *(L5)*
 - **AC-2** **Filter.** Text typed after `/` filters the items by label, case-, diacritic- and NFC/NFD-insensitive, letters in order (as FR-UX-03 AC-4): `/hea2` lists `Heading 2` first, `/tab` `Table`, `/CHECK` `Checklist`; `/xyz` shows `No matching blocks` and ⏎ inserts nothing. Disabled items are filtered like the others. *(L5)*
 - **AC-3** **Keyboard.** ↑ and ↓ move the selection (group headers are skipped), ⏎ or Tab chooses, Esc closes the menu and leaves `/<query>` as typed text (saved so that it reads back as that text); clicking an item chooses it. No step needs the pointer. *(L5)*
 - **AC-4** **Where the block goes.** Choosing an item in a paragraph whose only text is `/<query>` turns that paragraph into the chosen block; in a paragraph with other text, `/<query>` is removed and the block is inserted after the paragraph. The caret ends in the new block (after a divider: in a new empty paragraph below it). The saved bytes contain the R6 written form. *(L5)*
