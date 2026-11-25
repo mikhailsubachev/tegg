@@ -276,6 +276,7 @@
 | v1.310  | 2026-11-25 | Boards reviewed (owner): D-2492, the `/` menu order (Blocks first, Mindmap among them, no `Task` row, a last `New object` group of `New <type>` rows; board `ObjectMenu`); `MindmapLayouts` and `MindmapLayoutsDark` approved |
 | v1.311  | 2026-11-25 | ACs for slice MM3 (`docs/acceptance/mindmap.md` part three) and the `/` and `+` menu (`docs/acceptance/new-object-menu.md`): AP-2111…AP-2133 decided as proposed (owner, "Approve all"), D-2493…D-2515 |
 | v1.312  | 2026-11-25 | Red tests for slice MM3 and the New object menu (0dd566de; fixture 415094d2, changed tests 52d8f7a4, interfaces 22eddfa7): RT-1…RT-18 approved (owner, "Approve all"), D-2516…D-2533 |
+| v1.313  | 2026-11-25 | Slice MM3 and New object menu build (3e16c047, b8e3bc66): owner decisions D-2534…D-2548 on test fixes and build details ("Approve all") |
 
 Slice OC decisions and versions were renumbered on merging main (PR #154 used the same numbers): D-1942…D-2053 → D-2054…D-2165, v1.220…v1.229 → v1.238…v1.247. Commit messages before this renumbering use the old numbers (D-2166).
 
@@ -2399,6 +2400,21 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-2531 | Red tests MM3 / New object: Esc during a drag on L6 (RT-16, owner, 2026-11-25: "Approve all") | mac2 `macos: clickAndDragAndHold` with Esc while held; timing-dependent, retried as other L6 tests. |
 | D-2532 | Red tests MM3 / New object: DOM hooks (RT-17, owner, 2026-11-25: "Approve all") | `[data-fold-control]`, `[data-add-child]`, `data-dragging`, `[data-drag-origin]`, `[data-drag-ghost]`, `[data-drop-indicator]` with `data-drop-target`; perf mark `mindmap-drag` `{ms}` (mm-mindmap contract §7.5). |
 | D-2533 | Red tests MM3 / New object: Root fold on L6 (RT-18, owner, 2026-11-25: "Approve all") | The L6 tour folds the root by Space only, not by its control. |
+| D-2534 | MM3 / New object build: AC-45 Back (owner, 2026-11-25: "Approve all") | the test opens Lisabon without the Search page (Back returns where it came from, D-1340); AC-Test-Change. |
+| D-2535 | MM3 / New object build: Folded count and axe (owner, 2026-11-25: "Approve all") | the treeitem stays named by its text; FR-UX-08 AC-30 skips axe `label-content-name-mismatch` for the visible fold count only; AC-Test-Change. |
+| D-2536 | MM3 / New object build: Map commands on the phone (owner, 2026-11-25: "Approve all") | `mindmap.toggleFold` and `mindmap.addChild` are hidden on the phone (no folds there, D-2503); android-shell contract's hidden list gains them. |
+| D-2537 | MM3 / New object build: Spider fold control at the left edge (owner, 2026-11-25: "Approve all") | when a left-side fold control would fall left of 0, the drawing shifts right to contain it. |
+| D-2538 | MM3 / New object build: Trailing space after Esc (owner, 2026-11-25: "Approve all") | a typed trailing space before `+` or `/` is not saved (paragraph edges are normalized, as `/turn` + Esc); FR-EDT-03 AC-13, AC-15 tests relaxed; AC-Test-Change. |
+| D-2539 | MM3 / New object build: Test setup fixes (owner, 2026-11-25: "Approve all") | FR-EDT-03 AC-14 checks only new embeds, AC-11 targets the runtime paragraph, AC-7 types a space before `/`, AC-16's read view starts from a fresh page; AC-Test-Change. |
+| D-2540 | MM3 / New object build: Fake core stems (owner, 2026-11-25: "Approve all") | the fake core trims trailing dots in file stems like the real core (D-51); `bug_61_fr_cnv_03_late_conversion` updated; FR-CNV-01 AC-9 unchanged. |
+| D-2541 | MM3 / New object build: Older registry test (owner, 2026-11-25: "Approve all") | `convert_registry` `fr_cnv_01_ac2_r6…` no longer expects a `Task` slash row (D-2492); AC-Test-Change. |
+| D-2542 | MM3 / New object build: `+` and digits (owner, 2026-11-25: "Approve all") | a `+` query starting with a digit matches no row, so ⏎ and Tab act as usual (`+1`, `+420`). |
+| D-2543 | MM3 / New object build: Disabled rows (owner, 2026-11-25: "Approve all") | ↑/↓ in the slash menu stop on disabled rows; ⏎ on one does nothing and keeps the menu open. |
+| D-2544 | MM3 / New object build: Space before the trigger (owner, 2026-11-25: "Approve all") | the space before `+` stays when the link replaces the trigger and query. |
+| D-2545 | MM3 / New object build: Nested editors (owner, 2026-11-25: "Approve all") | in nested editors only `+` opens the menu; static rows are disabled with `menu.notInEmbed`. |
+| D-2546 | MM3 / New object build: Planned-path hint (owner, 2026-11-25: "Approve all") | the dialog's hint shows the type folder and the first free stem there; the core may still pick another stem (D-291). |
+| D-2547 | MM3 / New object build: Paragraph patch (owner, 2026-11-25: "Approve all") | an edit inside a paragraph keeps its bytes outside the changed range when the source is canonical, so NFD text stays NFD (FR-FMT-07, FR-FMT-12). |
+| D-2548 | MM3 / New object build: Close button string (owner, 2026-11-25: "Approve all") | the alert's close button uses the new catalog key `dialog.close` `Close`. |
 
 ---
 
