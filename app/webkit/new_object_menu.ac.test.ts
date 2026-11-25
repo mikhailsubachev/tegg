@@ -115,7 +115,8 @@ test('fr_edt_03_ac7_new_rows_come_from_the_vaults_types', async ({ page }) => {
   await page.keyboard.press('Escape');
   await core.setFile('.tegg/types/projekt.yml', null);
   await sleep(2000);
-  await page.keyboard.type('/');
+  // D-2539: the first `/` stays as text after Esc; a space makes the second `/` a valid trigger position.
+  await page.keyboard.type(' /');
   assert.deepEqual((await needMenu(page, '/ after the delete')).names.slice(19), ['New Page', 'New Task', 'New Quick Note'], 'a deleted one is gone');
   await page.keyboard.press('Escape');
 });
@@ -281,7 +282,8 @@ test('fr_edt_03_ac11_plus_doesnt_open_in_code_links_and_fields', async ({ page }
   const body = editorBody(page);
   await tryAt(body.locator('pre, code').filter({ hasText: 'kód();' }).first(), 'kód(', 'the js fence');
   await tryAt(body.locator('p').filter({ hasText: 'a dál' }).locator('code').first(), 'k', 'inline code');
-  await tryAt(body.locator('p').filter({ hasText: 'sál' }).first(), 's', 'the link text');
+  // D-2539: the runtime paragraph holding the `[sál](…)` link (its whole text is "sál"), not the list item "Rezervovat sál".
+  await tryAt(body.locator('p').filter({ hasText: /^sál$/ }).filter({ has: page.locator('a') }).last(), 's', 'the link text');
   const t = await saved(page, core, BLOKY, (x) => !!x && x.includes('[s+paál]'), 3000);
   for (const want of ['kód(+pa);', '`k+paód`', '[s+paál](https://example.com)']) if (!t?.includes(want)) bad.push(`not saved as typed: ${want}`);
   if (t && t.replace('kód(+pa);', 'kód();').replace('`k+paód`', '`kód`').replace('[s+paál]', '[sál]').replace(/^modified: .*$/m, '') !== base.replace(/^modified: .*$/m, '')) bad.push('other bytes changed');
@@ -370,8 +372,9 @@ test('fr_edt_03_ac13_the_new_object_dialog', async ({ page }) => {
   assert.equal(flat(await d.getByText(/^Creates /).first().innerText()), 'Creates Projekty/Spuštění webu.md and links it here.', 'the hint (AP-2129)');
   await page.keyboard.press('Escape');
   assert.equal(await seen(newDialog(page, 'Projekt'), 300), false, 'Esc closes the dialog');
-  let t = await savedLine(page, core, line1(' '));
-  assert.equal(noMod(t), noMod(line1(' ')), 'Esc removes `+pro`; the space typed before it stays and is the only change saved');
+  // D-2538: the trailing space typed before `+` is not saved (paragraph edges are normalized): nothing changes.
+  let t = await savedLine(page, core, line1(''));
+  assert.equal(noMod(t), noMod(line1('')), 'Esc removes `+pro`; the trailing space typed before it is not saved, so the paragraph is unchanged');
   assert.deepEqual(await callsOf(core, 'note_create'), [], 'never note_create');
   for (const how of ['Cancel', 'a click outside'] as const) {
     core = await openConvert(page, BLOKY);
@@ -384,8 +387,8 @@ test('fr_edt_03_ac13_the_new_object_dialog', async ({ page }) => {
     if (how === 'Cancel') await (await must(dialogCancel(dlg), 'Cancel')).click();
     else await page.mouse.click(1300, 860);
     assert.equal(await seen(newDialog(page, 'Projekt'), 300), false, `${how} closes the dialog`);
-    t = await savedLine(page, core, line1(' '));
-    assert.equal(noMod(t), noMod(line1(' ')), `${how}: as Esc`);
+    t = await savedLine(page, core, line1(''));
+    assert.equal(noMod(t), noMod(line1('')), `${how}: as Esc (D-2538)`);
     assert.deepEqual(await callsOf(core, 'note_create'), [], `${how}: never note_create`);
   }
 });

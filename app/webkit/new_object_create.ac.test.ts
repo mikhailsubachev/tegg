@@ -70,7 +70,9 @@ async function runN(page: Page, cases: N[]) {
     if (c.n === 'N2' && masked(t) !== newBytes('task', 'Zavolat Petrovi')) bad.push(`N2: bytes ${JSON.stringify(t)}`);
     const h = await saved(page, core, BLOKY, (x) => noMod(x) === noMod(c.host(B0)), 3000);
     if (noMod(h) !== noMod(c.host(B0))) { bad.push(`${c.n}: host ${JSON.stringify(h)}`); continue; }
-    if ((h ?? '').includes('![[')) bad.push(`${c.n}: an embed in the host`);
+    // D-2539: only embeds that are new compared with the host before count (Bloky already holds `![[Zasedačka]]`).
+    const embeds = (x: string) => (x.match(/!\[\[[^\]]*\]\]/g) ?? []).join('\n');
+    if (embeds(h ?? '') !== embeds(B0)) bad.push(`${c.n}: an embed in the host`);
     const linkText = c.host(B0).match(/\[\[([^\]]+)\]\]/g)!.find((l) => !B0.includes(l))!.slice(2, -2);
     const shown = linkText.includes('|') ? linkText.split('|')[1] : linkText;
     if ((await chips(editorBody(page), nfc(shown)).count()) !== 1) bad.push(`${c.n}: no link chip "${shown}"`);
@@ -141,8 +143,9 @@ test('fr_edt_03_ac15_one_undo_step_and_the_object_stays', async ({ page }) => {
   const hostWrites = (await callsOf(core, 'note_write')).filter((c) => nfc(String((c.args as { path?: string }).path)) === BLOKY);
   assert.ok(hostWrites.length >= 1 && hostWrites.every((c) => String((c.args as { text?: string }).text).includes('[[Nový plán]]')), 'the host\'s only writes contain the link');
   await page.keyboard.press('Meta+z');
-  const u = await saved(page, core, BLOKY, (x) => noMod(x) === noMod(line1(' ')));
-  assert.equal(noMod(u), noMod(line1(' ')), '⌘Z removes the link in one step and leaves `Úvodní odstavec. ` (AP-2130)');
+  // D-2538: the trailing space typed before `+` is not saved (paragraph edges are normalized).
+  const u = await saved(page, core, BLOKY, (x) => noMod(x) === noMod(line1('')));
+  assert.equal(noMod(u), noMod(line1('')), '⌘Z removes the link in one step and leaves `Úvodní odstavec.` (AP-2130, D-2538)');
   assert.ok((await fileText(core, 'Pages/Nový plán.md')) !== undefined, 'Pages/Nový plán.md stays (undo never deletes a file)');
   await page.keyboard.press('Meta+Shift+z');
   assert.equal(noMod(await saved(page, core, BLOKY, (x) => noMod(x) === noMod(n1))), noMod(n1), '⇧⌘Z puts the same link back');
@@ -203,17 +206,23 @@ test('fr_edt_03_ac16_a_task_card_body_a_template_and_read_views', async ({ page 
   await createVia(page, { after: 'Úkol v šabloně', trigger: ' +pa', type: 'Page', title: 'Nový plán' });
   const s = await eventually(() => fileText(core, C.sablona), (x) => !!x?.includes('[[Nový plán]]'), 3000);
   assert.ok(s?.includes('Úkol v šabloně [[Nový plán]]'), 'in a template the New rows work (AP-2125)');
+  // D-2539: the read view and the read-only note each start on a fresh page, so the template's route init script (and
+  // the read view's flag) don't persist into them.
   for (const readView of [true]) {
-    await openConvert(page, BLOKY, { readView });
-    await main(page).getByText('Úvodní odstavec.').first().click().catch(() => {});
-    await page.keyboard.type('+');
-    await page.keyboard.type('/');
-    assert.equal(await seen(slashMenu(page), 400), false, 'the read view: `+` and `/` open nothing');
+    const rv = await page.context().newPage();
+    await openConvert(rv, BLOKY, { readView });
+    await main(rv).getByText('Úvodní odstavec.').first().click().catch(() => {});
+    await rv.keyboard.type('+');
+    await rv.keyboard.type('/');
+    assert.equal(await seen(slashMenu(rv), 400), false, 'the read view: `+` and `/` open nothing');
+    await rv.close();
   }
-  await openConvert(page, BLOKY, { vault: convertVault((f) => { f[BLOKY] = f[BLOKY].replace('title: Bloky\n', 'title: "Bloky\n'); }), noEditor: true });
-  await main(page).getByText('Úvodní odstavec.').first().click().catch(() => {});
-  await page.keyboard.type('+');
-  assert.equal(await seen(slashMenu(page), 400), false, 'a note opened read-only (NFR-REL-03): nothing opens');
+  const ro = await page.context().newPage();
+  await openConvert(ro, BLOKY, { vault: convertVault((f) => { f[BLOKY] = f[BLOKY].replace('title: Bloky\n', 'title: "Bloky\n'); }), noEditor: true });
+  await main(ro).getByText('Úvodní odstavec.').first().click().catch(() => {});
+  await ro.keyboard.type('+');
+  assert.equal(await seen(slashMenu(ro), 400), false, 'a note opened read-only (NFR-REL-03): nothing opens');
+  await ro.close();
 });
 
 // ------------------------------------------------------------------------------------------------ FR-EDT-03 AC-17

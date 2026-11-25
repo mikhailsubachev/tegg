@@ -206,7 +206,10 @@ test('fr_mmp_02_ac45_folds_write_nothing_and_end_with_the_view', async ({ page }
   assert.deepEqual(await treeNames(fig), ALL, 'List and back to Map: unfolded');
   await focusNode(fig, 'Program');
   await page.keyboard.press(' ');
-  await gotoNote(page, 'Lisabon');
+  // D-2534: open Lisabon from the map (⌘↩ on its node's link), so Back returns to Výjezd 2026, not to Search (D-1340).
+  await focusNode(fig, 'Lisabon');
+  await page.keyboard.press('Meta+Enter');
+  await mustBeOn(page, 'Lisabon', '⌘↩ on Lisabon opens it');
   await click(page.getByRole('button', { name: 'Back', exact: true }), 'Back');
   await mustBeOn(page, 'Výjezd 2026', 'Back');
   fig = await needFigure(page, 'Výjezd 2026');
@@ -386,8 +389,14 @@ async function axeAll(page: Page, scope: Locator): Promise<string[]> {
   await axeContrast(page); // loads axe into the page
   const el = await scope.elementHandle();
   return page.evaluate(async (node) => {
-    const r = await (window as any).axe.run(node ?? document);
-    return r.violations.flatMap((v: any) => v.nodes.map((n: any) => `${v.id} ${n.target.join(' ')}`));
+    const r = await (window as any).axe.run(node ?? document, { elementRef: true });
+    // D-2535: a folded node's treeitem stays named by its text ("Program") while its fold control shows the hidden count
+    // ("+2"), which axe's `label-content-name-mismatch` reports on the treeitem. Only that rule, only on a folded
+    // treeitem that holds an `Expand <text>, <n> hidden` control, is skipped; every other rule and element is checked.
+    const foldCount = (v: any, n: any) => v.id === 'label-content-name-mismatch' && n.element instanceof Element
+      && n.element.getAttribute('role') === 'treeitem' && n.element.getAttribute('aria-expanded') === 'false'
+      && [...n.element.querySelectorAll('button')].some((b) => /^Expand .+, \d+ hidden$/.test(b.getAttribute('aria-label') ?? ''));
+    return r.violations.flatMap((v: any) => v.nodes.filter((n: any) => !foldCount(v, n)).map((n: any) => `${v.id} ${n.target.join(' ')}`));
   }, el);
 }
 

@@ -88,8 +88,11 @@ test('fr_edt_03_ac15_insert_object_link_is_one_undo_step_without_the_trigger', a
   assert.ok(before && before.type.name !== 'text', `the caret is right after the link chip (${before?.type.name})`);
   ed.commands.undo();
   const undone = await ed.save();
-  assert.equal(undone, touched(orig.replace('Úvodní odstavec.\n', 'Úvodní odstavec. \n')), '⌘Z removes the link in one step and leaves `Úvodní odstavec. ` (no `+pa`, D-2512)');
-  ed.markSaved(undone!);
+  // D-2538: the trailing space typed before `+` is not saved (paragraph edges are normalized): the paragraph reads as
+  // before the trigger, or nothing is written at all.
+  assert.ok(undone === null || undone === orig || undone === touched(orig),
+    `⌘Z removes the link in one step and leaves \`Úvodní odstavec.\` (no \`+pa\`, D-2512, D-2538): ${JSON.stringify(undone?.slice(0, 200))}`);
+  if (undone !== null) ed.markSaved(undone);
   ed.commands.redo();
   assert.equal(await ed.save(), n1, '⇧⌘Z puts the same link back');
   const ed2 = await open(orig);
