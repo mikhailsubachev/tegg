@@ -117,7 +117,8 @@ test('fr_lnk_01_ac9_external_changes_update_the_open_panel', async ({ page }) =>
   assert.deepEqual((await writeCalls(core)).slice(w0), [], 'nothing is written');
 });
 
-test('fr_lnk_01_ac10_own_links_show_up_within_1s_of_note_ready', async ({ page }) => {
+// Quarantined (@flaky, test-strategy §8.4, #157): flaky twice in push gates (2026-11-22, 2026-11-24) under load; D-2542.
+test('fr_lnk_01_ac10_own_links_show_up_within_1s_of_note_ready', { tag: ['@flaky'] }, async ({ page }) => {
   // D-949: the old steps run under preview.mode = off (a click on the chip opens it).
   await openLinks(page, B.osamela, setPreviewMode('off', { uiState: linksUi() }));
   await (await must(editorBody(page), 'Note body')).click();

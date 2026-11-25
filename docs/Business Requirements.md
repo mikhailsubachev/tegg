@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.322, for review                                            |
+| **Document status** | Draft v1.323, for review                                            |
 | **Date**            | 2026-11-24                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -274,6 +274,7 @@
 | v1.320  | 2026-11-24 | Slice AND-3 ACs (`docs/acceptance/android-edit.md`): D-2500…D-2525 (AP-2065…AP-2090 in order; owner, "Accept all proposals"): OC-2 and OC-3 run before the contract, no keyboard on open, the title fixed after the first write, the formatting bar (RA15), no hover-only editor parts, the merge banner, a recovery copy in private storage, NFD names stay read-only, Pin and Move to trash in ⋯, the first APK release after AND-3 |
 | v1.321  | 2026-11-25 | D-2526 (owner, "Draft the contract anyway"): the AND-3 contract is drafted before OC-2 and OC-3; red tests still wait for them |
 | v1.322  | 2026-11-25 | Slice AND-3 contract (`docs/contracts/android-edit.md`): D-2527…D-2540 (CP-1…CP-14 in order; owner, "Accept all proposals"): `object_trash`, the merge banner for property writes, the renderer's death handled by the plugin, recovery copies, `android_ime`, flushing a composition on `hidden`, `nfdName`, per-row command ids, reused catalog keys, Back held by the alerts, the printed GitHub plan, mindmap-protected selections, the test IME's broadcasts, Chromium authoritative for keyboard input; D-2541 (four AC fixes) |
+| v1.323  | 2026-11-25 | D-2542 (owner, "Quarantine it"): `fr_lnk_01_ac10` quarantined as `@flaky` (#157) |
 
 Slice OC decisions and versions were renumbered on merging main (PR #154 used the same numbers): D-1942…D-2053 → D-2054…D-2165, v1.220…v1.229 → v1.238…v1.247. Commit messages before this renumbering use the old numbers (D-2166).
 
@@ -2385,6 +2386,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-2539 | How LA talks to the test IME (CP-13) (owner, 2026-11-25: "Accept all proposals"; `docs/contracts/android-edit.md`) | Ordered broadcasts to the IME's own receiver, text in base64, result data `ok` (so a test knows the call ran); a `type` operation that types inside the IME at a fixed interval for the timing ACs (FR-SYN-02 AC-16, NFR-PERF-06 AC-8), since one `adb` call takes 50–150 ms. |
 | D-2540 | RA16 on WebKit (CP-14) (owner, 2026-11-25: "Accept all proposals"; `docs/contracts/android-edit.md`) | Chromium is authoritative (CDP IME calls); WebKit runs the same steps as synthetic events with `execCommand` defaults (§17.1), and a step WebKit can't reproduce is skipped on WebKit only, as D-2471 allows for the pinch. |
 | D-2541 | AC fixes from the AND-3 contract (owner, 2026-11-25: "Accept all proposals"; `docs/acceptance/android-edit.md`) | (1) RA17 row 15 and FR-HIS-01 AC-16: Move to trash calls `object_trash` through the desktop's `moveToTrash` (D-2527). (2) FR-EDT-07 AC-26's first bullet and FR-SYN-03 AC-42: a refused body or property write shows the merge banner, keeping the value as `Your version` (D-2528). (3) AR-08 AC-7's test is in `app/test/release_plan.ac.test.ts`. (4) FR-VLT-05 AC-17: the desktop's Task also opens a `new/task` draft since D-1906, so the phone doesn't differ there. The AC fixes that depended on an alternative (FR-EDT-08 AC-18, FR-UX-03 AC-60, RA16's layer line) don't apply. |
+| D-2542 | Quarantine `fr_lnk_01_ac10` (owner, 2026-11-25: "Quarantine it") | `app/webkit/backlinks.ac.test.ts` `fr_lnk_01_ac10_own_links_show_up_within_1s_of_note_ready` was recorded flaky twice by the push gate's retry (2026-11-22, 2026-11-24), so the `flaky` check failed every push. It is tagged `@flaky` (test-strategy §8.4) and tracked in #157 with `fr_grp_01_ac38` and `fr_ux_08_ac16`: three quarantined tests, the strategy's limit; none is T1. `AC-Test-Change`, no product change. |
 
 ---
 
