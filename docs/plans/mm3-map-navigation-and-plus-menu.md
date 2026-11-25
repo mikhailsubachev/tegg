@@ -1,7 +1,6 @@
 # Slice MM3 (map navigation, drag, fold, mouse add) and the `+` object menu (2026-11-25)
 
-Status: **decided 2026-11-25** (owner answers, then "Approve all"): AP-2100…AP-2110 are D-2481…D-2491 (BRD v1.309). Next: the boards, the ACs, red tests (D-61).
-the BRD decisions (D-xx), the boards `MindmapLayouts` and `Main`, the ACs, then red tests (D-61).
+Status: **decided 2026-11-25** (owner answers, then "Approve all"): AP-2100…AP-2110 are D-2481…D-2491 (BRD v1.309). Boards approved (D-2492), ACs approved (D-2493…D-2515), red tests (D-2516…D-2533), built (D-2534…D-2548), QA fixes D-2549 (BRD v1.314).
 
 Owner brief (2026-11-25):
 

@@ -208,7 +208,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
   const [slash, setSlash] = useState<Slash | null>(null);
   const [newObj, setNewObj] = useState<NewObj | null>(null);
   const newObjOpen = useRef(false);
-  newObjOpen.current = !!newObj;
+  const newObjInserting = useRef(false);
+  newObjOpen.current = !!newObj || newObjInserting.current;
   const [suggest, setSuggest] = useState<Suggest | null>(null);
   /** FR-VLT-05 AC-3: the `Create "<q>" as…` row whose type the `Type` menu is choosing. */
   const [asType, setAsType] = useState<{ row: Row; at: { left: number; top: number } } | null>(null);
@@ -983,14 +984,19 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       focusEditor();
       return;
     }
+    newObjInserting.current = true; // QA (D-2512): the saver waits until the link is in
     setNewObj(null);
-    newObjOpen.current = false;
     const stem = path.split('/').pop()!.replace(/\.md$/, '');
     const res = await ipc.linkResolve(pathRef.current, [stem]).catch(() => []);
     const stemResolves = res[0]?.path?.normalize('NFC') === path.normalize('NFC');
     links.current.set(stemResolves ? stem.normalize('NFC') : path.replace(/\.md$/, '').normalize('NFC'), { kind: 'note', path, type: n.type.key });
     const r = newObjRange(n, e);
-    if (r) e.commands.insertObjectLink(r[0], r[1], { path, title, fromPath: pathRef.current, stemResolves });
+    try {
+      if (r) e.commands.insertObjectLink(r[0], r[1], { path, title, fromPath: pathRef.current, stemResolves });
+    } finally {
+      newObjInserting.current = false;
+      newObjOpen.current = false;
+    }
     focusEditor();
   };
 

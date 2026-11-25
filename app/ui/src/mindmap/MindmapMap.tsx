@@ -113,7 +113,7 @@ export type MindmapEditing =
   | { kind: 'text'; id: string; value: string; original: string }
   | { kind: 'pending'; anchor: string; where: 'sibling' | 'child'; at: number[] | null; level: number; value: string; afterId: string; parent: string; index: number; tone: string };
 
-export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix, edit = null, onFocusedNode, folds = null }: {
+export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix, edit = null, onFocusedNode, folds = null, underList = false }: {
   tree: MindmapTree;
   /** The tree's accessible name (`Map of <title>`). */
   label: string;
@@ -130,10 +130,12 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
   onFocusedNode?: (path: number[] | null | undefined) => void;
   /** Slice MM3 (mm-mindmap §7.3): the editor's folds of this block; without them (the read view) the map keeps its own. */
   folds?: MindmapFolds | null;
+  /** The live map below the List view: no folds, `+` or drag there (D-2502). */
+  underList?: boolean;
 }) {
   const info = useMemo(() => infos(tree), [tree]);
   // Slice MM3 (D-2482, D-2503): folds; none on the phone yet.
-  const noFolds = isPhone();
+  const noFolds = isPhone() || underList;
   const [localFolds, setLocalFolds] = useState<ReadonlySet<string>>(() => new Set());
   const [, setTick] = useState(0);
   const foldedIds: ReadonlySet<string> = noFolds ? new Set() : folds ? new Set(folds.folded().map(idOf)) : localFolds;
@@ -553,7 +555,7 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
               <span aria-hidden="true">{fold.folded ? t('mindmap.hiddenCount', { count: fold.hidden }) : '−'}</span>
             </button>
           );
-          const plusBtn = edit && !editing && !drag && (
+          const plusBtn = edit && !underList && !editing && !drag && (
             <button type="button" tabIndex={-1} data-add-child="" data-command="mindmap.addChild" className="mindmap-add-child"
               aria-label={t('mindmap.addChild', { node: name })} style={control(n.plus)}
               onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }} onPointerDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}

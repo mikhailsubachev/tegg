@@ -29,7 +29,9 @@ export function NestedNewObject({ editor, path, open }: {
   const dismissed = useRef<number | null>(null);
   const live = useRef({ slash, dialog, types });
   live.current = { slash, dialog, types };
-  open.current = !!slash || !!dialog;
+  // QA (D-2512): the saver also waits from a successful create until the link is in.
+  const inserting = useRef(false);
+  open.current = !!slash || !!dialog || inserting.current;
   const rows = (q: string): MenuRow[] => menuRows({ types: live.current.types, query: q, trigger: '+' });
 
   useEffect(() => {
@@ -129,13 +131,18 @@ export function NestedNewObject({ editor, path, open }: {
       ed.view.focus();
       return;
     }
+    inserting.current = true;
     setDialog(null);
-    open.current = false;
     const stem = made.split('/').pop()!.replace(/\.md$/, '');
     const res = await ipc.linkResolve(path, [stem]).catch(() => []);
     const stemResolves = res[0]?.path?.normalize('NFC') === made.normalize('NFC');
     const r = range(d, ed);
-    if (r) ed.commands.insertObjectLink(r[0], r[1], { path: made, title, fromPath: path, stemResolves });
+    try {
+      if (r) ed.commands.insertObjectLink(r[0], r[1], { path: made, title, fromPath: path, stemResolves });
+    } finally {
+      inserting.current = false;
+      open.current = false;
+    }
     ed.view.focus();
   };
 
