@@ -28,16 +28,16 @@ checks OC-1…OC-4 of `docs/acceptance/android-shell.md`. Record the results bel
 
 ## OC-2 Typing with Gboard (desktop layout; findings go to AND-3's ACs)
 
-- [ ] Czech diacritics, autocorrect and suggestions in a note body.
-- [ ] Enter in a list, backspace at the start of a block.
-- [ ] The file's diff (on the Mac after sync) shows only the typed text and `modified`.
+- [x] Czech diacritics, autocorrect and suggestions in a note body.
+- [x] Enter in a list, backspace at the start of a block.
+- [x] The file's diff (on the Mac after sync) shows only the typed text and `modified`.
 
 ## OC-3 The separate Drive sync app (D-2004)
 
-- [ ] It syncs `.tegg/` and `.trash/`.
-- [ ] It does not upload Tegg's temporary files (`.<name>.tegg-tmp`).
-- [ ] Its conflict copies are named: ___
-- [ ] After editing a note in Tegg, the sync app uploads the new content (AND-1 found that Android's storage layer can
+- [x] It syncs `.tegg/` and `.trash/`.
+- [x] It does not upload Tegg's temporary files (`.<name>.tegg-tmp`).
+- [x] Its conflict copies are named as the AND-3 contract §3.4 expects (owner, 2026-11-25, D-2542)
+- [x] After editing a note in Tegg, the sync app uploads the new content (AND-1 found that Android's storage layer can
       show other apps a stale copy of a file whose name is in NFD bytes; see the PR's open points).
 
 ## OC-4 Drive API (input for AND-4)

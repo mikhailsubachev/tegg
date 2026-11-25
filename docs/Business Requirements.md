@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.322, for review                                            |
+| **Document status** | Draft v1.331, for review                                            |
 | **Date**            | 2026-11-24                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -283,6 +283,7 @@
 | v1.328  | 2026-11-25 | QA review of slice MM3 and the New object menu: D-2668 (fixes); D-2633's row rewritten without a raw pipe; D-2655 names the android-phone contract |
 | v1.329  | 2026-11-25 | D-2669: slice MM3 and the New object menu renumbered after main's PR #163 (D-2481…D-2549 → D-2600…D-2668, v1.309…v1.314 → v1.323…v1.328) |
 | v1.330  | 2026-11-25 | D-2670: thirteen AC IDs of slice MM3 and the New object menu renumbered after slice AND-3's; gate trailers |
+| v1.331  | 2026-11-25 | D-2542: the owner's phone checks OC-2 (Gboard typing) and OC-3 (the sync app) passed; slice AND-3's red tests start |
 
 Slice OC decisions and versions were renumbered on merging main (PR #154 used the same numbers): D-1942…D-2053 → D-2054…D-2165, v1.220…v1.229 → v1.238…v1.247. Commit messages before this renumbering use the old numbers (D-2166).
 
@@ -2397,6 +2398,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-2539 | How LA talks to the test IME (CP-13) (owner, 2026-11-25: "Accept all proposals"; `docs/contracts/android-edit.md`) | Ordered broadcasts to the IME's own receiver, text in base64, result data `ok` (so a test knows the call ran); a `type` operation that types inside the IME at a fixed interval for the timing ACs (FR-SYN-02 AC-16, NFR-PERF-06 AC-8), since one `adb` call takes 50–150 ms. |
 | D-2540 | RA16 on WebKit (CP-14) (owner, 2026-11-25: "Accept all proposals"; `docs/contracts/android-edit.md`) | Chromium is authoritative (CDP IME calls); WebKit runs the same steps as synthetic events with `execCommand` defaults (§17.1), and a step WebKit can't reproduce is skipped on WebKit only, as D-2471 allows for the pinch. |
 | D-2541 | AC fixes from the AND-3 contract (owner, 2026-11-25: "Accept all proposals"; `docs/acceptance/android-edit.md`) | (1) RA17 row 15 and FR-HIS-01 AC-16: Move to trash calls `object_trash` through the desktop's `moveToTrash` (D-2527). (2) FR-EDT-07 AC-26's first bullet and FR-SYN-03 AC-42: a refused body or property write shows the merge banner, keeping the value as `Your version` (D-2528). (3) AR-08 AC-7's test is in `app/test/release_plan.ac.test.ts`. (4) FR-VLT-05 AC-17: the desktop's Task also opens a `new/task` draft since D-1906, so the phone doesn't differ there. The AC fixes that depended on an alternative (FR-EDT-08 AC-18, FR-UX-03 AC-60, RA16's layer line) don't apply. |
+| D-2542 | OC-2 and OC-3 passed (owner, 2026-11-25: "Both fine, start tests"; `qa/manual/and-1-checklist.md`, contract `docs/contracts/android-edit.md` §21) | Typing with Gboard (Czech diacritics, autocorrect, Enter in a list, Backspace at a block's start) and the separate sync app (it syncs `.tegg/` and `.trash/`, skips Tegg's temp files, uploads edited notes) behaved as the checklist and the contract expect, so RA16, §9.1 and §17 stand as written and the conflict-copy pattern of §3.4 stays. AND-3's red tests start (D-2526 lifted). |
 | D-2600 | Map ↑/↓ (AP-2100, owner, 2026-11-25; slice MM3; amends D-770) | ↑/↓ move among the focused node's siblings. Past the first / last sibling they continue to the nearest node at the same depth under the previous / next parent (a cousin), in outline order; with none, nothing. Home / End stay first / last node (D-770). In `spider` the same outline order holds. |
 | D-2601 | Map folds not remembered (AP-2101, owner, 2026-11-25; slice MM3) | Folding a map node is view state for the open note only: nothing is written to the vault or to `ui-state.json`; reopening the note, switching to List and back, or another window shows the map unfolded. |
 | D-2602 | Text after `+` filters (AP-2102, owner, 2026-11-25) | `+` opens the slash menu (FR-EDT-03) at its Objects group; text typed after `+` filters the rows as after `/` (`+ta` → `Task`); the title of the new object is typed in the dialog of D-2609. |
