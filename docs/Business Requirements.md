@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.320, for review                                            |
+| **Document status** | Draft v1.321, for review                                            |
 | **Date**            | 2026-11-24                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -272,6 +272,7 @@
 | v1.307  | 2026-11-23 | Slice AND-2 emulator run (owner, "Approve all six"): D-2464 (insets round up and cover the viewport's overhang), D-2465 (LA test fixes); D-2466 (second LA test fixes, owner, "Approve all seven"); D-2467 (three fixes from the emulator: the scrim, the keyboard, rotation); D-2468 (the start screens and the side insets); D-2470 (third LA test fixes, owner, "Approve both"); D-2471, D-2472 (two QA-tool rules, owner, "Approve both"); D-2464, D-2467, D-2468 approved (owner, "Approve all three"); D-2469 not used; D-2473 (QA review fixes); D-2474 (content controls on the phone, owner); D-2475 (board cards and view-only checkboxes, owner); D-2476 (fourth LA test fixes, owner); D-2477 (two phone races under load, owner); D-2478 (core timing tests in their own gate step, owner) |
 | v1.308  | 2026-11-24 | D-2479 (owner: "Yes, renumber", then "Jump to D-2400"): slice AND-2's D-2054…D-2132 and v1.238…v1.245 renumbered to D-2400…D-2478 and v1.300…v1.307 after main's PR #155 (slice OC) and PR #156 (slice Q3) took the numbers between; D-2480 (owner: "Approve both"): AND-2's and AND-1's colliding AC IDs renumbered after slice OC's; `card.edit` hidden on the phone |
 | v1.320  | 2026-11-24 | Slice AND-3 ACs (`docs/acceptance/android-edit.md`): D-2500…D-2525 (AP-2065…AP-2090 in order; owner, "Accept all proposals"): OC-2 and OC-3 run before the contract, no keyboard on open, the title fixed after the first write, the formatting bar (RA15), no hover-only editor parts, the merge banner, a recovery copy in private storage, NFD names stay read-only, Pin and Move to trash in ⋯, the first APK release after AND-3 |
+| v1.321  | 2026-11-25 | D-2526 (owner, "Draft the contract anyway"): the AND-3 contract is drafted before OC-2 and OC-3; red tests still wait for them |
 
 Slice OC decisions and versions were renumbered on merging main (PR #154 used the same numbers): D-1942…D-2053 → D-2054…D-2165, v1.220…v1.229 → v1.238…v1.247. Commit messages before this renumbering use the old numbers (D-2166).
 
@@ -2367,6 +2368,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-2523 | Creating while the vault is partly synced (AP-2088) (owner, 2026-11-24: "Accept all proposals"; `docs/acceptance/android-edit.md`) | Accept it: no detection and no automatic rewrite. Both files are listed with their details in the `[[` panel, the Mac's Duplicate titles page shows the pair, and resolution is the desktop's for the same files. |
 | D-2524 | Resolving conflicts in a stacked layout (D-2410 adds keep one and merge) (AP-2089) (owner, 2026-11-24: "Accept all proposals"; `docs/acceptance/android-edit.md`) | `Keep this version` under each version (its path as the description), a confirmation naming the file that goes to the trash, `Give the copy a new id` where the desktop offers it, and `Merge…` as a full-screen dialog with the editable draft above the other version. |
 | D-2525 | The Create offer of a broken link (AP-2090) (owner, 2026-11-24: "Accept all proposals"; `docs/acceptance/android-edit.md`) | The desktop's offer as a sheet, with its type picker and its link rewrite for names that need one (backlinks.md FR-LNK-04 AC-4…AC-13). |
+| D-2526 | The AND-3 contract before the owner's phone checks (amends D-2500, D-2501) (owner, 2026-11-25: "Draft the contract anyway") | The contract `docs/contracts/android-edit.md` is drafted and decided while OC-2 (Gboard typing) and OC-3 (the sync app) are still open. The red tests and the build still wait for both checks: if OC-2 fails, AND-3 stops and the options go to the owner (D-2500); OC-3's conflict-copy name may still change FR-SYN-04 AC-2 and the contract (D-2501). |
 
 ---
 
