@@ -3,7 +3,7 @@
 // FR-MMP-02 AC-42 (the fold control), AC-43 (rendered boxes and controls within ±1 px of the layout with folds), AC-45
 // (folds are view state of the open note), AC-46 (read view and read-only notes), AC-47 (the mouse `+`, W33, W34), AC-52
 // (in an embedded note), FR-UX-08 AC-31 (VoiceOver: `aria-expanded`, names, not Tab stops, axe), FR-UX-05 AC-31 (both
-// themes), NFR-OTH-02 AC-27 (pseudo-locale). Test clock 2026-10-22T10:00 Europe/Prague, region cs, 1440 × 900. Written
+// themes), NFR-OTH-02 AC-29 (pseudo-locale). Test clock 2026-10-22T10:00 Europe/Prague, region cs, 1440 × 900. Written
 // from the ACs and the contract only (D-61); every missing element fails an assertion (TS-I1).
 import { test, type Locator, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
@@ -476,9 +476,9 @@ for (const theme of ['light', 'dark'] as const) {
   });
 }
 
-// ------------------------------------------------------------------------------------------------ NFR-OTH-02 AC-27 (L5)
+// ------------------------------------------------------------------------------------------------ NFR-OTH-02 AC-29 (L5)
 
-test('nfr_oth_02_ac27_pseudo_locale_wraps_the_controls_and_the_commands', async ({ page }) => {
+test('nfr_oth_02_ac29_pseudo_locale_wraps_the_controls_and_the_commands', async ({ page }) => {
   await openMm(page, MM.vyjezd, { prelude: pseudoLocale });
   const fig = main(page).getByRole('figure', { name: '⟦Mindmap: Výjezd 2026⟧', exact: true });
   await must(fig, 'figure ⟦Mindmap: Výjezd 2026⟧', 5000);

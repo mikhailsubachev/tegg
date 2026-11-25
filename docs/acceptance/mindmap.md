@@ -581,7 +581,7 @@ Folding, unfolding, hovering, a cancelled drag and the `+` shown on hover write 
 
 ### NFR-OTH-02 Strings (adds to AC-7, AC-8)
 
-- **AC-27** [MM3] **Catalog only.** Every R233 text is a catalog key; with the pseudo-locale every accessible name of the fold controls, the `+` buttons and the two commands is inside `⟦ ⟧` except the node text inside it; with a Czech test catalog, `Expand {node}, {count} hidden` uses the `one` / `few` / `many` / `other` forms for counts 1, 2, 5 and 21 (D-133). *(L1; L5)*
+- **AC-29** [MM3] **Catalog only.** Every R233 text is a catalog key; with the pseudo-locale every accessible name of the fold controls, the `+` buttons and the two commands is inside `⟦ ⟧` except the node text inside it; with a Czech test catalog, `Expand {node}, {count} hidden` uses the `one` / `few` / `many` / `other` forms for counts 1, 2, 5 and 21 (D-133). *(L1; L5)*
 
 ## What changes in earlier criteria, tests and fixtures (MM3)
 

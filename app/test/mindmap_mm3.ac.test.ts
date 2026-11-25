@@ -3,7 +3,7 @@
 // FR-MMP-02 AC-43 (R230's golden values with the Measurer: fold controls, `+` points, folded maps laid out without the
 // hidden nodes, the layout equal again after unfolding), AC-37 and AC-38 (the navigation function: ↑ / ↓ among siblings,
 // then the nearest visible node of the same depth in outline order; nothing on a root; Home / End; hidden nodes never
-// reached), NFR-OTH-02 AC-27 (R233's catalog keys, the plural message, the pseudo-locale, a Czech test catalog), and the
+// reached), NFR-OTH-02 AC-29 (R233's catalog keys, the plural message, the pseudo-locale, a Czech test catalog), and the
 // registry side of FR-UX-03 AC-62 (the two commands). Modules load dynamically (TS-I1): the layout ignores `folded` and
 // has no `fold` / `plus`, and `nav.ts` doesn't exist yet, so every test fails on an assertion. Written from the ACs and
 // the contract only (D-61).
@@ -209,7 +209,7 @@ test('fr_mmp_02_ac41_folded_nodes_unfold_by_the_key_towards_their_children', asy
   assert.deepEqual([await walk(r, 'Střed', ['ArrowLeft']), await walk(r, 'Střed', ['ArrowRight'])], [['unfold Střed'], ['unfold Střed']], 'a folded spider root: either key unfolds it');
 });
 
-// ------------------------------------------------------------------------------------------------ NFR-OTH-02 AC-27 (L1), FR-UX-03 AC-62 (registry)
+// ------------------------------------------------------------------------------------------------ NFR-OTH-02 AC-29 (L1), FR-UX-03 AC-62 (registry)
 
 async function catalog(): Promise<Mod> {
   const cat = await load('../ui/src/i18n/catalog.ts');
@@ -230,7 +230,7 @@ const R233: [string, string, Record<string, string | number>][] = [
   ['cmd.mindmap.addChild', 'Add child to mindmap node', {}],
 ];
 
-test('nfr_oth_02_ac27_r233_texts_are_catalog_keys_with_a_plural_expand_message', async () => {
+test('nfr_oth_02_ac29_r233_texts_are_catalog_keys_with_a_plural_expand_message', async () => {
   const cat = await catalog();
   const en = cat.en as Record<string, unknown>;
   const bad = R233.filter(([k]) => !(k in en)).map(([k]) => `${k}: missing`);
@@ -246,7 +246,7 @@ test('nfr_oth_02_ac27_r233_texts_are_catalog_keys_with_a_plural_expand_message',
   assert.ok(String(cat.t('mindmap.expandNode', { node: 'Program', count: 2 })).includes('Program'), 'the node text is the user\'s content');
 });
 
-test('nfr_oth_02_ac27_czech_test_catalog_uses_the_plural_forms', async () => {
+test('nfr_oth_02_ac29_czech_test_catalog_uses_the_plural_forms', async () => {
   const cat = await catalog();
   assert.equal(typeof (cat.en as Record<string, unknown>)['mindmap.expandNode'], 'object', 'the English message has plural forms (D-133)');
   cat.setCatalog({ 'mindmap.expandNode': { one: 'ONE {node} {count}', few: 'FEW {node} {count}', many: 'MANY {node} {count}', other: 'OTHER {node} {count}' } }, 'cs');
