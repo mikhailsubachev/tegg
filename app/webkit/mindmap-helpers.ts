@@ -491,3 +491,85 @@ export async function connectorStart(fig: Locator, from: string, to: string): Pr
     return [Number(m[1]) + s.left - a.left + area.scrollLeft - 16, Number(m[2]) + s.top - a.top + area.scrollTop - 12];
   });
 }
+
+// ------------------------------------------------------------------------------------------------ slice MM3 (D-2481…D-2489)
+
+/** The MM3 note of the fixture (README: Bratranci, AP-2111). */
+export const MM3 = { bratranci: 'Pages/Bratranci.md' } as const;
+/** R230 / mm-mindmap §7.5: the fold control of node `name` (inside the tree; hidden ones included, as an open control
+ *  is `visibility: hidden` until its node is hovered or focused). */
+export const foldControl = (fig: Locator, name: string) =>
+  fig.getByRole('tree').getByRole('button', { name: new RegExp(`^(Collapse ${esc(nfc(name))}|Expand ${esc(nfc(name))}, \\d+ hidden)$`), includeHidden: true });
+/** R230: the `+` button `Add child to <name>` (hidden ones included). */
+export const addChildBtn = (fig: Locator, name: string) => fig.getByRole('button', { name: `Add child to ${nfc(name)}`, exact: true, includeHidden: true });
+/** The accessible name of node `name`'s fold control, or null when it has none. */
+export async function foldName(fig: Locator, name: string): Promise<string | null> {
+  const c = foldControl(fig, name);
+  if ((await c.count()) === 0) return null;
+  return (await c.first().getAttribute('aria-label')) ?? flat(await c.first().textContent());
+}
+/** Whether an element is shown to the user (not `visibility: hidden`, not `display: none`, has a size). */
+export async function visible(loc: Locator): Promise<boolean> {
+  if ((await loc.count()) === 0) return false;
+  return loc.first().evaluate((e) => {
+    const s = getComputedStyle(e);
+    const r = e.getBoundingClientRect();
+    return s.visibility !== 'hidden' && s.display !== 'none' && Number(s.opacity) > 0 && r.width > 0 && r.height > 0;
+  });
+}
+/** The centre of `loc` relative to the map's origin (the map area's padding 16 / 12, as `connectorStart`). */
+export async function mapCentre(fig: Locator, loc: Locator): Promise<[number, number] | null> {
+  if ((await loc.count()) === 0) return null;
+  const area = await mapArea(fig).first().evaluate((a) => { const r = a.getBoundingClientRect(); return { x: r.left - a.scrollLeft, y: r.top - a.scrollTop }; });
+  const r = await loc.first().evaluate((e) => { const b = e.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; });
+  return [r.x - area.x - 16, r.y - area.y - 12];
+}
+/** The rendered box of node `name` relative to the map's origin: [x, y, width, height]. */
+export async function mapBox(fig: Locator, name: string): Promise<number[] | null> {
+  const n = node(fig, name);
+  if ((await n.count()) === 0) return null;
+  const area = await mapArea(fig).first().evaluate((a) => { const r = a.getBoundingClientRect(); return { x: r.left - a.scrollLeft, y: r.top - a.scrollTop }; });
+  const b = await n.first().evaluate((e) => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; });
+  return [b[0] - area.x - 16, b[1] - area.y - 12, b[2], b[3]];
+}
+/** `aria-expanded` of node `name` (null when absent). */
+export async function expanded(fig: Locator, name: string): Promise<string | null> {
+  const n = node(fig, name);
+  if ((await n.count()) === 0) return '<no node>';
+  return n.first().getAttribute('aria-expanded');
+}
+
+export type Zone = 'before' | 'after' | 'child';
+/** A page point inside node `name`'s drop zone (R231): the halves at the box's centre column, the child zone at the
+ *  outer sixth (the right edge, or the left edge for a spider left-side node, `left`). */
+export async function zonePoint(fig: Locator, name: string, zone: Zone, left = false): Promise<{ x: number; y: number }> {
+  const n = await needNode(fig, name);
+  const b = (await n.boundingBox())!;
+  if (zone === 'child') return { x: left ? b.x + b.width / 6 : b.x + (5 * b.width) / 6, y: b.y + b.height / 2 };
+  return { x: b.x + b.width / 2, y: zone === 'before' ? b.y + b.height / 4 : b.y + (3 * b.height) / 4 };
+}
+/** Pointer down on node `from`, a move to `to` in `steps` (≥ 4 px, a drag, D-2489), an optional rest, then `release`
+ *  (`false`: the button stays down for the caller). */
+export async function dragTo(page: Page, fig: Locator, from: string, to: { x: number; y: number }, o: { steps?: number; restMs?: number; release?: boolean } = {}) {
+  const n = await needNode(fig, from);
+  const b = (await n.boundingBox())!;
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2 + 6, b.y + b.height / 2 + 2, { steps: 2 });
+  await page.mouse.move(to.x, to.y, { steps: o.steps ?? 12 });
+  if (o.restMs) await sleep(o.restMs);
+  if (o.release !== false) await page.mouse.up();
+}
+/** The drag DOM of mm-mindmap §7.5: the indicator's zone and target node text, the origin outline and the copy. */
+export async function dragState(fig: Locator): Promise<{ dragging: string | null; zone: string | null; target: string | null; origin: number; ghost: number }> {
+  return fig.first().evaluate((f) => {
+    const ind = f.querySelector('[data-drop-indicator]') as HTMLElement | null;
+    const tid = ind?.getAttribute('data-drop-target') ?? null;
+    const t = tid === null ? null : (f.querySelector(`[role="treeitem"][data-node="${CSS.escape(tid)}"]`) as HTMLElement | null);
+    const name = t ? (t.getAttribute('aria-label') ?? t.textContent ?? '').replace(/\s+/g, ' ').trim().normalize('NFC') : null;
+    return {
+      dragging: f.getAttribute('data-dragging'), zone: ind?.getAttribute('data-drop-indicator') ?? null, target: name,
+      origin: f.querySelectorAll('[data-drag-origin]').length, ghost: document.querySelectorAll('[data-drag-ghost]').length,
+    };
+  });
+}
