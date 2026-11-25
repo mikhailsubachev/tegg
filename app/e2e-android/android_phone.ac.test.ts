@@ -439,13 +439,22 @@ test('fr_qry_09_ac10_live_views_on_the_phone', async () => {
 
 // ------------------------------------------------------------------------------------------------ FR-EDT-10 AC-10, FR-ATT-01 AC-17, FR-NAV-08 AC-3
 
+// Slice AND-3 (docs/contracts/android-edit.md §7.1, §20; D-2415): a note the phone can write opens in the editor without a
+// keyboard; the read view (no contenteditable, a tap never shows the keyboard) holds only for §7.1's read-only modes, here a
+// note stored under an NFD name (AC-Test-Change, approved by the owner with the contract, D-2541).
 test('fr_edt_10_ac10_note_is_the_read_view_on_the_phone', async () => {
   ready();
   const vault = pushPhone();
+  writeShared(`${vault}/Pages/Pozna\u0301mka.md`, '---\nid: 01JBAN3000000000000000P001\ntype: page\ntitle: Poznámka\n---\nText poznámky.\n');
   const { v } = await launchPhone(vault, { TEGG_ROUTE: `note/${DLOUHA}` }, views);
   await titleIs(v, 'Dlouhá poznámka');
-  assert.equal(await v.eval<number>(`document.querySelectorAll('[contenteditable], .ProseMirror').length`), 0, 'no editor');
-  await tapEl(v, 'main p');
+  assert.ok(await v.waitFor('[role="textbox"][aria-label="Note body"][contenteditable="true"]', 5000), 'a writable note is the editor');
+  await sleep(1000);
+  assert.equal(imeShown(), false, 'opening shows no keyboard');
+  const { v: v2 } = await launchPhone(vault, { TEGG_ROUTE: 'note/Pages/Poznámka.md' }, views);
+  await titleIs(v2, 'Poznámka');
+  assert.equal(await v2.eval<number>(`document.querySelectorAll('main [contenteditable="true"]').length`), 0, 'the NFD-named note is the read view');
+  await tapEl(v2, 'main p');
   await sleep(800);
   assert.equal(imeShown(), false, 'a tap on the text never shows the keyboard (mInputShown=false)');
   assert.deepEqual(ipcWrites(), [], 'zero writes');

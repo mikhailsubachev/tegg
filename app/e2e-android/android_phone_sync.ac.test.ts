@@ -84,9 +84,15 @@ test('fr_syn_06_ac54_reading_on_the_phone_writes_nothing', async () => {
     }
     if (note === 'Mapa výletu') {
       for (const cmd of ['mindmap.zoomIn', 'mindmap.zoomOut', 'mindmap.fullScreen', 'mindmap.closeFullScreen', 'mindmap.showList', 'mindmap.showMap']) { await v.click(`[data-command="${cmd}"]`).catch(() => undefined); await sleep(250); }
-      await v.eval(`[...document.querySelectorAll('main [role="checkbox"], main input[type="checkbox"]')].forEach((c) => c.click()), true`);
+      // Slice AND-3 (android-edit.md contract §20): a checkbox tap writes now, so the reading tour no longer makes it
+      // (AC-Test-Change, approved by the owner with the contract, D-2541).
     }
-    if (note === 'Odkazy ven') await v.eval(`[...document.querySelectorAll('main article a')].find((a) => a.innerText.trim() === 'Neexistuje')?.click(), true`);
+    if (note === 'Odkazy ven') {
+      await v.eval(`[...document.querySelectorAll('main article a, main [data-wikilink]')].find((a) => a.innerText.trim() === 'Neexistuje')?.click(), true`);
+      // Slice AND-3 (contract §10.4, §20): the Create offer sheet opens; Back closes it without a write (AC-Test-Change, D-2541).
+      await sleep(400);
+      sh('input keyevent KEYCODE_BACK');
+    }
     if (note === 'Dlouhá poznámka') {
       const p = await cssRect(v, 'main p');
       const a = await toDevice(v, 4, p!.top + 10);
@@ -94,7 +100,7 @@ test('fr_syn_06_ac54_reading_on_the_phone_writes_nothing', async () => {
       swipe(a.x + 500, a.y, a.x, a.y, 300);
     }
   }
-  await v.click(`${FRAME} [data-command="object.new"]`).catch(() => undefined);
+  // Slice AND-3 (contract §20): New opens the type sheet now and isn't part of the reading tour (AC-Test-Change, D-2541).
   // three searches; Today and the days around it
   for (const q of ['mapa', 'kniha', 'cesta']) {
     await v.click(`${FRAME} [data-command="goto.search"]`);

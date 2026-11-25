@@ -85,7 +85,10 @@ test('fr_inb_01_ac14_inbox_read_only_on_the_phone', async ({ browser }) => {
   assert.equal(await main(page).getByRole('group', { name: 'Filter by type' }).count(), 0, 'no type filter');
   for (const name of ['Mark all reviewed', 'Quick Capture']) assert.equal(await page.getByRole('button', { name, exact: true }).count(), 0, `no "${name}"`);
   assert.equal(await main(page).getByRole('button', { name: /^Triage actions/ }).count(), 0, 'no Triage actions');
-  assert.equal(await main(page).getByRole('checkbox').count(), 0, 'no Reviewed checkboxes, no selection');
+  // Slice AND-3 (android-edit.md FR-INB-02 AC-18, contract §12.2, §20; D-2403): one `Reviewed` checkbox per row, no
+  // selection (AC-Test-Change, approved by the owner with the contract, D-2541)
+  assert.equal(await main(page).getByRole('checkbox', { name: 'Reviewed', exact: true }).count(), 13, 'a Reviewed checkbox per row');
+  assert.equal(await main(page).getByRole('checkbox').count(), 13, 'no other checkbox (no selection)');
   assert.equal(await main(page).getByRole('toolbar').count(), 0, 'no toolbar');
   assert.equal(await main(page).locator('kbd').count(), 0, 'no key hint');
   // A tap on D1 opens daily/2026-10-13; Back returns with the scroll and the focus on that row.
@@ -290,12 +293,13 @@ test('fr_src_03_ac22_search_page_on_the_phone', async ({ page }) => {
   await field.fill('rozpočet');
   await must(region.getByRole('button', { name: 'Clear search' }), 'Clear search');
   await must(main(page).getByRole('status').filter({ hasText: /^5 results$/ }), 'rozpočet: 5 results', 3000);
-  assert.equal(await page.getByRole('button', { name: /^Create “/ }).count(), 0, 'no Create “rozpočet”');
-  assert.equal(await page.getByRole('button', { name: /^as…$|as…/ }).count(), 0, 'no as…');
+  // Slice AND-3 (android-edit.md FR-NAV-01 AC-25, contract §10.7, §20; D-2412): D-1343's create buttons and the empty
+  // state's question (AC-Test-Change, approved by the owner with the contract, D-2541)
+  await must(page.getByRole('button', { name: 'Create “rozpočet”' }), 'Create “rozpočet”');
+  await must(page.getByRole('button', { name: 'as…' }), 'as…');
   await field.fill('borůvkový koláč');
-  const empty = await must(main(page).getByRole('region', { name: 'No results for “borůvkový koláč”' }), 'the title "No results for “borůvkový koláč”"', 3000);
-  await must(empty.getByText('Nothing matches “borůvkový koláč”.', { exact: true }), 'the body "Nothing matches “borůvkový koláč”." (phone.search.noMatch)');
-  assert.equal(await empty.getByRole('button').filter({ hasNotText: 'Clear filters' }).count(), 0, 'no create question or button');
+  await must(main(page).getByText('No matches. Create “borůvkový koláč”?', { exact: true }), 'No matches. Create “borůvkový koláč”?', 3000);
+  assert.equal(await main(page).getByText('Nothing matches “borůvkový koláč”.', { exact: true }).count(), 0, 'phone.search.noMatch is gone');
   await field.fill('ostružiník');
   await must(main(page).getByRole('button', { name: 'Show next 10' }), 'ostružiník: Show next 10', 3000);
   await field.fill('rozpočet');
@@ -362,8 +366,11 @@ test('fr_syn_04_ac13_conflicts_read_only_on_the_phone', async ({ page, browser }
   const cols = await cmp.locator(':scope > *').evaluateAll((es) => es.map((e) => e.getBoundingClientRect()).filter((r) => r.height > 20).map((r) => ({ left: Math.round(r.left), top: Math.round(r.top) })));
   assert.ok(cols.length >= 2 && cols[1].top > cols[0].top && Math.abs(cols[1].left - cols[0].left) <= 2, `both versions one above the other: ${JSON.stringify(cols)}`);
   assert.ok((await cmp.locator('mark, ins, del, [data-changed]').count()) > 0, 'the differing lines are marked');
-  assert.equal(await page.getByRole('button', { name: /^(Keep|Merge|Use|Delete|Move to trash)/ }).count(), 0, 'no resolve action');
-  assert.equal(await page.locator('[contenteditable="true"], textarea').count(), 0, 'read-only, no merge draft');
+  // Slice AND-3 (android-edit.md FR-SYN-04 AC-14, AC-15, contract §10.8, §20; D-2410): `Keep this version` under each
+  // version and `Merge…`; still no draft until Merge… (AC-Test-Change, approved by the owner with the contract, D-2541)
+  assert.equal(await page.getByRole('button', { name: 'Keep this version' }).count(), 2, 'Keep this version under each version');
+  await must(page.getByRole('button', { name: 'Merge…' }), 'Merge…');
+  assert.equal(await page.locator('[contenteditable="true"], textarea').count(), 0, 'no merge draft before Merge…');
   await systemBack(page);
   await core.setFile('Pages/Plán (conflicted copy 2026-10-07).md', null);
   const n = await eventually(() => list.getByRole('link').filter({ hasText: 'Plán (conflicted copy' }).count(), (c) => c === 0, 2000);

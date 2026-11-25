@@ -49,6 +49,12 @@ const ids = (p: { steps: Step[] }) => p.steps.map((s) => s.id);
 
 test('ar_08_ac1_release_builds_the_apk', async () => {
   const m = await plan();
+  // Slice AND-3 (docs/contracts/android-edit.md §4.6, §16.1, §20; D-2522): the CLI builds the APK by default, and `--apk`
+  // is a no-op (AC-Test-Change, approved by the owner with the contract, D-2541).
+  assert.equal(typeof m.parseReleaseArgs, 'function', 'release-plan.mjs exports parseReleaseArgs (android-edit §4.6)');
+  assert.deepEqual(m.parseReleaseArgs(['0.5.0']), { version: '0.5.0', apk: true }, 'the CLI\'s default builds the APK');
+  assert.deepEqual(m.parseReleaseArgs(['0.5.0', '--apk']), { version: '0.5.0', apk: true }, '--apk changes nothing');
+  assert.deepEqual(m.parseReleaseArgs(['0.5.0', '--no-apk']), { version: '0.5.0', apk: false }, '--no-apk skips the APK');
   const { file } = signingFile();
   const p = m.releasePlan({ version: '0.5.0', apk: true, signing: file, repo: REPO }) as { steps: Step[]; outputs: unknown };
   const order = ids(p);

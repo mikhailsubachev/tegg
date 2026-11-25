@@ -83,9 +83,10 @@ export const RA9_ROUTES = [
   'inbox', 'today', 'daily/2026-10-21', 'type/book', 'type/task', 'queries', 'query/Rozečtené', 'tags', 'tag/čtení', 'search',
   `note/${PH.mapa}`, 'conflicts', 'settings', 'settings/appearance', 'settings/date-time', 'settings/vault', 'settings/storage',
 ];
-/** RA9's "Not offered" routes (and CP-9's two). */
+/** RA9's "Not offered" routes (and CP-9's two). Slice AND-3 (docs/contracts/android-edit.md §13.1, §20): `new/<type>` is
+ *  offered now (AC-Test-Change, approved by the owner with the contract, D-2541). */
 export const NOT_OFFERED = [
-  'new/book', 'home', 'graph', `graph/${PH.mapa}`, 'trash', 'type-settings/book', 'help/shortcuts', 'settings/shortcuts', 'settings/menu-bar',
+  'home', 'graph', `graph/${PH.mapa}`, 'trash', 'type-settings/book', 'help/shortcuts', 'settings/shortcuts', 'settings/menu-bar',
   'settings/trash-history', 'settings/previews', 'settings/backups', 'broken-links', 'duplicate-titles',
 ];
 

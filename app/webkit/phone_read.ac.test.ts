@@ -32,8 +32,16 @@ async function openMore(page: Page): Promise<Locator> {
 
 // ------------------------------------------------------------------------------------------------ FR-EDT-10 AC-10
 
+// Slice AND-3 (docs/contracts/android-edit.md §7.1, §20; D-2415): a note the phone can write opens in the editor; the read
+// view holds only for §7.1's read-only modes, here a copy whose file name is stored in NFD (`nfdName`), whose More actions
+// adds Pin (AC-Test-Change, approved by the owner with the contract, D-2541).
 test('fr_edt_10_ac10_note_is_the_read_view_on_the_phone', async ({ page, browser }) => {
-  const core = await startPhone(page, { vault: readVault(), route: 'note/Pages/Bloky.md', now: RV_NOW });
+  const ed = await phonePage(browser);
+  await startPhone(ed, { vault: readVault(), route: 'note/Pages/Bloky.md', now: RV_NOW });
+  await must(ed.getByRole('textbox', { name: 'Note body' }), 'a writable note opens in the editor (AND-3)', 5000);
+  assert.equal(await ed.getByRole('textbox', { name: 'Note body' }).getAttribute('contenteditable'), 'true', 'Note body is contenteditable');
+  await ed.close();
+  const core = await startPhone(page, { vault: readVault(), route: 'note/Pages/Bloky.md', now: RV_NOW, nfdNames: ['Pages/Bloky.md'] });
   const before = await fileStateOf(core);
   const art = await must(article(page, 'Bloky'), 'Bloky in the read view (article "Bloky")', 5000);
   assert.equal(await page.locator('[contenteditable]').count(), 0, 'no element with contenteditable');
@@ -45,54 +53,52 @@ test('fr_edt_10_ac10_note_is_the_read_view_on_the_phone', async ({ page, browser
   await context.close();
   assert.deepEqual(await blocks(art), want, 'Bloky\'s body has the desktop read view\'s text and block structure');
   const menu = await openMore(page);
-  assert.deepEqual((await menu.getByRole('menuitem').allInnerTexts()).map(flat), ['Properties', 'Show Markdown source'], 'More actions lists exactly Properties and Show Markdown source');
+  assert.deepEqual((await menu.getByRole('menuitem').allInnerTexts()).map(flat).filter((t) => t !== 'Pin' && t !== 'Unpin'), ['Properties', 'Show Markdown source'], 'More actions lists exactly Properties and Show Markdown source (Pin aside, android-edit §7.1)');
   await menu.getByRole('menuitem', { name: 'Show Markdown source' }).click();
   const src = await must(page.getByRole('region', { name: 'Markdown source' }), 'the source view');
   assert.equal((await src.innerText()).replace(/\s+$/, ''), before.files['Pages/Bloky.md'].replace(/\s+$/, ''), 'the source view shows the file\'s bytes');
   const back = await openMore(page);
   await (await must(back.getByRole('menuitem', { name: 'Show formatted note' }), 'Show formatted note')).click();
   await must(article(page, 'Bloky'), 'Show formatted note returns to the read view');
-  assert.deepEqual((await core.calls()).filter((c) => c.cmd === 'editor_open').length, 0, 'no editor_open');
   await assertZeroWrites(core, before, 'reading Bloky');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-EDT-10 AC-11
 
+// Slice AND-3 (android-edit §7.1, §20): a writable note is the editor, so a note's view is its article (the read view) or
+// its Note body, and a link is a link or a link chip (AC-Test-Change, approved by the owner with the contract, D-2541).
+const noteView = (page: Page, title: string) => article(page, title).or(page.getByRole('textbox', { name: 'Note body' }));
+const noteLink = (page: Page, title: string, name: string | RegExp) => noteView(page, title).getByRole('link', { name }).or(noteView(page, title).locator('[data-wikilink], .chip, .tag').filter({ hasText: name })).first();
+
 test('fr_edt_10_ac11_links_by_tap', async ({ page }) => {
   const core = await startPhone(page, { vault: readVault(), route: 'note/Pages/Odkazy.md', now: RV_NOW });
   const before = await fileStateOf(core);
-  const odkazy = await must(article(page, 'Odkazy'), 'Odkazy');
-  const linkIn = (prefix: string) => odkazy.locator('li').filter({ hasText: new RegExp(`^${prefix}`) }).getByRole('link').first();
+  const odkazy = await must(noteView(page, 'Odkazy'), 'Odkazy');
+  const linkIn = (prefix: string) => { const li = odkazy.locator('li').filter({ hasText: new RegExp(`^${prefix}`) }); return li.getByRole('link').or(li.locator('[data-wikilink], .chip')).first(); };
   await (await must(linkIn('NFD:'), 'the NFD-target [[Cíl]]')).click();
   assert.equal(await eventually(() => mainName(page), (n) => n === 'Cíl', 3000), 'Cíl', 'the NFD target opens Cíl');
   await systemBack(page);
-  await must(article(page, 'Odkazy'), 'back on Odkazy');
+  await must(noteView(page, 'Odkazy'), 'back on Odkazy');
   await (await must(linkIn('Nadpis:'), 'the heading link [[Cíl#Druhá kapitola]]')).click();
   assert.equal(await eventually(() => mainName(page), (n) => n === 'Cíl', 3000), 'Cíl', 'the heading link opens Cíl');
   await sleep(300);
   assert.match(await firstVisibleBlock(page), /^Druhá kapitola/, 'scrolled to the heading');
   await systemBack(page);
-  await (await must(article(page, 'Odkazy').getByRole('link', { name: /^#?projekt$/ }).first(), 'the tag #projekt')).click();
+  await (await must(noteLink(page, 'Odkazy', /^#?projekt$/), 'the tag #projekt')).click();
   assert.equal(await eventually(async () => flat(await appBar(page).getByRole('heading', { level: 1 }).innerText()), (t) => t === '#projekt', 3000), '#projekt', 'a tag opens tag/<key>');
   await systemBack(page);
-  await (await must(article(page, 'Odkazy').getByRole('link', { name: '2026-10-08' }).first(), 'the date link [[2026-10-08]]')).click();
+  await (await must(noteLink(page, 'Odkazy', '2026-10-08'), 'the date link [[2026-10-08]]')).click();
   assert.equal(await eventually(async () => flat(await appBar(page).getByRole('heading', { level: 1 }).innerText()), (t) => t === '2026-10-08', 3000), '2026-10-08', 'a date link without a note opens the virtual day');
   assert.ok(!Object.keys(await core.files()).some((p) => p.includes('2026-10-08')), 'no daily note is written');
   await systemBack(page);
-  // [[Neexistuje]]: the notice for 4 s, no Create offer, no route change, no write
-  const n0 = (await core.calls()).length;
-  await (await must(article(page, 'Odkazy').getByRole('link', { name: 'Neexistuje' }).first(), '[[Neexistuje]]')).click();
-  const t0 = Date.now();
-  const note = await must(notice(page).filter({ hasText: 'No note named “Neexistuje” in this vault yet.' }), 'the notice "No note named “Neexistuje” in this vault yet." (RA13)', 1000);
-  assert.equal(await note.getAttribute('aria-live'), 'polite', 'a polite status');
+  // [[Neexistuje]]: AND-3's Create offer as a sheet instead of AND-2's notice (android-edit.md FR-LNK-04 AC-14,
+  // contract §10.4, §20; AC-Test-Change, approved by the owner with the contract, D-2541); closing it writes nothing
+  await (await must(noteLink(page, 'Odkazy', 'Neexistuje'), '[[Neexistuje]]')).click();
+  const offer = await must(page.getByRole('dialog', { name: 'Create note' }), 'the Create offer sheet "Create note"', 1500);
+  assert.equal(await notice(page).filter({ hasText: 'No note named' }).count(), 0, 'no notice No note named …');
   assert.equal(await mainName(page), 'Odkazy', 'no route change');
-  assert.equal(await page.getByRole('dialog').count(), 0, 'no Create offer (no dialog)');
-  assert.equal(await page.getByRole('button', { name: /^Create/ }).count(), 0, 'no Create button');
-  assert.deepEqual((await core.calls()).slice(n0).filter((c) => c.cmd === 'link_create_plan').length, 0, 'no link_create_plan');
-  await sleep(Math.max(0, 3500 - (Date.now() - t0)));
-  assert.ok(await seen(note, 100), 'still shown after 3.5 s');
-  const gone = await eventually(() => notice(page).filter({ hasText: 'Neexistuje' }).count(), (c) => c === 0, 1500);
-  assert.equal(gone, 0, 'gone after 4 s');
+  await offer.getByRole('button', { name: 'Close' }).click().catch(async () => { await systemBack(page); });
+  assert.equal(await eventually(() => page.getByRole('dialog', { name: 'Create note' }).count(), (c) => c === 0, 1500), 0, 'the sheet closes');
   await assertZeroWrites(core, before, 'links');
 });
 
@@ -189,8 +195,15 @@ async function checkSheet(page: Page, deskText: string, how: string) {
     at = i;
     if (r.value) assert.ok(deskText.includes(r.value), `${how}: "${r.label}" shows the desktop's value "${r.value}"`);
   }
+  // Slice AND-3 (android-edit §10.5, §20; D-2413): "no input" holds for the read-only rows only (Type, Title, Created,
+  // Modified); the other rows have controls now (AC-Test-Change, approved by the owner with the contract, D-2541).
   const s = sheet(page, 'Properties');
-  assert.equal(await s.locator('input, textarea, select, [contenteditable], [role="listbox"], [role="option"]').count(), 0, `${how}: no input, contenteditable or option list in the sheet`);
+  for (const label of ['Type', 'Title', 'Created', 'Modified']) {
+    const l = s.getByText(label, { exact: true }).first();
+    if (!(await seen(l, 300))) continue;
+    const row = l.locator('xpath=..');
+    assert.equal(await row.locator('input, textarea, select, [contenteditable="true"], [role="listbox"], [role="option"]').count(), 0, `${how}: no input in the read-only row ${label}`);
+  }
   return rows;
 }
 
@@ -238,6 +251,14 @@ test('fr_edt_07_ac23_properties_strip_and_sheet', async ({ browser }) => {
   await checkSheet(p2, dt2, 'Vlastnosti');
   await assertZeroWrites(c2, b2, 'Vlastnosti');
   await p2.close();
+
+  // Slice AND-3 (android-edit §10.5, §20; AP-2080): on a Quick Note the strip starts with the review checkbox
+  const p3 = await phonePage(browser);
+  await startPhone(p3, { route: `note/${PH.vlak}` });
+  const first = strip(p3).locator('input[type="checkbox"], [role="checkbox"]').first();
+  await must(first, 'the strip\'s review checkbox');
+  assert.match(flat((await first.getAttribute('aria-label')) ?? ''), /^(Mark reviewed|Reviewed)$/, 'Mark reviewed / Reviewed');
+  await p3.close();
 });
 
 // ------------------------------------------------------------------------------------------------ FR-ATT-01 AC-17 (L5p)

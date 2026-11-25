@@ -37,10 +37,17 @@ const J: &[&str] = &[
     "type_delete_start", "inbox_bulk", "starter_add", "backup_restore", "job_undo", "job_redo", "type_create", "type_patch", "type_delete",
 ];
 const V: &[&str] = &["query_apply", "query_revert", "query_create", "query_duplicate", "query_rename", "query_trash", "query_restore", "task_views_restore"];
-const O: &[&str] = &["graph_neighbourhood", "graph_presets_get", "graph_presets_apply", "index_related", "trash_restore", "trash_delete", "trash_empty"];
+// Slice AND-3 (docs/contracts/android-edit.md §2.1, §20; AP-2079 → D-2514): group O loses `trash_restore` (the phone's
+// Undo of Move to trash; AC-Test-Change, approved by the owner with the contract, D-2541).
+const O: &[&str] = &["graph_neighbourhood", "graph_presets_get", "graph_presets_apply", "index_related", "trash_delete", "trash_empty"];
 // Slice AND-2 (docs/contracts/android-phone.md §2.1, CP-4 → D-2432; AP-2056 → D-2420): RA2 gains `android_open_url` and
 // `android_window`, so ANDROID_ONLY lists six commands (AC-Test-Change, approved by the owner with the contract).
-const ONLY: &[&str] = &["vault_start", "vault_find", "storage_access", "storage_access_settings", "android_open_url", "android_window"];
+// Slice AND-3 (docs/contracts/android-edit.md §2.1, §2.2): then `android_recovery_put`, `android_recovery_get`,
+// `android_recovery_drop` and `android_ime`, ten in all (AC-Test-Change, approved by the owner with the contract, D-2541).
+const ONLY: &[&str] = &[
+    "vault_start", "vault_find", "storage_access", "storage_access_settings", "android_open_url", "android_window", "android_recovery_put", "android_recovery_get",
+    "android_recovery_drop", "android_ime",
+];
 
 fn excluded() -> BTreeSet<&'static str> {
     [P1, P2, P3, P4, P5, J, V, O].iter().flat_map(|g| g.iter().copied()).collect()
@@ -168,7 +175,7 @@ fn ar_03_ac9_command_sets_per_platform() {
     assert_eq!(old_desk.len(), 1, "setup: one desktop generate_handler! at {base}");
     let old_set: BTreeSet<String> = old_desk[0].1.iter().cloned().collect();
 
-    assert_eq!(ANDROID_ONLY, ONLY, "ANDROID_ONLY lists RA2's six Android-only commands in order (AND-1's four, then android_open_url and android_window)");
+    assert_eq!(ANDROID_ONLY, ONLY, "ANDROID_ONLY lists RA2's ten Android-only commands in order (AND-1's four, android_open_url, android_window, then AND-3's four)");
     assert!(!DESKTOP.is_empty(), "commands::DESKTOP lists the desktop commands");
 
     // (a) DESKTOP = the desktop generate_handler! (source order) = the desktop set on main at the merge-base (D-2053).

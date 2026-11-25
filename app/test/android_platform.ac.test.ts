@@ -26,11 +26,14 @@ const RA2: Record<string, string[]> = {
   P5: ['vault_reveal', 'media_reveal', 'backup_reveal', 'media_open', 'open_external', 'app_about', 'app_quit'],
   J: ['note_rename', 'tag_rename', 'tag_delete', 'merge_start', 'type_move_plan', 'type_move', 'folder_move_preview', 'tidy_now', 'value_remove_start', 'type_delete_start', 'inbox_bulk', 'starter_add', 'backup_restore', 'job_undo', 'job_redo', 'type_create', 'type_patch', 'type_delete'],
   V: ['query_apply', 'query_revert', 'query_create', 'query_duplicate', 'query_rename', 'query_trash', 'query_restore', 'task_views_restore'],
-  O: ['graph_neighbourhood', 'graph_presets_get', 'graph_presets_apply', 'index_related', 'trash_restore', 'trash_delete', 'trash_empty'],
+  // Slice AND-3 (docs/contracts/android-edit.md §2.1, §20; D-2514): group O loses trash_restore (AC-Test-Change,
+  // approved by the owner with the contract, D-2541).
+  O: ['graph_neighbourhood', 'graph_presets_get', 'graph_presets_apply', 'index_related', 'trash_delete', 'trash_empty'],
 };
 // Slice AND-2 (docs/contracts/android-phone.md §2.1, D-2420, D-2432): RA2's Android-only commands gain android_open_url
 // and android_window (AC-Test-Change, approved by the owner with the contract); neither is refused on Android.
-const ONLY = ['vault_start', 'vault_find', 'storage_access', 'storage_access_settings', 'android_open_url', 'android_window'];
+// Slice AND-3 (docs/contracts/android-edit.md §2.2): and the four recovery and keyboard commands (AC-Test-Change, D-2541).
+const ONLY = ['vault_start', 'vault_find', 'storage_access', 'storage_access_settings', 'android_open_url', 'android_window', 'android_recovery_put', 'android_recovery_get', 'android_recovery_drop', 'android_ime'];
 const COMMANDS_JSON = resolve(import.meta.dirname, '../src-tauri/target/commands.json');
 const sorted = (xs: Iterable<string>) => [...xs].sort();
 

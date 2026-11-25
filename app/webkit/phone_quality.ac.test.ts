@@ -39,21 +39,24 @@ const RA2_EXCLUDED = [
 const HIDDEN = [
   'app.palette', 'help.shortcuts', 'nav.forward', 'view.toggleSidebar', 'view.toggleRightPanel', 'view.toggleFocus', 'note.toggleProperties', 'note.width.*', 'edit.*',
   'editor.insertQuery', 'mindmap.layoutRight', 'mindmap.layoutSpider', 'preview.*', 'link.edit', 'link.remove', 'outline.*', 'panel.*', 'related.toggleLinked', 'graph.*',
-  'sidebar.pin', 'sidebar.unpin', 'sidebar.pinned.moveUp', 'sidebar.pinned.moveDown', 'tags.new', 'tag.*', 'queries.new', 'query.edit', 'query.rename', 'query.trash',
+  'sidebar.pinned.moveUp', 'sidebar.pinned.moveDown', 'tags.new', 'tag.*', 'queries.new', 'query.edit', 'query.rename', 'query.trash',
   'query.saveAs', 'query.columns', 'views.new', 'views.menu', 'views.remove', 'views.edit', 'views.moveLeft', 'views.moveRight', 'board.*', 'sort.*', 'columns.*',
-  'typePage.*', 'type.*', 'task.*', 'tasks.schedule', 'tasks.kanban', 'tasks.search', 'types.restoreDefaultViews', 'note.markReviewed', 'note.markUnreviewed',
-  'daily.markReviewed', 'daily.markUnreviewed', 'note.changeType', 'note.editProperties', 'object.trash', 'media.add', 'trash.*', 'goto.trash', 'goto.brokenLinks',
+  'typePage.*', 'type.*', 'task.*', 'tasks.schedule', 'tasks.kanban', 'tasks.search', 'types.restoreDefaultViews',
+  'note.changeType', 'note.editProperties', 'media.add', 'trash.*', 'goto.trash', 'goto.brokenLinks',
   'goto.duplicateTitles', 'goto.settings/shortcuts', 'goto.settings/menu-bar', 'goto.settings/trash-history', 'goto.settings/previews', 'settings.backups', 'job.*',
   'capture.*', 'import.open', 'inbox.*', 'duplicates.merge', 'vault.open', 'vault.addStarterTypes', 'app.about', 'nav.newTab', 'edit.copyBlockLink', 'typeSettings.*',
   'panel.editRecurrence', 'settings.font', 'settings.fontSize', 'settings.accentColor', 'settings.changeShortcut',
   // D-2480: slice OC's card.edit (AC-Test-Change, approved by the owner).
   'card.edit',
 ];
+// Slice AND-3 (docs/contracts/android-edit.md §13.2, §20): the seven ids AND-3 shows leave the list, and these are the
+// exceptions inside hidden prefixes, with their `:` forms (AC-Test-Change, approved by the owner with the contract, D-2541).
+const AND3_SHOWN = ['task.complete', 'edit.undo', 'edit.redo', 'edit.bold', 'edit.italic', 'edit.link', 'edit.blockType', 'edit.tag', 'edit.bulletList', 'edit.checklist', 'edit.indent', 'edit.outdent'];
 const isFold = (id: string) => /^board\..*(fold|collapse|expand)/i.test(id);
 function hiddenCommand(id: string): boolean {
   // D-2475: a board card's board.openCard:<path> and board.openSource:<path> are exceptions inside board.* (AC-Test-Change,
   // approved by the owner).
-  if (id === 'inbox.open' || isFold(id) || id.startsWith('board.openCard:') || id.startsWith('board.openSource:')) return false;
+  if (id === 'inbox.open' || AND3_SHOWN.includes(id.split(':')[0]) || isFold(id) || id.startsWith('board.openCard:') || id.startsWith('board.openSource:')) return false;
   return HIDDEN.some((h) => (h.endsWith('*') ? id.startsWith(h.slice(0, -1)) : id === h));
 }
 const NOT_OFFERED_COMMANDS = ['goto.home', 'goto.graph', 'goto.trash', 'goto.help/shortcuts', 'goto.settings/shortcuts', 'goto.settings/menu-bar', 'goto.settings/trash-history', 'goto.settings/previews', 'goto.settings/backups', 'goto.broken-links', 'goto.duplicate-titles', 'object.newIn', 'graph.open'];
@@ -278,9 +281,8 @@ test('fr_syn_06_ac54_reading_on_the_phone_writes_nothing', async ({ page }) => {
     await fig.getByRole('button', { name: 'Open full screen' }).click();
     await page.getByRole('dialog', { name: 'Mindmap: Výlet' }).getByRole('button', { name: 'Close full screen' }).click();
     await fig.getByRole('button', { name: 'List', exact: true }).click();
-    // taps on New, on the Pasy checkbox, and the gestures of FR-NAV-03 AC-18
-    await barButton(page, 'New').click({ force: true });
-    await main(page).getByRole('checkbox').first().click({ force: true }).catch(() => undefined);
+    // the gestures of FR-NAV-03 AC-18 (Slice AND-3, contract §20: taps on New and on a checkbox write now, so the reading
+    // tour no longer makes them; AC-Test-Change, approved by the owner with the contract, D-2541)
     await touchDrag(page, { x: 4, y: 400 }, 200, 0);
     await touchDrag(page, { x: 200, y: 400 }, -200, 0);
   });

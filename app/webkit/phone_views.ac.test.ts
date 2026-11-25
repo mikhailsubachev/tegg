@@ -423,17 +423,14 @@ test('fr_tsk_04_ac31_tasks_read_only_on_the_phone', async ({ page }) => {
   const opened = await eventually(async () => (await laneShape(sch)).find((l) => l.id === 'done')?.cards ?? [], (c) => c.length === 2, 2000);
   assert.deepEqual(opened, paths('t10', 't12'), 'unfolding shows T10 and T12');
   assert.match(JSON.stringify(await core.uiState()), /done/i, 'remembered on this phone (R206, private storage)');
-  // every task checkbox: aria-disabled, View only on the phone; a tap writes nothing
+  // Slice AND-3 (android-edit.md FR-TSK-02 AC-14, contract §12.1, §20; D-2407): the task checkboxes are enabled and carry
+  // task.complete:<path> (their writes are AND-3's tests); the other controls stay view-only (AC-Test-Change, approved by
+  // the owner with the contract, D-2541)
   const boxes = main(page).getByRole('checkbox');
   const n = await boxes.count();
   assert.ok(n > 0, 'task checkboxes are drawn');
-  const states = await boxes.evaluateAll((bs) => bs.map((b) => [b.getAttribute('aria-disabled'), b.getAttribute('aria-description')]));
-  assert.ok(states.every(([d, desc]) => d === 'true' && desc === 'View only on the phone'), `each aria-disabled with "View only on the phone": ${JSON.stringify(states.slice(0, 3))}`);
-  const first = boxes.first();
-  const where = await first.evaluate((b) => b.closest('section[data-lane]')?.getAttribute('data-lane'));
-  await first.click({ force: true });
-  await sleep(500);
-  assert.equal(await first.evaluate((b) => b.closest('section[data-lane]')?.getAttribute('data-lane')), where, 'the card stays where it was');
+  const states = await boxes.evaluateAll((bs) => bs.map((b) => [b.getAttribute('aria-disabled'), b.getAttribute('data-command') ?? b.closest('[data-command]')?.getAttribute('data-command') ?? '']));
+  assert.ok(states.every(([d, cmd]) => d !== 'true' && /^task\.complete:/.test(cmd ?? '')), `each enabled with task.complete:<path>: ${JSON.stringify(states.slice(0, 3))}`);
   await typeControlsHidden(page, 'Tasks', 'type/task');
   // Kanban
   await tab(page, KANBAN).click();
@@ -442,6 +439,6 @@ test('fr_tsk_04_ac31_tasks_read_only_on_the_phone', async ({ page }) => {
   assert.deepEqual(kl.map((x) => ({ id: x.id, cards: x.cards })), kanbanLanes().map((x) => ({ id: nfc(x.id), cards: x.cards })), 'R208\'s Kanban lanes');
   const ks = await sideScroller(kb);
   assert.ok(ks && ks.max > 0, 'Kanban scrolls sideways');
-  await assertZeroWrites(core, before, 'Tasks');
+  await assertZeroWrites(core, before, 'Tasks (no checkbox tapped)');
 });
 
