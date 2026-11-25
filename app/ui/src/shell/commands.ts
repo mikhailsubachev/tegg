@@ -2,6 +2,7 @@
 // controls reference theirs with `data-command`, and one key handler runs them by shortcut.
 import { runMapCommand } from '../mindmap/active';
 import { ANDROID_HIDDEN_COMMANDS } from '../ipc/android';
+import { newObjectDialog } from '../edit/newObjectCommands';
 import { isAndroid } from '../platform';
 import { phoneCommands } from '../phone/commands';
 import { isPhone } from '../phone/layout';
@@ -589,6 +590,13 @@ export function commands(ctx: ShellContext): Command[] {
     { id: 'link.edit', title: 'cmd.link.edit', section: 'edit', shortcut: '⇧⌘K', needsVault: true, run: (c) => a(c)?.editLink?.() }, // ⇧⌘K at a chip (R4's edit.link)
     { id: 'link.remove', title: 'linkField.remove', section: 'edit', needsVault: true, run: (c) => a(c)?.removeLink?.() },
   );
+  // new-object-menu.md R238 (D-2515): the `New <type>` dialog's buttons, only while it is open; no shortcut.
+  if (newObjectDialog()) {
+    list.push(
+      { id: 'newObject.create', title: 'newObject.create', section: 'edit', needsVault: true, run: () => newObjectDialog()?.create() },
+      { id: 'newObject.cancel', title: 'newObject.cancel', section: 'edit', needsVault: true, run: () => newObjectDialog()?.cancel() },
+    );
+  }
   for (const ctl of DISABLED_CONTROLS) {
     const id = CONTROL_COMMANDS[ctl.label];
     list.push({ id, title: ctl.label, section: 'app', shortcut: shortcutOf(id), due: ctl.due, needsVault: true, run: () => {} });

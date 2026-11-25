@@ -31,6 +31,7 @@ import { TypeSettingsPage } from './pages/TypeSettingsPage';
 import { createObject, prepareObject, type Prepared } from './types/create';
 import { NewTypeDialog } from './types/NewTypeDialog';
 import { StarterTypesDialog } from './types/StarterTypesDialog';
+import { onNewObjectDialog } from './edit/newObjectCommands';
 import { commands, type Command, type GraphCommandId, type GraphStatus, type ShellActions, type ShellContext, type ThemeChoice } from './shell/commands';
 import { ContextPanel, Sidebar, TitleBar } from './shell/Frame';
 import { routeIcon, typeIconName } from './shell/Icon';
@@ -1214,7 +1215,10 @@ export function App() {
   // G3 (R123): `Show as list` / `Show as graph` follow the graph's stored view.
   const graphView = vault ? ui.vaults?.[vault.path.normalize('NFC')]?.graph?.full?.view : undefined;
   const panelView = vault ? ui.vaults?.[vault.path.normalize('NFC')]?.graph?.panel?.view : undefined;
-  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey, graphView, panelView, noteDaily?.path, noteDaily?.date, dailyFile, tagList, meta?.type, meta?.review, meta?.hasFrontmatter, showPanel, panelTab, showLinked, dialog /* slice PIN: ⌥⌘↑/↓ listed when opened from a pinned row */]);
+  // new-object-menu.md R238: the `New <type>` dialog's commands are listed while it is open.
+  const [newObjectTick, setNewObjectTick] = useState(0);
+  useEffect(() => onNewObjectDialog(() => setNewObjectTick((n) => n + 1)), []);
+  const list = useMemo(() => commands(ctx), [types, counts, vault, actions, routeKey, graphView, panelView, noteDaily?.path, noteDaily?.date, dailyFile, tagList, meta?.type, meta?.review, meta?.hasFrontmatter, showPanel, panelTab, showLinked, newObjectTick, dialog /* slice PIN: ⌥⌘↑/↓ listed when opened from a pinned row */]);
   const chooserShown = vault === null || chooser !== null;
   const available_commands = useMemo(() => (chooserShown ? list.filter((c) => !c.needsVault) : list), [list, chooserShown]);
 

@@ -178,10 +178,9 @@ export const SHORTCUTS: ShortcutDef[] = [
 export type SlashDef = { id: string; group: 'objects' | 'blocks' | 'media' | 'advanced'; label: string; status: RouteDef['status']; due?: Due; reqs: string[] };
 const slash = (id: string, group: SlashDef['group'], reqs: string[], due?: Due): SlashDef =>
   ({ id, group, label: `slash.${id}`, status: due ? { built: false, due } : built, ...(due ? { due } : {}), reqs });
+// R6 of editor.md as reordered by new-object-menu.md R234 (D-2492): Blocks (Mindmap after Checklist), Objects, Media,
+// Advanced. The New object rows are computed per vault (app/ui/src/edit/slashMenu.ts) and are never registry rows.
 export const SLASH_ITEMS: SlashDef[] = [
-  slash('task', 'objects', ['FR-TSK-01', 'FR-CNV-01']), // built in 5A-2 (R53)
-  slash('turnIntoObject', 'objects', ['FR-CNV-01']),
-  slash('embedObject', 'objects', ['FR-EMB-01']),
   slash('text', 'blocks', ['FR-EDT-02']),
   slash('heading1', 'blocks', ['FR-EDT-02']),
   slash('heading2', 'blocks', ['FR-EDT-02']),
@@ -189,16 +188,18 @@ export const SLASH_ITEMS: SlashDef[] = [
   slash('bulletList', 'blocks', ['FR-EDT-02']),
   slash('orderedList', 'blocks', ['FR-EDT-02']),
   slash('checklist', 'blocks', ['FR-EDT-02', 'FR-TSK-11']),
+  slash('mindmap', 'blocks', ['FR-MMP-01']), // moved from Advanced (D-2492)
   slash('quote', 'blocks', ['FR-EDT-02']),
   slash('callout', 'blocks', ['FR-EDT-02']),
   slash('codeBlock', 'blocks', ['FR-EDT-02']),
   slash('divider', 'blocks', ['FR-EDT-02']),
   slash('table', 'blocks', ['FR-EDT-02']),
+  slash('turnIntoObject', 'objects', ['FR-CNV-01']),
+  slash('embedObject', 'objects', ['FR-EMB-01']),
   slash('image', 'media', ['FR-ATT-01', 'FR-ATT-03']), // built in 6A (R75)
   slash('pdf', 'media', ['FR-ATT-02']),
-  slash('blockEmbed', 'advanced', ['FR-EMB-01', 'FR-LNK-06'], d('v1.0')),
   slash('query', 'advanced', ['FR-QRY-06', 'FR-FMT-06']), // built in slice Q (R144)
-  slash('mindmap', 'advanced', ['FR-MMP-01']),
+  slash('blockEmbed', 'advanced', ['FR-EMB-01', 'FR-LNK-06'], d('v1.0')),
 ];
 
 const ORDER: Milestone[] = ['MS3', 'MS4', 'MS5', 'MS6', 'MS7', 'MS8', 'v1.0', 'v1.x'];

@@ -1146,6 +1146,17 @@ button.tag-tile { cursor: pointer; }
 
 .slash-two-lines { display: flex; flex-direction: column; gap: 2px; }
 .slash-desc { font-size: 12px; color: var(--muted); }
+/* new-object-menu.md R234 (D-2492, D-2508, D-2509): a fixed 420 px menu that scrolls inside, group headers while
+   filtering, `H1`…`H3` and type icons, the shortcut at a row's end; R236: the `New <type>` dialog. Tokens only. */
+.slash-menu.popover { max-height: none; overflow: visible; padding: 0; }
+.slash-menu .slash-list { box-sizing: border-box; max-height: 420px; overflow-y: auto; overscroll-behavior: contain; padding: 4px; }
+.slash-menu .slash-icon { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; color: var(--muted); }
+.slash-menu .slash-heading-icon { order: -1; font-size: 11px; font-weight: 700; letter-spacing: 0.02em; }
+.slash-menu .slash-kbd { margin-left: auto; color: var(--muted); font-size: 12px; }
+.slash-menu .due-wrap { margin-left: auto; }
+.slash-menu .option.selected .slash-icon, .slash-menu .option.selected .slash-kbd { color: var(--text); }
+.new-object-dialog { width: 320px; max-width: 360px; max-height: none; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.new-object-hint { margin: 0; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
 /* Slice MM2 (docs/acceptance/mindmap.md R95a, R97; D-787, D-788, D-792): the layout switch, the node text field and the
    pending node. */
 .mindmap-layout { display: flex; gap: 2px; padding: 2px; border-radius: 7px; background: var(--hover); }

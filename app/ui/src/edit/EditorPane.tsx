@@ -35,13 +35,17 @@ import { region } from '../i18n/collate';
 import { createObject, prepareObject, type Prepared } from '../types/create';
 import { CALLOUT_TYPES } from '../read/callout';
 import { rank } from '../shell/commands';
-import { Icon, iconElement } from '../shell/Icon';
+import { Icon, iconElement, typeIconName } from '../shell/Icon';
 import { eventKeys } from '../shell/keys';
 import { headingForFragment } from '@tegg/doc';
 import { startFlash } from '../outline/jump';
 import { jumpTop } from '../outline/model';
 import { invalidateTracker, rendered, viewportTop } from '../outline/tracker';
-import { SHORTCUTS, SLASH_ITEMS, showDue, type SlashDef } from '../shell/registry';
+import { SHORTCUTS } from '../shell/registry';
+import { firstRow, menuRows, type MenuRow } from './slashMenu';
+import { NewObjectDialog } from './NewObjectDialog';
+import { SlashMenu, type Slash } from './SlashMenuView';
+import { pushAlert } from '../convert/alerts';
 import { objectFromUnit, parse, type ConvertUnit } from '@tegg/doc';
 import { ConvertPopover, RemoveEmbedDialog } from '../convert/ConvertPopover';
 import { conversionHooks, convert as runConvert, type ConvertHost } from '../convert/flow';
@@ -95,8 +99,6 @@ function chipExtraOf(info: LinkInfo): ChipExtra | null {
   return { attrs: chipAttrs(s), description: s.link === 'trashed' ? trashedText() : s.unreviewed ? unreviewedText() : null, icon: glyph ? iconElement(glyph, 13, taskIconDef(s)) : null, suffix: chipSuffix(s) };
 }
 
-/** R94: the second line of a slash row (board Main). */
-const SLASH_DESC: Record<string, string> = { mindmap: 'slash.mindmap.description', query: 'slash.query.description' };
 
 const SLASH_BLOCK: Record<string, { kind: string; level?: number }> = {
   text: { kind: 'paragraph' }, heading1: { kind: 'heading', level: 1 }, heading2: { kind: 'heading', level: 2 },
@@ -122,7 +124,8 @@ const MARKS = [
 const SAFE_URL = /^(https?:\/\/|mailto:)/i;
 const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().normalize('NFC');
 
-type Slash = { from: number; query: string; sel: number };
+/** The `New <type>` dialog (R236): the type, and the trigger and query it replaces (`from…to`, their text). */
+type NewObj = { type: TypeDefDto; from: number; to: number; text: string };
 /** 4B (D-331, ms4-daily §6.4): the `@` list adds date rows and `Pick a date…` (rows of kind `date` / `pickDate`). */
 type Row = SwitcherItemDto | { kind: 'date'; title: string; date: string; path: null; type: 'daily-note'; matched_alias: null; duplicate: null } | { kind: 'pickDate'; title: string; path: null; type: ''; matched_alias: null; duplicate: null };
 type Suggest = { kind: 'link'; from: number; to: number; query: string; items: Row[]; sel: number; at?: boolean }
@@ -130,9 +133,6 @@ type Suggest = { kind: 'link'; from: number; to: number; query: string; items: R
 type Menu = { block: number; sub: null | 'turnInto' | 'calloutType'; x: number; y: number } | null;
 type LinkField = { query: string; items: SwitcherItemDto[]; sel: number; error: boolean; onLink: boolean } | null;
 
-function Due({ due }: { due: SlashDef['due'] }) {
-  return due ? <span className="due">{t('due.coming', { milestone: showDue(due) })}</span> : null;
-}
 
 export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onReady, onOpen, onTag, onExternal, onImagePaste, onFailedLoad, onSaveNow, autoFocus, describedBy, embeds, flush, daily }: {
   /** 5A-2: flushes the note's save now (a conversion's source save, FR-CNV-03 AC-6). */
@@ -206,6 +206,9 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
 
   const [hover, setHover] = useState<number | null>(null);
   const [slash, setSlash] = useState<Slash | null>(null);
+  const [newObj, setNewObj] = useState<NewObj | null>(null);
+  const newObjOpen = useRef(false);
+  newObjOpen.current = !!newObj;
   const [suggest, setSuggest] = useState<Suggest | null>(null);
   /** FR-VLT-05 AC-3: the `Create "<q>" as…` row whose type the `Type` menu is choosing. */
   const [asType, setAsType] = useState<{ row: Row; at: { left: number; top: number } } | null>(null);
@@ -572,14 +575,23 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     const inCode = !!$f.parent.type.spec.code;
     const before = sel.empty && $f.parent.isTextblock ? $f.parent.textBetween(0, $f.parentOffset, undefined, '￼') : '';
     const key = `${$f.pos}`;
-    // Slash menu: `/` at a block start or after a space (FR-EDT-03 AC-1).
+    // Slash menu: `/` at a block start or after a space (FR-EDT-03 AC-1); `+` at a block start or after whitespace,
+    // never in code, inline code or a link's text (new-object-menu.md R235; D-2491, D-2506, D-2507).
     const sm = !inCode && sel.empty ? /(^|[\s.,;:!?)])\/([^\s/￼]*)$/.exec(before) : null;
-    if (sm && $f.parent.type.name !== 'calloutTitle') {
-      const from = $f.pos - sm[2].length - 1;
+    const pm0 = !sm && !inCode && sel.empty ? /(^|\s)\+([^\s+￼]*)$/.exec(before) : null;
+    const pm = pm0 && !state.doc.resolve($f.pos - pm0[2].length).marks().some((m) => m.type.name === 'code' || m.type.name === 'link') ? pm0 : null;
+    const trig = sm ? { ch: '/' as const, q: sm[2] } : pm ? { ch: '+' as const, q: pm[2] } : null;
+    if (trig && $f.parent.type.name !== 'calloutTitle' && !newObjOpen.current) {
+      const from = $f.pos - trig.q.length - 1;
       if (dismissed.current !== `s${from}`) {
-        if (!live.current.slash || live.current.slash.from !== from || live.current.slash.query !== sm[2]) setSlash({ from, query: sm[2], sel: 0 });
+        const cur = live.current.slash;
+        if (!cur || cur.from !== from || cur.query !== trig.q || cur.trigger !== trig.ch) setSlash({ from, query: trig.q, sel: firstRow(slashRows(trig.ch, trig.q), trig.ch, trig.q), trigger: trig.ch });
       } else if (live.current.slash) setSlash(null);
-    } else if (live.current.slash) setSlash(null);
+    } else {
+      if (live.current.slash) setSlash(null);
+      // The trigger is gone (⌫, the caret moved on): a `/` or `+` typed there again opens the menu again.
+      if (dismissed.current?.startsWith('s') && !newObjOpen.current) dismissed.current = null;
+    }
     // `[[` autocomplete (FR-EDT-06 AC-1), and `@` at a mention start with the same list (D-250, D-258): after a
     // line start, a space or `(`, not inside a word (`eva@example.com`), code, a link or math; the query may hold
     // spaces, and a space typed when only the Create row is left closes it, leaving `@<query>` as text.
@@ -877,10 +889,25 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     focusEditor();
   };
 
-  const chooseSlash = (item: SlashDef) => {
+  /** The menu's rows for a trigger and query: R234's static rows, then the vault's New rows (new-object-menu.md). */
+  const slashRows = (trigger: '/' | '+', query: string): MenuRow[] => menuRows({ types: conv.current.types, query, trigger });
+  const chooseSlash = (row: MenuRow) => {
     const e = edRef.current;
     const s = live.current.slash;
-    if (!e || !s || !item.status.built) return;
+    if (!e || !s || row.disabled) return;
+    // new-object-menu.md R236 (D-2490): a New row opens the `New <type>` dialog; the trigger and query stay as typed
+    // (never autosaved while it is open, D-2512) until Create replaces them with the link or Cancel removes them.
+    if (row.group === 'newObject') {
+      const ty = conv.current.types.find((x) => x.key === row.type);
+      if (!ty) return;
+      const to = e.view.state.selection.from;
+      setSlash(null);
+      dismissed.current = `s${s.from}`;
+      newObjOpen.current = true;
+      setNewObj({ type: ty, from: s.from, to, text: e.view.state.doc.textBetween(s.from, to, '\n', '￼') });
+      return;
+    }
+    const item = row.def!;
     // 6A (FR-ATT-01 AC-3): slash Image / PDF open the system file dialog; the files go at the caret.
     if (item.id === 'image' || item.id === 'pdf') {
       setSlash(null);
@@ -902,19 +929,68 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       openPicker(s.from, e.view.state.selection.from);
       return;
     }
-    if (item.id === 'task' || item.id === 'turnIntoObject') {
+    if (item.id === 'turnIntoObject') {
       if (convertBlocked()) return;
-      // FR-CNV-01 AC-2: the typed `/turn` or `/task` goes (outside the history), then R50 opens for the block.
+      // FR-CNV-01 AC-2: the typed `/turn` goes (outside the history), then R50 opens for the block.
       setSlash(null);
       dismissed.current = `s${s.from}`;
       e.view.dispatch(e.view.state.tr.delete(s.from, e.view.state.selection.from).setMeta('addToHistory', false));
       focusArea.current = 'body';
-      openConvert(item.id === 'task' ? 'task' : 'last');
+      openConvert('last');
       return;
     }
     const b = SLASH_BLOCK[item.id];
     setSlash(null);
     e.commands.slashInsert(s.from, e.view.state.selection.from, b.kind, { level: b.level });
+    focusEditor();
+  };
+
+  /** The `New <type>` dialog's trigger range, while the document still holds its text there (else null). */
+  const newObjRange = (n: NewObj, e: TeggEditor): [number, number] | null => {
+    const doc = e.view.state.doc;
+    if (n.to > doc.content.size) return null;
+    return doc.textBetween(n.from, n.to, '\n', '￼') === n.text ? [n.from, n.to] : null;
+  };
+  /** Esc, Cancel or a click outside (D-2511): the dialog closes and the trigger and query go (outside the history);
+   *  the caret returns to where the trigger was. */
+  const cancelNewObject = (refocus = true) => {
+    const e = edRef.current;
+    const n = newObj;
+    setNewObj(null);
+    newObjOpen.current = false;
+    if (!e || !n) return;
+    const r = newObjRange(n, e);
+    if (r) {
+      e.view.dispatch(e.view.state.tr.delete(r[0], r[1]).setMeta('addToHistory', false));
+      e.editor.commands.setTextSelection(r[0]);
+    }
+    if (refocus) focusEditor();
+  };
+  /** Create (R237; D-2484, D-2510, D-2513): the object through the one creation path (no `source`), then the link in
+   *  place of the trigger and query as one undo step, naming the file the core actually created. A failed create
+   *  inserts and writes nothing: the dialog closes, the alert shows and the trigger and query stay as typed text. */
+  const createNewObject = async (title: string) => {
+    const e = edRef.current;
+    const n = newObj;
+    if (!e || !n) return;
+    let path: string;
+    try {
+      path = await createObject(n.type.key, title);
+    } catch {
+      setNewObj(null);
+      newObjOpen.current = false;
+      pushAlert(t('newObject.failed', { title }));
+      focusEditor();
+      return;
+    }
+    setNewObj(null);
+    newObjOpen.current = false;
+    const stem = path.split('/').pop()!.replace(/\.md$/, '');
+    const res = await ipc.linkResolve(pathRef.current, [stem]).catch(() => []);
+    const stemResolves = res[0]?.path?.normalize('NFC') === path.normalize('NFC');
+    links.current.set(stemResolves ? stem.normalize('NFC') : path.replace(/\.md$/, '').normalize('NFC'), { kind: 'note', path, type: n.type.key });
+    const r = newObjRange(n, e);
+    if (r) e.commands.insertObjectLink(r[0], r[1], { path, title, fromPath: pathRef.current, stemResolves });
     focusEditor();
   };
 
@@ -1214,7 +1290,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     }));
     return true;
   };
-  useImperativeHandle(apiRef, () => ({ ed: edRef.current, run, focus: focusEditor, slashOpen: () => !!live.current.slash || !!pickerOpen.current, caretToStart, caretAtLink, caretToEnd, embedBlocks, selectBlockAtTop, convertBlocked, jumpToHeading, refocus }), [run, edRef.current]);
+  useImperativeHandle(apiRef, () => ({ ed: edRef.current, run, focus: focusEditor, slashOpen: () => !!live.current.slash || !!pickerOpen.current || newObjOpen.current, caretToStart, caretAtLink, caretToEnd, embedBlocks, selectBlockAtTop, convertBlocked, jumpToHeading, refocus }), [run, edRef.current]);
 
   // ------------------------------------------------------------------ keyboard in the editor (capture: before ProseMirror)
   const onKeyDownCapture = (e: React.KeyboardEvent) => {
@@ -1236,20 +1312,21 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       if (pos !== null && embedKey(pos, 'preview')) { stop(); return; }
     }
     if (L.slash) {
-      const items = slashMatches(L.slash.query);
-      const enabled = items.map((x, i) => (x.status.built ? i : -1)).filter((i) => i >= 0);
+      const items = slashRows(L.slash.trigger, L.slash.query);
+      // FR-EDT-03 AC-3: ↑ and ↓ move over every row (headers are skipped); a disabled row can be selected, never chosen.
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         stop();
         if (!items.length) return;
-        let i = L.slash.sel;
-        for (let n = 0; n < items.length; n++) { i = (i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length; if (items[i].status.built) break; }
-        setSlash({ ...L.slash, sel: i });
+        setSlash({ ...L.slash, sel: (L.slash.sel + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length });
         return;
       }
       if (e.key === 'Enter' || e.key === 'Tab') {
+        // R235 (D-2506): `+` with no matching row closes, and the key does what it does without a menu.
+        if (!items.length && L.slash.trigger === '+') { dismissed.current = `s${L.slash.from}`; setSlash(null); return; }
         stop();
-        const pick = items[L.slash.sel]?.status.built ? items[L.slash.sel] : items[enabled[0]];
-        if (pick && items.length) chooseSlash(pick);
+        const pick = items[Math.min(L.slash.sel, items.length - 1)];
+        if (pick?.disabled) return; // the menu stays open (FR-EDT-03 AC-5)
+        if (pick) chooseSlash(pick);
         else { dismissed.current = `s${L.slash.from}`; setSlash(null); }
         return;
       }
@@ -1509,7 +1586,10 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
         </div>
       )}
       {slash && e2 && (
-        <SlashMenu slash={slash} pos={caretPos(slash.from)} blocked={convertBlocked()} onPick={chooseSlash} onSel={(i) => setSlash({ ...slash, sel: i })} />
+        <SlashMenu slash={slash} rows={slashRows(slash.trigger, slash.query)} pos={caretPos(slash.from)} unavailable={(r) => (r.id === 'turnIntoObject' ? convertBlocked() : null)} onPick={chooseSlash} onSel={(i) => setSlash({ ...slash, sel: i })} />
+      )}
+      {newObj && e2 && (
+        <NewObjectDialog key={`${newObj.from}:${newObj.type.key}`} type={newObj.type} at={caretPos(newObj.from)} onCreate={(title) => void createNewObject(title)} onCancel={() => cancelNewObject()} />
       )}
       {suggest && e2 && (
         <Suggestions s={suggest} types={types} pos={caretPos(suggest.from)} onLink={(i) => void chooseLink(i)} onTag={chooseTag} />
@@ -1579,52 +1659,6 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
           onRemove={() => { setLinkField(null); edRef.current?.commands.removeLink(); focusEditor(); }}
         />
       )}
-    </div>
-  );
-}
-
-// ------------------------------------------------------------------------------------------------ slash menu
-
-function slashMatches(query: string): SlashDef[] {
-  const items = SLASH_ITEMS.map((i) => ({ ...i, title: t(i.label) }));
-  return query ? rank(query, items) : items;
-}
-
-/** 5A-2: the conversion items, unavailable with a reason (D-494). */
-const CONVERT_ITEMS = new Set(['task', 'turnIntoObject']);
-
-function SlashMenu({ slash, pos, blocked, onPick, onSel }: { slash: Slash; pos: { left: number; top: number }; blocked: string | null; onPick: (i: SlashDef) => void; onSel: (i: number) => void }) {
-  const items = slashMatches(slash.query);
-  let lastGroup = '';
-  return (
-    <div className="popover slash-menu" style={pos}>
-      <div role="listbox" aria-label={t('slash.label')}>
-        {items.length === 0 && <div className="empty" role="presentation">{t('slash.empty')}</div>}
-        {items.map((it, i) => {
-          const header = !slash.query && it.group !== lastGroup ? t(`slash.group.${it.group}`) : null;
-          lastGroup = it.group;
-          const why = blocked && CONVERT_ITEMS.has(it.id) ? blocked : null;
-          const disabled = !it.status.built || !!why;
-          return (
-            <div key={it.id} role="presentation">
-              {header && <div className="group-header" role="presentation">{header}</div>}
-              <div role="option" aria-label={t(it.label)} aria-selected={i === slash.sel} aria-disabled={disabled || undefined}
-                aria-description={why ?? (disabled && it.due ? t('due.coming', { milestone: showDue(it.due) }) : SLASH_DESC[it.id] ? t(SLASH_DESC[it.id]) : undefined)}
-                className={`option ${i === slash.sel ? 'selected' : ''} ${disabled ? 'disabled' : ''}`}
-                onMouseDown={(e) => e.preventDefault()}
-                onMouseMove={() => !disabled && i !== slash.sel && onSel(i)}
-                onClick={() => !disabled && onPick(it)}>
-                {SLASH_DESC[it.id] && !disabled ? (
-                  <span className="slash-two-lines"><span>{t(it.label)}</span><span className="slash-desc">{t(SLASH_DESC[it.id])}</span></span>
-                ) : <span>{t(it.label)}</span>}
-                {why ? <span className="due">{why}</span> : disabled && <Due due={it.due} />}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      {/* D-1515: the selected item's description also as hidden text, for the macOS tree (D-1424's way). */}
-      {(() => { const it = items[slash.sel]; return it && it.status.built && SLASH_DESC[it.id] ? <span className="sr-only" data-description-text="">{t(SLASH_DESC[it.id])}</span> : null; })()}
     </div>
   );
 }

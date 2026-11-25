@@ -211,7 +211,13 @@ export const en: Catalog = {
   'slash.group.blocks': 'Blocks',
   'slash.group.media': 'Media',
   'slash.group.advanced': 'Advanced',
-  'slash.task': 'Task',
+  // new-object-menu.md R238 (D-2490…D-2492): the computed New object group.
+  'slash.group.newObject': 'New object',
+  'slash.newObject': 'New {type}',
+  // R234 (D-2509): the heading rows' icons.
+  'slash.heading1.icon': 'H1',
+  'slash.heading2.icon': 'H2',
+  'slash.heading3.icon': 'H3',
   'slash.turnIntoObject': 'Turn into object…',
   'slash.embedObject': 'Embed object',
   'slash.text': 'Text',
@@ -579,11 +585,17 @@ export const en: Catalog = {
   'error.notEmpty': 'The folder “{name}” already exists and isn’t empty.',
 
   // New object dialog (D-131).
-  'newObject.title': 'New object',
   'newObject.field': 'Title',
   'newObject.placeholder': 'Untitled',
   'newObject.type': 'Type',
+  // The `New <type>` dialog of the slash menu (new-object-menu.md R236, R238; D-2490, D-2511, D-2513).
+  'newObject.dialog': 'New {type}',
+  'newObject.title': 'Title',
+  'newObject.hint': 'Creates {path} and links it here.',
   'newObject.create': 'Create',
+  'newObject.cancel': 'Cancel',
+  'newObject.needTitle': 'Add a title',
+  'newObject.failed': 'Couldn’t create "{title}". Nothing was changed.',
 
   // Core error kinds (NFR-OTH-02 AC-2): the core's own message text is never shown.
   'error.conflict': 'The file changed on disk. Nothing was overwritten.',

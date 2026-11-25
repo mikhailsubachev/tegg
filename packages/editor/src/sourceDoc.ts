@@ -121,11 +121,12 @@ export function reconcile(loaded: Loaded, pmDoc: PMNode, opts: { forceVerifyFail
     const patched = bodiesOnly ? queryBodyPatch(original!, node, srcRaw!) : null
     if (bodiesOnly && patched === null) throw new VerifyError(QUERY_PATCH_FAILED)
     const md = isRaw ? String(node.attrs.source) : patched ?? ((srcRaw !== undefined && (checkboxPatch(original!, node, srcRaw) || tablePatch(original!, node, srcRaw))) || renderBlock(pmToBlock(node.toJSON()), srcRaw))
+    const kept = srcRaw !== undefined && !isRaw && patched === null ? paragraphPatch(original!, node, srcRaw, md) : null
     if (!isRaw && md.trim() === '') return // e.g. a paragraph of spaces: nothing to write
     // A raw block holds bytes the file already had (a copy, a moved or mode-changed embed): never re-normalized, so
     // an NFD embed line stays NFD when duplicated (AP-336, FR-FMT-07 AC-15). A query-fence patch keeps the container's
     // bytes too (its new lines come from `withUsage` in NFC, D-1885). Rendered blocks are written in NFC.
-    const written = isRaw || patched !== null ? fitEol(md, eol) : fit(md, eol)
+    const written = isRaw || patched !== null ? fitEol(md, eol) : kept !== null ? fitEol(kept, eol) : fit(md, eol)
     items.push({ base: written, text: written, src: original ? src : null, unchanged: false, node, srcRaw, hint: srcRaw })
   })
 
@@ -272,6 +273,41 @@ function checkboxPatch(original: PMNode, node: PMNode, raw: string): string | nu
  * A table whose shape and alignment are unchanged is written by replacing only the rows that changed, each as
  * `| cell | cell |`, so editing one cell never re-pads the whole table (FR-EDT-02 AC-20). Pipes in cells are escaped.
  */
+/**
+ * FR-FMT-07 AC-39, FR-FMT-12 AC-18 (new-object-menu.md R237): an edited paragraph whose source is written as Tegg
+ * would render it (up to Unicode normalization and line endings) keeps its bytes outside the changed range: only the
+ * span between the first and last rendered difference is replaced, so NFD text around an inserted link stays NFD and
+ * the new text is NFC. Null when the source is written otherwise (another syntax): the paragraph is rendered.
+ */
+function paragraphPatch(original: PMNode, node: PMNode, raw: string, md: string): string | null {
+  if (node.type.name !== 'paragraph' || original.type.name !== 'paragraph') return null
+  const lf = raw.replace(/\r\n/g, '\n')
+  if (lf === lf.normalize('NFC')) return null // nothing to keep: the rendered block is the same bytes
+  let before: string
+  try { before = renderBlock(pmToBlock(original.toJSON()), raw).normalize('NFC') } catch { return null }
+  // The source split into a base character and its marks, each with its NFC length.
+  const chunks = lf.match(/\P{M}\p{M}*|\p{M}+/gu) ?? []
+  const nfc = chunks.map((c) => c.normalize('NFC'))
+  if (nfc.join('') !== before) return null
+  const after = md.normalize('NFC')
+  let p = 0
+  while (p < before.length && p < after.length && before[p] === after[p]) p++
+  let q = 0
+  while (q < before.length - p && q < after.length - p && before[before.length - 1 - q] === after[after.length - 1 - q]) q++
+  // Whole chunks only: the kept prefix and suffix end on a character boundary of the source.
+  let rawStart = 0
+  let at = 0
+  let k = 0
+  while (k < chunks.length && at + nfc[k].length <= p) { at += nfc[k].length; rawStart += chunks[k].length; k++ }
+  const p2 = at
+  let rawEnd = lf.length
+  let at2 = 0
+  let j = chunks.length - 1
+  while (j >= k && at2 + nfc[j].length <= q) { at2 += nfc[j].length; rawEnd -= chunks[j].length; j-- }
+  const q2 = at2
+  return lf.slice(0, rawStart) + after.slice(p2, after.length - q2) + lf.slice(rawEnd)
+}
+
 function tablePatch(original: PMNode, node: PMNode, raw: string): string | null {
   if (node.type.name !== 'table' || original.type.name !== 'table') return null
   if (JSON.stringify(node.attrs.align) !== JSON.stringify(original.attrs.align) || node.childCount !== original.childCount) return null

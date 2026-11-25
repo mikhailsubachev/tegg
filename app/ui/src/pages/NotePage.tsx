@@ -1500,7 +1500,7 @@ function PageAlerts() {
         <div key={a.id} role="alert" className="save-alert">
           <span>{a.text}</span>
           {a.retry && <button type="button" tabIndex={0} data-command="task.tryAgain" onClick={() => { dismissAlert(a.id); a.retry!(); }}>{t('task.tryAgain')}</button>}
-          <button type="button" tabIndex={0} className="icon-button" data-command="task.dismissAlert" aria-label={t('dialog.close')} onClick={() => dismissAlert(a.id)}>×</button>
+          <button type="button" tabIndex={0} className="icon-button" data-command="task.dismissAlert" aria-label={t('dialog.close')} onClick={() => dismissAlert(a.id)}><Icon name="x" size={14} /></button>
         </div>
       ))}
     </>
