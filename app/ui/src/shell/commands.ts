@@ -576,12 +576,12 @@ export function commands(ctx: ShellContext): Command[] {
     list.push({ id, title, section: 'edit', shortcut: shortcutOf(id), needsVault: true, run: (c) => a(c)?.edit?.(action),
       ...(convert && onNote ? { disabled: () => a(ctx)?.convertBlocked?.() ?? null } : {}) });
   }
-  // Slice P (previews.md R106, D-928): ⌥Space acts only at a reference or a chip; the mode on every route with a vault.
   // Slice MM3 (R233, D-2504): the map's fold control and `+` as commands, on the focused node of the focused map.
   list.push(
     { id: 'mindmap.toggleFold', title: 'cmd.mindmap.toggleFold', section: 'edit', needsVault: true, run: () => runMapCommand('toggleFold') },
     { id: 'mindmap.addChild', title: 'cmd.mindmap.addChild', section: 'edit', needsVault: true, run: () => runMapCommand('addChild') },
   );
+  // Slice P (previews.md R106, D-928): ⌥Space acts only at a reference or a chip; the mode on every route with a vault.
   list.push(
     { id: 'preview.show', title: 'cmd.preview.show', section: 'navigate', shortcut: shortcutOf('preview.show'), needsVault: true, run: (c) => a(c)?.showPreview?.() },
     { id: 'preview.mode.click', title: 'cmd.preview.mode.click', section: 'view', needsVault: true, run: (c) => a(c)?.setPreviewMode?.('click') },

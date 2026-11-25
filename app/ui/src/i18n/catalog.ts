@@ -259,8 +259,6 @@ export const en: Catalog = {
   'mindmap.editNode': 'Edit node',
   'cmd.mindmap.layoutRight': 'Mindmap layout: right',
   'cmd.mindmap.layoutSpider': 'Mindmap layout: spider',
-  'due.coming': 'Coming in {milestone}',
-  'toolbar.label': 'Formatting',
   // Slice MM3 (R233, mm-mindmap §7.5; D-2487, D-2488, D-2504).
   'mindmap.collapseNode': 'Collapse {node}',
   'mindmap.expandNode': { one: 'Expand {node}, {count} hidden', other: 'Expand {node}, {count} hidden' },
@@ -268,6 +266,8 @@ export const en: Catalog = {
   'mindmap.addChild': 'Add child to {node}',
   'cmd.mindmap.toggleFold': 'Fold or unfold mindmap node',
   'cmd.mindmap.addChild': 'Add child to mindmap node',
+  'due.coming': 'Coming in {milestone}',
+  'toolbar.label': 'Formatting',
   'toolbar.bold': 'Bold',
   'toolbar.italic': 'Italic',
   'toolbar.strike': 'Strikethrough',
@@ -533,6 +533,8 @@ export const en: Catalog = {
   'phone.properties': 'Properties',
   'phone.moreProperties': { one: '+{count} property', other: '+{count} properties' },
   'phone.close': 'Close',
+  // The close button of alerts and notices (D-2548).
+  'dialog.close': 'Close',
   'phone.showSource': 'Show Markdown source',
   'phone.showFormatted': 'Show formatted note',
   'phone.noNote': 'No note named “{name}” in this vault yet.',
