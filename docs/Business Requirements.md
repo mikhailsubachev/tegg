@@ -275,6 +275,7 @@
 | v1.309  | 2026-11-25 | Slice MM3 and the `+` object menu (`docs/plans/mm3-map-navigation-and-plus-menu.md`; owner answers and "Approve all"): D-2481…D-2491 (AP-2100…AP-2110): ↑/↓ among siblings, continuing to cousins; Space folds, folds not remembered; fold control and mouse `+` on the map; drag and drop of branches; `/` lists one row per creatable type and `+` opens the same menu at its Objects group; a new object is inserted as a `[[link]]`. FR-MMP-02, FR-EDT-03 and D-770, D-787 amended |
 | v1.310  | 2026-11-25 | Boards reviewed (owner): D-2492, the `/` menu order (Blocks first, Mindmap among them, no `Task` row, a last `New object` group of `New <type>` rows; board `ObjectMenu`); `MindmapLayouts` and `MindmapLayoutsDark` approved |
 | v1.311  | 2026-11-25 | ACs for slice MM3 (`docs/acceptance/mindmap.md` part three) and the `/` and `+` menu (`docs/acceptance/new-object-menu.md`): AP-2111…AP-2133 decided as proposed (owner, "Approve all"), D-2493…D-2515 |
+| v1.312  | 2026-11-25 | Red tests for slice MM3 and the New object menu (0dd566de; fixture 415094d2, changed tests 52d8f7a4, interfaces 22eddfa7): RT-1…RT-18 approved (owner, "Approve all"), D-2516…D-2533 |
 
 Slice OC decisions and versions were renumbered on merging main (PR #154 used the same numbers): D-1942…D-2053 → D-2054…D-2165, v1.220…v1.229 → v1.238…v1.247. Commit messages before this renumbering use the old numbers (D-2166).
 
@@ -2380,6 +2381,24 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-2513 | A failed create (AP-2131, owner, 2026-11-25: "Approve all"; `new-object-menu.md`) | Nothing inserted or written; the dialog closes; the alert `Couldn’t create "<title>". Nothing was changed.` (conversion's text, its own key); `+<query>` stays as typed text. |
 | D-2514 | Titles that can't be a link alias (AP-2132, owner, 2026-11-25: "Approve all"; `new-object-menu.md`) | <title>` when the title differs from the stem. A title containing `\ |
 | D-2515 | A palette command for "new linked object" (AP-2133, owner, 2026-11-25: "Approve all"; `new-object-menu.md`) | No new palette command: `/` and `+` are the keyboard path; the dialog's buttons carry commands (FR-UX-03 AC-8). |
+| D-2516 | Red tests MM3 / New object: Navigation function (RT-1, owner, 2026-11-25: "Approve all") | `navigateMindmap(layout, from, key) → {focus} | {unfold} | null` in `app/ui/src/mindmap/nav.ts`. |
+| D-2517 | Red tests MM3 / New object: Fold state (RT-2, owner, 2026-11-25: "Approve all") | `MindmapCtl.folds` (`folded()`, `toggle(path|null)`, `set`): editor plugin state mapped through transactions, never in the document, bytes or history; cleared by an external reload and by List and back; the read view keeps its own. |
+| D-2518 | Red tests MM3 / New object: Moving an item (RT-3, owner, 2026-11-25: "Approve all") | `MindmapEdit.moveMindmapItem(from, target|null, zone)` returns the new path; `from` with no transaction when nothing changes; null when impossible. |
+| D-2519 | Red tests MM3 / New object: Menu model (RT-4, owner, 2026-11-25: "Approve all") | `app/ui/src/edit/slashMenu.ts` with `creatableTypes`, `menuRows({types, query, trigger})`, `plusOpens(before)`; group headers are `role="group"` named by their text. |
+| D-2520 | Red tests MM3 / New object: Inserting the link (RT-5, owner, 2026-11-25: "Approve all") | `commands.insertObjectLink(from, to, LinkChoice)` is one transaction; undo leaves the text as before the trigger. |
+| D-2521 | Red tests MM3 / New object: R230 width (RT-6, owner, 2026-11-25: "Approve all") | Pavouk with Alfa folded is 424 × 72 (the layout contains every fold control, D-2499); R230 corrected. |
+| D-2522 | Red tests MM3 / New object: Czech plurals (RT-7, owner, 2026-11-25: "Approve all") | NFR-OTH-02 AC-27 uses `Intl.PluralRules('cs')`: one / few / other for 1, 2, 5, 21. |
+| D-2523 | Red tests MM3 / New object: AC-39 red first (RT-8, owner, 2026-11-25: "Approve all") | The ←/→ test first asserts the MM3 fold controls exist. |
+| D-2524 | Red tests MM3 / New object: Colour checks (RT-9, owner, 2026-11-25: "Approve all") | FR-UX-05 AC-29: `+` accent on the glyph or the fill, at least 3:1; the drag outline `muted` as the AC says. |
+| D-2525 | Red tests MM3 / New object: L6 read view (RT-10, owner, 2026-11-25: "Approve all") | FR-SYN-06 AC-56 on the built app folds in Neplatná mapa (a read-only note) instead of Výjezd's read view. |
+| D-2526 | Red tests MM3 / New object: No new already-green tests (RT-11, owner, 2026-11-25: "Approve all") | The L4 and L1 parts named by RT-11 rely on existing tests (FR-SYN-03 AC-40 refusal, FR-EDT-03 AC-14/16/17, FR-VLT-05 AC-16, FR-FMT-12 AC-18, FR-UX-05 AC-29 tokens). |
+| D-2527 | Red tests MM3 / New object: Runtime note ids (RT-12, owner, 2026-11-25: "Approve all") | Notes the tests create at runtime use ids from M030 (`AC-Test-Change`). |
+| D-2528 | Red tests MM3 / New object: Tests changed beyond the tables (RT-13, owner, 2026-11-25: "Approve all") | `mindmap_roundtrip` 25 notes, `mindmap_registry` Mindmap in `blocks`, editor `convert.ac.test.ts` without the Task row: approved. |
+| D-2529 | Red tests MM3 / New object: Earlier doc texts (RT-14, owner, 2026-11-25: "Approve all") | editor.md R6, conversion.md R53 / AC-2 / AC-5, mindmap.md R94, AC-15, AC-24, AC-31, AC-34 and the scope lines, ms3-shell §13.4 and ms5-tasks are brought in line in the build. |
+| D-2530 | Red tests MM3 / New object: Disabled row above New Page (RT-15, owner, 2026-11-25: "Approve all") | FR-EDT-03 AC-12 accepts Block embed or Query as the row above `New Page`. |
+| D-2531 | Red tests MM3 / New object: Esc during a drag on L6 (RT-16, owner, 2026-11-25: "Approve all") | mac2 `macos: clickAndDragAndHold` with Esc while held; timing-dependent, retried as other L6 tests. |
+| D-2532 | Red tests MM3 / New object: DOM hooks (RT-17, owner, 2026-11-25: "Approve all") | `[data-fold-control]`, `[data-add-child]`, `data-dragging`, `[data-drag-origin]`, `[data-drag-ghost]`, `[data-drop-indicator]` with `data-drop-target`; perf mark `mindmap-drag` `{ms}` (mm-mindmap contract §7.5). |
+| D-2533 | Red tests MM3 / New object: Root fold on L6 (RT-18, owner, 2026-11-25: "Approve all") | The L6 tour folds the root by Space only, not by its control. |
 
 ---
 

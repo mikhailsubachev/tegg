@@ -488,7 +488,7 @@ Every other row of R95 stands. "Editor only" rows do nothing in the read view an
   - **Strom, nothing folded** (R92's boxes): fold controls Kořen (85, 86), Alfa (193, 36), Beta (193, 96); `+` points Kořen (55, 86), Alfa (163, 36), A1 (271, 16), Gama (163, 136).
   - **Strom, `Alfa` folded:** Kořen (0, 40, 55, 32); Alfa (115, 0, 48, 32); Beta (115, 40, 48, 32); B1 (223, 40, 48, 32); Gama (115, 80, 48, 32). Layout 271 × 112. Fold controls Kořen (85, 56), Alfa (193, 16) showing `+2`, Beta (193, 56).
   - **Strom, `Kořen` folded:** Kořen (0, 0, 55, 32), its control (85, 16) showing `+6`; layout 93 × 32 (AP-2117).
-  - **Pavouk (`spider`), `Alfa` folded:** Střed (223, 20, 55, 32); Alfa (338, 0, 48, 32) `right`; Gama (338, 40, 48, 32) `right`; Beta (115, 0, 48, 32) `left`; B1 (0, 0, 48, 32); Delta (108, 40, 55, 32) `left`. Layout 386 × 72. Fold controls Alfa (416, 16) showing `+2`, Beta (78, 16), Střed (308, 36) (AP-2114).
+  - **Pavouk (`spider`), `Alfa` folded:** Střed (223, 20, 55, 32); Alfa (338, 0, 48, 32) `right`; Gama (338, 40, 48, 32) `right`; Beta (115, 0, 48, 32) `left`; B1 (0, 0, 48, 32); Delta (108, 40, 55, 32) `left`. Layout 424 × 72 (the layout contains every fold control, D-2499, D-2521). Fold controls Alfa (416, 16) showing `+2`, Beta (78, 16), Střed (308, 36) (AP-2114).
 
 ### R231. Drag and drop (D-2489; board `MindmapLayouts` F)
 
