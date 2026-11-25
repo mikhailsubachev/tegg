@@ -25,20 +25,23 @@ test('fr_edt_06_ac3_link_text_for_each_chosen_object', async () => {
   }
 });
 
+// new-object-menu.md R234 (D-2492): Blocks first with `Mindmap` after `Checklist`, no `Task` row, Advanced `Query`
+// then `Block embed`; the New object rows are computed per vault and are not `slashItems()`.
 const R6: [string, string, string | null][] = [
-  ['objects', 'Task', null], ['objects', 'Turn into object…', null], ['objects', 'Embed object', null],
   ['blocks', 'Text', null], ['blocks', 'Heading 1', null], ['blocks', 'Heading 2', null], ['blocks', 'Heading 3', null],
-  ['blocks', 'Bulleted list', null], ['blocks', 'Numbered list', null], ['blocks', 'Checklist', null], ['blocks', 'Quote', null],
-  ['blocks', 'Callout', null], ['blocks', 'Code block', null], ['blocks', 'Divider', null], ['blocks', 'Table', null],
+  ['blocks', 'Bulleted list', null], ['blocks', 'Numbered list', null], ['blocks', 'Checklist', null], ['blocks', 'Mindmap', null],
+  ['blocks', 'Quote', null], ['blocks', 'Callout', null], ['blocks', 'Code block', null], ['blocks', 'Divider', null], ['blocks', 'Table', null],
+  ['objects', 'Turn into object…', null], ['objects', 'Embed object', null],
   ['media', 'Image', null], ['media', 'PDF', null], // built in 6A (trash-media.md R75)
-  ['advanced', 'Block embed', 'v1.0'], ['advanced', 'Query', null], ['advanced', 'Mindmap', null], // Mindmap built in slice MM (R94, D-685); Query in slice Q (D-1447)
+  ['advanced', 'Query', null], ['advanced', 'Block embed', 'v1.0'], // Query in slice Q (D-1447)
 ];
 
 test('fr_edt_03_ac5_slash_items_are_r6_with_milestones', async () => {
   const { slashItems } = await editorModule();
   const items = slashItems();
-  assert.equal(items.length, R6.length, 'R6 has 20 items');
-  assert.deepEqual(items.map((i) => i.group), R6.map((r) => r[0]), 'groups in R6 order, Objects first');
+  assert.equal(items.length, R6.length, 'R234 has 19 static items');
+  assert.deepEqual(items.map((i) => i.label), R6.map((r) => r[1]), 'labels in R234 order');
+  assert.deepEqual(items.map((i) => i.group), R6.map((r) => r[0]), 'groups in R234 order, Blocks first');
   assert.deepEqual(items.map((i) => i.due?.milestone ?? null), R6.map((r) => r[2]), 'disabled items carry their milestone');
   const ids = items.map((i) => i.id);
   assert.equal(new Set(ids).size, ids.length, 'ids are unique');

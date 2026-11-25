@@ -37,13 +37,13 @@ const CASES: Case[] = [
   { w: 'W15a', path: MM.vyjezd, title: 'Výjezd 2026', node: 'Výjezd 2026', keys: seq(key('Enter'), type('Nocleh'), key('Enter')), before: '> - Výjezd 2026\n', after: '> - Výjezd 2026\n>   - Nocleh\n', focus: 'Nocleh' },
   { w: 'W15b', path: MM.vice, title: 'Témata', node: 'Témata', keys: seq(key('Enter'), type('Spánek'), key('Enter')), before: '> - Zdraví\n', after: '> - Zdraví\n> - Spánek\n', focus: 'Spánek' },
   { w: 'W16', path: MM.vyjezd, title: 'Výjezd 2026', node: 'Doprava', keys: seq(key('Tab'), type('Vlak'), key('Enter')), before: '>   - Doprava\n', after: '>   - Doprava\n>     - Vlak\n', focus: 'Vlak' },
-  { w: 'W17', path: MM.vyjezd, title: 'Výjezd 2026', node: 'Plán 2027', keys: seq(key(' '), type(' v2'), key('Enter')), before: '>     - Plán 2027\n', after: '>     - Plán 2027 v2\n', focus: 'Plán 2027 v2' },
-  { w: 'W17a', path: MM.vyjezd, title: 'Výjezd 2026', node: 'Lisabon', keys: seq(key(' '), type(' město'), key('Enter')), before: '>     - [[Lisabon]]\n', after: '>     - [[Lisabon]] město\n', focus: 'Lisabon město' },
+  { w: 'W17', path: MM.vyjezd, title: 'Výjezd 2026', node: 'Plán 2027', keys: seq(key('F2'), type(' v2'), key('Enter')), before: '>     - Plán 2027\n', after: '>     - Plán 2027 v2\n', focus: 'Plán 2027 v2' },
+  { w: 'W17a', path: MM.vyjezd, title: 'Výjezd 2026', node: 'Lisabon', keys: seq(key('F2'), type(' město'), key('Enter')), before: '>     - [[Lisabon]]\n', after: '>     - [[Lisabon]] město\n', focus: 'Lisabon město' },
   { w: 'W18', path: MM.vyjezd, title: 'Výjezd 2026', node: 'Plán 2027', keys: key('Backspace'), before: '>     - Plán 2027\n', after: '', focus: 'Přehled Q4' },
   { w: 'W19', path: MM.vyjezd, title: 'Výjezd 2026', node: 'Program', keys: key('Alt+ArrowDown'), before: VY, after: '>   - Místo\n>     - [[Lisabon]]\n>   - Program\n>     - Přehled Q4\n>     - Plán 2027\n>   - Doprava\n', focus: 'Program' },
   { w: 'W20', path: MM.vyjezd, title: 'Výjezd 2026', node: 'Místo', keys: key('Alt+ArrowRight'), before: '>   - Místo\n>     - [[Lisabon]]\n', after: '>     - Místo\n>       - [[Lisabon]]\n', focus: 'Místo' },
   { w: 'W21', path: MM.vyjezd, title: 'Výjezd 2026', node: 'Přehled Q4', keys: key('Alt+ArrowLeft'), before: '>     - Přehled Q4\n>     - Plán 2027\n>   - Místo\n', after: '>     - Plán 2027\n>   - Přehled Q4\n>   - Místo\n', focus: 'Přehled Q4' },
-  { w: 'W22', path: MM.uzly, title: 'Uzly', node: 'Odstavec navíc …', keys: seq(key(' '), type(' x'), key('Enter')), before: '>   - Odstavec navíc\n>\n>     Druhý odstavec', after: '>   - Odstavec navíc x\n>\n>     Druhý odstavec', focus: 'Odstavec navíc x …' },
+  { w: 'W22', path: MM.uzly, title: 'Uzly', node: 'Odstavec navíc …', keys: seq(key('F2'), type(' x'), key('Enter')), before: '>   - Odstavec navíc\n>\n>     Druhý odstavec', after: '>   - Odstavec navíc x\n>\n>     Druhý odstavec', focus: 'Odstavec navíc x …' },
 ];
 
 async function runCases(page: Page, cases: Case[]) {
@@ -74,7 +74,8 @@ test('fr_mmp_02_ac23_enter_and_tab_write_new_nodes_w15_w15a_w15b_w16', async ({ 
   await runCases(page, CASES.filter((c) => ['W15', 'W15a', 'W15b', 'W16'].includes(c.w)));
 });
 
-test('fr_mmp_02_ac23_space_edits_the_text_w17_w17a_w22', async ({ page }) => {
+// Slice MM3 (D-2486): F2 opens the field; Space folds (AC-40).
+test('fr_mmp_02_ac23_f2_edits_the_text_w17_w17a_w22', async ({ page }) => {
   test.setTimeout(120_000);
   await runCases(page, CASES.filter((c) => ['W17', 'W17a', 'W22'].includes(c.w)));
 });
@@ -114,22 +115,23 @@ test('fr_mmp_02_ac23_impossible_keys_change_nothing', async ({ page }) => {
   await focusNode(f2, 'Témata');
   await page.keyboard.press('Backspace');
   await page.keyboard.press('Delete');
-  await page.keyboard.press(' ');
+  await page.keyboard.press('F2'); // slice MM3 (D-2486): F2 here does nothing; Space folds Témata (AC-40)
   await sleep(1500);
-  assert.deepEqual(await treeNames(f2), ['Témata', 'Rodina', 'Práce', 'Porady', 'Zdraví'], 'the synthesized root: ⌫, Delete and Space do nothing');
+  assert.deepEqual(await treeNames(f2), ['Témata', 'Rodina', 'Práce', 'Porady', 'Zdraví'], 'the synthesized root: ⌫, Delete and F2 do nothing');
   assert.equal(await nodeField(f2).count(), 0, 'no field on the synthesized root');
   assert.deepEqual(await writes(core2), [], 'nothing written');
 });
 
 // ------------------------------------------------------------------------------------------------ AC-24
 
-test('fr_mmp_02_ac24_space_f2_and_double_click_open_the_field_and_esc_cancels', async ({ page }) => {
+// Slice MM3 (D-2486): F2 and a double-click open the field; Space folds (AC-40).
+test('fr_mmp_02_ac24_f2_and_double_click_open_the_field_and_esc_cancels', async ({ page }) => {
   const core = await openMm(page, MM.vyjezd);
   const fig = await needFigure(page, 'Výjezd 2026');
   const plan = await focusNode(fig, 'Plán 2027');
-  await page.keyboard.press(' ');
+  await page.keyboard.press('F2');
   let s = await fieldState(fig);
-  assert.ok(s, 'Space opens the textbox "Edit node" (R95a)');
+  assert.ok(s, 'F2 opens the textbox "Edit node" (R95a)');
   assert.deepEqual([s!.value, s!.caretAtEnd, s!.focused], ['Plán 2027', true, true], 'the value Plán 2027 with the caret at its end');
   assert.equal(await plan.locator('[data-node-editor]').count(), 1, 'the field is inside that node (data-node-editor)');
   assert.equal(await viewOf(fig), 'map', 'still Map');
@@ -137,10 +139,6 @@ test('fr_mmp_02_ac24_space_f2_and_double_click_open_the_field_and_esc_cancels', 
   assert.equal(await nodeField(fig).count(), 0, 'Esc closes the field');
   assert.equal((await focusedWhen(page, (x) => x.name === 'Plán 2027')).name, 'Plán 2027', 'the node keeps the focus');
   assert.ok((await treeNames(fig)).includes('Plán 2027'), 'the node text unchanged');
-  await page.keyboard.press('F2');
-  s = await fieldState(fig);
-  assert.equal(s?.value, 'Plán 2027', 'F2 opens the same field');
-  await page.keyboard.press('Escape');
   // D-943 (AP-823): a double-click on a node's chip opens the object; this one lands on a node without a chip
   // (Plán 2027 is plain text, not Lisabon's chip), so it opens the field in every preview mode.
   assert.equal(await plan.getByRole('link').count(), 0, 'guard: the double-clicked node Plán 2027 holds no chip');
@@ -158,19 +156,19 @@ test('fr_mmp_02_ac24_the_field_holds_the_markdown_source', async ({ page }) => {
   await openMm(page, MM.vyjezd);
   const fig = await needFigure(page, 'Výjezd 2026');
   await focusNode(fig, 'Lisabon');
-  await page.keyboard.press(' ');
+  await page.keyboard.press('F2');
   assert.equal((await fieldState(fig))?.value, '[[Lisabon]]', 'Lisabon: the link as written');
   await page.keyboard.press('Escape');
   await openMm(page, MM.uzly);
   const u = await needFigure(page, 'Uzly');
   await focusNode(u, 'Tučně, kód a zvýraznění');
-  await page.keyboard.press(' ');
+  await page.keyboard.press('F2');
   assert.equal((await fieldState(u))?.value, '**Tučně**, `kód` a ==zvýraznění==', 'Uzly: the source line as written in the fixture');
   await page.keyboard.press('Escape');
   await openMm(page, MM.nakup);
   const n = await needFigure(page, null);
   await focusNode(n, 'Mléko');
-  await page.keyboard.press(' ');
+  await page.keyboard.press('F2');
   assert.equal((await fieldState(n))?.value, 'Mléko', 'Nákup: the `[x] ` box is not part of the text');
   await page.keyboard.press('Escape');
 });
@@ -179,7 +177,7 @@ test('fr_mmp_02_ac24_no_popup_in_the_field_and_an_unchanged_commit_writes_nothin
   const core = await openMm(page, MM.vyjezd);
   const fig = await needFigure(page, 'Výjezd 2026');
   await focusNode(fig, 'Doprava');
-  await page.keyboard.press(' ');
+  await page.keyboard.press('F2');
   assert.equal((await fieldState(fig))?.value, 'Doprava', 'the field');
   const bad: string[] = [];
   for (const s of ['[[', '#', '/']) {
@@ -193,7 +191,7 @@ test('fr_mmp_02_ac24_no_popup_in_the_field_and_an_unchanged_commit_writes_nothin
   assert.equal((await fieldState(fig))?.value, 'Doprava[[#/', 'the typed text');
   await page.keyboard.press('Escape');
   await focusNode(fig, 'Plán 2027');
-  await page.keyboard.press(' ');
+  await page.keyboard.press('F2');
   await page.keyboard.press('Enter');
   assert.equal(await nodeField(fig).count(), 0, '⏎ commits');
   await sleep(1500);
@@ -286,7 +284,7 @@ test('fr_mmp_02_ac26_undo_and_redo_with_the_map_focused_w15_and_w19', async ({ p
   await page.keyboard.press('Alt+ArrowDown');
   const w19 = swap(original(MM.vyjezd), VY, '>   - Místo\n>     - [[Lisabon]]\n>   - Program\n>     - Přehled Q4\n>     - Plán 2027\n>   - Doprava\n');
   assert.equal(noModified(await savedAs(core2, MM.vyjezd, w19)), noModified(w19), 'W19');
-  await page.keyboard.press(' ');
+  await page.keyboard.press('F2'); // slice MM3 (D-2486): F2 opens the field
   assert.ok(await fieldState(f2), 'the field opens');
   await page.keyboard.press('Escape');
   await page.keyboard.press('Meta+z');

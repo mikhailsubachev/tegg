@@ -396,15 +396,16 @@ test('fr_mmp_02_ac15_tab_order_and_tree_keys', async ({ page }) => {
   await page.keyboard.press('Tab');
   let f = await focused(page);
   assert.deepEqual([f.role, f.node], ['treeitem', '0'], 'Tab: the tree, one stop, focus on the root');
+  // Slice MM3 (D-2481, AP-2112): ↓ on the root does nothing; → enters the map, ↓ / ↑ move among siblings.
   const seq: string[] = [];
-  for (let i = 0; i < 6; i++) { await page.keyboard.press('ArrowDown'); seq.push((await focused(page)).name); }
-  assert.deepEqual(seq, ['Program', 'Přehled Q4', 'Plán 2027', 'Místo', 'Lisabon', 'Doprava'], '↓ in outline order');
+  for (const k of ['ArrowRight', 'ArrowDown', 'ArrowDown']) { await page.keyboard.press(k); seq.push((await focused(page)).name); }
+  assert.deepEqual(seq, ['Program', 'Místo', 'Doprava'], '→ from the root: Program; ↓ Místo; ↓ Doprava (siblings, D-2481)');
   await page.keyboard.press('ArrowUp');
-  assert.equal((await focused(page)).name, 'Lisabon', '↑ back');
-  await page.keyboard.press('ArrowLeft');
-  assert.equal((await focused(page)).name, 'Místo', '← to the parent');
+  assert.equal((await focused(page)).name, 'Místo', '↑ back to the previous sibling');
   await page.keyboard.press('ArrowRight');
   assert.equal((await focused(page)).name, 'Lisabon', '→ to the first child');
+  await page.keyboard.press('ArrowLeft');
+  assert.equal((await focused(page)).name, 'Místo', '← to the parent');
   await page.keyboard.press('Home');
   assert.equal((await focused(page)).name, 'Výjezd 2026', 'Home: first node');
   await page.keyboard.press('End');
@@ -416,7 +417,8 @@ test('fr_mmp_02_ac15_tab_order_and_tree_keys', async ({ page }) => {
   assert.notEqual(f.role, 'link', 'link chips inside nodes are not Tab stops');
 });
 
-// Slice MM2 (D-787): ⏎ or Space on a node opens the `Edit node` field (FR-MMP-02 AC-24) instead of switching to List.
+// Slice MM2 (D-787): ⏎ on a node adds a sibling and F2 opens the `Edit node` field (FR-MMP-02 AC-24) instead of
+// switching to List. Slice MM3 (D-2486): Space folds the node (FR-MMP-02 AC-40) and opens no field.
 test('fr_mmp_02_ac15_enter_space_and_cmd_enter_on_nodes', async ({ page }) => {
   const core = await openMm(page, MM.vyjezd);
   let fig = await needFigure(page, 'Výjezd 2026');
@@ -430,7 +432,12 @@ test('fr_mmp_02_ac15_enter_space_and_cmd_enter_on_nodes', async ({ page }) => {
   const p2 = await needNode(fig, 'Program');
   await p2.focus();
   await page.keyboard.press(' ');
-  assert.equal((await fieldState(fig))?.value, 'Program', 'Space on Program: the field with its text (AC-24)');
+  await sleep(300);
+  assert.equal(await nodeField(fig).count(), 0, 'Space on Program opens no field (D-2486)');
+  assert.deepEqual(await treeNames(fig), ['Výjezd 2026', 'Program', 'Místo', 'Lisabon', 'Doprava'], 'Space on Program folds it: Přehled Q4 and Plán 2027 are hidden (AC-40)');
+  assert.equal(await viewOf(fig), 'map', 'still Map');
+  await page.keyboard.press('F2');
+  assert.equal((await fieldState(fig))?.value, 'Program', 'F2 on Program: the field with its text (AC-24)');
   assert.equal(await viewOf(fig), 'map', 'still Map');
   await page.keyboard.press('Escape');
   await sleep(1200);

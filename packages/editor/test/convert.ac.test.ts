@@ -403,13 +403,15 @@ test('fr_cnv_05_ac6_empty_hint_is_shown_and_never_saved', async () => {
 
 // ------------------------------------------------------------------------------------------------ R53 slash items
 
+// new-object-menu.md (D-2492): the `Task` row is gone (`/task` finds `New Task`, FR-CNV-01 AC-9); R53's first bullet
+// reads "`Turn into object…` is built".
 test('fr_cnv_01_ac2_slash_items_task_and_turn_into_object_are_built', async () => {
   const m = await editorModule();
   const items = m.slashItems();
-  const task = items.find((i) => i.id === 'task');
+  const task = items.find((i) => i.id === 'task' || i.label === 'Task');
   const turn = items.find((i) => i.id === 'turnIntoObject');
-  assert.ok(task && turn, 'slash items task and turnIntoObject');
-  assert.deepEqual([task!.group, task!.label, task!.due ?? null], ['objects', 'Task', null], 'Task is built (R53)');
+  assert.equal(task, undefined, 'no slash item Task (D-2492)');
+  assert.ok(turn, 'slash item turnIntoObject');
   assert.deepEqual([turn!.group, turn!.label, turn!.due ?? null], ['objects', 'Turn into object…', null], 'Turn into object… is built (R53)');
 });
 

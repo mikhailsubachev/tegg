@@ -485,8 +485,15 @@ test('fr_edt_03_ac1_slash_opens_only_where_it_should', async ({ page }) => {
   await caretIn(page, 5, null, true);
   await page.keyboard.type('/');
   const menu = await must(slashMenu(page), 'listbox "Insert block" at block start');
-  const opts = (await menu.getByRole('option').allInnerTexts()).map((s) => s.split('\n')[0].trim());
-  assert.deepEqual(opts.slice(0, 4), ['Task', 'Turn into object…', 'Embed object', 'Text'], 'R6 order');
+  // new-object-menu.md R234 (D-2492): Blocks first, no `Task` row; the `H1`…`H3` icons are `aria-hidden` (AP-2127),
+  // so the option's own label is read without them.
+  const opts = await menu.getByRole('option').evaluateAll((os) => os.map((o) => {
+    if (o.getAttribute('aria-label')) return o.getAttribute('aria-label')!.trim();
+    const c = o.cloneNode(true) as HTMLElement;
+    c.querySelectorAll('[aria-hidden="true"], kbd').forEach((x) => x.remove());
+    return (c.innerText || c.textContent || '').split('\n').map((s) => s.trim()).filter(Boolean)[0] ?? '';
+  }));
+  assert.deepEqual(opts.slice(0, 4), ['Text', 'Heading 1', 'Heading 2', 'Heading 3'], 'R234 order');
   await page.keyboard.press('Escape');
   for (const [n, after] of [[5, 'Pátý'], [7, 'const'], [10, 'Odkaz na ']] as const) {
     await caretIn(page, n, after);

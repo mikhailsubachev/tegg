@@ -1,7 +1,7 @@
 // Slice MM2 real-app test (L6, Appium mac2 on the built test app, D-382, TS-I7): docs/acceptance/mindmap.md
 // FR-SYN-06 AC-34 (browsing and navigating the map writes nothing: on a copy of the fixture, open Pavouk, Neznámé
-// metadata and Metadata; in each mindmap block move through every node with ↓, → and ←, open the field with Space and
-// cancel with Esc, switch to List and back; every file's bytes, mtime and inode unchanged, no write reaches the
+// metadata and Metadata; in each mindmap block move through every node with → then ↓ per level, and ←, open the field
+// with F2 and cancel with Esc, switch to List and back (slice MM3, D-2481, D-2486: ↓ moves among siblings, Space folds); every file's bytes, mtime and inode unchanged, no write reaches the
 // vault). TEGG_TEST=1 with TEGG_NOW, a temporary Application Support and a temporary copy of the synthetic mindmap
 // fixture plus new-empty/.tegg (D-62). Interface: docs/contracts/mm-mindmap.md §6.3, §6.4 (the `Edit node` textbox,
 // the `Map` / `List` buttons, the tree `Map of <title>`), ms3-shell.md §1 (TEGG_ROUTE, `route-ready:` marks).
@@ -48,26 +48,24 @@ test('fr_syn_06_ac34_navigating_the_map_writes_nothing_in_the_real_app', { timeo
     const log = join(base, 'perf.jsonl');
     d = await session(testEnv(sup, log, { TEGG_VAULT: vault, TEGG_ROUTE: `note/${PAVOUK}`, TEGG_NOW: NOW_MM }));
     assert.ok(await waitMark(log, `route-ready:note/${PAVOUK}`, MARK_TIMEOUT), 'Pavouk shown');
-    // [note title, tree name, node count]: every node with ↓ (outline order), then → and ← on each side (D-790).
-    const tour: [string, string, number][] = [['Pavouk', 'Map of Pavouk', 8], ['Neznámé metadata', 'Map of Cizí', 2], ['Metadata', 'Map of Velká písmena', 4]];
-    for (const [title, treeName, count] of tour) {
+    // [note title, tree name, keys]: every node by → then ↓ per level (D-2481: ↓ moves among siblings, then cousins),
+    // then ← and → on each side (D-790); the walk ends on a node that isn't a synthesized root.
+    const tour: [string, string, string[]][] = [
+      ['Pavouk', 'Map of Pavouk', ['right', 'right', 'down', 'down', 'right', 'right', 'left', 'down', 'down', 'up']],
+      ['Neznámé metadata', 'Map of Cizí', ['right', 'down', 'left', 'right']],
+      ['Metadata', 'Map of Velká písmena', ['right', 'down', 'down', 'up', 'left', 'left']],
+    ];
+    for (const [title, treeName, keys] of tour) {
       if (title !== 'Pavouk') await goTo(title);
       const t = await need(d, treeName, 5000);
       assert.ok(await shown(d, 'Mindmap layout', 3000), `${title}: the layout switch is shown (untouched)`);
       await t.click();
-      for (let i = 0; i < count; i++) press('down');
-      press('up');
-      press('right');
-      press('right');
-      press('left');
-      press('left');
-      press('left');
-      press('right');
+      for (const k of keys) press(k);
       await sleep(300);
-      // the field: Space opens it, Esc cancels (R95a); on a synthesized root Space does nothing
-      press('space');
+      // the field: F2 opens it, Esc cancels (R95a; slice MM3, D-2486: Space folds, which writes nothing either)
+      press('f2');
       await sleep(400);
-      if (title !== 'Metadata') assert.ok(await shown(d, 'Edit node', 3000), `${title}: Space opens the textbox "Edit node"`);
+      assert.ok(await shown(d, 'Edit node', 3000), `${title}: F2 opens the textbox "Edit node"`);
       press('escape');
       await sleep(300);
       assert.ok(!(await shown(d, 'Edit node', 500)), `${title}: Esc closes the field`);

@@ -23,9 +23,9 @@ test('bug_mm2_fr_mmp_02_unwrap_then_undo_draws_the_map_again_without_errors', as
   await click(mapBtn(back), 'Map');
   assert.deepEqual(await treeNames(back), ['Kořen', 'Větev'], 'the tree has its nodes');
   await (await needNode(back, 'Kořen')).focus();
-  await page.keyboard.press('ArrowDown');
-  assert.equal((await focused(page)).name, 'Větev', '↓ moves: the map responds');
-  await page.keyboard.press(' ');
+  await page.keyboard.press('ArrowRight'); // slice MM3 (D-2481, AP-2112): ↓ on the root does nothing; → enters the map
+  assert.equal((await focused(page)).name, 'Větev', '→ moves: the map responds');
+  await page.keyboard.press('F2'); // slice MM3 (D-2486): F2 opens the field
   await page.keyboard.type(' x');
   await page.keyboard.press('Enter');
   // D-766: the edited block is rewritten in canonical form (`-`, two-space indents).
