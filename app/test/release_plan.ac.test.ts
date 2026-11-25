@@ -169,3 +169,51 @@ test('ar_08_ac6_release_runs_apk_check', async () => {
   assert.ok(!before.some((id) => /install|github|release-assets|upload/.test(id)), `nothing is installed or published before the check: ${order.join(', ')}`);
   assert.ok(after.some((id) => /install/.test(id)), `the install comes after the check: ${order.join(', ')}`);
 });
+
+// ------------------------------------------------------------------------------------------------ AR-08 AC-7 (slice AND-3)
+// docs/acceptance/android-edit.md AR-08 AC-7 (D-2042, D-2043, D-2522; CP-11 → D-2537), through
+// docs/contracts/android-edit.md §4.6, §16.1: `parseReleaseArgs(argv)` (the APK by default, `--no-apk` skips it, `--apk`
+// a no-op, a usage error otherwise) and `githubRelease({ version, sha, outputs })` (the printed `gh release create`
+// command attaching the DMG, the zip and the APK). The CLI exits 2 on a usage error before any build (every build tool a
+// failing stub, as AC-2). Written from the ACs and the contract only (D-61).
+
+test('ar_08_ac7_every_release_builds_the_apk', async () => {
+  let m: Mod | null = null;
+  const path = '../scripts/release-plan.mjs';
+  try { m = (await import(/* @vite-ignore */ path)) as Mod; } catch { m = null; }
+  assert.ok(m, 'app/scripts/release-plan.mjs loads');
+  assert.equal(typeof m!.parseReleaseArgs, 'function', 'release-plan.mjs exports parseReleaseArgs(argv) (§4.6)');
+  assert.equal(typeof m!.githubRelease, 'function', 'release-plan.mjs exports githubRelease({ version, sha, outputs }) (§4.6)');
+  assert.deepEqual(m!.parseReleaseArgs(['0.8.0']), { version: '0.8.0', apk: true }, 'the APK is built by default');
+  assert.deepEqual(m!.parseReleaseArgs(['0.8.0', '--no-apk']), { version: '0.8.0', apk: false }, '--no-apk skips it');
+  assert.deepEqual(m!.parseReleaseArgs(['--no-apk', '0.8.0']), { version: '0.8.0', apk: false }, '--no-apk before the version');
+  assert.deepEqual(m!.parseReleaseArgs(['0.8.0', '--apk']), { version: '0.8.0', apk: true }, '--apk is accepted and changes nothing');
+  for (const bad of [[], ['--frob', '0.8.0'], ['0.8.0', '0.9.0'], ['--apk']]) assert.deepEqual(m!.parseReleaseArgs(bad), { usage: true }, `${JSON.stringify(bad)}: a usage error`);
+
+  const { file } = signingFile();
+  const p = m!.releasePlan({ version: '0.8.0', apk: true, signing: file, repo: REPO }) as { outputs: string[] };
+  const sha = 'a'.repeat(40);
+  const gh = m!.githubRelease({ version: '0.8.0', sha, outputs: p.outputs }) as { cmd: string; args: string[] };
+  assert.equal(gh.cmd, 'gh', 'the plan for GitHub runs gh');
+  assert.deepEqual(gh.args, ['release', 'create', 'v0.8.0', '--target', sha, '--title', 'Tegg 0.8.0', ...p.outputs], 'gh release create v0.8.0 --target <sha> --title "Tegg 0.8.0" with the DMG, the zip and the APK');
+  assert.deepEqual(p.outputs.map((o) => o.split('/').pop()), ['Tegg-0.8.0.dmg', 'Tegg-0.8.0.zip', 'Tegg-0.8.0.apk'], 'the outputs in order: DMG, zip, APK (D-2022)');
+  assert.throws(() => m!.githubRelease({ version: '0.8.0', sha: 'abc1234', outputs: p.outputs }), 'a short sha throws');
+
+  // The CLI takes its arguments from parseReleaseArgs: an unknown flag exits 2 with the usage before any build.
+  const sandbox = mkdtempSync(join(tmpdir(), 'tegg-release-ac7-'));
+  const bin = join(sandbox, 'bin');
+  mkdirSync(bin);
+  const log = join(sandbox, 'calls.log');
+  for (const tool of ['npx', 'npm', 'cargo', 'gh', 'ditto', 'hdiutil', 'codesign', 'xcrun', 'security', 'apksigner', 'aapt2', 'adb']) {
+    writeFileSync(join(bin, tool), `#!/bin/sh\necho "${tool} $*" >> '${log}'\nexit 1\n`);
+    chmodSync(join(bin, tool), 0o755);
+  }
+  for (const args of [['0.8.0', '--frob'], ['0.8.0', '0.9.0']]) {
+    const r = spawnSync(process.execPath, [join(APP, 'scripts/release.mjs'), ...args], {
+      cwd: APP, encoding: 'utf8', timeout: 30_000,
+      env: { PATH: `${bin}:${dirname(process.execPath)}:/usr/bin:/bin`, HOME: join(sandbox, 'home'), TEGG_ANDROID_SIGNING: file },
+    });
+    assert.equal(r.status, 2, `release ${args.join(' ')} exits 2 (stderr: ${r.stderr})`);
+    assert.ok(!existsSync(log), `release ${args.join(' ')} runs no build step: ${existsSync(log) ? readFileSync(log, 'utf8') : ''}`);
+  }
+});
