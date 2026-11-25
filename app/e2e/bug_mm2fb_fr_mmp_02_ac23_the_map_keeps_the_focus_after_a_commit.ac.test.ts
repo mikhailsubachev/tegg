@@ -1,6 +1,6 @@
 // Regression (L6, Appium mac2 on the built test app), owner feedback on MM2: after editing a node's text on the map
 // and committing it with ⏎, the map lost the focus, so the next ⏎ did nothing (FR-MMP-02 AC-23, R95: the committed
-// node keeps the focus). On a copy of the mindmap fixture: click `Plán 2027`, Space, type, ⏎; after the autosave a
+// node keeps the focus). On a copy of the mindmap fixture: click `Plán 2027`, F2 (Space until slice MM3, D-2605), type, ⏎; after the autosave a
 // second ⏎ must open the `Edit node` field of a new sibling, which only a focused node does; the same after committing
 // that new node. TEGG_TEST=1 with TEGG_NOW, a temporary Application Support and vault (D-62).
 import { after, test } from 'node:test';
@@ -36,9 +36,9 @@ test('bug_mm2fb_fr_mmp_02_ac23_the_map_keeps_the_focus_after_a_commit', { timeou
     await need(d, 'Map of Výjezd 2026', 5000);
     await (await need(d, 'Plán 2027', 5000)).click();
     await sleep(300);
-    // the text field: Space, the text, ⏎ (R95a)
-    press('space');
-    assert.ok(await shown(d, 'Edit node', 3000), 'Space opens the textbox "Edit node"');
+    // the text field: F2, the text, ⏎ (R95a; slice MM3, D-2605: Space folds)
+    press('f2');
+    assert.ok(await shown(d, 'Edit node', 3000), 'F2 opens the textbox "Edit node"');
     typeAscii(' v2');
     press('enter');
     const t1 = await waitFile(join(vault, VYJEZD), (t) => !!t?.includes('>     - Plán 2027 v2\n'), 6000);

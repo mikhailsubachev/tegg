@@ -874,7 +874,25 @@ function newTypeFile(name: string, plural: string, folder?: string): string {
   return `${HEADER}version: 1\nname: ${scalar(name)}\nplural: ${scalar(plural)}\nsystem: false\nfolder: ${scalar(folder || plural)}\nicon: file-text\ncolor: gray\nreview: false\npreview: []\nattributes: []\n`;
 }
 
-const sanitize = (title: string) => nfc(title).replace(/[\\/:*?"<>|#^[\]]/g, ' ').replace(/ {2,}/g, ' ').trim();
+/** Mirrors the real core's `sanitize_file_stem` (crates/tegg-format; D-51, D-52, D-80, FR-FMT-08): forbidden and control
+ *  characters → space, runs of spaces collapsed, spaces and dots trimmed at both ends (D-2659), ≤ 200 UTF-8 bytes,
+ *  `Untitled` when empty, `_` after a Windows reserved name. */
+function sanitize(title: string): string {
+  // eslint-disable-next-line no-control-regex
+  const replaced = nfc(title).replace(/[\\/:*?"<>|#^[\]\p{Cc}]/gu, ' ');
+  const trim = (x: string) => x.replace(/^[ .]+|[ .]+$/g, '');
+  let s = trim(replaced.split(' ').filter((w) => w !== '').join(' '));
+  const enc = new TextEncoder();
+  if (enc.encode(s).length > 200) {
+    let cut = '';
+    for (const ch of s) { if (enc.encode(cut + ch).length > 200) break; cut += ch; }
+    s = trim(cut);
+  }
+  if (s === '') return 'Untitled';
+  const base = (s.split('.')[0] ?? '').trim().toUpperCase();
+  if (['CON', 'PRN', 'AUX', 'NUL'].includes(base) || (base.length === 4 && /^(COM|LPT)[1-9]$/.test(base))) s += '_';
+  return s;
+}
 function unique(files: Files, dir: string, stem: string, ext: string): string {
   let p = `${dir ? `${dir}/` : ''}${stem}${ext}`;
   const taken = (x: string) => Object.keys(files).some((f) => f.toLowerCase() === x.toLowerCase());

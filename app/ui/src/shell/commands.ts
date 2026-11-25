@@ -1,6 +1,8 @@
 // The command registry (FR-UX-03, docs/contracts/ms3-shell.md §3.3, §10). Every action of the frame is a command;
 // controls reference theirs with `data-command`, and one key handler runs them by shortcut.
+import { runMapCommand } from '../mindmap/active';
 import { ANDROID_HIDDEN_COMMANDS } from '../ipc/android';
+import { newObjectDialog } from '../edit/newObjectCommands';
 import { isAndroid } from '../platform';
 import { phoneCommands } from '../phone/commands';
 import { isPhone } from '../phone/layout';
@@ -574,6 +576,11 @@ export function commands(ctx: ShellContext): Command[] {
     list.push({ id, title, section: 'edit', shortcut: shortcutOf(id), needsVault: true, run: (c) => a(c)?.edit?.(action),
       ...(convert && onNote ? { disabled: () => a(ctx)?.convertBlocked?.() ?? null } : {}) });
   }
+  // Slice MM3 (R233, D-2623): the map's fold control and `+` as commands, on the focused node of the focused map.
+  list.push(
+    { id: 'mindmap.toggleFold', title: 'cmd.mindmap.toggleFold', section: 'edit', needsVault: true, run: () => runMapCommand('toggleFold') },
+    { id: 'mindmap.addChild', title: 'cmd.mindmap.addChild', section: 'edit', needsVault: true, run: () => runMapCommand('addChild') },
+  );
   // Slice P (previews.md R106, D-928): ⌥Space acts only at a reference or a chip; the mode on every route with a vault.
   list.push(
     { id: 'preview.show', title: 'cmd.preview.show', section: 'navigate', shortcut: shortcutOf('preview.show'), needsVault: true, run: (c) => a(c)?.showPreview?.() },
@@ -583,6 +590,13 @@ export function commands(ctx: ShellContext): Command[] {
     { id: 'link.edit', title: 'cmd.link.edit', section: 'edit', shortcut: '⇧⌘K', needsVault: true, run: (c) => a(c)?.editLink?.() }, // ⇧⌘K at a chip (R4's edit.link)
     { id: 'link.remove', title: 'linkField.remove', section: 'edit', needsVault: true, run: (c) => a(c)?.removeLink?.() },
   );
+  // new-object-menu.md R238 (D-2634): the `New <type>` dialog's buttons, only while it is open; no shortcut.
+  if (newObjectDialog()) {
+    list.push(
+      { id: 'newObject.create', title: 'newObject.create', section: 'edit', needsVault: true, run: () => newObjectDialog()?.create() },
+      { id: 'newObject.cancel', title: 'newObject.cancel', section: 'edit', needsVault: true, run: () => newObjectDialog()?.cancel() },
+    );
+  }
   for (const ctl of DISABLED_CONTROLS) {
     const id = CONTROL_COMMANDS[ctl.label];
     list.push({ id, title: ctl.label, section: 'app', shortcut: shortcutOf(id), due: ctl.due, needsVault: true, run: () => {} });

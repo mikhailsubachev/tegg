@@ -24,7 +24,7 @@ const scrollTop = (page: Page) => page.evaluate(() => document.querySelector('ma
 
 test('bug_61_fr_cnv_03_a_late_conversion_keeps_the_caret_and_the_scroll', async ({ page }) => {
   const core = await openConvert(page, C.bloky);
-  const hold = await holdEmbedTarget(page, 'Závěrečný odstavec.');
+  const hold = await holdEmbedTarget(page, 'Závěrečný odstavec');
   await popoverAt(page, 'Závěrečný odstavec.', 'Meta+Shift+o');
   await confirm(page, { type: 'Quick Note' });
   assert.equal((await eventually(() => newPaths(core), (p) => p.length === 1, 5000)).length, 1, 'the Quick Note is created');
@@ -32,8 +32,8 @@ test('bug_61_fr_cnv_03_a_late_conversion_keeps_the_caret_and_the_scroll', async 
   await caretAfter(page, 'Úvodní odstavec.');
   const before = await scrollTop(page);
   await hold.release();
-  const src = await eventually(() => fileText(core, C.bloky), (t) => !!t?.includes('Závěrečný odstavec.]]'), 5000);
-  assert.ok(src?.includes('Závěrečný odstavec.]]'), 'the embed replaces the converted paragraph');
+  const src = await eventually(() => fileText(core, C.bloky), (t) => !!t?.includes('Závěrečný odstavec]]'), 5000);
+  assert.ok(src?.includes('Závěrečný odstavec]]'), 'the embed replaces the converted paragraph');
   assert.ok(Math.abs((await scrollTop(page)) - before) <= 2, `the note doesn't scroll to the embed (${before} → ${await scrollTop(page)})`);
   await page.keyboard.type('X');
   const after = await eventually(() => fileText(core, C.bloky), (t) => !!t?.includes('Úvodní odstavec.X'), 5000);
@@ -42,7 +42,7 @@ test('bug_61_fr_cnv_03_a_late_conversion_keeps_the_caret_and_the_scroll', async 
 
 test('bug_61_fr_cnv_06_a_conversion_whose_blocks_changed_discards_its_file', async ({ page }) => {
   const core = await openConvert(page, C.bloky);
-  const hold = await holdEmbedTarget(page, 'Závěrečný odstavec.');
+  const hold = await holdEmbedTarget(page, 'Závěrečný odstavec');
   await popoverAt(page, 'Závěrečný odstavec.', 'Meta+Shift+o');
   await confirm(page, { type: 'Quick Note' });
   assert.equal((await eventually(() => newPaths(core), (p) => p.length === 1, 5000)).length, 1, 'the Quick Note is created');
@@ -53,7 +53,7 @@ test('bug_61_fr_cnv_06_a_conversion_whose_blocks_changed_discards_its_file', asy
   assert.ok((await eventually(() => alertWith(page, 'Couldn’t create').count(), (n) => n > 0, 5000)) > 0, 'the convert.failed alert');
   assert.deepEqual(await eventually(() => newPaths(core), (p) => p.length === 0, 5000), [], 'the new file is discarded');
   const src = await eventually(() => fileText(core, C.bloky), (t) => !!t?.includes('Závěrečný odstavec. Y'), 5000);
-  assert.ok(src?.includes('Závěrečný odstavec. Y') && !src.includes('Závěrečný odstavec.]]'), 'the edited paragraph stays, no embed');
+  assert.ok(src?.includes('Závěrečný odstavec. Y') && !src.includes('Závěrečný odstavec]]'), 'the edited paragraph stays, no embed');
 });
 
 test('bug_61_fr_emb_02_keeping_the_scroll_while_an_embed_loads_yields_to_a_caret_move', async ({ page }) => {
@@ -77,7 +77,7 @@ test('bug_61_fr_emb_02_keeping_the_scroll_while_an_embed_loads_yields_to_a_caret
   });
   await popoverAt(page, 'Závěrečný odstavec.', 'Meta+Shift+o');
   await confirm(page, { type: 'Quick Note' });
-  await eventually(() => fileText(core, C.bloky), (t) => !!t?.includes('Závěrečný odstavec.]]'), 5000);
+  await eventually(() => fileText(core, C.bloky), (t) => !!t?.includes('Závěrečný odstavec]]'), 5000);
   await page.evaluate(() => { const w = window as any; w.__slowRaf = true; w.__release(); });
   const atEmbed = await scrollTop(page);
   await page.waitForFunction(() => (window as any).__loaded); // the embed loaded; the scroll correction waits for its (slow) frames
@@ -93,7 +93,7 @@ test('bug_61_fr_emb_02_keeping_the_scroll_while_an_embed_loads_yields_to_a_caret
 test('bug_61_fr_cnv_06_a_refused_conversion_trashes_a_file_changed_since_it_was_created', async ({ page }) => {
   // D-689, FR-CNV-06 AC-3: the new file is never deleted once it differs from what the conversion created.
   const core = await openConvert(page, C.bloky);
-  const hold = await holdEmbedTarget(page, 'Závěrečný odstavec.');
+  const hold = await holdEmbedTarget(page, 'Závěrečný odstavec');
   await popoverAt(page, 'Závěrečný odstavec.', 'Meta+Shift+o');
   await confirm(page, { type: 'Quick Note' });
   const [made] = await eventually(() => newPaths(core), (p) => p.length === 1, 5000);

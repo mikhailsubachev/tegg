@@ -10,6 +10,9 @@ export function linkText(c: LinkChoice): string {
   const stem = path.slice(path.lastIndexOf('/') + 1)
   const target = c.stemResolves ? stem : path
   const shown = (c.viaAlias ?? c.title).normalize('NFC')
+  // D-2633: a title holding `|`, `[[` or `]]` can't be an alias (it would end or break the wikilink); the chip shows
+  // the object's title anyway.
+  if (/\||\[\[|\]\]/.test(shown)) return target
   return shown && shown !== target ? `${target}|${shown}` : target
 }
 

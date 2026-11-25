@@ -228,3 +228,74 @@ Drag, collapse, zoom, pan, node → object, export, full screen, autocomplete on
 - **R96 golden values corrected:** `Delta` is 5 characters (55 px), so the left depth-1 column of Pavouk is 55 px wide (the criteria's first numbers held an arithmetic slip; the layout code follows R92 unchanged).
 - **`EditorOptions.editable`** is passed to ProseMirror as given; the stubs' `initialFocus` / `initialEditing` idea was dropped for the adoption above.
 - **After the QA review of PR #76:** `adopt(dom)` returns false for a map that is still live or whose root is already unmounted (then a new map is mounted), and a destroyed view drops its registry entry in a microtask, so a block re-created in a later task never adopts a dead map (regression test `bug_mm2_fr_mmp_02_unwrap_then_undo_draws_the_map_again_without_errors`). `remove()` returns `[]` for the synthesized root (the first top-level item had no previous sibling); `toItem([])` and the map treat it as the root. `source()` returns the paragraph re-serialized by the one text engine (`**bold**` for `__bold__`), not the file's bytes; an unchanged commit still writes nothing (content equality). `leafText` also reaches the mindmap header title and ProseMirror's plain-text clipboard, which now carry a link's label. The undo-focus bookkeeping assumes the undone step is the map's last edit; a List-view edit in between desyncs the focus only, never the bytes.
+
+---
+
+## 7. Slice MM3: navigation, folds, the mouse `+` and drag and drop (D-2600…D-2608, D-2612…D-2624)
+
+- **Status:** draft, 2026-11-25. Written by the red-test author before the slice MM3 red tests (D-61), from `docs/acceptance/mindmap.md` part three (R229…R233). The points marked *RT-n* are the red-test author's proposals, listed in the red-test report for the owner.
+- **Writes.** Still only the editor's save path (D-82). A drop is one editor transaction on the block's list (the bytes of the ⌥ moves, D-766). Folds are never written, never undo steps, never in `ui-state.json` (D-2601).
+
+Until a part is implemented it exists as a stub that compiles and returns a deliberately wrong result (no `fold` / `plus` on the layout nodes, `null` from the navigation and the drop, an empty fold list), so a test fails on its assertion, not on an import.
+
+### 7.1 Layout with folds (`app/ui/src/mindmap/layout.ts`)
+
+```ts
+export type MindFold = { x: number; y: number; folded: boolean; hidden: number }   // the fold control's centre (R230), map coordinates;
+                                                                                  // hidden = the node's descendants, all depths
+export type MindLayoutNode = { …; fold?: MindFold; plus: { x: number; y: number } } // fold: only on nodes with children (in the tree);
+                                                                                  // plus: the `+` centre (the outer edge, vertical centre)
+export function layoutMindmap(tree: MindmapTree, measure: Measure,
+  opts?: { chipExtra?: ChipExtra; layout?: 'right' | 'spider'; folded?: ReadonlySet<string> }): MindLayout
+```
+
+- `folded` holds layout node ids (`'0'`, `'0.1'`, `'root'` for a synthesized root). A folded node is laid out as a leaf (R92 / R96); its descendants are absent from `nodes` and `connectors`. The layout's width is at least the rightmost fold control's centre + 8 (AP-2117). Unknown ids are ignored; without `folded` the layout equals slice MM2's plus the two new fields.
+- `fold` sits on the node's elbow point (Shared definitions of part three; the spider root: the right elbow, AP-2114); `plus` on the outer edge (the spider root: its right edge, AP-2118).
+
+### 7.2 Navigation (`app/ui/src/mindmap/nav.ts`, new; RT-1)
+
+```ts
+export type MindNavKey = 'ArrowUp' | 'ArrowDown' | 'ArrowLeft' | 'ArrowRight' | 'Home' | 'End'
+export function navigateMindmap(layout: MindLayout, from: string, key: MindNavKey): { focus: string } | { unfold: string } | null
+```
+
+Pure, on the laid-out (visible) nodes of 7.1: R229's rows for ↑ ↓ (siblings, then the nearest visible node of the same depth in outline order, D-2612; nothing on a root), Home / End, ← → (R95, by `side` in `spider`); on a folded node, the key towards its children returns `{ unfold: id }` (D-2605, D-2614, D-2615). `null`: nothing happens. The map uses it for its keys.
+
+### 7.3 Fold state of an open note (`@tegg/editor`; RT-2)
+
+`MindmapCtl` gains
+
+```ts
+folds: {
+  folded(): (number[] | null)[]                    // the folded items' paths in outline order (null: the synthesized root)
+  toggle(path: number[] | null): boolean           // folds / unfolds an item with children; false for a leaf or a missing path
+  set(path: number[] | null, folded: boolean): boolean
+}
+```
+
+The editor keeps the set in plugin state, mapped through every transaction, so a fold follows its list item through ⌥ moves, drops, undo and redo (D-2616); it is never part of the document, the saved bytes or the history; it is cleared for a block that is reloaded from an external change, and it ends with the editor (reopening, another vault, a relaunch). Switching the block to List and back clears it (D-2601). The read view has no editor: its map keeps its own fold set while the note is shown.
+
+### 7.4 The drop (`@tegg/editor`; RT-3)
+
+`MindmapEdit` gains
+
+```ts
+moveMindmapItem(from: number[], target: number[] | null, zone: 'before' | 'after' | 'child'): number[] | null
+```
+
+- `child`: the item becomes `target`'s last child (`target === null`: the synthesized root, the last top-level item); `before` / `after`: `target`'s previous / next sibling. One transaction (one undo step), D-766's rewrite of the block, the same bytes as the ⌥ moves that give the same tree (W23 = W19, W24 = W20, W25 = W21). Returns the moved item's new path.
+- Returns `from` without a transaction when the list would not change (AC-49), and `null` without a transaction when the move is impossible: `from` is the root item or missing, `target` is `from` or inside its subtree or missing, `before` / `after` on the root item or on `null`.
+- A dropped folded item stays folded (7.3); the app unfolds a folded `target` on a `child` drop.
+
+### 7.5 App UI
+
+- **DOM** (L5): inside each `treeitem` with children a `button` with `data-fold-control`, the name of R230 (`Collapse <node>`, `Expand <node>, <n> hidden`), `tabindex="-1"`, `data-command="mindmap.toggleFold"`; the visible `+<n>` text while folded. On an editable map, inside each `treeitem` a `button` with `data-add-child`, name `Add child to <node>`, `tabindex="-1"`, `data-command="mindmap.addChild"`, `visibility: hidden` unless its node is hovered or focused (absent or hidden while editing). The `treeitem`'s own accessible name stays the node text (the buttons don't add to it, e.g. through `aria-labelledby` on the text). `aria-expanded` on `treeitem`s with children.
+- **Drag** (DOM data, the "drag-state hook" of the criteria): while a drag runs the figure has `data-dragging="<node id>"`, the dragged node's place has `data-drag-origin` (the dashed `muted` outline), the copy following the pointer has `data-drag-ghost` (`aria-hidden`), and the indicator is one element `[data-drop-indicator]` with the value `before` / `after` / `child` and `data-drop-target="<node id>"` (absent when there is no valid zone). Nothing of it is left after the drop or cancel.
+- **Commands (R4, section `edit`, `needsVault: true`, no shortcut):** `mindmap.toggleFold` (`cmd.mindmap.toggleFold`), `mindmap.addChild` (`cmd.mindmap.addChild`); both act on the focused node of the mindmap holding the focus and do nothing elsewhere (no error).
+- **Catalog keys (R233):** `mindmap.collapseNode` `Collapse {node}` · `mindmap.expandNode` `Expand {node}, {count} hidden` (a plural message: `one` / `few` / `many` / `other`, D-133) · `mindmap.hiddenCount` `+{count}` · `mindmap.addChild` `Add child to {node}` · `cmd.mindmap.toggleFold` `Fold or unfold mindmap node` · `cmd.mindmap.addChild` `Add child to mindmap node`.
+- **Perf mark** `mindmap-drag` (with `TEGG_PERF_LOG` and in L5 through `perf_mark`): one per painted indicator move, `{ ms }` = pointer event to paint; `mindmap-layout` as §4 also for fold re-layouts.
+- **Test hooks:** `__TEGG_MINDMAP_LAYOUTS__` as §4; no new hook.
+
+### 7.6 Not in this slice
+
+Zoom, pan, auto-scroll while dragging (D-2621), drops between blocks or out of a map, folds on the phone (D-2622), folds remembered across visits (D-2601), node → object, export.

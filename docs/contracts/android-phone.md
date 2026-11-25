@@ -521,7 +521,8 @@ View-only task checkboxes (`aria-disabled`, on boards, table rows, task embeds) 
 `capture.*`, `import.open`, `inbox.*` except `inbox.open`, `duplicates.merge`, `vault.open`, `vault.addStarterTypes`,
 `app.about`, and every R3 control command (`nav.newTab`, `edit.copyBlockLink`, `typeSettings.*`,
 `panel.editRecurrence`, `settings.font`, `settings.fontSize`, `settings.accentColor`, `settings.changeShortcut`, `card.edit`
-(slice OC's command that opens type settings, D-2480).
+(slice OC's command that opens type settings, D-2480), and slice MM3's `mindmap.toggleFold`, `mindmap.addChild` (no folds
+on the phone, D-2622, D-2655).
 
 The AR-03 AC-13 L1 test: for a context on each RA9 route (Node, `__TEGG_PLATFORM__ = 'android'`), the ids contain every
 frame command available there, none of `PHONE_HIDDEN_COMMANDS`, and none whose `run` reaches an `ANDROID_EXCLUDED`

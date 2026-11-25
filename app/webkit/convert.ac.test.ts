@@ -104,38 +104,8 @@ test('fr_cnv_01_ac2_slash_turn_opens_r50_and_esc_removes_the_typed_text', async 
   assert.deepEqual(await writeLog(core), [], 'nothing written');
 });
 
-test('fr_cnv_01_ac2_slash_task_preselects_task_for_a_paragraph_with_text', async ({ page }) => {
-  await openConvert(page, C.bloky, { convert: { lastType: 'page', skipRemoveConfirm: false } });
-  await caretAfter(page, 'Úvodní odstavec.');
-  await page.keyboard.type(SLASH_AFTER('/task'));
-  const menu = await must(slashMenu(page), 'listbox "Insert block" for /task');
-  await must(menu.getByRole('option', { name: 'Task', exact: true }), 'option "Task"');
-  await page.keyboard.press('Enter');
-  await needPopover(page, '/task ⏎');
-  assert.equal(await checkedType(page), 'Task', '/task preselects Task (the last type was Page)');
-  assert.equal((await titleState(page)).value, 'Úvodní odstavec.', 'the paragraph\'s text is the title');
-  await page.keyboard.press('Escape');
-  assert.ok(await absent(popover(page), 1000), 'Esc closes R50');
-  assert.ok(sameOrSpace(await hostText(page), B0, 'Úvodní odstavec.'), '/task removed on close');
-});
-
-test('fr_cnv_01_ac2_slash_task_in_an_empty_paragraph_creates_an_empty_task', async ({ page }) => {
-  const core = await openConvert(page, C.bloky);
-  await caretAfter(page, 'Úvodní odstavec.');
-  await (await must(addBelow(page), 'button "Add block below"')).click();
-  await sleep(100);
-  await page.keyboard.type('/task');
-  await must(slashMenu(page).getByRole('option', { name: 'Task', exact: true }), 'option "Task"');
-  await page.keyboard.press('Enter');
-  await needPopover(page, '/task in an empty paragraph');
-  assert.equal((await titleState(page)).value, '', 'an empty title');
-  assert.equal(await checkedType(page), 'Task', 'Task preselected');
-  await confirm(page, { title: 'Prázdný úkol' });
-  const t = await needFile(core, 'Tasks/Prázdný úkol.md');
-  assert.equal(maskId(t), taskBytes('Prázdný úkol', { source: '"[[Bloky]]"' }), 'a new empty Task with that title and source');
-  const b = await saved(page, core, C.bloky, (x) => x !== B0);
-  assert.equal(b, touched(swap(B0, 'Úvodní odstavec.\n\n', 'Úvodní odstavec.\n\n![[Prázdný úkol]]\n\n')), 'its embed where the empty paragraph was');
-});
+// new-object-menu.md (D-2609, D-2611): `/task` lists `New Task` and opens the `New Task` dialog, never R50; the two
+// `/task` conversion tests are replaced by `fr_cnv_01_ac9_…` (new_object_create.ac.test.ts) and FR-EDT-03 AC-14 (N2).
 
 // ------------------------------------------------------------------------------------------------ FR-CNV-01 AC-3
 

@@ -54,12 +54,11 @@ test('fr_cnv_01_ac2_r6_task_and_turn_into_object_are_built', async () => {
   const items = reg.SLASH_ITEMS as Item[];
   const find = (l: string) => items.find((i) => label(cat, i.label) === l);
   const built = (i: Item) => (i.status ? i.status.built : !i.due);
-  const task = find('Task');
+  // D-2660: no `Task` slash row any more (D-2611: `/task` lists `New Task`); `Turn into object…` stays built.
+  assert.equal(find('Task'), undefined, 'no slash row named Task (D-2611)');
   const turn = find('Turn into object…');
-  assert.ok(task && turn, 'R6 rows Task and Turn into object…');
-  assert.equal(built(task!), true, 'Task is built (R53)');
+  assert.ok(turn, 'R6 row Turn into object…');
   assert.equal(built(turn!), true, 'Turn into object… is built (R53)');
-  assert.deepEqual(expandReqs(task!.reqs), expandReqs('FR-TSK-01, FR-CNV-01'), 'Task: requirements');
   assert.deepEqual(expandReqs(turn!.reqs), expandReqs('FR-CNV-01'), 'Turn into object…: requirements');
   const ms5 = (reg.overdue('MS5') as string[]).join('\n');
   assert.ok(!ms5.includes('Turn into object') && !/\bTask\b/.test(ms5), `overdue('MS5') lists neither:\n${ms5}`);

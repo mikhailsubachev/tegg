@@ -211,7 +211,13 @@ export const en: Catalog = {
   'slash.group.blocks': 'Blocks',
   'slash.group.media': 'Media',
   'slash.group.advanced': 'Advanced',
-  'slash.task': 'Task',
+  // new-object-menu.md R238 (D-2609…D-2611): the computed New object group.
+  'slash.group.newObject': 'New object',
+  'slash.newObject': 'New {type}',
+  // R234 (D-2628): the heading rows' icons.
+  'slash.heading1.icon': 'H1',
+  'slash.heading2.icon': 'H2',
+  'slash.heading3.icon': 'H3',
   'slash.turnIntoObject': 'Turn into object…',
   'slash.embedObject': 'Embed object',
   'slash.text': 'Text',
@@ -253,6 +259,13 @@ export const en: Catalog = {
   'mindmap.editNode': 'Edit node',
   'cmd.mindmap.layoutRight': 'Mindmap layout: right',
   'cmd.mindmap.layoutSpider': 'Mindmap layout: spider',
+  // Slice MM3 (R233, mm-mindmap §7.5; D-2606, D-2607, D-2623).
+  'mindmap.collapseNode': 'Collapse {node}',
+  'mindmap.expandNode': { one: 'Expand {node}, {count} hidden', other: 'Expand {node}, {count} hidden' },
+  'mindmap.hiddenCount': '+{count}',
+  'mindmap.addChild': 'Add child to {node}',
+  'cmd.mindmap.toggleFold': 'Fold or unfold mindmap node',
+  'cmd.mindmap.addChild': 'Add child to mindmap node',
   'due.coming': 'Coming in {milestone}',
   'toolbar.label': 'Formatting',
   'toolbar.bold': 'Bold',
@@ -520,6 +533,8 @@ export const en: Catalog = {
   'phone.properties': 'Properties',
   'phone.moreProperties': { one: '+{count} property', other: '+{count} properties' },
   'phone.close': 'Close',
+  // The close button of alerts and notices (D-2667).
+  'dialog.close': 'Close',
   'phone.showSource': 'Show Markdown source',
   'phone.showFormatted': 'Show formatted note',
   'phone.noNote': 'No note named “{name}” in this vault yet.',
@@ -572,11 +587,17 @@ export const en: Catalog = {
   'error.notEmpty': 'The folder “{name}” already exists and isn’t empty.',
 
   // New object dialog (D-131).
-  'newObject.title': 'New object',
   'newObject.field': 'Title',
   'newObject.placeholder': 'Untitled',
   'newObject.type': 'Type',
+  // The `New <type>` dialog of the slash menu (new-object-menu.md R236, R238; D-2609, D-2630, D-2632).
+  'newObject.dialog': 'New {type}',
+  'newObject.title': 'Title',
+  'newObject.hint': 'Creates {path} and links it here.',
   'newObject.create': 'Create',
+  'newObject.cancel': 'Cancel',
+  'newObject.needTitle': 'Add a title',
+  'newObject.failed': 'Couldn’t create "{title}". Nothing was changed.',
 
   // Core error kinds (NFR-OTH-02 AC-2): the core's own message text is never shown.
   'error.conflict': 'The file changed on disk. Nothing was overwritten.',

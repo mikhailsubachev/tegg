@@ -27,11 +27,10 @@ beforeEach(async () => {
 });
 
 const d = (milestone: string): Due => ({ milestone });
-/** R6 of editor.md: group, catalog label, milestone (null = built), requirement IDs. */
+/** R6 of editor.md as reordered by new-object-menu.md R234 (D-2611): group, catalog label, milestone (null = built),
+ *  requirement IDs. Blocks first with `Mindmap` after `Checklist`, no `Task` row, Advanced `Query` then `Block embed`;
+ *  the computed New object rows are not registry rows. */
 export const R6: [string, string, Due | null, string][] = [
-  ['objects', 'Task', null, 'FR-TSK-01, FR-CNV-01'], // built in 5A-2 (R53, D-499)
-  ['objects', 'Turn into object…', null, 'FR-CNV-01'],
-  ['objects', 'Embed object', null, 'FR-EMB-01'], // built in 4F (R32, D-431)
   ['blocks', 'Text', null, 'FR-EDT-02'],
   ['blocks', 'Heading 1', null, 'FR-EDT-02'],
   ['blocks', 'Heading 2', null, 'FR-EDT-02'],
@@ -39,16 +38,18 @@ export const R6: [string, string, Due | null, string][] = [
   ['blocks', 'Bulleted list', null, 'FR-EDT-02'],
   ['blocks', 'Numbered list', null, 'FR-EDT-02'],
   ['blocks', 'Checklist', null, 'FR-EDT-02, FR-TSK-11'],
+  ['blocks', 'Mindmap', null, 'FR-MMP-01'], // built in slice MM (R94, D-685); moved into Blocks (D-2611)
   ['blocks', 'Quote', null, 'FR-EDT-02'],
   ['blocks', 'Callout', null, 'FR-EDT-02'],
   ['blocks', 'Code block', null, 'FR-EDT-02'],
   ['blocks', 'Divider', null, 'FR-EDT-02'],
   ['blocks', 'Table', null, 'FR-EDT-02'],
+  ['objects', 'Turn into object…', null, 'FR-CNV-01'],
+  ['objects', 'Embed object', null, 'FR-EMB-01'], // built in 4F (R32, D-431)
   ['media', 'Image', null, 'FR-ATT-01, FR-ATT-03'], // built in 6A (trash-media.md R75)
   ['media', 'PDF', null, 'FR-ATT-02'], // built in 6A (R75)
-  ['advanced', 'Block embed', d('v1.0'), 'FR-EMB-01, FR-LNK-06'], // D-426, D-431
   ['advanced', 'Query', null, 'FR-QRY-06, FR-FMT-06'], // built in slice Q (queries.md: editor R6 `Advanced › Query`, D-1447)
-  ['advanced', 'Mindmap', null, 'FR-MMP-01'], // built in slice MM (R94, D-685)
+  ['advanced', 'Block embed', d('v1.0'), 'FR-EMB-01, FR-LNK-06'], // D-426, D-431
 ];
 
 /** R8: shortcut (⌃⌥⇧⌘ order), command title prefix (null: title not fixed by the AC, see the report). */
@@ -63,7 +64,8 @@ test('fr_edt_03_ac5_slash_registry_matches_r6_and_is_overdue_checked', async () 
   type Item = { id: string; group: string; label: string; status?: { built: boolean; due?: Due }; due?: Due; reqs: string[] | string };
   const items = reg.SLASH_ITEMS as Item[] | undefined;
   assert.ok(Array.isArray(items), 'registry.ts exports SLASH_ITEMS (ms3-shell §13.4)');
-  assert.deepEqual(items!.map((i) => i.group), R6.map((r) => r[0]), 'groups in R6 order');
+  assert.equal(items!.length, 19, 'R234 has 19 static rows (no `Task`; the New object rows are computed, never registry rows)');
+  assert.deepEqual(items!.map((i) => i.group), R6.map((r) => r[0]), 'groups in R234 order, Blocks first');
   assert.deepEqual(items!.map((i) => (i.label in cat.en ? cat.t(i.label) : i.label)), R6.map((r) => r[1]), 'labels in R6 order (catalog)');
   for (const [k, row] of R6.entries()) {
     const item: Item = items![k];

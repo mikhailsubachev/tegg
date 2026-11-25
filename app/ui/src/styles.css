@@ -1146,6 +1146,17 @@ button.tag-tile { cursor: pointer; }
 
 .slash-two-lines { display: flex; flex-direction: column; gap: 2px; }
 .slash-desc { font-size: 12px; color: var(--muted); }
+/* new-object-menu.md R234 (D-2611, D-2627, D-2628): a fixed 420 px menu that scrolls inside, group headers while
+   filtering, `H1`…`H3` and type icons, the shortcut at a row's end; R236: the `New <type>` dialog. Tokens only. */
+.slash-menu.popover { max-height: none; overflow: visible; padding: 0; }
+.slash-menu .slash-list { box-sizing: border-box; max-height: 420px; overflow-y: auto; overscroll-behavior: contain; padding: 4px; }
+.slash-menu .slash-icon { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; color: var(--muted); }
+.slash-menu .slash-heading-icon { order: -1; font-size: 11px; font-weight: 700; letter-spacing: 0.02em; }
+.slash-menu .slash-kbd { margin-left: auto; color: var(--muted); font-size: 12px; }
+.slash-menu .due-wrap { margin-left: auto; }
+.slash-menu .option.selected .slash-icon, .slash-menu .option.selected .slash-kbd { color: var(--text); }
+.new-object-dialog { width: 320px; max-width: 360px; max-height: none; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.new-object-hint { margin: 0; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
 /* Slice MM2 (docs/acceptance/mindmap.md R95a, R97; D-787, D-788, D-792): the layout switch, the node text field and the
    pending node. */
 .mindmap-layout { display: flex; gap: 2px; padding: 2px; border-radius: 7px; background: var(--hover); }
@@ -1155,6 +1166,25 @@ button.tag-tile { cursor: pointer; }
 .mindmap-node .mindmap-field { display: block; box-sizing: border-box; width: 100%; min-width: 48px; margin: 0; padding: 0; border: 0; border-radius: 4px; background: inherit; color: inherit; font: inherit; line-height: 18px; outline: 2px solid var(--accent) !important; outline-offset: 2px; }
 .mindmap-node.pending { padding: 6px 9px; border: 1px dashed var(--border); background: var(--bg); color: var(--text); font-weight: 400; }
 .mindmap-node.pending .mindmap-field { background: var(--bg); color: var(--text); }
+/* Slice MM3 (R230, R231; boards MindmapLayouts E, F and MindmapLayoutsDark): the fold control on the elbow point and
+   the `+` on the outer edge (16 px circles, inside the treeitem, placed from its border box), the drag's old place,
+   copy and drop indicators. */
+/* A focused node scrolls clear of the sticky note toolbar (its fold control and `+` stay under the pointer). */
+.mindmap-node { --mm-bw: 0px; scroll-margin-top: 56px; }
+.mindmap-node.tone-plain, .mindmap-node.pending { --mm-bw: 1px; }
+.mindmap-fold-control, .mindmap-add-child { position: absolute; z-index: 2; box-sizing: border-box; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 8px; transform: translate(-50%, -50%); display: inline-flex; align-items: center; justify-content: center; font-family: inherit; font-size: 10px; font-weight: 700; line-height: 14px; white-space: nowrap; cursor: pointer; }
+.mindmap-fold-control { background: var(--bg); color: var(--text); border: 1px solid var(--muted); visibility: hidden; }
+.mindmap-fold-control.folded { visibility: visible; }
+.mindmap-add-child { width: 16px; padding: 0; background: var(--accent); color: var(--bg); border: 0; visibility: hidden; }
+.mindmap-node:hover > .mindmap-fold-control, .mindmap-node:focus > .mindmap-fold-control,
+.mindmap-node:hover > .mindmap-add-child, .mindmap-node:focus > .mindmap-add-child { visibility: visible; }
+.mindmap-canvas.dragging .mindmap-fold-control:not(.folded) { visibility: hidden; }
+.mindmap-node.drag-source { opacity: .35; }
+.mindmap-drag-origin { position: absolute; box-sizing: border-box; border: 1.5px dashed var(--muted); border-radius: 8px; pointer-events: none; }
+.mindmap-drag-ghost { z-index: 3; pointer-events: none; opacity: .85; box-shadow: 0 8px 24px color-mix(in srgb, var(--text) 18%, transparent); }
+.mindmap-drop-line { position: absolute; z-index: 3; border-radius: 1px; background: var(--accent); pointer-events: none; }
+.mindmap-drop-line::before { content: ''; position: absolute; left: -6px; top: -4px; width: 10px; height: 10px; box-sizing: border-box; border-radius: 5px; border: 2px solid var(--accent); background: var(--bg); }
+.mindmap-drop-ring { position: absolute; z-index: 3; box-sizing: border-box; border: 2px solid var(--accent); border-radius: 10px; pointer-events: none; }
 
 /* 4E-1: the Change type? mapping dialog (board TypeJobs A). */
 .change-type-dialog fieldset { border: 1px solid var(--border); border-radius: 8px; margin: 12px 0; padding: 8px 12px; }

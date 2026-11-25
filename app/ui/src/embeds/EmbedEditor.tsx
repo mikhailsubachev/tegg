@@ -20,6 +20,7 @@ import { mountEmbed } from './slot';
 import type { EmbedStore } from './store';
 import type { EmbedNode } from './tree';
 import { editorChips } from '../preview/editorChips';
+import { NestedNewObject } from '../edit/NestedNewObject';
 import { openDate } from '../daily/open';
 import { requestOffer } from '../links/offer';
 
@@ -43,6 +44,8 @@ export function EmbedEditor({ node, store, getPos, title, gone = false, taskCard
   const [merge, setMerge] = useState<Merge | null>(null);
   const [deleted, setDeleted] = useState(false);
   const path = node.note!.path;
+  /** new-object-menu.md (D-2626, D-2631): the `+` menu or its dialog is open; the saver waits. */
+  const newObjectOpen = useRef(false);
 
   useLayoutEffect(() => {
     if (!host.current || !node.note?.text) return;
@@ -146,7 +149,7 @@ export function EmbedEditor({ node, store, getPos, title, gone = false, taskCard
         disk.current = text;
         store.wrote(reg.id, note.path, text, v);
       },
-    });
+    }, () => newObjectOpen.current);
     saverRef.current = s;
     const reg = store.register({
       path: note.path,
@@ -298,6 +301,7 @@ export function EmbedEditor({ node, store, getPos, title, gone = false, taskCard
   return (
     <>
       <div ref={host} className="embed-editor" />
+      <NestedNewObject editor={() => edRef.current} path={path} open={newObjectOpen} />
       {save.state === 'failed' && save.failure === 'io' && (
         <div role="alert" className="save-alert">
           <span>{t('embed.saveFailed', { title })}</span>

@@ -226,9 +226,9 @@
       "y": 3540
     },
     "MindmapLayouts.dc.html": {
-      "h": 1700,
+      "h": 2920,
       "page": "page-mindmap",
-      "title": "Mindmap · layouts (right, spider) and map editing",
+      "title": "Mindmap · layouts, editing, fold, add and drag (MM2, MM3)",
       "w": 1680,
       "x": 0,
       "y": 0
@@ -705,6 +705,21 @@
       "y": 7600,
       "page": "page-android",
       "title": "Android · more phone screens (dark)"
+    },
+    "ObjectMenu.dc.html": {
+      "x": 4800,
+      "y": 0,
+      "w": 1680,
+      "h": 2960,
+      "title": "Editor · new objects from / and + (D-2490, D-2491)"
+    },
+    "MindmapLayoutsDark.dc.html": {
+      "h": 2920,
+      "w": 1680,
+      "x": 1760,
+      "y": 0,
+      "page": "page-mindmap",
+      "title": "Mindmap · layouts, editing, fold, add and drag (dark)"
     }
   },
   "createdOnFiles": {
@@ -749,6 +764,7 @@
     "MainDark.dc.html",
     "LogoDots.dc.html",
     "MindmapLayouts.dc.html",
+    "MindmapLayoutsDark.dc.html",
     "LayoutNormalPanel.dc.html",
     "LayoutNormal.dc.html",
     "LayoutWidePanel.dc.html",
@@ -797,7 +813,8 @@
     "Mobile.dc.html",
     "MobileDark.dc.html",
     "Mobile2.dc.html",
-    "Mobile2Dark.dc.html"
+    "Mobile2Dark.dc.html",
+    "ObjectMenu.dc.html"
   ],
   "pages": [
     {

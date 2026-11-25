@@ -138,9 +138,14 @@ test('fr_mmp_02_ac28_spider_navigation_on_pavouk', async ({ page }) => {
   const got: string[] = [];
   for (const [k] of steps) { await page.keyboard.press(k); got.push((await focused(page)).name); }
   assert.deepEqual(got, steps.map((s) => s[1]), '← / → follow the screen (D-790)');
+  // Slice MM3 (D-2600, AC-37): ↓ moves among siblings in outline order (whatever the side), then to cousins.
+  await focusNode(fig, 'Alfa');
   const down: string[] = [];
-  for (let i = 0; i < 7; i++) { await page.keyboard.press('ArrowDown'); down.push((await focused(page)).name); }
-  assert.deepEqual(down, ['Alfa', 'A1', 'A2', 'Beta', 'B1', 'Gama', 'Delta'], '↓ in outline order, crossing sides');
+  for (let i = 0; i < 4; i++) { await page.keyboard.press('ArrowDown'); down.push((await focused(page)).name); }
+  assert.deepEqual(down, ['Beta', 'Gama', 'Delta', 'Delta'], '↓ from Alfa: Beta, Gama, Delta, then it stops (outline order, crossing sides)');
+  await focusNode(fig, 'A2');
+  await page.keyboard.press('ArrowDown');
+  assert.equal((await focused(page)).name, 'B1', '↓ from A2: B1, the cousin on the left side');
   await page.keyboard.press('End');
   assert.equal((await focused(page)).name, 'Delta', 'End: Delta');
   await page.keyboard.press('Home');
@@ -376,7 +381,7 @@ for (const theme of ['light', 'dark'] as const) {
     const muted = await token(page, 'muted');
     const check = async (name: string, bg: string, fg: string) => {
       await focusNode(fig, name);
-      await page.keyboard.press(' ');
+      await page.keyboard.press('F2'); // slice MM3 (D-2605): F2 opens the field
       const s = await fieldState(fig);
       if (!s) { bad.push(`${name}: no field`); return; }
       const got = await nodeField(fig).first().evaluate((el) => {

@@ -16,7 +16,9 @@ import {
 
 test.use({ timezoneId: 'Europe/Prague' });
 
-const EDIT_KEYS = ['Enter', ' ', 'F2', 'Tab', 'Backspace', 'Delete', 'Alt+ArrowUp', 'Alt+ArrowDown', 'Alt+ArrowRight', 'Alt+ArrowLeft'];
+// Slice MM3 (D-2605, D-2606): Space leaves this list; it folds in the read view and a read-only note too (AC-46),
+// which changes the tree but writes nothing.
+const EDIT_KEYS = ['Enter', 'F2', 'Tab', 'Backspace', 'Delete', 'Alt+ArrowUp', 'Alt+ArrowDown', 'Alt+ArrowRight', 'Alt+ArrowLeft'];
 
 /** The read view of `path` (the `Show formatted note` button when the note opened in the source view). */
 async function openRead(page: Page, path: string): Promise<FakeCoreHandle> {
@@ -90,12 +92,13 @@ test('fr_fmt_07_ac25_opening_navigating_and_cancelling_the_field_writes_nothing'
     const fig = await needFigure(page, title);
     await needTree(fig, title);
     assert.ok(await seen(layoutGroup(fig), 1000), `${title}: the layout switch is shown (untouched)`);
-    await focusNode(fig, (await treeNames(fig))[0]);
+    // Slice MM3 (D-2600): ↑ / ↓ move among siblings, so the walk starts from a first-level node.
+    await focusNode(fig, (await treeNames(fig))[1]);
     for (const k of ['ArrowDown', 'ArrowDown', 'ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp', 'End', 'Home', 'ArrowDown', 'ArrowLeft']) await page.keyboard.press(k);
     const target = (await focused(page)).name;
     if (title !== 'Velká písmena' || target !== title) {
-      await page.keyboard.press(' ');
-      assert.ok(await fieldState(fig), `${title}: Space opens the field on ${target}`);
+      await page.keyboard.press('F2');
+      assert.ok(await fieldState(fig), `${title}: F2 opens the field on ${target}`);
       await page.keyboard.press('Escape');
     }
     await click(listBtn(fig), `${title}: List`);
@@ -237,7 +240,7 @@ test('nfr_oth_02_ac8_pseudo_locale_wraps_the_switch_the_field_and_the_commands',
   await must(group.getByRole('radio', { name: '⟦Spider: branches on both sides⟧', exact: true }), 'radio ⟦Spider: branches on both sides⟧');
   const alfa = await must(fig.getByRole('treeitem', { name: 'Alfa', exact: true }), 'treeitem Alfa (user content, not wrapped)');
   await alfa.focus();
-  await page.keyboard.press(' ');
+  await page.keyboard.press('F2'); // slice MM3 (D-2605): F2 opens the field
   const field = await must(fig.getByRole('textbox', { name: '⟦Edit node⟧', exact: true }), 'textbox ⟦Edit node⟧');
   assert.equal(await field.evaluate((el) => (el instanceof HTMLInputElement ? el.value : el.textContent) ?? ''), 'Alfa', 'the node text stays user content');
   await page.keyboard.press('Escape');

@@ -123,6 +123,8 @@ const HIDDEN_TABLE = [
   'panel.editRecurrence', 'settings.font', 'settings.fontSize', 'settings.accentColor', 'settings.changeShortcut',
   // D-2480: slice OC's card.edit opens type settings, which the phone doesn't offer.
   'card.edit',
+  // D-2655: slice MM3's map commands; the phone has no folds (D-2622).
+  'mindmap.toggleFold', 'mindmap.addChild',
 ];
 /** §10's PHONE_FRAME_COMMANDS (`goto.type:<key>` stands for each type entry). */
 const FRAME_TABLE = [

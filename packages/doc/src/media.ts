@@ -177,8 +177,8 @@ export type NameRequest = {
 /** §3.3: vault paths of the new file and object, and the object's title. */
 export type MediaNames = { file: string; object: string; title: string }
 
-/** D-51, D-52 (`tegg_format::sanitize_file_stem`). */
-function sanitizeStem(title: string): string {
+/** D-51, D-52 (`tegg_format::sanitize_file_stem`); also the planned stem of the slash menu's `New <type>` hint (R236). */
+export function sanitizeStem(title: string): string {
   let s = Array.from(title.normalize('NFC'), (ch) => ('/:\\*?"<>|#^[]'.includes(ch) || /\p{Cc}/u.test(ch) ? ' ' : ch)).join('')
   const trim = (x: string) => x.replace(/^[ .]+|[ .]+$/g, '')
   s = trim(s.split(' ').filter((w) => w !== '').join(' '))
