@@ -1,6 +1,6 @@
 // Slice AND-3 (docs/contracts/android-edit.md §8; RA15, FR-UX-04 AC-8…AC-10, FR-EDT-02 AC-27, D-2504): the formatting
 // bar above the keyboard while the note body has the focus. Its buttons never take the focus, so the caret, the
-// selection and the keyboard stay (pointerdown and mousedown are prevented). State comes from `formatState`.
+// selection and the keyboard stay (mousedown is prevented). State comes from `formatState`.
 import { useEffect, useReducer, useState } from 'react';
 import type { TeggEditor } from '@tegg/editor';
 import { t } from '../i18n/catalog';
@@ -13,7 +13,9 @@ const CHOICES: Choice[] = ['text', 'heading1', 'heading2', 'heading3'];
 /** When the last press on the bar started: a long press (≥ 500 ms) is the system's, never a tap (Android sends no click
  *  after one; a touch emulation may). */
 let downAt = 0;
-const keep = (e: React.SyntheticEvent) => { e.preventDefault(); if (e.type === 'pointerdown') downAt = performance.now(); };
+// Only `mousedown` is prevented (that is what moves the focus): an engine that sees `pointerdown` prevented sends no
+// click after a touch (WebKit), and Android's WebView sends `mousedown` before its click anyway.
+const keep = (e: React.SyntheticEvent) => { if (e.type === 'pointerdown') downAt = performance.now(); else e.preventDefault(); };
 const longPress = () => { const held = downAt > 0 && performance.now() - downAt >= 500; downAt = 0; return held; };
 
 /** The `Block type` choices run when the row is open; `edit.blockType` toggles it. */

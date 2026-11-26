@@ -30,6 +30,8 @@ export function keepCaretInView(view: View, main: HTMLElement | null): void {
   if (!main) return;
   let caret: { top: number; bottom: number };
   try { caret = view.coordsAtPos(view.state.selection.head); } catch { return; }
+  // The engine draws the caret up to a pixel below ProseMirror's coordinates (WebKit): keep a pixel's margin there.
+  caret = { top: caret.top, bottom: caret.bottom + 1 };
   const bar = document.querySelector('header.phone-appbar');
   const top = bar ? bar.getBoundingClientRect().bottom : main.getBoundingClientRect().top;
   const max = main.scrollHeight - main.clientHeight;

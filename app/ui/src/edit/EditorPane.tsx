@@ -1748,7 +1748,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       )}
       {/* Slice AND-3 (android-edit §10.1, D-2507): on the phone the panels dock at the bottom in the bar's place. */}
       {slash && e2 && phone && (
-        <div className="phone-panel" onPointerDown={(ev) => ev.preventDefault()} onMouseDown={(ev) => ev.preventDefault()}>
+        <div className="phone-panel" onMouseDown={(ev) => ev.preventDefault()}>
           <SlashMenu slash={slash} rows={phoneSlashItems(slashRows(slash.trigger, slash.query))} pos={{ left: 0, top: 0 }} unavailable={() => null} onPick={chooseSlash} onSel={(i) => setSlash({ ...slash, sel: i })} />
         </div>
       )}
@@ -1759,7 +1759,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
         <Suggestions s={suggest} types={types} pos={caretPos(suggest.from)} onLink={(i) => void chooseLink(i)} onTag={chooseTag} />
       )}
       {suggest && e2 && phone && (
-        <div className="phone-panel" onPointerDown={(ev) => ev.preventDefault()} onMouseDown={(ev) => ev.preventDefault()}>
+        <div className="phone-panel" onMouseDown={(ev) => ev.preventDefault()}>
           <Suggestions s={suggest} types={types} pos={{ left: 0, top: 0 }} onLink={(i) => void chooseLink(i)} onTag={chooseTag} />
         </div>
       )}
