@@ -587,6 +587,20 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     return () => { el.removeEventListener('keydown', onKey, true); el.removeEventListener('beforeinput', onKey, true); };
   }, []);
 
+  // FR-UX-04 AC-9: a panel opening (or closing) changes what covers `main`; the caret's line moves back above it.
+  const panelOpen = phone && !!(suggest || slash || linkField);
+  useLayoutEffect(() => {
+    if (!phone) return undefined;
+    const main = wrap.current?.closest('main') as HTMLElement | null;
+    const keep = () => { const ed = edRef.current; if (ed && !ed.view.isDestroyed) keepCaretInView(ed.view, main); };
+    keep();
+    if (!panelOpen || typeof ResizeObserver === 'undefined') return undefined;
+    // The panel's rows arrive after it opens, so it grows: the caret is kept above it as it does.
+    const ro = new ResizeObserver(keep);
+    main?.querySelectorAll('.phone-panel, .phone-link-panel').forEach((el) => ro.observe(el));
+    return () => ro.disconnect();
+  }, [panelOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ------------------------------------------------------------------ the phone (slice AND-3, android-edit §8, §9)
   // The bar shows while the keyboard is up and the body has the focus; the caret stays between the app bar and it.
   const [barOn, setBarOn] = useState(false);

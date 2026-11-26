@@ -742,6 +742,8 @@ html[data-layout="phone"] .phone-block-type button[aria-checked="true"] { color:
 html[data-layout="phone"] .phone-format-bar button[aria-disabled="true"] { opacity: 0.4; }
 html[data-layout="phone"] .phone-block-type { display: flex; align-items: stretch; }
 html[data-layout="phone"][data-format-bar] main.phone-main { padding-bottom: 48px; }
+/* FR-UX-04 AC-9: a docked panel is taller than the bar; room below the text so the caret's line can sit above it. */
+html[data-layout="phone"] main.phone-main:has(.phone-panel, .phone-link-panel) { padding-bottom: 50vh; }
 
 /* §10.1, §10.2: the suggestion panels and the link panel, docked in the bar's place. */
 html[data-layout="phone"] .phone-panel,
