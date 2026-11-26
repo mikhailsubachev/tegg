@@ -234,7 +234,6 @@ test('fr_edt_01_ac18_title_fixed_once_the_file_exists', async ({ page, browser }
   assert.ok(await eventually(() => bodyFocused(p2), (v) => v, 1500), 'the caret moves to the body');
   const ci = await caretInfo(p2);
   assert.equal(ci.offset, 0, 'at the start of the body');
-  await p2.close();
   // a body change with an empty title: Pages/Untitled.md, title Untitled, fixed
   const p3 = await phonePage(browser);
   const c3 = await startPhone(p3, { vault: editVault(), route: 'new/page', now: EDIT_NOW });
@@ -245,8 +244,10 @@ test('fr_edt_01_ac18_title_fixed_once_the_file_exists', async ({ page, browser }
   assert.match((await c3.files())['Pages/Untitled.md'] ?? '', /^title: Untitled$/m, 'title: Untitled');
   assert.ok(await h1Is(p3, 'Untitled'), 'its title is the fixed h1');
   assert.equal(await titleField(p3).count(), 0, 'and not editable');
-  await p3.close();
+  // the calls are read before the pages close (D-2555)
   for (const c of [core, c2, c3]) assert.ok(!(await c.calls()).some((x) => x.cmd === 'note_rename'), 'no phone surface sends note_rename');
+  await p2.close();
+  await p3.close();
 });
 
 // ------------------------------------------------------------------------------------------------ FR-EDT-01 AC-19
