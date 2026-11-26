@@ -20,7 +20,7 @@ function Due({ due }: { due: SlashDef['due'] }) {
 
 /** R234 (D-2628): the heading rows' icons. */
 const HEADING_ICON: Record<string, string> = { heading1: 'slash.heading1.icon', heading2: 'slash.heading2.icon', heading3: 'slash.heading3.icon' };
-/** D-2677 (bug #171, board ObjectMenu): every other static row's icon (`data-icon`; drawn from `slash-<name>`). */
+/** D-2677 (bug 171 on GitHub, board ObjectMenu): every other static row's icon (`data-icon`; drawn from `slash-<name>`). */
 const ROW_ICON: Record<string, string> = {
   text: 'text', bulletList: 'bullet-list', orderedList: 'ordered-list', checklist: 'checklist', mindmap: 'mindmap', quote: 'quote', callout: 'callout',
   codeBlock: 'code-block', divider: 'divider', table: 'table', turnIntoObject: 'turn-into-object', embedObject: 'embed-object', image: 'image', pdf: 'pdf',

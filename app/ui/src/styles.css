@@ -1155,7 +1155,7 @@ button.tag-tile { cursor: pointer; }
 .slash-menu .slash-kbd { margin-left: auto; color: var(--muted); font-size: 12px; }
 .slash-menu .due-wrap { margin-left: auto; }
 .slash-menu .option.selected .slash-icon, .slash-menu .option.selected .slash-kbd { color: var(--text); }
-/* D-2677: the Mindmap row's icon in the mindmap's teal (board ObjectMenu). */
+/* D-2677: the Mindmap row's icon in the mindmap's type colour (board ObjectMenu). */
 .slash-menu .slash-icon.slash-icon-mindmap { color: var(--type-teal); }
 .new-object-dialog { width: 320px; max-width: 360px; max-height: none; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 .new-object-hint { margin: 0; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }

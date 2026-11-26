@@ -85,7 +85,7 @@ export function lucideElement(icon: ResolvedIconDto | null | undefined, dataIcon
 // ------------------------------------------------------------------------------------------------ the hand-drawn icons
 
 const PATHS: Record<string, string> = {
-  // D-2677 (bug #171, board ObjectMenu): the `/` menu's row icons.
+  // D-2677 (bug 171 on GitHub, board ObjectMenu): the `/` menu's row icons.
   'slash-text': 'M5 6h14M12 6v13',
   'slash-bullet-list': 'M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01',
   'slash-ordered-list': 'M10 6h10M10 12h10M10 18h10M4 5h1v3M4 11h2l-2 3h2M4 17h2v3H4',
