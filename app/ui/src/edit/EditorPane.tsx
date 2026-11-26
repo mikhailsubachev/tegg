@@ -688,6 +688,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     let touch: { x: number; y: number; t: number } | null = null;
     const onTouchStart = (e: TouchEvent) => {
       const p = e.touches.length === 1 ? e.touches[0] : null;
+      tapAt = null;
       touch = p ? { x: p.clientX, y: p.clientY, t: performance.now() } : null;
     };
     const onTouchEnd = (e: TouchEvent) => {
@@ -699,20 +700,41 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       const target = e.target as Element | null;
       if (!target || !ed.view.dom.contains(target) || target.closest('button, a, [role="checkbox"], [contenteditable="false"], .check, [data-wikilink], .tag')) return;
       const { clientX: x, clientY: y } = p;
-      setTimeout(() => {
-        const e2 = edRef.current;
-        if (!e2 || e2.view.isDestroyed || !e2.view.hasFocus() || !e2.view.state.selection.empty) return;
-        const at = e2.view.posAtCoords({ left: x, top: y });
-        if (at && at.inside >= -1 && at.pos !== e2.view.state.selection.head) e2.editor.commands.setTextSelection(at.pos);
-      }, 0);
+      tapAt = { x, y, t: performance.now() };
+      setTimeout(placeAtTap, 0);
     };
+    // The engine places the caret on the tap's compatibility `mousedown` / `mouseup`, which a loaded engine may send after
+    // a task queued at `touchend` has run (it then saw no focus and corrected nothing). So the correction runs again at
+    // the tap's `click`, after the engine has placed the caret, and it compares with the DOM's caret, which the editor's
+    // state may not have read yet.
+    let tapAt: { x: number; y: number; t: number } | null = null;
+    const placeAtTap = () => {
+      const s0 = tapAt;
+      const e2 = edRef.current;
+      if (!s0 || !e2 || e2.view.isDestroyed || performance.now() - s0.t > 1000 || !e2.view.hasFocus()) return;
+      const sel = document.getSelection();
+      if (!sel || !sel.isCollapsed || !sel.focusNode || !e2.view.dom.contains(sel.focusNode)) return;
+      const at = e2.view.posAtCoords({ left: s0.x, top: s0.y });
+      if (!at || at.inside < -1) return;
+      let now: number;
+      try { now = e2.view.posAtDOM(sel.focusNode, sel.focusOffset); } catch { return; }
+      if (at.pos !== now || at.pos !== e2.view.state.selection.head) e2.editor.commands.setTextSelection(at.pos);
+    };
+    const onTapClick = () => { if (tapAt) { placeAtTap(); tapAt = null; } };
+    const onOtherInput = () => { tapAt = null; };
     const w = wrap.current;
     w?.addEventListener('touchstart', onTouchStart, { capture: true, passive: true });
     w?.addEventListener('touchend', onTouchEnd, { capture: true, passive: true });
     w?.addEventListener('pointerdown', onPointerDown, true);
     w?.addEventListener('mousedown', onMouseDown, true);
     w?.addEventListener('click', onClick);
+    w?.addEventListener('click', onTapClick, true);
+    w?.addEventListener('keydown', onOtherInput, true);
+    w?.addEventListener('beforeinput', onOtherInput, true);
     return () => {
+      w?.removeEventListener('click', onTapClick, true);
+      w?.removeEventListener('keydown', onOtherInput, true);
+      w?.removeEventListener('beforeinput', onOtherInput, true);
       w?.removeEventListener('touchstart', onTouchStart, true);
       w?.removeEventListener('touchend', onTouchEnd, true);
       w?.removeEventListener('pointerdown', onPointerDown, true);
