@@ -530,6 +530,13 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         if (ed.dirty() || s.pending || live.current.merge || live.current.deleted) keep();
         return;
       }
+      // §11.1 step 1: a value typed into the Properties sheet but not committed is committed now (its field commits on
+      // blur), so the flush below writes it (FR-EDT-08 AC-16 (c)).
+      const a = document.activeElement as HTMLElement | null;
+      if (a && a.matches('input, textarea, [contenteditable="true"]') && a.closest('[data-attribute-panel]')) {
+        a.blur();
+        await new Promise((r) => setTimeout(r, 0));
+      }
       // A draft with a typed title: its commit is the first write (D-522).
       if (isDraft() && titleRef.current.trim() !== '') { s.forceFirst = true; s.changed(); }
       await Promise.all([s.flush({ composing: true }), embeds.flush()]);
