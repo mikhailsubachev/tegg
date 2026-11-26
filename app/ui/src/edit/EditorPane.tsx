@@ -208,8 +208,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
   pathRef.current = path;
   const cbSave = useRef(onSaveNow);
   cbSave.current = onSaveNow;
-  const cb = useRef({ onChange, onOpen, onTag, onExternal, onImagePaste });
-  cb.current = { onChange, onOpen, onTag, onExternal, onImagePaste };
+  const cb = useRef({ onChange, onOpen, onTag, onExternal, onImagePaste, flush });
+  cb.current = { onChange, onOpen, onTag, onExternal, onImagePaste, flush };
   const conv = useRef({ flush, daily, types });
   conv.current = { flush, daily, types };
 
@@ -616,7 +616,45 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     attach();
     const poll = setInterval(() => { attach(); if (unInput) clearInterval(poll); }, 50);
     check();
+    // §7.7 (FR-TSK-11 AC-5): a tap on a checklist item's box toggles that item with `pointerdown` prevented, so neither
+    // the caret nor the keyboard moves, and saves at once (a discrete action, like a task checkbox; build point). Inside
+    // a mindmap nothing toggles (§5.2). An engine that still sends the compatibility `mousedown` toggles through the
+    // box's own handler; the click then only saves.
+    const box = (e: Event) => {
+      const el = (e.target as Element | null)?.closest?.('.checklist-item .check') ?? null;
+      return el && !el.closest('[data-callout="mindmap"]') && wrap.current?.contains(el) ? el : null;
+    };
+    let byMouse = false;
+    const onPointerDown = (e: Event) => { if (box(e)) e.preventDefault(); };
+    const onMouseDown = (e: Event) => { if (box(e)) byMouse = true; };
+    const onClick = (e: Event) => {
+      const el = box(e);
+      const ed = edRef.current;
+      if (!el || !ed) return;
+      e.preventDefault();
+      if (!byMouse) {
+        const content = el.closest('.checklist-item')?.querySelector(':scope > .li-content');
+        if (content) {
+          const $p = ed.view.state.doc.resolve(ed.view.posAtDOM(content, 0));
+          for (let d = $p.depth; d > 0; d--) {
+            const node = $p.node(d);
+            if (node.attrs.checked === null || node.attrs.checked === undefined) continue;
+            ed.view.dispatch(ed.view.state.tr.setNodeMarkup($p.before(d), undefined, { ...node.attrs, checked: !node.attrs.checked }));
+            break;
+          }
+        }
+      }
+      byMouse = false;
+      void cb.current.flush?.();
+    };
+    const w = wrap.current;
+    w?.addEventListener('pointerdown', onPointerDown, true);
+    w?.addEventListener('mousedown', onMouseDown, true);
+    w?.addEventListener('click', onClick);
     return () => {
+      w?.removeEventListener('pointerdown', onPointerDown, true);
+      w?.removeEventListener('mousedown', onMouseDown, true);
+      w?.removeEventListener('click', onClick);
       off(); clearInterval(poll); unInput?.(); unTx?.();
       document.removeEventListener('focusin', check);
       document.removeEventListener('focusout', later);
