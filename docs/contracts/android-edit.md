@@ -157,6 +157,9 @@ it as `nfdName`. The write refusal of android-shell §3.2 stays; `Core::write_no
 `create_exact` onto that name and the task and inbox writes all reach it. The L4 test
 `crates/tegg-vault/tests/ac_android_names.rs` (`fr_fmt_12_ac18_nfd_named_note_read_only_on_the_phone`) checks the refusal
 for `write`, `rename_no_replace` and `trash` on a stored NFD name and `OnDiskName::Found` with other bytes (the field).
+List rows learn it from the core too (D-2554): `inbox_list`'s rows and the task rows (`index_type_rows`, `task_list`) carry
+`readOnly: true` for a file whose on-disk name has other bytes than its NFC form (always `false` on macOS), so the phone
+disables their checkboxes with the read-only reason instead of sending a write the core refuses.
 `pins_apply` writes `.tegg/pinned.yml` only, so `Pin` works on such a note.
 
 ### 3.2 Creates on shared storage (FR-SYN-02 AC-17; D-2047, D-2513)
