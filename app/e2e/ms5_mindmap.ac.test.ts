@@ -28,8 +28,9 @@ function mindmapCopy(base: string): string {
   cpSync(join(FX, 'new-empty/.tegg'), join(v, '.tegg'), { recursive: true });
   return v;
 }
+const sirokaItems = () => Array.from({ length: 7 }, (_, i) => `Dlouhá větev číslo ${i + 1} se čtyřiceti znaky`.padEnd(40, '.').slice(0, 40));
 function sirokaText(): string {
-  const items = Array.from({ length: 7 }, (_, i) => `Dlouhá větev číslo ${i + 1} se čtyřiceti znaky`.padEnd(40, '.').slice(0, 40));
+  const items = sirokaItems();
   return '---\nid: 01JB4M0000000000000000M020\ntype: page\ntitle: Široká mapa\n---\n> [!mindmap] Široká\n' + items.map((t, i) => `> ${'  '.repeat(i)}- ${t}`).join('\n') + '\n';
 }
 const uiState = (sup: string) => (existsSync(join(sup, 'ui-state.json')) ? readFileSync(join(sup, 'ui-state.json'), 'utf8') : '');
@@ -37,6 +38,18 @@ const uiState = (sup: string) => (existsSync(join(sup, 'ui-state.json')) ? readF
 async function isPressed(d: Driver, label: string): Promise<string> {
   const e = await need(d, label, 5000);
   return String(await e.getAttribute('value').catch(() => ''));
+}
+/** The centre of the first node of Široká mapa's tree `t` that lies inside the main window. */
+async function sirokaNodeOnScreen(d: Driver, t: any): Promise<{ x: number; y: number }> {
+  const win = await d.getElementRect((await d.$('//XCUIElementTypeWindow')).elementId);
+  for (const label of sirokaItems()) {
+    for (const e of await t.$$(`-ios predicate string:label == "${label}"`).catch(() => [] as any[])) {
+      const r = await d.getElementRect(e.elementId);
+      const c = { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
+      if (r.width > 0 && c.x > win.x + 20 && c.x < win.x + win.width - 20 && c.y > win.y + 120 && c.y < win.y + win.height - 40) return c;
+    }
+  }
+  assert.fail('a node of Široká mapa inside the window');
 }
 /** ⇧⌘F, the title pasted into `Search query`, ⏎ (D-760). */
 async function goTo(title: string) {
@@ -109,10 +122,14 @@ test('fr_syn_06_ac33_browsing_tour_writes_nothing_in_the_real_app', { timeout: 9
       await sleep(300);
       await (await need(d, 'Map')).click();
       await sleep(300);
-      await t.click();
+      // Široká mapa's tree is wider than the window, so its centre lies outside it and a click there lands on the app
+      // behind (keys are then refused, D-758): click one of its nodes inside the window instead, and scroll there.
+      const at = title === 'Široká mapa' ? await sirokaNodeOnScreen(d, t) : null;
+      if (at) await d.execute('macos: click', at);
+      else await t.click();
       for (let i = 0; i < 8; i++) press('down');
       press('up');
-      if (title === 'Široká mapa') await d.execute('macos: scroll', { elementId: t.elementId, deltaX: -600, deltaY: 0 }).catch(() => {});
+      if (at) await d.execute('macos: scroll', { ...at, deltaX: -600, deltaY: 0 });
       await (await need(d, 'Map')).click().catch(() => {});
     }
     await goTo('Složené');

@@ -56,9 +56,29 @@ test('fr_mmp_02_ac53_big_map_folds_and_drag_on_the_built_app', { timeout: 30 * 6
     const folds = layoutMarks().slice(before).map((m) => Number(m.ms));
     assert.ok(folds.length >= 20, `mindmap-layout after each of the 20 folds and unfolds (got ${folds.length})`);
     console.log(`FR-MMP-02 AC-53: fold/unfold mindmap-layout p95 ${p95(folds).toFixed(2)} ms over ${folds.length} (target ≤ ${FRAME_MS} ms)`);
-    const a = await d.getElementRect((await need(d, 'Uzel 1.1', 5000)).elementId);
-    const b = await d.getElementRect((await need(d, 'Uzel 2.7', 5000)).elementId);
-    await d.execute('macos: clickAndDragAndHold', { startX: a.x + a.width / 2, startY: a.y + a.height / 2, endX: b.x + b.width / 2, endY: b.y + b.height / 2, duration: 0.3, holdDuration: 0.5, velocity: 400 }).catch(() => {});
+    // The drag goes between two leaves on screen: on the 500-node map most nodes are thousands of points outside the
+    // window, and a drag there moves over the screen behind it. → → from the root focuses Uzel 1.1, which the map
+    // brings into view; then the leaves are taken in outline order and the run of them inside the window is kept.
+    press('right'); await sleep(200); press('right'); await sleep(600);
+    const tree = await need(d, 'Map of Velká mapa', 5000);
+    const win = await d.getElementRect((await d.$('//XCUIElementTypeWindow')).elementId);
+    const inWindow = (r: { x: number; y: number; width: number; height: number }) => {
+      const x = r.x + r.width / 2, y = r.y + r.height / 2;
+      return r.width > 0 && r.height > 0 && x > win.x + 20 && x < win.x + win.width - 20 && y > win.y + 120 && y < win.y + win.height - 40;
+    };
+    const leaves: string[] = [];
+    for (let b = 1; b <= 10; b++) for (let c = 1; c <= 7; c++) for (let l = 1; l <= (b === 10 && c === 7 ? 5 : 6); l++) leaves.push(`List ${b}.${c}.${l} žluťoučký`);
+    const onScreen: { label: string; x: number; y: number }[] = [];
+    for (const label of leaves) {
+      const e = (await tree.$$(`-ios predicate string:label == "${label}"`))[0];
+      const r = e ? await d.getElementRect(e.elementId) : null;
+      if (r && inWindow(r)) onScreen.push({ label, x: r.x + r.width / 2, y: r.y + r.height / 2 });
+      else if (onScreen.length >= 2) break; // past the run of leaves on screen
+    }
+    assert.ok(onScreen.length >= 2, `two leaves of Velká mapa inside the window to drag between (got ${onScreen.map((n) => n.label).join(', ') || 'none'})`);
+    const [from, to] = [onScreen[0], onScreen[onScreen.length - 1]];
+    console.log(`FR-MMP-02 AC-53: dragging ${from.label} over ${onScreen.length - 1} nodes on screen to ${to.label}`);
+    await d.execute('macos: clickAndDragAndHold', { startX: from.x, startY: from.y, endX: to.x, endY: to.y, duration: 0.3, holdDuration: 0.5, velocity: 400 });
     press('escape');
     await sleep(800);
     const drags = marksOf(log).filter((m) => m.mark === 'mindmap-drag').map((m) => Number(m.ms));
