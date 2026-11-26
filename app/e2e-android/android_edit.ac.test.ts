@@ -180,6 +180,15 @@ test('fr_edt_01_ac19_keyboard_input_matches_the_desktop', async () => {
   imeFinish();
   imeKey(KEYCODE_ENTER);
   imeKey(KEYCODE_ENTER);
+  // the test IME's keys are handled after the broadcast returns: wait for the empty paragraph (d)'s two Enters make
+  // between the lists, so their caret doesn't land after the one placed for (e) (D-2560)
+  assert.ok(await eventually(() => v.eval<boolean>(`[...document.querySelectorAll('${BODY} > p')].some((p) => {
+    if (p.previousElementSibling?.tagName !== 'UL' || p.nextElementSibling?.tagName !== 'UL') return false;
+    const c = p.cloneNode(true); c.querySelectorAll('.editor-hint').forEach((h) => h.remove());
+    return (c.textContent || '').trim() === '';
+  })`), (x) => x, 3000, 100), '(d) the second Enter leaves an empty paragraph between the lists');
+  // the paragraph shows before the IME side settles; a caret placed at once still ends up there (D-2560)
+  await sleep(1500);
   await caretIn(v, 'Zavolat', 'end');
   imeKey(KEYCODE_ENTER);
   imeCommit('Nové');
