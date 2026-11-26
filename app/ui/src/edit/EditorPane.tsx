@@ -613,8 +613,11 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       const on = !!ed && nativeState().keyboard && document.activeElement === ed.view.dom;
       setBarOn(on);
       document.documentElement.toggleAttribute('data-format-bar', on);
-      // §10.1 (FR-EDT-06 AC-14): the keyboard hiding closes an open panel as Esc does; the trigger stays as text.
-      if (!nativeState().keyboard) {
+      // §10.1 (FR-EDT-06 AC-14): the keyboard hiding, or the focus leaving the body (a tap outside the text), closes an
+      // open panel as Esc does; the trigger stays as text.
+      const a = document.activeElement;
+      const away = !!ed && (!a || a === document.body || (!!a.closest('main, header') && !wrap.current?.contains(a))); // not a sheet the panel opened
+      if (!nativeState().keyboard || away) {
         const L = live.current;
         if (L.suggest) {
           dismissed.current = L.suggest.kind === 'link' ? `${L.suggest.at ? 'a' : 'l'}${L.suggest.from}` : `t${L.suggest.from}:${L.suggest.query}`;
