@@ -206,9 +206,11 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
     if (variant !== 'sheet' || !box.current) return;
     box.current.querySelectorAll<HTMLElement>('.attr-row[data-key]').forEach((row) => {
       const key = nfc(row.getAttribute('data-key') ?? '');
-      const ctl = [...row.querySelectorAll<HTMLElement>('.attr-value button, .attr-value input, .attr-value [role="checkbox"], .attr-value [role="combobox"], .attr-value [role="button"], .attr-value [contenteditable="true"]')]
-        .find((el) => !(el.matches('input[type="text"], input:not([type]), [contenteditable="true"]') || el.getAttribute('role') === 'textbox'));
-      if (ctl && ctl.getAttribute('data-command') !== `phone.prop:${key}`) ctl.setAttribute('data-command', `phone.prop:${key}`);
+      // A chip's remove button is not the row's control: a tap on `phone.prop:<key>` must open the choices, never
+      // remove the first value (FR-EDT-07 AC-24 (g)); a control with a popup (Add, a select) comes first.
+      const ctls = [...row.querySelectorAll<HTMLElement>('.attr-value button, .attr-value input, .attr-value [role="checkbox"], .attr-value [role="combobox"], .attr-value [role="button"], .attr-value [contenteditable="true"]')]
+        .filter((el) => !(el.matches('input[type="text"], input:not([type]), [contenteditable="true"], .chip-remove') || el.getAttribute('role') === 'textbox'));
+      const ctl = ctls.find((el) => el.hasAttribute('aria-haspopup')) ?? ctls[0];      if (ctl && ctl.getAttribute('data-command') !== `phone.prop:${key}`) ctl.setAttribute('data-command', `phone.prop:${key}`);
     });
     if (roReason) {
       box.current.querySelectorAll<HTMLElement>('button, input, [role="checkbox"], [role="combobox"], [contenteditable]').forEach((el) => {
