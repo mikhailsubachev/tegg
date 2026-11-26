@@ -565,7 +565,7 @@ fn rename_no_clobber(from: &Path, to: &Path) -> io::Result<()> {
 pub fn no_clobber_via(from: &Path, to: &Path, primitive: &dyn Fn(&Path, &Path) -> io::Result<()>) -> io::Result<()> {
     match primitive(from, to) {
         Err(e) if matches!(e.raw_os_error(), Some(libc::ENOSYS | libc::EACCES | libc::EPERM | libc::EOPNOTSUPP | libc::EXDEV)) => {
-            if fs::symlink_metadata(to).is_ok() || name_taken_at(to) {
+            if fs::symlink_metadata(to).is_ok() || name_taken_at(to)? {
                 return Err(io::Error::new(io::ErrorKind::AlreadyExists, to.display().to_string()));
             }
             fs::rename(from, to)
@@ -827,14 +827,44 @@ fn fold_name(name: &str) -> String {
     tegg_format::nfc(&tegg_format::nfc(name).to_lowercase())
 }
 
-/// `name_taken` for `to` against its folder's listing; an unreadable folder or a name that isn't UTF-8 is not taken.
-fn name_taken_at(to: &Path) -> bool {
-    let (Some(dir), Some(name)) = (to.parent(), to.file_name().and_then(|n| n.to_str())) else { return false };
-    name_taken(&listing_of(dir).unwrap_or_default(), name)
+/// `name_taken` for `to` against its folder's listing. A folder that can't be listed is an error, so the create is
+/// refused (fails closed; issue #181, D-2570 (3)); a name that isn't UTF-8 has no NFC form and is checked only exactly.
+fn name_taken_at(to: &Path) -> io::Result<bool> {
+    let (Some(dir), Some(name)) = (to.parent(), to.file_name().and_then(|n| n.to_str())) else { return Ok(false) };
+    Ok(name_taken(&listing_of(dir)?, name))
 }
 
 /// Slice AND-3 (red-test decision D-2546): a `LocalFs` that resolves names as on Android, for the host's L4 tests of
 /// FR-FMT-12 AC-18.
 pub fn resolving_fs(root: &Path) -> LocalFs {
     LocalFs::resolving(root)
+}
+
+/// Issue #181 (QA review of slice AND-3, finding 9; D-2570 (3)): the name-blind create check (android-edit §3.2,
+/// FR-SYN-02 AC-17) treated a folder listing it couldn't read as "not taken" and renamed over whatever was there under
+/// another spelling. It fails closed: an error, and no rename.
+#[cfg(test)]
+mod bug_181_fr_syn_02_unreadable_listing {
+    use super::no_clobber_via;
+    use std::io;
+    use std::os::unix::fs::PermissionsExt;
+    use std::path::Path;
+
+    #[test]
+    fn bug_181_fr_syn_02_unreadable_listing_refuses_the_create() {
+        let dir = tempfile::tempdir().unwrap();
+        let (src, pages) = (dir.path().join("src"), dir.path().join("Pages"));
+        std::fs::create_dir(&src).unwrap();
+        std::fs::create_dir(&pages).unwrap();
+        let (tmp, target) = (src.join(".a.tegg-tmp"), pages.join("Poznámka.md"));
+        std::fs::write(&tmp, b"new").unwrap();
+        // The folder can be entered but not listed (write and search, no read).
+        std::fs::set_permissions(&pages, std::fs::Permissions::from_mode(0o300)).unwrap();
+        let unsupported = |_: &Path, _: &Path| Err(io::Error::from_raw_os_error(libc::EACCES));
+        let r = no_clobber_via(&tmp, &target, &unsupported);
+        std::fs::set_permissions(&pages, std::fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(r.is_err(), "an unreadable listing refuses the create");
+        assert!(tmp.exists(), "no rename: the temporary file is still there");
+        assert!(!target.exists(), "nothing was created");
+    }
 }
