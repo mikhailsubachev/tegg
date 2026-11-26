@@ -54,7 +54,8 @@ import { isPhone } from '../phone/layout';
 import { phoneSortLine } from '../phone/sortLine';
 import { Checkbox } from '../tasks/TaskCard';
 import { writeTask } from '../tasks/write';
-import { pushAlert } from '../convert/alerts';
+import { clearAlerts, pushAlert } from '../convert/alerts';
+import { PageAlerts } from '../convert/PageAlerts';
 import type { TaskDefsDto, TaskRowDto } from '../ipc/types';
 
 const fold = (s: string) => nfc(s).toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').normalize('NFC');
@@ -165,6 +166,7 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
     ipc.taskList().then((d) => { if (live) setTaskData({ rows: new Map(d.tasks.map((r) => [r.path.normalize('NFC'), r])), defs: d.defs }); }, () => {});
     return () => { live = false; };
   }, [taskTable, refresh, own]);
+  useEffect(() => (isPhone() ? () => clearAlerts() : undefined), [typeKey]);
   const toggleTask = (row: TaskRowDto, done: boolean) => {
     if (!taskData) return;
     void writeTask(row, taskData.defs, { kind: 'complete', done }).then((w) => {
@@ -510,6 +512,7 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
       })()}
       {rows && rows.length === 0 && <p className="empty">{t('typePage.empty')}</p>}
       {notice && <p role={notice.alert ? 'alert' : 'status'} className={notice.alert ? 'warning-text' : 'type-notice'}>{notice.text}</p>}
+      {phone && <PageAlerts />}
       {rowMenu && (
         <PopupMenu label={t('typePage.rowMenu')} anchor={rowMenu} onClose={() => { const el = rowMenu; setRowMenu(null); el.focus(); }}
           entries={[

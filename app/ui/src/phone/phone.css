@@ -156,6 +156,10 @@ html[data-layout="phone"] .phone-tab[aria-disabled="true"] {
 }
 
 /* ---------------------------------------------------------------- the notice */
+/* Slice AND-3 (§2.4 row 4): a view's query alert sits above the bottom bar, as the notice does. */
+html[data-layout="phone"] .query-alert {
+  left: 16px; right: 16px; bottom: calc(var(--inset-bottom) + 72px); transform: none; max-width: none;
+}
 html[data-layout="phone"] .phone-notice {
   position: fixed;
   left: 16px;
@@ -756,9 +760,11 @@ html[data-layout="phone"] .phone-link-panel [role="listbox"] { order: -1; max-he
 html[data-layout="phone"] .phone-link-panel input { min-height: 44px; font-size: 16px; }
 
 /* §10.6: the merge banner and Compare versions. */
+/* FR-SYN-03 AC-41: directly below the app bar however far the note is scrolled; opaque over the text it covers. */
 html[data-layout="phone"] .phone-merge {
+  position: sticky; top: 0; z-index: 5;
   margin: 8px 16px; padding: 12px 16px; border-radius: 8px;
-  background: var(--hover); border: 1px solid var(--accent); color: var(--text);
+  background: linear-gradient(var(--hover), var(--hover)), var(--bg); border: 1px solid var(--accent); color: var(--text);
 }
 html[data-layout="phone"] .phone-merge p { margin: 4px 0 8px; }
 html[data-layout="phone"] .phone-merge-buttons { display: flex; flex-wrap: wrap; gap: 8px; }

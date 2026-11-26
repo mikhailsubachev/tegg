@@ -23,7 +23,8 @@ import { Saver, type ConflictInfo, type Failure, type SaveState } from '../edit/
 import { Compare } from '../edit/Compare';
 import { EditorPane, type EditAction, type EditorPaneApi } from '../edit/EditorPane';
 import { linkTargets, noteTitle, ReadView } from '../read/ReadView';
-import { clearAlerts, dismissAlert, usePageAlerts } from '../convert/alerts';
+import { clearAlerts } from '../convert/alerts';
+import { PageAlerts } from '../convert/PageAlerts';
 import { Properties } from '../read/PropertiesStrip';
 import { PhoneProperties } from '../phone/PhoneProperties';
 import { SourceView, WarningBanner } from '../read/SourceView';
@@ -48,6 +49,7 @@ import { isPhone } from '../phone/layout';
 import { useStatusSlot } from '../phone/PageHeading';
 import { dropRecovery, keepForRecovery, recoveryVault as vaultRoot, takeRecovery } from '../phone/recovery';
 import { MergeBanner } from '../phone/MergeBanner';
+import { hideKeyboard } from '../phone/native';
 import { createPortal, flushSync } from 'react-dom';
 import { formatStateOf } from '../phone/format';
 
@@ -778,7 +780,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   useEffect(() => {
     edRef.current?.editor.setEditable(!merge);
     // Slice AND-3 (§10.6, CP-5): the merge banner hides the keyboard.
-    if (merge && isPhone()) { (document.activeElement as HTMLElement | null)?.blur?.(); void ipc.androidIme(false).catch(() => {}); }
+    if (merge && isPhone()) { (document.activeElement as HTMLElement | null)?.blur?.(); hideKeyboard(); }
   }, [!!merge]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ------------------------------------------------------------------ merge dialog and deleted alert
@@ -1736,21 +1738,5 @@ export function MergeDialog({ merge, onCompare, onMine, onTheirs, onBoth, descri
         </div>
       </div>
     </div>
-  );
-}
-
-/** 5A-2: the conversion's and Task cards' alerts (FR-CNV-03 AC-6, FR-CNV-06 AC-3, FR-CNV-05 AC-7). */
-function PageAlerts() {
-  const alerts = usePageAlerts();
-  return (
-    <>
-      {alerts.map((a) => (
-        <div key={a.id} role="alert" className="save-alert">
-          <span>{a.text}</span>
-          {a.retry && <button type="button" tabIndex={0} data-command="task.tryAgain" onClick={() => { dismissAlert(a.id); a.retry!(); }}>{t('task.tryAgain')}</button>}
-          <button type="button" tabIndex={0} className="icon-button" data-command="task.dismissAlert" aria-label={t('dialog.close')} onClick={() => dismissAlert(a.id)}><Icon name="x" size={14} /></button>
-        </div>
-      ))}
-    </>
   );
 }
