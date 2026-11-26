@@ -135,7 +135,7 @@ pub(crate) async fn object_trash(state: State<'_, AppState>, path: String, base:
     }
 }
 
-#[cfg(desktop)]
+/// Compiled on every target: the phone's `Undo` of `Move to trash` (android-edit §2.1, §12.6; D-2514).
 #[tauri::command]
 pub(crate) async fn trash_restore(state: State<'_, AppState>, path: String) -> Result<Vec<MovedDto>, IpcError> {
     let core = core(&state)?;

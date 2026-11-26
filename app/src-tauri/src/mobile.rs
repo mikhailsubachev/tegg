@@ -8,7 +8,7 @@ use tauri::{App, AppHandle, Emitter, Manager, Wry};
 use tauri_plugin_tegg_android::TeggAndroid;
 use tegg_core::Vault;
 
-use crate::dto::{FoundVaultDto, InsetsDto, IpcError, StartStateDto, StorageAccessDto, VaultInfo, WindowStateDto};
+use crate::dto::{FoundVaultDto, InsetsDto, IpcError, RecoveryDto, StartStateDto, StorageAccessDto, VaultInfo, WindowStateDto};
 use crate::start::{start_state, StartState};
 use crate::vaultfind::{find_vaults, resolve_typed_path, PathRefusal};
 use crate::{err, mark_repeat, test_var, AppState};
@@ -254,6 +254,44 @@ pub(crate) async fn android_window(app: AppHandle, dark: bool) -> Result<WindowS
         system_dark: w.system_dark,
         font_scale: w.font_scale,
     })
+}
+
+// ---------------------------------------------------------------- recovery copies and the keyboard (android-edit §2.2)
+
+/// The open vault's on-disk root (`NoVault` when none is open) and the recovery folder `<files_dir>/recovery/`.
+fn recovery_place(app: &AppHandle) -> Result<(String, PathBuf), IpcError> {
+    let state = app.state::<AppState>();
+    let core = crate::core(&state)?;
+    let vault = core.vault().root().to_string_lossy().into_owned();
+    Ok((vault, app.state::<Mobile>().files_dir.join("recovery")))
+}
+
+/// android-edit §2.2, §11.2 (FR-EDT-08 AC-17; CP-4 → D-2530): keeps the note's unsaved text in private storage, never
+/// in the vault.
+#[tauri::command]
+pub(crate) async fn android_recovery_put(app: AppHandle, copy: RecoveryDto) -> Result<(), IpcError> {
+    let (vault, dir) = recovery_place(&app)?;
+    crate::phone::recovery::put(&dir, &vault, copy).map_err(|e| err("Io", e))
+}
+
+/// The copy for the open vault and that NFC path, or null.
+#[tauri::command]
+pub(crate) async fn android_recovery_get(app: AppHandle, path: String) -> Result<Option<RecoveryDto>, IpcError> {
+    let (vault, dir) = recovery_place(&app)?;
+    Ok(crate::phone::recovery::get(&dir, &vault, &path))
+}
+
+/// Removes that copy; a missing one is fine.
+#[tauri::command]
+pub(crate) async fn android_recovery_drop(app: AppHandle, path: String) -> Result<(), IpcError> {
+    let (vault, dir) = recovery_place(&app)?;
+    crate::phone::recovery::remove(&dir, &vault, &path).map_err(|e| err("Io", e))
+}
+
+/// android-edit §2.2, §6.1 (CP-5 → D-2531): shows or hides the soft keyboard for the WebView.
+#[tauri::command]
+pub(crate) async fn android_ime(app: AppHandle, show: bool) -> Result<(), IpcError> {
+    plugin(&app).ime(show).map_err(|e| err("Io", e))
 }
 
 // ---------------------------------------------------------------- the IPC log (android-phone §12.1, test APK only)
