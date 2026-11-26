@@ -246,6 +246,12 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   const [save, setSave] = useState<{ state: SaveState; failure: Failure }>({ state: 'saved', failure: null });
   const [merge, setMerge] = useState<Merge | null>(null);
   const [deleted, setDeleted] = useState(false);
+  // Bug 183: on the phone `Restore file` failed for another reason than a taken name: the desktop's `io` alert, and
+  // the exclusive create is tried again every 5 s while the deleted alert stays.
+  const [restoreIo, setRestoreIo] = useState(false);
+  const restoreRetry = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stopRestoreRetry = () => { if (restoreRetry.current) clearTimeout(restoreRetry.current); restoreRetry.current = null; setRestoreIo(false); };
+  useEffect(() => () => { if (restoreRetry.current) clearTimeout(restoreRetry.current); }, []);
   const [notice, setNotice] = useState<string | null>(null);
   const [title, setTitle] = useState<string>('');
   const titleRef = useRef('');
@@ -851,6 +857,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     // Slice AND-3 (§2.4 row 12, FR-SYN-03 AC-43): on the phone an exclusive create; a file that appeared meanwhile opens
     // the merge banner against it.
     if (isPhone()) {
+      stopRestoreRetry();
       try {
         const v = await ipc.noteCreateExact(live.current.path, text);
         ed.markSaved(text);
@@ -859,7 +866,11 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         s.resume(v);
         void dropRecovery(live.current.path);
       } catch (e) {
-        if (errorKind(e) !== 'NameTaken' && errorKind(e) !== 'Exists') return;
+        if (errorKind(e) !== 'NameTaken' && errorKind(e) !== 'Exists') {
+          setRestoreIo(true);
+          restoreRetry.current = setTimeout(() => { restoreRetry.current = null; if (live.current.deleted) void restoreRef.current(); }, 5000);
+          return;
+        }
         const n = await ipc.noteRead(live.current.path).catch(() => null);
         setDeleted(false);
         if (n) setMerge({ mine: text, theirs: n.text, theirsVersion: n.version, compare: false });
@@ -878,7 +889,10 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       if (x.kind === 'Conflict' && x.theirsVersion) setMerge({ mine: text, theirs: x.theirs ?? '', theirsVersion: x.theirsVersion, compare: false });
     }
   };
+  const restoreRef = useRef(restore);
+  restoreRef.current = restore;
   const discard = () => {
+    stopRestoreRetry();
     if (isPhone()) void dropRecovery(live.current.path);
     saver.current?.dispose();
     setDeleted(false);
@@ -1579,6 +1593,12 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
           <div role="alert" className="save-alert">
             <span>{t('save.verifyFailed')}</span>
             <button type="button" onClick={() => { edRef.current?.commands.undo(); saver.current?.changed(); }}>{t('save.undo')}</button>
+          </div>
+        )}
+        {deleted && restoreIo && (
+          <div role="alert" className="save-alert">
+            <span>{t('save.ioFailed')}</span>
+            <button type="button" data-command="phone.deleted.restore" onClick={() => void restore()}>{t('save.tryAgain')}</button>
           </div>
         )}
         {deleted && (
