@@ -531,16 +531,16 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         return;
       }
       // §11.1 step 1: a value typed into the Properties sheet but not committed is committed now (its field commits on
-      // blur), so the flush below writes it (FR-EDT-08 AC-16 (c)).
+      // blur), so the flush below writes it (FR-EDT-08 AC-16 (c)). Bug 182: synchronously (the blur handler commits to
+      // the editor at once; `flushSync` runs any state it sets), so the write starts within this task.
       const a = document.activeElement as HTMLElement | null;
-      if (a && a.matches('input, textarea, [contenteditable="true"]') && a.closest('[data-attribute-panel]')) {
-        a.blur();
-        await new Promise((r) => setTimeout(r, 0));
-      }
+      if (a && a.matches('input, textarea, [contenteditable="true"]') && a.closest('[data-attribute-panel]')) flushSync(() => a.blur());
       // A draft with a typed title: its commit is the first write (D-522).
       if (isDraft() && titleRef.current.trim() !== '') { s.forceFirst = true; s.changed(); }
       await Promise.all([s.flush({ composing: true }), embeds.flush()]);
-      if ((s.state as string) === 'failed' || s.isBlocked()) keep();
+      // Bug 178 (§11.2, D-2570 (3)): edits still unsaved after the flush (the `/` panel open pauses the Saver, a rename
+      // holds it, a write failed or was refused) are kept as a recovery copy.
+      if ((s.state as string) === 'failed' || s.isBlocked() || s.pending) keep();
     },
     edit: (a) => {
       if (a === 'saveNow') { void flush(); return; }
