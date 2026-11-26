@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- D-782 mark (logo 3B) for the Android adaptive icon foreground: the mark of source.svg without the macOS tile,
+       inside the 66 dp safe circle of the 108 dp layer (the launcher draws the mask and the white background). -->
+  <g transform="translate(227.5 227.5) scale(5.69)">
+    <line x1="24.6" y1="29.5" x2="78.6" y2="20.8" stroke="#1E6BFF" stroke-width="6.5" stroke-linecap="round"/>
+    <line x1="24.6" y1="29.5" x2="54.9" y2="74.9" stroke="#7FA6F5" stroke-width="2.7" stroke-linecap="round"/>
+    <line x1="78.6" y1="20.8" x2="54.9" y2="74.9" stroke="#3A5BC7" stroke-width="4.3" stroke-linecap="round"/>
+    <circle cx="24.6" cy="29.5" r="14.1" fill="#0A84FF"/>
+    <circle cx="78.6" cy="20.8" r="10.8" fill="#5AB0FF"/>
+    <circle cx="54.9" cy="74.9" r="15.1" fill="#1D3FB8"/>
+  </g>
+</svg>
