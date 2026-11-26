@@ -20,6 +20,12 @@ function Due({ due }: { due: SlashDef['due'] }) {
 
 /** R234 (D-2628): the heading rows' icons. */
 const HEADING_ICON: Record<string, string> = { heading1: 'slash.heading1.icon', heading2: 'slash.heading2.icon', heading3: 'slash.heading3.icon' };
+/** D-2677 (bug #171, board ObjectMenu): every other static row's icon (`data-icon`; drawn from `slash-<name>`). */
+const ROW_ICON: Record<string, string> = {
+  text: 'text', bulletList: 'bullet-list', orderedList: 'ordered-list', checklist: 'checklist', mindmap: 'mindmap', quote: 'quote', callout: 'callout',
+  codeBlock: 'code-block', divider: 'divider', table: 'table', turnIntoObject: 'turn-into-object', embedObject: 'embed-object', image: 'image', pdf: 'pdf',
+  query: 'query', blockEmbed: 'block-embed',
+};
 /** R234 (D-2611, D-126): the shortcut shown at a row's end. */
 const ROW_SHORTCUT: Record<string, string> = { turnIntoObject: 'edit.turnIntoObject' };
 const GROUP_LABEL: Record<MenuRow['group'], string> = {
@@ -86,6 +92,9 @@ export function SlashMenu({ slash, rows, pos, unavailable, onPick, onSel, fixed 
                     if (!first && !disabled && i !== slash.sel) onSel(i);
                   }}
                   onClick={() => !disabled && onPick(it)}>
+                  {ROW_ICON[it.id] && it.group !== 'newObject' && (
+                    <span className={`slash-icon${it.id === 'mindmap' ? ' slash-icon-mindmap' : ''}`} data-icon={ROW_ICON[it.id]} aria-hidden="true"><Icon name={`slash-${ROW_ICON[it.id]}`} dataIcon={ROW_ICON[it.id]} size={16} /></span>
+                  )}
                   {it.group === 'newObject' && it.type && (
                     <span className="slash-icon" data-icon={it.icon} aria-hidden="true"><Icon name={typeIconName(it.type, it.icon)} dataIcon={it.icon} size={16} /></span>
                   )}

@@ -85,6 +85,23 @@ export function lucideElement(icon: ResolvedIconDto | null | undefined, dataIcon
 // ------------------------------------------------------------------------------------------------ the hand-drawn icons
 
 const PATHS: Record<string, string> = {
+  // D-2677 (bug #171, board ObjectMenu): the `/` menu's row icons.
+  'slash-text': 'M5 6h14M12 6v13',
+  'slash-bullet-list': 'M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01',
+  'slash-ordered-list': 'M10 6h10M10 12h10M10 18h10M4 5h1v3M4 11h2l-2 3h2M4 17h2v3H4',
+  'slash-checklist': 'M4 5h5v5H4zM4 14h5v5H4zM5 7l1.5 1.5L9 6M12 7h8M12 16h8',
+  'slash-mindmap': 'M4 12h4M8 12c3 0 3-6 6-6h2M8 12c3 0 3 6 6 6h2M8 12h8',
+  'slash-quote': 'M6 8h4v4H7l-1 4M14 8h4v4h-3l-1 4',
+  'slash-callout': 'M4 5h16v11H9l-5 4z',
+  'slash-code-block': 'M9 8l-4 4 4 4M15 8l4 4-4 4',
+  'slash-divider': 'M4 12h16',
+  'slash-table': 'M4 5h16v14H4zM4 10h16M10 5v14',
+  'slash-turn-into-object': 'M4 8h12l-3-3M20 16H8l3 3',
+  'slash-embed-object': 'M4 5h16v14H4zM8 9h8M8 13h5',
+  'slash-image': 'M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15 9h.01',
+  'slash-pdf': 'M7 3h7l5 5v13H7zM14 3v5h5M9 14h6',
+  'slash-query': 'M11 4a7 7 0 1 0 0 14a7 7 0 0 0 0-14zM20 20l-4-4',
+  'slash-block-embed': 'M4 5h16v14H4zM8 9h8M8 13h8M8 17h4',
   home: 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z',
   inbox: 'M3 13l3-8h12l3 8v6H3zM3 13h5l1 3h6l1-3h5',
   calendar: 'M4 5h16v15H4zM4 10h16M9 3v4M15 3v4',
