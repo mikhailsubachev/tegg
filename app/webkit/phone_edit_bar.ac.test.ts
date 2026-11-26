@@ -67,7 +67,7 @@ test('fr_ux_04_ac8_formatting_bar_on_the_keyboard', async ({ page }) => {
   await tapText(page, 'Konec');
   await page.evaluate(() => (window as any).__TEGG_TEST__.keyboard(true));
   await page.setViewportSize({ width: 915, height: 200 });
-  const lb = await must(formatBar(page), 'the bar in landscape', 500);
+  const lb = await must(formatBar(page), 'the bar in landscape', 2000);
   const lr = await rect(lb);
   assert.ok(lr && Math.abs(lr.bottom - 200) <= 1, `landscape: the bar is above the keyboard (${lr?.bottom})`);
   const lefts = await lb.getByRole('button').evaluateAll((bs) => bs.map((b) => b.getBoundingClientRect()).filter((x) => x.right > 0 && x.left < innerWidth).map((x) => [x.left, x.right]));

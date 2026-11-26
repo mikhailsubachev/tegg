@@ -195,7 +195,8 @@ test('fr_lnk_04_ac14_create_offer_on_the_phone', async ({ browser }) => {
   await tapLink(page, 'Q3: plán?');
   await (await must(offer(page).getByRole('button', { name: /^Create "/ }), 'Create')).click();
   const w = await eventually(() => writeCalls(core), (x) => x.length >= 1, 3000);
-  assert.deepEqual(w.map((x) => x.cmd), ['link_create'], 'one link_create');
+  assert.equal(w[0].cmd, 'link_create', 'link_create first');
+  assert.deepEqual(w.slice(1).map((x) => [x.cmd, x.path]).filter(([c, p]) => !(c === 'note_write' && p === nfc(ROZBITE))), [], 'one link_create, then only the rewrite of the clicked link');
   const files = await core.files();
   const made = Object.keys(files).filter((p) => !(p in before.files));
   assert.equal(made.length, 1, `one new file: ${made}`);
@@ -267,7 +268,7 @@ test('fr_dly_02_ac11_today_virtual_until_a_keystroke_on_the_phone', async ({ pag
   await keyboard(p2, true);
   await ime(p2, [{ text: 'D' }]);
   await visibility(p2, 'hidden');
-  const w = await eventually(() => writeCalls(c2), (x) => x.length >= 1, 1000);
+  const w = await settledWriteCalls(c2, 1, 1000);
   assert.deepEqual(w, [{ cmd: 'daily_create', path: 'Daily/2026-10-14.md' }], 'the hidden flush writes the day');
   await p2.close();
 

@@ -437,7 +437,7 @@ test('fr_syn_06_ac56_editing_tour_on_the_phone', async ({ page }) => {
     const blocks = await body.locator(':scope > *').count();
     // a tap at the block's end (its last character), not its left edge, which hits a checkbox (D-2555); empty blocks
     // are skipped, so the caret ends after text and the typed leading space is never at a block start
-    for (const k of [0, Math.floor(blocks / 2), blocks - 1]) {
+    for (const k of [...new Set([0, Math.floor(blocks / 2), blocks - 1])]) {
       const end = await body.locator(':scope > *').nth(Math.max(0, k)).evaluate((el) => {
         const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
         let last: Text | null = null;
@@ -451,13 +451,14 @@ test('fr_syn_06_ac56_editing_tour_on_the_phone', async ({ page }) => {
         return b.width || b.height ? { x: b.right - 1, y: b.top + b.height / 2 } : null;
       });
       if (end) await page.touchscreen.tap(end.x, end.y);
+      await sleep(400);
     }
     await keyboard(page, true);
     for (const [t, name] of [[' [[', 'Link suggestions'], [' #a', 'Tag suggestions']] as const) {
       await ime(page, [{ text: t }]);
       await page.keyboard.press('Escape');
-      // deleteSurroundingText over what was typed (a typed `#a` would otherwise be one tag atom; D-2555)
-      await ime(page, [{ deleteSurrounding: { before: t.length, after: 0 } }]);
+      // deleteSurroundingText over what was typed; a typed `#a` is one tag atom, so ` #a` is two units (D-2555, D-2556)
+      await ime(page, [{ deleteSurrounding: { before: t === ' #a' ? 2 : t.length, after: 0 } }]);
       void name;
     }
     await keyboard(page, false);
@@ -505,7 +506,7 @@ test('fr_syn_06_ac56_editing_tour_on_the_phone', async ({ page }) => {
   await tapToEdit(page, 'Konec');
   await setCaret(page, 'Konec.', 'end');
   await ime(page, [{ text: ' [[Nový cíl' }]);
-  await tap(page, panel(page, 'Link suggestions').getByRole('option').filter({ hasText: 'Create “Nový cíl”' }).first(), 'Create “Nový cíl”');
+  await tap(page, panel(page, 'Link suggestions').getByRole('option').filter({ hasText: 'Create "Nový cíl"' }).first(), 'Create "Nový cíl"');
   await sleep(1500);
   per = await writesPerPath(core);
   assert.equal(per['Quick Notes/Nový cíl.md'], 1, '(b) a [[ create writes the new file once');

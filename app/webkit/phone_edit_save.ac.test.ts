@@ -82,7 +82,7 @@ test('fr_edt_08_ac16_flush_calls_on_hidden', async ({ browser }) => {
   await sleep(800);
   assert.deepEqual(await writesSeen(core), [], '(b) nothing written before hidden');
   await visibility(page, 'hidden');
-  const made = await eventually(() => writeCalls(core), (x) => x.length >= 1, 1000);
+  const made = await settledWriteCalls(core, 1, 1000);
   assert.deepEqual(made, [{ cmd: 'note_create', path: 'Quick Notes/Nákup.md' }], '(b) the flush is the first write, Quick Notes/Nákup.md, once');
   assert.match((await core.files())['Quick Notes/Nákup.md'] ?? '', /^title: Nákup$/m, '(b) title: Nákup');
   await page.close();
@@ -254,7 +254,7 @@ test('fr_edt_07_ac24_properties_sheet_edits_values', async ({ page, browser }) =
   const picker = await must(page.getByRole('dialog').filter({ has: page.getByRole('grid') }).last(), 'the date picker (D-763)');
   const pr = await rect(picker);
   assert.ok(pr && pr.left >= -0.5 && pr.right <= 412.5 && pr.bottom <= 915.5, 'the picker is within the viewport');
-  await tap(page, picker.getByRole('gridcell', { name: /8/ }).first(), '8 Oct');
+  await tap(page, picker.getByRole('gridcell', { name: /(^|\D)8\D/ }).first(), '8 Oct');
   await sleep(1200);
   await line(PRAZDNA_S, /^datum: 2026-10-08$/m, '(e) datum 2026-10-08');
   // the universal rows: Tags
@@ -388,7 +388,7 @@ test('fr_fmt_07_ac38_opening_on_the_phone_writes_nothing', async ({ page, browse
   await needBody(page, 'Rozcestník');
   const stems = corpus().map(([rel]) => nfc(rel.replace(/\.md$/, '').replace('/', ' ')));
   for (const stem of stems) {
-    const chip = noteBody(page).locator('[data-wikilink], .chip, a').filter({ hasText: stem }).first();
+    const chip = noteBody(page).locator(`[data-wikilink="${stem.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`).first();
     await tap(page, chip, stem);
     await sleep(400);
     const body = noteBody(page);
