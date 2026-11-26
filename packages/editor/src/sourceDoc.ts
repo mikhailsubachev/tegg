@@ -399,7 +399,8 @@ function listItemPatch(original: PMNode, node: PMNode, raw: string): { text: str
       const itemRaw = lf.slice(span[hint][0], span[hint][1])
       const num = /^(\d+)[.)]/.exec(itemRaw)
       const one = { type: node.type.name, attrs: { ...node.attrs, spread: false, ...(num ? { start: Number(num[1]) } : {}) }, content: [item.toJSON()] }
-      try { out += renderBlock(pmToBlock(one), itemRaw).replace(/\n+$/, '') } catch { return null }
+      // Issue #179 (FR-FMT-12, D-2570 (3)): a changed item is written in NFC, as every rendered block is.
+      try { out += renderBlock(pmToBlock(one), itemRaw).replace(/\n+$/, '').normalize('NFC') } catch { return null }
     }
     prev = place
   }
@@ -608,7 +609,8 @@ export function comparable(json: JSONContent): JSONContent {
   const attrs = { ...(json.attrs ?? {}) }
   delete attrs.srcIndex
   // In a table cell a link's pipe is written `\|`; it is the same link (dialect §6).
-  if (json.type === 'wikiLink' && typeof attrs.value === 'string') attrs.value = attrs.value.replace(/\\\|/g, '|')
+  // A rendered block's link target is written in NFC (FR-FMT-12; issue #179): an NFD target is the same link.
+  if (json.type === 'wikiLink' && typeof attrs.value === 'string') attrs.value = attrs.value.replace(/\\\|/g, '|').normalize('NFC')
   // A table without alignment reads back as one `null` per column.
   if (json.type === 'table' && Array.isArray(attrs.align) && attrs.align.every((a: unknown) => a === null)) attrs.align = null
   const out: JSONContent = { type: json.type }
