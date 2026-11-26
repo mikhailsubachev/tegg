@@ -5,6 +5,7 @@
 
 import { Editor, Extension, type JSONContent } from '@tiptap/core'
 import { Fragment, Mark, Slice, type Node as PMNode } from '@tiptap/pm/model'
+import { undoInputRule } from '@tiptap/pm/inputrules'
 import { EditorState, NodeSelection, Plugin, PluginKey, Selection, TextSelection, type Transaction } from '@tiptap/pm/state'
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view'
 import { closeHistory, undoDepth } from '@tiptap/pm/history'
@@ -1626,7 +1627,8 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       return nv ? nv.setLayout(layout) : false
     },
     undo() {
-      return editor.commands.undo()
+      // As ⌘Z (rules.ts): right after a Markdown shortcut it gives the literal text back first (FR-EDT-04 AC-5).
+      return undoInputRule(editor.state, editor.view.dispatch) || editor.commands.undo()
     },
     redo() {
       return editor.commands.redo()
