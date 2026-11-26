@@ -18,7 +18,7 @@ import {
   adb, eventually, fileState, forceStop, home, install, pushVault, quote, REPO, requireDevice, resume, runAs, sh, SHARED, sleep, start, TEST_APK, TEST_ID, webview,
   writeShared, type WebView,
 } from './helpers/device.ts';
-import { DRAWER, FRAME, ipcWrites, launchPhone, pushPhone, swipe, title, titleIs, toDevice, cssRect } from './helpers/phone.ts';
+import { DRAWER, FRAME, ipcWrites, launchPhone, pushPhone, swipe, tap, title, titleIs, toDevice, cssRect } from './helpers/phone.ts';
 
 const views: WebView[] = [];
 let installed = false;
@@ -200,12 +200,26 @@ test('fr_syn_03_ac39_partly_synced_vault_on_the_phone', async () => {
   const style = (name: string) => v.eval<string>(`(() => { const a = [...document.querySelectorAll('main article a, main article [role="link"]')].find((x) => x.innerText.trim() === ${JSON.stringify(name)}); if (!a) return ''; const s = getComputedStyle(a); return s.color + '|' + s.textDecorationLine + '|' + (a.getAttribute('data-link-kind') ?? ''); })()`);
   const broken = await style('Neexistuje');
   assert.equal(await style('Později'), broken, '[[Později]] shows the broken-link style');
-  await v.eval(`[...document.querySelectorAll('main article a, main article [role="link"]')].find((a) => a.innerText.trim() === 'Později').click(), true`);
-  assert.ok(await eventually(() => v.eval<boolean>(`document.body.innerText.includes('No note named “Později” in this vault yet.')`), (x) => x, 1000, 100), 'a tap shows AC-11\'s notice');
+  // AND-3: a tap (a real touch) on the broken link opens the Create offer sheet (android-edit.md §10.4), not AND-2's
+  // notice, as the L5p twin (D-2555, D-2558)
+  // the link is a chip in the editable note (AND-3), which a script's click() no longer follows: both taps are real
+  const tapLink = async (name: string) => {
+    const at = await v.eval<{ x: number; y: number } | null>(`(() => { const a = [...document.querySelectorAll('main article a, main article [role="link"]')].find((x) => x.innerText.trim() === ${JSON.stringify(name)}); if (!a) return null; const r = a.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    assert.ok(at, `[[${name}]] is on the page`);
+    const p = await toDevice(v, at!.x, at!.y);
+    tap(p.x, p.y);
+  };
+  await tapLink('Později');
+  const OFFER = '[role="dialog"][aria-label="Create note"]';
+  assert.ok(await v.waitFor(OFFER, 1000), 'a tap opens the Create offer (sheet "Create note")');
+  assert.equal(await v.eval<boolean>(`[...document.querySelectorAll('${OFFER} button')].some((b) => b.innerText.trim() === 'Create "Později"')`), true, 'with Create "Později"');
+  assert.equal(await v.eval<boolean>(`document.body.innerText.includes('No note named “Později” in this vault yet.')`), false, 'not AND-2\'s notice');
+  sh('input keyevent KEYCODE_BACK');
+  assert.equal(await eventually(() => v.eval<boolean>(`!!document.querySelector('${OFFER}')`), (x) => !x, 1000, 100), false, 'Back closes the offer');
   const pozdeji = '---\nid: 01JBAN2000000000000000N301\ntype: page\ntitle: Později\n---\nDorazilo později.\n';
   syncWrite(`${vault}/Pages/Později.md`, pozdeji);
   assert.notEqual(await eventually(() => style('Později'), (s) => s !== broken, 2000, 100), broken, 'the link resolves within 2 s');
-  await v.eval(`[...document.querySelectorAll('main article a, main article [role="link"]')].find((a) => a.innerText.trim() === 'Později').click(), true`);
+  await tapLink('Později');
   assert.equal(await titleIs(v, 'Později'), 'Později', 'and opens it');
   // the pin that hadn't arrived now resolves
   await v.click(`${FRAME} [data-command="phone.menu"]`);
@@ -217,7 +231,8 @@ test('fr_syn_03_ac39_partly_synced_vault_on_the_phone', async () => {
   await sleep(500);
   assert.equal(await v.eval<number>(`[...document.querySelectorAll('main button')].filter((b) => b.innerText.trim() === 'Remove from Books page').length`), 0, 'the not-found state without Remove from Books page');
   syncWrite(`${vault}/.tegg/queries/Chybí.yml`, '# Tegg saved query (FR-QRY-06). Edit it in Tegg: Queries › Chybí.\nversion: 1\ntitle: Chybí\ntypes: [book]\nmatch: all\nfilters: []\nsort: { by: title, order: asc }\nlimit: 50\nview: list\ncreated: 2026-11-19T09:00:00+01:00\nmodified: 2026-11-19T09:00:00+01:00\n');
-  assert.equal(await eventually(() => v.eval<number>(`document.querySelectorAll('main [role="tabpanel"] [data-query-result]').length`), (n) => n === 17, 2000, 100), 17, 'its results within 2 s of the file\'s arrival');
+  // One per row, as the L5p twin: slice Q3 marks a List row's li and its chip (D-2480)
+  assert.equal(await eventually(() => v.eval<number>(`document.querySelectorAll('main [role="tabpanel"] li[data-query-result], main [role="tabpanel"] tr[data-query-result]').length`), (n) => n === 17, 2000, 100), 17, 'its results within 2 s of the file\'s arrival');
   const now = fileState(vault);
   assert.deepEqual(changed(before, now), ['.tegg/queries/Chybí.yml', 'Pages/Později.md'].map((x) => x.normalize('NFC')).sort(), 'no file created or rewritten by Tegg to "fix" anything');
   assert.deepEqual(ipcWrites(), [], 'zero writes');

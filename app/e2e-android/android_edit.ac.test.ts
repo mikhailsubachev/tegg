@@ -123,12 +123,38 @@ test('fr_edt_01_ac17_what_the_phone_editor_leaves_out', async () => {
 
 // ------------------------------------------------------------------------------------------------ FR-EDT-01 AC-19, AC-20
 
+/** Selects `text` in the Note body through CDP (the selection Chrome reports to the IME; a composition replaces it). */
+async function selectIn(v: WebView, text: string): Promise<void> {
+  const ok = await v.eval<boolean>(`(() => {
+    const body = document.querySelector('[role="textbox"][aria-label="Note body"]');
+    if (!body) return false;
+    body.focus();
+    const want = ${JSON.stringify(text.normalize('NFC'))};
+    const w = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+    for (let n = w.nextNode(); n; n = w.nextNode()) {
+      const i = (n.textContent || '').normalize('NFC').indexOf(want);
+      if (i < 0) continue;
+      const r = document.createRange();
+      r.setStart(n, i);
+      r.setEnd(n, i + want.length);
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      document.dispatchEvent(new Event('selectionchange'));
+      return true;
+    }
+    return false;
+  })()`);
+  assert.ok(ok, `"${text}" is selected in the Note body`);
+}
+
 test('fr_edt_01_ac19_keyboard_input_matches_the_desktop', async () => {
   ready();
   const orig = fixture('phone-edit/Pages/Psaní.md');
   // (a) composed words committed by a space, (b) a suggestion, (c) autocorrect
   let { v, vault } = await openEdit();
   await tapWord(v, 'Konec');
+  // the tap's own caret lands with the keyboard: wait for it and ~300 ms before placing the caret (D-2557, D-2558)
+  assert.ok(await eventually(() => imeShown(), (s) => s, 1500), 'the keyboard');
+  await sleep(300);
   await caretIn(v, 'Konec.', 0);
   for (const s of ['A', 'Ah', 'Aho', 'Ahoj']) imeCompose(s);
   imeCommit('Ahoj ');
@@ -148,7 +174,8 @@ test('fr_edt_01_ac19_keyboard_input_matches_the_desktop', async () => {
   // the tap's own caret lands with the keyboard: wait for it and ~300 ms before placing the caret (D-2557)
   assert.ok(await eventually(() => imeShown(), (s) => s, 1500), 'the keyboard');
   await sleep(300);
-  await caretIn(v, 'chléb', 'end');
+  // (d) replaces the word it composes over, as the L5p twin's `select: true` (D-2558): chléb selected, then composed
+  await selectIn(v, 'chléb');
   imeCompose('chléb');
   imeFinish();
   imeKey(KEYCODE_ENTER);
@@ -157,7 +184,8 @@ test('fr_edt_01_ac19_keyboard_input_matches_the_desktop', async () => {
   imeKey(KEYCODE_ENTER);
   imeCommit('Nové');
   t = await waitFile(`${vault}/${PSANI}`, (x) => x.includes('Nové'), 4000);
-  assert.ok(t.includes('- [ ] Zavolat\n- [ ] Nové\n'), '(e) a new `- [ ] ` item');
+  // Enter on (d)'s empty item split the list; the save re-marks the half after the split `-` → `*` (D-67, D-2559)
+  assert.match(t, /[-*] \[ \] Zavolat\n\n?[-*] \[ \] Nové\n/, '(e) a new `- [ ] ` item');
   assert.equal((t.match(/chléb/g) ?? []).length, 1, '(d) chléb once');
   // (f) Backspace at block starts and after the chip, through deleteSurroundingText and the key
   ({ v, vault } = await openEdit());
@@ -182,6 +210,9 @@ test('fr_edt_01_ac20_czech_from_the_keyboard_is_nfc', async () => {
   ready();
   const { v, vault } = await openEdit();
   await tapWord(v, 'Konec');
+  // the tap's own caret lands with the keyboard: wait for it and ~300 ms before placing the caret (D-2557, D-2558)
+  assert.ok(await eventually(() => imeShown(), (s) => s, 1500), 'the keyboard');
+  await sleep(300);
   await caretIn(v, 'Konec.', 'end');
   imeCommit(' č');
   imeCommit(' ř ');
@@ -307,6 +338,9 @@ test('fr_edt_08_ac16_android_may_stop_the_app', async () => {
   for (const how of ['kill', 'recents'] as const) {
     const { v, vault } = await openEdit();
     await tapWord(v, 'Konec');
+    // the tap's own caret lands with the keyboard: wait for it and ~300 ms before placing the caret (D-2557, D-2558)
+    assert.ok(await eventually(() => imeShown(), (s) => s, 1500), 'the keyboard');
+    await sleep(300);
     await caretIn(v, 'Konec.', 'end');
     imeCommit(' Ahoj');
     if (how === 'kill') amKill(); else removeTask();
