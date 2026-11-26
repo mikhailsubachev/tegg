@@ -1670,8 +1670,15 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       return oneStep(() => editor.chain().command(({ tr }) => { closeHistory(tr); return true }).liftListItem('listItem').run())
     },
     insertTrigger(t) {
+      if (!editor.isEditable) return false
+      // FR-UX-04 AC-10: a bar tap never replaces selected text; the trigger goes after the selection.
+      if (!editor.state.selection.empty) {
+        const sel = editor.state.selection
+        if (!sel.$to.parent.isTextblock) return false
+        view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, sel.to)))
+      }
       const { $from } = editor.state.selection
-      if (!editor.isEditable || !$from.parent.isTextblock || $from.parent.type.spec.code || inSourceBlock(editor.state)) return false
+      if (!$from.parent.isTextblock || $from.parent.type.spec.code || inSourceBlock(editor.state)) return false
       const before = $from.parent.textBetween(Math.max(0, $from.parentOffset - 1), $from.parentOffset, undefined, '\ufffc')
       const text = t === '#' && before && !/\s/.test(before) ? ' #' : t
       return oneStep(() => {
