@@ -323,9 +323,10 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       // Slice AND-3 (android-edit §7.1, CP-7): on the phone a file stored under an NFD name is read-only (D-2512).
       const nfd = isPhone() && !!(n as { nfdName?: boolean }).nfdName;
       const mode: Mode = !n.utf8 ? 'utf8' : frontmatterWarning(doc) ? 'invalidFrontmatter' : readView || nfd || path.startsWith('.trash/') ? 'readView' : 'edit';
-      // The read-only views resolve their links here; the editor resolves its own chips.
+      // The read-only views resolve their links here; the editor resolves its own chips. Slice AND-3 (android-edit
+      // §10.5): on the phone the Properties strip stays outside the editor, so its chips resolve here in every mode.
       let links = new Map<string, LinkTargetDto>();
-      if (mode !== 'edit') {
+      if (mode !== 'edit' || isPhone()) {
         const targets = linkTargets(n.text);
         const resolved = targets.length ? await ipc.linkResolve(path, targets).catch(() => [] as LinkTargetDto[]) : [];
         links = new Map(resolved.map((r) => [r.target, r]));
@@ -653,13 +654,16 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   refreshEmbedsRef.current = () => {
     const l = live.current.loaded;
     if (!l) return;
-    if (l.mode === 'edit') { embeds.refresh?.(); return; }
+    const edit = l.mode === 'edit';
+    if (edit) embeds.refresh?.();
+    if (edit && !isPhone()) return;
     void (async () => {
       const targets = linkTargets(l.text);
       const resolved = targets.length ? await ipc.linkResolve(live.current.path, targets).catch(() => [] as LinkTargetDto[]) : [];
       const links = new Map(resolved.map((r) => [r.target, r]));
       setLoaded((x) => (x && x.text === l.text ? { ...x, links } : x));
-      void embeds.build(l.text, links);
+      // Slice AND-3: on the phone's editor only the strip's links are refreshed; the editor keeps its embeds.
+      if (!edit) void embeds.build(l.text, links);
     })();
   };
   // The read view's tree: its links are resolved in one batch with the embeds (load()).
@@ -1407,7 +1411,11 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   const reviewToggle = reviewShown && !isPhone() ? (
     <ReviewCheck reviewed={reviewed} onToggle={(r) => setReviewedRef.current(r)} commands={['note.markReviewed', 'note.markUnreviewed']} />
   ) : null;
-
+  // Slice AND-3 (android-edit §20, D-2553): on the phone the editor page stays an `article` named by the note's title,
+  // as AND-2's read view was, so the note is found the same way.
+  const bodyFrame = (el: React.ReactElement) => (phone
+    ? <article className="phone-note-body" aria-label={(daily ? daily.date : title.trim() || meta.title) || undefined}>{el}</article>
+    : el);
 
   return (
     <div ref={root} className="note-root" data-focus-target={focusTarget ?? undefined} onKeyDownCapture={onRenameKey}>
@@ -1579,6 +1587,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
               open={propertiesOpen} onToggle={onToggleProperties}
               otherOpen={otherOpen} onToggleOther={() => onToggleOther?.()} onCommit={commit} onOpen={(p) => onOpen(p)} onOpenSource={onOpenSource} onTag={onTag}
               onLeaveLast={() => pane.current?.focus()} />}
+            {bodyFrame(
             <EditorPane
               embeds={embeds}
               apiRef={pane}
@@ -1601,7 +1610,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
               onExternal={(url) => void ipc.openExternal(url).catch(() => {})}
               onImagePaste={() => { setNotice(t('paste.images')); setTimeout(() => setNotice(null), 4000); }}
               onFailedLoad={() => { setLoaded((l) => (l ? { ...l, mode: 'editorFailed' } : l)); setSave({ state: 'readOnly', failure: null }); }}
-            />
+            />)}
           </div>
         )}
         {daily && <ContextSections date={daily.date} onOpen={(p) => onOpen(p)} />}

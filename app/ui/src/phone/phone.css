@@ -710,6 +710,8 @@ html[data-layout="phone"] .chooser {
 html[data-layout="phone"] .phone-status { flex: none; display: flex; align-items: center; }
 html[data-layout="phone"] .phone-status .save-state {
   display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; font-size: 13px; color: var(--muted);
+  /* The visually hidden text sits inside the app bar, never under the status bar (FR-UX-04 AC-3). */
+  position: relative;
 }
 html[data-layout="phone"] .phone-status .save-state.conflict,
 html[data-layout="phone"] .phone-status .save-state.failed { color: var(--danger); }

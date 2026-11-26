@@ -266,6 +266,9 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       }),
       // Slice P (v1-previews §5.1, R103): chips and tags map their gestures to the preview, the open or the offer.
       ...chips,
+      // Slice AND-3 (android-edit §13.2, §7.7): on the phone a chip is a link in the note's text (exempt, as AND-2's
+      // read view); `edit.openOrToggle` stays hidden there, so the chip carries no command.
+      ...(phone ? { chipCommand: null } : {}),
       onExternal: (url) => cb.current.onExternal(url),
       // Slice Q (v1-queries §3.2): query blocks are drawn by the app; ⌘↩ on a selected one opens its editor (R144).
       // Slice Q2.1 (v1-views §18, CP-16): each block is a usage keyed by the note's `id` (else its path) and its place.
