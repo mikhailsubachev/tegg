@@ -1575,6 +1575,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         {!showSource && loaded.mode !== 'edit' && (
           <>
             {warning && <WarningBanner warning={warning} />}
+            {/* Slice AND-3 (android-edit §7.1; FR-FMT-12 AC-18): why a note with an NFD file name is read-only here. */}
+            {isPhone() && loaded.nfd && <div role="alert" className="save-alert phone-nfd">{t('phone.nfdReadOnly')}</div>}
             {isPhone()
               ? <PhoneProperties text={loaded.text} links={loaded.links} type={panelType} all={chipKey === 'image' || chipKey === 'pdf'} onOpen={(p: string) => onOpen(p)} onTag={onTag} />
               : <Properties text={loaded.text} links={loaded.links} open={propertiesOpen} onToggle={onToggleProperties} onOpen={(p: string) => onOpen(p)} onTag={onTag} />}
