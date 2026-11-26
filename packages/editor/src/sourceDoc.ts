@@ -103,7 +103,7 @@ export function reconcile(loaded: Loaded, pmDoc: PMNode, opts: { forceVerifyFail
   const used = new Set<number>()
   pmDoc.forEach((shown) => {
     if (shown.type.name === 'rawBlock' && shown.attrs.draft) return // D-1471: a draft query block lives only in the editor
-    const node = writable(shown)
+    let node = writable(shown)
     const src = node.attrs.srcIndex as number | null
     const original = src !== null && src < originals.length && !used.has(src) ? originals[src] : null
     if (src !== null && original) used.add(src)
@@ -121,10 +121,13 @@ export function reconcile(loaded: Loaded, pmDoc: PMNode, opts: { forceVerifyFail
     const patched = bodiesOnly ? queryBodyPatch(original!, node, srcRaw!) : null
     if (bodiesOnly && patched === null) throw new VerifyError(QUERY_PATCH_FAILED)
     const sourcePatch = !isRaw && patched === null && srcRaw !== undefined ? checkboxPatch(original!, node, srcRaw) || tablePatch(original!, node, srcRaw) : null
+    // Bug AND-3: a changed list keeps its unchanged items' bytes (and with them its spacing). Issue #173: so does each
+    // half of a split list, the second half too, though the first half already took its `srcIndex`.
+    const origin = src !== null && src < originals.length ? originals[src] : null
+    const listKept = origin && !isRaw && patched === null && !sourcePatch ? listItemPatch(origin, node, doc.blocks[src!].raw) : null
+    if (listKept) node = listKept.node
     const md = isRaw ? String(node.attrs.source) : patched ?? (sourcePatch || renderBlock(pmToBlock(node.toJSON()), srcRaw))
-    // Bug AND-3: a changed list keeps its unchanged items' bytes (and with them its spacing).
-    const listKept = srcRaw !== undefined && !isRaw && patched === null && !sourcePatch ? listItemPatch(original!, node, srcRaw) : null
-    const kept = listKept ?? (srcRaw !== undefined && !isRaw && patched === null ? paragraphPatch(original!, node, srcRaw, md) : null)
+    const kept = listKept?.text ?? (srcRaw !== undefined && !isRaw && patched === null ? paragraphPatch(original!, node, srcRaw, md) : null)
     if (!isRaw && md.trim() === '') return // e.g. a paragraph of spaces: nothing to write
     // A raw block holds bytes the file already had (a copy, a moved or mode-changed embed): never re-normalized, so
     // an NFD embed line stays NFD when duplicated (AP-336, FR-FMT-07 AC-15). A query-fence patch keeps the container's
@@ -317,19 +320,43 @@ function paragraphPatch(original: PMNode, node: PMNode, raw: string, md: string)
  * between two items reads as loose, so every item would get a blank line after it. Each changed item is rendered as a
  * one-item list (its own marker and number); the result must read back as `node`, otherwise null (the whole list is
  * rendered, as before).
+ *
+ * Issue #173: a list split in two (Backspace at an item's start or Enter on an empty item lifts it out) leaves two
+ * lists that both come from `original`. Each half is written as the source of its run of the original's items, so
+ * `- [ ] Zavolat\n- [x] Hotovo` keeps its bytes. A half keeps the original's list-level `spread`, which its own items
+ * may not have (a one-item list is never loose); that attribute is hidden in the editor (schema.ts), so the half is
+ * written as its items read and returned with the `spread` the written text has.
  */
-function listItemPatch(original: PMNode, node: PMNode, raw: string): string | null {
-  if (!/List$/.test(node.type.name) || original.type !== node.type || node.childCount !== original.childCount) return null
-  if (node.type.name === 'orderedList' && node.attrs.start !== original.attrs.start) return null
+function listItemPatch(original: PMNode, node: PMNode, raw: string): { text: string; node: PMNode } | null {
+  if (!/List$/.test(node.type.name) || original.type !== node.type || !node.childCount || node.childCount > original.childCount) return null
+  const whole = node.childCount === original.childCount
+  // The run of the original's items this list holds: all of them, else the place where most of its items are the
+  // original's own (at least one).
+  let first = 0
+  if (!whole) {
+    let best = 0
+    for (let k0 = 0; k0 + node.childCount <= original.childCount; k0++) {
+      let same = 0
+      for (let j = 0; j < node.childCount; j++) if (node.child(j).eq(original.child(k0 + j))) same++
+      if (same > best) { best = same; first = k0 }
+    }
+    if (!best) return null
+  }
   const lf = raw.replace(/\r\n/g, '\n')
   const parsed = parse(lf)
   const list = parsed.blocks.length === 1 ? (parsed.blocks[0].node as { type: string; children?: { position?: { start: { offset?: number }; end: { offset?: number } } }[] }) : null
-  if (!list || list.type !== 'list' || list.children?.length !== node.childCount) return null
-  let out = lf
-  for (let k = node.childCount - 1; k >= 0; k--) {
-    const item = node.child(k)
-    if (item.eq(original.child(k))) continue
-    const pos = list.children[k].position
+  if (!list || list.type !== 'list' || list.children?.length !== original.childCount) return null
+  const runFrom = list.children[first].position?.start.offset
+  const runTo = list.children[first + node.childCount - 1].position?.end.offset
+  if (runFrom === undefined || runTo === undefined) return null
+  // A later run starts at its marker, which must open its line (an indented list is rendered instead).
+  if (first > 0 && !/(^|\n)$/.test(lf.slice(0, runFrom))) return null
+  const base = first === 0 ? 0 : runFrom
+  let out = whole ? lf : lf.slice(base, runTo)
+  for (let j = node.childCount - 1; j >= 0; j--) {
+    const item = node.child(j)
+    if (item.eq(original.child(first + j))) continue
+    const pos = list.children[first + j].position
     const from = pos?.start.offset
     const to = pos?.end.offset
     if (from === undefined || to === undefined) return null
@@ -338,18 +365,19 @@ function listItemPatch(original: PMNode, node: PMNode, raw: string): string | nu
     const one = { type: node.type.name, attrs: { ...node.attrs, spread: false, ...(n ? { start: Number(n[1]) } : {}) }, content: [item.toJSON()] }
     let md: string
     try { md = renderBlock(pmToBlock(one), itemRaw).replace(/\n+$/, '') } catch { return null }
-    out = out.slice(0, from) + md + out.slice(to)
+    out = out.slice(0, from - base) + md + out.slice(to - base)
   }
-  // Read back as the verify step will (`verify`): one block, the same editor content.
+  // Read back as the verify step will (`verify`): one block, the same editor content (a split half: but its `spread`).
   const back = parse(out)
   if (back.blocks.length !== 1) return null
   try {
     const reread = node.type.schema.nodeFromJSON(blockToPM(back.blocks[0].node, back.text))
-    if (JSON.stringify(comparable(reread.toJSON())) !== JSON.stringify(comparable(node.toJSON()))) return null
+    const shown = whole || reread.attrs.spread === node.attrs.spread ? node : node.type.create({ ...node.attrs, spread: reread.attrs.spread }, node.content, node.marks)
+    if (JSON.stringify(comparable(reread.toJSON())) !== JSON.stringify(comparable(shown.toJSON()))) return null
+    return { text: out, node: shown }
   } catch {
     return null
   }
-  return out
 }
 
 function tablePatch(original: PMNode, node: PMNode, raw: string): string | null {
