@@ -182,7 +182,8 @@ test('fr_hom_02_ac26_query_entries_are_kept_not_shown', async ({ page }) => {
 
 // ------------------------------------------------------------------------------------------------ FR-SYN-03 AC-26
 
-test('fr_syn_03_ac26_pins_writes_check_the_base', async ({ page }) => {
+// Quarantined (@flaky, test-strategy §8.4, #167): flaky twice in push gates (2026-11-24, 2026-11-25) under load.
+test('fr_syn_03_ac26_pins_writes_check_the_base', { tag: ['@flaky'] }, async ({ page }) => {
   for (const op of ['pin', 'unpin', 'move'] as const) {
     const ctx = await page.context().browser()!.newContext({ timezoneId: 'Europe/Prague' });
     const p = await ctx.newPage();
