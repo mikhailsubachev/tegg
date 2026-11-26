@@ -2,6 +2,8 @@
 // shared storage, the system page that grants it, and the app's private files folder for machine-local data.
 // Slice AND-2 (docs/contracts/android-phone.md §5; D-2429…D-2432, D-2444): the window seen by the page: safe-area
 // insets and the keyboard, system Back, the bar icons, night mode and the font size, and links opened in other apps.
+// Slice AND-3 (docs/contracts/android-edit.md §6; CP-3 → D-2529, CP-5 → D-2531): the soft keyboard on request, and a
+// renderer that dies no longer takes the app with it.
 package app.tegg.android
 
 import android.app.Activity
@@ -10,11 +12,20 @@ import android.content.ComponentCallbacks
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.res.Configuration
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Environment
 import android.provider.Settings
+import android.util.Log
 import android.view.View
+import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
+import android.webkit.RenderProcessGoneDetail
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -40,6 +51,39 @@ class OpenUrlArgs {
     var url: String = ""
 }
 
+@InvokeArg
+class ImeArgs {
+    var show: Boolean = false
+}
+
+/**
+ * android-edit §6.2 (FR-EDT-08 AC-18; CP-3 → D-2529): wry's client with the renderer's death handled. The methods wry's
+ * `RustWebViewClient` overrides go to it unchanged; `onRenderProcessGone` drops the dead WebView and recreates the
+ * activity, so the process and the Rust core (and the open vault) stay and the page starts again as on a resume.
+ */
+class TeggWebViewClient(private val inner: WebViewClient, private val activity: Activity) : WebViewClient() {
+    override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
+        inner.shouldInterceptRequest(view, request)
+
+    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
+        inner.shouldOverrideUrlLoading(view, request)
+
+    override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) = inner.onPageStarted(view, url, favicon)
+
+    override fun onPageFinished(view: WebView, url: String?) = inner.onPageFinished(view, url)
+
+    override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) =
+        inner.onReceivedError(view, request, error)
+
+    override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+        Log.i("tegg", "tegg: renderer gone (crash=${detail.didCrash()})")
+        (view.parent as? ViewGroup)?.removeView(view)
+        view.destroy()
+        activity.recreate()
+        return true
+    }
+}
+
 @TauriPlugin
 class TeggStoragePlugin(private val activity: Activity) : Plugin(activity) {
     private var webView: WebView? = null
@@ -56,6 +100,8 @@ class TeggStoragePlugin(private val activity: Activity) : Plugin(activity) {
         if ((activity.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
             WebView.setWebContentsDebuggingEnabled(true)
         }
+        // §6.2: wry's client, wrapped (API 26+; minSdk is 30).
+        webView.webViewClient = TeggWebViewClient(webView.webViewClient, activity)
         watchInsets()
         watchBack()
         watchConfiguration()
@@ -182,6 +228,27 @@ class TeggStoragePlugin(private val activity: Activity) : Plugin(activity) {
             ret.put("systemDark", systemDark(cfg))
             ret.put("fontScale", cfg.fontScale.toDouble())
             invoke.resolve(ret)
+        }
+    }
+
+    /** android-edit §6.1 (CP-5 → D-2531): the soft keyboard for the WebView, on the UI thread. */
+    @Command
+    fun ime(invoke: Invoke) {
+        val show = invoke.parseArgs(ImeArgs::class.java).show
+        activity.runOnUiThread {
+            val w = webView
+            val imm = activity.getSystemService(InputMethodManager::class.java)
+            if (w == null || imm == null) {
+                invoke.reject("no WebView", "Io")
+                return@runOnUiThread
+            }
+            if (show) {
+                w.requestFocus()
+                imm.showSoftInput(w, 0)
+            } else {
+                imm.hideSoftInputFromWindow(w.windowToken, 0)
+            }
+            invoke.resolve(JSObject())
         }
     }
 

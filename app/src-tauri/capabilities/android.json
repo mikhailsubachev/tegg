@@ -71,6 +71,7 @@
     "allow-index-versions",
     "allow-trash-list",
     "allow-object-trash",
+    "allow-trash-restore",
     "allow-media-add",
     "allow-media-add-paths",
     "allow-tag-objects",
@@ -92,6 +93,10 @@
     "allow-storage-access",
     "allow-storage-access-settings",
     "allow-android-open-url",
-    "allow-android-window"
+    "allow-android-window",
+    "allow-android-recovery-put",
+    "allow-android-recovery-get",
+    "allow-android-recovery-drop",
+    "allow-android-ime"
   ]
 }

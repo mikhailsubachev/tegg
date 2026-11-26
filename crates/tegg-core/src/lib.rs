@@ -101,6 +101,9 @@ pub struct NoteRead {
     pub bytes: Vec<u8>,
     pub version: FileVersion,
     pub utf8: bool,
+    /// android-edit §3.1 (FR-FMT-12 AC-18, D-2512): reached through an on-disk name whose bytes differ from its NFC
+    /// form; such a note is read-only on the phone. Always false on macOS.
+    pub nfd_name: bool,
 }
 
 impl From<VaultError> for CoreError {
@@ -536,7 +539,8 @@ impl Core {
         let mut rec = lock(&self.shared.recency);
         rec.0.insert(nfc(path), ms);
         rec.1 = true;
-        Ok(NoteRead { bytes, version, utf8 })
+        let nfd_name = self.shared.vault.nfd_name(path);
+        Ok(NoteRead { bytes, version, utf8, nfd_name })
     }
 
     /// D-185: tags with their display name (ms4-tags §1.2): every tag of `tag_rows`, count-0 Tag files included.

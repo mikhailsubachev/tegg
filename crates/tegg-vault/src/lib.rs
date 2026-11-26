@@ -25,6 +25,8 @@ pub use local::{
 pub use local::{fs_change_of, on_disk_name, on_disk_path, OnDiskName};
 /// Slice AND-3 (docs/contracts/android-edit.md §3.2): the create check's name test.
 pub use local::name_taken;
+/// android-edit §2.3 (D-2512): the write refusal of an NFD-named file.
+pub use local::{is_read_only_name, ReadOnlyName};
 /// Slice AND-3 (docs/contracts/android-edit.md §3.2): the create check's test seam (L4, FR-SYN-02 AC-17) and the
 /// resolving file system for the host's FR-FMT-12 AC-18 test.
 #[doc(hidden)]
@@ -171,6 +173,12 @@ pub trait VaultFs: Send + Sync {
         }
         self.create_dir_all(path)
     }
+    /// android-edit §3.1 (FR-FMT-12 AC-18, D-2512): true when `path` is reached through an on-disk name whose bytes
+    /// differ from its NFC form (android-shell §3.2's `OnDiskName::Found` with other bytes). Such a file is read-only
+    /// on this device. Default (and macOS, which resolves no names): false.
+    fn nfd_name(&self, _path: &str) -> io::Result<bool> {
+        Ok(false)
+    }
     /// Whether `path` is a folder. Default: `list` searched.
     fn is_dir(&self, path: &str) -> io::Result<bool> {
         let want = fold(path.trim_matches('/'));
@@ -250,6 +258,9 @@ impl<T: VaultFs + ?Sized> VaultFs for std::sync::Arc<T> {
     }
     fn is_dir(&self, path: &str) -> io::Result<bool> {
         (**self).is_dir(path)
+    }
+    fn nfd_name(&self, path: &str) -> io::Result<bool> {
+        (**self).nfd_name(path)
     }
 }
 
@@ -549,6 +560,12 @@ impl Vault {
 
     pub fn read(&self, path: &str) -> Result<(Vec<u8>, FileVersion), VaultError> {
         Ok(self.fs.read(&nfc(path))?)
+    }
+
+    /// android-edit §3.1 (D-2512): whether the file at `path` is stored under a name whose bytes differ from its NFC
+    /// form (read-only on the phone). False when the name can't be resolved.
+    pub fn nfd_name(&self, path: &str) -> bool {
+        self.fs.nfd_name(&nfc(path)).unwrap_or(false)
     }
 
     /// The one write function (architecture §5.3). Unchanged bytes → nothing written (FR-SYN-06);

@@ -68,7 +68,7 @@ impl LocalFs {
     fn abs_write(&self, path: &str) -> io::Result<PathBuf> {
         let p = self.abs(path)?;
         if self.resolve_names && p != self.root.join(tegg_format::nfc(path)) {
-            return Err(io::Error::new(io::ErrorKind::PermissionDenied, format!("{path}: stored under another spelling; read-only on this device (D-2048)")));
+            return Err(io::Error::new(io::ErrorKind::PermissionDenied, ReadOnlyName(path.to_string())));
         }
         Ok(p)
     }
@@ -289,6 +289,14 @@ impl VaultFs for LocalFs {
 
     fn remove_file(&self, path: &str) -> io::Result<()> {
         fs::remove_file(self.abs_write(path)?)
+    }
+
+    /// android-edit §3.1: the resolved spelling differs from the NFC one (never on macOS, never for ASCII paths).
+    fn nfd_name(&self, path: &str) -> io::Result<bool> {
+        if !self.resolve_names || path.is_ascii() {
+            return Ok(false);
+        }
+        Ok(self.abs(path)? != self.root.join(tegg_format::nfc(path)))
     }
 
     fn remove_empty_dir(&self, path: &str) -> io::Result<()> {
@@ -786,6 +794,25 @@ mod bug_and1la_fr_syn_02_create_without_hard_links {
         assert_eq!(e.kind(), io::ErrorKind::PermissionDenied);
         assert!(fs.abs_write("Pages/Nová.md").is_ok(), "a new NFC note may be written");
     }
+}
+
+/// The write refusal of a file stored under a name whose bytes differ from its NFC form (android-shell §3.2, D-2048,
+/// D-2512): an `io::Error` of kind `PermissionDenied` carrying this, so the app maps it to the `IpcError` kind
+/// `ReadOnlyName` (android-edit §2.3) and no other permission error.
+#[derive(Debug)]
+pub struct ReadOnlyName(pub String);
+
+impl std::fmt::Display for ReadOnlyName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: stored under another spelling; read-only on this device (D-2048)", self.0)
+    }
+}
+
+impl std::error::Error for ReadOnlyName {}
+
+/// True for the refusal of `ReadOnlyName`.
+pub fn is_read_only_name(e: &io::Error) -> bool {
+    e.get_ref().is_some_and(|r| r.is::<ReadOnlyName>())
 }
 
 /// Slice AND-3 (docs/contracts/android-edit.md §3.2, D-2513): true when `listing` (one folder's entry names as on disk)
