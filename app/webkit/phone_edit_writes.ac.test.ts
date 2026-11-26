@@ -133,7 +133,7 @@ test('fr_inb_02_ac18_reviewed_on_the_phone', async ({ page, browser }) => {
   await systemBack(page);
   await tap(page, row(Q5), 'Q5 (CRLF)');
   await sleep(1200);
-  assert.equal((await core.files())[nfc(Q5)], reviewedText(Q5, EDIT_NOW), 'Q5 keeps its CRLF line ends');
+  assert.equal((await core.files())[nfc(Q5)], reviewedText(Q5, EDIT_NOW, 'review: maybe'), 'Q5 keeps its CRLF line ends');
   await tap(page, row(Q1), 'uncheck Q1');
   await sleep(1200);
   assert.match((await core.files())[nfc(Q1)] ?? '', /^review: unreviewed$/m, 'unchecking writes review: unreviewed');
@@ -288,7 +288,7 @@ test('fr_fmt_12_ac18_nfd_named_note_read_only_on_the_phone', async ({ page }) =>
   await tapToEdit(page, 'Viz');
   await setCaret(page, 'Viz', 'end');
   await ime(page, [{ text: ' [[Poznámka' }]);
-  await tap(page, panel(page, 'Link suggestions').getByRole('option').filter({ hasText: 'Create “Poznámka”' }).first(), 'Create “Poznámka”');
+  await tap(page, panel(page, 'Link suggestions').getByRole('option').filter({ hasText: 'Create "Poznámka"' }).first(), 'Create "Poznámka"');
   const w = await eventually(() => writeCalls(core), (x) => x.some((y) => y.cmd === 'note_create'), 3000);
   assert.equal(w.find((x) => x.cmd === 'note_create')?.path, 'Quick Notes/Poznámka (2).md', 'vault-wide NFC stems: Quick Notes/Poznámka (2).md');
 });

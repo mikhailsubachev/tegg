@@ -170,7 +170,8 @@ test('fr_dly_01_ac13_today_on_the_phone_writes_nothing', async ({ page }) => {
     else { await drawerEntry(page, 'Inbox'); await h1Is(page, 'Inbox'); await drawerEntry(page, 'Today'); }
     assert.equal(await h1Is(page, '2026-10-14'), '2026-10-14', `${how}'s Today opens daily/2026-10-14`);
     assert.equal(await barButton(page, 'Today').getAttribute('aria-current'), 'page', `${how}: Today is aria-current on today's route`);
-    assert.equal(await page.locator('[contenteditable="true"], .ProseMirror').count(), 0, `${how}: the virtual day in the read view (no editor)`);
+    // the virtual day is the editor on AND-3's phone (android-edit.md §7.1; D-2554); opening it writes nothing (below)
+    assert.ok(await seen(page.getByRole('textbox', { name: 'Note body' }), 3000), `${how}: the virtual day shows the editor (textbox "Note body")`);
     assert.equal(await main(page).getByRole('button', { name: /^(Reviewed|Mark reviewed)$/ }).count(), 0, `${how}: no review toggle`);
   }
   await drawerEntry(page, 'Inbox');

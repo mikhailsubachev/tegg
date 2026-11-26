@@ -122,8 +122,8 @@ test('fr_edt_06_ac13_choose_and_create_on_the_phone', async ({ page, browser }) 
   const n0 = (await core.calls()).length;
   await ime(page, [{ text: ' [[Nová stránka' }]);
   const texts = await eventually(() => rowTexts(page, 'Link suggestions'), (t) => t.length >= 2, 2000);
-  assert.deepEqual(texts.slice(-2), ['Create “Nová stránka”', 'Create “Nová stránka” as…'], 'the last two rows are Create “<q>” and as… (not the board\'s New Page)');
-  await tap(page, rows(page, 'Link suggestions').filter({ hasText: 'Create “Nová stránka”' }).first(), 'Create “Nová stránka”');
+  assert.deepEqual(texts.slice(-2), ['Create "Nová stránka"', 'Create "Nová stránka" as…'], 'the last two rows are Create "<q>" and as… (not the board\'s New Page)');
+  await tap(page, rows(page, 'Link suggestions').filter({ hasText: 'Create "Nová stránka"' }).first(), 'Create "Nová stránka"');
   const w = await eventually(() => writeCalls(core, n0), (x) => x.length >= 2, 3000);
   assert.deepEqual(w.map((x) => ({ cmd: x.cmd, path: x.path })), [{ cmd: 'note_create', path: 'Quick Notes/Nová stránka.md' }, { cmd: 'note_write', path: PE.psani }], 'note_create of Quick Notes/Nová stránka.md, then the edited note');
   assert.ok((await core.files())[nfc(PE.psani)]?.includes('[[Nová stránka]]'), 'Psaní holds [[Nová stránka]]');
@@ -153,7 +153,8 @@ test('fr_edt_06_ac14_closing_the_link_panel', async ({ page }) => {
   // system Back hides the keyboard (RA12's first row): the panel closes, `[[Lis` stays as text
   await keyboard(page, false);
   assert.ok(await absent(panel(page, 'Link suggestions'), 1000), 'the keyboard hiding closes the panel');
-  assert.ok(((await editorText(page)) ?? '').includes('Konec. [[Lis\n'), '`[[Lis` stays as literal text');
+  // a literal `[[` is kept escaped in Markdown, as on the desktop (D-2554)
+  assert.ok(((await editorText(page)) ?? '').includes('Konec. \\[\\[Lis\n'), '`[[Lis` stays as literal text (`\\[\\[Lis`)');
   // a tap moving the caret out of the trigger
   await tapToEdit(page, 'Konec');
   await setCaret(page, '[[Lis', 'end');
@@ -172,7 +173,8 @@ test('fr_edt_06_ac14_closing_the_link_panel', async ({ page }) => {
   const w = await writeCalls(core);
   assert.deepEqual([...new Set(w.map((x) => `${x.cmd} ${x.path}`))], [`note_write ${nfc(PE.psani)}`], 'opening and closing write nothing but the typed text of the note');
   const saved = (await core.files())[nfc(PE.psani)] ?? '';
-  assert.ok(saved.includes('[[Lisa'), 'the literal `[[Lisa` reads back as text');
+  // a literal `[[` is escaped in Markdown, as the desktop does (D-2554)
+  assert.ok(saved.includes('\\[\\[Lisa'), 'the literal `[[Lisa` reads back as text (`\\[\\[Lisa`)');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-EDT-15 AC-7
@@ -181,12 +183,14 @@ test('fr_edt_15_ac7_tag_panel_on_the_phone', async ({ page }) => {
   const core = await open(page, PE.psani);
   await tapToEdit(page, 'Konec');
   await setCaret(page, 'Konec.', 'end');
-  await ime(page, [{ text: ' #p' }]);
-  await docked(page, 'Tag suggestions');
-  await ime(page, [{ backspace: true }]);
+  // a bare `#` from the bar's Tag lists every tag (Backspace after ` #p` deletes the whole tag atom, as on the desktop; D-2554)
+  await ime(page, [{ text: ' ' }]);
+  await tap(page, formatButton(page, 'Tag'), 'the bar\'s Tag');
+  await must(panel(page, 'Tag suggestions'), 'the bar\'s Tag opens Tag suggestions');
   const all = await eventually(() => rowTexts(page, 'Tag suggestions'), (t) => t.length >= 3, 1500);
   assert.deepEqual(all.filter((t) => ['#projekt', '#rozpočet', '#čeština'].includes(t)), ['#projekt', '#rozpočet', '#čeština'], `the rows #projekt, #rozpočet, #čeština: ${JSON.stringify(all)}`);
   await ime(page, [{ text: 'p' }]);
+  await docked(page, 'Tag suggestions');
   await tap(page, rows(page, 'Tag suggestions').filter({ hasText: /^#projekt$/ }).first(), '#projekt');
   let out = await savedText(core, PE.psani, 3000);
   assert.ok(out?.includes('Konec. #projekt'), 'a tap saves #projekt');

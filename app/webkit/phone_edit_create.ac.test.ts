@@ -14,7 +14,7 @@ import { test, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
   EDIT_NOW, assertWritesExactly, assertZeroWrites, barButton, bodyFocused, eventually, fileStateOf, flat, h1Is, h1Text, keyboard, loadVault, main,
-  must, needBody, nfc, noteBody, notice, panel, phonePage, runById, saveState, searchField, seen, sleep, startPhone, systemBack, tap, titleField, typeSheet,
+  must, needBody, nfc, noteBody, notice, panel, phonePage, runById, saveState, searchField, seen, settledWriteCalls, sleep, startPhone, systemBack, tap, titleField, typeSheet,
   visibility, writeCalls, writesSeen,
 } from './phone-helpers';
 import { inboxVault } from './capture-helpers';
@@ -89,8 +89,9 @@ test('fr_vlt_05_ac17_choice_opens_an_unsaved_draft', async ({ page, browser }) =
   // the first write creates Nápady/<title>.md with the template's values
   await tap(page, barButton(page, 'New'), 'New');
   await tap(page, typeSheet(page).getByRole('option', { name: /^Nápad\b/ }), 'Nápad');
+  await must(titleField(page), 'Title');
   await ime(page, [{ text: 'Čajovna' }, { enter: true }]);
-  const w = await eventually(() => writeCalls(core), (x) => x.length >= 1, 3000);
+  const w = await settledWriteCalls(core, 1, 3000);
   assert.deepEqual(w, [{ cmd: 'note_create', path: 'Nápady/Čajovna.md' }], 'D-522\'s first write: Nápady/Čajovna.md');
   const t = (await core.files())['Nápady/Čajovna.md'] ?? '';
   for (const re of [/^type: nápad$/m, /^hodnocení: 3$/m, /^oblast: osobní$/m, /^review: unreviewed$/m]) assert.match(t, re, `the first write holds ${re.source}`);
@@ -102,7 +103,7 @@ test('fr_vlt_05_ac17_choice_opens_an_unsaved_draft', async ({ page, browser }) =
   await must(titleField(p2), 'the new/task draft\'s Title');
   assert.equal(await h1Text(p2), 'New Task', 'new/task');
   await ime(p2, [{ text: 'Zalít kytky' }, { enter: true }]);
-  await eventually(() => writeCalls(c2), (x) => x.length >= 1, 3000);
+  await settledWriteCalls(c2, 1, 3000);
   assert.match((await c2.files())['Tasks/Zalít kytky.md'] ?? '', /^status: To do$/m, 'status: To do (D-470)');
   await p2.close();
   // default-type: Daily Note: the default row opens today's Daily Note
@@ -142,6 +143,7 @@ test('fr_nav_01_ac25_create_from_search_on_the_phone', async ({ page, browser })
   await assertZeroWrites(core, before, 'search, the search key, as…');
   // Create “cteni” writes exactly Quick Notes/cteni.md and opens it, title fixed, no keyboard
   await (await must(main(page).getByRole('button', { name: 'Create “cteni”' }), 'Create “cteni”')).click();
+  await settledWriteCalls(core, 1, 3000);
   await assertWritesExactly(core, before, [{ cmd: 'note_create', path: 'Quick Notes/cteni.md' }], 'Create “cteni”');
   assert.ok(await h1Is(page, 'cteni'), 'it opens the new note');
   assert.equal(await titleField(page).count(), 0, 'its title is fixed (FR-EDT-01 AC-18)');
@@ -179,6 +181,7 @@ test('fr_lnk_04_ac14_create_offer_on_the_phone', async ({ browser }) => {
   await must(o.getByText('Type: Quick Note', { exact: false }), 'Type: Quick Note');
   assert.equal(await notice(page).filter({ hasText: /No note named/ }).count(), 0, 'AND-2\'s notice is no longer shown');
   await (await must(o.getByRole('button', { name: 'Create "Neexistuje"' }), 'Create "Neexistuje"')).click();
+  await settledWriteCalls(core, 1, 3000);
   await assertWritesExactly(core, before, [{ cmd: 'link_create', path: 'Quick Notes/Neexistuje.md' }], 'Create "Neexistuje"');
   assert.ok(await h1Is(page, 'Neexistuje'), 'it opens the new note');
   assert.equal(await titleField(page).count(), 0, 'with its title fixed');

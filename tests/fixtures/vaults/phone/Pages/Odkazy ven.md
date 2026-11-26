@@ -9,7 +9,10 @@ modified: 2026-11-12T09:00:00+01:00
 - Pošta: <mailto:eva@example.org>
 - Skript: [skript](javascript:alert(1))
 - Soubor: [soubor](file:///etc/hosts)
+- Štítek: #cestování
+
+Poznámky:
+
 - Chybí: [[Neexistuje]]
 - Později: [[Později]]
 - Den: [[2026-10-20]]
-- Štítek: #cestování
