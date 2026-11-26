@@ -195,7 +195,7 @@ test('fr_edt_01_ac19_keyboard_input_matches_the_desktop', async () => {
   imeCommit('Nové');
   t = await waitFile(`${vault}/${PSANI}`, (x) => x.includes('Nové'), 4000);
   // Enter on (d)'s empty item split the list; the save re-marks the half after the split `-` → `*` (D-67, D-2559)
-  assert.match(t, /[-*] \[ \] Zavolat\n\n?[-*] \[ \] Nové\n/, '(e) a new `- [ ] ` item');
+  assert.match(t, /[-*] \[ \] Zavolat\n[-*] \[ \] Nové\n/, '(e) a new `- [ ] ` item');
   assert.equal((t.match(/chléb/g) ?? []).length, 1, '(d) chléb once');
   // (f) Backspace at block starts and after the chip, through deleteSurroundingText and the key
   ({ v, vault } = await openEdit());
