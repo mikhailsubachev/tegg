@@ -778,7 +778,9 @@ html[data-layout="phone"] .phone-compare {
 html[data-layout="phone"] .phone-compare-body { flex: 1; overflow-y: auto; padding: 0 16px; }
 html[data-layout="phone"] .phone-compare > .phone-merge-buttons { padding: 8px 16px; }
 
-/* §10.3, §10.4: the type sheet and the offer. */
+/* §10.3, §10.4: the type sheet and the offer. FR-UX-05 AC-29: the field takes the sheet's background, not the
+   engine's default field colour. */
+html[data-layout="phone"] .new-object-picker .nop-field input { background: transparent; }
 html[data-layout="phone"] .phone-type-sheet { display: flex; flex-direction: column; min-height: 0; }
 html[data-layout="phone"] .phone-type-sheet [role="option"] { min-height: 48px; display: flex; align-items: center; gap: 8px; padding: 0 16px; }
 html[data-layout="phone"] .phone-offer { padding: 0 16px 16px; }
