@@ -172,9 +172,13 @@ export function PropertyRows({ rows, links, from, emails }: { rows: AttrRow[]; l
 
 /** Slice AND-2 (android-phone §9.2; FR-EDT-07 AC-23, CP-14 → D-2442): the phone's Properties strip (up to three of the
  *  type's preview keys) and the `Properties` sheet with every row of the attribute panel, read-only. */
-export function PhoneProperties({ text, links, type, onOpen, onTag, all = false }: {
+export function PhonePropertiesView({ text, links, type, onOpen, onTag, all = false, editPanel, review }: {
   /** Image and PDF object pages list every row (FR-ATT-01 AC-17). */
   all?: boolean;
+  /** Slice AND-3 (android-edit §10.5): an editable note's sheet holds the attribute panel's controls. */
+  editPanel?: React.ReactNode;
+  /** Slice AND-3: the review checkbox, first in the strip. */
+  review?: React.ReactNode;
   text: string; links: Map<string, LinkTargetDto>; type: TypeDto | null | undefined; onOpen: (path: string) => void; onTag: (key: string) => void;
 }) {
   const [sheet, setSheet] = useState(false);
@@ -192,10 +196,12 @@ export function PhoneProperties({ text, links, type, onOpen, onTag, all = false 
   const cell = (key: string) => { const r = values.get(key.normalize('NFC')); return r ? <Value row={r} p={p} /> : null; };
   return (
     <>
-      {(strip.length > 0 || more > 0) && (
+      {(strip.length > 0 || more > 0 || review) && (
         <div role="group" aria-label={t('phone.properties')} className="phone-strip">
+          {review}
           {strip.map((r) => (
-            <div key={r.key} className="phone-strip-row">
+            <div key={r.key} className="phone-strip-row" data-command={editPanel ? `phone.prop.show:${r.key.normalize('NFC')}` : undefined}
+              onClick={editPanel ? () => { setSheet(true); setTimeout(() => document.querySelector<HTMLElement>(`.phone-properties [data-key="${CSS.escape(r.key)}"]`)?.scrollIntoView({ block: 'nearest' }), 50); } : undefined}>
               <span className="phone-strip-label" data-user-content={UNIVERSAL.has(r.key) ? undefined : ''}>{r.label}</span>
               <span className="phone-strip-value">{cell(r.key)}</span>
             </div>
@@ -209,14 +215,14 @@ export function PhoneProperties({ text, links, type, onOpen, onTag, all = false 
       )}
       {sheet && (
         <Sheet title={t('phone.properties')} onClose={() => setSheet(false)}>
-          <div className="phone-properties">
+          {editPanel ? <div className="phone-properties phone-properties-edit">{editPanel}</div> : <div className="phone-properties">
             {model.rows.map((r) => (
               <div key={r.key} role="group" aria-label={r.label} className="property">
                 <span className="phone-prop-label" data-user-content={UNIVERSAL.has(r.key) ? undefined : ''}>{r.label}</span>
                 <span className="phone-prop-value">{cell(r.key)}</span>
               </div>
             ))}
-          </div>
+          </div>}
         </Sheet>
       )}
     </>

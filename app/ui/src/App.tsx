@@ -124,7 +124,7 @@ import { installTestHooks, nativeState, onNative, syncWindow } from './phone/nat
 import { phoneRouteOffered } from './phone/routes';
 import { onResolved, setSystemDark, resolve as resolveTheme } from './theme/apply';
 import { VaultSwitcher } from './shell/Frame';
-import { PopupMenu } from './shell/Menu';
+import { PopupMenu, type MenuEntry } from './shell/Menu';
 
 const DAILY = 'daily/YYYY-MM-DD';
 /** The webview history mirror of the app's in-memory history (see the `popstate` effect in App). */
@@ -1879,10 +1879,28 @@ export function App() {
                     onChoose: () => { setPhoneMore(null); window.dispatchEvent(new CustomEvent('tegg:phone-properties')); } },
                   { kind: 'item', key: 'source', command: 'note.toggleSource', content: <span className="menu-title">{t(sourceShown() ? 'phone.showFormatted' : 'phone.showSource')}</span>,
                     onChoose: () => { setPhoneMore(null); actions.toggleSource(); } },
+                  // Slice AND-3 (android-edit §7.4): Pin / Unpin and Move to trash; a read-only note lists only the above
+                  // (plus Pin for a note read-only by its NFD name, FR-FMT-12 AC-18).
+                  ...((): MenuEntry[] => {
+                    const ro = noteApi.current?.readOnly?.() ?? null;
+                    const out: MenuEntry[] = [];
+                    const ps = actions.pinStatus?.() ?? null;
+                    if (ps && (!ro || ro.nfd)) {
+                      out.push(ps.pinned
+                        ? { kind: 'item', key: 'unpin', command: 'sidebar.unpin', content: <span className="menu-title">{t('pinned.unpin')}</span>, disabled: !!ps.disabled, description: ps.disabled ?? undefined, onChoose: () => { setPhoneMore(null); actions.unpinCurrent?.(); } }
+                        : { kind: 'item', key: 'pin', command: 'sidebar.pin', content: <span className="menu-title">{t('phone.pin')}</span>, disabled: !!ps.disabled, description: ps.disabled ?? undefined, onChoose: () => { setPhoneMore(null); actions.pinCurrent?.(); } });
+                    }
+                    if (!ro) {
+                      const why = noteApi.current?.trashBlocked() ?? null;
+                      out.push({ kind: 'item', key: 'trash', command: 'object.trash', content: <span className="menu-title">{t('cmd.trash')}</span>, disabled: !!why, description: why ?? undefined, onChoose: () => { setPhoneMore(null); void trashHere(); } });
+                    }
+                    return out;
+                  })(),
                 ]} />
               )}
               {calendar && <Calendar selected={calendar.selected} anchor={calendar.anchor} onChoose={calendar.onChoose}
                 onClose={() => { const a = calendar.anchor; setCalendar(null); if (a?.isConnected) a.focus(); }} />}
+              <TrashMessages phone />
               {/* Slice AND-3 (android-edit §10.3): the type sheet; in chooser mode (`as…`) it returns the key. */}
               {((dialog === 'newObject' && newPicker) || typeChooser) && (
                 <Sheet title={t('newPicker.title')} onClose={() => { if (typeChooser) setTypeChooser(null); else closeDialog(); }}>

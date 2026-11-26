@@ -24,7 +24,8 @@ import { Compare } from '../edit/Compare';
 import { EditorPane, type EditAction, type EditorPaneApi } from '../edit/EditorPane';
 import { linkTargets, noteTitle, ReadView } from '../read/ReadView';
 import { clearAlerts, dismissAlert, usePageAlerts } from '../convert/alerts';
-import { PhoneProperties, Properties } from '../read/PropertiesStrip';
+import { Properties } from '../read/PropertiesStrip';
+import { PhoneProperties } from '../phone/PhoneProperties';
 import { SourceView, WarningBanner } from '../read/SourceView';
 import { frontmatterWarning } from '../read/warning';
 import { Icon } from '../shell/Icon';
@@ -116,6 +117,8 @@ export type NotePageApi = {
   /** Slice AND-3 (android-edit §11.1, §11.2): the phone went to the background: a typed draft title is committed, the
    *  note saved as shown (a composing word included); edits that can't be written are kept as a recovery copy. */
   flushHidden?: () => Promise<void>;
+  /** Slice AND-3 (§7.1): why the note is read-only on the phone (null when editable), and whether by its NFD name. */
+  readOnly?: () => { reason: string; nfd: boolean } | null;
   edit: (a: EditAction) => void;
   pending: () => boolean;
   /** The merge dialog is open (FR-SYN-03 AC-19). */
@@ -505,8 +508,10 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
 
   useEffect(() => () => clearAlerts(), [path]);
 
+  const readOnlyNow = useRef<string | null>(null);
   useImperativeHandle(apiRef, () => ({
     flush,
+    readOnly: () => (readOnlyNow.current ? { reason: readOnlyNow.current, nfd: !!live.current.loaded?.nfd } : null),
     flushHidden: async () => {
       const s = saver.current, ed = edRef.current;
       if (!s || !ed) return;
@@ -751,6 +756,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   const readOnlyReason = !loaded || loaded.mode === 'edit' ? null
     : loaded.nfd ? t('phone.nfdReadOnly') : loaded.mode === 'utf8' ? t('readOnly.utf8') : loaded.mode === 'editorFailed' ? t('readOnly.editorFailed')
     : path.startsWith('.trash/') ? t('trash.readOnly') : t('save.readOnly');
+  readOnlyNow.current = readOnlyReason;
   useEffect(() => {
     const el = root.current;
     if (!isPhone() || !readOnlyReason || !el) return undefined;
@@ -872,6 +878,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   const showSourceRef = useRef(showSource);
   showSourceRef.current = showSource;
   /** D-146 with slice OL: the heading of the current section keeps its place in the viewport across the toggle. */
+  const sourceCaret = useRef<{ anchor: number; head: number } | null>(null);
   const readingAnchor = useRef<{ i: number; top: number; view: 'editor' | 'source' } | null>(null);
   const toggle = async () => {
     if (!showSource) await flush();
@@ -880,6 +887,21 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     const i = getCurrent();
     const el = src && i !== null ? rendered(src.element(i)) : null;
     readingAnchor.current = src && el && main && i !== null ? { i, top: el.getBoundingClientRect().top - main.getBoundingClientRect().top, view: src.view } : null;
+    // Slice AND-3 (§7.4): on the phone `Show formatted note` puts the caret back where it was.
+    const ed = edRef.current;
+    if (isPhone() && ed) {
+      if (!showSource) sourceCaret.current = { anchor: ed.view.state.selection.anchor, head: ed.view.state.selection.head };
+      else if (sourceCaret.current) {
+        const c = sourceCaret.current;
+        sourceCaret.current = null;
+        requestAnimationFrame(() => {
+          const size = ed.view.state.doc.content.size;
+          const clamp = (n: number) => Math.max(0, Math.min(n, size));
+          (ed.view.dom as HTMLElement).focus({ preventScroll: true });
+          ed.editor.commands.setTextSelection({ from: clamp(c.anchor), to: clamp(c.head) });
+        });
+      }
+    }
     setSource(!showSource);
   };
   const first = useRef(true);
@@ -1543,10 +1565,20 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         {editable && (
           <div hidden={showSource}>
             {!typed.single && <p role="status" className="type-warning">{t('panel.typeWarning')}</p>}
-            <AttributePanel apiRef={panelApi} text={head} type={panelType} types={types} path={path} editable={!merge && !deleted && !moving}
+            {phone && (
+              // Slice AND-3 (§10.5): the strip of values, the review box first; the sheet holds the panel's controls.
+              <PhoneProperties text={head || loaded.text} links={loaded.links} type={panelType} all={chipKey === 'image' || chipKey === 'pdf'}
+                onOpen={(p: string) => onOpen(p)} onTag={onTag}
+                review={reviewShown ? <ReviewCheck reviewed={reviewed} onToggle={(r) => setReviewedRef.current(r)} commands={['note.markReviewed', 'note.markUnreviewed']} /> : undefined}
+                editPanel={(
+                  <AttributePanel text={head} type={panelType} types={types} path={path} editable={!merge && !deleted && !moving}
+                    open onToggle={() => {}} otherOpen onToggleOther={() => {}} onCommit={commit} onOpen={(p) => onOpen(p)} onOpenSource={onOpenSource} onTag={onTag} />
+                )} />
+            )}
+            {!phone && <AttributePanel apiRef={panelApi} text={head} type={panelType} types={types} path={path} editable={!merge && !deleted && !moving}
               open={propertiesOpen} onToggle={onToggleProperties}
               otherOpen={otherOpen} onToggleOther={() => onToggleOther?.()} onCommit={commit} onOpen={(p) => onOpen(p)} onOpenSource={onOpenSource} onTag={onTag}
-              onLeaveLast={() => pane.current?.focus()} />
+              onLeaveLast={() => pane.current?.focus()} />}
             <EditorPane
               embeds={embeds}
               apiRef={pane}

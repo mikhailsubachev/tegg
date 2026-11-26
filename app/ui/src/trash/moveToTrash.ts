@@ -5,6 +5,7 @@ import { ipc } from '../ipc/client';
 import type { MovedDto, VersionDto } from '../ipc/types';
 import { t } from '../i18n/catalog';
 import { showAlert, showToast } from './toast';
+import { isPhone } from '../phone/layout';
 
 export type TrashItem = { path: string; base: VersionDto; title: string };
 
@@ -38,7 +39,7 @@ export async function moveToTrash(items: TrashItem[], o: { onUndone?: () => void
         }
         o.onUndone?.();
       })();
-    });
+    }, isPhone() ? 4000 : 8000); // the phone's notice (android-edit §12.6)
   }
   return out;
 }
