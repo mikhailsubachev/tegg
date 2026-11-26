@@ -246,6 +246,12 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   const [save, setSave] = useState<{ state: SaveState; failure: Failure }>({ state: 'saved', failure: null });
   const [merge, setMerge] = useState<Merge | null>(null);
   const [deleted, setDeleted] = useState(false);
+  // Bug 183: on the phone `Restore file` failed for another reason than a taken name: the desktop's `io` alert, and
+  // the exclusive create is tried again every 5 s while the deleted alert stays.
+  const [restoreIo, setRestoreIo] = useState(false);
+  const restoreRetry = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stopRestoreRetry = () => { if (restoreRetry.current) clearTimeout(restoreRetry.current); restoreRetry.current = null; setRestoreIo(false); };
+  useEffect(() => () => { if (restoreRetry.current) clearTimeout(restoreRetry.current); }, []);
   const [notice, setNotice] = useState<string | null>(null);
   const [title, setTitle] = useState<string>('');
   const titleRef = useRef('');
@@ -531,16 +537,16 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         return;
       }
       // §11.1 step 1: a value typed into the Properties sheet but not committed is committed now (its field commits on
-      // blur), so the flush below writes it (FR-EDT-08 AC-16 (c)).
+      // blur), so the flush below writes it (FR-EDT-08 AC-16 (c)). Bug 182: synchronously (the blur handler commits to
+      // the editor at once; `flushSync` runs any state it sets), so the write starts within this task.
       const a = document.activeElement as HTMLElement | null;
-      if (a && a.matches('input, textarea, [contenteditable="true"]') && a.closest('[data-attribute-panel]')) {
-        a.blur();
-        await new Promise((r) => setTimeout(r, 0));
-      }
+      if (a && a.matches('input, textarea, [contenteditable="true"]') && a.closest('[data-attribute-panel]')) flushSync(() => a.blur());
       // A draft with a typed title: its commit is the first write (D-522).
       if (isDraft() && titleRef.current.trim() !== '') { s.forceFirst = true; s.changed(); }
       await Promise.all([s.flush({ composing: true }), embeds.flush()]);
-      if ((s.state as string) === 'failed' || s.isBlocked()) keep();
+      // Bug 178 (§11.2, D-2570 (3)): edits still unsaved after the flush (the `/` panel open pauses the Saver, a rename
+      // holds it, a write failed or was refused) are kept as a recovery copy.
+      if ((s.state as string) === 'failed' || s.isBlocked() || s.pending) keep();
     },
     edit: (a) => {
       if (a === 'saveNow') { void flush(); return; }
@@ -851,6 +857,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     // Slice AND-3 (§2.4 row 12, FR-SYN-03 AC-43): on the phone an exclusive create; a file that appeared meanwhile opens
     // the merge banner against it.
     if (isPhone()) {
+      stopRestoreRetry();
       try {
         const v = await ipc.noteCreateExact(live.current.path, text);
         ed.markSaved(text);
@@ -859,7 +866,11 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         s.resume(v);
         void dropRecovery(live.current.path);
       } catch (e) {
-        if (errorKind(e) !== 'NameTaken' && errorKind(e) !== 'Exists') return;
+        if (errorKind(e) !== 'NameTaken' && errorKind(e) !== 'Exists') {
+          setRestoreIo(true);
+          restoreRetry.current = setTimeout(() => { restoreRetry.current = null; if (live.current.deleted) void restoreRef.current(); }, 5000);
+          return;
+        }
         const n = await ipc.noteRead(live.current.path).catch(() => null);
         setDeleted(false);
         if (n) setMerge({ mine: text, theirs: n.text, theirsVersion: n.version, compare: false });
@@ -878,7 +889,10 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       if (x.kind === 'Conflict' && x.theirsVersion) setMerge({ mine: text, theirs: x.theirs ?? '', theirsVersion: x.theirsVersion, compare: false });
     }
   };
+  const restoreRef = useRef(restore);
+  restoreRef.current = restore;
   const discard = () => {
+    stopRestoreRetry();
     if (isPhone()) void dropRecovery(live.current.path);
     saver.current?.dispose();
     setDeleted(false);
@@ -1579,6 +1593,12 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
           <div role="alert" className="save-alert">
             <span>{t('save.verifyFailed')}</span>
             <button type="button" onClick={() => { edRef.current?.commands.undo(); saver.current?.changed(); }}>{t('save.undo')}</button>
+          </div>
+        )}
+        {deleted && restoreIo && (
+          <div role="alert" className="save-alert">
+            <span>{t('save.ioFailed')}</span>
+            <button type="button" data-command="phone.deleted.restore" onClick={() => void restore()}>{t('save.tryAgain')}</button>
           </div>
         )}
         {deleted && (

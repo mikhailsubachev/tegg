@@ -682,6 +682,9 @@ class ListItemView implements NodeView {
       box.className = 'check'
       const toggle = (e: Event) => {
         e.preventDefault()
+        // Issue #180 (FR-SYN-03 AC-41, D-2570 (3)): a non-editable editor (the merge banner, the deleted alert) toggles
+        // nothing.
+        if (!view.editable) return
         const pos = getPos()
         if (pos === undefined) return
         const cur = view.state.doc.nodeAt(pos)
