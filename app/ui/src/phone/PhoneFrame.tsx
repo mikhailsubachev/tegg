@@ -168,6 +168,10 @@ export function PhoneFrame(props: {
       if (main && a && a.el.isConnected && a.col === main.firstElementChild) {
         const top = main.getBoundingClientRect().top;
         main.scrollTop += a.el.getBoundingClientRect().top - top - a.offset;
+      } else {
+        // Nothing to restore (the insets arrived after the page opened, and the reader's scrolls meanwhile were
+        // ignored): the place is where the page is now, so the next rotation keeps it (FR-UX-04 AC-7).
+        remember();
       }
     };
     let insets = JSON.stringify(nativeState().insets);
