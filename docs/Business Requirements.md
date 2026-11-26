@@ -295,7 +295,7 @@
 | v1.340  | 2026-11-25 | D-2671: real-app test fixes for slice MM3 |
 | v1.341  | 2026-11-26 | D-2672…D-2676: slice MM3 follow-up from 0.8.0 feedback (fold control on the node's edge, `+` past it, spider ↑/↓ on one side, E edits; bug #170) |
 | v1.342  | 2026-11-26 | D-2677: an icon on every row of the `/` menu (bug #171) |
-| v1.343  | 2026-11-26 | D-2560…D-2568: slice AND-3's last device test points and its build decisions |
+| v1.343  | 2026-11-26 | D-2560…D-2569: slice AND-3's last device test points and its build decisions |
 
 Slice OC decisions and versions were renumbered on merging main (PR #154 used the same numbers): D-1942…D-2053 → D-2054…D-2165, v1.220…v1.229 → v1.238…v1.247. Commit messages before this renumbering use the old numbers (D-2166).
 
@@ -2437,6 +2437,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-2566 | AND-3 build: shared fixes found on the way | The New object picker falls back to the live types when its copy was empty. The Conflicts list has `role="list"`. A day of another month in the date picker no longer switches the shown month on focus, so a tap picks it (desktop too). Two quick source toggles end in the formatted note (#175). |
 | D-2567 | AND-3 build: the phone's type sheet | The type sheet reads its types ahead (`type_get`, `type_template` per listed type) and the default type with the vault's types, so a draft opens at once; reads only. |
 | D-2568 | The LA FR-EDT-01 AC-19 (f) step (owner, 2026-11-26: "Yes, same as the twin") | The device step places the caret as its L5p twin (D-2554 change 8): at the start of the text right after `[[Cíl]]`, since the tag is its own chip (`AC-Test-Change`, approved by the owner). |
+| D-2569 | The LA FR-EDT-01 AC-19 (f) and (g) steps (owner, 2026-11-26: "Approve these two") | (f) waits for the keyboard and the tap's own caret before placing the caret (as D-2557, D-2558); (g) closes the `[[` link panel and puts the caret back at the end of `Konec.` before composing `#p`, as its L5p twin does (`AC-Test-Change`, approved by the owner). |
 | D-2600 | Map ↑/↓ (AP-2100, owner, 2026-11-25; slice MM3; amends D-770) | ↑/↓ move among the focused node's siblings. Past the first / last sibling they continue to the nearest node at the same depth under the previous / next parent (a cousin), in outline order; with none, nothing. Home / End stay first / last node (D-770). In `spider` the same outline order holds. |
 | D-2601 | Map folds not remembered (AP-2101, owner, 2026-11-25; slice MM3) | Folding a map node is view state for the open note only: nothing is written to the vault or to `ui-state.json`; reopening the note, switching to List and back, or another window shows the map unfolded. |
 | D-2602 | Text after `+` filters (AP-2102, owner, 2026-11-25) | `+` opens the slash menu (FR-EDT-03) at its Objects group; text typed after `+` filters the rows as after `/` (`+ta` → `Task`); the title of the new object is typed in the dialog of D-2609. |
