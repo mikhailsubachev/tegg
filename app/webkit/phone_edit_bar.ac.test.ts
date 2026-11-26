@@ -64,6 +64,8 @@ test('fr_ux_04_ac8_formatting_bar_on_the_keyboard', async ({ page }) => {
   // landscape: above the keyboard, no button under a side cutout
   await page.setViewportSize(LANDSCAPE);
   await injectInsets(page, { top: 0, bottom: 0, left: 48, right: 24 });
+  // the page handles the resize and the insets before the tap is measured (D-2572)
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
   await tapText(page, 'Konec');
   await page.evaluate(() => (window as any).__TEGG_TEST__.keyboard(true));
   await page.setViewportSize({ width: 915, height: 200 });
