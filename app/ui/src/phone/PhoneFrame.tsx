@@ -163,6 +163,10 @@ export function PhoneFrame(props: {
       pending = false;
       const el = document.activeElement as HTMLElement | null;
       if (el && /^(INPUT|TEXTAREA)$/.test(el.tagName)) { el.scrollIntoView({ block: 'nearest' }); return; }
+      // Slice AND-3 (android-edit §9.3, FR-UX-04 AC-8, AC-9): while the caret is in the editor, the editor keeps it in
+      // view after the resize and the insets (`keepCaretInView`). Restoring the reading place here, two frames after the
+      // insets, ran after that and could put the caret under the bottom bar, where the next tap on its line found `Menu`.
+      if (el?.isContentEditable) { remember(); return; }
       const main = m();
       const a = anchor;
       if (main && a && a.el.isConnected && a.col === main.firstElementChild) {
