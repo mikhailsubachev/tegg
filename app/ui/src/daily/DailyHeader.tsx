@@ -48,13 +48,17 @@ export function DailyHeader({ info, review, written, onReview }: { info: DailyIn
       {info.virtual && <p role="status" className="daily-virtual">{t('daily.notSaved')}</p>}
       {info.messages.map((m) => <p key={m} role="status" className="daily-message">{m}</p>)}
       {n > 0 && (
-        <div role="region" aria-label={t('daily.otherNotesRegion')} className="daily-duplicates">
+        // Slice AND-3 (FR-SYN-03 AC-44): on the phone the notice is a status, without `Duplicate titles` (not offered
+        // there, D-2437).
+        <div role={isPhone() ? 'status' : 'region'} aria-label={t('daily.otherNotesRegion')} className="daily-duplicates">
           <span>{t('daily.otherNotes', { count: n })}</span>{' '}
           {info.duplicates.map((p, i) => (
             <span key={p}>{i > 0 && ', '}<a href="#" tabIndex={0} data-user-content onClick={(e) => { e.preventDefault(); info.onOpenPath(p); }}>{p}</a></span>
           ))}
-          {' · '}
-          <a href="#" tabIndex={0} onClick={(e) => { e.preventDefault(); info.onDuplicateTitles(); }}>{t('daily.duplicateTitles')}</a>
+          {!isPhone() && <>
+            {' · '}
+            <a href="#" tabIndex={0} onClick={(e) => { e.preventDefault(); info.onDuplicateTitles(); }}>{t('daily.duplicateTitles')}</a>
+          </>}
         </div>
       )}
     </div>
