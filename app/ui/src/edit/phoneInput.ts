@@ -106,6 +106,7 @@ export function installPhoneInput(ed: TeggEditor, o: { onImagePaste?: () => void
     if (type === 'insertText' || type === 'insertReplacementText' || type === 'insertCompositionText' || type === 'insertFromPaste') typed();
     if (type === 'insertParagraph' || type === 'insertLineBreak') {
       e.preventDefault();
+      e.stopImmediatePropagation(); // ProseMirror's Android fallback would run the key again
       flushDom(view);
       ed.editor.commands.keyboardShortcut('Enter');
       return;
@@ -114,8 +115,22 @@ export function installPhoneInput(ed: TeggEditor, o: { onImagePaste?: () => void
       const { empty } = view.state.selection;
       if ((empty && (atBlockStart() || afterAtom())) || (!empty && atBlockStart())) {
         e.preventDefault();
+        e.stopImmediatePropagation(); // ProseMirror's Android fallback would run the key again
         flushDom(view);
         ed.editor.commands.keyboardShortcut('Backspace');
+        return;
+      }
+      // A grapheme of several code units (an emoji with a skin tone, a flag) goes in one step, as on the desktop.
+      const { $from } = view.state.selection;
+      if (empty && !view.composing && typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
+        const before = $from.parent.textBetween(0, $from.parentOffset, undefined, '￼');
+        const segs = [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(before)];
+        const last = segs[segs.length - 1]?.segment ?? '';
+        if (last.length > 1 && last !== '￼') {
+          e.preventDefault();
+          e.stopImmediatePropagation(); // ProseMirror's Android fallback would run the key again
+          view.dispatch(view.state.tr.delete($from.pos - last.length, $from.pos).scrollIntoView());
+        }
       }
     }
   };

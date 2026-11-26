@@ -105,11 +105,17 @@ export function PhoneFrame(props: {
       e.preventDefault();
       e.stopPropagation();
     };
+    // Slice AND-3: the mouse events a long touch ends with don't reach the editor either (it opens a chip on mouseup).
+    const compat = (e: MouseEvent) => { if (performance.now() < swallowUntil) { e.preventDefault(); e.stopPropagation(); } };
+    document.addEventListener('mousedown', compat, true);
+    document.addEventListener('mouseup', compat, true);
     document.addEventListener('contextmenu', menu, true);
     document.addEventListener('pointerdown', down, true);
     document.addEventListener('pointerup', up, true);
     document.addEventListener('click', click, true);
     return () => {
+      document.removeEventListener('mousedown', compat, true);
+      document.removeEventListener('mouseup', compat, true);
       document.removeEventListener('contextmenu', menu, true);
       document.removeEventListener('pointerdown', down, true);
       document.removeEventListener('pointerup', up, true);

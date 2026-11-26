@@ -746,6 +746,24 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     return () => void un.then((f) => f());
   }, []);
 
+  // Slice AND-3 (android-edit §7.1; FR-EDT-10 AC-12): in a read-only mode on the phone every write control of the note
+  // (checkboxes, the review box, embeds' boxes) is aria-disabled with the reason.
+  const readOnlyReason = !loaded || loaded.mode === 'edit' ? null
+    : loaded.nfd ? t('phone.nfdReadOnly') : loaded.mode === 'utf8' ? t('readOnly.utf8') : loaded.mode === 'editorFailed' ? t('readOnly.editorFailed')
+    : path.startsWith('.trash/') ? t('trash.readOnly') : t('save.readOnly');
+  useEffect(() => {
+    const el = root.current;
+    if (!isPhone() || !readOnlyReason || !el) return undefined;
+    const mark = () => el.querySelectorAll<HTMLElement>('[role="checkbox"], input[type="checkbox"]').forEach((b) => {
+      if (b.getAttribute('aria-disabled') !== 'true') b.setAttribute('aria-disabled', 'true');
+      if (b.getAttribute('aria-description') !== readOnlyReason) b.setAttribute('aria-description', readOnlyReason);
+    });
+    mark();
+    const mo = new MutationObserver(mark);
+    mo.observe(el, { childList: true, subtree: true });
+    return () => mo.disconnect();
+  }, [readOnlyReason]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // The editor takes no input while the merge dialog or the deleted alert is open (FR-SYN-03 AC-13).
   useEffect(() => {
     edRef.current?.editor.setEditable(!merge);
