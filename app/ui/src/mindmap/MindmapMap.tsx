@@ -543,7 +543,7 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
           const name = n.lines.join(' ');
           const desc = [item?.more ? t('mindmap.more') : null, item && item.checked !== null ? t(item.checked ? 'mindmap.checked' : 'mindmap.unchecked') : null].filter(Boolean).join(', ') || undefined;
           const isEditing = editing?.kind === 'text' && editing.id === n.id;
-          // R230 (D-2606, D-2607, D-2617…D-2619): the fold control on the elbow point and the `+` on the outer edge, both
+          // R230, R234 (D-2606, D-2607, D-2672, D-2673): the fold control on the outer edge and the `+` 24 px past it, both
           // inside the treeitem, out of the Tab order; the treeitem's name stays its text (aria-label).
           const fold = noFolds ? undefined : n.fold;
           const control = (c: { x: number; y: number }): React.CSSProperties => ({ left: `calc(${c.x - n.x}px - var(--mm-bw, 0px))`, top: `calc(${c.y - n.y}px - var(--mm-bw, 0px))` });
@@ -567,7 +567,7 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
           const el = (
             <div key={n.id} role="treeitem" data-node={n.id} data-tone={tone} {...(n.side ? { 'data-side': n.side } : {})} aria-level={n.depth + 1} aria-setsize={it?.size ?? 1} aria-posinset={(it?.index ?? 0) + 1}
               aria-label={name} aria-description={desc} aria-selected={stop === n.id} tabIndex={stop === n.id ? 0 : -1} aria-expanded={fold ? !fold.folded : undefined}
-              className={`mindmap-node tone-${tone}${n.lines.length === 1 ? ' one-line' : ''}${isEditing ? ' editing' : ''}${drag?.id === n.id ? ' drag-source' : ''}`}
+              className={`mindmap-node tone-${tone}${fold ? ' has-fold' : ''}${n.lines.length === 1 ? ' one-line' : ''}${isEditing ? ' editing' : ''}${drag?.id === n.id ? ' drag-source' : ''}`}
               style={{ left: n.x + PAD_X, top: n.y + PAD_Y, width: isEditing ? undefined : n.w, minWidth: isEditing ? n.w : undefined, maxWidth: 200, height: isEditing ? undefined : n.h, minHeight: n.h }}
               onFocus={() => { if (programmatic.current) return; wanted.current = it?.path ?? null; setFocus(n.id); }}
               onPointerDown={(e) => onPointerDown(e, n)}
