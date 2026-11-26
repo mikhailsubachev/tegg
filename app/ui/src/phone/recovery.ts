@@ -2,7 +2,7 @@
 // write when the app went to the background are kept as a private copy (`<files_dir>/recovery/<key>.json`, machine-
 // local, never in the vault) and offered when that note next opens.
 import { ipc } from '../ipc/client';
-import type { RecoveryDto } from '../ipc/recovery';
+import type { RecoveryDto } from '../ipc/types';
 import type { VersionDto } from '../ipc/types';
 import { localIso } from '../zone';
 

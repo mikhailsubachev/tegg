@@ -27,9 +27,8 @@ impl LocalFs {
         LocalFs { root: root.to_path_buf(), listings: Default::default(), resolve_names: !cfg!(target_os = "macos") }
     }
 
-    /// A `LocalFs` that resolves names as on Android, for host tests (D-2048).
-    #[cfg(test)]
-    fn resolving(root: &Path) -> LocalFs {
+    /// A `LocalFs` that resolves names as on Android, for host tests (D-2048, D-2546).
+    pub(crate) fn resolving(root: &Path) -> LocalFs {
         LocalFs { resolve_names: true, ..LocalFs::new(root) }
     }
 
@@ -69,7 +68,7 @@ impl LocalFs {
     fn abs_write(&self, path: &str) -> io::Result<PathBuf> {
         let p = self.abs(path)?;
         if self.resolve_names && p != self.root.join(tegg_format::nfc(path)) {
-            return Err(io::Error::new(io::ErrorKind::PermissionDenied, format!("{path}: stored under another spelling; read-only on this device (D-2048)")));
+            return Err(io::Error::new(io::ErrorKind::PermissionDenied, ReadOnlyName(path.to_string())));
         }
         Ok(p)
     }
@@ -290,6 +289,14 @@ impl VaultFs for LocalFs {
 
     fn remove_file(&self, path: &str) -> io::Result<()> {
         fs::remove_file(self.abs_write(path)?)
+    }
+
+    /// android-edit §3.1: the resolved spelling differs from the NFC one (never on macOS, never for ASCII paths).
+    fn nfd_name(&self, path: &str) -> io::Result<bool> {
+        if !self.resolve_names || path.is_ascii() {
+            return Ok(false);
+        }
+        Ok(self.abs(path)? != self.root.join(tegg_format::nfc(path)))
     }
 
     fn remove_empty_dir(&self, path: &str) -> io::Result<()> {
@@ -552,12 +559,13 @@ fn rename_no_clobber(from: &Path, to: &Path) -> io::Result<()> {
 /// `EOPNOTSUPP`, `EXDEV`; bug_and1la), the target is
 /// checked and the file renamed: an existing `to` is `AlreadyExists`. A file another program creates between the check
 /// and the rename would be replaced: Android's FUSE layer rejects `renameat2(RENAME_NOREPLACE)` (EINVAL, checked on the
-/// emulator); the window is accepted for AND-1 and revisited in AND-3 (D-2047).
-#[cfg_attr(target_os = "macos", allow(dead_code))]
+/// emulator); the window is accepted (D-2047, D-2513). The check is name-blind (docs/contracts/android-edit.md §3.2,
+/// FR-SYN-02 AC-17): `to`'s folder listing is searched under NFC and Unicode lower case, as shared storage compares
+/// names, so a case-sensitive host refuses the same names the device would.
 pub fn no_clobber_via(from: &Path, to: &Path, primitive: &dyn Fn(&Path, &Path) -> io::Result<()>) -> io::Result<()> {
     match primitive(from, to) {
         Err(e) if matches!(e.raw_os_error(), Some(libc::ENOSYS | libc::EACCES | libc::EPERM | libc::EOPNOTSUPP | libc::EXDEV)) => {
-            if fs::symlink_metadata(to).is_ok() {
+            if fs::symlink_metadata(to).is_ok() || name_taken_at(to) {
                 return Err(io::Error::new(io::ErrorKind::AlreadyExists, to.display().to_string()));
             }
             fs::rename(from, to)
@@ -788,14 +796,45 @@ mod bug_and1la_fr_syn_02_create_without_hard_links {
     }
 }
 
+/// The write refusal of a file stored under a name whose bytes differ from its NFC form (android-shell §3.2, D-2048,
+/// D-2512): an `io::Error` of kind `PermissionDenied` carrying this, so the app maps it to the `IpcError` kind
+/// `ReadOnlyName` (android-edit §2.3) and no other permission error.
+#[derive(Debug)]
+pub struct ReadOnlyName(pub String);
+
+impl std::fmt::Display for ReadOnlyName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: stored under another spelling; read-only on this device (D-2048)", self.0)
+    }
+}
+
+impl std::error::Error for ReadOnlyName {}
+
+/// True for the refusal of `ReadOnlyName`.
+pub fn is_read_only_name(e: &io::Error) -> bool {
+    e.get_ref().is_some_and(|r| r.is::<ReadOnlyName>())
+}
+
 /// Slice AND-3 (docs/contracts/android-edit.md §3.2, D-2513): true when `listing` (one folder's entry names as on disk)
-/// holds `name` under NFC and Unicode lower case. Stub for the red tests: always false; the build makes the check.
-pub fn name_taken(_listing: &[String], _name: &str) -> bool {
-    false
+/// holds `name` under NFC and Unicode lower case.
+pub fn name_taken(listing: &[String], name: &str) -> bool {
+    let key = fold_name(name);
+    listing.iter().any(|e| fold_name(e) == key)
+}
+
+/// NFC, Unicode lower case, NFC again (lower-casing can leave a sequence that composes differently).
+fn fold_name(name: &str) -> String {
+    tegg_format::nfc(&tegg_format::nfc(name).to_lowercase())
+}
+
+/// `name_taken` for `to` against its folder's listing; an unreadable folder or a name that isn't UTF-8 is not taken.
+fn name_taken_at(to: &Path) -> bool {
+    let (Some(dir), Some(name)) = (to.parent(), to.file_name().and_then(|n| n.to_str())) else { return false };
+    name_taken(&listing_of(dir).unwrap_or_default(), name)
 }
 
 /// Slice AND-3 (red-test decision D-2546): a `LocalFs` that resolves names as on Android, for the host's L4 tests of
-/// FR-FMT-12 AC-18. Stub for the red tests: the macOS `LocalFs` (no resolution); the build returns the resolving one.
+/// FR-FMT-12 AC-18.
 pub fn resolving_fs(root: &Path) -> LocalFs {
-    LocalFs::new(root)
+    LocalFs::resolving(root)
 }

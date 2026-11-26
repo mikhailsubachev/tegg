@@ -66,6 +66,10 @@ mod android {
                 .map(|_| ())
                 .map_err(|e| if e.to_string().contains("NoHandler") { "NoHandler".into() } else { e.to_string() })
         }
+        /// android-edit §6.1 (CP-5 → D-2531): `showSoftInput` / `hideSoftInputFromWindow` for the WebView.
+        pub fn ime(&self, show: bool) -> Result<(), String> {
+            self.0.run_mobile_plugin::<Empty>("ime", serde_json::json!({ "show": show })).map(|_| ()).map_err(|e| e.to_string())
+        }
         /// android-phone §5.2 (D-2432): the bar icons for the resolved theme, then the window state.
         pub fn window(&self, dark: bool) -> Result<WindowState, String> {
             self.0.run_mobile_plugin::<WindowState>("window", serde_json::json!({ "dark": dark })).map_err(|e| e.to_string())

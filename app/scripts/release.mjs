@@ -1,22 +1,25 @@
-// D-1514, D-1512, D-2011, D-2022: build a Tegg release. `npm run app:release -- <MAJOR.MINOR.PATCH> [--apk]` (run
+// D-1514, D-1512, D-2011, D-2022: build a Tegg release. `npm run app:release -- <MAJOR.MINOR.PATCH> [--no-apk]` (run
 // from `app/`, in a clean checkout of main) builds Tegg.app and its DMG with the release identity (feature `preview`,
 // tauri.preview.conf.json: bundle id `app.tegg.preview`, Application Support `Tegg Preview`) and, unless `--no-apk`, the
-// signed release APK with `--apk` (`app.tegg.preview`, the owner's key, D-2021; Mac only by default until AND-3, D-2043). It sets the version and the sidebar label
-// (`TEGG_VERSION`), checks the APK (tools/qa apk-check), then installs `/Applications/Tegg.app` (D-2227; removing the old
-// `Tegg Preview.app` and an earlier copy in `~/Applications`) and leaves `Tegg-<v>.dmg`, `Tegg-<v>.zip` and `Tegg-<v>.apk` in
-// `src-tauri/target/release/bundle/release/`. The steps are planned in release-plan.mjs.
+// signed release APK (`app.tegg.preview`, the owner's key, D-2021; every release since AND-3, D-2522; `--apk` is accepted
+// and changes nothing). It sets the version and the sidebar label (`TEGG_VERSION`), checks the APK (tools/qa apk-check),
+// then installs `/Applications/Tegg.app` (D-2227; removing the old `Tegg Preview.app` and an earlier copy in
+// `~/Applications`) and leaves `Tegg-<v>.dmg`, `Tegg-<v>.zip` and `Tegg-<v>.apk` in
+// `src-tauri/target/release/bundle/release/`. At the end it prints the `gh release create` command for the owner's
+// release step (CP-11 → D-2537); it doesn't run it. The steps are planned in release-plan.mjs.
 import { execFileSync, execSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { defaultSigningPath, releasePlan, signingConfig, versionCode } from './release-plan.mjs';
+import { defaultSigningPath, githubRelease, parseReleaseArgs, releasePlan, signingConfig } from './release-plan.mjs';
 
-const args = process.argv.slice(2);
-const version = args.find((a) => !a.startsWith('--')) ?? '';
-// D-2043: Mac only until AND-3 releases the first APK (D-2042); `--apk` opts in.
-const apk = args.includes('--apk');
-const usage = () => { console.error('usage: npm run app:release -- <MAJOR.MINOR.PATCH> [--apk]   (e.g. 0.1.0; MINOR and PATCH at most 999)'); process.exit(2); };
-try { versionCode(version); } catch { usage(); }
+// android-edit §16.1 (D-2522): the APK by default, `--no-apk` skips it, `--apk` is a no-op.
+const parsed = parseReleaseArgs(process.argv.slice(2));
+if (parsed.usage) {
+  console.error('usage: npm run app:release -- <MAJOR.MINOR.PATCH> [--no-apk]   (e.g. 0.1.0; MINOR and PATCH at most 999)');
+  process.exit(2);
+}
+const { version, apk } = parsed;
 
 const app = resolve(import.meta.dirname, '..');
 const repo = resolve(app, '..');
@@ -60,3 +63,12 @@ for (const step of plan.steps) {
   }
 }
 console.log(`Tegg ${version}: installed /Applications/Tegg.app; assets in ${out}`);
+// CP-11 → D-2537: the GitHub release is the owner's separate step; print its command with the assets.
+try {
+  const sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();
+  const gh = githubRelease({ version, sha, outputs: plan.outputs });
+  const q = (a) => (/^[\w@%+=:,./-]+$/.test(a) ? a : `'${a.replace(/'/g, `'\\''`)}'`);
+  console.log(`To publish: ${[gh.cmd, ...gh.args].map(q).join(' ')}`);
+} catch (e) {
+  console.error(`release ${version}: no GitHub command (${e instanceof Error ? e.message.split('\n')[0] : e})`);
+}

@@ -84,7 +84,7 @@ export async function buildEmbedTree(
   const readView = !!opts?.readOnly;
   const cache = new Map<string, EmbedNoteDto>();
   const hostPath = nfc(host.path);
-  cache.set(hostPath, { path: hostPath, state: 'ok', text: host.text, version: null, utf8: true, links: [...host.links.values()], card: null });
+  cache.set(hostPath, { path: hostPath, state: 'ok', text: host.text, version: null, utf8: true, links: [...host.links.values()], card: null, nfdName: false });
   let loads = 0;
 
   const make = (e: { value: string; line: number; inline: boolean }, depth: number, links: Map<string, LinkTargetDto>, ancestors: string[]): EmbedNode => {

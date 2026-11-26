@@ -321,7 +321,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       const readView = !!(window as { __TEGG_TEST__?: { readView?: boolean } }).__TEGG_TEST__?.readView;
       // 6A (FR-HIS-01 AC-6): an object in the trash is shown read-only, never edited.
       // Slice AND-3 (android-edit §7.1, CP-7): on the phone a file stored under an NFD name is read-only (D-2512).
-      const nfd = isPhone() && !!(n as { nfdName?: boolean }).nfdName;
+      const nfd = isPhone() && 'nfdName' in n && n.nfdName;
       const mode: Mode = !n.utf8 ? 'utf8' : frontmatterWarning(doc) ? 'invalidFrontmatter' : readView || nfd || path.startsWith('.trash/') ? 'readView' : 'edit';
       // The read-only views resolve their links here; the editor resolves its own chips.
       let links = new Map<string, LinkTargetDto>();

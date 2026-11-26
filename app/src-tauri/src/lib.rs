@@ -304,6 +304,8 @@ pub(crate) fn core_err(e: CoreError) -> IpcError {
         CoreError::Vault(VaultError::Gone) => err("Gone", "the file was deleted"),
         CoreError::Vault(VaultError::NotFound) => err("NotFound", "no such file"),
         CoreError::Vault(VaultError::NameTaken) => err("NameTaken", "the name is taken"),
+        // android-edit §2.3 (D-2512, CP-7): a write to a file stored under an NFD name, refused on Android only.
+        CoreError::Vault(VaultError::Io(e)) if tegg_vault::is_read_only_name(&e) => err("ReadOnlyName", "this note's file name can't be written on this device"),
         CoreError::NotUtf8 => err("NotUtf8", "the file isn't valid UTF-8"),
         // ms3-shell §14.3 (3D).
         CoreError::Schema(SchemaError::Rule(r)) => rule_err(r),
@@ -661,7 +663,7 @@ async fn index_switcher(state: State<'_, AppState>, q: String, limit: u32) -> Re
 async fn note_read(state: State<'_, AppState>, path: String) -> Result<NoteDto, IpcError> {
     let core = core(&state)?;
     let r = core.read_note_info(&path, SystemTime::now()).map_err(core_err)?;
-    Ok(NoteDto { path, text: String::from_utf8_lossy(&r.bytes).into_owned(), version: version_dto(&r.version), utf8: r.utf8 })
+    Ok(NoteDto { path, text: String::from_utf8_lossy(&r.bytes).into_owned(), version: version_dto(&r.version), utf8: r.utf8, nfd_name: r.nfd_name })
 }
 
 /// ms3-shell §13.2: the editor's save, through MS1's one write function (D-175 version rule).
@@ -990,6 +992,7 @@ async fn embed_load(state: State<'_, AppState>, paths: Vec<String>, media: Optio
             utf8: n.utf8,
             links: n.links.into_iter().map(link_dto).collect(),
             card: n.card.map(shellcards::card_dto),
+            nfd_name: n.nfd_name,
         })
         .collect())
 }
@@ -2145,12 +2148,13 @@ fn mobile_run() {
                 daily_backlinks, job_cancel, job_confirm, job_report, job_retry, job_transform_result, job_interrupted,
                 job_resolve_interrupted, backups_list, editor_open, editor_close, task_list, daily_tasks,
                 shell5b::vault_settings, shell5b::vault_settings_patch, shell5b::inbox_list, shell5b::inbox_count,
-                shell5b::index_versions, shell6a::trash_list, shell6a::object_trash, shell6a::media_add,
+                shell5b::index_versions, shell6a::trash_list, shell6a::object_trash, shell6a::trash_restore, shell6a::media_add,
                 shell6a::media_add_paths, shell4d::tag_objects, shell4d::index_tagged_objects, shell4d::tag_usage,
                 shell4d::tag_new_path, shell4e::jobs_ready, shell4d::job_plan, shellpin::pins_get, shellpin::pins_apply,
                 shellcards::type_card_example, shellq::queries_list, shellq::query_get, shellq::query_run, shellq::query_usages,
                 shellq::query_view_usages, mobile::vault_start, mobile::vault_find, mobile::storage_access,
-                mobile::storage_access_settings, mobile::android_open_url, mobile::android_window
+                mobile::storage_access_settings, mobile::android_open_url, mobile::android_window, mobile::android_recovery_put,
+                mobile::android_recovery_get, mobile::android_recovery_drop, mobile::android_ime
             ]);
             move |invoke: tauri::ipc::Invoke<tauri::Wry>| -> bool {
                 mobile::ipc_log(invoke.message.command());

@@ -6,7 +6,7 @@ import { openUrlAllowed } from '../phone/links';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { GraphPresetsDto, GraphRequestDto, GraphResultDto, PresetOpDto } from '../graph/types';
 import type { PinOpDto, PinsDto } from './pins';
-import type { RecoveryDto } from './recovery';
+import type { RecoveryDto } from './types';
 import type { ImportProgressDto, ImportResultDto, ImportStatusDto, ImportTransformEvent, Mapping, NewVaultDto, PlanResultDto, ScanInfo, TargetArg, WhereDto } from './import';
 import type { QueryDefDto, QueryDto, QueryEnvDto, QueryResultDto, QuerySourceDto, QueryStaleDto, QuerySummaryDto, QueryUsageDto, TaskViewsRestoreDto, ViewUsageDto } from './queries';
 import type {

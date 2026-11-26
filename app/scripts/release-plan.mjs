@@ -13,6 +13,36 @@ export function versionCode(v) {
   return maj * 1_000_000 + min * 1_000 + pat;
 }
 
+/**
+ * Slice AND-3 (docs/contracts/android-edit.md §4.6, §16.1; AR-08 AC-7, D-2522): the CLI's arguments. One
+ * MAJOR.MINOR.PATCH version; the APK is built unless `--no-apk`; `--apk` is accepted and changes nothing. Anything else
+ * (an unknown flag, no version, two versions, a version that isn't MAJOR.MINOR.PATCH) is `{ usage: true }`.
+ */
+export function parseReleaseArgs(argv) {
+  let version = null;
+  let apk = true;
+  for (const a of argv) {
+    if (a === '--apk') continue;
+    if (a === '--no-apk') { apk = false; continue; }
+    if (a.startsWith('-') || version !== null) return { usage: true };
+    version = a;
+  }
+  if (version === null) return { usage: true };
+  try { versionCode(version); } catch { return { usage: true }; }
+  return { version, apk };
+}
+
+/**
+ * Slice AND-3 (§4.6; CP-11 → D-2537): the owner's GitHub release step, printed by release.mjs and not run by it:
+ * `gh release create v<v> --target <sha> --title "Tegg <v>"` with `releasePlan`'s outputs (DMG, zip, then the APK when
+ * built). `sha` must be a full 40-character commit id.
+ */
+export function githubRelease({ version, sha, outputs }) {
+  versionCode(version);
+  if (!/^[0-9a-f]{40}$/.test(String(sha ?? ''))) throw new RangeError(`not a full commit sha: ${sha}`);
+  return { cmd: 'gh', args: ['release', 'create', `v${version}`, '--target', sha, '--title', `Tegg ${version}`, ...outputs] };
+}
+
 /** The signing config (D-2021): `~/.config/tegg/android-signing.properties` unless `TEGG_ANDROID_SIGNING` names another. */
 export function defaultSigningPath(env = process.env) {
   return env.TEGG_ANDROID_SIGNING || join(homedir(), '.config/tegg/android-signing.properties');

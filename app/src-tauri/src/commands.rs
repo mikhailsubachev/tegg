@@ -30,7 +30,8 @@ pub const DESKTOP: &[&str] = &[
 ];
 
 /// `DESKTOP` minus RA2's groups P1…P5 (capture, status item and hotkeys, import, dialogs, macOS system), J (bulk jobs and
-/// schema, D-2007), V (views and queries, D-2006) and O (not in this version), then `ANDROID_ONLY`.
+/// schema, D-2007), V (views and queries, D-2006) and O (not in this version; `trash_restore` left O in AND-3, D-2514), then
+/// `ANDROID_ONLY`.
 pub const ANDROID: &[&str] = &[
     "vault_current", "vault_open", "index_search", "index_switcher", "note_read", "note_create", "perf_mark",
     "vault_create", "vault_last", "vault_recent", "vault_types", "index_type_counts", "index_list", "nav_opened",
@@ -41,13 +42,16 @@ pub const ANDROID: &[&str] = &[
     "daily_create", "daily_context", "daily_backlinks", "job_cancel", "job_confirm", "job_report", "job_retry",
     "job_transform_result", "job_interrupted", "job_resolve_interrupted", "backups_list", "editor_open",
     "editor_close", "task_list", "daily_tasks", "vault_settings", "vault_settings_patch", "inbox_list",
-    "inbox_count", "index_versions", "trash_list", "object_trash", "media_add", "media_add_paths", "tag_objects",
+    "inbox_count", "index_versions", "trash_list", "object_trash", "trash_restore", "media_add", "media_add_paths", "tag_objects",
     "index_tagged_objects", "tag_usage", "tag_new_path", "jobs_ready", "job_plan", "pins_get", "pins_apply",
     "type_card_example", "queries_list", "query_get", "query_run", "query_usages", "query_view_usages", "vault_start", "vault_find",
-    "storage_access", "storage_access_settings", "android_open_url", "android_window",
+    "storage_access", "storage_access_settings", "android_open_url", "android_window", "android_recovery_put",
+    "android_recovery_get", "android_recovery_drop", "android_ime",
 ];
 
-/// The Android-only commands: AND-1's four (android-shell §2.2) and AND-2's two (android-phone §2.1; D-2420, D-2432).
+/// The Android-only commands: AND-1's four (android-shell §2.2), AND-2's two (android-phone §2.1; D-2420, D-2432) and
+/// AND-3's four (android-edit §2.2; D-2514, D-2530, D-2531).
 pub const ANDROID_ONLY: &[&str] = &[
     "vault_start", "vault_find", "storage_access", "storage_access_settings", "android_open_url", "android_window",
+    "android_recovery_put", "android_recovery_get", "android_recovery_drop", "android_ime",
 ];

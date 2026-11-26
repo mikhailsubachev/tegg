@@ -121,6 +121,11 @@ pub struct NoteDto {
     pub text: String,
     pub version: VersionDto,
     pub utf8: bool,
+    /// android-edit §2.3 (FR-FMT-12 AC-18; CP-7 → D-2533): the file was reached through an on-disk name whose bytes
+    /// differ from its NFC form, so the phone shows it read-only. Always false on macOS.
+    #[serde(rename = "nfdName")]
+    #[ts(rename = "nfdName")]
+    pub nfd_name: bool,
 }
 
 /// One embedded file as `embed_load` returns it (ms4-embeds §4, D-429).
@@ -137,6 +142,10 @@ pub struct EmbedNoteDto {
     pub links: Vec<LinkTargetDto>,
     /// Slice OC (v1-cards §3.3): the embedded object's card data; null unless `ok` and indexed.
     pub card: Option<crate::shellcards::CardDataDto>,
+    /// android-edit §2.3 (FR-FMT-12 AC-18): as `NoteDto.nfdName`, so an embedded task's checkbox stays disabled.
+    #[serde(rename = "nfdName")]
+    #[ts(rename = "nfdName")]
+    pub nfd_name: bool,
 }
 
 /// A file version (ms3-shell §13.2): equality is `size` + `hash` (D-175).
@@ -200,6 +209,7 @@ pub struct ConflictDto {
 #[derive(Debug, Clone, Serialize, TS)]
 pub struct IpcError {
     /// `Conflict`, `Gone`, `NotFound`, `NameTaken`, `NotUtf8`, `Io`, `NoVault`, `NotEmpty`, `NotATeggVault`, `Unsupported`;
+    /// android-edit §2.3 (D-2512; Android only): `ReadOnlyName`, a write to a file stored under an NFD name;
     /// 3D (ms3-shell §14.3): `Rule`, `NewerVersion`, `InvalidType`, `BuiltInChanged`, `ReviewLocked`, `SystemType`,
     /// `HasObjects`, `UnknownType`.
     pub kind: String,
@@ -1732,6 +1742,23 @@ pub struct InsetsDto {
     pub right: f64,
 }
 
+/// android-edit §2.2 (FR-EDT-08 AC-17; CP-4 → D-2530): a recovery copy of a note's unsaved text on the phone, kept in
+/// `<files_dir>/recovery/` by `android_recovery_put` and read back by `android_recovery_get`. `vault` is the open
+/// vault's on-disk root, `path` vault-relative NFC, `base` the version the text was based on (null for a file that was
+/// gone), `savedAt` ISO 8601 with offset.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(rename_all = "camelCase")]
+pub struct RecoveryDto {
+    pub vault: String,
+    pub path: String,
+    pub id: Option<String>,
+    pub title: String,
+    pub text: String,
+    pub base: Option<VersionDto>,
+    pub saved_at: String,
+}
+
 /// android-phone §2.2 (D-2432): `android_window`.
 #[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -1873,6 +1900,7 @@ pub fn typescript() -> String {
         StorageAccessDto::decl(),
         InsetsDto::decl(),
         WindowStateDto::decl(),
+        RecoveryDto::decl(),
     ];
     let mut out = String::from("// Generated from app/src-tauri/src/dto.rs by ts-rs. Do not edit: run\n// `UPDATE_TYPES=1 cargo test --manifest-path app/src-tauri/Cargo.toml types_file_is_current`.\n\n");
     for d in decls {
