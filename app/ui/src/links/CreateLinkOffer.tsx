@@ -117,9 +117,9 @@ export function CreateLinkOffer({ req, types, onClose, onCreated, onExists, shee
           {plan?.state === 'create' && (
             <div className="offer-type">
               <span>{t('createLink.type', { type: typeName ?? '' })}</span>{' '}
-              <button type="button" className="phone-offer-type" aria-label={t('createLink.typeLabel')}
+              <button type="button" className="phone-offer-type" aria-label={t('createLink.typeLabel')} data-command="phone.offer.type"
                 onClick={() => chooseType((key) => { if (!req.relationTo || req.relationTo.includes(key)) replan(key); })}>
-                {typeName}
+                <span data-user-content>{typeName}</span>
               </button>
             </div>
           )}
