@@ -26,6 +26,10 @@ export type ApkFacts = {
   entries: string[];
   /** The bytes `test-env.json` are in lib/arm64-v8a/libtegg_app_lib.so (D-2032). */
   libHasTestEnv: boolean;
+  /** Slice AND-3 (red-test decision D-2547): the classes the dex files define, as descriptors (`app/tegg/android/X`). */
+  dexClasses?: string[];
+  /** Slice AND-3 (D-2547): the manifest's services with their intent-filter actions. */
+  services?: { name: string; actions: string[] }[];
 };
 
 export type ApkExpect = { kind: 'release' | 'test'; version?: string; signerSha256?: string };
@@ -91,6 +95,11 @@ export function checkApk(f: ApkFacts, e: ApkExpect): string[] {
   // AR-08 AC-5.
   if (e.kind === 'release' && f.libHasTestEnv) out.push('the release library contains test-env.json (test hooks, D-2032)');
   if (e.kind === 'test' && !f.libHasTestEnv) out.push('the test library lacks test-env.json (test hooks, D-2032)');
+  // android-edit §16.3 (D-2519): the test input method never ships in a product APK, release or test.
+  for (const c of f.dexClasses ?? []) if (c.startsWith('app/tegg/testime/')) out.push(`the dex files hold the test input method class ${c} (testime, D-2519)`);
+  for (const s of f.services ?? []) {
+    if (s.actions.includes('android.view.InputMethod')) out.push(`the manifest declares the input method service ${s.name} (android.view.InputMethod, D-2519)`);
+  }
   return out;
 }
 
@@ -111,6 +120,54 @@ function excluded(tree: string, tag: string): string[] {
   const end = rest.search(/\n\s{0,4}E: (cloud-backup|device-transfer)/);
   const body = end < 0 ? rest : rest.slice(0, end);
   return [...body.matchAll(/A: domain="([^"]+)"/g)].map((m) => m[1]);
+}
+
+/** android-edit §16.3: the classes one dex file defines (class_defs → type_ids → string_ids), as `a/b/C` descriptors. */
+export function dexClassNames(dex: Buffer): string[] {
+  if (dex.length < 0x70 || dex.toString('latin1', 0, 4) !== 'dex\n') return [];
+  const u32 = (at: number) => dex.readUInt32LE(at);
+  const stringIdsOff = u32(0x3c);
+  const typeIdsOff = u32(0x44);
+  const [classDefsSize, classDefsOff] = [u32(0x60), u32(0x64)];
+  const str = (idx: number) => {
+    let at = u32(stringIdsOff + idx * 4);
+    while (dex[at] & 0x80) at++; // the uleb128 length (in UTF-16 units)
+    at++;
+    const end = dex.indexOf(0, at);
+    return dex.toString('utf8', at, end < 0 ? dex.length : end); // MUTF-8; class names are ASCII here
+  };
+  const out: string[] = [];
+  for (let i = 0; i < classDefsSize; i++) {
+    const d = str(u32(typeIdsOff + u32(classDefsOff + i * 32) * 4));
+    out.push(d.startsWith('L') && d.endsWith(';') ? d.slice(1, -1) : d);
+  }
+  return out;
+}
+
+/** android-edit §16.3: the `service` elements of an `aapt2 dump xmltree` manifest, with their intent-filter actions. */
+export function manifestServices(tree: string): { name: string; actions: string[] }[] {
+  const lines = tree.split('\n');
+  const indent = (l: string) => l.length - l.trimStart().length;
+  const nameOf = (l: string) => /:name\([^)]*\)="([^"]*)"/.exec(l)?.[1];
+  const out: { name: string; actions: string[] }[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (!/^\s*E: service\b/.test(lines[i])) continue;
+    const base = indent(lines[i]);
+    const svc = { name: '', actions: [] as string[] };
+    let inAction = -1;
+    for (let j = i + 1; j < lines.length && (lines[j].trim() === '' || indent(lines[j]) > base); j++) {
+      const l = lines[j];
+      if (/^\s*E: /.test(l)) inAction = /^\s*E: action\b/.test(l) ? indent(l) : -1;
+      else if (/^\s*A: /.test(l)) {
+        const n = nameOf(l);
+        if (n === undefined) continue;
+        if (indent(l) === base + 2 && !svc.name) svc.name = n;
+        else if (inAction >= 0 && indent(l) > inAction) svc.actions.push(n);
+      }
+    }
+    out.push(svc);
+  }
+  return out;
 }
 
 export function readApk(apk: string): ApkFacts {
@@ -138,6 +195,7 @@ export function readApk(apk: string): ApkFacts {
   const signers = [...verify.matchAll(/Signer #\d+ certificate DN: (.+)\nSigner #\d+ certificate SHA-256 digest: ([0-9a-f]+)/g)].map((m) => ({ subject: m[1].trim(), sha256: m[2] }));
   const lib = 'lib/arm64-v8a/libtegg_app_lib.so';
   const libHasTestEnv = entries.includes(lib) && execFileSync('unzip', ['-p', apk, lib], { maxBuffer: 512 * 1024 * 1024 }).includes(Buffer.from('test-env.json'));
+  const dexClasses = entries.filter((x) => /^classes\d*\.dex$/.test(x)).flatMap((x) => dexClassNames(execFileSync('unzip', ['-p', apk, x], { maxBuffer: 512 * 1024 * 1024 })));
   return {
     package: pick(/package: name='([^']+)'/),
     versionName: pick(/versionName='([^']*)'/),
@@ -153,6 +211,8 @@ export function readApk(apk: string): ApkFacts {
     schemes,
     entries,
     libHasTestEnv,
+    dexClasses,
+    services: manifestServices(manifest),
   };
 }
 
