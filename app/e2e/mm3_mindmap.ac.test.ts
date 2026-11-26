@@ -11,7 +11,7 @@ import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { cpSync, existsSync, readFileSync, rmSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { FX, MARK_TIMEOUT, appiumDown, changedPaths, end, need, paste, press, ready, session, shown, sleep, support, testEnv, tmp, tree, waitMark, type Driver } from './helpers/capture.ts';
+import { FX, MARK_TIMEOUT, appiumDown, changedPaths, clickable, end, need, paste, press, ready, session, shown, sleep, support, testEnv, tmp, tree, waitMark, type Driver } from './helpers/capture.ts';
 
 after(appiumDown);
 process.on('exit', appiumDown);
@@ -36,8 +36,24 @@ async function goTo(title: string) {
   press('enter');
   await sleep(1200);
 }
-async function centre(d: Driver, label: string): Promise<{ x: number; y: number }> {
-  const e = await need(d, label, 5000);
+/** A node of the tree `treeName` by its name, among the tree's own elements only: a node's name can be shared by the
+ *  note's tab in the title bar, its title and the callout header (the root `Výjezd 2026`), and `need` takes the first
+ *  one shown, which is outside the map (a click there takes the focus out of the map). */
+async function inTree(d: Driver, treeName: string, label: string, ms = 3000): Promise<any> {
+  const l = label.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const endAt = Date.now() + ms;
+  while (true) {
+    const t = await need(d, treeName, ms);
+    for (const e of await t.$$(`-ios predicate string:label == "${l}" OR title == "${l}" OR value == "${l}"`).catch(() => [] as any[])) {
+      if (await e.isDisplayed().catch(() => false)) return clickable(d, e);
+    }
+    if (Date.now() > endAt) break;
+    await sleep(100);
+  }
+  assert.fail(`"${label}" is shown in the tree "${treeName}"`);
+}
+async function centre(d: Driver, treeName: string, label: string): Promise<{ x: number; y: number }> {
+  const e = await inTree(d, treeName, label, 5000);
   const r = await d.getElementRect(e.elementId);
   return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
 }
@@ -114,7 +130,7 @@ test('fr_syn_06_ac58_browsing_folding_and_cancelled_drags_write_nothing_in_the_r
       for (const k of keys) press(k);
       await sleep(300);
       for (const p of parents) {
-        await (await need(d, p, 3000)).click();
+        await (await inTree(d, treeName, p, 3000)).click();
         press('space');
         await sleep(300);
         const sp = await d.$(`-ios predicate string:label BEGINSWITH "Expand ${p}, "`);
@@ -124,7 +140,7 @@ test('fr_syn_06_ac58_browsing_folding_and_cancelled_drags_write_nothing_in_the_r
         // by its control: hover the node, click `Collapse <p>`, then `Expand <p>, …` (not on the root, whose name the
         // callout header's own fold button may share, AP-2116; the root is folded by Space above)
         if (treeName === `Map of ${p}`) continue;
-        await (await need(d, p, 3000)).moveTo();
+        await (await inTree(d, treeName, p, 3000)).moveTo();
         await (await need(d, `Collapse ${p}`, 3000)).click();
         await sleep(300);
         const exp = await d.$(`-ios predicate string:label BEGINSWITH "Expand ${p}, "`);
@@ -134,11 +150,11 @@ test('fr_syn_06_ac58_browsing_folding_and_cancelled_drags_write_nothing_in_the_r
       }
       // hover every parent: the `+` shows and isn't clicked
       for (const p of parents) {
-        await (await need(d, p, 3000)).moveTo();
+        await (await inTree(d, treeName, p, 3000)).moveTo();
         assert.ok(await shown(d, `Add child to ${p}`, 2000), `${title}: hovering ${p} shows its \`+\``);
       }
-      const a = await centre(d, first);
-      const c = await centre(d, child);
+      const a = await centre(d, treeName, first);
+      const c = await centre(d, treeName, child);
       const box = await d.getElementRect((await need(d, treeName)).elementId);
       await drag(d, a, { x: a.x, y: a.y + 60 }, { holdMs: 1500, escape: true });
       await drag(d, a, { x: c.x + 6, y: c.y + 4 });
@@ -149,7 +165,7 @@ test('fr_syn_06_ac58_browsing_folding_and_cancelled_drags_write_nothing_in_the_r
     await goTo('Neplatná mapa');
     if (await shown(d, 'Show formatted note', 3000)) await (await need(d, 'Show formatted note')).click();
     await need(d, 'Map of Jen ke čtení', 5000);
-    await (await need(d, 'Druhá větev', 3000)).click();
+    await (await inTree(d, 'Map of Jen ke čtení', 'Druhá větev', 3000)).click();
     press('left');
     press('space');
     await sleep(400);
