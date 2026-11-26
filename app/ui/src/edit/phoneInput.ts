@@ -81,8 +81,11 @@ export function installPhoneInput(ed: TeggEditor, o: { onImagePaste?: () => void
   // A committed composition: normalise the caret's block once ProseMirror has read it.
   const compositionEnd = () => {
     typed();
-    setTimeout(() => {
-      if (view.composing) return;
+    let tries = 0;
+    const run = () => {
+      if (view.isDestroyed) return;
+      // ProseMirror may end its composition a little after the event (WebKit): wait for it, briefly.
+      if (view.composing) { if (++tries < 10) setTimeout(run, 20); return; }
       flushDom(view);
       const { $head } = view.state.selection;
       const tr = view.state.tr;
@@ -90,7 +93,8 @@ export function installPhoneInput(ed: TeggEditor, o: { onImagePaste?: () => void
       normalizeRange(tr, $head.start(), $head.end());
       tr.setMeta(KEY, true);
       view.dispatch(tr);
-    }, 0);
+    };
+    setTimeout(run, 0);
   };
 
   const atBlockStart = () => {
