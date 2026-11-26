@@ -665,6 +665,9 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       const ed = edRef.current;
       if (!el || !ed) return;
       e.preventDefault();
+      // Bug 180 (§10.6, FR-SYN-03 AC-41, D-2570 (3)): while the merge banner or the deleted alert waits for a choice the
+      // editor isn't editable, and a box does nothing.
+      if (!ed.view.editable) { byMouse = false; return; }
       if (!byMouse) {
         const content = el.closest('.checklist-item')?.querySelector(':scope > .li-content');
         if (content) {
