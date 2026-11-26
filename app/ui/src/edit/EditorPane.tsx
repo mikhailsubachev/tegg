@@ -655,8 +655,11 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       return el && !el.closest('[data-callout="mindmap"]') && wrap.current?.contains(el) ? el : null;
     };
     let byMouse = false;
-    const onPointerDown = (e: Event) => { if (box(e)) e.preventDefault(); };
-    const onMouseDown = (e: Event) => { if (box(e)) byMouse = true; };
+    // Only the compatibility `mousedown` is prevented (the caret and the keyboard stay): an engine that sees
+    // `pointerdown` prevented sends no click after a touch (WebKit). Nothing is toggled here before the click: a tap
+    // whose `mousedown` reaches the box's own handler toggles there (`byMouse`).
+    const onPointerDown = (_e: Event) => { byMouse = false; };
+    const onMouseDown = (e: Event) => { if (box(e)) { byMouse = true; e.preventDefault(); } };
     const onClick = (e: Event) => {
       const el = box(e);
       const ed = edRef.current;
