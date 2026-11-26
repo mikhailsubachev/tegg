@@ -22,3 +22,27 @@ export function createLatencyProbe(o: { nextFrame: (f: (t: number) => void) => v
     },
   }
 }
+
+/** Slice AND-3 (android-edit §5.3, NFR-PERF-06 AC-8): which events start a typing-latency measurement. A `keydown`
+ *  with a one-character key (no ⌘/Ctrl, not composing, not keyCode 229) as before, and a `beforeinput` with
+ *  `inputType` `insertText` or `insertCompositionText`, so keyboards that send `keydown` 229 (Gboard) are measured.
+ *  One measurement per keystroke: a `beforeinput` right after a counted `keydown` belongs to it and is skipped. */
+export function createProbeTrigger() {
+  let keyPending = false
+  return {
+    starts(e: Event): boolean {
+      if (e.type === 'keydown') {
+        const k = e as KeyboardEvent
+        keyPending = !k.metaKey && !k.ctrlKey && !k.isComposing && k.keyCode !== 229 && k.key.length === 1
+        return keyPending
+      }
+      if (e.type === 'beforeinput') {
+        const t = (e as InputEvent).inputType
+        const counted = keyPending
+        keyPending = false
+        return !counted && (t === 'insertText' || t === 'insertCompositionText')
+      }
+      return false
+    },
+  }
+}
