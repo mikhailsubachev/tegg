@@ -896,3 +896,23 @@ html[data-layout="phone"] .checklist-item > .check::before {
 }
 /* Build point: checklist rows are at least 48 px apart on the phone, so neighbouring boxes' hit areas never overlap. */
 html[data-layout="phone"] .ProseMirror .checklist-item { min-height: 52px; box-sizing: border-box; padding-top: 14px; }
+
+/* ---------------------------------------------------------------- the Properties sheet's controls (android-edit §10.5) */
+html[data-layout="phone"] .attr-panel-sheet { padding: 0 16px 16px; }
+html[data-layout="phone"] .attr-panel-sheet .attr-grid { display: flex; flex-direction: column; }
+html[data-layout="phone"] .attr-panel-sheet .attr-row {
+  display: flex; flex-direction: column; align-items: stretch; gap: 2px; min-height: 48px; box-sizing: border-box;
+  padding: 6px 0; border-bottom: 1px solid var(--border);
+}
+html[data-layout="phone"] .attr-panel-sheet .attr-row div { min-height: 48px; box-sizing: border-box; }
+html[data-layout="phone"] .attr-panel-sheet .attr-label { font-size: 13px; color: var(--muted); }
+html[data-layout="phone"] .attr-panel-sheet .attr-value { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-height: 40px; }
+html[data-layout="phone"] .attr-panel-sheet button,
+html[data-layout="phone"] .attr-panel-sheet [role="button"],
+html[data-layout="phone"] .attr-panel-sheet [role="checkbox"],
+html[data-layout="phone"] .attr-panel-sheet [role="combobox"],
+html[data-layout="phone"] .attr-panel-sheet a,
+html[data-layout="phone"] .attr-panel-sheet input { min-height: 48px; min-width: 48px; box-sizing: border-box; }
+html[data-layout="phone"] .attr-panel-sheet input,
+html[data-layout="phone"] .attr-panel-sheet [role="textbox"] { font-size: 16px; }
+html[data-layout="phone"] .attr-type-link { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); text-decoration: none; }

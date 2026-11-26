@@ -13,7 +13,7 @@ import { ipc } from '../ipc/client';
 import type { AttributeDto, LinkTargetDto, TypeDto } from '../ipc/types';
 import { formatDate, formatDateTime } from '../read/PropertiesStrip';
 import { DISABLED_CONTROLS, showDue } from '../shell/registry';
-import { Icon, LucideIcon } from '../shell/Icon';
+import { Icon, LucideIcon, typeIconName } from '../shell/Icon';
 import { CheckboxControl, MultiSelectControl, SelectControl } from './controls/ChoiceControls';
 import { joinDesc, WarnIcon, type Value } from './controls/common';
 import { DateControl, DateRangeControl, DateTimeControl } from './controls/DateControls';
@@ -22,6 +22,7 @@ import { TextControl, type TextKind } from './controls/TextControl';
 import { linkParts } from './controls/LinkedText';
 import { panelRows, type PanelRow } from './panel';
 import { attrTypeLabel, nfc, rawText } from './util';
+import { queryNav } from '../queries/nav';
 
 /** `(doc) => next text`: one committed edit; false when it couldn't be applied. */
 export type Commit = (edit: (doc: Doc) => string) => boolean;
@@ -67,7 +68,14 @@ export function useLinks(path: string, text: string): Map<string, LinkTargetDto>
   return links;
 }
 
-export function AttributePanel({ apiRef, text, type, types, path, editable, open = true, onToggle, otherOpen, onToggleOther, onCommit, onOpen, onOpenSource, onTag, onLeaveLast }: {
+export function AttributePanel({ apiRef, text, type, types, path, editable, open = true, onToggle, otherOpen, onToggleOther, onCommit, onOpen, onOpenSource, onTag, onLeaveLast, variant, readOnlyReason: roReason }: {
+  /** Slice AND-3 (android-edit §10.5, FR-EDT-07 AC-24, AC-25): the phone's `Properties` sheet: no collapse head, the
+   *  read-only rows Type (a link to the type page), Title, Created and Modified, rows of at least 48 px, every control
+   *  but a text input carrying `phone.prop:<key>`, Other properties shown without their button. The desktop passes
+   *  nothing. */
+  variant?: 'sheet';
+  /** Slice AND-3 (§7.1): why the sheet's controls are disabled (a read-only mode), for `aria-description`. */
+  readOnlyReason?: string | null;
   /** 5A-1 (FR-TSK-08 AC-3, D-486): the Source chip opens its note at this note's embed. */
   onOpenSource?: (path: string) => void;
   apiRef?: Ref<PanelApi>;
@@ -191,9 +199,48 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
     return <span className="value-text" data-user-content>{rawText(row.raw)}</span>;
   };
 
+  // The sheet: `phone.prop:<key>` on each row's first control that isn't a text input (§10.5), and a read-only mode's
+  // reason on every control.
+  const box = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (variant !== 'sheet' || !box.current) return;
+    box.current.querySelectorAll<HTMLElement>('.attr-row[data-key]').forEach((row) => {
+      const key = nfc(row.getAttribute('data-key') ?? '');
+      const ctl = [...row.querySelectorAll<HTMLElement>('.attr-value button, .attr-value input, .attr-value [role="checkbox"], .attr-value [role="combobox"], .attr-value [role="button"], .attr-value [contenteditable="true"]')]
+        .find((el) => !(el.matches('input[type="text"], input:not([type]), [contenteditable="true"]') || el.getAttribute('role') === 'textbox'));
+      if (ctl && ctl.getAttribute('data-command') !== `phone.prop:${key}`) ctl.setAttribute('data-command', `phone.prop:${key}`);
+    });
+    if (roReason) {
+      box.current.querySelectorAll<HTMLElement>('button, input, [role="checkbox"], [role="combobox"], [contenteditable]').forEach((el) => {
+        el.setAttribute('aria-disabled', 'true');
+        el.setAttribute('aria-description', roReason);
+      });
+    }
+  });
+  const sheet = variant === 'sheet';
+  const data = doc.frontmatter?.data ?? {};
+  const fixedRow = (key: string, label: string, value: React.ReactNode) => (
+    <div key={key} className="attr-row attr-fixed" data-fixed={key}>
+      <span className="attr-label">{label}</span>
+      <span className="attr-value">{value}</span>
+    </div>
+  );
+  const stamp = (k: 'created' | 'modified') => (typeof data[k] === 'string' ? formatDateTime(data[k] as string) : rawText(data[k]));
   return (
-    <section className="attr-panel" data-attribute-panel="" aria-label={t('props.title')}>
-      {onToggle && (
+    <section ref={box} className={`attr-panel${sheet ? ' attr-panel-sheet' : ''}`} data-attribute-panel="" aria-label={t('props.title')}>
+      {sheet && (
+        <div className="attr-grid attr-fixed-rows">
+          {fixedRow('type', t('ts.type'), (
+            <a href="#" className="attr-type-link" onClick={(e) => { e.preventDefault(); queryNav()?.go({ id: 'type/<type>', param: type.key }); }}>
+              <Icon name={typeIconName(type.key, type.icon)} size={14} /><span data-user-content>{type.name}</span>
+            </a>
+          ))}
+          {fixedRow('title', t('typePage.title'), <span className="value-text" data-user-content>{rawText(data.title ?? '')}</span>)}
+          {!model.rows.some((r) => r.key === 'created') && data.created !== undefined && fixedRow('created', t('attr.created'), <span className="value-text">{stamp('created')}</span>)}
+          {!model.rows.some((r) => r.key === 'modified') && data.modified !== undefined && fixedRow('modified', t('attr.modified'), <span className="value-text">{stamp('modified')}</span>)}
+        </div>
+      )}
+      {onToggle && variant !== 'sheet' && (
         <button type="button" className="properties-head" aria-expanded={open} data-command="note.toggleProperties" onClick={onToggle}>
           <Icon name={open ? 'chevron-down' : 'chevron-right'} size={12} />
           {t('props.title')}
@@ -215,13 +262,13 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
           );
         })}
       </div>
-      {otherCount > 0 && ( // D-314: no button when there is nothing under it
+      {otherCount > 0 && !sheet && ( // D-314: no button when there is nothing under it
         <button type="button" className="other-props" aria-expanded={otherOpen} data-command="panel.otherProperties" onClick={onToggleOther}>
           <Icon name={otherOpen ? 'chevron-down' : 'chevron-right'} size={12} />
           {t('panel.otherButton', { count: otherCount })}
         </button>
       )}
-      {otherOpen && otherCount > 0 && (
+      {(otherOpen || sheet) && otherCount > 0 && (
         <ul className="other-list" aria-label={t('panel.otherList')}>
           {model.hidden.map((row, j) => ( // FR-TYP-17: hidden properties keep their controls (D-316)
             <li key={`h:${row.key}`} className={`attr-row ${row.required ? 'required' : ''}`} data-key={row.key} data-attribute={row.key}>

@@ -1579,11 +1579,11 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
             {phone && (
               // Slice AND-3 (§10.5): the strip of values, the review box first; the sheet holds the panel's controls.
               <PhoneProperties text={head || loaded.text} links={loaded.links} type={panelType} all={chipKey === 'image' || chipKey === 'pdf'}
-                onOpen={(p: string) => onOpen(p)} onTag={onTag}
+                onOpen={(p: string) => onOpen(p)} onTag={onTag} blocked={!!merge || !!deleted}
                 review={reviewShown ? <ReviewCheck reviewed={reviewed} onToggle={(r) => setReviewedRef.current(r)} commands={['note.markReviewed', 'note.markUnreviewed']} /> : undefined}
                 editPanel={(
                   <AttributePanel text={head} type={panelType} types={types} path={path} editable={!merge && !deleted && !moving}
-                    open onToggle={() => {}} otherOpen onToggleOther={() => {}} onCommit={commit} onOpen={(p) => onOpen(p)} onOpenSource={onOpenSource} onTag={onTag} />
+                    variant="sheet" open otherOpen onToggleOther={() => {}} onCommit={commit} onOpen={(p) => onOpen(p)} onOpenSource={onOpenSource} onTag={onTag} />
                 )} />
             )}
             {!phone && <AttributePanel apiRef={panelApi} text={head} type={panelType} types={types} path={path} editable={!merge && !deleted && !moving}
