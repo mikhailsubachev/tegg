@@ -1156,7 +1156,8 @@ button.tag-tile { cursor: pointer; }
 .slash-menu .due-wrap { margin-left: auto; }
 .slash-menu .option.selected .slash-icon, .slash-menu .option.selected .slash-kbd { color: var(--text); }
 /* D-2677: the Mindmap row's icon in the mindmap's type colour (board ObjectMenu). */
-.slash-menu .slash-icon.slash-icon-mindmap { color: var(--type-teal); }
+.slash-menu .slash-icon-mindmap { --slash-icon-fg: var(--type-teal); }
+.slash-menu .slash-icon.slash-icon-mindmap { color: var(--slash-icon-fg); }
 .new-object-dialog { width: 320px; max-width: 360px; max-height: none; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 .new-object-hint { margin: 0; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
 /* Slice MM2 (docs/acceptance/mindmap.md R95a, R97; D-787, D-788, D-792): the layout switch, the node text field and the
