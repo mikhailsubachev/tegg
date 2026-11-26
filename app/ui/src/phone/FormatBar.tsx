@@ -10,7 +10,11 @@ import { formatStateOf, runCommand, type FormatState } from './format';
 type Choice = 'text' | 'heading1' | 'heading2' | 'heading3';
 const CHOICES: Choice[] = ['text', 'heading1', 'heading2', 'heading3'];
 
-const keep = (e: React.SyntheticEvent) => e.preventDefault();
+/** When the last press on the bar started: a long press (≥ 500 ms) is the system's, never a tap (Android sends no click
+ *  after one; a touch emulation may). */
+let downAt = 0;
+const keep = (e: React.SyntheticEvent) => { e.preventDefault(); if (e.type === 'pointerdown') downAt = performance.now(); };
+const longPress = () => { const held = downAt > 0 && performance.now() - downAt >= 500; downAt = 0; return held; };
 
 /** The `Block type` choices run when the row is open; `edit.blockType` toggles it. */
 export function FormatBar({ ed, onLink, onChanged }: { ed: TeggEditor; onLink: () => void; onChanged: () => void }) {
@@ -28,7 +32,7 @@ export function FormatBar({ ed, onLink, onChanged }: { ed: TeggEditor; onLink: (
   const button = (o: { name: string; icon: string; command: string; pressed?: boolean; disabled?: boolean; run: () => void }) => (
     <button key={o.command} type="button" tabIndex={-1} aria-label={o.name} data-command={o.command}
       aria-pressed={o.pressed === undefined ? undefined : o.pressed} aria-disabled={o.disabled ? 'true' : undefined}
-      onPointerDown={keep} onMouseDown={keep} onClick={() => { if (!o.disabled) o.run(); refocus(); }}>
+      onPointerDown={keep} onMouseDown={keep} onClick={() => { if (longPress()) return; if (!o.disabled) o.run(); refocus(); }}>
       <Icon name={o.icon} />
     </button>
   );
@@ -44,7 +48,7 @@ export function FormatBar({ ed, onLink, onChanged }: { ed: TeggEditor; onLink: (
             const checked = c === 'text' ? s?.block === 'paragraph' : s?.block === 'heading' && s.level === Number(c.slice(-1));
             return (
               <button key={c} type="button" role="radio" tabIndex={-1} aria-checked={!!checked} data-command={`edit.blockType:${c}`}
-                onPointerDown={keep} onMouseDown={keep} onClick={() => choose(c)}>
+                onPointerDown={keep} onMouseDown={keep} onClick={() => { if (!longPress()) choose(c); }}>
                 {t(`slash.${c}`)}
               </button>
             );
