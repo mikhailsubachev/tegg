@@ -89,6 +89,51 @@ export function mountMindmap(dom: HTMLElement, ctl: MindmapCtl, host: MindmapHos
   };
 }
 
+/** Slice AND-3 (android-edit §5.2, FR-MMP-02 AC-37; D-2516): a protected mindmap block of the phone's editor, drawn
+ *  whole as the phone's read view draws it (AND-2's `MapViewport`: `Map` / `List`, zoom, pan, full screen), from a
+ *  bare read view of the block's Markdown. Read-only: nothing in it edits the block. */
+export function mountProtectedMindmap(dom: HTMLElement, markdown: () => string, host: MindmapHost): MindmapHandle {
+  const box = document.createElement('div');
+  box.className = 'mindmap-mount';
+  dom.appendChild(box);
+  const root = createRoot(box);
+  let alive = true;
+  let unmountPending = false;
+  let links = new Map<string, LinkTargetDto>();
+  let targetsKey = '';
+  const draw = () => {
+    if (!alive) return;
+    const md = markdown();
+    root.render(<ReadView text={`${md}\n`} path={host.path()} links={links} bare noteTitle={host.title()}
+      onOpen={host.onOpen} onTag={host.onTag} onExternal={host.onExternal} onScrollInNote={(f) => host.onOpen(host.path(), f)} />);
+    const targets = [...new Set(wikilinks(parse(`${md}\n`)).map((l) => l.target))].sort();
+    const key = targets.join('\u0000');
+    if (key !== targetsKey) {
+      targetsKey = key;
+      if (targets.length) void ipc.linkResolve(host.path(), targets).then((r) => { links = new Map(r.map((x) => [x.target, x])); draw(); }).catch(() => {});
+    }
+  };
+  draw();
+  return {
+    update() { draw(); },
+    focusTree() {
+      box.querySelector<HTMLElement>('[role="treeitem"][tabindex="0"]')?.focus();
+    },
+    adopt(target) {
+      if (!unmountPending) return false;
+      unmountPending = false;
+      alive = true;
+      target.appendChild(box);
+      return true;
+    },
+    destroy() {
+      alive = false;
+      unmountPending = true;
+      queueMicrotask(() => { if (unmountPending) root.unmount(); });
+    },
+  };
+}
+
 /** D-776: each mindmap block's view while the app runs (`<note path>#<block index>`); never written. */
 const viewState = new Map<string, 'map' | 'list'>();
 /** Another vault: every mindmap opens in Map again (FR-MMP-02 AC-7). */
@@ -97,9 +142,11 @@ export function resetMindmapViews(): void {
 }
 
 /** The mindmap part of an editor's `EditorUi` (mm-mindmap §3.3): the map, its texts, icon and view state. */
-export function mindmapUi(host: MindmapHost): Pick<EditorUi, 'mindmap' | 'mindmapState' | 'mindmapText' | 'mindmapIcon' | 'calloutLabel'> {
+export function mindmapUi(host: MindmapHost): Pick<EditorUi, 'mindmap' | 'mindmapProtected' | 'mindmapState' | 'mindmapText' | 'mindmapIcon' | 'calloutLabel'> {
   return {
     mindmap: (dom, ctl) => mountMindmap(dom, ctl, host),
+    // Used only by an editor with `protectMindmaps` (the phone, android-edit §5.2).
+    mindmapProtected: (dom, markdown) => mountProtectedMindmap(dom, markdown, host),
     mindmapState: { get: (k) => viewState.get(`${host.path()}#${k}`), set: (k, v) => { viewState.set(`${host.path()}#${k}`, v); } },
     mindmapText: (k, title) => (k === 'figure' ? t('mindmap.figure', { title: title ?? '' }) : k === 'expand' || k === 'collapse' ? t(k === 'expand' ? 'callout.expand' : 'callout.collapse', { title: title ?? '' }) : t(`mindmap.${k}`)),
     mindmapIcon: () => iconElement('mindmap', 15, 'mindmap'),
