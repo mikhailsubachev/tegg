@@ -23,9 +23,9 @@ export function MergeBanner({ merge, onCompare, onCloseCompare, onMine, onTheirs
   const buttons = (where: 'banner' | 'compare') => (
     <div className="phone-merge-buttons">
       {where === 'banner' && <button type="button" data-command="phone.merge.compare" onClick={onCompare}>{t('merge.compare')}</button>}
-      <button type="button" data-command={where === 'banner' ? 'phone.merge.keepMine' : undefined} onClick={onMine}>{t('merge.keepMine')}</button>
-      <button type="button" data-command={where === 'banner' ? 'phone.merge.keepTheirs' : undefined} onClick={onTheirs}>{t('merge.keepTheirs')}</button>
-      <button type="button" data-command={where === 'banner' ? 'phone.merge.keepBoth' : undefined} onClick={onBoth}>{t('merge.keepBoth')}</button>
+      <button type="button" data-command={where === 'banner' ? 'phone.merge.keepMine' : 'phone.merge.keepMine.compare'} onClick={onMine}>{t('merge.keepMine')}</button>
+      <button type="button" data-command={where === 'banner' ? 'phone.merge.keepTheirs' : 'phone.merge.keepTheirs.compare'} onClick={onTheirs}>{t('merge.keepTheirs')}</button>
+      <button type="button" data-command={where === 'banner' ? 'phone.merge.keepBoth' : 'phone.merge.keepBoth.compare'} onClick={onBoth}>{t('merge.keepBoth')}</button>
     </div>
   );
   return (
@@ -56,7 +56,7 @@ function CompareDialog({ merge, onClose, children }: { merge: BannerMerge; onClo
       <div ref={box} role="dialog" aria-modal="true" aria-label={t('compare.label')} className="phone-compare">
         <div className="phone-sheet-head">
           <h2>{t('compare.label')}</h2>
-          <button type="button" className="icon-button" aria-label={t('phone.close')} onClick={onClose}><Icon name="x" /></button>
+          <button type="button" className="icon-button" data-command="phone.merge.close" aria-label={t('phone.close')} onClick={onClose}><Icon name="x" /></button>
         </div>
         <div className="phone-compare-body">
           <Compare left={merge.mine} right={merge.theirs} leftLabel={t('compare.mine')} rightLabel={t('compare.theirs')} />

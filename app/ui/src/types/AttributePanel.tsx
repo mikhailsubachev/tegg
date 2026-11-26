@@ -210,7 +210,17 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
       // remove the first value (FR-EDT-07 AC-24 (g)); a control with a popup (Add, a select) comes first.
       const ctls = [...row.querySelectorAll<HTMLElement>('.attr-value button, .attr-value input, .attr-value [role="checkbox"], .attr-value [role="combobox"], .attr-value [role="button"], .attr-value [contenteditable="true"]')]
         .filter((el) => !(el.matches('input[type="text"], input:not([type]), [contenteditable="true"], .chip-remove') || el.getAttribute('role') === 'textbox'));
-      const ctl = ctls.find((el) => el.hasAttribute('aria-haspopup')) ?? ctls[0];      if (ctl && ctl.getAttribute('data-command') !== `phone.prop:${key}`) ctl.setAttribute('data-command', `phone.prop:${key}`);
+      const ctl = ctls.find((el) => el.hasAttribute('aria-haspopup')) ?? ctls[0];
+      if (ctl && ctl.getAttribute('data-command') !== `phone.prop:${key}`) ctl.setAttribute('data-command', `phone.prop:${key}`);
+      // FR-UX-03 AC-60: the row's other controls (a value's link, its remove button) carry the row's id too, numbered
+      // in document order (`phone.prop:<key>:<n>`), so every control in the sheet runs a registered command; the
+      // desktop panel's own ids (`panel.list.*`) are not registered on the phone.
+      let n = 0;
+      row.querySelectorAll<HTMLElement>('.attr-value a, .attr-value button, .attr-value [role="link"], .attr-value [role="button"], .attr-value [role="checkbox"]').forEach((el) => {
+        if (el === ctl || el.matches('input, [contenteditable="true"]') || el.getAttribute('role') === 'textbox') return;
+        const id = `phone.prop:${key}:${++n}`;
+        if (el.getAttribute('data-command') !== id) el.setAttribute('data-command', id);
+      });
     });
     if (roReason) {
       box.current.querySelectorAll<HTMLElement>('button, input, [role="checkbox"], [role="combobox"], [contenteditable]').forEach((el) => {
