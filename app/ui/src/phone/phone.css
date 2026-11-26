@@ -916,3 +916,4 @@ html[data-layout="phone"] .attr-panel-sheet input { min-height: 48px; min-width:
 html[data-layout="phone"] .attr-panel-sheet input,
 html[data-layout="phone"] .attr-panel-sheet [role="textbox"] { font-size: 16px; }
 html[data-layout="phone"] .attr-type-link { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); text-decoration: none; }
+html[data-layout="phone"] .phone-strip .review-check { min-height: 48px; min-width: 48px; box-sizing: border-box; }

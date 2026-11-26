@@ -231,7 +231,7 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
       {sheet && (
         <div className="attr-grid attr-fixed-rows">
           {fixedRow('type', t('ts.type'), (
-            <a href="#" className="attr-type-link" onClick={(e) => { e.preventDefault(); queryNav()?.go({ id: 'type/<type>', param: type.key }); }}>
+            <a href="#" className="attr-type-link" data-command={`goto.type:${type.key}`} onClick={(e) => { e.preventDefault(); queryNav()?.go({ id: 'type/<type>', param: type.key }); }}>
               <Icon name={typeIconName(type.key, type.icon)} size={14} /><span data-user-content>{type.name}</span>
             </a>
           ))}
@@ -252,7 +252,8 @@ export function AttributePanel({ apiRef, text, type, types, path, editable, open
           const userNamed = !!row.attr;
           const emptyRequired = row.required && row.validity.state === 'empty';
           return (
-            <div key={row.key} className={`attr-row ${row.required ? 'required' : ''}`} data-key={row.key} data-attribute={row.key}>
+            <div key={row.key} className={`attr-row ${row.required ? 'required' : ''}`} data-key={row.key} data-attribute={row.key}
+              {...(sheet ? { role: 'group', 'aria-label': row.label } : {})}>
               <span className="attr-label" title={row.attr?.description ?? undefined} data-user-content={userNamed ? '' : undefined}>{labelIcon(row.attr)}{row.label}</span>
               <span className="attr-value" data-overdue={row.key === 'due' && overdue ? 'true' : undefined}>
                 {rowControl(row, i)}
