@@ -92,7 +92,9 @@ export function TaskEmbed({ node, editable, title, body, openButton, modeMenu, t
   const text = note.text ?? '';
   const h = taskHeader(text, d);
   // R52: read-only in the read view, at depth 2 and 3, and for files the editor opens read-only (NFR-REL-03).
-  const readOnly = !editable || node.depth > 1 || !note.utf8 || badFrontmatter(text);
+  // Slice AND-3 (android-edit §2.3, FR-FMT-12 AC-18): an embedded task stored under an NFD name stays read-only.
+  const nfdName = !!(note as { nfdName?: boolean }).nfdName;
+  const readOnly = !editable || node.depth > 1 || !note.utf8 || badFrontmatter(text) || nfdName;
   const why = readOnly ? t('task.readOnly') : undefined;
   const name = h.title || title;
   const done = h.state === 'done';

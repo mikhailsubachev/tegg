@@ -52,6 +52,10 @@ import { typeIconName as pinIconName } from '../shell/Icon';
 import { PageHeading } from '../phone/PageHeading';
 import { isPhone } from '../phone/layout';
 import { phoneSortLine } from '../phone/sortLine';
+import { Checkbox } from '../tasks/TaskCard';
+import { writeTask } from '../tasks/write';
+import { pushAlert } from '../convert/alerts';
+import type { TaskDefsDto, TaskRowDto } from '../ipc/types';
 
 const fold = (s: string) => nfc(s).toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').normalize('NFC');
 const isEmpty = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
@@ -142,13 +146,33 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
   // One index query per type and vault change (D-241); StrictMode's second effect run doesn't query again.
   const asked = useRef<string | null>(null);
   const seq = useRef(0);
+  // Slice AND-3 (android-edit §12.1): the phone's own task writes reload the rows (they send no `vault:changed`).
+  const [own, setOwn] = useState(0);
   useEffect(() => {
-    const want = `${typeKey}\n${refresh}`;
+    const want = `${typeKey}\n${refresh}\n${own}`;
     if (asked.current === want) return;
     asked.current = want;
     const mine = ++seq.current;
     ipc.typeRows(typeKey).then((r) => { if (mine === seq.current) setRows(r); }, () => { if (mine === seq.current) setRows([]); });
-  }, [typeKey, refresh]);
+  }, [typeKey, refresh, own]);
+  // Slice AND-3 (android-edit §12.1, FR-TSK-02 AC-14): on the phone a Task row's title starts with its checkbox, from
+  // `task_list`'s rows (the version the write is based on) and written through `writeTask` (§2.4 row 4).
+  const taskTable = isPhone() && typeKey.normalize('NFC') === 'task';
+  const [taskData, setTaskData] = useState<{ rows: Map<string, TaskRowDto>; defs: TaskDefsDto } | null>(null);
+  useEffect(() => {
+    if (!taskTable) return;
+    let live = true;
+    ipc.taskList().then((d) => { if (live) setTaskData({ rows: new Map(d.tasks.map((r) => [r.path.normalize('NFC'), r])), defs: d.defs }); }, () => {});
+    return () => { live = false; };
+  }, [taskTable, refresh, own]);
+  const toggleTask = (row: TaskRowDto, done: boolean) => {
+    if (!taskData) return;
+    void writeTask(row, taskData.defs, { kind: 'complete', done }).then((w) => {
+      if (w.outcome === 'conflict') pushAlert(t('task.changedOutside', { title: row.title }));
+      else if (w.outcome === 'failed') pushAlert(t('task.saveFailed', { title: row.title }));
+      setOwn((n) => n + 1);
+    });
+  };
 
   // D-251: the `type:` value as written in the first object (the route only has its key).
   const [value, setValue] = useState<string | null>(null);
@@ -440,7 +464,10 @@ export function TypePage({ typeKey, type, types, plural, refresh, heading, sort,
                         }}>
                         {columns.map((c) => (
                           <td key={c.key} style={padTop || padBottom ? { paddingTop: 6 + padTop, paddingBottom: 6 + padBottom } : undefined}>
-                            <Cell row={r} col={c} type={type} types={types} onOpen={onOpen} onTag={onTag} typeKey={typeKey} inert={phone} />
+                            {c.key === 'title' && taskData?.rows.get(r.path.normalize('NFC'))
+                              ? <span className="phone-task-title"><Checkbox row={taskData.rows.get(r.path.normalize('NFC'))!} onToggle={(d) => toggleTask(taskData.rows.get(r.path.normalize('NFC'))!, d)} />
+                                <Cell row={r} col={c} type={type} types={types} onOpen={onOpen} onTag={onTag} typeKey={typeKey} inert={phone} /></span>
+                              : <Cell row={r} col={c} type={type} types={types} onOpen={onOpen} onTag={onTag} typeKey={typeKey} inert={phone} />}
                           </td>
                         ))}
                       </RefElement>

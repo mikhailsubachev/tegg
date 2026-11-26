@@ -477,12 +477,15 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
   };
 
   /** Slice AND-2 (android-phone §9.7, RA11; FR-INB-01 AC-14): a phone row: the type icon, the title and one date line
-   *  (the Date & time setting, never relative); a tap opens it. No triage, selection, Reviewed box, swipe or long press. */
+   *  (the Date & time setting, never relative); a tap opens it. No triage, selection, swipe or long press.
+   *  Slice AND-3 (android-edit §12.2, FR-INB-02 AC-18, CP-8): after the title, the `Reviewed` box in a 48 × 48 hit area;
+   *  a change runs `changeItem` and the row stays, dimmed and checked, until the route changes. */
   const phoneRow = (r: InboxRowDto, index: number) => {
     const p = nfc(r.path);
     const footer = cardFooter(r, z, dateTime);
+    const reviewed = isReviewed(r);
     return (
-      <li key={p} className="inbox-row" data-path={p} data-review={isReviewed(r) ? 'reviewed' : 'unreviewed'}>
+      <li key={p} className="inbox-row" data-path={p} data-review={reviewed ? 'reviewed' : 'unreviewed'}>
         <RefElement as="a" reference={{ target: { path: p, fragment: null, kind: 'note' }, kind: 'card', open: () => open(r) }}
           href="#" className="phone-row inbox-row-link" data-command="inbox.open" aria-setsize={flat.length} aria-posinset={index + 1}
           aria-description={typeName(r.type)} onFocus={() => { focused.current = p; }}>
@@ -492,6 +495,13 @@ export function InboxPage({ refresh, heading, types, filter, onFilter, dateTime,
             {footer && <span className="inbox-row-date">{footer}</span>}
           </span>
         </RefElement>
+        <label className="inbox-row-check">
+          <input type="checkbox" checked={reviewed} aria-label={t('inbox.reviewed')}
+            data-command={r.readOnly ? undefined : `${reviewed ? 'note.markUnreviewed' : 'note.markReviewed'}:${p}`}
+            aria-disabled={r.readOnly || undefined} aria-description={r.readOnly ? t('inbox.readOnly') : undefined}
+            onChange={() => { if (!r.readOnly) void setReviewed(r, reviewed ? 'unreviewed' : 'reviewed'); }} />
+          <span className="inbox-row-box" aria-hidden="true">{reviewed && <Icon name="check" size={14} />}</span>
+        </label>
       </li>
     );
   };

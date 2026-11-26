@@ -23,21 +23,21 @@ export const isDone = (r: TaskRowDto) => r.state === 'done';
 export function Checkbox({ row, onToggle, tabIndex = 0 }: { row: TaskRowDto; onToggle: (done: boolean) => void; tabIndex?: number }) {
   const done = isDone(row);
   const name = done ? t('task.uncomplete', { title: row.title }) : t('task.complete', { title: row.title });
-  // Slice AND-2 (android-phone §9.5, §9.8): on the phone every task checkbox is view only; a tap does nothing.
+  // Slice AND-3 (android-edit §12.1, FR-TSK-02 AC-14): on the phone the checkbox writes too, with a 48 × 48 hit area and
+  // the per-row command `task.complete:<path>`; a read-only task keeps its reason and no command.
   const phone = isPhone();
-  const off = row.readOnly || phone;
+  const off = row.readOnly;
   return (
     <button
       type="button"
       role="checkbox"
       tabIndex={tabIndex}
-      // D-2475: a view-only checkbox on the phone carries no command.
-      data-command={phone ? undefined : 'task.complete'}
+      data-command={phone ? (off ? undefined : `task.complete:${row.path.normalize('NFC')}`) : 'task.complete'}
       className={`task-check${done ? ' checked' : ''}`}
       aria-checked={done}
       aria-label={name}
       aria-disabled={off || undefined}
-      aria-description={phone ? t('phone.viewOnly') : row.readOnly ? t('task.readOnly') : undefined}
+      aria-description={row.readOnly ? t('task.readOnly') : undefined}
       onClick={(e) => { e.stopPropagation(); if (!off) onToggle(!done); }}
       onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') e.stopPropagation(); }}
     >

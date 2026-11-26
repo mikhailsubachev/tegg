@@ -38,6 +38,8 @@ import { isPhone } from '../phone/layout';
 import { phoneSortLine } from '../phone/sortLine';
 import type { ViewsStatus } from '../shell/commands';
 import { useRowsReady } from './marks';
+import { writeTask } from '../tasks/write';
+import { pushAlert } from '../convert/alerts';
 
 const nfc = (s: string) => s.normalize('NFC');
 const fold = (s: string) => nfc(s).toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').normalize('NFC');
@@ -348,7 +350,16 @@ export function ViewPanel({ name, typeKey, type, types, plural, filter, onFilter
         sort={effSort} columns={effColumns} widthKey={uKey} widthScope={widthScope}
         onOpen={(p) => queryNav()?.openNote(p)}
         onSort={(by, shift) => { const cur = uw.current().sort; const next = headerClick(cur, by, shift); if (!sameSort(next, cur) || !ownSort) void uw.sort(next); }}
-        onColumns={(columns) => { void uw.columns(columns); }} grouped={grouped ? groupedBody : null} />;
+        onColumns={(columns) => { void uw.columns(columns); }} grouped={grouped ? groupedBody : null}
+        onTaskToggle={phone && result.taskDefs ? (row, done) => {
+          // Slice AND-3 (android-edit §2.4 row 4, §12.1): the desktop's task write, based on the row's version.
+          if (!row.taskRow || !result.taskDefs) return;
+          void writeTask(row.taskRow, result.taskDefs, { kind: 'complete', done }).then((w) => {
+            if (w.outcome === 'conflict') pushAlert(t('task.changedOutside', { title: row.title }));
+            else if (w.outcome === 'failed') pushAlert(t('task.saveFailed', { title: row.title }));
+            run.rerun();
+          });
+        } : null} />;
     }
     if (grouped) return <GroupedList grouped={groupedBody} title={def.title} />;
     return (
