@@ -7,7 +7,7 @@ import { chipPinRequest } from '../pinned/editorDrag';
 import { startPinDrag } from '../pinned/drag';
 import { TypeMenu } from '../shell/TypeMenu';
 import { useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from 'react';
-import { createEditor, embedTarget, leaveCodeBlock, linkTarget, noteHref, type ChipExtra, type EditorUi, type LinkInfo, type TeggEditor } from '@tegg/editor';
+import { createEditor, createProbeTrigger, embedTarget, leaveCodeBlock, linkTarget, noteHref, type ChipExtra, type EditorUi, type LinkInfo, type TeggEditor } from '@tegg/editor';
 import { chipAttrs, chipState, chipSuffix, taskGlyph, taskIconDef, trashedText, unreviewedText } from '../links/chip';
 import { SelectionMenu, type SelectionAction } from './SelectionMenu';
 import { mountReadOnlyTable } from './readOnlyTable';
@@ -45,6 +45,13 @@ import { SHORTCUTS } from '../shell/registry';
 import { firstRow, menuRows, type MenuRow } from './slashMenu';
 import { NewObjectDialog } from './NewObjectDialog';
 import { SlashMenu, type Slash } from './SlashMenuView';
+import { isPhone } from '../phone/layout';
+import { phoneSlashItems } from '../phone/commands';
+import { chooseType } from '../phone/chooser';
+import { FormatBar } from '../phone/FormatBar';
+import { keepCaretInView } from '../phone/caret';
+import { nativeState, onNative } from '../phone/native';
+import { installPhoneInput } from './phoneInput';
 import { pushAlert } from '../convert/alerts';
 import { objectFromUnit, parse, type ConvertUnit } from '@tegg/doc';
 import { ConvertPopover, RemoveEmbedDialog } from '../convert/ConvertPopover';
@@ -160,6 +167,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
   onFailedLoad: () => void;
 }) {
   const host = useRef<HTMLDivElement | null>(null);
+  /** Slice AND-3 (android-edit §7.6, RA14): the phone's editor leaves out the block handles, menus and toolbars. */
+  const phone = isPhone();
   const wrap = useRef<HTMLDivElement | null>(null);
   const edRef = useRef<TeggEditor | null>(null);
   /** The chip of the open Create offer, mapped through every edit (null once it's deleted). */
@@ -288,6 +297,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
         newId: ulid,
         label: labelBody,
         ui,
+        // Slice AND-3 (android-edit §5.2, FR-MMP-02 AC-37): the phone never edits a mindmap callout.
+        ...(phone ? { protectMindmaps: true } : {}),
         onChange: (dirty) => { if (dirty) cb.current.onChange(); },
         onUpdate: () => { rerender(); probeApplied(); },
         onSelection: () => setHover(null),
@@ -551,8 +562,10 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
   useEffect(() => {
     const el = host.current;
     if (!el) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (!probeOn() || e.metaKey || e.ctrlKey || e.key.length !== 1) return;
+    // Slice AND-3 (android-edit §5.3, NFR-PERF-06 AC-8): `beforeinput` insertText too, for keyboards that send 229.
+    const trigger = createProbeTrigger();
+    const onKey = (e: Event) => {
+      if (!trigger.starts(e) || !probeOn()) return;
       const p = { t0: performance.now(), frames: 0, applied: false };
       probes.current.push(p);
       const tick = () => {
@@ -567,8 +580,50 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       requestAnimationFrame(tick);
     };
     el.addEventListener('keydown', onKey, true);
-    return () => el.removeEventListener('keydown', onKey, true);
+    el.addEventListener('beforeinput', onKey, true);
+    return () => { el.removeEventListener('keydown', onKey, true); el.removeEventListener('beforeinput', onKey, true); };
   }, []);
+
+  // ------------------------------------------------------------------ the phone (slice AND-3, android-edit §8, §9)
+  // The bar shows while the keyboard is up and the body has the focus; the caret stays between the app bar and it.
+  const [barOn, setBarOn] = useState(false);
+  useEffect(() => {
+    if (!phone) return undefined;
+    const main = () => wrap.current?.closest('main') as HTMLElement | null;
+    const caret = () => { const ed = edRef.current; if (ed && ed.view.hasFocus()) keepCaretInView(ed.view, main()); };
+    const check = () => {
+      const ed = edRef.current;
+      const on = !!ed && nativeState().keyboard && document.activeElement === ed.view.dom;
+      setBarOn(on);
+      document.documentElement.toggleAttribute('data-format-bar', on);
+      requestAnimationFrame(caret);
+    };
+    const later = () => setTimeout(check, 0);
+    const off = onNative(check);
+    document.addEventListener('focusin', check);
+    document.addEventListener('focusout', later);
+    window.visualViewport?.addEventListener('resize', caret);
+    let unInput: (() => void) | null = null;
+    let unTx: (() => void) | null = null;
+    const attach = () => {
+      const ed = edRef.current;
+      if (!ed || unInput) return;
+      unInput = installPhoneInput(ed, { onImagePaste: () => cb.current.onImagePaste() });
+      const tx = () => requestAnimationFrame(caret);
+      ed.editor.on('transaction', tx);
+      unTx = () => ed.editor.off('transaction', tx);
+    };
+    attach();
+    const poll = setInterval(() => { attach(); if (unInput) clearInterval(poll); }, 50);
+    check();
+    return () => {
+      off(); clearInterval(poll); unInput?.(); unTx?.();
+      document.removeEventListener('focusin', check);
+      document.removeEventListener('focusout', later);
+      window.visualViewport?.removeEventListener('resize', caret);
+      document.documentElement.removeAttribute('data-format-bar');
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ------------------------------------------------------------------ menus that follow the caret
   const ed = edRef.current;
@@ -1051,6 +1106,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     if (!e || !s || s.kind !== 'link') return;
     if (row.kind === 'create-as' && !asType) {
       // FR-VLT-05 AC-3: the `Type` menu chooses the type, then the row creates as the create row does.
+      // Slice AND-3 (android-edit §10.3): the phone's type sheet in chooser mode.
+      if (phone && chooseType((key) => void chooseLink(row, key))) return;
       const c = e.view.coordsAtPos(s.from);
       setAsType({ row, at: { left: c.left, top: c.bottom + 4 } });
       return;
@@ -1317,6 +1374,11 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     if ((e.target as HTMLElement).closest?.('.query-mount')) return;
     const L = live.current;
     const stop = () => { e.preventDefault(); e.stopPropagation(); };
+    // Slice AND-3 (§7.6): on the phone Esc and ⇧↑/↓ make no block selection (a hardware keyboard); open panels keep Esc.
+    if (phone && !slash && !suggest && !linkField && !newObj && !pick) {
+      if (e.key === 'Escape') { stop(); return; }
+      if (e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.stopPropagation(); return; }
+    }
     // Slice P (FR-LNK-09 AC-6, AC-7; D-928, D-938): ⌥Space on a selected embed or figure previews its target.
     if (e.code === 'Space' && e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
       const bs = ed.blockSelection();
@@ -1432,7 +1494,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       }
       return;
     }
-    if (!ed || !e.shiftKey) return;
+    if (!ed || !e.shiftKey || phone) return; // no block selection on the phone (RA14)
     const k = blockAt(e.clientY);
     if (k === null) return;
     e.preventDefault();
@@ -1507,7 +1569,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
   const sel = state?.selection;
   const selKey = sel ? `${sel.from}-${sel.to}` : '';
   const showToolbar = !!(e2 && sel && !sel.empty && !(sel as { node?: unknown }).node && !sel.$from.parent.type.spec.code && focused
-    && !e2.blockSelection() && toolbarHidden !== selKey && !linkField && !menu);
+    && !e2.blockSelection() && toolbarHidden !== selKey && !linkField && !menu && !phone);
   let toolbarPos: { left: number; top: number } | null = null;
   if (showToolbar && e2 && wrapRect) {
     const c = e2.view.coordsAtPos(sel!.from);
@@ -1521,6 +1583,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
 
   // D-605 (FR-EDT-05 AC-7): a right-click on a text selection opens Tegg's menu; anything else keeps the system menu.
   const onContextMenu = (ev: React.MouseEvent) => {
+    if (phone) return; // the system's selection menu (FR-EDT-01 AC-17)
     const e = edRef.current;
     if (!e) return;
     const target = ev.target as HTMLElement;
@@ -1565,7 +1628,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
           disabled={ctxMenu.nested ? { link: t('menu.notInEmbed'), turnIntoObject: t('menu.notInEmbed') } : { turnIntoObject: convertBlocked() ?? undefined }}
           onClose={() => { const n = ctxMenu.nested; setCtxMenu(null); if (n) n.focus(); else focusEditor(); }} onAction={(a) => onSelectionAction(a, ctxMenu.nested)} />
       )}
-      {handleTop !== null && handleBlock !== null && (
+      {!phone && handleTop !== null && handleBlock !== null && (
         <div className="block-handles" style={{ top: handleTop }}>
           <button data-command="editor.addBlockBelow" type="button" tabIndex={-1} className="icon-button" aria-label={t('editor.addBelow')} title={t('editor.addBelow')}
             onMouseDown={(e) => e.preventDefault()}
@@ -1598,14 +1661,28 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
           </button>
         </div>
       )}
-      {slash && e2 && (
+      {phone && barOn && e2 && !slash && !suggest && !linkField && !newObj && (
+        <FormatBar ed={e2} onLink={() => openLinkField()} onChanged={() => {}} />
+      )}
+      {slash && e2 && !phone && (
         <SlashMenu slash={slash} rows={slashRows(slash.trigger, slash.query)} pos={caretPos(slash.from)} unavailable={(r) => (r.id === 'turnIntoObject' ? convertBlocked() : null)} onPick={chooseSlash} onSel={(i) => setSlash({ ...slash, sel: i })} />
+      )}
+      {/* Slice AND-3 (android-edit §10.1, D-2507): on the phone the panels dock at the bottom in the bar's place. */}
+      {slash && e2 && phone && (
+        <div className="phone-panel" onPointerDown={(ev) => ev.preventDefault()} onMouseDown={(ev) => ev.preventDefault()}>
+          <SlashMenu slash={slash} rows={phoneSlashItems(slashRows(slash.trigger, slash.query))} pos={{ left: 0, top: 0 }} unavailable={() => null} onPick={chooseSlash} onSel={(i) => setSlash({ ...slash, sel: i })} />
+        </div>
       )}
       {newObj && e2 && (
         <NewObjectDialog key={`${newObj.from}:${newObj.type.key}`} type={newObj.type} at={caretPos(newObj.from)} onCreate={(title) => void createNewObject(title)} onCancel={() => cancelNewObject()} />
       )}
-      {suggest && e2 && (
+      {suggest && e2 && !phone && (
         <Suggestions s={suggest} types={types} pos={caretPos(suggest.from)} onLink={(i) => void chooseLink(i)} onTag={chooseTag} />
+      )}
+      {suggest && e2 && phone && (
+        <div className="phone-panel" onPointerDown={(ev) => ev.preventDefault()} onMouseDown={(ev) => ev.preventDefault()}>
+          <Suggestions s={suggest} types={types} pos={{ left: 0, top: 0 }} onLink={(i) => void chooseLink(i)} onTag={chooseTag} />
+        </div>
       )}
       {asType && (
         <TypeMenu at={asType.at} onClose={() => { setAsType(null); focusEditor(); }}
@@ -1639,7 +1716,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
         <PickDate label={t('date.pick')} today={localDate(Date.now())} value={null} at={pick.at} onPick={insertDate}
           onClose={() => { setPick(null); focusEditor(); }} />
       )}
-      {menu && e2 && (
+      {menu && e2 && !phone && (
         <BlockMenu menu={menu} ed={e2} wrapRect={wrapRect} convertWhy={convertBlocked(true)}
           onConvert={() => { setMenu(null); focusEditor(); focusArea.current = 'body'; if (!e2.blockSelection()) e2.commands.selectBlockAt(menu.block); openConvert('last'); }}
           onSub={(sub) => setMenu({ ...menu, sub })}
@@ -1870,12 +1947,15 @@ function LinkFieldView({ field, pos, onChange, onClose, onPickNote, onUrl, onRem
       if (it) onPickNote(it);
     }
   };
+  // Slice AND-3 (android-edit §10.2, FR-EDT-05 AC-9): on the phone a non-modal panel docked above the keyboard.
+  const phone = isPhone();
   return (
-    <div className="popover link-field" style={pos}>
-      <input ref={input} role="combobox" aria-label={t('linkField.label')} aria-expanded={notes.length > 0} aria-autocomplete="list"
+    <div className={phone ? 'phone-link-panel link-field' : 'popover link-field'} style={phone ? undefined : pos}
+      {...(phone ? { role: 'dialog', 'aria-label': t('linkField.label') } : {})}>
+      <input ref={input} role="combobox" enterKeyHint={phone ? 'done' : undefined} aria-label={t('linkField.label')} aria-expanded={notes.length > 0} aria-autocomplete="list"
         placeholder={t('linkField.placeholder')} value={field.query} autoComplete="off" autoCorrect="off" spellCheck={false}
         onChange={(e) => update(e.target.value)} onKeyDown={onKey} />
-      {field.onLink && <button type="button" aria-label={t('linkField.remove')} onMouseDown={(e) => e.preventDefault()} onClick={onRemove}>{t('linkField.remove')}</button>}
+      {field.onLink && <button type="button" aria-label={t('linkField.remove')} data-command={phone ? 'phone.link.remove' : undefined} onMouseDown={(e) => e.preventDefault()} onClick={onRemove}>{t('linkField.remove')}</button>}
       {field.error && <div role="alert" className="field-error">{t('linkField.refused')}</div>}
       {notes.length > 0 && (
         <div role="listbox" aria-label={t('suggest.links')}>
