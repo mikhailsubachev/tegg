@@ -57,6 +57,8 @@ test('fr_tsk_02_ac14_checkboxes_complete_tasks_on_the_phone', async ({ browser }
     await tap(page, box, `${what}: T03`);
     await assertWritesExactly(core, before, [{ cmd: 'note_write', path: T03 }], `${what}: checking T03`);
     assert.equal((await core.files())[T03], checked(), `${what}: AC-10's bytes`);
+    // on Schedule a checked task moves into the collapsed Done section (FR-TSK-04): expand it to read its label (D-2555)
+    if (what === 'Schedule') await tap(page, await must(main(page).getByRole('button', { name: /^⟦?Expand ⟦?Done⟧?⟧?$/ }).first(), 'Schedule: Expand Done', 2000), 'Expand Done');
     assert.ok(await eventually(async () => (await page.locator(`[data-command="task.complete:${T03}"]`).first().getAttribute('aria-label')) === 'Mark "Zalít květiny" not done', (v) => v, 1000), `${what}: within 1 s it shows its new state`);
     if (what === 'Kanban') assert.ok(await eventually(() => page.locator(`[data-command="task.complete:${T03}"]`).first().evaluate((b) => /done/i.test(b.closest('[data-lane]')?.getAttribute('data-lane') ?? '')), (v) => v, 1000), 'Kanban: in Done');
     if (what === 'Tasks due') assert.ok(!Object.keys(await core.files()).includes('Daily/2026-10-14.md'), 'on the virtual day only the task is written (FR-DLY-04 AC-12)');
@@ -188,8 +190,8 @@ test('fr_hom_02_ac33_pin_and_unpin_on_the_phone', async ({ page }) => {
 // ------------------------------------------------------------------------------------------------ FR-HIS-01 AC-16
 
 test('fr_his_01_ac16_move_one_note_to_the_trash_on_the_phone', async ({ page, browser }) => {
-  const core = await startPhone(page, { vault: editVault(), route: 'inbox', now: EDIT_NOW });
-  await goNote(page, 'Psaní');
+  // starts at the note with no history, so Back goes to the Inbox as the AC says (D-2555)
+  const core = await startPhone(page, { vault: editVault(), route: `note/${PE.psani}`, now: EDIT_NOW });
   await needBody(page, 'Psaní');
   // a pending edit is saved first (D-196)
   await tapToEdit(page, 'Konec');

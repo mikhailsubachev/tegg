@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.340, for review                                            |
+| **Document status** | Draft v1.342, for review                                            |
 | **Date**            | 2026-11-24                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -289,6 +289,8 @@
 | v1.334  | 2026-11-26 | D-2554: the owner's answers on AND-3's build test points (test fixes, the `Odkazy ven` fixture split, list rows read-only for NFD names, quoted property values kept) |
 | v1.335  | 2026-11-26 | D-2555: the owner approves AND-3's second batch of build test fixes |
 | v1.340  | 2026-11-25 | D-2671: real-app test fixes for slice MM3 |
+| v1.341  | 2026-11-26 | D-2672…D-2676: slice MM3 follow-up from 0.8.0 feedback (fold control on the node's edge, `+` past it, spider ↑/↓ on one side, E edits; bug #170) |
+| v1.342  | 2026-11-26 | D-2677: an icon on every row of the `/` menu (bug #171) |
 
 Slice OC decisions and versions were renumbered on merging main (PR #154 used the same numbers): D-1942…D-2053 → D-2054…D-2165, v1.220…v1.229 → v1.238…v1.247. Commit messages before this renumbering use the old numbers (D-2166).
 
@@ -2489,6 +2491,12 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-2669 | Slice MM3 and the New object menu renumbered (2026-11-25, on merging main's PR #163, slice AND-3, which took D-2500…D-2541 and v1.320…v1.322; owner: "merge if green") | This branch's D-2481…D-2549 became D-2600…D-2668 and its BRD v1.309…v1.314 became v1.323…v1.328. Commit messages before the renumbering use the old numbers. |
 | D-2670 | Gate fixes after merging main's PR #163 (owner, 2026-11-25: "Approve all three") | (1) Twelve AC IDs of slice MM3 and the New object menu clashed with slice AND-3's `android-edit.md` (D-2427) and take the next free numbers: FR-EDT-03 AC-6 → AC-18, FR-FMT-07 AC-38 → AC-40 and AC-39 → AC-41, FR-FMT-12 AC-18 → AC-19, FR-MMP-02 AC-37 → AC-54, FR-SYN-03 AC-40 → AC-45, FR-SYN-06 AC-56 → AC-58 and AC-57 → AC-59, FR-UX-03 AC-60 → AC-62, FR-UX-05 AC-29 → AC-31, FR-UX-08 AC-30 → AC-31, FR-VLT-05 AC-16 → AC-18, NFR-OTH-02 AC-27 (mindmap.md) → AC-29, tests renamed with them. (2) The FR-FMT-12 AC-19 test (2774df2e) was green when written (a coverage gap found by QA, D-2668): Red-First-Exempt. (3) The renumbering commit changed the mindmap fixture README's decision ids: Fixture-Change. Both trailers added by rewording the two unpushed commits. |
 | D-2671 | Real-app test fixes for slice MM3 (owner, 2026-11-25: "Approve, fix tests") | FR-SYN-06 AC-58 finds map nodes inside their tree (the note's tab shares the root's name); FR-MMP-02 AC-53 drags between nodes on screen and no longer hides the drag command's error; FR-SYN-06 AC-33 clicks a visible node of Široká mapa instead of the tree's centre. Run with the owner's own Tegg.app quit (it holds the capture hotkey). AC-53's drag: 63.9 % of indicator moves within one frame (target 95 %, report-only until MS8, D-152). |
+| D-2672 | The fold control sits on the node's outer edge (owner, 2026-11-26: "update the badge to displayed at the folded node (as per design)"; "Move it onto the parent's edge") | Both states of R230's fold control, open (`−`) and folded (`+<n>`), are centred on the node's outer edge at its vertical centre (the spider root: its right edge); no connector stub is drawn for a folded node. Replaces the elbow placement of D-2606 and D-2618 (board `MindmapLayouts` E, C). Fixes bug #170: on the elbow, ~30 px from the node, the `−` hid before the pointer reached it. |
+| D-2673 | The `+` of a node with children sits past the fold control (owner, 2026-11-26: "Just outside the badge") | On a node with children (open or folded) the `+` (`Add child to <node>`) is centred 24 px beyond the outer edge (outwards), at the vertical centre; on a leaf it stays on the outer edge (D-2619). A click on a folded node's `+` unfolds it and adds the child (as before). The node's hover reaches its buttons: moving the pointer from the node to its fold control or its `+` in a straight line keeps both shown (bug #170). |
+| D-2674 | ↑ / ↓ stay on the node's side in `spider` (owner, 2026-11-26: "up/down arrows should navigate the nodes on the same side"; "Stop at the end") | In the `spider` layout, ↑ / ↓ move to the previous / next sibling on the same side, then to the nearest visible node of the same depth on the same side in outline order; at the first / last such node nothing happens. ← / → are unchanged (R95, D-790). The `right` layout is unchanged (D-2600, D-2612). |
+| D-2675 | E edits a node (owner, 2026-11-26: "allow \"e\" to edit nodes same as double click") | On a focused node of an editable map, E (`e` or `E`, without ⌘, ⌃ or ⌥) opens the node's field as F2 and a double-click do (R95a, D-2605); on a synthesized root, in the read view and in a read-only note it does nothing. |
+| D-2676 | Geometry of D-2672 and D-2673 | The layout contains every fold control and the `+` of every node with children (centre ± 8 px; a control left of 0 shifts the drawing right, as D-2618); the `+` of a leaf may still overhang the outer edge by 8 px as before. Golden values in `docs/acceptance/mindmap.md` part four (R234). |
+| D-2677 | An icon on every row of the `/` menu (owner, 2026-11-26: "some of the items in the menu are missing icons, e.g. code, mindmap etc..."; bug #171) | Every static row of R234 shows the icon board `ObjectMenu` draws for it, before its label and `aria-hidden` (`Mindmap` in the teal type colour, the others `muted`, the selected row `text`); the heading rows keep `H1`…`H3` and the New rows their type's icon (D-2628). |
 
 ---
 

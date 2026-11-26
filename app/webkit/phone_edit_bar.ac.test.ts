@@ -350,7 +350,8 @@ test('fr_edt_05_ac9_link_from_the_bar', async ({ page }) => {
   await setCaret(page, 'Pátý ', 'end');
   await press(page, 'Link');
   await must(panel(page, 'Link suggestions'), 'without a selection Link opens Link suggestions');
-  assert.ok(((await editorText(page)) ?? '').includes('Pátý [['), 'and inserts `[[`');
+  // an unclosed `[[` is kept escaped in Markdown, as on the desktop (D-2554, D-2555)
+  assert.ok(((await editorText(page)) ?? '').includes('Pátý \\[\\['), 'and inserts `[[` (kept escaped: `\\[\\[`)');
   void n;
 });
 
@@ -376,10 +377,11 @@ test('fr_edt_09_ac7_undo_and_redo_on_the_bar', async ({ page }) => {
   assert.ok(first && second && first !== second, 'two saves');
   await press(page, 'Undo');
   await press(page, 'Undo');
-  assert.equal(withoutModified(await saved(core, PE.deset, 4)), withoutModified(original(PE.deset)), 'two Undos save the original body');
+  // two Undo taps 80 ms apart give one debounced save, as on the desktop (FR-EDT-09 AC-3; D-2555)
+  assert.equal(withoutModified(await saved(core, PE.deset, 3)), withoutModified(original(PE.deset)), 'two Undos save the original body');
   await press(page, 'Redo');
   await press(page, 'Redo');
-  assert.equal(await saved(core, PE.deset, 6), second, 'two Redos save the second save\'s body');
+  assert.equal(await saved(core, PE.deset, 4), second, 'two Redos save the second save\'s body');
   // after Back and reopening, Undo is aria-disabled (AC-5)
   await keyboard(page, false);
   await systemBack(page);

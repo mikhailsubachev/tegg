@@ -284,7 +284,7 @@ test('fr_syn_03_ac44_new_files_on_a_partly_synced_vault', async ({ page, browser
   await tapToEdit(p2, 'Konec');
   await setCaret(p2, 'Konec.', 'end');
   await ime(p2, [{ text: ' [[Lisabon' }]);
-  await tap(p2, panel(p2, 'Link suggestions').getByRole('option').filter({ hasText: 'Create “Lisabon”' }).first(), 'Create “Lisabon”');
+  await tap(p2, panel(p2, 'Link suggestions').getByRole('option').filter({ hasText: 'Create "Lisabon"' }).first(), 'Create "Lisabon"');
   assert.ok(await eventually(async () => Object.keys(await c2.files()).includes('Quick Notes/Lisabon.md'), (v) => v, 3000), 'Quick Notes/Lisabon.md is made');
   const page2 = '---\nid: 01JBAN3000000000000000L002\ntype: page\ntitle: Lisabon\ncreated: 2026-10-13T09:00:00+02:00\nmodified: 2026-10-13T09:00:00+02:00\n---\nZ Macu.\n';
   await sleep(1200);
@@ -435,15 +435,29 @@ test('fr_syn_06_ac56_editing_tour_on_the_phone', async ({ page }) => {
     await goNote(page, title);
     const body = await needBody(page, title);
     const blocks = await body.locator(':scope > *').count();
+    // a tap at the block's end (its last character), not its left edge, which hits a checkbox (D-2555); empty blocks
+    // are skipped, so the caret ends after text and the typed leading space is never at a block start
     for (const k of [0, Math.floor(blocks / 2), blocks - 1]) {
-      const b = await body.locator(':scope > *').nth(Math.max(0, k)).boundingBox();
-      if (b) await page.touchscreen.tap(b.x + 6, b.y + Math.min(8, b.height / 2));
+      const end = await body.locator(':scope > *').nth(Math.max(0, k)).evaluate((el) => {
+        const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        let last: Text | null = null;
+        for (let t = w.nextNode() as Text | null; t; t = w.nextNode() as Text | null) if ((t.textContent ?? '').trim()) last = t;
+        if (!last) return null;
+        const len = (last.textContent ?? '').replace(/\s+$/, '').length;
+        const r = document.createRange();
+        r.setStart(last, Math.max(0, len - 1));
+        r.setEnd(last, len);
+        const b = r.getBoundingClientRect();
+        return b.width || b.height ? { x: b.right - 1, y: b.top + b.height / 2 } : null;
+      });
+      if (end) await page.touchscreen.tap(end.x, end.y);
     }
     await keyboard(page, true);
     for (const [t, name] of [[' [[', 'Link suggestions'], [' #a', 'Tag suggestions']] as const) {
       await ime(page, [{ text: t }]);
       await page.keyboard.press('Escape');
-      for (let i = 0; i < t.length; i++) await ime(page, [{ backspace: true }]);
+      // deleteSurroundingText over what was typed (a typed `#a` would otherwise be one tag atom; D-2555)
+      await ime(page, [{ deleteSurrounding: { before: t.length, after: 0 } }]);
       void name;
     }
     await keyboard(page, false);

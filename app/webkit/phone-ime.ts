@@ -55,12 +55,41 @@ async function selectAround(page: Page, before: number, after: number) {
   }, [before, after] as const);
 }
 
+/** The number of user-perceived characters (graphemes): `selection.modify('extend', 'backward', 'character')` moves by
+ *  grapheme, so a replacement over the composing text counts graphemes, not code points (D-2555). */
+const graphemes = (s: string) => [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(s)].length;
+
 type Synth = { kind: 'composeStart' | 'composeUpdate' | 'composeEnd' | 'input' | 'paste'; inputType?: string; data?: string | null; replaceLen?: number; key?: string; code?: number; clip?: Record<string, string> };
 
 /** In-page (WebKit): one input step as script events, `execCommand` being the default action. */
 async function synth(page: Page, o: Synth) {
   await page.evaluate((x) => {
     const t = (document.activeElement ?? document.body) as HTMLElement;
+    // An `<input>` or `<textarea>` (a draft's `Title`, a field): `getSelection().modify` and `execCommand` don't edit
+    // its value, so the default action sets it with `setRangeText` and dispatches `input` itself (D-2555).
+    const field = t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement ? t : null;
+    const seg = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+    const fieldEdit = (f: HTMLInputElement | HTMLTextAreaElement, inputType: string, data: string | null, back: number) => {
+      const v = f.value;
+      const end = f.selectionEnd ?? v.length;
+      let start = f.selectionStart ?? end;
+      const graphemeStart = (n: number) => {
+        const g = [...seg.segment(v.slice(0, end))];
+        const k = Math.max(0, g.length - n);
+        return k < g.length ? g[k].index : end;
+      };
+      if (back > 0) start = graphemeStart(back);
+      if (inputType === 'insertParagraph' || inputType === 'insertLineBreak') {
+        if (f instanceof HTMLInputElement) return; // no line in a one-line field; the keydown carries the Enter
+        data = '\n';
+      }
+      if (inputType === 'deleteContentBackward') {
+        if (start === end) start = graphemeStart(1);
+        data = '';
+      }
+      f.setRangeText(data ?? '', start, end, 'end');
+      f.dispatchEvent(new InputEvent('input', { inputType, data, bubbles: true, composed: true, isComposing: inputType === 'insertCompositionText' }));
+    };
     const kd = (key: string, code: number) => {
       const e = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, composed: true });
       Object.defineProperty(e, 'keyCode', { value: code });
@@ -90,8 +119,11 @@ async function synth(page: Page, o: Synth) {
       kd('Unidentified', 229);
       t.dispatchEvent(new CompositionEvent('compositionupdate', { data: x.data ?? '', bubbles: true }));
       if (before('insertCompositionText', x.data ?? '')) {
-        selectBack(x.replaceLen ?? 0);
-        document.execCommand('insertText', false, x.data ?? '');
+        if (field) fieldEdit(field, 'insertCompositionText', x.data ?? '', x.replaceLen ?? 0);
+        else {
+          selectBack(x.replaceLen ?? 0);
+          document.execCommand('insertText', false, x.data ?? '');
+        }
       }
       if (x.kind === 'composeEnd') t.dispatchEvent(new CompositionEvent('compositionend', { data: x.data ?? '', bubbles: true }));
       return;
@@ -104,11 +136,17 @@ async function synth(page: Page, o: Synth) {
       }
       const e = new Event('paste', { bubbles: true, cancelable: true });
       Object.defineProperty(e, 'clipboardData', { value: dt });
-      if (t.dispatchEvent(e) && before('insertFromPaste', null, dt) && dt.getData('text/plain')) document.execCommand('insertText', false, dt.getData('text/plain'));
+      if (t.dispatchEvent(e) && before('insertFromPaste', null, dt) && dt.getData('text/plain')) {
+        if (field) fieldEdit(field, 'insertFromPaste', dt.getData('text/plain'), 0);
+        else document.execCommand('insertText', false, dt.getData('text/plain'));
+      }
       return;
     }
     kd(x.key ?? 'Unidentified', x.code ?? 229);
-    if (before(x.inputType ?? 'insertText', x.data ?? null)) exec(x.inputType ?? 'insertText', x.data ?? null);
+    if (before(x.inputType ?? 'insertText', x.data ?? null)) {
+      if (field) fieldEdit(field, x.inputType ?? 'insertText', x.data ?? null, 0);
+      else exec(x.inputType ?? 'insertText', x.data ?? null);
+    }
   }, o);
 }
 
@@ -118,7 +156,7 @@ async function commitPending(page: Page) {
   if (c === undefined) return;
   composing.delete(page);
   if (engineOf(page) === 'chromium') await (await cdp(page)).send('Input.insertText', { text: c });
-  else await synth(page, { kind: 'composeEnd', data: c, replaceLen: [...c].length });
+  else await synth(page, { kind: 'composeEnd', data: c, replaceLen: graphemes(c) });
 }
 
 async function key(page: Page, k: 'Enter' | 'Backspace') {
@@ -149,7 +187,7 @@ export async function ime(page: Page, steps: ImeStep[]): Promise<void> {
         await s.send('Input.imeSetComposition', { text: step.compose, selectionStart: cur, selectionEnd: cur });
       } else {
         if (prev === undefined) await synth(page, { kind: 'composeStart' });
-        await synth(page, { kind: 'composeUpdate', data: step.compose, replaceLen: prev === undefined ? 0 : [...prev].length });
+        await synth(page, { kind: 'composeUpdate', data: step.compose, replaceLen: prev === undefined ? 0 : graphemes(prev) });
       }
     } else if ('commit' in step) {
       const prev = composing.get(page);
@@ -158,7 +196,7 @@ export async function ime(page: Page, steps: ImeStep[]): Promise<void> {
         const s = await cdp(page);
         await s.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Unidentified', windowsVirtualKeyCode: 229, nativeVirtualKeyCode: 229 });
         await s.send('Input.insertText', { text: step.commit });
-      } else if (prev !== undefined) await synth(page, { kind: 'composeEnd', data: step.commit, replaceLen: [...prev].length });
+      } else if (prev !== undefined) await synth(page, { kind: 'composeEnd', data: step.commit, replaceLen: graphemes(prev) });
       else await synth(page, { kind: 'input', inputType: 'insertText', data: step.commit });
     } else if ('finish' in step) {
       await commitPending(page);

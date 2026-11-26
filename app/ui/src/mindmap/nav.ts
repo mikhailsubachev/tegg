@@ -1,6 +1,7 @@
 // Slice MM3 (docs/contracts/mm-mindmap.md §7.2, docs/acceptance/mindmap.md R229; D-2600, D-2604, D-2605, D-2612…D-2615):
 // the map's keys as a pure function of the laid-out (visible) nodes. ↑ / ↓ go to the previous / next sibling, then to
-// the nearest visible node of the same depth in outline order (D-2612); nothing on a root (D-2613). Home / End: the
+// the nearest visible node of the same depth in outline order (D-2612); nothing on a root (D-2613); in `spider` on the
+// node's own side only (D-2674). Home / End: the
 // root and the last visible node. ← / → as R95 (D-790 in `spider`); on a folded node the key towards its children
 // unfolds it (D-2605, D-2614), on a folded spider root either key does (D-2615).
 import type { MindLayout } from './layout';
@@ -24,11 +25,13 @@ export function navigateMindmap(layout: MindLayout, from: string, key: MindNavKe
     case 'ArrowUp': {
       if (up === undefined) return null;
       const down = key === 'ArrowDown';
-      const sibs = nodes.filter((x) => parent.get(x.id) === up);
+      // D-2674: in `spider` only nodes on the focused node's side count (siblings, then the same depth).
+      const side = (x: (typeof nodes)[number]) => layout.layout !== 'spider' || x.side === n.side;
+      const sibs = nodes.filter((x) => parent.get(x.id) === up && side(x));
       const k = sibs.indexOf(n);
       const sib = sibs[k + (down ? 1 : -1)];
       if (sib) return focus(sib.id);
-      const same = (x: (typeof nodes)[number]) => x.depth === n.depth;
+      const same = (x: (typeof nodes)[number]) => x.depth === n.depth && side(x);
       return focus(down ? nodes.slice(i + 1).find(same)?.id : nodes.slice(0, i).reverse().find(same)?.id);
     }
     case 'ArrowLeft':

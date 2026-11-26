@@ -138,14 +138,15 @@ test('fr_mmp_02_ac28_spider_navigation_on_pavouk', async ({ page }) => {
   const got: string[] = [];
   for (const [k] of steps) { await page.keyboard.press(k); got.push((await focused(page)).name); }
   assert.deepEqual(got, steps.map((s) => s[1]), '← / → follow the screen (D-790)');
-  // Slice MM3 (D-2600, AC-37): ↓ moves among siblings in outline order (whatever the side), then to cousins.
+  // Slice MM3 follow-up (D-2674, FR-MMP-02 AC-58): in `spider`, ↓ moves among siblings on the focused node's side, then
+  // to the same depth on that side; at the last such node it stops.
   await focusNode(fig, 'Alfa');
   const down: string[] = [];
   for (let i = 0; i < 4; i++) { await page.keyboard.press('ArrowDown'); down.push((await focused(page)).name); }
-  assert.deepEqual(down, ['Beta', 'Gama', 'Delta', 'Delta'], '↓ from Alfa: Beta, Gama, Delta, then it stops (outline order, crossing sides)');
+  assert.deepEqual(down, ['Gama', 'Gama', 'Gama', 'Gama'], '↓ from Alfa: Gama, then it stops (the right side only)');
   await focusNode(fig, 'A2');
   await page.keyboard.press('ArrowDown');
-  assert.equal((await focused(page)).name, 'B1', '↓ from A2: B1, the cousin on the left side');
+  assert.equal((await focused(page)).name, 'A2', '↓ from A2: nothing (no right-side node of depth 2 after it; B1 is on the left)');
   await page.keyboard.press('End');
   assert.equal((await focused(page)).name, 'Delta', 'End: Delta');
   await page.keyboard.press('Home');

@@ -1,7 +1,8 @@
 // Slice MM3, L1: folds in the layout, the map's navigation function, and the MM3 strings and commands
 // (docs/acceptance/mindmap.md part three, R229, R230, R233; contract docs/contracts/mm-mindmap.md §7.1, §7.2, §7.5).
-// FR-MMP-02 AC-43 (R230's golden values with the Measurer: fold controls, `+` points, folded maps laid out without the
-// hidden nodes, the layout equal again after unfolding), AC-37 and AC-38 (the navigation function: ↑ / ↓ among siblings,
+// FR-MMP-02 AC-43 (golden values with the Measurer: fold controls, `+` points, folded maps laid out without the
+// hidden nodes, the layout equal again after unfolding; the control points and sizes are R234's since the MM3
+// follow-up, D-2672, D-2673, D-2676), AC-37 and AC-38 (the navigation function: ↑ / ↓ among siblings,
 // then the nearest visible node of the same depth in outline order; nothing on a root; Home / End; hidden nodes never
 // reached), NFR-OTH-02 AC-29 (R233's catalog keys, the plural message, the pseudo-locale, a Czech test catalog), and the
 // registry side of FR-UX-03 AC-62 (the two commands). Modules load dynamically (TS-I1): the layout ignores `folded` and
@@ -60,11 +61,11 @@ test('fr_mmp_02_ac43_strom_unfolded_fold_controls_and_plus_points', async () => 
   const l = await lay(STROM());
   assert.deepEqual([l.width, l.height], [271, 152], 'the R92 layout is unchanged without folds');
   const bad: string[] = [];
-  const folds: [string, unknown][] = [['Kořen', [85, 86, false, 6]], ['Alfa', [193, 36, false, 2]], ['Beta', [193, 96, false, 1]], ['A1', null], ['A2', null], ['B1', null], ['Gama', null]];
+  const folds: [string, unknown][] = [['Kořen', [55, 86, false, 6]], ['Alfa', [163, 36, false, 2]], ['Beta', [163, 96, false, 1]], ['A1', null], ['A2', null], ['B1', null], ['Gama', null]];
   for (const [n, want] of folds) if (JSON.stringify(foldOf(l, n)) !== JSON.stringify(want)) bad.push(`${n}: fold ${JSON.stringify(foldOf(l, n))} ≠ ${JSON.stringify(want)}`);
-  const plus: [string, number[]][] = [['Kořen', [55, 86]], ['Alfa', [163, 36]], ['A1', [271, 16]], ['Gama', [163, 136]]];
+  const plus: [string, number[]][] = [['Kořen', [79, 86]], ['Alfa', [187, 36]], ['Beta', [187, 96]], ['A1', [271, 16]], ['Gama', [163, 136]]];
   for (const [n, want] of plus) if (JSON.stringify(plusOf(l, n)) !== JSON.stringify(want)) bad.push(`${n}: plus ${JSON.stringify(plusOf(l, n))} ≠ ${JSON.stringify(want)}`);
-  assert.deepEqual(bad, [], 'R230 golden values, Strom with nothing folded: fold controls on the elbow points (only nodes with children), `+` on the outer edges');
+  assert.deepEqual(bad, [], 'R234 golden values, Strom with nothing folded: fold controls on the outer edges (only nodes with children), `+` 24 px past them on nodes with children, on the outer edge of leaves (D-2672, D-2673)');
 });
 
 test('fr_mmp_02_ac43_strom_with_alfa_folded_and_with_koren_folded', async () => {
@@ -73,13 +74,15 @@ test('fr_mmp_02_ac43_strom_with_alfa_folded_and_with_koren_folded', async () => 
   const want: [string, number[]][] = [['Kořen', [0, 40, 55, 32]], ['Alfa', [115, 0, 48, 32]], ['Beta', [115, 40, 48, 32]], ['B1', [223, 40, 48, 32]], ['Gama', [115, 80, 48, 32]]];
   assert.deepEqual(want.map(([n]) => boxOf(a, n)), want.map(([, b]) => b), 'R230 boxes with Alfa folded (Alfa laid out as a leaf)');
   assert.deepEqual([a.width, a.height], [271, 112], 'layout 271 × 112');
-  assert.deepEqual([foldOf(a, 'Kořen'), foldOf(a, 'Alfa'), foldOf(a, 'Beta')], [[85, 56, false, 6], [193, 16, true, 2], [193, 56, false, 1]], 'fold controls; Alfa folded with 2 hidden');
+  assert.deepEqual([foldOf(a, 'Kořen'), foldOf(a, 'Alfa'), foldOf(a, 'Beta')], [[55, 56, false, 6], [163, 16, true, 2], [163, 56, false, 1]], 'fold controls on the outer edges (R234); Alfa folded with 2 hidden');
+  assert.deepEqual(plusOf(a, 'Alfa'), [187, 16], 'folded Alfa\'s `+` 24 px past its control (R234)');
   assert.ok(!a.connectors.some((c) => c.from === '0.0'), 'no connector to a hidden node');
   const k = await lay(STROM(), ['0']);
   assert.deepEqual(k.nodes.map((n) => n.id), ['0'], 'Kořen folded: only the root is laid out');
   assert.deepEqual(boxOf(k, 'Kořen'), [0, 0, 55, 32], 'Kořen (0, 0, 55, 32)');
-  assert.deepEqual(foldOf(k, 'Kořen'), [85, 16, true, 6], 'its control at (85, 16) showing +6');
-  assert.deepEqual([k.width, k.height], [93, 32], 'layout 93 × 32: the control (85) + 8 (AP-2117)');
+  assert.deepEqual(foldOf(k, 'Kořen'), [55, 16, true, 6], 'its control at (55, 16) on its right edge showing +6 (R234)');
+  assert.deepEqual(plusOf(k, 'Kořen'), [79, 16], 'its `+` at (79, 16)');
+  assert.deepEqual([k.width, k.height], [87, 32], 'layout 87 × 32: the `+` (79) + 8 (D-2676)');
   assert.equal(k.connectors.length, 0, 'no connectors');
 });
 
@@ -92,11 +95,11 @@ test('fr_mmp_02_ac43_pavouk_spider_with_alfa_folded', async () => {
   assert.deepEqual(l.nodes.map((n) => n.lines.join(' ')).sort(), want.map((w) => w[0]).sort(), 'A1 and A2 are not laid out');
   assert.deepEqual(want.map(([n]) => boxOf(l, n)), want.map(([, b]) => b), 'R230 boxes for Pavouk with Alfa folded');
   assert.deepEqual(want.map(([n]) => byName(l, n)?.side ?? null), want.map(([, , s]) => s), 'sides kept');
-  assert.deepEqual([foldOf(l, 'Alfa'), foldOf(l, 'Beta'), foldOf(l, 'Střed')], [[416, 16, true, 2], [78, 16, false, 1], [308, 36, false, 7]],
-    'fold controls Alfa (416, 16) +2, Beta (78, 16), Střed on its right elbow (308, 36) (AP-2114)');
-  // RT-6: R230 gives the width as 386, but AP-2117 (D-2618) makes the layout contain every control: 416 + 8 = 424.
-  assert.deepEqual([l.width, l.height], [424, 72], 'layout 424 × 72 (the rightmost control 416 + 8, AP-2117; RT-6)');
-  assert.deepEqual([plusOf(l, 'Beta'), plusOf(l, 'Střed'), plusOf(l, 'Alfa')], [[115, 16], [278, 36], [386, 16]], '`+` on the outer edge: Beta\'s left edge, the spider root\'s right edge, Alfa\'s right edge (AP-2118)');
+  assert.deepEqual([foldOf(l, 'Alfa'), foldOf(l, 'Beta'), foldOf(l, 'Střed')], [[386, 16, true, 2], [115, 16, false, 1], [278, 36, false, 7]],
+    'fold controls on the outer edges: Alfa (386, 16) +2, Beta\'s left edge (115, 16), Střed\'s right edge (278, 36) (R234, AP-2114)');
+  // R234 (D-2676): the layout contains every control and the `+` of every node with children: Alfa's `+` 410 + 8 = 418.
+  assert.deepEqual([l.width, l.height], [418, 72], 'layout 418 × 72 (Alfa\'s `+` 410 + 8, D-2676)');
+  assert.deepEqual([plusOf(l, 'Beta'), plusOf(l, 'Střed'), plusOf(l, 'Alfa')], [[91, 16], [302, 36], [410, 16]], '`+` 24 px past the outer edge on nodes with children: Beta left of its left edge, the spider root and Alfa right of their right edges (R234, D-2673)');
 });
 
 test('fr_mmp_02_ac43_unfolding_gives_the_unfolded_layout_again', async () => {
@@ -153,16 +156,17 @@ test('fr_mmp_02_ac54_navigation_function_on_vyjezd_pavouk_and_vice_korenu', asyn
     '↑ ↓ on the root': ['—', '—'],
     'Home, End from Lisabon': ['Výjezd 2026', 'Doprava'],
   }, 'Výjezd: siblings, then the cousin at the same depth (D-2600, AP-2111); nothing on the root (AP-2112)');
+  // Pavouk's walks follow AC-58 since the MM3 follow-up (R235, D-2674): ↑ / ↓ stay on the focused node's side.
   const p = await lay(PAVOUK(), null, 'spider');
   assert.deepEqual({
     '↓ from A2': await walk(p, 'A2', ['ArrowDown']),
     '↑ from B1': await walk(p, 'B1', ['ArrowUp']),
     '↓ from Alfa': await walk(p, 'Alfa', ['ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown']),
   }, {
-    '↓ from A2': ['B1'],
-    '↑ from B1': ['A2'],
-    '↓ from Alfa': ['Beta', 'Gama', 'Delta', '—'],
-  }, 'Pavouk: outline order whatever the side');
+    '↓ from A2': ['—'],
+    '↑ from B1': ['—'],
+    '↓ from Alfa': ['Gama', '—', '—', '—'],
+  }, 'Pavouk: on the focused node\'s side only (AC-58)');
   const t = await lay(VICE());
   assert.deepEqual({
     '↓ from Rodina': await walk(t, 'Rodina', ['ArrowDown', 'ArrowDown', 'ArrowDown']),

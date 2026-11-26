@@ -314,6 +314,10 @@ test('fr_syn_06_ac54_reading_on_the_phone_writes_nothing', async ({ page }) => {
     await page.getByRole('search').getByRole('searchbox').or(page.getByRole('search').getByRole('textbox')).first().fill('Odkazy ven');
     await page.keyboard.press('Enter');
     await page.getByRole('article', { name: 'Odkazy ven' }).getByRole('link', { name: 'Neexistuje' }).click();
+    // AND-3: the tap opens the Create offer sheet (android-edit.md §10.4); close it before the next tap (D-2555)
+    await must(sheet(page, 'Create note'), 'the Create offer (sheet "Create note")', 2000);
+    await systemBack(page);
+    assert.equal(await eventually(() => sheet(page, 'Create note').count(), (c) => c === 0, 1000), 0, 'the offer is closed');
   });
   // Settings: theme and date format
   await step('the theme and the date format', async () => {

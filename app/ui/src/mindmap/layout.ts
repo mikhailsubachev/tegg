@@ -6,7 +6,7 @@ import type { MindInline, MindItem, MindmapLayout, MindmapTree } from '@tegg/doc
 /** A text's width on one line; `depth` gives the node's weight (root 650, first level 600, deeper 400, R92). */
 export type Measure = (text: string, depth?: number) => number;
 export type Tone = 'root' | 'blue' | 'orange' | 'purple' | 'teal' | 'green' | 'yellow' | 'red' | 'plain';
-/** Slice MM3 (mm-mindmap §7.1, R230): a node's fold control, its centre in map coordinates (the elbow point);
+/** Slice MM3 (mm-mindmap §7.1, §7.7, R234): a node's fold control, its centre in map coordinates (the outer edge, D-2672);
  *  `hidden` = the node's descendants, all depths. */
 export type MindFold = { x: number; y: number; folded: boolean; hidden: number };
 /** Slice MM2 (mm-mindmap §6.2, R96): `side` in the spider layout (absent on the root and in `right`). Slice MM3 (§7.1):
@@ -101,22 +101,28 @@ function wrap(toks: Token[], measure0: Measure, depth: number): { lines: string[
 /** A laid-out node; `hidden` counts the node's descendants in the tree (null: no children, so no fold control). */
 type Box = { id: string; depth: number; w: number; h: number; lines: string[]; tone: Tone; kids: Box[]; y: number; hidden: number | null; folded: boolean };
 
-/** The fold control and the `+` of a laid-out node (mm-mindmap §7.1): the fold on the elbow point `elbowX`, the `+` on
- *  the outer edge (the left edge on the spider's left side). */
-function controls(b: Box, x: number, side: 'left' | 'right' | undefined, elbowX: number): Pick<MindLayoutNode, 'fold' | 'plus'> {
+/** The fold control and the `+` of a laid-out node (mm-mindmap §7.1, §7.7; D-2672, D-2673): the fold on the outer edge
+ *  (the left edge on the spider's left side, the right edge on the root), the `+` 24 px beyond it on a node with
+ *  children, on the outer edge of a leaf. */
+function controls(b: Box, x: number, side: 'left' | 'right' | undefined): Pick<MindLayoutNode, 'fold' | 'plus'> {
   const cy = b.y + b.h / 2;
+  const left = side === 'left';
+  const edge = left ? x : x + b.w;
+  const out = b.hidden !== null ? (left ? -PLUS_OFFSET : PLUS_OFFSET) : 0;
   return {
-    ...(b.hidden !== null ? { fold: { x: elbowX, y: cy, folded: b.folded, hidden: b.hidden } } : {}),
-    plus: { x: side === 'left' ? x : x + b.w, y: cy },
+    ...(b.hidden !== null ? { fold: { x: edge, y: cy, folded: b.folded, hidden: b.hidden } } : {}),
+    plus: { x: edge + out, y: cy },
   };
 }
 
-/** Slice MM3 (AP-2117): the layout contains every fold control (its centre + 8 px); a control left of 0 (a folded node
- *  in the spider's outermost left column) moves the whole drawing right. */
+/** Slice MM3 (AP-2117, D-2676): the layout contains every fold control and the `+` of every node with children (centre
+ *  ± 8 px); one left of 0 (a node in the spider's outermost left column) moves the whole drawing right. */
 function fitControls(l: MindLayout): MindLayout {
   let min = 0;
   let max = l.width;
-  for (const n of l.nodes) if (n.fold) { min = Math.min(min, n.fold.x - FOLD_R); max = Math.max(max, n.fold.x + FOLD_R); }
+  for (const n of l.nodes) if (n.fold) {
+    for (const cx of [n.fold.x, n.plus.x]) { min = Math.min(min, cx - FOLD_R); max = Math.max(max, cx + FOLD_R); }
+  }
   if (min < 0) {
     const dx = -min;
     for (const n of l.nodes) {
@@ -130,6 +136,8 @@ function fitControls(l: MindLayout): MindLayout {
   l.width = max;
   return l;
 }
+/** D-2673: the `+` of a node with children sits this far beyond its outer edge. */
+const PLUS_OFFSET = 24;
 const FOLD_R = 8;
 
 export function layoutMindmap(tree: MindmapTree, measure: Measure, opts: { chipExtra?: ChipExtra; layout?: MindmapLayout; folded?: ReadonlySet<string> } = {}): MindLayout {
@@ -184,7 +192,7 @@ export function layoutMindmap(tree: MindmapTree, measure: Measure, opts: { chipE
   let width = 0;
   walk(root, (b) => {
     const x = colX[b.depth];
-    nodes.push({ id: b.id, depth: b.depth, x, y: b.y, w: b.w, h: b.h, lines: b.lines, tone: b.tone, ...controls(b, x, undefined, x + widest[b.depth] + ELBOW) });
+    nodes.push({ id: b.id, depth: b.depth, x, y: b.y, w: b.w, h: b.h, lines: b.lines, tone: b.tone, ...controls(b, x, undefined) });
     width = Math.max(width, x + b.w);
     const pc = b.y + b.h / 2;
     const elbow = (colX[b.depth + 1] ?? 0) - ELBOW;
@@ -261,9 +269,7 @@ function spider(root: Box, walk: Walk): MindLayout {
   walk(root, (b) => {
     const x = xOf(b);
     const s = side.get(b);
-    // The elbow point (R230): the root's on its right side (AP-2114); a left-side node's left of its column.
-    const elbowX = b === root ? rootX + root.w + ELBOW : s === 'right' ? colX[b.depth] + (wr[b.depth] ?? 0) + ELBOW : leftEdge[b.depth] - (wl[b.depth] ?? 0) - ELBOW;
-    nodes.push({ id: b.id, depth: b.depth, x, y: b.y, w: b.w, h: b.h, lines: b.lines, tone: b.tone, ...(s ? { side: s } : {}), ...controls(b, x, s, elbowX) });
+    nodes.push({ id: b.id, depth: b.depth, x, y: b.y, w: b.w, h: b.h, lines: b.lines, tone: b.tone, ...(s ? { side: s } : {}), ...controls(b, x, s) });
     width = Math.max(width, x + b.w);
     const pc = b.y + b.h / 2;
     for (const k of b.kids) {
