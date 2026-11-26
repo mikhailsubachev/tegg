@@ -190,6 +190,17 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 impl Shared {
+    /// android-edit §3.1 (FR-FMT-12, D-2554): sets each list row's `read_only` when its file is stored under a name
+    /// whose bytes differ from its NFC form. Rows already read-only cost nothing; `Vault::nfd_name` is false without
+    /// I/O on macOS and for ASCII paths, and `LocalFs` resolves the rest through its per-folder listing cache.
+    fn mark_nfd_read_only<'a>(&self, rows: impl Iterator<Item = (&'a str, &'a mut bool)>) {
+        for (path, read_only) in rows {
+            if !*read_only && self.vault.nfd_name(path) {
+                *read_only = true;
+            }
+        }
+    }
+
     fn emit(&self, e: CoreEvent) {
         // v1-queries §1.7: every `VaultChanged` holding `.md` paths is followed by `QueryStale`.
         let stale = match &e {

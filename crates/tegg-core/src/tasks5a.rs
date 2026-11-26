@@ -121,6 +121,8 @@ impl Core {
             let idx = self.index();
             all.iter().filter(|o| o.r#type == "task").filter_map(|o| row(o, &defs, &resolver, idx.note_state(&o.path)?)).collect()
         };
+        // android-edit §3.1 (D-2554): a file stored under an NFD name is read-only on the phone (never on macOS).
+        self.shared.mark_nfd_read_only(rows.iter_mut().map(|r| (r.path.as_str(), &mut r.read_only)));
         // v1-cards §3.3: every row's card from one index read.
         let paths: Vec<String> = rows.iter().map(|r| nfc(&r.path)).collect();
         let mut cards = self.cards_for(&paths);
