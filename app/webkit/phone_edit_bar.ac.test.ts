@@ -129,10 +129,15 @@ test('fr_ux_04_ac9_caret_stays_in_view', async ({ page }) => {
     const body = document.querySelector('[role="textbox"][aria-label="Note body"]')!;
     const ps = [...body.querySelectorAll('p')].filter((p) => { const r = p.getBoundingClientRect(); return r.bottom > 0 && r.bottom <= innerHeight - 60; });
     const p = ps[ps.length - 1] as HTMLElement | undefined;
-    return p ? p.innerText.trim().split(/\s+/)[0] : '';
+    if (!p || !p.innerText.trim()) return null;
+    // the whole lowest visible line's text (its words recur higher up, so a lookup by word would tap an earlier line)
+    const r = document.createRange();
+    r.selectNodeContents(p);
+    const b = [...r.getClientRects()].filter((x) => x.width > 0 && x.bottom > 0 && x.bottom <= innerHeight - 60).pop();
+    return b ? { x: b.left + b.width / 2, y: b.top + b.height / 2 } : null;
   });
   assert.ok(lowest, 'a word in the lowest visible line');
-  await tapText(page, lowest);
+  await page.touchscreen.tap(lowest!.x, lowest!.y);
   await keyboard(page, true);
   const ok = await eventually(async () => { const c = await caretRect(); const b = await band(); return !!c && c.top >= b.top - 0.5 && c.bottom <= b.bottom + 0.5; }, (v) => v, 500);
   assert.ok(ok, 'after the keyboard shows, the caret is in the band within 500 ms');

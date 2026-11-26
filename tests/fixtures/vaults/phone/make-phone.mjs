@@ -83,10 +83,14 @@ out('Pages/Odkazy ven.md', fm([`id: ${id(3)}`, 'type: page', 'title: Odkazy ven'
   '- Pošta: <mailto:eva@example.org>',
   '- Skript: [skript](javascript:alert(1))',
   '- Soubor: [soubor](file:///etc/hosts)',
+  '- Štítek: #cestování',
+  '',
+  // the wikilinks in their own list, so the editor shows them as chips (D-2554)
+  'Poznámky:',
+  '',
   '- Chybí: [[Neexistuje]]',
   '- Později: [[Později]]',
   '- Den: [[2026-10-20]]',
-  '- Štítek: #cestování',
   '',
 ].join('\n'));
 

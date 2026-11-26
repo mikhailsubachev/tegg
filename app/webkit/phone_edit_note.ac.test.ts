@@ -18,7 +18,7 @@ import assert from 'node:assert/strict';
 import {
   EDIT_NOW, PE, appBar, assertZeroWrites, barButton, desktopEditorResult, bodyBlocks, bodyFocused, caretInfo, desktopPage, editVault, editorText, eventually, fileStateOf, flat, formatBar,
   goNote, h1Is, h1Text, keyboard, longPressOn, main, moreButton, moreMenu, must, needBody, nfc, noteBody, panel, phonePage, runById, saveState, savedText,
-  searchField, seen, setCaret, sleep, startDesktop, startPhone, systemBack, tapText, tapToEdit, textRect, titleField, typeSheet, writeCalls, writesSeen,
+  searchField, seen, setCaret, settledWriteCalls, sleep, startDesktop, startPhone, systemBack, tapText, tapToEdit, textRect, titleField, typeSheet, writeCalls, writesSeen,
   type PhoneHandle,
 } from './phone-helpers';
 import { ime, type ImeStep } from './phone-ime';
@@ -85,7 +85,7 @@ test('fr_edt_01_ac15_note_is_the_editor_on_the_phone', async ({ page, browser })
   await isReadOnly(page, 'Neplatné UTF-8.md');
   // every note of the fixture opened and left writes nothing (the runtime file above excepted from "before")
   const now = await fileStateOf(core);
-  for (const title of ['Psaní', 'Mapa v textu', 'Tabulka', 'Deset bloků', 'Cíl', 'Úkoly', 'Prázdná', 'Bez hlavičky', 'Seznamy', 'Štítky', 'Odstavce', 'Surové bloky', 'Cizí hlavička', 'Odsazený kód', 'C tips']) {
+  for (const title of ['Psaní', 'Mapa v textu', 'Tabulka', 'Deset bloků', 'Cíl', 'Úkoly', 'Prázdná', 'Bez hlavičky', 'Seznamy', 'Štítky', 'Odstavce', 'Surové bloky', 'Cizí hlavička', 'Odsazený kód', 'C# tips']) {
     await goNote(page, title);
     await sleep(200);
     await systemBack(page);
@@ -226,7 +226,7 @@ test('fr_edt_01_ac18_title_fixed_once_the_file_exists', async ({ page, browser }
   await sleep(1500);
   assert.deepEqual(await writesSeen(c2), [], 'typing Výlet into Title writes nothing (D-522)');
   await ime(p2, [{ enter: true, via: '229' }]);
-  const made = await eventually(() => writeCalls(c2), (w) => w.length >= 1, 3000);
+  const made = await settledWriteCalls(c2, 1, 3000);
   assert.deepEqual(made, [{ cmd: 'note_create', path: 'Pages/Výlet.md' }], 'Enter commits it: one note_create of Pages/Výlet.md');
   assert.match((await c2.files())['Pages/Výlet.md'] ?? '', /^title: Výlet$/m, 'title: Výlet (D-522)');
   assert.ok(await h1Is(p2, 'Výlet'), 'the title becomes the fixed h1');
@@ -240,7 +240,7 @@ test('fr_edt_01_ac18_title_fixed_once_the_file_exists', async ({ page, browser }
   const c3 = await startPhone(p3, { vault: editVault(), route: 'new/page', now: EDIT_NOW });
   await (await needBody(p3, 'the draft')).tap();
   await ime(p3, [{ text: 'Obsah' }]);
-  const m3 = await eventually(() => writeCalls(c3), (w) => w.length >= 1, 3000);
+  const m3 = await settledWriteCalls(c3, 1, 3000);
   assert.deepEqual(m3.slice(0, 1), [{ cmd: 'note_create', path: 'Pages/Untitled.md' }], 'a body change first writes Pages/Untitled.md (D-523)');
   assert.match((await c3.files())['Pages/Untitled.md'] ?? '', /^title: Untitled$/m, 'title: Untitled');
   assert.ok(await h1Is(p3, 'Untitled'), 'its title is the fixed h1');
@@ -251,7 +251,9 @@ test('fr_edt_01_ac18_title_fixed_once_the_file_exists', async ({ page, browser }
 
 // ------------------------------------------------------------------------------------------------ FR-EDT-01 AC-19
 
-type Case = { caret: { text: string; offset?: number | 'end'; select?: boolean }; phone: ImeStep[]; desk: (p: Page) => Promise<void>; what: string };
+type Caret = { text: string; offset?: number | 'end'; select?: boolean };
+/** `deskCaret`: the desktop's caret when it differs from the phone's (the phone's composition replaces a selection). */
+type Case = { caret: Caret; deskCaret?: Caret; phone: ImeStep[]; desk: (p: Page) => Promise<void>; what: string };
 /** Runs `c` on a fresh phone page and on the desktop; asserts equal saved files and returns the phone's. */
 async function sameAsDesktop(browser: Browser, c: Case, prep?: (page: Page) => Promise<void>): Promise<string | null> {
   const page = await phonePage(browser);
@@ -262,7 +264,7 @@ async function sameAsDesktop(browser: Browser, c: Case, prep?: (page: Page) => P
     await setCaret(page, c.caret.text, c.caret.offset ?? 'end', { select: c.caret.select });
     await ime(page, c.phone);
     const phone = await savedText(core, PE.psani, 3000);
-    const desk = await desktopEditorResult(browser, editVault(), PE.psani, c.caret, c.desk);
+    const desk = await desktopEditorResult(browser, editVault(), PE.psani, c.deskCaret ?? c.caret, c.desk);
     assert.ok(phone !== null, `${c.what}: the phone saves`);
     assert.equal(phone, desk, `${c.what}: the saved file equals the desktop's`);
     return phone;
@@ -301,8 +303,10 @@ test('fr_edt_01_ac19_keyboard_input_matches_the_desktop_enter', async ({ browser
   // (d) Enter at the end of chléb while chléb is composing; Enter on the empty item; Enter in the middle of Konec.
   await sameAsDesktop(browser, {
     what: '(d) Enter after a composing chléb, twice', caret: { text: 'chléb', select: true },
+    // the desktop: the caret after chléb, no selection (WebKit's ArrowRight + Enter replaced the selection; D-2554)
+    deskCaret: { text: 'chléb', offset: 'end' },
     phone: [{ compose: 'chléb' }, { enter: true }, { enter: true, via: '229' }],
-    desk: async (p) => { await p.keyboard.press('ArrowRight'); await p.keyboard.press('Enter'); await p.keyboard.press('Enter'); },
+    desk: async (p) => { await p.keyboard.press('Enter'); await p.keyboard.press('Enter'); },
   });
   const d2 = await sameAsDesktop(browser, {
     what: '(d) Enter in the middle of Konec.', caret: { text: 'Konec.', offset: 3 },
@@ -315,13 +319,14 @@ test('fr_edt_01_ac19_keyboard_input_matches_the_desktop_enter', async ({ browser
     what: '(e) Enter after Zavolat', caret: { text: 'Zavolat' },
     phone: [{ enter: true }, { text: 'Nové' }],
     desk: async (p) => { await p.keyboard.press('Enter'); await p.keyboard.type('Nové'); },
-  }).then((t) => assert.ok(t?.includes('- [ ] Zavolat\n- [ ] Nové\n'), '(e) a new `- [ ] ` item'));
+  }).then((t) => assert.match(t ?? '', /- \[ \] Zavolat\n\n?- \[ \] Nové\n/, '(e) a new `- [ ] ` item (the Psaní list is loose)'));
 });
 
 test('fr_edt_01_ac19_keyboard_input_matches_the_desktop_backspace', async ({ browser }) => {
   test.setTimeout(240_000);
   // (f) Backspace at the start of Konec., after the [[Cíl]] chip, at the start of první, chléb and Nákup, bottom up
-  const spots: [string, number][] = [['Konec.', 0], [' a #projekt', 0], ['první', 0], ['chléb', 0], ['Nákup', 0]];
+  // after [[Cíl]]: the text ` a ` right after the chip (after the join at Konec., the tag is its own node; D-2554)
+  const spots: [string, number][] = [['Konec.', 0], [' a ', 0], ['první', 0], ['chléb', 0], ['Nákup', 0]];
   for (const via of ['key', '229', 'surrounding'] as const) {
     const page = await phonePage(browser);
     const core = await openPsani(page);
@@ -389,7 +394,10 @@ test('fr_edt_01_ac20_czech_from_the_keyboard_is_nfc', async ({ page }) => {
   await ime(page, [{ text: ' 👍🏽' }]);
   assert.ok(((await editorText(page)) ?? '').includes('Žluťoučký 👍🏽\n'), 'the emoji is kept unchanged');
   await ime(page, [{ backspace: true }]);
-  assert.ok(((await editorText(page)) ?? '').includes('Žluťoučký \n'), 'one Backspace removes the whole emoji');
+  const afterBs = (await editorText(page)) ?? '';
+  // the editor drops a paragraph's trailing space, on the desktop too (D-2554)
+  assert.ok(afterBs.includes('Žluťoučký\n'), 'one Backspace removes the whole emoji');
+  assert.ok(!afterBs.includes('👍'), 'no part of the emoji stays');
   // Search for zlutoucky lists Psaní within 2 s of the save
   await keyboard(page, false);
   await barButton(page, 'Search').click();
