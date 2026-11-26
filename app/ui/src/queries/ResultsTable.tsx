@@ -19,6 +19,7 @@ import { columnChoices, UNIVERSAL } from './model';
 import { queryNav } from './nav';
 import { levels, markers } from './sort';
 import { isPhone } from '../phone/layout';
+import { Checkbox } from '../tasks/TaskCard';
 
 const nfc = (s: string) => s.normalize('NFC');
 /** At most this many table rows in the DOM (§4.3, D-1482). */
@@ -36,7 +37,7 @@ export function columnsAfterDrop(columns: string[], key: string, before: string 
   return out.every((c, i) => nfc(c) === nfc(columns[i])) ? null : out;
 }
 
-export function ResultsTable({ def: fileDef, rows, types, typeOf, typeName, title, name, readOnly, plain = false, onOpen, onSort, onColumns, sort, columns, widthKey, widthScope = null, grouped = null }: {
+export function ResultsTable({ def: fileDef, rows, types, typeOf, typeName, title, name, readOnly, plain = false, onOpen, onSort, onColumns, sort, columns, widthKey, widthScope = null, grouped = null, onTaskToggle }: {
   def: QueryDefDto; rows: QueryRowDto[]; types: TypeDto[]; typeOf: (k: string) => TypeDto | undefined; typeName: (k: string) => string;
   title: string; onOpen: (path: string) => void;
   /** The saved query (widths, levels, drags); null for an inline fence (slice Q's behaviour, D-1810). */
@@ -57,6 +58,8 @@ export function ResultsTable({ def: fileDef, rows, types, typeOf, typeName, titl
   widthScope?: WidthScope | null;
   /** Slice Q3 (R225, §41.5): a grouped Table: group header rows and each group's rows, windowed together. */
   grouped?: Grouped | null;
+  /** Slice AND-3 (android-edit §12.1, FR-TSK-02 AC-14): on the phone a Task row's checkbox writes through this. */
+  onTaskToggle?: ((row: QueryRowDto, done: boolean) => void) | null;
 }) {
   const def = useMemo(() => ({ ...fileDef, sort: sort ?? fileDef.sort, columns: columns ?? fileDef.columns }), [fileDef, sort, columns]);
   const one = def.types.length === 1 ? typeOf(def.types[0]) : undefined;
@@ -179,7 +182,9 @@ export function ResultsTable({ def: fileDef, rows, types, typeOf, typeName, titl
                   <td key={c.key} onClick={c.key === 'title' || phone ? undefined : (e) => e.stopPropagation()} onDoubleClick={c.key === 'title' || phone ? undefined : (e) => e.stopPropagation()}>
                     {c.key === 'title' ? (
                       <span className="cell-title">
-                        {r.task && !mixed
+                        {r.task && !mixed && onTaskToggle && r.taskRow && isPhone()
+                          ? <Checkbox row={{ ...r.taskRow, readOnly: r.readOnly || r.taskRow.readOnly }} onToggle={(d) => onTaskToggle(r, d)} />
+                          : r.task && !mixed
                           ? <span role="checkbox" aria-checked={done} aria-disabled="true" aria-label={r.title} aria-description={t(isPhone() ? 'phone.viewOnly' : 'query.block.taskReadOnly')} className={`query-task-box${done ? ' done' : ''}`}>{done && <Icon name="check" size={11} />}</span>
                           : <Icon name={typeIconName(r.type, rt?.icon)} dataIcon={chipIcon(r.type).def} size={14} />}
                         <span data-user-content>{r.title}</span>

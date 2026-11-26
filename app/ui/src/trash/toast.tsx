@@ -42,7 +42,8 @@ function dismiss(id: number): void {
 
 const subscribe = (f: () => void) => { subs.add(f); return () => { subs.delete(f); }; };
 
-export function TrashMessages() {
+/** Slice AND-3 (android-edit §12.6): `phone` shows the move as the phone's notice with `Undo`. */
+export function TrashMessages({ phone = false }: { phone?: boolean } = {}) {
   const s = useSyncExternalStore(subscribe, () => `${toast?.id ?? 0}:${alerts.map((a) => a.id).join(',')}`);
   void s;
   return (
@@ -54,7 +55,15 @@ export function TrashMessages() {
           <button type="button" tabIndex={0} className="icon-button small" aria-label={t('trash.dismiss')} onClick={() => dismiss(a.id)}><Icon name="x" size={12} /></button>
         </div>
       ))}
-      {toast && (
+      {toast && phone && (
+        <div className="phone-notice" role="status" aria-live="polite">
+          <span>{toast.text}</span>
+          {toast.undo && (
+            <button type="button" data-command="phone.notice.undo" onClick={() => { const u = toast?.undo; toast = null; emit(); u?.(); }}>{t('save.undo')}</button>
+          )}
+        </div>
+      )}
+      {toast && !phone && (
         <div className="job-status trash-toast" role="status">
           <span>{toast.text}</span>
           {toast.undo && (

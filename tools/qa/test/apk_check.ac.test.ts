@@ -169,3 +169,30 @@ test('ar_08_ac5_test_hooks_only_in_test_apk', async () => {
   fails(check, t, TEST, /test-env\.json/, 'the test library lacks test-env.json');
   assert.deepEqual(check(testApk(), TEST), [], 'the test APK with its hooks passes');
 });
+
+// ------------------------------------------------------------------------------------------------ slice AND-3
+// docs/acceptance/android-edit.md NFR-SEC-01 AC-5 (APK part; D-2002) and the test input method's rule of
+// docs/contracts/android-edit.md §16.3 (D-2519, CP-13 → D-2539): for both `--expect release` and `--expect test`, the
+// APK's dex files hold no class under `app/tegg/testime/` and its manifest declares no `android.view.InputMethod`
+// service; the release APK still has no INTERNET permission (AC-1).
+// Red-test decision D-2547 (the contract names the rule, not the facts' fields): `ApkFacts` gains
+//   dexClasses: string[] (class descriptors from the dex files, e.g. `app/tegg/testime/TestIme`) and
+//   services: { name: string; actions: string[] }[] (the manifest's services with their intent-filter actions).
+// Written from the ACs and the contract only (D-61).
+
+test('nfr_sec_01_ac5_no_network_and_no_test_ime_in_product_apks', async () => {
+  const check = await checker();
+  const plain = { dexClasses: ['app/tegg/desktop/MainActivity', 'app/tegg/android/TeggStoragePlugin'], services: [] as { name: string; actions: string[] }[] };
+  const rel = { ...release(), ...plain } as Facts;
+  const tst = { ...testApk(), ...plain } as Facts;
+  assert.deepEqual(check(rel, REL), [], 'a release APK without the test IME passes');
+  assert.deepEqual(check(tst, TEST), [], 'a test APK without the test IME passes');
+  const net = { ...rel, permissions: [...rel.permissions, 'android.permission.INTERNET'] } as Facts;
+  fails(check, net, REL, /INTERNET/, 'the release APK still has no INTERNET permission (AC-1)');
+  for (const [facts, expect, what] of [[rel, REL, 'release'], [tst, TEST, 'test']] as const) {
+    const dex = { ...facts, dexClasses: [...(facts as any).dexClasses, 'app/tegg/testime/TestIme'] } as Facts;
+    fails(check, dex, expect, /testime/i, `${what} APK with a class under app/tegg/testime/`);
+    const svc = { ...facts, services: [{ name: 'app.tegg.testime.TestIme', actions: ['android.view.InputMethod'] }] } as Facts;
+    fails(check, svc, expect, /InputMethod/, `${what} APK declaring an android.view.InputMethod service`);
+  }
+});

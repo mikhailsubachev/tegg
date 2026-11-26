@@ -187,6 +187,13 @@ const PATHS: Record<string, string> = {
   // Slice Q2 (boards Views, ViewsApp): the view kinds and the sort button.
   table: 'M4 5h16v14H4zM4 10h16M10 5v14',
   list: 'M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01',
+  // Slice AND-3 (android-edit §8): the phone's formatting bar.
+  heading: 'M6 4v16M18 4v16M6 12h12',
+  checklist: 'M3 6l2 2 3-3M3 16l2 2 3-3M11 7h10M11 17h10',
+  indent: 'M3 8l4 4-4 4M11 6h10M11 12h10M11 18h10',
+  outdent: 'M7 8l-4 4 4 4M11 6h10M11 12h10M11 18h10',
+  undo: 'M9 14L4 9l5-5M4 9h11a5 5 0 010 10h-3',
+  redo: 'M15 14l5-5-5-5M20 9H9a5 5 0 000 10h3',
   board: 'M4 5h4v14H4zM10 5h4v9h-4zM16 5h4v11h-4z',
   // Slice Q3 (board A): the Wall display, a grid of cards.
   wall: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',

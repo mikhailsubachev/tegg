@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-android-recovery-get"
+description = "Enables the android_recovery_get command without any pre-configured scope."
+commands.allow = ["android_recovery_get"]
+
+[[permission]]
+identifier = "deny-android-recovery-get"
+description = "Denies the android_recovery_get command without any pre-configured scope."
+commands.deny = ["android_recovery_get"]

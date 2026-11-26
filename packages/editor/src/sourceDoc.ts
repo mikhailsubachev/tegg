@@ -103,7 +103,7 @@ export function reconcile(loaded: Loaded, pmDoc: PMNode, opts: { forceVerifyFail
   const used = new Set<number>()
   pmDoc.forEach((shown) => {
     if (shown.type.name === 'rawBlock' && shown.attrs.draft) return // D-1471: a draft query block lives only in the editor
-    const node = writable(shown)
+    let node = writable(shown)
     const src = node.attrs.srcIndex as number | null
     const original = src !== null && src < originals.length && !used.has(src) ? originals[src] : null
     if (src !== null && original) used.add(src)
@@ -120,8 +120,14 @@ export function reconcile(loaded: Loaded, pmDoc: PMNode, opts: { forceVerifyFail
     const bodiesOnly = srcRaw !== undefined && !isRaw && onlyQueryBodiesChanged(original!, node)
     const patched = bodiesOnly ? queryBodyPatch(original!, node, srcRaw!) : null
     if (bodiesOnly && patched === null) throw new VerifyError(QUERY_PATCH_FAILED)
-    const md = isRaw ? String(node.attrs.source) : patched ?? ((srcRaw !== undefined && (checkboxPatch(original!, node, srcRaw) || tablePatch(original!, node, srcRaw))) || renderBlock(pmToBlock(node.toJSON()), srcRaw))
-    const kept = srcRaw !== undefined && !isRaw && patched === null ? paragraphPatch(original!, node, srcRaw, md) : null
+    const sourcePatch = !isRaw && patched === null && srcRaw !== undefined ? checkboxPatch(original!, node, srcRaw) || tablePatch(original!, node, srcRaw) : null
+    // Bug AND-3: a changed list keeps its unchanged items' bytes (and with them its spacing). Issue #173: so does each
+    // half of a split list, the second half too, though the first half already took its `srcIndex`.
+    const origin = src !== null && src < originals.length ? originals[src] : null
+    const listKept = origin && !isRaw && patched === null && !sourcePatch ? listItemPatch(origin, node, doc.blocks[src!].raw) : null
+    if (listKept) node = listKept.node
+    const md = isRaw ? String(node.attrs.source) : patched ?? (sourcePatch || renderBlock(pmToBlock(node.toJSON()), srcRaw))
+    const kept = listKept?.text ?? (srcRaw !== undefined && !isRaw && patched === null ? paragraphPatch(original!, node, srcRaw, md) : null)
     if (!isRaw && md.trim() === '') return // e.g. a paragraph of spaces: nothing to write
     // A raw block holds bytes the file already had (a copy, a moved or mode-changed embed): never re-normalized, so
     // an NFD embed line stays NFD when duplicated (AP-336, FR-FMT-07 AC-15). A query-fence patch keeps the container's
@@ -306,6 +312,112 @@ function paragraphPatch(original: PMNode, node: PMNode, raw: string, md: string)
   while (j >= k && at2 + nfc[j].length <= q) { at2 += nfc[j].length; rawEnd -= chunks[j].length; j-- }
   const q2 = at2
   return lf.slice(0, rawStart) + after.slice(p2, after.length - q2) + lf.slice(rawEnd)
+}
+
+/**
+ * Bug AND-3 (FR-FMT-07, FR-SYN-06): a changed list is written from the source of its items: each untouched item keeps
+ * its bytes, and so do the gaps between untouched neighbours. Rendering the whole list would rewrite its spacing: a
+ * list with one blank line between two items reads as loose, so every item would get a blank line after it. Each
+ * changed item is rendered as a one-item list (its own marker and number); the result must read back as `node`,
+ * otherwise null (the whole list is rendered, as before).
+ *
+ * Issue #173: a list split in two (Backspace at an item's start or Enter on an empty item lifts it out) leaves two
+ * lists that both come from `original`. Each half is written from the source of the original's items it holds, so
+ * `- [ ] Zavolat\n- [x] Hotovo` keeps its bytes. A half keeps the original's list-level `spread`, which its own items
+ * may not have (a one-item list is never loose); that attribute is hidden in the editor (schema.ts), so the half is
+ * written as its items read and returned with the `spread` the written text has.
+ *
+ * Issue #176: items added or removed (the item count changes) no longer render the whole list. The list's items are
+ * matched to the original's in order (longest common subsequence); an unmatched item between two matched ones takes
+ * the place of an unmatched original there (its marker, number and gaps), and an added item takes its previous
+ * neighbour's marker, follows it with the list's smallest gap and is followed by the gap that followed that neighbour.
+ */
+function listItemPatch(original: PMNode, node: PMNode, raw: string): { text: string; node: PMNode } | null {
+  if (!/List$/.test(node.type.name) || original.type !== node.type || !node.childCount) return null
+  const lf = raw.replace(/\r\n/g, '\n')
+  const parsed = parse(lf)
+  const list = parsed.blocks.length === 1 ? (parsed.blocks[0].node as { type: string; children?: { position?: { start: { offset?: number }; end: { offset?: number } } }[] }) : null
+  const m = original.childCount
+  if (!list || list.type !== 'list' || list.children?.length !== m) return null
+  const span: [number, number][] = []
+  for (const c of list.children) {
+    const from = c.position?.start.offset
+    const to = c.position?.end.offset
+    if (from === undefined || to === undefined) return null
+    span.push([from, to])
+  }
+  const n = node.childCount
+  // The original item each item is (k), or the one whose place it takes (a changed item), else null (an added item).
+  const at: (number | null)[] = new Array(n).fill(null)
+  const same: boolean[] = new Array(n).fill(false)
+  if (n === m) {
+    for (let j = 0; j < n; j++) { at[j] = j; same[j] = node.child(j).eq(original.child(j)) }
+  } else {
+    const lcs: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0))
+    for (let j = n - 1; j >= 0; j--) for (let k = m - 1; k >= 0; k--) lcs[j][k] = node.child(j).eq(original.child(k)) ? lcs[j + 1][k + 1] + 1 : Math.max(lcs[j + 1][k], lcs[j][k + 1])
+    if (!lcs[0][0]) return null
+    for (let j = 0, k = 0; j < n && k < m;) {
+      if (node.child(j).eq(original.child(k))) { at[j] = k; same[j] = true; j++; k++ } else if (lcs[j + 1][k] >= lcs[j][k + 1]) j++
+      else k++
+    }
+    // Unmatched items between two matched ones take the places of the unmatched originals there, in order.
+    for (let j = 0; j < n;) {
+      if (at[j] !== null) { j++; continue }
+      let e = j
+      while (e < n && at[e] === null) e++
+      const lo = j > 0 ? at[j - 1]! + 1 : 0
+      const hi = e < n ? at[e]! : m
+      // An open end (before the first or after the last matched item) only takes places in a whole list: a split half
+      // holds a run of the original's items, and the places past it belong to the other half.
+      const free = (j === 0 || e === n) && n < m ? 0 : hi - lo
+      for (let q = 0; q < Math.min(free, e - j); q++) at[j + q] = lo + q
+      j = e
+    }
+  }
+  // A later item starts at its marker, which must open its line (an indented list is rendered instead).
+  if (n !== m && span.some(([from], k) => k > 0 && lf[from - 1] !== '\n')) return null
+  const gap = (k: number) => lf.slice(span[k][1], span[k + 1][0]) // between original items k and k + 1
+  const gaps = span.slice(1).map((_s, k) => gap(k))
+  const smallest = gaps.length ? gaps.reduce((a, b) => (b.length < a.length ? b : a)) : original.attrs.spread ? '\n\n' : '\n'
+  let out = ''
+  let prev: number | null = null // the original place of the previous item (an added item: its previous neighbour's)
+  for (let j = 0; j < n; j++) {
+    const item = node.child(j)
+    const k = at[j]
+    const place: number | null = k ?? prev
+    if (j > 0) {
+      if (k === null) out += smallest // an added item follows its neighbour closely
+      else if (at[j - 1] === null) out += prev !== null && prev + 1 < m ? gap(prev) : smallest // after an added item: the gap that followed its neighbour
+      else if (k === prev! + 1) out += gap(prev!)
+      else if (k > prev! + 1) out += [gap(prev!), gap(k - 1)].reduce((a, b) => (b.length > a.length ? b : a)) // items removed in between
+      else return null
+    } else if (k === 0) out += lf.slice(0, span[0][0])
+    if (k !== null && same[j]) out += lf.slice(span[k][0], span[k][1])
+    else {
+      const hint = place ?? (n === m ? j : 0)
+      if (k === null && node.type.name === 'orderedList') return null // its number: the whole list is rendered
+      const itemRaw = lf.slice(span[hint][0], span[hint][1])
+      const num = /^(\d+)[.)]/.exec(itemRaw)
+      const one = { type: node.type.name, attrs: { ...node.attrs, spread: false, ...(num ? { start: Number(num[1]) } : {}) }, content: [item.toJSON()] }
+      // Issue #179 (FR-FMT-12, D-2570 (3)): a changed item is written in NFC, as every rendered block is.
+      try { out += renderBlock(pmToBlock(one), itemRaw).replace(/\n+$/, '').normalize('NFC') } catch { return null }
+    }
+    prev = place
+  }
+  if (at[n - 1] === m - 1) out += lf.slice(span[m - 1][1])
+  // Read back as the verify step will (`verify`): one block, the same editor content (but its `spread`, unless the
+  // list is the original's items in place).
+  const back = parse(out)
+  if (back.blocks.length !== 1) return null
+  try {
+    const reread = node.type.schema.nodeFromJSON(blockToPM(back.blocks[0].node, back.text))
+    const keepSpread = n === m || reread.attrs.spread === node.attrs.spread
+    const shown = keepSpread ? node : node.type.create({ ...node.attrs, spread: reread.attrs.spread }, node.content, node.marks)
+    if (JSON.stringify(comparable(reread.toJSON())) !== JSON.stringify(comparable(shown.toJSON()))) return null
+    return { text: out, node: shown }
+  } catch {
+    return null
+  }
 }
 
 function tablePatch(original: PMNode, node: PMNode, raw: string): string | null {
@@ -497,7 +609,8 @@ export function comparable(json: JSONContent): JSONContent {
   const attrs = { ...(json.attrs ?? {}) }
   delete attrs.srcIndex
   // In a table cell a link's pipe is written `\|`; it is the same link (dialect §6).
-  if (json.type === 'wikiLink' && typeof attrs.value === 'string') attrs.value = attrs.value.replace(/\\\|/g, '|')
+  // A rendered block's link target is written in NFC (FR-FMT-12; issue #179): an NFD target is the same link.
+  if (json.type === 'wikiLink' && typeof attrs.value === 'string') attrs.value = attrs.value.replace(/\\\|/g, '|').normalize('NFC')
   // A table without alignment reads back as one `null` per column.
   if (json.type === 'table' && Array.isArray(attrs.align) && attrs.align.every((a: unknown) => a === null)) attrs.align = null
   const out: JSONContent = { type: json.type }

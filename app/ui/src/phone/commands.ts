@@ -20,13 +20,12 @@ export const PHONE_FRAME_COMMANDS: readonly string[] = [
 export const PHONE_HIDDEN_COMMANDS: readonly string[] = [
   'app.palette', 'help.shortcuts', 'nav.forward', 'view.toggleSidebar', 'view.toggleRightPanel', 'view.toggleFocus',
   'note.toggleProperties', 'note.width.*', 'edit.*', 'editor.insertQuery', 'mindmap.layoutRight', 'mindmap.layoutSpider',
-  'preview.*', 'link.edit', 'link.remove', 'outline.*', 'panel.*', 'related.toggleLinked', 'graph.*', 'sidebar.pin',
-  'sidebar.unpin', 'sidebar.pinned.moveUp', 'sidebar.pinned.moveDown', 'tags.new', 'tag.*', 'queries.new', 'query.edit',
+  'preview.*', 'link.edit', 'link.remove', 'outline.*', 'panel.*', 'related.toggleLinked', 'graph.*',
+  'sidebar.pinned.moveUp', 'sidebar.pinned.moveDown', 'tags.new', 'tag.*', 'queries.new', 'query.edit',
   'query.rename', 'query.trash', 'query.saveAs', 'query.columns', 'views.new', 'views.menu', 'views.remove', 'views.edit',
   'views.moveLeft', 'views.moveRight', 'board.*', 'sort.*', 'columns.*', 'typePage.*', 'type.*', 'task.*',
-  'tasks.schedule', 'tasks.kanban', 'tasks.search', 'types.restoreDefaultViews', 'note.markReviewed',
-  'note.markUnreviewed', 'daily.markReviewed', 'daily.markUnreviewed', 'note.changeType', 'note.editProperties',
-  'object.trash', 'media.add', 'trash.*', 'goto.trash', 'goto.brokenLinks', 'goto.duplicateTitles',
+  'tasks.schedule', 'tasks.kanban', 'tasks.search', 'types.restoreDefaultViews', 'note.changeType', 'note.editProperties',
+  'media.add', 'trash.*', 'goto.trash', 'goto.brokenLinks', 'goto.duplicateTitles',
   'goto.settings/shortcuts', 'goto.settings/menu-bar', 'goto.settings/trash-history', 'goto.settings/previews',
   'settings.backups', 'job.*', 'capture.*', 'import.open', 'inbox.*', 'duplicates.merge', 'vault.open',
   'vault.addStarterTypes', 'app.about', 'nav.newTab', 'edit.copyBlockLink', 'typeSettings.*', 'panel.editRecurrence',
@@ -37,9 +36,13 @@ export const PHONE_HIDDEN_COMMANDS: readonly string[] = [
   'mindmap.toggleFold', 'mindmap.addChild',
 ];
 
-/** Exceptions inside hidden prefixes: `inbox.open` and the board's folds stay (§10). */
+/** Slice AND-3 (android-edit §13.2): the editing commands the phone shows inside hidden prefixes, with their `:` forms. */
+const PHONE_EDIT = ['task.complete', 'edit.undo', 'edit.redo', 'edit.bold', 'edit.italic', 'edit.link', 'edit.blockType', 'edit.tag', 'edit.bulletList', 'edit.checklist', 'edit.indent', 'edit.outdent'];
+
+/** Exceptions inside hidden prefixes: `inbox.open`, the board's folds (§10) and AND-3's editing commands stay. */
 export function phoneHidden(id: string): boolean {
   if (id === 'inbox.open' || /^board\..*(fold|collapse|expand)/i.test(id)) return false;
+  if (PHONE_EDIT.some((e) => id === e || id.startsWith(`${e}:`))) return false;
   return PHONE_HIDDEN_COMMANDS.some((h) => (h.endsWith('*') ? id.startsWith(h.slice(0, -1)) : id === h));
 }
 
@@ -81,7 +84,19 @@ function own(ctx: ShellContext): Command[] {
   ];
   // D-2474, D-2475: the page-local commands the shown page's controls carry (content folds and embeds, board cards,
   // lane folds, view tabs), each running its control's tap.
-  const titles: Record<string, string> = { 'read.fold:': 'cmd.phone.fold', 'read.openEmbed:': 'cmd.phone.openEmbed', 'board.openCard:': 'cmd.phone.openCard', 'board.openSource:': 'cmd.phone.openSource', 'views.tab:': 'cmd.phone.viewTab', 'board.toggleLane': 'cmd.phone.foldLane' };
+  const titles: Record<string, string> = {
+    // Slice AND-3 (android-edit §13.3).
+    'task.complete:': 'cmd.task.complete', 'note.markReviewed': 'cmd.markReviewed', 'note.markUnreviewed': 'cmd.markUnreviewed',
+    'daily.markReviewed': 'cmd.markReviewed', 'daily.markUnreviewed': 'cmd.markUnreviewed', 'phone.prop': 'cmd.phone.editProperty',
+    'edit.blockType': 'cmd.edit.blockType', 'edit.tag': 'cmd.edit.tag', 'edit.bulletList': 'cmd.edit.bulletList', 'edit.checklist': 'cmd.edit.checklist',
+    'edit.indent': 'cmd.edit.indent', 'edit.outdent': 'cmd.edit.outdent', 'edit.bold': 'toolbar.bold', 'edit.italic': 'toolbar.italic', 'edit.link': 'toolbar.link',
+    'edit.undo': 'phone.edit.undo', 'edit.redo': 'phone.edit.redo', 'phone.link.remove': 'linkField.remove', 'phone.merge.compare': 'merge.compare',
+    'phone.merge.close': 'phone.close', 'phone.merge.keepMine': 'merge.keepMine', 'phone.merge.keepTheirs': 'merge.keepTheirs', 'phone.merge.keepBoth': 'merge.keepBoth',
+    'phone.deleted.restore': 'deleted.restore', 'phone.deleted.discard': 'deleted.discard', 'phone.offer.create': 'createLink.title', 'phone.offer.type': 'createLink.typeLabel',
+    'phone.conflict.keep:': 'phone.keepThis', 'phone.conflict.merge': 'conflicts.merge', 'phone.conflict.newId': 'conflicts.newId',
+    'phone.conflict.confirm': 'conflicts.move', 'phone.conflict.cancel': 'conflicts.cancel', 'phone.conflictMerge.done': 'conflicts.done',
+    'phone.conflictMerge.cancel': 'conflicts.cancel', 'phone.notice.undo': 'save.undo',
+    'read.fold:': 'cmd.phone.fold', 'read.openEmbed:': 'cmd.phone.openEmbed', 'board.openCard:': 'cmd.phone.openCard', 'board.openSource:': 'cmd.phone.openSource', 'views.tab:': 'cmd.phone.viewTab', 'board.toggleLane': 'cmd.phone.foldLane' };
   const known = new Set(list.map((c) => c.id));
   for (const id of pageCommandIds()) {
     if (known.has(id)) continue;
@@ -107,6 +122,13 @@ export function phoneCommands(list: readonly Command[], ctx: ShellContext = { va
   const ids = new Set(kept.map((c) => c.id));
   const out = [...kept];
   for (const c of own(ctx)) if (!ids.has(c.id)) out.push(c);
-  // `object.new` stays listed but does nothing until AND-3 (D-2401).
-  return out.map((c) => (c.id === 'object.new' ? { ...c, run: () => undefined, disabled: () => 'phone.newLater' } : c));
+  return out;
+}
+
+/** Slice AND-3 (android-edit §4.4; FR-EDT-03 AC-6, D-2505): the slash items the phone offers. */
+export const PHONE_SLASH: readonly string[] = ['text', 'heading1', 'heading2', 'heading3', 'bulletList', 'orderedList', 'checklist', 'quote', 'callout', 'codeBlock', 'divider'];
+
+/** `PHONE_SLASH`'s ids in `items`' order. */
+export function phoneSlashItems<T extends { id: string }>(items: readonly T[]): T[] {
+  return items.filter((i) => PHONE_SLASH.includes(i.id));
 }

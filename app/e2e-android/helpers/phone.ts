@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { inflateSync } from 'node:zlib';
 import { WRITE_COMMANDS } from '../../ui/test/phone-writes.ts';
 import {
-  appops, clearPrivate, eventually, forceStop, pushVault, runAs, sh, sleep, start, TEST_ID, webview, writeTestEnv, type WebView,
+  adb, appops, clearPrivate, eventually, forceStop, pushVault, runAs, sh, sleep, start, TEST_ID, webview, writeShared, writeTestEnv, type WebView,
 } from './device.ts';
 
 export { WRITE_COMMANDS };
@@ -136,9 +136,18 @@ export function ipcLog(id = TEST_ID): { cmd: string; ms: number }[] {
 }
 /** `WRITE_COMMANDS` entries of the IPC log (§2.3: "zero writes" at LA). */
 export const ipcWrites = (id = TEST_ID) => ipcLog(id).map((x) => x.cmd).filter((c) => WRITE_COMMANDS.includes(c));
-/** A floating toolbar or `ActionMode` window (a WebView context menu) in `dumpsys window`. */
+/** Every window's accessibility tree (`uiautomator dump --windows`), the floating text toolbar's popup included. */
+export function uiDumpWindows(): string {
+  sh('uiautomator dump --windows /sdcard/tegg-ui-w.xml >/dev/null 2>&1', false);
+  return sh('cat /sdcard/tegg-ui-w.xml', false);
+}
+/** A floating toolbar or `ActionMode` window (a WebView context menu). Android 15 draws the floating text toolbar as a
+ *  `PopupWindow` of type `APPLICATION_ABOVE_SUB_PANEL`, whose items only `uiautomator dump --windows` lists (D-2557). */
 export function actionModeShown(): boolean {
-  return /FloatingToolbar|ActionMode|floating_popup/i.test(sh('dumpsys window windows', false));
+  const w = sh('dumpsys window windows', false);
+  if (/FloatingToolbar|ActionMode|floating_popup/i.test(w)) return true;
+  if (!/PopupWindow[\s\S]{0,600}?ty=APPLICATION_ABOVE_SUB_PANEL/.test(w)) return false;
+  return /(?:text|content-desc)="(?:Cut|Copy|Paste|Select all)"/i.test(uiDumpWindows());
 }
 
 /** `views/` + `new-empty/.tegg/` + `phone/` as `Knihovna` in shared storage (the fixture READMEs and scripts removed). */
@@ -183,3 +192,122 @@ export async function tapEl(v: WebView, selector: string): Promise<void> {
   tap(p.x, p.y);
 }
 export { sleep };
+
+// ================================================================================================ slice AND-3
+// docs/contracts/android-edit.md §17.2: the renderer, background kills, Recents, recovery copies, temp files, the sync
+// app's replace, and editable nodes in `uiautomator dump`. Test infrastructure only (TS-I1).
+
+/** The app's sandboxed renderer process (`adb root`; `ps -A`), or null. */
+export function rendererPid(id = TEST_ID): number | null {
+  const r = adb(['root']);
+  assert.equal(r.status, 0, `adb root: ${r.stderr || r.stdout}`);
+  adb(['wait-for-device']);
+  const line = sh('ps -A -o PID,NAME', false).split('\n').find((l) => l.includes(`${id}:sandboxed_process`) || /sandboxed_process\d*:org\.chromium\.content\.app/.test(l) && l.includes(id));
+  const any = line ?? sh('ps -A -o PID,NAME', false).split('\n').find((l) => /:sandboxed_process/.test(l));
+  return any ? Number(any.trim().split(/\s+/)[0]) : null;
+}
+/** `kill -9` of the renderer (FR-EDT-08 AC-18); returns the pid killed. */
+export function killRenderer(id = TEST_ID): number {
+  const pid = rendererPid(id);
+  assert.ok(pid, 'the app has a sandboxed renderer process');
+  sh(`kill -9 ${pid}`);
+  return pid!;
+}
+/** HOME, a pause of ~1 s, then `kill -9` of the app's process as root (a background kill, as Android's low-memory
+ *  killer): `am kill` left the process running, so the next start wasn't cold (D-2557). */
+export function amKill(id = TEST_ID): void {
+  sh('input keyevent KEYCODE_HOME');
+  sh('sleep 1', false);
+  const r = adb(['root']);
+  assert.equal(r.status, 0, `adb root: ${r.stderr || r.stdout}`);
+  adb(['wait-for-device']);
+  const pid = sh(`pidof ${id}`, false).trim().split(/\s+/)[0];
+  if (pid) sh(`kill -9 ${pid}`, false);
+  const gone = sh(`for i in 1 2 3 4 5 6 7 8 9 10; do pidof ${id} >/dev/null || { echo gone; exit 0; }; sleep 0.2; done`, false).includes('gone');
+  assert.ok(gone, `${id}'s process (${pid}) is killed`);
+}
+/** Removes the app's task from Recents (the swipe away). */
+export function removeTask(id = TEST_ID): void {
+  const out = sh('am stack list', false) + sh('dumpsys activity recents', false);
+  const m = new RegExp(`(?:taskId|id)=(\\d+)[^\\n]*${id.replace(/\./g, '\\.')}`).exec(out) ?? new RegExp(`${id.replace(/\./g, '\\.')}[^\\n]*?(?:taskId|#)=?(\\d+)`).exec(out);
+  assert.ok(m, `the app's task is in Recents (${id})`);
+  const r = adb(['shell', `cmd activity remove-task ${m![1]} || am stack remove ${m![1]}`]);
+  assert.equal(r.status, 0, `remove the task ${m![1]}: ${r.stderr || r.stdout}`);
+}
+/** The files in the app's private `files/recovery/` (FR-EDT-08 AC-17). */
+export function recoveryFiles(id = TEST_ID): string[] {
+  return runAs(id, 'ls files/recovery 2>/dev/null || true', false).split('\n').map((l) => l.trim()).filter(Boolean);
+}
+/** `.tegg-tmp` files anywhere under the vault. */
+export function tmpFiles(vault: string): string[] {
+  return sh(`find ${quoteSh(vault)} -name '*.tegg-tmp' 2>/dev/null`, false).split('\n').map((l) => l.trim()).filter(Boolean);
+}
+const quoteSh = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
+/** Replaces a vault file as the sync app does: a temp file beside it, then `mv` (§17.2). */
+export function pushReplace(path: string, text: string): void {
+  const tmp = `${path.replace(/[^/]*$/, '')}.sync-${Math.random().toString(36).slice(2, 8)}.tmp`;
+  writeShared(tmp, text);
+  sh(`mv ${quoteSh(tmp)} ${quoteSh(path)}`);
+}
+/** Whether `uiautomator dump` lists a node with that text (or content-desc) that is editable / a button. */
+export function uiNode(name: string): { found: boolean; editable: boolean; clickable: boolean } {
+  sh('uiautomator dump /sdcard/tegg-ui.xml >/dev/null 2>&1', false);
+  const xml = sh('cat /sdcard/tegg-ui.xml', false);
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/"/g, '&quot;');
+  const node = new RegExp(`<node[^>]*(?:text|content-desc|hint)="${esc}"[^>]*>`).exec(xml)?.[0] ?? '';
+  return { found: !!node, editable: /class="android\.widget\.EditText"|editable="true"/.test(node) || /focusable="true"[^>]*class="android\.widget\.EditText"/.test(node), clickable: /clickable="true"/.test(node) };
+}
+/** `uiEditable(name)` (§17.2): a node with that text and `editable`. */
+export const uiEditable = (name: string) => uiNode(name).editable;
+/** `editor/` + `new-empty/.tegg/` + `phone-edit/` as `Editor` in shared storage (READMEs removed). */
+export function pushEdit(extra: string[] = []): string {
+  const root = pushVault(['tests/fixtures/vaults/editor', 'tests/fixtures/vaults/new-empty/.tegg', 'tests/fixtures/vaults/phone-edit', ...extra], 'Editor');
+  sh(`rm -f '${root}/README.md'`, false);
+  return root;
+}
+/** The open note's editor text through the page's test hook (`__TEGG_TEST__.editor.text()`), or null. */
+export const editorTextOf = (v: WebView) => v.eval<string | null>(`(() => { const e = window.__TEGG_TEST__?.editor; return typeof e?.text === 'function' ? e.text() : null; })()`);
+/** Places a collapsed caret `offset` characters into the first occurrence of `text` in the `Note body` (CDP). */
+export async function caretIn(v: WebView, text: string, offset: number | 'end' = 'end'): Promise<void> {
+  const ok = await v.eval<boolean>(`(() => {
+    const body = document.querySelector('[role="textbox"][aria-label="Note body"]');
+    if (!body) return false;
+    body.focus();
+    const want = ${JSON.stringify(text.normalize('NFC'))};
+    const w = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+    for (let n = w.nextNode(); n; n = w.nextNode()) {
+      const s = (n.textContent || '').normalize('NFC');
+      const i = s.indexOf(want);
+      if (i < 0) continue;
+      const r = document.createRange();
+      r.setStart(n, ${offset === 'end' ? `i + want.length` : `i + ${offset}`});
+      r.collapse(true);
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      document.dispatchEvent(new Event('selectionchange'));
+      return true;
+    }
+    return false;
+  })()`);
+  assert.ok(ok, `"${text}" is in the Note body`);
+}
+/** Taps the word `text` in the Note body with a real touch (`input tap`). */
+export async function tapWord(v: WebView, text: string): Promise<void> {
+  const r = await v.eval<{ x: number; y: number } | null>(`(() => {
+    const body = document.querySelector('[role="textbox"][aria-label="Note body"]');
+    if (!body) return null;
+    const want = ${JSON.stringify(text.normalize('NFC'))};
+    const w = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+    for (let n = w.nextNode(); n; n = w.nextNode()) {
+      const s = (n.textContent || '').normalize('NFC');
+      const i = s.indexOf(want);
+      if (i < 0) continue;
+      const rg = document.createRange(); rg.setStart(n, i); rg.setEnd(n, i + want.length);
+      const b = rg.getBoundingClientRect();
+      return { x: b.left + b.width / 2, y: b.top + b.height / 2 };
+    }
+    return null;
+  })()`);
+  assert.ok(r, `"${text}" is shown in the Note body`);
+  const p = await toDevice(v, r!.x, r!.y);
+  tap(p.x, p.y);
+}

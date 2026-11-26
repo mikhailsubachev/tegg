@@ -137,3 +137,50 @@ fn fr_vlt_01_ac27_recent_vaults_keep_disk_path() {
     drop(v);
     assert_eq!(Vault::recent(&dirs).len(), 1, "one entry for both spellings");
 }
+
+/// Slice AND-3, L4 (Mac host): docs/acceptance/android-edit.md FR-FMT-12 AC-18 "A note stored under an NFD name stays
+/// read-only on the phone" (D-2048; AP-2077 → D-2512; T1), the refusal on the host (docs/contracts/android-edit.md §3.1):
+/// through a `LocalFs` that resolves names as on Android (`tegg_vault::testing::resolving_fs`, red-test decision D-2546),
+/// a write, a rename (the trash's move) and a removal of a note stored under an NFD name fail with `PermissionDenied`
+/// and change nothing (bytes, name bytes, inode, mtime), a read goes through, and `on_disk_name` reports the stored bytes
+/// that differ from the NFC form (the core's `nfdName`). `.tegg/pinned.yml` (an ASCII path) is still written.
+#[test]
+fn fr_fmt_12_ac18_nfd_named_note_read_only_on_the_phone() {
+    use std::os::unix::fs::MetadataExt;
+    use tegg_vault::testing::resolving_fs;
+    use tegg_vault::VaultFs;
+
+    let t = tmp("nfd-ro");
+    let root = t.0.join("Trezor");
+    std::fs::create_dir_all(root.join("Pages")).expect("setup: Pages");
+    std::fs::create_dir_all(root.join(".tegg")).expect("setup: .tegg");
+    let nfd_name = nfd("Poznámka.md");
+    let stored = root.join("Pages").join(OsStr::from_bytes(nfd_name.as_bytes()));
+    let text = "---\nid: 01JA0S0000000000000000AND1\ntype: page\ntitle: Poznámka\n---\n- [ ] Úkol v poznámce\n";
+    std::fs::write(&stored, text).expect("setup: the NFD-named note");
+    std::fs::write(root.join(".tegg/pinned.yml"), "version: 1\npinned: []\n").expect("setup: pinned.yml");
+    let snap = || {
+        let md = std::fs::symlink_metadata(&stored).expect("stat");
+        let names: Vec<Vec<u8>> = std::fs::read_dir(root.join("Pages")).expect("list").filter_map(|e| e.ok()).map(|e| e.file_name().as_bytes().to_vec()).collect();
+        (std::fs::read(&stored).expect("read"), names, md.ino(), md.mtime(), md.mtime_nsec())
+    };
+    let before = snap();
+
+    // the field: the listing holds other bytes than the NFC name
+    let listing: Vec<String> = std::fs::read_dir(root.join("Pages")).expect("list").filter_map(|e| e.ok()).map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+    let got = on_disk_name(&listing, "Poznámka.md");
+    assert!(matches!(&got, OnDiskName::Found(s) if s.as_bytes() != "Poznámka.md".as_bytes()), "on_disk_name finds the stored NFD bytes (nfdName): {}", describe(&got));
+
+    let fs = resolving_fs(&root);
+    let read = fs.read("Pages/Poznámka.md");
+    assert!(read.is_ok(), "a read goes through: {:?}", read.err());
+    let w = fs.replace("Pages/Poznámka.md", b"---\ntitle: Poznamka\n---\nPrepsano.\n");
+    assert_eq!(w.as_ref().map(|_| ()).map_err(|e| e.kind()), Err(std::io::ErrorKind::PermissionDenied), "a write to the NFD-named note is refused");
+    let mv = fs.rename_no_replace("Pages/Poznámka.md", ".trash/Pages/Poznámka.md");
+    assert_eq!(mv.as_ref().map_err(|e| e.kind()), Err(std::io::ErrorKind::PermissionDenied), "a move to the trash is refused");
+    let rm = fs.remove_file("Pages/Poznámka.md");
+    assert_eq!(rm.as_ref().map_err(|e| e.kind()), Err(std::io::ErrorKind::PermissionDenied), "a removal is refused");
+    assert_eq!(snap(), before, "its bytes, name bytes, inode and mtime are unchanged");
+    let pin = fs.replace(".tegg/pinned.yml", b"version: 1\npinned:\n  - id: 01JA0S0000000000000000AND1\n");
+    assert!(pin.is_ok(), "Pin still writes .tegg/pinned.yml: {:?}", pin.err());
+}

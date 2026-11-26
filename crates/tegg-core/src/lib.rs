@@ -101,6 +101,9 @@ pub struct NoteRead {
     pub bytes: Vec<u8>,
     pub version: FileVersion,
     pub utf8: bool,
+    /// android-edit §3.1 (FR-FMT-12 AC-18, D-2512): reached through an on-disk name whose bytes differ from its NFC
+    /// form; such a note is read-only on the phone. Always false on macOS.
+    pub nfd_name: bool,
 }
 
 impl From<VaultError> for CoreError {
@@ -187,6 +190,17 @@ fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 impl Shared {
+    /// android-edit §3.1 (FR-FMT-12, D-2554): sets each list row's `read_only` when its file is stored under a name
+    /// whose bytes differ from its NFC form. Rows already read-only cost nothing; `Vault::nfd_name` is false without
+    /// I/O on macOS and for ASCII paths, and `LocalFs` resolves the rest through its per-folder listing cache.
+    fn mark_nfd_read_only<'a>(&self, rows: impl Iterator<Item = (&'a str, &'a mut bool)>) {
+        for (path, read_only) in rows {
+            if !*read_only && self.vault.nfd_name(path) {
+                *read_only = true;
+            }
+        }
+    }
+
     fn emit(&self, e: CoreEvent) {
         // v1-queries §1.7: every `VaultChanged` holding `.md` paths is followed by `QueryStale`.
         let stale = match &e {
@@ -536,7 +550,8 @@ impl Core {
         let mut rec = lock(&self.shared.recency);
         rec.0.insert(nfc(path), ms);
         rec.1 = true;
-        Ok(NoteRead { bytes, version, utf8 })
+        let nfd_name = self.shared.vault.nfd_name(path);
+        Ok(NoteRead { bytes, version, utf8, nfd_name })
     }
 
     /// D-185: tags with their display name (ms4-tags §1.2): every tag of `tag_rows`, count-0 Tag files included.

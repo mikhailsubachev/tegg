@@ -85,6 +85,9 @@ impl Core {
                 })
             })
             .collect();
+        drop(idx);
+        // android-edit §3.1 (D-2554): a file stored under an NFD name is read-only on the phone (never on macOS).
+        self.shared.mark_nfd_read_only(rows.iter_mut().map(|r| (r.path.as_str(), &mut r.read_only)));
         rows.sort_by(|a, b| a.path.as_bytes().cmp(b.path.as_bytes()));
         rows
     }

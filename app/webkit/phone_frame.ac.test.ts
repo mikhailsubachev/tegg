@@ -16,6 +16,7 @@ import {
   FRAME, INSETS, KEYBOARD, LANDSCAPE, NOW, PH, RA9_ROUTES, SMALL, TODAY, appBar, assertZeroWrites, barButton, bottomBar, controls, drawer, eventually,
   fileStateOf, firstVisibleBlock, flat, hitArea, keyboard, loadVault, mainName, moreButton, moreMenu, must, nfc, openDrawer, pageHeading, phonePage,
   rect, scrollBlockToTop, seen, sheet, sidewaysOverflow, sleep, startPhone, systemBack, verticalScrollers, type PhoneOptions, type Size,
+  tap,
 } from './phone-helpers';
 
 const layoutAttr = (page: Page) => page.evaluate(() => document.documentElement.getAttribute('data-layout'));
@@ -80,9 +81,11 @@ test('fr_ux_04_ac2_phone_frame', async ({ browser }) => {
       assert.deepEqual(names, ['Menu', 'Search', 'New', 'Today'], `${how}: the bottom bar's buttons in order`);
       const labels = await bottomBar(page).locator('span.phone-tab-label').allInnerTexts();
       assert.deepEqual(labels.map(flat), ['Menu', 'Search', 'New', 'Today'], `${how}: each with a visible label`);
+      // Slice AND-3 (android-edit.md FR-VLT-05 AC-16, contract §10.3, §20; D-2508): New is enabled (AC-Test-Change, approved
+      // by the owner with the contract, D-2541)
       const nw = barButton(page, 'New');
-      assert.equal(await nw.getAttribute('aria-disabled'), 'true', `${how}: New is aria-disabled`);
-      assert.equal(await nw.getAttribute('aria-description'), 'Creating objects comes with editing on the phone.', `${how}: New's description (phone.newLater)`);
+      assert.equal(await nw.getAttribute('aria-disabled'), null, `${how}: New is enabled`);
+      assert.equal(await nw.getAttribute('aria-description'), null, `${how}: no phone.newLater`);
 
       // scrolling main by 2,000 px leaves both bars in place, and nothing else scrolls vertically
       await page.evaluate(() => { const m = [...document.querySelectorAll('main')].find((e) => e.getClientRects().length > 0) as HTMLElement; m.scrollTop += 2000; window.scrollBy(0, 2000); });
@@ -115,11 +118,13 @@ test('fr_ux_04_ac2_phone_frame', async ({ browser }) => {
   await must(page.getByRole('main', { name: 'Inbox' }), 'the cold start on inbox');
   const before = await fileStateOf(core);
   assert.equal(await page.getByRole('banner').getByRole('button', { name: 'Back' }).count(), 0, 'after a cold start on inbox: no Back');
-  const n = (await core.calls()).length;
-  await barButton(page, 'New').click({ force: true });
-  await sleep(500);
-  assert.equal(await mainName(page), 'Inbox', 'a tap on New changes nothing');
-  assert.deepEqual((await core.calls()).slice(n).map((c) => c.cmd), [], 'a tap on New sends no command');
+  // Slice AND-3 (contract §10.3, §20): a tap on New opens the type sheet; closing it keeps the route and writes nothing
+  // (AC-Test-Change, approved by the owner with the contract, D-2541)
+  await tap(page, barButton(page, 'New'), 'New');
+  await must(page.getByRole('dialog', { name: 'New object' }), 'a tap on New opens the type sheet "New object"');
+  assert.equal(await systemBack(page), 'handled', 'Back closes the sheet');
+  assert.equal(await mainName(page), 'Inbox', 'the route stays');
+  await assertZeroWrites(core, before, 'the type sheet');
   await (await must(page.getByRole('main').getByText('Nápad z vlaku', { exact: true }), 'the Inbox row Nápad z vlaku')).click();
   assert.equal(await eventually(() => mainName(page), (x) => x === 'Nápad z vlaku', 3000), 'Nápad z vlaku', 'the row opens the note');
   await must(appBar(page).getByRole('button', { name: 'Back' }), 'after opening a note from the Inbox: Back');
@@ -358,7 +363,8 @@ test('fr_ux_08_ac28_talkback_reads_the_frame', async ({ page }) => {
   await startPhone(page, { route: 'inbox' });
   const names = await bottomBar(page).getByRole('button').evaluateAll((bs) => bs.map((b) => ({ name: (b.getAttribute('aria-label') ?? (b as HTMLElement).innerText).trim(), disabled: b.getAttribute('aria-disabled') })));
   assert.deepEqual(names.map((n) => n.name), ['Menu', 'Search', 'New', 'Today'], 'the bottom bar reads Menu, Search, New, Today');
-  assert.equal(names[2].disabled, 'true', 'New is not enabled');
+  // Slice AND-3 (contract §10.3; D-2508): New is enabled now (AC-Test-Change, approved by the owner with the contract, D-2541)
+  assert.equal(names[2].disabled, null, 'New is enabled');
   await (await must(page.getByRole('main').getByText('Koupit čaj', { exact: true }), 'the Inbox row Koupit čaj')).click();
   await must(appBar(page).getByRole('button', { name: 'Back' }), 'Back in the app bar after one navigation');
 

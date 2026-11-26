@@ -439,13 +439,22 @@ test('fr_qry_09_ac10_live_views_on_the_phone', async () => {
 
 // ------------------------------------------------------------------------------------------------ FR-EDT-10 AC-10, FR-ATT-01 AC-17, FR-NAV-08 AC-3
 
+// Slice AND-3 (docs/contracts/android-edit.md §7.1, §20; D-2415): a note the phone can write opens in the editor without a
+// keyboard; the read view (no contenteditable, a tap never shows the keyboard) holds only for §7.1's read-only modes, here a
+// note stored under an NFD name (AC-Test-Change, approved by the owner with the contract, D-2541).
 test('fr_edt_10_ac10_note_is_the_read_view_on_the_phone', async () => {
   ready();
   const vault = pushPhone();
+  writeShared(`${vault}/Pages/Pozna\u0301mka.md`, '---\nid: 01JBAN3000000000000000P001\ntype: page\ntitle: Poznámka\n---\nText poznámky.\n');
   const { v } = await launchPhone(vault, { TEGG_ROUTE: `note/${DLOUHA}` }, views);
   await titleIs(v, 'Dlouhá poznámka');
-  assert.equal(await v.eval<number>(`document.querySelectorAll('[contenteditable], .ProseMirror').length`), 0, 'no editor');
-  await tapEl(v, 'main p');
+  assert.ok(await v.waitFor('[role="textbox"][aria-label="Note body"][contenteditable="true"]', 5000), 'a writable note is the editor');
+  await sleep(1000);
+  assert.equal(imeShown(), false, 'opening shows no keyboard');
+  const { v: v2 } = await launchPhone(vault, { TEGG_ROUTE: 'note/Pages/Poznámka.md' }, views);
+  await titleIs(v2, 'Poznámka');
+  assert.equal(await v2.eval<number>(`document.querySelectorAll('main [contenteditable="true"]').length`), 0, 'the NFD-named note is the read view');
+  await tapEl(v2, 'main p');
   await sleep(800);
   assert.equal(imeShown(), false, 'a tap on the text never shows the keyboard (mInputShown=false)');
   assert.deepEqual(ipcWrites(), [], 'zero writes');
@@ -608,7 +617,9 @@ test('fr_ux_08_ac28_talkback_reads_the_frame', async () => {
   // approved by the owner).
   const dump = await eventually(async () => uiDump(), (d) => /(text|content-desc)="Menu"/.test(d), 3000, 300);
   for (const name of ['Menu', 'Search', 'New', 'Today']) assert.match(dump, new RegExp(`(text|content-desc)="${name}"`), `the dump lists ${name}`);
-  assert.match(dump, /(text|content-desc)="New"[^>]*enabled="false"|enabled="false"[^>]*(text|content-desc)="New"/, 'New is not enabled');
+  // Slice AND-3 enables New (android-edit.md; AC-Test-Change, D-2557)
+  const newNode = /<node[^>]*(?:text|content-desc)="New"[^>]*>/.exec(dump)?.[0] ?? '';
+  assert.match(newNode, /enabled="true"/, 'New is enabled');
   // The row's link, not the `li` (the first match of `main li a, main li`; AC-Test-Change, approved by the owner).
   await v.click('main li a');
   await sleep(1000);
@@ -655,15 +666,25 @@ test('nfr_sec_01_ac4_external_links_leave_through_the_system', async () => {
   ready();
   const vault = pushPhone();
   const { v } = await launchPhone(vault, { TEGG_ROUTE: `note/${VEN}` }, views);
-  assert.ok(await v.waitFor('main article a', 10_000), 'Odkazy ven');
+  // the web and mailto links are drawn as links (an `a` or a `role="link"` chip); the javascript: and file: links lie in
+  // a source block (AC-Test-Change, D-2557)
+  const LINKS = 'main article a, main article [role="link"]';
+  assert.ok(await v.waitFor(LINKS, 10_000), 'Odkazy ven');
   const href0 = await v.eval<string>('location.href');
-  const linkSel = (text: string) => `(() => { const a = [...document.querySelectorAll('main article a')].find((x) => x.innerText.trim() === ${JSON.stringify(text)}); return a; })()`;
+  const linkSel = (text: string) => `(() => { const a = [...document.querySelectorAll(${JSON.stringify(LINKS)})].find((x) => x.innerText.trim() === ${JSON.stringify(text)}); return a; })()`;
   const tapLink = async (text: string) => {
     const r = await v.eval<{ left: number; top: number; width: number; height: number } | null>(`(() => { const a = ${linkSel(text)}; if (!a) return null; a.scrollIntoView({ block: 'center' }); const b = a.getBoundingClientRect(); return { left: b.left, top: b.top, width: b.width, height: b.height }; })()`);
     if (!r) return false;
     const p = await toDevice(v, r.left + r.width / 2, r.top + r.height / 2);
     tap(p.x, p.y);
     return true;
+  };
+  /** A real tap on the first occurrence of `text` in the article (wherever it is drawn: a tap on it does nothing). */
+  const tapText = async (text: string) => {
+    const r = await v.eval<{ x: number; y: number } | null>(`(() => { const art = document.querySelector('main article'); if (!art) return null; const w = document.createTreeWalker(art, NodeFilter.SHOW_TEXT); for (let n = w.nextNode(); n; n = w.nextNode()) { const i = (n.textContent || '').indexOf(${JSON.stringify(text)}); if (i < 0) continue; n.parentElement.scrollIntoView({ block: 'center' }); const rg = document.createRange(); rg.setStart(n, i); rg.setEnd(n, i + ${text.length}); const b = rg.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; } return null; })()`);
+    assert.ok(r, `${text} is shown in Odkazy ven`);
+    const p = await toDevice(v, r!.x, r!.y);
+    tap(p.x, p.y);
   };
   let mark = logcatMark();
   assert.ok(await tapLink('web'), 'the link web');
@@ -683,7 +704,7 @@ test('nfr_sec_01_ac4_external_links_leave_through_the_system', async () => {
   await sleep(1000);
   for (const text of ['skript', 'soubor']) {
     mark = logcatMark();
-    await tapLink(text);
+    await tapText(text);
     await sleep(1500);
     assert.deepEqual(logcatSince(mark, /START u0 \{act=android\.intent\.action\.VIEW/), [], `${text}: no intent`);
     assert.equal(await v.eval<string>('location.href'), href0, `${text}: navigates nothing`);

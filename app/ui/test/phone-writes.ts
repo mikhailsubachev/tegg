@@ -33,6 +33,9 @@ export const READ_COMMANDS: readonly string[] = [
   'import_discard', 'import_transform_result',
   // commands::ANDROID_ONLY (AND-1 §2.1, AND-2 §2.1)
   'vault_start', 'vault_find', 'storage_access', 'storage_access_settings', 'android_open_url', 'android_window',
+  // Slice AND-3 (docs/contracts/android-edit.md §2.2, §2.5): private storage and the keyboard, allowed writers like
+  // `ui_state_set` (AC-Test-Change, approved by the owner with the contract, D-2541).
+  'android_recovery_put', 'android_recovery_get', 'android_recovery_drop', 'android_ime',
 ];
 
 export const isWrite = (cmd: string) => WRITE_COMMANDS.includes(cmd);

@@ -79,14 +79,23 @@ if (code.length !== 240 || url.length !== 160 || [...tipLine].length !== 300) th
 
 // ------------------------------------------------------------------------------------------------ Odkazy ven
 out('Pages/Odkazy ven.md', fm([`id: ${id(3)}`, 'type: page', 'title: Odkazy ven', 'created: 2026-11-12T09:00:00+01:00', 'modified: 2026-11-12T09:00:00+01:00']) + [
+  // the web and mailto links in a list of their own, so the editor draws them as tappable links (D-2557)
   '- Web: [web](https://example.org/čeština)',
   '- Pošta: <mailto:eva@example.org>',
+  '',
+  // the javascript: and file: links stay in a list the editor shows as a source block (D-2557)
+  'Jinam:',
+  '',
   '- Skript: [skript](javascript:alert(1))',
   '- Soubor: [soubor](file:///etc/hosts)',
+  '- Štítek: #cestování',
+  '',
+  // the wikilinks in their own list, so the editor shows them as chips (D-2554)
+  'Poznámky:',
+  '',
   '- Chybí: [[Neexistuje]]',
   '- Později: [[Později]]',
   '- Den: [[2026-10-20]]',
-  '- Štítek: #cestování',
   '',
 ].join('\n'));
 

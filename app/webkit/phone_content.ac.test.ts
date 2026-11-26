@@ -14,7 +14,7 @@
 // - "every control of the note embed that opens it": every visible button or link inside the embed's frame
 //   (`[data-embed-target]`, the frame itself when it is a link) except the task checkbox;
 // - the task embed's status is "text": `In progress` is visible in the frame and not inside a button, link or input;
-//   its checkbox is `aria-disabled="true"` (the AC names no description, so none is asserted);
+//   its checkbox carries `task.complete:<path>` and is enabled (AND-3, android-edit.md §12.1, D-2407; D-2554);
 // - AC-54's second part is applied with AC-54's test's filter, plus D-2475: a view-only task checkbox
 //   (`aria-disabled`) is exempt and carries no `data-command` of its own; "RA11's hidden list" is §10's
 //   PHONE_HIDDEN_COMMANDS with `board.openCard:` and `board.openSource:` excepted inside `board.*` (D-2474, D-2475);
@@ -22,7 +22,8 @@
 //   itself carries `board.openCard:<data-board-card>` (NFC), the element holding the title resolves to that command,
 //   the source chip (the control named after the source note; in the fixture only Zavolat Janě's `Porada`) carries
 //   `board.openSource:<data-board-card>` (the card's task path, as `board.openCard:`), every other visible control of
-//   the card except the checkbox carries `board.openCard:<path>`, and the checkbox carries no `data-command`;
+//   the card except the checkbox carries `board.openCard:<path>`, and the checkbox carries `task.complete:<path>`
+//   (AND-3, android-edit.md §12.1, D-2407; none while it stays read-only; D-2554);
 // - `board.openSource:Tasks/Zavolat Janě.md` on the Kanban tab opens its source `note/Pages/Porada.md` (D-2475).
 // Written from the AC and the contract only (D-61).
 import { test, type Browser, type Locator, type Page } from '@playwright/test';
@@ -47,19 +48,22 @@ const contentStart = (route: string): PhoneOptions => ({ vault: contentVault(), 
 const HIDDEN = [
   'app.palette', 'help.shortcuts', 'nav.forward', 'view.toggleSidebar', 'view.toggleRightPanel', 'view.toggleFocus', 'note.toggleProperties', 'note.width.*', 'edit.*',
   'editor.insertQuery', 'mindmap.layoutRight', 'mindmap.layoutSpider', 'preview.*', 'link.edit', 'link.remove', 'outline.*', 'panel.*', 'related.toggleLinked', 'graph.*',
-  'sidebar.pin', 'sidebar.unpin', 'sidebar.pinned.moveUp', 'sidebar.pinned.moveDown', 'tags.new', 'tag.*', 'queries.new', 'query.edit', 'query.rename', 'query.trash',
+  'sidebar.pinned.moveUp', 'sidebar.pinned.moveDown', 'tags.new', 'tag.*', 'queries.new', 'query.edit', 'query.rename', 'query.trash',
   'query.saveAs', 'query.columns', 'views.new', 'views.menu', 'views.remove', 'views.edit', 'views.moveLeft', 'views.moveRight', 'board.*', 'sort.*', 'columns.*',
-  'typePage.*', 'type.*', 'task.*', 'tasks.schedule', 'tasks.kanban', 'tasks.search', 'types.restoreDefaultViews', 'note.markReviewed', 'note.markUnreviewed',
-  'daily.markReviewed', 'daily.markUnreviewed', 'note.changeType', 'note.editProperties', 'object.trash', 'media.add', 'trash.*', 'goto.trash', 'goto.brokenLinks',
+  'typePage.*', 'type.*', 'task.*', 'tasks.schedule', 'tasks.kanban', 'tasks.search', 'types.restoreDefaultViews',
+  'note.changeType', 'note.editProperties', 'media.add', 'trash.*', 'goto.trash', 'goto.brokenLinks',
   'goto.duplicateTitles', 'goto.settings/shortcuts', 'goto.settings/menu-bar', 'goto.settings/trash-history', 'goto.settings/previews', 'settings.backups', 'job.*',
   'capture.*', 'import.open', 'inbox.*', 'duplicates.merge', 'vault.open', 'vault.addStarterTypes', 'app.about', 'nav.newTab', 'edit.copyBlockLink', 'typeSettings.*',
   'panel.editRecurrence', 'settings.font', 'settings.fontSize', 'settings.accentColor', 'settings.changeShortcut',
 ];
 /** `board.*` except folds (§10): a fold is the command of a board's `Collapse <lane>` / `Expand <lane>` button (§9.5,
  *  R206), or an id that names a fold; `board.openCard:` and `board.openSource:` are the exceptions of D-2474, D-2475. */
+// Slice AND-3 (docs/contracts/android-edit.md §13.2, §20): the seven ids AND-3 shows leave the list, and these are the
+// exceptions inside hidden prefixes, with their `:` forms (AC-Test-Change, approved by the owner with the contract, D-2541).
+const AND3_SHOWN = ['task.complete', 'edit.undo', 'edit.redo', 'edit.bold', 'edit.italic', 'edit.link', 'edit.blockType', 'edit.tag', 'edit.bulletList', 'edit.checklist', 'edit.indent', 'edit.outdent'];
 const isFold = (id: string, folds: Set<string>) => folds.has(id) || /^board\..*(fold|collapse|expand)/i.test(id);
 function hiddenCommand(id: string, folds: Set<string> = new Set()): boolean {
-  if (id === 'inbox.open' || isFold(id, folds) || id.startsWith('board.openCard:') || id.startsWith('board.openSource:')) return false;
+  if (id === 'inbox.open' || AND3_SHOWN.includes(id.split(':')[0]) || isFold(id, folds) || id.startsWith('board.openCard:') || id.startsWith('board.openSource:')) return false;
   return HIDDEN.some((h) => (h.endsWith('*') ? id.startsWith(h.slice(0, -1)) : id === h));
 }
 
@@ -239,13 +243,15 @@ test('fr_ux_03_ac59_content_controls_on_the_phone', async ({ page, browser }) =>
     ['due button', taskFrame.getByRole('button', { name: /^Due\b/ })], ['Due date field', taskFrame.getByRole('textbox', { name: /Due date/ })],
     ['Clear (due)', taskFrame.getByRole('button', { name: 'Clear', exact: true })],
   ] as const) assert.equal(await loc.count(), 0, `the task embed Opravit kolo has no ${what}`);
-  assert.deepEqual(await taskFrame.locator('[data-command^="task."]').evaluateAll((es) => es.map((e) => e.getAttribute('data-command'))), [], 'no task.* control in the task embed');
+  // Slice AND-3 (android-edit.md FR-TSK-02 AC-14, contract §12.1, §20; D-2407): the embed's checkbox carries
+  // task.complete:<path>, and no other task.* control (AC-Test-Change, approved by the owner with the contract, D-2541)
+  assert.deepEqual(await taskFrame.locator('[data-command^="task."]').evaluateAll((es) => es.map((e) => (e.getAttribute('data-command') ?? '').split(':')[0])), ['task.complete'], 'only task.complete:<path> in the task embed');
   const status = taskFrame.getByText('In progress', { exact: true });
   assert.ok(await seen(status, 2000), 'the task embed shows its status In progress');
   assert.deepEqual(await status.evaluateAll((es) => es.filter((e) => e.getClientRects().length > 0).map((e) => !!e.closest('button, a, input, select, textarea, [role="button"], [role="link"], [role="combobox"]'))), [false], 'In progress shows as text, not inside a control');
   const box = taskFrame.getByRole('checkbox');
   assert.equal(await box.count(), 1, 'the task embed draws its checkbox');
-  assert.equal(await box.first().getAttribute('aria-disabled'), 'true', 'the task embed\'s checkbox is aria-disabled (as RA11)');
+  assert.notEqual(await box.first().getAttribute('aria-disabled'), 'true', 'the task embed\'s checkbox is enabled (AND-3, D-2407)');
 
   // ---- the commands the content controls carry
   const fold1 = cmd(page, 'read.fold:1');
@@ -286,7 +292,9 @@ test('fr_ux_03_ac59_content_controls_on_the_phone', async ({ page, browser }) =>
       assert.deepEqual(cards.filter((c) => c.own !== want(c)).map((c) => `${c.path} → ${c.own}`), [], `${how}: each task card itself carries board.openCard:<path> (NFC, D-2475)`);
       assert.deepEqual(cards.filter((c) => c.title !== want(c)).map((c) => `${c.path} → ${c.title}`), [], `${how}: each task card's title carries board.openCard:<path> (D-2475)`);
       assert.deepEqual(cards.flatMap((c) => c.others.filter((o) => o.command !== want(c)).map((o) => `${c.path}: ${o.name} → ${o.command}`)), [], `${how}: every other control of a card that opens its task carries board.openCard:<path> (D-2475)`);
-      assert.deepEqual(cards.flatMap((c) => c.boxes.filter((b) => b !== null).map((b) => `${c.path}: ${b}`)), [], `${how}: a card's view-only checkbox carries no data-command (D-2475)`);
+      // AND-3 (android-edit.md §12.1, D-2407): a card's task checkbox carries task.complete:<path>; one that stays
+      // read-only carries none (D-2554)
+      assert.deepEqual(cards.flatMap((c) => c.boxes.filter((b) => b !== null && nfc(b) !== nfc(`task.complete:${c.path}`)).map((b) => `${c.path}: ${b}`)), [], `${how}: a card's checkbox carries task.complete:<path> or, read-only, no data-command (§12.1)`);
       const withSource = cards.filter((c) => SOURCES[c.path]);
       assert.deepEqual(withSource.map((c) => ({ path: c.path, chip: c.chips })), withSource.map((c) => ({ path: c.path, chip: [`board.openSource:${c.path}`] })), `${how}: the source chip carries board.openSource:<path> (D-2475)`);
     }

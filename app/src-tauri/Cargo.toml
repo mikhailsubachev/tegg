@@ -38,6 +38,8 @@ chrono = { version = "0.4", default-features = false, features = ["std", "clock"
 chrono-tz = "0.10"
 iana-time-zone = "0.1"
 ts-rs = "10"
+# android-edit §4.5 (D-2511): the recovery key (SHA-256, as the UI's `recoveryKey`).
+sha2 = "0.10"
 libc = "0.2"
 
 # The desktop only (AR-03 AC-7, android-shell §1): the status item, the private macOS API, the folder dialog.

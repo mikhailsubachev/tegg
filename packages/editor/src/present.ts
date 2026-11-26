@@ -14,6 +14,7 @@ import type { JSONContent } from '@tiptap/core'
 import type { Transaction } from '@tiptap/pm/state'
 import { blockToPM, pmToBlock } from './convert'
 import { wikiLabel } from './schema'
+import { protectKey } from './protect'
 import { clearFoldsMeta, foldedPaths, foldPlugin, hasChildren, isFolded, itemPaths, setFoldMeta } from './mindmapFolds'
 
 export type LinkInfo = {
@@ -100,6 +101,12 @@ export interface EditorUi {
   mindmapText?: (key: 'figure' | 'untitled' | 'view' | 'map' | 'list' | 'empty' | 'notOneList' | 'expand' | 'collapse' | 'layout' | 'layoutRight' | 'layoutSpider' | 'editNode', title?: string) => string
   /** Slice MM: the mindmap icon (`data-icon="mindmap"`). */
   mindmapIcon?: () => Element
+  /** Slice AND-3 (android-edit §5.2, FR-MMP-02 AC-37): with `protectMindmaps`, draws a whole mindmap block read-only
+   *  into `dom` as the phone's read view does (AND-2: `Map` / `List`, zoom, pan, full screen); the editor gives the
+   *  block no content DOM. Unused without `protectMindmaps`, so the desktop's block is unchanged. */
+  mindmapProtected?(dom: HTMLElement, markdown: () => string): MindmapHandle | null
+  /** Slice AND-3 (android-edit §13.2): the `data-command` of a link chip; undefined: `edit.openOrToggle`, null: none. */
+  chipCommand?: string | null
   /** Slice OL (D-159): a callout type's label, the fold button's name of an untitled folding callout. */
   calloutLabel?: (type: string) => string
   /** Name and visible text of the placeholder for an embed (`![[…]]`), a query or a mindmap block (R5). */
@@ -222,7 +229,7 @@ function decorations(doc: PMNode, ui: EditorUi): DecorationSet {
       const broken = info && info.kind === 'unresolved' // a date without a note is never broken (D-142, FR-DLY-08 AC-5)
       decos.push(Decoration.node(pos, pos + node.nodeSize, {
         role: 'link',
-        'data-command': 'edit.openOrToggle',
+        ...(ui.chipCommand === null ? {} : { 'data-command': ui.chipCommand ?? 'edit.openOrToggle' }),
         class: `chip link-chip kind-${info?.kind ?? 'unresolved'}`,
         'data-link-kind': info?.kind ?? 'unresolved', // FR-LNK-07 (D-306): the same attribute in every context
         // D-600: a changed review or task state changes the decoration, so the chip's view draws it again.
@@ -675,6 +682,9 @@ class ListItemView implements NodeView {
       box.className = 'check'
       const toggle = (e: Event) => {
         e.preventDefault()
+        // Issue #180 (FR-SYN-03 AC-41, D-2570 (3)): a non-editable editor (the merge banner, the deleted alert) toggles
+        // nothing.
+        if (!view.editable) return
         const pos = getPos()
         if (pos === undefined) return
         const cur = view.state.doc.nodeAt(pos)
@@ -741,6 +751,56 @@ function emptyMindmap(node: PMNode): boolean {
   if (!list || list.childCount !== 1) return false
   const item = list.child(0)
   return item.childCount === 1 && item.child(0).type.name === 'paragraph' && item.child(0).content.size === 0
+}
+
+/** The protected mindmap views of each editor by block index: a document redraw re-creates node views, and the new
+ *  view adopts the old one's drawing so its zoom, view and full screen stay (as `CalloutView` does, mm-mindmap §6.7). */
+const liveProtected = new WeakMap<EditorView, Map<number, ProtectedMindmapView>>()
+
+/** Slice AND-3 (android-edit §5.2, FR-MMP-02 AC-37; D-2516): with `protectMindmaps`, a mindmap block is one
+ *  `contenteditable="false"` box drawn by the app (`EditorUi.mindmapProtected`), with no content DOM: no caret goes
+ *  into its list, its checkboxes never toggle, and every event inside it belongs to the drawing. */
+class ProtectedMindmapView implements NodeView {
+  dom: HTMLElement
+  handle: MindmapHandle | null = null
+  constructor(public node: PMNode, private pm: EditorView, private getPos: () => number | undefined, ui: EditorUi) {
+    this.dom = document.createElement('div')
+    this.dom.className = 'mindmap-protected'
+    this.dom.contentEditable = 'false'
+    const at = this.index()
+    let m = liveProtected.get(pm)
+    if (!m) liveProtected.set(pm, (m = new Map()))
+    const prev = m.get(at)
+    m.set(at, this)
+    if (prev && prev !== this && prev.handle?.adopt?.(this.dom)) {
+      this.handle = prev.handle
+      prev.handle = null
+      this.handle.update({ now: true })
+    } else this.handle = ui.mindmapProtected!(this.dom, () => this.markdown())
+  }
+  private index(): number {
+    const p = this.getPos()
+    return p === undefined ? -1 : this.pm.state.doc.resolve(p).index(0)
+  }
+  private markdown(): string {
+    try { return renderBlock(pmToBlock(this.node.toJSON()) as RootContent) } catch { return '' }
+  }
+  update(node: PMNode) {
+    if (node.type !== this.node.type || calloutKind(node) !== 'mindmap') return false
+    const changed = !node.eq(this.node)
+    this.node = node
+    if (changed) this.handle?.update({ now: true })
+    return true
+  }
+  stopEvent() {
+    return true
+  }
+  ignoreMutation() {
+    return true
+  }
+  destroy() {
+    this.handle?.destroy()
+  }
 }
 
 /** Callouts (FR-EDT-02 AC-19) as before; a `mindmap` callout holding one list is the R91 block, with its header, the
@@ -1448,7 +1508,10 @@ export function presentation(ui: EditorUi) {
               return set.add(doc, [Decoration.widget($from.pos, (view) => hintElement(view, ui.hint), { side: 1, ignoreSelection: true, key: 'hint-caret' })])
             },
             nodeViews: {
-              callout: (node, view, getPos) => new CalloutView(node, view, getPos as () => number | undefined, ui),
+              // Slice AND-3 (android-edit §5.2): a protected mindmap block is drawn whole by the app, read-only.
+              callout: (node, view, getPos) => (ui.mindmapProtected && protectKey.getState(view.state) && calloutKind(node) === 'mindmap'
+                ? new ProtectedMindmapView(node, view, getPos as () => number | undefined, ui)
+                : new CalloutView(node, view, getPos as () => number | undefined, ui)),
               rawBlock: (node, view, getPos) => new RawBlockView(node, ui, getPos as () => number | undefined, view),
               // Slice Q (D-1470): a nested `query` fence is drawn through the same hook, with no content DOM.
               codeBlock: ((node: PMNode, view: EditorView, getPos: () => number | undefined) =>

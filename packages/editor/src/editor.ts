@@ -5,6 +5,7 @@
 
 import { Editor, Extension, type JSONContent } from '@tiptap/core'
 import { Fragment, Mark, Slice, type Node as PMNode } from '@tiptap/pm/model'
+import { undoInputRule } from '@tiptap/pm/inputrules'
 import { EditorState, NodeSelection, Plugin, PluginKey, Selection, TextSelection, type Transaction } from '@tiptap/pm/state'
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view'
 import { closeHistory, undoDepth } from '@tiptap/pm/history'
@@ -21,6 +22,7 @@ import { linkText, type LinkChoice } from './links'
 import { calloutFolds, chipAtCaret as chipAt, focusedMindmap, hintElement, isQueryCode, isQueryNode, linkTarget as linkParts, mindmapViews, PENDING_EMBED, presentation, QUERY_SOURCE_META, querySource, uiRefresh, type EditorUi } from './present'
 import { TeggRules } from './rules'
 import { teggExtensions, wikiLabel } from './schema'
+import { protectMindmaps } from './protect'
 import { attach, END_LIST, loadDoc, queryWritesFit, reconcile, VerifyError, type Loaded } from './sourceDoc'
 
 export type Now = () => string
@@ -66,6 +68,9 @@ export interface EditorOptions {
   /** Slice Q (v1-queries §3.2, R144): ⌘↩ on a selected query block at `pos` (the app opens its query editor). Return
    *  true when handled. Falls back to `ui.onQueryKey`. */
   onQueryKey?(pos: number, key: 'open'): boolean
+  /** Slice AND-3 (android-edit §5.2, FR-MMP-02 AC-37, D-2516): every mindmap callout is a protected range (no caret
+   *  inside it, every user edit narrowed to the text outside it). Default false; only the phone passes true. */
+  protectMindmaps?: boolean
 }
 
 /** Slice Q (v1-queries §3.2, L5 `queryBlocks()`): a query block of the open editor. */
@@ -196,6 +201,20 @@ export interface TeggEditor {
     dropQueryDraft(pos: number): boolean
     undo(): boolean
     redo(): boolean
+    /** Slice AND-3 (android-edit §5.1, FR-EDT-02 AC-27): the phone's formatting bar. Each is one undo step and
+     *  `false` without effect. The caret's top-level paragraph or heading becomes a paragraph or a heading (R6). */
+    setBlock(kind: 'paragraph' | 'heading', level?: 1 | 2 | 3): boolean
+    /** A paragraph → a `- ` item; a bulleted item → a paragraph after its list; a checklist item → a bulleted item. */
+    toggleBulletList(): boolean
+    /** A paragraph → a `- [ ] ` item; a checklist item → a paragraph after its list; a bulleted item → a checklist
+     *  item. A checklist item, never a Task (FR-TSK-11). */
+    toggleChecklistBlock(): boolean
+    /** Nests the caret's list item one level (Tab, FR-EDT-02 AC-17). */
+    indent(): boolean
+    /** Un-nests it (⇧Tab). */
+    outdent(): boolean
+    /** Inserts `[[` or `#` as typed text (a space before `#` after a non-space), so the suggestion plugins open. */
+    insertTrigger(t: '[[' | '#'): boolean
   }
   destroy(): void
 }
@@ -471,7 +490,7 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
   let scrolledFor: object = NO_SCROLL_ASK
   const editor = new Editor({
     element: opts.element ?? document.createElement('div'),
-    extensions: teggExtensions([embedKeys(() => api), QueryGuard, ScrollAsk, MindmapKeys, TeggRules, BlockSelection, ...(ui ? [presentation(ui)] : []), ...(opts.emptyHint !== undefined && !ui ? [emptyHint(opts.emptyHint)] : []), ...(opts.extensions ?? [])]),
+    extensions: teggExtensions([embedKeys(() => api), QueryGuard, ScrollAsk, MindmapKeys, TeggRules, BlockSelection, ...(ui ? [presentation(ui)] : []), ...(opts.emptyHint !== undefined && !ui ? [emptyHint(opts.emptyHint)] : []), ...(opts.protectMindmaps ? [protectMindmaps(() => loading)] : []), ...(opts.extensions ?? [])]),
     content: { type: 'doc', content: [{ type: 'paragraph' }] },
     editable: opts.editable ?? true,
     enableInputRules: false,
@@ -1608,11 +1627,136 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       return nv ? nv.setLayout(layout) : false
     },
     undo() {
-      return editor.commands.undo()
+      // As ⌘Z (rules.ts): right after a Markdown shortcut it gives the literal text back first (FR-EDT-04 AC-5).
+      return undoInputRule(editor.state, editor.view.dispatch) || editor.commands.undo()
     },
     redo() {
       return editor.commands.redo()
     },
+    setBlock(kind, level = 1) {
+      // The caret's own top-level text block only (R6's forms); the caret stays where it is.
+      const st = editor.state
+      const { $from } = st.selection
+      const p = $from.parent
+      if (!editor.isEditable || $from.depth !== 1 || (p.type.name !== 'paragraph' && p.type.name !== 'heading')) return false
+      if (kind === 'paragraph' ? p.type.name === 'paragraph' : p.type.name === 'heading' && p.attrs.level === level) return false
+      const type = kind === 'heading' ? editor.schema.nodes.heading : editor.schema.nodes.paragraph
+      const attrs = kind === 'heading' ? { srcIndex: p.attrs.srcIndex, level } : { srcIndex: p.attrs.srcIndex }
+      return oneStep(() => {
+        dispatch(closeHistory(editor.state.tr.setNodeMarkup($from.before(1), type, attrs)))
+        return true
+      })
+    },
+    toggleBulletList() {
+      const item = caretItem()
+      if (!editor.isEditable) return false
+      if (!item) return topParagraph() && oneStep(() => wrapInList(false))
+      if (item.ordered) return false
+      if (item.checked) return oneStep(() => setChecked(item.pos, null))
+      return oneStep(() => liftOut(item.depth))
+    },
+    toggleChecklistBlock() {
+      const item = caretItem()
+      if (!editor.isEditable) return false
+      if (!item) return topParagraph() && oneStep(() => wrapInList(true))
+      if (item.ordered) return false
+      if (item.checked) return oneStep(() => liftOut(item.depth))
+      return oneStep(() => setChecked(item.pos, false))
+    },
+    indent() {
+      if (!editor.isEditable || !caretItem()) return false
+      return oneStep(() => editor.chain().command(({ tr }) => { closeHistory(tr); return true }).sinkListItem('listItem').run())
+    },
+    outdent() {
+      if (!editor.isEditable || !caretItem()) return false
+      return oneStep(() => editor.chain().command(({ tr }) => { closeHistory(tr); return true }).liftListItem('listItem').run())
+    },
+    insertTrigger(t) {
+      if (!editor.isEditable) return false
+      // FR-UX-04 AC-10: a bar tap never replaces selected text; the trigger goes after the selection.
+      if (!editor.state.selection.empty) {
+        const sel = editor.state.selection
+        if (!sel.$to.parent.isTextblock) return false
+        view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, sel.to)))
+      }
+      const { $from } = editor.state.selection
+      if (!$from.parent.isTextblock || $from.parent.type.spec.code || inSourceBlock(editor.state)) return false
+      const before = $from.parent.textBetween(Math.max(0, $from.parentOffset - 1), $from.parentOffset, undefined, '\ufffc')
+      const text = t === '#' && before && !/\s/.test(before) ? ' #' : t
+      return oneStep(() => {
+        let first = true
+        for (const ch of text) {
+          const { from, to } = view.state.selection
+          // As typed text: the input handlers (and through them the suggestion plugins) see each character.
+          const handled = view.someProp('handleTextInput', (f) => f(view, from, to, ch, () => view.state.tr.insertText(ch, from, to)))
+          if (!handled) {
+            const tr = view.state.tr.insertText(ch, from, to)
+            dispatch(first ? closeHistory(tr) : tr)
+          }
+          first = false
+        }
+        return true
+      })
+    },
+  }
+
+  /** Slice AND-3 (§5.1): runs a bar command as its own undo step (nothing typed before or after joins it). */
+  function oneStep(run: () => boolean): boolean {
+    dispatch(closeHistory(editor.state.tr))
+    const ok = run()
+    dispatch(closeHistory(editor.state.tr))
+    return ok
+  }
+  /** The caret's innermost list item: its position, depth, and whether it is a checklist item or ordered. */
+  function caretItem(): { pos: number; depth: number; checked: boolean; ordered: boolean } | null {
+    const { $from } = editor.state.selection
+    if (editor.state.selection instanceof NodeSelection) return null
+    for (let d = $from.depth; d > 0; d--) {
+      const n = $from.node(d)
+      if (n.type.name === 'listItem') return { pos: $from.before(d), depth: d, checked: n.attrs.checked !== null, ordered: $from.node(d - 1).type.name === 'orderedList' }
+      if (n.type.name === 'blockquote' || n.type.name === 'callout' || n.type.name === 'table') return null
+    }
+    return null
+  }
+  /** Whether the caret is in a top-level paragraph (the list buttons' paragraph case). */
+  function topParagraph(): boolean {
+    const { $from } = editor.state.selection
+    return !(editor.state.selection instanceof NodeSelection) && $from.depth === 1 && $from.parent.type.name === 'paragraph'
+  }
+  /** The caret's paragraph → a `- ` (or `- [ ] `) item, in one transaction; the list keeps the paragraph's source
+   *  position, so the gaps around it keep their bytes (FR-EDT-01 AC-6). */
+  function wrapInList(checklist: boolean): boolean {
+    const k = editor.state.selection.$from.index(0)
+    const src = editor.state.doc.child(k).attrs.srcIndex as number | null
+    return editor.chain()
+      .command(({ tr }) => { closeHistory(tr); return true })
+      .toggleBulletList()
+      .command(({ tr }) => {
+        const $f = tr.selection.$from
+        for (let d = $f.depth; d > 0; d--) {
+          const n = $f.node(d)
+          if (n.type.name === 'listItem') {
+            if (checklist) tr.setNodeMarkup($f.before(d), undefined, { ...n.attrs, checked: false })
+            break
+          }
+        }
+        const top = tr.doc.child($f.index(0))
+        if (src !== null && top.attrs.srcIndex === null && top.type.name === 'bulletList') tr.setNodeMarkup($f.before(1), undefined, { ...top.attrs, srcIndex: src })
+        return true
+      })
+      .run()
+  }
+  /** Lifts the caret's item (at `depth`) out of every list: a paragraph after the list's items before it. */
+  function liftOut(depth: number): boolean {
+    let ch = editor.chain().command(({ tr }) => { closeHistory(tr); return true })
+    for (let i = 0; i < Math.ceil(depth / 2); i++) ch = ch.liftListItem('listItem')
+    return ch.run()
+  }
+  function setChecked(pos: number, checked: boolean | null): boolean {
+    const n = editor.state.doc.nodeAt(pos)
+    if (!n) return false
+    dispatch(closeHistory(editor.state.tr.setNodeMarkup(pos, undefined, { ...n.attrs, checked })))
+    return true
   }
 
   /** 4F: the selected block embed (one selected block, or a node selection), or null. */

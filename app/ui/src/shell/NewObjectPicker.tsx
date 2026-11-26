@@ -31,7 +31,7 @@ export function pickerTypes(types: TypeDefDto[], defaultKey: string | null): Typ
   return list;
 }
 
-export function NewObjectPicker({ types, defaultKey, at, onChoose, onClose }: {
+export function NewObjectPicker({ types, defaultKey, at, onChoose, onClose, sheet = false }: {
   types: TypeDefDto[];
   /** `undefined` while it is being read: ⏎ then waits for it. */
   defaultKey: string | null | undefined;
@@ -39,6 +39,9 @@ export function NewObjectPicker({ types, defaultKey, at, onChoose, onClose }: {
   at?: { left: number; top: number } | null;
   onChoose: (key: string) => void;
   onClose: () => void;
+  /** Slice AND-3 (android-edit §10.3): the content of the phone's `New object` sheet: the field and the list only, the
+   *  field not focused at opening (the keyboard stays hidden). */
+  sheet?: boolean;
 }) {
   const all = useMemo(() => pickerTypes(types, defaultKey ?? null), [types, defaultKey]);
   const [q, setQ] = useState('');
@@ -46,7 +49,7 @@ export function NewObjectPicker({ types, defaultKey, at, onChoose, onClose }: {
   const startAt = () => { const i = shown.findIndex((x) => x.key === defaultKey); return q.trim() || i < 0 ? 0 : i; };
   const [sel, setSel] = useState(startAt);
   const input = useRef<HTMLInputElement>(null);
-  useEffect(() => input.current?.focus(), []);
+  useEffect(() => { if (!sheet) input.current?.focus(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => setSel(startAt()), [q, all, defaultKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const pendingEnter = useRef(false);
 
@@ -79,10 +82,8 @@ export function NewObjectPicker({ types, defaultKey, at, onChoose, onClose }: {
   };
 
   const style: React.CSSProperties | undefined = at ? { position: 'fixed', left: at.left, top: at.top } : undefined;
-  return (
-    <div className={`overlay ${at ? 'anchored' : ''}`} onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}>
-      <div className="dialog new-object-picker" role="dialog" aria-modal="true" aria-label={t('newPicker.title')} style={style}
-        onMouseDown={(e) => e.stopPropagation()} onKeyDown={keys}>
+  const field = (
+      <>
         <div className="nop-field">
           <Icon name="plus" size={14} />
           <input
@@ -117,6 +118,14 @@ export function NewObjectPicker({ types, defaultKey, at, onChoose, onClose }: {
           })}
         </ul>
         {n === 0 && <p className="nop-empty">{t('newPicker.noMatch', { query: q })}</p>}
+      </>
+  );
+  if (sheet) return <div className="new-object-picker phone-type-sheet" onKeyDown={keys}>{field}</div>;
+  return (
+    <div className={`overlay ${at ? 'anchored' : ''}`} onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); onClose(); }}>
+      <div className="dialog new-object-picker" role="dialog" aria-modal="true" aria-label={t('newPicker.title')} style={style}
+        onMouseDown={(e) => e.stopPropagation()} onKeyDown={keys}>
+        {field}
         <div className="nop-foot" aria-hidden="true">
           <span><kbd>↑</kbd> <kbd>↓</kbd> {t('newPicker.hintChoose')}</span>
           <span><kbd>⏎</kbd> {t('newPicker.hintCreate')}</span>

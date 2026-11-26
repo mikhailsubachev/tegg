@@ -7,8 +7,9 @@ import type { ProgressDto } from '../ipc/types';
 import { Icon } from '../shell/Icon';
 import { setHistoryBack, systemBack } from './back';
 import { nativeState, onNative, setBackHandler, type NativeState } from './native';
-import { setHeadingSlot } from './PageHeading';
+import { setHeadingSlot, setStatusSlot } from './PageHeading';
 import { watchContent } from './contentCommands';
+import { contextmenuAllowed } from './press';
 
 /** §8.1: the insets as CSS variables on `<html>`, `data-keyboard` while the keyboard is shown. */
 function applyNative(s: NativeState) {
@@ -61,6 +62,8 @@ export function PhoneFrame(props: {
   onMenu: () => void;
   onSearch: () => void;
   onToday: () => void;
+  /** Slice AND-3 (android-edit §10.3): `New` opens the type sheet. */
+  onNew: () => void;
   current: BarTab;
   /** A full-screen map hides the bottom bar too (§8.2). */
   fullScreen: boolean;
@@ -72,10 +75,12 @@ export function PhoneFrame(props: {
 }) {
   const native = useNative();
   const slot = useRef<HTMLDivElement>(null);
+  const status = useRef<HTMLDivElement>(null);
   const menuButton = useRef<HTMLButtonElement>(null);
   useLayoutEffect(() => {
     setHeadingSlot(slot.current);
-    return () => setHeadingSlot(null);
+    setStatusSlot(status.current);
+    return () => { setHeadingSlot(null); setStatusSlot(null); };
   }, []);
   const back = useRef(props);
   back.current = props;
@@ -89,7 +94,8 @@ export function PhoneFrame(props: {
     let downAt = 0;
     let held = false;
     let swallowUntil = 0;
-    const menu = (e: Event) => { e.preventDefault(); held = true; };
+    // Slice AND-3 (android-edit §4.3): the body's text, a draft's Title and fields keep the system's selection menu.
+    const menu = (e: Event) => { if (contextmenuAllowed(e.target as Element | null)) return; e.preventDefault(); held = true; };
     // A new press starts over: only the click that ends a long press is dropped.
     const down = (e: PointerEvent) => { downAt = performance.now(); held = false; swallowUntil = 0; void e; };
     const up = (e: PointerEvent) => { if (held || (e.pointerType === 'touch' && performance.now() - downAt >= 500)) swallowUntil = performance.now() + 700; held = false; };
@@ -99,11 +105,17 @@ export function PhoneFrame(props: {
       e.preventDefault();
       e.stopPropagation();
     };
+    // Slice AND-3: the mouse events a long touch ends with don't reach the editor either (it opens a chip on mouseup).
+    const compat = (e: MouseEvent) => { if (performance.now() < swallowUntil) { e.preventDefault(); e.stopPropagation(); } };
+    document.addEventListener('mousedown', compat, true);
+    document.addEventListener('mouseup', compat, true);
     document.addEventListener('contextmenu', menu, true);
     document.addEventListener('pointerdown', down, true);
     document.addEventListener('pointerup', up, true);
     document.addEventListener('click', click, true);
     return () => {
+      document.removeEventListener('mousedown', compat, true);
+      document.removeEventListener('mouseup', compat, true);
       document.removeEventListener('contextmenu', menu, true);
       document.removeEventListener('pointerdown', down, true);
       document.removeEventListener('pointerup', up, true);
@@ -151,11 +163,19 @@ export function PhoneFrame(props: {
       pending = false;
       const el = document.activeElement as HTMLElement | null;
       if (el && /^(INPUT|TEXTAREA)$/.test(el.tagName)) { el.scrollIntoView({ block: 'nearest' }); return; }
+      // Slice AND-3 (android-edit §9.3, FR-UX-04 AC-8, AC-9): while the caret is in the editor, the editor keeps it in
+      // view after the resize and the insets (`keepCaretInView`). Restoring the reading place here, two frames after the
+      // insets, ran after that and could put the caret under the bottom bar, where the next tap on its line found `Menu`.
+      if (el?.isContentEditable) { remember(); return; }
       const main = m();
       const a = anchor;
       if (main && a && a.el.isConnected && a.col === main.firstElementChild) {
         const top = main.getBoundingClientRect().top;
         main.scrollTop += a.el.getBoundingClientRect().top - top - a.offset;
+      } else {
+        // Nothing to restore (the insets arrived after the page opened, and the reader's scrolls meanwhile were
+        // ignored): the place is where the page is now, so the next rotation keeps it (FR-UX-04 AC-7).
+        remember();
       }
     };
     let insets = JSON.stringify(nativeState().insets);
@@ -195,6 +215,7 @@ export function PhoneFrame(props: {
             </button>
           )}
           <div className="phone-title" ref={slot} />
+          <div className="phone-status" ref={status} />
           {props.more && (
             <button type="button" className="icon-button phone-more" aria-label={t('phone.more')} aria-haspopup="menu" aria-expanded={props.moreOpen}
               data-command="phone.more" onClick={(e) => props.onMore(e.currentTarget)}>
@@ -216,7 +237,7 @@ export function PhoneFrame(props: {
         <nav aria-label={t('phone.bottomBar')} className="phone-bottombar">
           {tab('Menu', 'phone.menu', 'sidebar', 'phone.menu', { 'aria-haspopup': 'dialog', 'aria-expanded': props.menuOpen, ref: menuButton }, () => props.onMenu())}
           {tab('Search', 'phone.search', 'search', 'goto.search', props.current === 'search' ? { 'aria-current': 'page' } : {}, () => props.onSearch())}
-          {tab('New', 'phone.new', 'plus', 'object.new', { 'aria-disabled': 'true', 'aria-description': t('phone.newLater') })}
+          {tab('New', 'phone.new', 'plus', 'object.new', {}, () => props.onNew())}
           {tab('Today', 'phone.today', 'calendar', 'daily.today', props.current === 'today' ? { 'aria-current': 'page' } : {}, () => props.onToday())}
         </nav>
       )}

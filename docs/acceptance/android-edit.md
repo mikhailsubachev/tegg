@@ -282,7 +282,7 @@ Removed (used nowhere after AND-3): `phone.newLater`, `phone.noNote`, `phone.sea
 - **AC-12** **The panel (RA18; AP-2072).** `[[`, sent as RA16 sends it in Psaní, opens `Link suggestions` in the bar's place, its bottom edge at the keyboard's top (± 2 device px on the device). Each row (≥ 56 px) shows the type icon, the title and, for duplicate titles, backlinks.md FR-LNK-14 AC-6's details. The matching is editor FR-EDT-06 AC-1 and AC-2's: `[[cil`, `[[CÍL` and an NFD `[[cíl` list Cíl first; `[[Dvojník` lists both Dvojník objects; Šablona and Smazaná are never listed. *(L5p; LA once)* Test: `fr_edt_06_ac12_link_panel_on_the_phone`
 - **AC-13** **Choosing and creating (AP-2072; T2).**
   - A tap on a row saves editor FR-EDT-06 AC-3 (a)…(e)'s bytes, closes the panel, leaves the caret after the chip and keeps the keyboard.
-  - The last two rows are `Create “<q>”` (the default type) and `Create “<q>” as…` (the type sheet), not the board's `New Page “<q>”`. `Create “Nová stránka”` writes exactly `Quick Notes/Nová stránka.md` (`note_create`) and then the edited note with `[[Nová stránka]]`, and doesn't navigate; `as…` › `Page` creates `Pages/Nová stránka.md`.
+  - The last two rows are `Create "<q>"` (the default type) and `Create "<q>" as…` (the type sheet), not the board's `New Page “<q>”`. `Create "Nová stránka"` writes exactly `Quick Notes/Nová stránka.md` (`note_create`) and then the edited note with `[[Nová stránka]]`, and doesn't navigate; `as…` › `Page` creates `Pages/Nová stránka.md`.
   - `@` opens the same panel with editor FR-EDT-06 AC-8…AC-10's rules.
   - A note created here has a fixed title (FR-EDT-01 AC-18).
 
@@ -603,7 +603,7 @@ Removed (used nowhere after AND-3): `phone.newLater`, `phone.noNote`, `phone.sea
 
 - **AC-30** **The editing surfaces are named.**
   - At L5p, the bar is `toolbar` `Formatting` with RA15's names and states, the body is `textbox` `Note body` with the note's title as its description, the merge banner is an `alert`, and the sheets are `aria-modal` dialogs with the page behind them `inert`.
-  - On the device, with the keyboard shown, `uiautomator dump` lists the bar's buttons by name and `Note body` as editable.
+  - On the device, with the keyboard shown, `uiautomator dump` lists the bar's buttons by name and the body as an editable text field (`android.widget.EditText`) holding the note's text (D-2557).
 
   *(L5p; LA)* Test: `fr_ux_08_ac30_talkback_while_editing`
 

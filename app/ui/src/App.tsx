@@ -67,7 +67,10 @@ import { TrashPage } from './trash/TrashPage';
 import { TrashMessages } from './trash/toast';
 import { moveToTrash, trashRequest } from './trash/moveToTrash';
 import { TypeMenu } from './shell/TypeMenu';
-import { NewObjectPicker } from './shell/NewObjectPicker';
+import { NewObjectPicker, pickerTypes } from './shell/NewObjectPicker';
+import { Sheet } from './phone/Sheet';
+import { setTypeChooserHandler } from './phone/chooser';
+import { setRecoveryVault } from './phone/recovery';
 import { setDateTimeSetting } from './i18n/dates';
 import { HotkeyNotice } from './pages/HotkeyNotice';
 import { useInboxCount } from './inbox/useInboxCount';
@@ -115,13 +118,14 @@ import { installMultiClickGuard, routeChanged } from './shell/multiClick';
 import { PageHeading } from './phone/PageHeading';
 import { isPhone } from './phone/layout';
 import { PhoneFrame, PhoneStartInsets } from './phone/PhoneFrame';
+import { PinsAlert } from './phone/PinsAlert';
 import { Drawer } from './phone/Drawer';
 import { PhoneSettingsList, PhoneStorageSettings, PhoneVaultSettings } from './phone/PhoneSettings';
 import { installTestHooks, nativeState, onNative, syncWindow } from './phone/native';
 import { phoneRouteOffered } from './phone/routes';
 import { onResolved, setSystemDark, resolve as resolveTheme } from './theme/apply';
 import { VaultSwitcher } from './shell/Frame';
-import { PopupMenu } from './shell/Menu';
+import { PopupMenu, type MenuEntry } from './shell/Menu';
 
 const DAILY = 'daily/YYYY-MM-DD';
 /** The webview history mirror of the app's in-memory history (see the `popstate` effect in App). */
@@ -243,6 +247,8 @@ export function App() {
   const [interrupted, setInterrupted] = useState<InterruptedDto[]>([]);
   // 4A: the Create offer of a broken link (FR-LNK-04 AC-4) and `Show backlinks` (R16).
   const [offer, setOffer] = useState<OfferRequest | null>(null);
+  // Slice AND-3 (android-edit §10.3): the phone's type sheet in chooser mode (`as…`, the offer's `Type`).
+  const [typeChooser, setTypeChooser] = useState<{ defaultKey: string | null | undefined; onPick: (key: string) => void } | null>(null);
   const [focusBacklinks, setFocusBacklinks] = useState(0);
   /** Slice G2 (FR-NAV-05 AC-2): `Show local graph` puts the focus on `Depth and filters`. */
   const [focusGraph, setFocusGraph] = useState(0);
@@ -256,7 +262,15 @@ export function App() {
   /** "G3 in the panel" (D-1145): the panel's day file isn't known yet (R115 pending), for AP-972's reasons. */
   const panelPending = useRef(false);
   // Slice AND-2 (android-phone §9.3, FR-EDT-10 AC-11): on the phone a broken link only says there is no such note.
-  useEffect(() => { setOfferHandler((r) => { if (isPhone()) setPhoneNotice(t('phone.noNote', { name: r.target })); else setOffer(r); }); return () => setOfferHandler(null); }, []);
+  useEffect(() => { setOfferHandler((r) => setOffer(r)); return () => setOfferHandler(null); }, []);
+  useEffect(() => {
+    setTypeChooserHandler((onPick) => {
+      setTypeChooser({ defaultKey: defaultTypeKey.current, onPick });
+      void ipc.switcher('?', 0).then((items) => items.find((i) => i.kind === 'create')?.type ?? null, () => null)
+        .then((key) => setTypeChooser((c) => (c ? { ...c, defaultKey: key } : c)));
+    });
+    return () => setTypeChooserHandler(null);
+  }, []);
   useEffect(() => { setChipTypes(types); }, [types]);
   const [refresh, setRefresh] = useState(0);
   /** Slice G2 (v1-graph §15.7): the note page's own saves, which the watcher doesn't report; the panel graph re-asks.
@@ -298,9 +312,20 @@ export function App() {
   // written as soon as the page is hidden. The desktop keeps its quit flow (D-196) and adds no listener.
   useEffect(() => {
     if (!isAndroid()) return;
-    const f = () => { if (document.visibilityState === 'hidden') void flushNote(); };
+    // Slice AND-3 (android-edit §11.1): the draft title, the composing word, and a recovery copy of what can't be written.
+    let at = 0;
+    const hidden = () => {
+      const now = performance.now();
+      if (now - at < 50) return; // `pagehide` right after `visibilitychange` runs the same flush once
+      at = now;
+      const api = noteApi.current;
+      if (api?.flushHidden) void api.flushHidden().catch(() => {});
+      else void flushNote();
+    };
+    const f = () => { if (document.visibilityState === 'hidden') hidden(); };
     document.addEventListener('visibilitychange', f);
-    return () => document.removeEventListener('visibilitychange', f);
+    window.addEventListener('pagehide', hidden);
+    return () => { document.removeEventListener('visibilitychange', f); window.removeEventListener('pagehide', hidden); };
   }, [flushNote]);
   // Slice AND-2 (android-phone §8.2): on the phone the refusal is the notice, not AND-1's alert.
   useEffect(() => onUnsupported(() => { if (isPhone()) setPhoneNotice(t('error.unsupported')); else setUnsupported((n) => n + 1); }), []);
@@ -391,8 +416,18 @@ export function App() {
   }, []);
 
   // ------------------------------------------------------------------ vault, types, counts, events
+  /** Slice AND-3 (android-edit §10.3, FR-VLT-05 AC-16): on the phone the vault's default type is read ahead, so the
+   *  type sheet opens with it selected (it is read again on each opening). */
+  const defaultTypeKey = useRef<string | null | undefined>(undefined);
+  /** The types the phone's type sheet read ahead (type_get, type_template), by key; cleared when the types reload. */
+  const preparedAhead = useRef(new Map<string, Prepared>());
   const loadTypes = useCallback((): Promise<unknown> => {
     ipc.conflicts().then((c) => setConflicts(c.length), () => setConflicts(0));
+    preparedAhead.current.clear();
+    if (isPhone()) {
+      void ipc.switcher('?', 0).then((items) => items.find((i) => i.kind === 'create')?.type ?? null, () => undefined)
+        .then((key) => { defaultTypeKey.current = key; });
+    }
     return Promise.all([
       ipc.vaultTypes().then(setTypes, () => setTypes([])),
       ipc.typeCounts().then(setCounts, () => setCounts({})),
@@ -761,7 +796,7 @@ export function App() {
     const key = route.param;
     const at = `${routeKey}\n${navKey}`; // each visit is a new draft
     let live = true;
-    void prepareObject(key).then((p) => {
+    const run = (p: Prepared) => {
       if (!live) return;
       const stamp = localIso(new Date(Date.now()));
       const onCreate = async (text: string) => {
@@ -791,9 +826,24 @@ export function App() {
         }
       }
       setDraft({ route: at, path: `${p.folder ? `${p.folder}/` : ''}${t('newObject.untitled')}.md`, info: { text, stamp, onCreate } });
-    }, () => setMessage(t('error.io')));
+    };
+    // Slice AND-3 (android-edit §10.3, §7.2): a type the phone's sheet read ahead opens its draft at once, so the
+    // keyboard's first letters reach `Title`.
+    const ready = preparedAhead.current.get(key);
+    if (ready) run(ready);
+    else void prepareObject(key).then(run, () => setMessage(t('error.io')));
     return () => { live = false; };
   }, [routeKey, navKey]);
+  // Slice AND-3 (§10.3): while the phone's type sheet is open, its types are read ahead (reads only).
+  const sheetOpen = isPhone() && dialog === 'newObject' && !!newPicker;
+  useEffect(() => {
+    if (!sheetOpen) return;
+    for (const ty of pickerTypes(typesRef.current, null)) {
+      const k = ty.key.normalize('NFC');
+      if (preparedAhead.current.has(k)) continue;
+      prepareObject(k).then((p) => { preparedAhead.current.set(k, p); }, () => {});
+    }
+  }, [sheetOpen]);
   // D-1674: the second click of a double-click that opened this page acts on nothing here.
   useEffect(() => installMultiClickGuard(), []);
   useEffect(() => { routeChanged(); }, [routeKey, navKey]);
@@ -879,6 +929,7 @@ export function App() {
   }, [vault?.path, vault === null, refresh]);
   // Slice PIN (§2): the pins of the open vault; a vault switch forgets the last vault's.
   useEffect(() => { pinsForVault(vault ? vault.path.normalize('NFC') : null); }, [vault?.path]);
+  useEffect(() => { setRecoveryVault(vault ? vault.path : null); }, [vault?.path]);
   // Slice Q (§2.2): the vault's saved queries.
   useEffect(() => { queriesForVault(vault ? vault.path.normalize('NFC') : null); }, [vault?.path]);
   const isDaily = route?.id === DAILY;
@@ -956,10 +1007,10 @@ export function App() {
       // type follows (`undefined` until known: ⏎ waits for it).
       const box = anchor?.getBoundingClientRect();
       const at = box ? { left: box.left, top: box.bottom + 4 } : null;
-      setNewPicker({ types: typesRef.current, defaultKey: undefined, at });
+      setNewPicker({ types: typesRef.current, defaultKey: isPhone() ? defaultTypeKey.current : undefined, at });
       setDialog('newObject');
       void ipc.switcher('?', 0).then((items) => items.find((i) => i.kind === 'create')?.type ?? null, () => null)
-        .then((key) => setNewPicker((p) => (p ? { ...p, defaultKey: key } : p)));
+        .then((key) => { if (isPhone()) defaultTypeKey.current = key; setNewPicker((p) => (p ? { ...p, defaultKey: key } : p)); });
     },
     newType: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDefineValue(null); setDialog('newType'); },
     addStarterTypes: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDialog('starter'); },
@@ -1750,7 +1801,7 @@ export function App() {
   } else if (route?.id === 'help/shortcuts') {
     body = <ShortcutsPage heading={heading} commandTitle={(id) => { const c = list.find((x) => x.id === id); return c ? t(c.title, c.vars ?? {}) : null; }} />;
   } else if (route?.id === 'conflicts') {
-    body = <ConflictsPage heading={heading} onCount={setConflicts} />;
+    body = <ConflictsPage heading={heading} onCount={setConflicts} types={types} />;
   } else if (route?.id === 'search') {
     body = <SearchPage key={route.param ?? ''} refresh={refresh} heading={heading} inputRef={searchInput} onOpen={openNote}
       onCreate={(i, p) => { createFrom(i, p); }}
@@ -1812,7 +1863,8 @@ export function App() {
         <PhoneFrame
           canBack={history.current.canBack()}
           onBack={actions.back}
-          more={hasFile}
+          // android-edit §7.4: a draft and a virtual day show `More actions` too (Move to trash and Pin disabled there).
+          more={hasFile || route?.id === 'new/<type>' || isDaily}
           moreOpen={!!phoneMore}
           onMore={(a) => setPhoneMore((m) => (m ? null : a))}
           progress={progress}
@@ -1820,6 +1872,7 @@ export function App() {
           onMenu={() => menuToggle.current?.()}
           onSearch={actions.openSearch}
           onToday={() => { void go({ id: 'today' }); }}
+          onNew={() => actions.newObject()}
           current={route?.id === 'search' ? 'search' : isDaily && route?.param === today ? 'today' : null}
           fullScreen={mapFull}
           notice={phoneNotice}
@@ -1853,10 +1906,45 @@ export function App() {
                     onChoose: () => { setPhoneMore(null); window.dispatchEvent(new CustomEvent('tegg:phone-properties')); } },
                   { kind: 'item', key: 'source', command: 'note.toggleSource', content: <span className="menu-title">{t(sourceShown() ? 'phone.showFormatted' : 'phone.showSource')}</span>,
                     onChoose: () => { setPhoneMore(null); actions.toggleSource(); } },
+                  // Slice AND-3 (android-edit §7.4): Pin / Unpin and Move to trash; a read-only note lists only the above
+                  // (plus Pin for a note read-only by its NFD name, FR-FMT-12 AC-18).
+                  ...((): MenuEntry[] => {
+                    const ro = noteApi.current?.readOnly?.() ?? null;
+                    const out: MenuEntry[] = [];
+                    const ps = actions.pinStatus?.() ?? null;
+                    if (ps && (!ro || ro.nfd)) {
+                      out.push(ps.pinned
+                        ? { kind: 'item', key: 'unpin', command: 'sidebar.unpin', content: <span className="menu-title">{t('pinned.unpin')}</span>, disabled: !!ps.disabled, description: ps.disabled ?? undefined, onChoose: () => { setPhoneMore(null); actions.unpinCurrent?.(); } }
+                        : { kind: 'item', key: 'pin', command: 'sidebar.pin', content: <span className="menu-title">{t('phone.pin')}</span>, disabled: !!ps.disabled, description: ps.disabled ?? undefined, onChoose: () => { setPhoneMore(null); actions.pinCurrent?.(); } });
+                    }
+                    if (!ro) {
+                      const why = noteApi.current?.trashBlocked() ?? null;
+                      out.push({ kind: 'item', key: 'trash', command: 'object.trash', content: <span className="menu-title">{t('cmd.trash')}</span>, disabled: !!why, description: why ?? undefined, onChoose: () => { setPhoneMore(null); void trashHere(); } });
+                    }
+                    return out;
+                  })(),
                 ]} />
               )}
               {calendar && <Calendar selected={calendar.selected} anchor={calendar.anchor} onChoose={calendar.onChoose}
                 onClose={() => { const a = calendar.anchor; setCalendar(null); if (a?.isConnected) a.focus(); }} />}
+              <TrashMessages phone />
+              {/* Slice AND-3 (android-edit §2.4 row 4): a view's refused task write shows the query alert (FR-SYN-03 AC-42). */}
+              <QueryNotices />
+              <PinsAlert drawerOpen={drawerOpen} />
+              {/* Slice AND-3 (android-edit §10.3): the type sheet; in chooser mode (`as…`) it returns the key. */}
+              {((dialog === 'newObject' && newPicker) || typeChooser) && (
+                <Sheet title={t('newPicker.title')} onClose={() => { if (typeChooser) setTypeChooser(null); else closeDialog(); }}>
+                  {/* The types as loaded now: a sheet opened before the vault's types arrived fills in when they do. */}
+                  <NewObjectPicker sheet types={newPicker?.types.length ? newPicker.types : types} defaultKey={newPicker?.defaultKey ?? typeChooser?.defaultKey}
+                    onClose={() => { if (typeChooser) setTypeChooser(null); else closeDialog(); }}
+                    onChoose={(key) => { const c = typeChooser; if (c) { setTypeChooser(null); c.onPick(key); return; } setDialog(null); setNewPicker(null); newOf(key); }} />
+                </Sheet>
+              )}
+              {offer && (
+                <CreateLinkOffer req={offer} types={types} onClose={() => setOffer(null)} sheet
+                  onCreated={(p) => { if (offer.stay) return; justCreated.current = p.normalize('NFC'); openNote(p); }}
+                  onExists={(p, title) => { setPhoneNotice(t('createLink.exists', { title })); openNote(p); }} />
+              )}
             </>
           )}>
           {vault.placeholders > 0 && (
@@ -1970,7 +2058,7 @@ export function App() {
           onChoose={(ty) => { setDraftType(null); carryTitle.current = noteApi.current?.title() ?? null; noteApi.current?.discardDraft(); void go({ id: 'new/<type>', param: ty.key }); }} />
       )}
       {dialog === 'newObject' && newPicker && (
-        <NewObjectPicker types={newPicker.types} defaultKey={newPicker.defaultKey} at={newPicker.at} onClose={closeDialog}
+        <NewObjectPicker types={newPicker.types.length ? newPicker.types : types} defaultKey={newPicker.defaultKey} at={newPicker.at} onClose={closeDialog}
           onChoose={(key) => { closeDialog(); newOf(key); }} />
       )}
       {dialog === 'starter' && <StarterTypesDialog onClose={closeDialog} onAdded={() => { closeDialog(); loadTypes(); }} />}

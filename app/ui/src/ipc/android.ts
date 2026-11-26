@@ -22,8 +22,8 @@ export const ANDROID_EXCLUDED: readonly string[] = [
   'type_delete_start', 'inbox_bulk', 'starter_add', 'backup_restore', 'job_undo', 'job_redo', 'type_create', 'type_patch', 'type_delete',
   // V views, queries (D-2006)
   'query_apply', 'query_revert', 'query_create', 'query_duplicate', 'query_rename', 'query_trash', 'query_restore', 'task_views_restore',
-  // O not in this version
-  'graph_neighbourhood', 'graph_presets_get', 'graph_presets_apply', 'index_related', 'trash_restore', 'trash_delete', 'trash_empty',
+  // O not in this version (`trash_restore` left O in AND-3: the phone's Undo of Move to trash, android-edit §2.1, D-2514)
+  'graph_neighbourhood', 'graph_presets_get', 'graph_presets_apply', 'index_related', 'trash_delete', 'trash_empty',
 ];
 
 const EXCLUDED = new Set(ANDROID_EXCLUDED);

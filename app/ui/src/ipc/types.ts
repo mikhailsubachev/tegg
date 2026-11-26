@@ -86,7 +86,12 @@ export type NoteDto = { path: string,
 /**
  * Decoded with U+FFFD for invalid bytes, for display only (D-180).
  */
-text: string, version: VersionDto, utf8: boolean, };
+text: string, version: VersionDto, utf8: boolean, 
+/**
+ * android-edit §2.3 (FR-FMT-12 AC-18; CP-7 → D-2533): the file was reached through an on-disk name whose bytes
+ * differ from its NFC form, so the phone shows it read-only. Always false on macOS.
+ */
+nfdName: boolean, };
 export type ProgressDto = { done: number, total: number, 
 /**
  * `running`, `done` or `cancelled`.
@@ -117,6 +122,7 @@ export type ConflictDto = { path: string, mine: string, theirs: string, theirsVe
 export type IpcError = { 
 /**
  * `Conflict`, `Gone`, `NotFound`, `NameTaken`, `NotUtf8`, `Io`, `NoVault`, `NotEmpty`, `NotATeggVault`, `Unsupported`;
+ * android-edit §2.3 (D-2512; Android only): `ReadOnlyName`, a write to a file stored under an NFD name;
  * 3D (ms3-shell §14.3): `Rule`, `NewerVersion`, `InvalidType`, `BuiltInChanged`, `ReviewLocked`, `SystemType`,
  * `HasObjects`, `UnknownType`.
  */
@@ -502,7 +508,11 @@ links: Array<LinkTargetDto>,
 /**
  * Slice OC (v1-cards §3.3): the embedded object's card data; null unless `ok` and indexed.
  */
-card: CardDataDto | null, };
+card: CardDataDto | null, 
+/**
+ * android-edit §2.3 (FR-FMT-12 AC-18): as `NoteDto.nfdName`, so an embedded task's checkbox stays disabled.
+ */
+nfdName: boolean, };
 export type NoteRenameDto = { jobId: number, 
 /**
  * The planned path; the final one is in the report.
@@ -677,4 +687,5 @@ export type FoundVaultDto = { name: string, path: string, rel: string, };
 export type StorageAccessDto = { granted: boolean, sharedRoot: string, };
 export type InsetsDto = { top: number, bottom: number, left: number, right: number, };
 export type WindowStateDto = { insets: InsetsDto, keyboard: boolean, systemDark: boolean, fontScale: number, };
+export type RecoveryDto = { vault: string, path: string, id: string | null, title: string, text: string, base: VersionDto | null, savedAt: string, };
 export type TypeDefDto = TypeDto;

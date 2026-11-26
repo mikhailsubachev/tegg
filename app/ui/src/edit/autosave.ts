@@ -94,14 +94,24 @@ export class Saver {
   }
 
   /** Saves now and waits for every write (⌘S, leaving the note, the source toggle). */
-  async flush(): Promise<void> {
+  async flush(o?: { composing?: boolean }): Promise<void> {
     if (this.timer) { clearTimeout(this.timer); this.timer = null; }
     if (this.retry) { clearTimeout(this.retry); this.retry = null; }
     if (this.blocked) return;
-    await this.run();
-    // A change made while the last write was running.
-    if (!this.blocked && this.state === 'saving') await this.run();
+    // Slice AND-3 (android-edit §11.1, CP-6): the phone going to the background saves the document as shown, the
+    // composing word included (ProseMirror has read it into the doc); every other write keeps waiting for a composition.
+    if (o?.composing) this.ignoreComposing = true;
+    try {
+      await this.run();
+      // A change made while the last write was running.
+      if (!this.blocked && this.state === 'saving') await this.run();
+    } finally {
+      if (o?.composing) this.ignoreComposing = false;
+    }
   }
+
+  /** Set by `flush({ composing: true })` while its writes run. */
+  private ignoreComposing = false;
 
   private run(): Promise<void> {
     if (this.running) {
@@ -116,7 +126,7 @@ export class Saver {
     if (this.blocked || this.disposed || this.holding) return;
     // A composition (dead keys, IME) isn't text yet: wait until it ends (FR-EDT-08 AC-12). The same for an open
     // slash menu, whose `/query` is a command being typed (FR-EDT-03 AC-5).
-    if (this.ed.view.composing || this.paused()) {
+    if ((this.ed.view.composing && !this.ignoreComposing) || this.paused()) {
       this.timer = setTimeout(() => { this.timer = null; void this.run(); }, 150);
       return;
     }

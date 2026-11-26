@@ -114,10 +114,13 @@ test('nfr_sec_01_ac4_external_links_leave_through_the_system', async () => {
 const HIDDEN_TABLE = [
   'app.palette', 'help.shortcuts', 'nav.forward', 'view.toggleSidebar', 'view.toggleRightPanel', 'view.toggleFocus', 'note.toggleProperties', 'note.width.*', 'edit.*',
   'editor.insertQuery', 'mindmap.layoutRight', 'mindmap.layoutSpider', 'preview.*', 'link.edit', 'link.remove', 'outline.*', 'panel.*', 'related.toggleLinked', 'graph.*',
-  'sidebar.pin', 'sidebar.unpin', 'sidebar.pinned.moveUp', 'sidebar.pinned.moveDown', 'tags.new', 'tag.*', 'queries.new', 'query.edit', 'query.rename', 'query.trash',
+  'sidebar.pinned.moveUp', 'sidebar.pinned.moveDown', 'tags.new', 'tag.*', 'queries.new', 'query.edit', 'query.rename', 'query.trash',
   'query.saveAs', 'query.columns', 'views.new', 'views.menu', 'views.remove', 'views.edit', 'views.moveLeft', 'views.moveRight', 'board.*', 'sort.*', 'columns.*',
-  'typePage.*', 'type.*', 'task.*', 'tasks.schedule', 'tasks.kanban', 'tasks.search', 'types.restoreDefaultViews', 'note.markReviewed', 'note.markUnreviewed',
-  'daily.markReviewed', 'daily.markUnreviewed', 'note.changeType', 'note.editProperties', 'object.trash', 'media.add', 'trash.*', 'goto.trash', 'goto.brokenLinks',
+  'typePage.*', 'type.*', 'task.*', 'tasks.schedule', 'tasks.kanban', 'tasks.search', 'types.restoreDefaultViews',
+  // Slice AND-3 (docs/contracts/android-edit.md §13.2, §20): note.markReviewed, note.markUnreviewed, daily.markReviewed,
+  // daily.markUnreviewed, object.trash, sidebar.pin and sidebar.unpin leave the list (AC-Test-Change, approved by the owner
+  // with the contract, D-2541).
+  'note.changeType', 'note.editProperties', 'media.add', 'trash.*', 'goto.trash', 'goto.brokenLinks',
   'goto.duplicateTitles', 'goto.settings/shortcuts', 'goto.settings/menu-bar', 'goto.settings/trash-history', 'goto.settings/previews', 'settings.backups', 'job.*',
   'capture.*', 'import.open', 'inbox.*', 'duplicates.merge', 'vault.open', 'vault.addStarterTypes', 'app.about', 'nav.newTab', 'edit.copyBlockLink', 'typeSettings.*',
   'panel.editRecurrence', 'settings.font', 'settings.fontSize', 'settings.accentColor', 'settings.changeShortcut',
@@ -136,7 +139,8 @@ const FRAME_TABLE = [
   'mindmap.closeFullScreen', 'android.openSettings',
 ];
 /** §7's PHONE_NOT_OFFERED (route ids; CP-9 adds broken-links and duplicate-titles). */
-const NOT_OFFERED_TABLE = ['new/<type>', 'home', 'graph/<path>', 'trash', 'type-settings/<type>', 'help/shortcuts', 'settings/shortcuts', 'settings/menu-bar', 'settings/trash-history', 'settings/previews', 'settings/backups', 'broken-links', 'duplicate-titles'];
+// Slice AND-3 (docs/contracts/android-edit.md §13.1, §20): `new/<type>` is offered (AC-Test-Change, D-2541).
+const NOT_OFFERED_TABLE = ['home', 'graph/<path>', 'trash', 'type-settings/<type>', 'help/shortcuts', 'settings/shortcuts', 'settings/menu-bar', 'settings/trash-history', 'settings/previews', 'settings/backups', 'broken-links', 'duplicate-titles'];
 /** RA2's excluded commands (android-shell.md RA2, as AND-1's android_platform test). */
 const RA2 = [
   'capture_context', 'capture_create', 'capture_ready', 'capture_hide', 'capture_resize', 'capture_open_main', 'capture_draft_get', 'capture_draft_set', 'capture_saved_show', 'capture_saved_hover', 'capture_suggest', 'capture_open', 'capture_media_add',
@@ -144,9 +148,12 @@ const RA2 = [
   'vault_pick_dir', 'media_pick', 'vault_reveal', 'media_reveal', 'backup_reveal', 'media_open', 'open_external', 'app_about', 'app_quit',
   'note_rename', 'tag_rename', 'tag_delete', 'merge_start', 'type_move_plan', 'type_move', 'folder_move_preview', 'tidy_now', 'value_remove_start', 'type_delete_start', 'inbox_bulk', 'starter_add', 'backup_restore', 'job_undo', 'job_redo', 'type_create', 'type_patch', 'type_delete',
   'query_apply', 'query_revert', 'query_create', 'query_duplicate', 'query_rename', 'query_trash', 'query_restore', 'task_views_restore',
-  'graph_neighbourhood', 'graph_presets_get', 'graph_presets_apply', 'index_related', 'trash_restore', 'trash_delete', 'trash_empty',
+  // Slice AND-3 (D-2514): group O loses trash_restore (AC-Test-Change, D-2541).
+  'graph_neighbourhood', 'graph_presets_get', 'graph_presets_apply', 'index_related', 'trash_delete', 'trash_empty',
 ];
-const hidden = (id: string) => id !== 'inbox.open' && !/^board\..*(fold|collapse|expand)/i.test(id) && HIDDEN_TABLE.some((h) => (h.endsWith('*') ? id.startsWith(h.slice(0, -1)) : id === h));
+/** §13.2 of docs/contracts/android-edit.md: the exceptions inside hidden prefixes (with their `:` forms). */
+const SHOWN = ['inbox.open', 'task.complete', 'edit.undo', 'edit.redo', 'edit.bold', 'edit.italic', 'edit.link', 'edit.blockType', 'edit.tag', 'edit.bulletList', 'edit.checklist', 'edit.indent', 'edit.outdent'];
+const hidden = (id: string) => !SHOWN.includes(id.split(':')[0]) && !/^board\..*(fold|collapse|expand)/i.test(id) && HIDDEN_TABLE.some((h) => (h.endsWith('*') ? id.startsWith(h.slice(0, -1)) : id === h));
 const sorted = (xs: Iterable<string>) => [...xs].sort();
 
 const VAULT = { name: 'Knihovna', path: '/storage/emulated/0/Documents/Knihovna', placeholders: 0 };
@@ -235,12 +242,14 @@ test('ar_03_ac13_phone_offers_no_excluded_action', async () => {
 /** RA13 and §11: key → English text. */
 const RA13: Record<string, string> = {
   'phone.menu': 'Menu', 'phone.search': 'Search', 'phone.new': 'New', 'phone.today': 'Today', 'phone.back': 'Back', 'phone.more': 'More actions', 'phone.bottomBar': 'Main',
-  'phone.drawer': 'Navigation', 'phone.settings': 'Settings', 'phone.newLater': 'Creating objects comes with editing on the phone.', 'phone.viewOnly': 'View only on the phone',
+  'phone.drawer': 'Navigation', 'phone.settings': 'Settings', 'phone.viewOnly': 'View only on the phone',
   'phone.sortLine': '{column}: {order}', 'phone.sortLineJoin': '{sort} · {viewOnly}', 'phone.properties': 'Properties', 'phone.close': 'Close',
-  'phone.showSource': 'Show Markdown source', 'phone.showFormatted': 'Show formatted note', 'phone.noNote': 'No note named “{name}” in this vault yet.',
+  'phone.showSource': 'Show Markdown source', 'phone.showFormatted': 'Show formatted note',
   'phone.map.zoomIn': 'Zoom in', 'phone.map.zoomOut': 'Zoom out', 'phone.map.fit': 'Fit to width', 'phone.map.fullScreen': 'Open full screen',
   'phone.map.closeFullScreen': 'Close full screen', 'phone.settings.storage': 'Storage access', 'phone.settings.storageOn': 'On', 'phone.settings.storageOff': 'Off',
-  'phone.settings.switchVault': 'Switch vault…', 'phone.settings.version': 'Tegg {version} · Android', 'phone.search.noMatch': 'Nothing matches “{query}”.',
+  // Slice AND-3 (docs/contracts/android-edit.md §14, §20): phone.newLater, phone.noNote and phone.search.noMatch are removed
+  // from the catalog (AC-Test-Change, approved by the owner with the contract, D-2541).
+  'phone.settings.switchVault': 'Switch vault…', 'phone.settings.version': 'Tegg {version} · Android',
   'cmd.goto.settings': 'Go to Settings', 'cmd.goto.settings.storage': 'Go to Settings: Storage access', 'cmd.phone.menu': 'Open or close navigation',
   'cmd.phone.more': 'More actions', 'cmd.phone.properties': 'Show properties', 'cmd.phone.closeSheet': 'Close sheet', 'cmd.mindmap.zoomIn': 'Zoom in on the mindmap',
   'cmd.mindmap.zoomOut': 'Zoom out of the mindmap', 'cmd.mindmap.fit': 'Fit the mindmap to the width', 'cmd.mindmap.fullScreen': 'Open the mindmap full screen',

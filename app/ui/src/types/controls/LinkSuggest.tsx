@@ -113,7 +113,7 @@ export function useLinkSuggest({ path, value, setValue, field }: {
       <div role="listbox" aria-label={t('suggest.links')}>
         {open.items.map((it, i) => {
           const create = it.kind === 'create';
-          const label = create ? t('suggest.create', { query: it.title }) : undefined;
+          const label = create ? t('suggest.create', { query: it.title.normalize('NFC') }) : undefined;
           return (
             <div key={`${it.kind}:${it.path ?? it.title}`} role="option" aria-selected={i === open.sel} aria-label={label}
               className={`option ${i === open.sel ? 'selected' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={() => void choose(it)}>

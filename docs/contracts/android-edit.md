@@ -157,6 +157,9 @@ it as `nfdName`. The write refusal of android-shell §3.2 stays; `Core::write_no
 `create_exact` onto that name and the task and inbox writes all reach it. The L4 test
 `crates/tegg-vault/tests/ac_android_names.rs` (`fr_fmt_12_ac18_nfd_named_note_read_only_on_the_phone`) checks the refusal
 for `write`, `rename_no_replace` and `trash` on a stored NFD name and `OnDiskName::Found` with other bytes (the field).
+List rows learn it from the core too (D-2554): `inbox_list`'s rows and the task rows (`index_type_rows`, `task_list`) carry
+`readOnly: true` for a file whose on-disk name has other bytes than its NFC form (always `false` on macOS), so the phone
+disables their checkboxes with the read-only reason instead of sending a write the core refuses.
 `pins_apply` writes `.tegg/pinned.yml` only, so `Pin` works on such a note.
 
 ### 3.2 Creates on shared storage (FR-SYN-02 AC-17; D-2047, D-2513)
@@ -404,7 +407,7 @@ blocks and lossy tables stay read-only as on the desktop; table cells are editab
 
 A tap on a link chip opens it (D-140, D-2506): `EditorPane`'s chip click handler on the phone runs the open without
 modifiers. A tap beside a chip places the caret. A tap on a checklist item's box (`.checklist-item .check`) toggles it
-through `toggleChecklist` at that item, with `pointerdown` prevented, so neither the caret nor the keyboard moves
+through `toggleChecklist` at that item, with `mousedown` prevented (D-2562: WebKit sends no click after a touch whose `pointerdown` was prevented), so neither the caret nor the keyboard moves
 (FR-TSK-11 AC-5). Embeds open as AND-2 §10 (`read.openEmbed:<n>`).
 
 ## 8. The formatting bar (RA15; FR-UX-04 AC-8…AC-10; D-2504)
@@ -416,7 +419,7 @@ query`, the type sheet's field or the link panel's field). The WebView ends at t
 bottom is the keyboard's top. `main` gets `padding-bottom: 48px` while the bar is shown. The bottom bar isn't rendered
 while the keyboard is shown (AND-2 §8.6).
 
-Buttons, 48 × 48 px, each `button[type="button"][tabindex="-1"]` with `onPointerDown` and `onMouseDown`
+Buttons, 48 × 48 px, each `button[type="button"][tabindex="-1"]` with `onMouseDown` (D-2562; not `onPointerDown`)
 `preventDefault()` (the focus, the selection and the keyboard stay; FR-UX-04 AC-10):
 
 | # | Name | `data-command` | State from `formatState` |
@@ -437,7 +440,7 @@ Buttons, 48 × 48 px, each `button[type="button"][tabindex="-1"]` with `onPointe
 `Heading 1`, `Heading 2`, `Heading 3` (`slash.*`; `aria-checked` from `block`/`level`; commands
 `edit.blockType:text`, `edit.blockType:heading1`, `…:heading2`, `…:heading3`) and `button` `Close` (`phone.close`,
 `edit.blockType:close`). A choice runs `setBlock` and brings the row back. A disabled button does nothing and sends
-nothing. When `formatState().editable` is false (the caret beside a protected block), the block buttons act on the
+nothing. When `formatState().editable` is false (the caret in a source block, an embed, a query or a protected mindmap, §4.1; D-2561), the block buttons act on the
 caret's own block only (§5.2).
 
 `Link`: with a selection, the link panel (§10.2); without, `insertTrigger('[[')`. `Tag`: `insertTrigger('#')`.
@@ -487,7 +490,7 @@ sets `main.scrollTop = caretScroll(caret, caretBand(appBar.bottom, coverTop), ma
 The existing listboxes (`listbox` `Link suggestions` (`suggest.links`), `Tag suggestions` (`suggest.tags`), `Insert
 block` (`slash.label`)) render on the phone in `div.phone-panel` instead of the popover: `position: fixed`, `bottom: 0`,
 side insets, replacing the bar while open; rows `role="option"` ≥ 56 px; `max-height: 224px` (4 rows) with its own
-scroller. Rows keep the desktop's content (type icon, title, `DuplicateDetails`). `pointerdown` on a row is prevented
+scroller. Rows keep the desktop's content (type icon, title, `DuplicateDetails`). `mousedown` on a row is prevented (D-2562)
 (the focus and the keyboard stay); a tap chooses it. The panel closes as Esc does (the typed trigger stays as text) when
 the keyboard hides or the selection leaves the trigger's range. The last two rows of `Link suggestions` are the
 desktop's `Create “<q>”` and `Create “<q>” as…` (the latter opens the type sheet, §10.3). `Insert block` lists
@@ -902,6 +905,10 @@ red tests.
 | `phone_quality.ac.test.ts`, `e2e-android/android_phone_sync.ac.test.ts` `fr_syn_06_ac54_reading_on_the_phone_writes_nothing` | the tour keeps zero writes but no longer taps checkboxes or `New` as "does nothing" (they write now) |
 
 AND-2's other tests (frame, drawer, Back, views, maps, themes, settings) don't change.
+
+The phone's editor page stays an `article` named by the note's title, as AND-2's read view was (D-2553), so AND-2's tests
+that find the open note by `getByRole('article', { name })` or `main article` (phone_read FR-EDT-02 AC-26, FR-NAV-08
+AC-3 at L5p and LA, FR-ATT-01 AC-17) stay valid. D-2550's two further AND-2 test changes are approved (D-2553).
 
 ## 21. What depends on OC-2 and OC-3 (D-2526)
 

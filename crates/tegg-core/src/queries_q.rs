@@ -3538,6 +3538,18 @@ impl QCore<'_> {
             let mut e = e;
             let mut cache = None;
             self.shared.fill_files(e.rows.iter_mut().filter_map(|r| r.card.as_mut().map(|c| (r.path.as_str(), c))), &mut cache);
+            // android-edit §3.1 (D-2554): board cards and task rows of a file stored under an NFD name are read-only.
+            for row in &mut e.rows {
+                let open = (row.card.is_some() && !row.read_only) || row.task_row.as_ref().is_some_and(|t| !t.read_only);
+                if open && self.shared.vault.nfd_name(&row.path) {
+                    if row.card.is_some() {
+                        row.read_only = true;
+                    }
+                    if let Some(t) = row.task_row.as_mut() {
+                        t.read_only = true;
+                    }
+                }
+            }
             let mut broken = syntactic;
             // A `group_by` read as a bad value is also unresolved at run time: listed once.
             let had_group_by = broken.iter().any(|b| b.key == "group_by" && b.at.is_none());

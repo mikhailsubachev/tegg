@@ -209,10 +209,12 @@ export function PickDate({ label, today, value, onPick, onClear, onClose, anchor
               {w.map((d) => {
                 const out = d.slice(0, 7) !== first.slice(0, 7);
                 const has = !!marks?.has(d);
+                // A day of another month taken by a tap or a click keeps the month shown: turning it on focus moved the
+                // grid under the finger before the click, so the day was never picked (FR-EDT-07 AC-24 (e)).
                 return (
                   <td key={d} role="gridcell" aria-selected={d === value ? 'true' : 'false'} aria-current={d === today ? 'date' : undefined}
                     tabIndex={-1} onFocus={(e) => { if (e.target === e.currentTarget) e.currentTarget.querySelector('button')?.focus(); }}>
-                    <button type="button" data-date={d} tabIndex={d === focus ? 0 : -1} aria-label={longDate(d, loc)} onFocus={() => { if (d !== focus) go(d); }}
+                    <button type="button" data-date={d} tabIndex={d === focus ? 0 : -1} aria-label={longDate(d, loc)} onFocus={() => { if (d !== focus && !out) go(d); }}
                       aria-current={d === today ? 'date' : undefined} aria-selected={d === value ? 'true' : 'false'}
                       data-has-note={has ? 'true' : undefined} aria-description={has ? t('daily.hasNote') : undefined}
                       className={`cal-day${out ? ' out' : ''}${d < today ? ' past' : ''}${d === today ? ' today' : ''}${d === value ? ' sel' : ''}${has ? ' has-note' : ''}`}

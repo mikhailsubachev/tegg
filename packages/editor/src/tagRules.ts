@@ -6,7 +6,7 @@
 
 import { Extension, combineTransactionSteps, getChangedRanges } from '@tiptap/core'
 import { Fragment, type Mark, type Node as PMNode, type Schema } from '@tiptap/pm/model'
-import { Plugin, PluginKey } from '@tiptap/pm/state'
+import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 
 const TAG = /(?<=^|[\s(])#([\p{L}\p{M}\p{N}_\-/]*[\p{L}\p{M}_\-/][\p{L}\p{M}\p{N}_\-/]*)/gu
 const ATOM = '￼' // stands for anything that isn't plain text (links, code, other atoms)
@@ -74,14 +74,41 @@ const sameMarks = (a: readonly Mark[], b: readonly Mark[]) => a.length === b.len
 export const TagRules = Extension.create({
   name: 'tagRules',
   addProseMirrorPlugins() {
+    // While an input method composes, the composing text stays text (replacing its DOM breaks the composition and the
+    // keyboard commits the word again); the caret's block is re-tokenized once the composition ends (slice AND-3,
+    // FR-EDT-01 AC-19 (g): `#p` inside a composition).
+    let composing = false
+    const AFTER = 'tagRulesAfterComposition'
     return [
       new Plugin({
         key: new PluginKey('tagRules'),
+        props: {
+          handleDOMEvents: {
+            compositionstart: () => { composing = true; return false },
+            compositionend: (view) => {
+              composing = false
+              setTimeout(() => {
+                if (view.isDestroyed || view.composing) return
+                const { $head } = view.state.selection
+                if (!$head.parent.isTextblock) return
+                view.dispatch(view.state.tr.setMeta(AFTER, { from: $head.start(), to: $head.end() }))
+              }, 0)
+              return false
+            },
+          },
+        },
         appendTransaction: (trs, oldState, newState) => {
-          if (!trs.some((t) => t.docChanged) || trs.some((t) => t.getMeta('tagRules'))) return null
-          const ranges = getChangedRanges(combineTransactionSteps(oldState.doc, [...trs]))
+          if (composing || trs.some((t) => t.getMeta('tagRules'))) return null
+          const forced = trs.map((t) => t.getMeta(AFTER) as { from: number; to: number } | undefined).find((x) => !!x)
+          if (!trs.some((t) => t.docChanged) && !forced) return null
+          const ranges = trs.some((t) => t.docChanged) ? getChangedRanges(combineTransactionSteps(oldState.doc, [...trs])) : []
+          if (forced) ranges.push({ newRange: forced } as (typeof ranges)[number])
           const tr = newState.tr
           const seen = new Set<number>()
+          // The caret inside a rebuilt block keeps its place in the block's text (slice AND-3: a tag typed before other
+          // text in the block left the caret at the block's end, so the tag list never opened).
+          const sel = newState.selection
+          let caret: { block: number; chars: number } | null = null
           for (const { newRange } of ranges) {
             newState.doc.nodesBetween(newRange.from, Math.min(newRange.to, newState.doc.content.size), (node, pos) => {
               if (!node.isTextblock || node.type.name === 'codeBlock') return true
@@ -100,7 +127,31 @@ export const TagRules = Extension.create({
               for (let k = 0; k < b; k++) to -= node.child(node.childCount - 1 - k).nodeSize
               const middle: PMNode[] = []
               for (let k = a; k < next.childCount - b; k++) middle.push(next.child(k))
+              const blockStart = tr.mapping.map(pos + 1)
+              if (sel.empty && sel.head > from && sel.head < to && caret === null) {
+                let n = 0
+                node.forEach((c, off) => {
+                  const at = pos + 1 + off
+                  if (at >= sel.head) return
+                  const len = c.type.name === 'tag' ? 1 + String(c.attrs.value).length : c.isText ? c.text!.length : 1
+                  n += Math.min(len, c.isText ? sel.head - at : len)
+                })
+                caret = { block: blockStart, chars: n }
+              }
               tr.replaceWith(tr.mapping.map(from), tr.mapping.map(to), middle)
+              if (caret && caret.block === blockStart) {
+                const block = tr.doc.resolve(blockStart).parent
+                let left = caret.chars
+                let at = blockStart
+                block.forEach((c) => {
+                  if (left <= 0) return
+                  const len = c.type.name === 'tag' ? 1 + String(c.attrs.value).length : c.isText ? c.text!.length : 1
+                  if (c.isText && left < len) { at += left; left = 0; return }
+                  left -= len
+                  at += c.nodeSize
+                })
+                try { tr.setSelection(TextSelection.create(tr.doc, at)) } catch { /* not a text position: the mapped one */ }
+              }
               return false
             })
           }

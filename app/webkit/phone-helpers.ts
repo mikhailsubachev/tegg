@@ -83,9 +83,10 @@ export const RA9_ROUTES = [
   'inbox', 'today', 'daily/2026-10-21', 'type/book', 'type/task', 'queries', 'query/Rozečtené', 'tags', 'tag/čtení', 'search',
   `note/${PH.mapa}`, 'conflicts', 'settings', 'settings/appearance', 'settings/date-time', 'settings/vault', 'settings/storage',
 ];
-/** RA9's "Not offered" routes (and CP-9's two). */
+/** RA9's "Not offered" routes (and CP-9's two). Slice AND-3 (docs/contracts/android-edit.md §13.1, §20): `new/<type>` is
+ *  offered now (AC-Test-Change, approved by the owner with the contract, D-2541). */
 export const NOT_OFFERED = [
-  'new/book', 'home', 'graph', `graph/${PH.mapa}`, 'trash', 'type-settings/book', 'help/shortcuts', 'settings/shortcuts', 'settings/menu-bar',
+  'home', 'graph', `graph/${PH.mapa}`, 'trash', 'type-settings/book', 'help/shortcuts', 'settings/shortcuts', 'settings/menu-bar',
   'settings/trash-history', 'settings/previews', 'settings/backups', 'broken-links', 'duplicate-titles',
 ];
 
@@ -110,12 +111,21 @@ export type PhoneOptions = AndroidOptions & {
   wait?: 'frame' | 'chooser' | 'access' | 'none';
   /** The app's layout: unset (the phone on Android) unless a test compares with the desktop. */
   layout?: 'desktop' | 'phone' | null;
+  /** Slice AND-3 (§17.1; red-test decision): vault paths the fake core reports as stored under an NFD name
+   *  (`nfdName: true` from `note_read` and `embed_load`; writes to them refused with `ReadOnlyName`). */
+  nfdNames?: string[];
+  /** Slice AND-3: recovery copies the fake's private storage holds at start (`android_recovery_get`). */
+  recoveries?: RecoveryDto[];
 };
 export type PhoneHandle = AndroidHandle & {
   /** URLs `android_open_url` accepted, in order. */
   openedUrls(): Promise<string[]>;
   /** The `dark` arguments of `android_window`, in order. */
   windowCalls(): Promise<boolean[]>;
+  /** Slice AND-3 (§17.1): the fake's private recovery copies now (`android_recovery_put` / `_drop`). */
+  recoveries(): Promise<RecoveryDto[]>;
+  /** Slice AND-3 (§17.1): the `show` arguments of `android_ime`, in order. */
+  imeCalls(): Promise<boolean[]>;
 };
 
 /** In-page (serialized): the fake core's Android answers of §14.1. */
@@ -163,7 +173,11 @@ export async function startPhone(page: Page, o: PhoneOptions = {}): Promise<Phon
   const core = await startAndroid(page, {
     vaultPath: VAULT_PATH, uiState: ui(), previewStored: 'asGiven', ...o, vault, platform: 'android',
     layout: o.layout === undefined ? null : o.layout,
-    beforeGoto: async () => { await page.addInitScript(phoneFake); await o.beforeGoto?.(); },
+    beforeGoto: async () => {
+      await page.addInitScript(phoneFake);
+      await page.addInitScript(editFake, { nfd: (o.nfdNames ?? []).map(nfc), recoveries: o.recoveries ?? [] });
+      await o.beforeGoto?.();
+    },
   });
   const insets = o.insets === undefined ? INSETS : o.insets;
   if (insets && o.layout !== 'desktop') await injectInsets(page, insets);
@@ -174,6 +188,8 @@ export async function startPhone(page: Page, o: PhoneOptions = {}): Promise<Phon
   return Object.assign(core, {
     openedUrls: () => page.evaluate(() => [...((window as any).__teggPhone?.opened ?? [])] as string[]),
     windowCalls: () => page.evaluate(() => [...((window as any).__teggPhone?.window ?? [])] as boolean[]),
+    recoveries: () => page.evaluate(() => JSON.parse(JSON.stringify(Object.values((window as any).__teggEdit?.recovery ?? {}))) as RecoveryDto[]),
+    imeCalls: () => page.evaluate(() => [...((window as any).__teggEdit?.ime ?? [])] as boolean[]),
   });
 }
 
@@ -340,9 +356,12 @@ export async function pinch(page: Page, centre: { x: number; y: number }, from: 
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await cdp.detach();
 }
-/** A tap through the touchscreen at the centre of `loc`. */
+/** A tap through the touchscreen at the centre of `loc`, scrolled into view first (a control in a sideways-scrolling
+ *  bar may start outside the viewport; D-2554). */
 export async function tap(page: Page, loc: Locator, what: string) {
-  const r = await rect(await must(loc, what));
+  const el = await must(loc, what);
+  await el.first().scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
+  const r = await rect(el);
   assert.ok(r, `${what}: has a box`);
   await page.touchscreen.tap(r!.x + r!.width / 2, r!.y + r!.height / 2);
 }
@@ -509,4 +528,313 @@ export async function unwrappedTexts(scope: Locator): Promise<string[]> {
     }
     return [...new Set(out)].slice(0, 20);
   });
+}
+
+// ================================================================================================ slice AND-3
+// docs/contracts/android-edit.md §17.1 (the L5p harness of editing on the phone), §15.1 (test hooks), §18 (fixtures).
+// Red-test decisions (BRD D-2543…): the format bar's button helper is `formatButton` (AND-2's `barButton` is the bottom
+// bar's); `nfdNames` makes the fake core report `nfdName: true`; "writes exactly X" compares the fake core's write
+// commands and the paths they name.
+
+export type VersionDto = { mtimeNs: string; size: number; hash: string };
+/** §2.2's recovery copy. */
+export type RecoveryDto = { vault: string; path: string; id: string | null; title: string; text: string; base: VersionDto | null; savedAt: string };
+
+/** In-page (serialized): §17.1's fake-core additions: `android_recovery_put`, `_get`, `_drop` (in memory) and
+ *  `android_ime` (recorded), all read-only for "zero writes"; `nfdName` on `note_read` / `embed_load`; `readOnly: true`
+ *  on `inbox_list`, `index_type_rows` and `task_list` rows of an NFD-named file. */
+function editFake(cfg: { nfd: string[]; recoveries: RecoveryDto[] }) {
+  const w = window as any;
+  const e = (w.__teggEdit = { recovery: {} as Record<string, any>, ime: [] as boolean[] });
+  const key = (vault: string, path: string) => `${vault}\u0000${String(path).normalize('NFC')}`;
+  for (const r of cfg.recoveries) e.recovery[key(r.vault, r.path)] = r;
+  const x = w.__teggFake;
+  if (!x) return;
+  for (const c of ['android_recovery_put', 'android_recovery_get', 'android_recovery_drop', 'android_ime']) x.reads.add(c);
+  const h = x.handlers as Record<string, (a: any) => unknown>;
+  h.android_recovery_put = (a: any) => {
+    const c = a?.copy;
+    if (!c || typeof c.path !== 'string') throw { kind: 'Io', message: 'fake: no copy' };
+    e.recovery[key(c.vault, c.path)] = JSON.parse(JSON.stringify(c));
+    return null;
+  };
+  h.android_recovery_get = (a: any) => Object.values(e.recovery).find((r: any) => String(r.path).normalize('NFC') === String(a?.path ?? '').normalize('NFC')) ?? null;
+  h.android_recovery_drop = (a: any) => {
+    for (const k of Object.keys(e.recovery)) if (String(e.recovery[k].path).normalize('NFC') === String(a?.path ?? '').normalize('NFC')) delete e.recovery[k];
+    return null;
+  };
+  h.android_ime = (a: any) => { e.ime.push(!!a?.show); return null; };
+  const nfd = new Set(cfg.nfd);
+  const read = h.note_read;
+  if (read) h.note_read = async (a: any) => {
+    const r: any = await read(a);
+    return r && typeof r === 'object' ? { ...r, nfdName: nfd.has(String(a?.path ?? '').normalize('NFC')) } : r;
+  };
+  const embed = h.embed_load;
+  if (embed) h.embed_load = async (a: any) => {
+    const r: any = await embed(a);
+    if (r && typeof r === 'object' && typeof r.path === 'string') return { ...r, nfdName: nfd.has(String(r.path).normalize('NFC')) };
+    return r;
+  };
+  // list rows of an NFD-named file carry `readOnly: true`, as the core will report them (D-2554)
+  const markRo = (v: any): any => {
+    if (Array.isArray(v)) return v.map(markRo);
+    if (!v || typeof v !== 'object') return v;
+    const o: any = {};
+    for (const [k, x] of Object.entries(v)) o[k] = markRo(x);
+    if (typeof o.path === 'string' && nfd.has(o.path.normalize('NFC'))) o.readOnly = true;
+    return o;
+  };
+  for (const c of ['inbox_list', 'index_type_rows', 'task_list']) {
+    const orig = h[c];
+    if (!orig || nfd.size === 0) continue;
+    h[c] = async (a: any) => markRo(await orig(a));
+  }
+  for (const c of ['note_write', 'object_trash', 'note_trash', 'note_create_exact']) {
+    const orig = h[c];
+    if (!orig) continue;
+    h[c] = (a: any) => {
+      if (nfd.has(String(a?.path ?? '').normalize('NFC'))) throw { kind: 'ReadOnlyName', message: 'fake: a file stored under an NFD name is read-only on the phone' };
+      return orig(a);
+    };
+  }
+}
+
+/** `editor/` + `new-empty/.tegg/` + the AND-3 overlay `phone-edit/` (android-edit.md "Fixtures"). */
+export const editVault = (edit?: (files: Record<string, string>, bin: Record<string, string>) => void) =>
+  loadVault('Editor', ['editor', 'new-empty/.tegg', 'phone-edit'], edit);
+/** The ACs' clock: 2026-10-14 12:00 in Prague. */
+export const EDIT_NOW = '2026-10-14T12:00:00+02:00';
+export const PE = {
+  psani: 'Pages/Psaní.md', mapa: 'Pages/Mapa v textu.md', tabulka: 'Pages/Tabulka.md', deset: 'Pages/Deset bloků.md', prazdna: 'Pages/Prázdná.md',
+  ukoly: 'Pages/Úkoly.md', cil: 'Pages/Cíl.md', chyba: 'Pages/Chyba uvozovky.md', seznamy: 'Pages/Seznamy.md',
+} as const;
+
+export const noteBody = (page: Page) => page.getByRole('textbox', { name: rx('Note body') });
+export const titleField = (page: Page) => main(page).getByRole('textbox', { name: rx('Title') });
+export const saveState = (page: Page) => appBar(page).getByRole('status', { name: rx('Save state') });
+export const formatBar = (page: Page) => page.getByRole('toolbar', { name: rx('Formatting') });
+/** A button of RA15's bar (AND-2's `barButton` is the bottom bar's). */
+export const formatButton = (page: Page, name: string) => formatBar(page).getByRole('button', { name: rx(name) });
+export const blockTypeGroup = (page: Page) => page.getByRole('radiogroup', { name: rx('Block type') });
+/** RA18's suggestion panels: `Link suggestions`, `Tag suggestions`, `Insert block`. */
+export const panel = (page: Page, name: 'Link suggestions' | 'Tag suggestions' | 'Insert block') => page.getByRole('listbox', { name: rx(name) });
+export const mergeBanner = (page: Page) => page.getByRole('alert').filter({ hasText: /Changed outside Tegg/ });
+export const typeSheet = (page: Page) => page.getByRole('dialog', { name: rx('New object') });
+export const propsSheet = (page: Page) => page.getByRole('dialog', { name: rx('Properties') });
+
+/** `__TEGG_TEST__.visibility(state)` (§15.1): the same listeners as the system's `visibilitychange` / `pagehide`. */
+export async function visibility(page: Page, state: 'hidden' | 'visible'): Promise<number> {
+  await needHook(page, 'visibility', 2000);
+  return page.evaluate((s) => { const t = Date.now(); (window as any).__TEGG_TEST__.visibility(s); return t; }, state);
+}
+/** The shown note's editor text (`__TEGG_TEST__.editor.text()`, ms3-shell §13.6), or null. */
+export const editorText = (page: Page) => page.evaluate(() => {
+  const e = (window as any).__TEGG_TEST__?.editor;
+  return typeof e?.text === 'function' ? (e.text() as string) : null;
+});
+/** `__TEGG_TEST__.formatState()` (§15.1), or null when the hook or the editor is missing. */
+export const formatStateOf = (page: Page) => page.evaluate(() => {
+  const f = (window as any).__TEGG_TEST__?.formatState;
+  return typeof f === 'function' ? (f() as Record<string, unknown> | null) : null;
+});
+/** `__TEGG_TEST__.run(id)`: 'ok', 'no hook', or 'rejected: …' (never throws, TS-I1). */
+export async function runById(page: Page, id: string): Promise<string> {
+  return page.evaluate((c) => {
+    const t = (window as any).__TEGG_TEST__;
+    if (typeof t?.run !== 'function') return 'no hook';
+    return Promise.resolve(t.run(c)).then(() => 'ok', (e: unknown) => `rejected: ${String((e as Error)?.message ?? e)}`);
+  }, id);
+}
+
+/** Waits for the `Note body` editor of the shown note (AssertionError if it never comes). */
+export async function needBody(page: Page, what = 'the note', ms = 5000): Promise<Locator> {
+  return must(noteBody(page), `${what}: the textbox "Note body" (the editor, RA14)`, ms);
+}
+/** The rectangle (viewport px) of the first occurrence of `text` inside `scope` (default the `Note body`), or null. */
+export async function textRect(page: Page, text: string, o: { scope?: Locator; occurrence?: number } = {}): Promise<Rect | null> {
+  const scope = o.scope ?? noteBody(page);
+  if (!(await seen(scope, 2000))) return null;
+  return scope.first().evaluate((root, [t, n]) => {
+    const want = t.normalize('NFC');
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let seenN = 0;
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const s = (node.textContent ?? '').normalize('NFC');
+      let i = s.indexOf(want);
+      while (i >= 0) {
+        if (seenN === n) {
+          const r = document.createRange();
+          r.setStart(node, i);
+          r.setEnd(node, i + want.length);
+          const b = r.getBoundingClientRect();
+          return { x: b.x, y: b.y, width: b.width, height: b.height, top: b.top, bottom: b.bottom, left: b.left, right: b.right };
+        }
+        seenN++;
+        i = s.indexOf(want, i + 1);
+      }
+    }
+    return null;
+  }, [text, o.occurrence ?? 0] as const);
+}
+/** A tap (touchscreen) on the word `text` in the body: its middle, or just after its last letter (`end`). */
+export async function tapText(page: Page, text: string, at: 'middle' | 'end' | 'start' = 'middle', scope?: Locator) {
+  const r = await textRect(page, text, { scope });
+  assert.ok(r, `"${text}" is shown in the note body`);
+  const x = at === 'middle' ? r!.x + r!.width / 2 : at === 'end' ? r!.right - 1 : r!.left + 1;
+  await page.touchscreen.tap(x, r!.y + r!.height / 2);
+}
+/** Puts a collapsed caret `offset` characters into the first occurrence of `text` in the body (`'end'`: after it),
+ *  or selects `text` with `select`; the body keeps or gets the focus. */
+export async function setCaret(page: Page, text: string, offset: number | 'end' = 'end', o: { select?: boolean } = {}) {
+  const body = await needBody(page);
+  const ok = await body.evaluate((root, [t, off, sel]) => {
+    const want = t.normalize('NFC');
+    (root as HTMLElement).focus();
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const s = (node.textContent ?? '').normalize('NFC');
+      const i = s.indexOf(want);
+      if (i < 0) continue;
+      const r = document.createRange();
+      const at = off === 'end' ? i + want.length : i + (off as number);
+      if (sel) { r.setStart(node, i); r.setEnd(node, i + want.length); } else { r.setStart(node, at); r.collapse(true); }
+      const s2 = getSelection()!;
+      s2.removeAllRanges();
+      s2.addRange(r);
+      document.dispatchEvent(new Event('selectionchange'));
+      return true;
+    }
+    return false;
+  }, [text, offset, !!o.select] as const);
+  assert.ok(ok, `"${text}" is in the note body (to place the caret)`);
+  await sleep(50);
+}
+/** The caret's block text and offset in it (from the DOM selection), and whether the selection is collapsed. */
+export async function caretInfo(page: Page): Promise<{ block: string; offset: number; collapsed: boolean; selected: string; inBody: boolean }> {
+  return page.evaluate(() => {
+    const s = getSelection();
+    const body = document.querySelector('[role="textbox"][aria-label="Note body"]');
+    if (!s || s.rangeCount === 0) return { block: '', offset: -1, collapsed: true, selected: '', inBody: false };
+    const r = s.getRangeAt(0);
+    const node = r.startContainer;
+    const el = (node.nodeType === 1 ? node : node.parentElement) as Element | null;
+    const block = el?.closest('p, li, h1, h2, h3, h4, h5, h6, td, th, pre') as HTMLElement | null;
+    let offset = -1;
+    if (block) {
+      const pre = document.createRange();
+      pre.setStart(block, 0);
+      pre.setEnd(r.startContainer, r.startOffset);
+      offset = pre.toString().length;
+    }
+    return { block: (block?.innerText ?? '').trim().normalize('NFC'), offset, collapsed: r.collapsed, selected: s.toString().normalize('NFC'), inBody: !!body && body.contains(node) };
+  });
+}
+/** Whether `document.activeElement` is the `Note body`. */
+export const bodyFocused = (page: Page) => page.evaluate(() => {
+  const a = document.activeElement;
+  return !!a && a.getAttribute('role') === 'textbox' && a.getAttribute('aria-label') === 'Note body';
+});
+
+/** Successful writes per vault path (the fake's `writesTo()`), plus the other write commands by the path they name. */
+export async function writesPerPath(core: AndroidHandle): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  for (const p of await core.writesTo()) out[nfc(p)] = (out[nfc(p)] ?? 0) + 1;
+  for (const c of await core.calls()) {
+    if (!WRITE_COMMANDS.includes(c.cmd) || ['note_write', 'note_create', 'note_create_exact'].includes(c.cmd) || c.ok === false) continue;
+    const a = (c.args ?? {}) as Record<string, unknown>;
+    const p = c.cmd === 'pins_apply' ? '.tegg/pinned.yml' : String(a.path ?? (c.result as any)?.path ?? c.cmd);
+    out[nfc(p)] = (out[nfc(p)] ?? 0) + 1;
+  }
+  return out;
+}
+export type WriteCall = { cmd: string; path?: string };
+/** The write commands the fake core received after call index `from`, each with the path it names (args, else result). */
+export async function writeCalls(core: AndroidHandle, from = 0): Promise<WriteCall[]> {
+  return (await core.calls()).slice(from).filter((c) => WRITE_COMMANDS.includes(c.cmd)).map((c) => {
+    const a = (c.args ?? {}) as Record<string, any>;
+    const r = (typeof c.result === 'string' ? { path: c.result } : (c.result ?? {})) as Record<string, any>;
+    const p = c.cmd === 'pins_apply' ? '.tegg/pinned.yml' : a.path ?? r.path ?? r.created ?? undefined;
+    return p === undefined ? { cmd: c.cmd } : { cmd: c.cmd, path: nfc(String(p)) };
+  });
+}
+/** Waits (up to `ms`) until at least `n` write commands since call index `from` came and every one of them has its
+ *  result (`ok` set), so a path named only by the result (`note_create`, `link_create`) is known; returns
+ *  `writeCalls(core, from)` then; with `cmd`, also until one call is that command (D-2554). */
+export async function settledWriteCalls(core: AndroidHandle, n = 1, ms = 3000, from = 0, cmd?: string): Promise<WriteCall[]> {
+  await eventually(
+    async () => (await core.calls()).slice(from).filter((c) => WRITE_COMMANDS.includes(c.cmd)),
+    (x) => x.length >= n && x.every((c) => c.ok !== undefined) && (cmd === undefined || x.some((c) => c.cmd === cmd)),
+    ms,
+  );
+  return writeCalls(core, from);
+}
+/** The ACs' "writes exactly X": the write commands since `from` are exactly `want` (command and path, in order), and
+ *  every vault file not named in `want` is as in `before`. */
+export async function assertWritesExactly(core: AndroidHandle, before: FileState, want: WriteCall[], what: string, from = 0) {
+  const got = await writeCalls(core, from);
+  assert.deepEqual(got.map((w) => ({ cmd: w.cmd, path: w.path })), want.map((w) => ({ cmd: w.cmd, path: w.path === undefined ? undefined : nfc(w.path) })), `${what}: writes exactly ${JSON.stringify(want)}`);
+  const named = new Set(want.map((w) => (w.path ? nfc(w.path) : '')));
+  const now = await fileStateOf(core);
+  const changed = [...new Set([...Object.keys(before.files), ...Object.keys(now.files)])].filter((k) => !named.has(k) && before.files[k] !== now.files[k]);
+  assert.deepEqual(changed, [], `${what}: every other vault file is untouched`);
+}
+/** Waits until a successful write of `path` appears in the fake (`writesTo`) and returns the file then, or null. */
+export async function savedText(core: AndroidHandle, path: string, ms = 3000, count = 1): Promise<string | null> {
+  const n = await eventually(async () => (await core.writesTo()).filter((p) => nfc(p) === nfc(path)).length, (c) => c >= count, ms);
+  if (n < count) return null;
+  return (await core.files())[nfc(path)] ?? null;
+}
+/** The note's text without its `modified:` line (FR-FMT-07 AC-9's "and `modified`"). */
+export const withoutModified = (s: string | null | undefined) => (s ?? '').replace(/^modified: .*\r?\n/m, '');
+
+/** The desktop editor's result for the same document and caret, with real key presses (`macos` at 1440 × 900, §17.1):
+ *  opens `path`, places the caret by `caret` (an empty `text`: a click into the body), runs `keys` and returns the saved
+ *  file (or the editor's text when no save came within 3 s). */
+export async function desktopEditorResult(browser: Browser, vault: FakeVault, path: string, caret: { text: string; offset?: number | 'end'; select?: boolean }, keys: (page: Page) => Promise<void>, now = EDIT_NOW): Promise<string | null> {
+  const { page, context } = await desktopPage(browser);
+  try {
+    const core = await startDesktop(page, { vault, route: `note/${path}`, now });
+    const body = await must(page.getByRole('textbox', { name: 'Note body' }), `desktop: ${path}'s Note body`, 8000);
+    await body.click();
+    if (caret.text) await setCaret(page, caret.text, caret.offset ?? 'end', { select: caret.select });
+    await keys(page);
+    const saved = await savedText(core, path, 3000);
+    return saved ?? (await editorText(page));
+  } finally {
+    await context.close();
+  }
+}
+export const searchField = (page: Page) => page.getByRole('search').getByRole('searchbox', { name: rx('Search query') }).or(page.getByRole('search').getByRole('textbox', { name: rx('Search query') }));
+/** The app bar's title text. */
+export const h1Text = async (page: Page) => flat(await appBar(page).getByRole('heading', { level: 1 }).first().innerText().catch(() => ''));
+/** Waits until the app bar's title is `title`. */
+export async function h1Is(page: Page, title: string, ms = 3000): Promise<boolean> {
+  return (await eventually(() => h1Text(page), (t) => t === nfc(title), ms)) === nfc(title);
+}
+/** Opens a note by its title through Search and the keyboard's search key (FR-NAV-01 AC-24), and waits for it. */
+export async function goNote(page: Page, title: string) {
+  await (await must(barButton(page, 'Search'), 'the bottom bar\'s Search')).click();
+  const q = await must(searchField(page), 'Search query');
+  await q.fill(title);
+  await sleep(400);
+  await q.press('Enter');
+  assert.ok(await h1Is(page, title, 4000), `the note ${title} opens`);
+}
+/** Shows the emulated keyboard after a tap put the caret in the body (the plugin's `keyboard: true` push, §6.3). */
+export async function tapToEdit(page: Page, word: string) {
+  await tapText(page, word);
+  await keyboard(page, true);
+  await sleep(150);
+}
+/** A long press on `loc`'s centre; whether the page prevented the `contextmenu` (§4.3). */
+export async function longPressOn(page: Page, loc: Locator, what: string): Promise<boolean> {
+  const r = await rect(await must(loc, what));
+  assert.ok(r, `${what}: has a box`);
+  return longPress(page, { x: r!.x + r!.width / 2, y: r!.y + r!.height / 2 });
+}
+/** The top-level blocks of the `Note body` as `tag: text`. */
+export async function bodyBlocks(page: Page): Promise<string[]> {
+  const body = await needBody(page);
+  return body.evaluate((b) => ([...b.children] as HTMLElement[]).filter((c) => c.getClientRects().length > 0).map((c) => `${c.tagName.toLowerCase()}: ${(c.innerText ?? '').replace(/\s+/g, ' ').trim().normalize('NFC')}`));
 }

@@ -23,6 +23,7 @@ import { typeNameOf } from './links/icons';
 import type { SearchState } from './shell/history';
 import type { DuplicateDetailsDto, SwitcherItemDto } from './ipc/types';
 import { prepareObject, type Prepared } from './types/create';
+import { chooseType } from './phone/chooser';
 
 const PAGE = 50;
 
@@ -58,7 +59,7 @@ function withUser(key: string, vars: Record<string, string>, user: Record<string
 /** The phone's last shown search (its query key, rows and total), for Back (FR-SRC-03 AC-22). */
 let phoneShown: { key: string; rows: SearchResultDto[]; total: number } | null = null;
 
-export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, types, dateTime, initial, onState, noCreate = false, fieldSlot = null }: {
+export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, types, dateTime, initial, onState, noCreate = false, phone = false, fieldSlot = null }: {
   onOpen: (path: string) => void;
   /** Esc: back to the page Search was opened from, as the switcher closed (D-760); false when there is none. */
   onLeave: () => boolean;
@@ -72,6 +73,9 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
   onState?: (s: SearchState) => void;
   /** Slice AND-2 (android-phone §9.8): no create buttons, no ⌥⏎ create, the phone's no-match body, no ⇧⌘F hint. */
   noCreate?: boolean;
+  /** Slice AND-3 (android-edit §10.7): the phone's Search: its own result cache, the search key opens the first result
+   *  and never creates. */
+  phone?: boolean;
   /** Slice AND-2 (§8.2): where the search field is portalled (the phone's app bar). */
   fieldSlot?: HTMLElement | null;
 }) {
@@ -94,7 +98,7 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
 
   // Buttons carry tabIndex 0: WebKit's Tab reaches a button only with an explicit tabindex (as on the tag page).
   // Slice AND-2 (FR-SRC-03 AC-22): on the phone Back to a search shows its last rows at once, then asks again.
-  const cached = noCreate && initial && phoneShown?.key === `${initial.text}\u0000${initial.type ?? ''}\u0000${initial.tags.join('\u0001')}` ? phoneShown : null;
+  const cached = phone && initial && phoneShown?.key === `${initial.text}\u0000${initial.type ?? ''}\u0000${initial.tags.join('\u0001')}` ? phoneShown : null;
   const [rows, setRows] = useState<SearchResultDto[]>(cached?.rows ?? []);
   const [total, setTotal] = useState<number | null>(cached?.total ?? null);
   const loaded = useRef(initial?.loaded ?? 0);
@@ -168,7 +172,7 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
         }
         setRows(p.results);
         setTotal(p.total);
-        if (noCreate) phoneShown = { key: keyOf, rows: p.results, total: p.total };
+        if (phone) phoneShown = { key: keyOf, rows: p.results, total: p.total };
         totalRef.current = p.total;
         loaded.current = p.results.length;
         rowsKey.current = keyOf;
@@ -279,7 +283,7 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
       empty = { title: withUser('search.noResultsTitle', {}, { q }), label: t('search.noResultsTitle', { q }), body: withUser('search.noResultsBody', { filters: filterList() }, { q }), clear: true };
     } else if (hasText) {
       empty = noCreate
-        ? { title: withUser('search.noResultsTitle', {}, { q }), label: t('search.noResultsTitle', { q }), body: withUser('phone.search.noMatch', {}, { query: q }), clear: false }
+        ? { title: withUser('search.noResultsTitle', {}, { q }), label: t('search.noResultsTitle', { q }), body: null, clear: false }
         : { title: withUser('search.noResultsTitle', {}, { q }), label: t('search.noResultsTitle', { q }), body: withUser('search.noMatchCreate', {}, { q }), clear: false, create: true };
     } else {
       const f = filterList();
@@ -316,6 +320,12 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
     }
   };
   const openAs = (button: HTMLElement) => {
+    // Slice AND-3 (android-edit §10.7, §10.3): on the phone `as…` opens the type sheet in chooser mode.
+    if (phone && chooseType((key) => {
+      const title = createTitle();
+      const ty = types.find((x) => x.key === key);
+      if (title) onCreate({ kind: 'create', path: null, title, type: key, folder: ty?.folder ?? '', matched_alias: null, created: null, duplicate: null }, null);
+    })) return;
     const r = button.getBoundingClientRect();
     setAsMenu({ left: r.left, top: r.bottom + 4, button });
   };
@@ -338,7 +348,7 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
       {(() => { const field = (
       <div role="search" className="search-field">
         <Icon name="search" />
-        <input ref={inputRef} type="search" enterKeyHint={noCreate ? 'search' : undefined} autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} aria-label={t('search.label')} placeholder={t('search.placeholder')} value={text}
+        <input ref={inputRef} type="search" enterKeyHint={phone ? 'search' : undefined} autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} aria-label={t('search.label')} placeholder={t('search.placeholder')} value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'ArrowDown') {
@@ -346,7 +356,7 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
               if (first) { e.preventDefault(); first.focus(); }
             } else if (e.key === 'Enter' && e.altKey && !e.metaKey && !e.ctrlKey) {
               e.preventDefault();
-              if (hasText && !noCreate) void createDefault();
+              if (hasText && !noCreate && !phone) void createDefault();
             } else if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
               e.preventDefault();
               if (!hasText) return; // D-1352: ⏎ with only filters set does nothing (FR-NAV-01 AC-21)
@@ -357,7 +367,7 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
             } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (!onLeave()) setText(''); }
           }} />
         {text && <button type="button" tabIndex={0} className="clear-search" data-command="search.clear" aria-label={t('search.clear')} onClick={() => { setText(''); inputRef.current?.focus(); }}><Icon name="x" /></button>}
-        {!noCreate && <span className="shortcut-hint" aria-hidden="true">{t('search.shortcut')}</span>}
+        {!noCreate && !phone && <span className="shortcut-hint" aria-hidden="true">{t('search.shortcut')}</span>}
       </div>
       ); return fieldSlot ? createPortal(field, fieldSlot) : field; })()}
       <div className="filters" role="group" aria-label={t('search.filters')}>

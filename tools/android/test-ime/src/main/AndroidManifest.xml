@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Slice AND-3 (docs/contracts/android-edit.md §16.2; D-2519): the test input method, emulator only. No permissions of
+     its own; the system binds it through BIND_INPUT_METHOD. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:label="Tegg test IME" android:allowBackup="false">
+        <service
+            android:name=".TestIme"
+            android:label="Tegg test IME"
+            android:permission="android.permission.BIND_INPUT_METHOD"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
+            <meta-data android:name="android.view.im" android:resource="@xml/method" />
+        </service>
+        <receiver android:name=".CmdReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="app.tegg.testime.CMD" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

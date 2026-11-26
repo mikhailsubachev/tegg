@@ -2,6 +2,7 @@
 // `resolveRefInput` (R103; v1-previews §5.1) to the preview, the editor's own open or the Create offer; the right-click
 // opens the `Link` menu (D-927); hover mode previews after the delay (D-942); the palette's `Show preview`, `Edit link`
 // and `Remove link` act on the chip at the caret (R106).
+import { isPhone } from '../phone/layout';
 import { noteHref, type EditorUi, type LinkGesture, type TeggEditor } from '@tegg/editor';
 import { chipPreviewTarget } from '../links/ChipParts';
 import { registerEditorLinks } from './editorLink';
@@ -61,7 +62,8 @@ export function editorChips(h: EditorChipsHost): Pick<EditorUi, 'onLink' | 'onLi
     const r = h.resolve(t.normalize('NFC'));
     // D-1166 (R130): an inline link-mode embed opens on a click in every mode; ⌥Space and `Show preview` still preview it.
     const kind = chip?.dom?.closest?.('[data-embed-mode="link"]') ? 'embedLink' : 'chip';
-    const action = resolveRefInput(getPrefs().mode, kind, g, pt === null);
+    // Slice AND-3 (android-edit §7.7, D-2506): on the phone a tap on a chip opens it (no previews there).
+    const action = isPhone() && g === 'click' ? (pt === null ? 'createOffer' : 'open') : resolveRefInput(getPrefs().mode, kind, g, pt === null);
     if (action === 'preview' && chip) preview(pt!, chip, g === 'click' ? 'click' : 'key', () => h.open(t, f, chip));
     else if (action === 'open') { if (getCurrent()) close('open'); h.open(t, f, chip); }
     else if (action === 'createOffer') {
@@ -100,7 +102,7 @@ export function editorChips(h: EditorChipsHost): Pick<EditorUi, 'onLink' | 'onLi
     onLinkMenu: (t, chip) => { menu(t ?? '', chip.pos, chip.dom); return true; },
     onTag: (v, chip, g) => {
       const key = v.normalize('NFC').toLowerCase();
-      const action = resolveRefInput(getPrefs().mode, 'chip', g ?? 'click', false);
+      const action = isPhone() && (g ?? 'click') === 'click' ? 'open' : resolveRefInput(getPrefs().mode, 'chip', g ?? 'click', false);
       if (action === 'preview' && chip?.dom) {
         show({ path: '', fragment: null, kind: 'tag', key }, { el: chip.dom }, g === 'altSpace' ? 'key' : 'click', undefined, undefined,
           { open: () => h.openTag(key), returnFocus: () => h.editor()?.view.focus() });

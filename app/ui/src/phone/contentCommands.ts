@@ -8,7 +8,20 @@ const EMBED = '[data-embed-target]';
 const OPENERS = 'a, button, [role="link"], [role="button"]';
 
 /** Prefixes of the phone's page-local command ids, registered while a control on the page carries one. */
-export const PAGE_COMMAND_PREFIXES: readonly string[] = ['read.fold:', 'read.openEmbed:', 'board.openCard:', 'board.openSource:', 'views.tab:', 'board.toggleLane'];
+export const PAGE_COMMAND_PREFIXES: readonly string[] = [
+  'read.fold:', 'read.openEmbed:', 'board.openCard:', 'board.openSource:', 'views.tab:', 'board.toggleLane',
+  // Slice AND-3 (android-edit §13.3): per-row and per-control ids of editing on the phone.
+  'task.complete:', 'note.markReviewed:', 'note.markUnreviewed:', 'phone.prop:', 'phone.prop.show:', 'phone.conflict.keep:', 'edit.blockType:',
+];
+
+/** Slice AND-3 (§13.3): the phone's own editing ids, registered while their control is shown (a `.` or `:` ending is a
+ *  prefix). */
+const PHONE_OWN: readonly string[] = [
+  ...PAGE_COMMAND_PREFIXES.filter((p) => p.endsWith(':') && !p.startsWith('read.') && !p.startsWith('board.') && !p.startsWith('views.')),
+  'edit.blockType', 'edit.tag', 'edit.bulletList', 'edit.checklist', 'edit.indent', 'edit.outdent', 'edit.bold', 'edit.italic', 'edit.link', 'edit.undo', 'edit.redo',
+  'phone.link.remove', 'phone.merge.', 'phone.deleted.', 'phone.offer.create', 'phone.offer.type', 'phone.conflict.', 'phone.conflictMerge.', 'phone.notice.undo',
+  'note.markReviewed', 'note.markUnreviewed', 'daily.markReviewed', 'daily.markUnreviewed',
+];
 
 function set(el: Element, id: string) {
   if (el.getAttribute('data-command') !== id) el.setAttribute('data-command', id);
@@ -32,6 +45,11 @@ export function pageCommandIds(doc: Document | null = typeof document === 'undef
   doc.querySelectorAll('main [data-command]').forEach((el) => {
     const id = el.getAttribute('data-command') ?? '';
     if (PAGE_COMMAND_PREFIXES.some((p) => id.startsWith(p))) ids.add(id);
+  });
+  // Slice AND-3 (§13.3): the phone's editing controls dock outside `main` (the bar, panels, sheets, banners).
+  doc.querySelectorAll('[data-command]').forEach((el) => {
+    const id = el.getAttribute('data-command') ?? '';
+    if (PHONE_OWN.some((p) => (p.endsWith(':') || p.endsWith('.') ? id.startsWith(p) : id === p))) ids.add(id);
   });
   return [...ids];
 }
