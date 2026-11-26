@@ -22,11 +22,13 @@ export function FormatBar({ ed, onLink, onChanged }: { ed: TeggEditor; onLink: (
     return () => { ed.editor.off('transaction', f); };
   }, [ed]);
   const s: FormatState | null = formatStateOf(ed);
-  const act = (f: () => boolean) => { if (f()) onChanged(); };
+  // A touch tap can still take the focus from the body (no element gets it): give it back, the selection kept.
+  const refocus = () => { if (!ed.view.hasFocus()) (ed.view.dom as HTMLElement).focus({ preventScroll: true }); };
+  const act = (f: () => boolean) => { refocus(); if (f()) onChanged(); refocus(); };
   const button = (o: { name: string; icon: string; command: string; pressed?: boolean; disabled?: boolean; run: () => void }) => (
     <button key={o.command} type="button" tabIndex={-1} aria-label={o.name} data-command={o.command}
       aria-pressed={o.pressed === undefined ? undefined : o.pressed} aria-disabled={o.disabled ? 'true' : undefined}
-      onPointerDown={keep} onMouseDown={keep} onClick={() => { if (!o.disabled) o.run(); }}>
+      onPointerDown={keep} onMouseDown={keep} onClick={() => { if (!o.disabled) o.run(); refocus(); }}>
       <Icon name={o.icon} />
     </button>
   );
@@ -48,7 +50,7 @@ export function FormatBar({ ed, onLink, onChanged }: { ed: TeggEditor; onLink: (
             );
           })}
           <button type="button" tabIndex={-1} aria-label={t('phone.close')} data-command="edit.blockType:close"
-            onPointerDown={keep} onMouseDown={keep} onClick={() => setRow(false)}>
+            onPointerDown={keep} onMouseDown={keep} onClick={() => { setRow(false); refocus(); }}>
             <Icon name="x" />
           </button>
         </div>
