@@ -630,3 +630,55 @@ Numbering continues after AP-2110 (D-2610). Each has a proposal and an alternati
 | AP-2121 → D-2622 | **Folds on the phone.** D-2606 shows the fold control "in the read view too"; the phone's read view draws maps read-only with zoom (android-phone.md FR-MMP-02 AC-32…AC-36). | The phone gets no fold control in MM3 (the macOS read view does); a later Android slice adds tap-to-fold with 48 px hit areas. | Add the control on the phone now (a tap toggles; FR-UX-04 hit areas). | android-phone.md, AC-46 |
 | AP-2122 → D-2623 | **Commands for the new buttons.** app-shell FR-UX-03 AC-8 requires every button in a note to carry a registered command; FR-UX-03 asks for palette access. MM2 gave the layout radios commands (R97) but none to node edits. | Two commands without shortcuts, `Fold or unfold mindmap node` and `Add child to mindmap node`, acting on the focused node (R233), carried by the buttons. | Exempt the in-map buttons from AC-8 (Space and Tab are their keys); or add `Collapse all branches` / `Expand all branches` as well. | R233, FR-UX-03 AC-62 |
 | AP-2123 → D-2624 | **Duplicate id in the fixture.** `Pages/Pavouk.md` and `Pages/Neplatná mapa.md` both have `id: 01JB4M0000000000000000M019`; by D-53 two files with one `id` are conflict copies. Neplatná mapa's frontmatter doesn't parse, which may be why no test failed yet. | Give Pavouk `…M023` (README row too) in MM3's red-test commit, with a `Fixture-Change:` trailer; no test asserts Pavouk's id. | Leave it (the parse error hides the clash). | `tests/fixtures/vaults/mindmap/` |
+
+# Slice MM3 follow-up: the fold control on the node's edge, spider ↑/↓, E (0.8.0 feedback; D-2672…D-2676)
+
+The owner's feedback on Tegg 0.8.0 (2026-11-26) and bug #170. Board: `MindmapLayouts` / `MindmapLayoutsDark` C and E (the `+3` badge on the folded node's edge). Everything of part three stands except what this part replaces.
+
+## Reference tables
+
+### R234. Where the fold control and the `+` sit (D-2672, D-2673, D-2676; replaces R230's "Place" column and its golden values)
+
+| Element | Place (centre, map coordinates) |
+| --- | --- |
+| Fold control, open (`−`) and folded (`+<n>`) | the node's **outer edge** at its vertical centre (the spider root: its right edge, AP-2114); a folded node draws no connector stub |
+| `+` on a node with children (open or folded) | 24 px beyond the outer edge, outwards (right edge + 24; on the spider's left side left edge − 24), vertical centre |
+| `+` on a leaf | the outer edge, vertical centre (unchanged, AP-2118) |
+
+- **Hover reaches the buttons (bug #170):** while the pointer moves in a straight line from inside a node to the centre of its fold control or of its `+`, both stay shown at every point of the way.
+- **Layout:** as R230, and the layout also contains the `+` of every node with children (its centre ± 8 px); a control or `+` left of 0 shifts the whole drawing right (D-2676).
+- **Golden values** with the Measurer (L1; boxes (x, y, width, height), points (x, y); the boxes are R230's, unchanged):
+  - **Strom, nothing folded:** fold controls Kořen (55, 86), Alfa (163, 36), Beta (163, 96); `+` points Kořen (79, 86), Alfa (187, 36), Beta (187, 96), A1 (271, 16), Gama (163, 136).
+  - **Strom, `Alfa` folded:** R230's boxes; layout 271 × 112; fold controls Kořen (55, 56), Alfa (163, 16) showing `+2`, Beta (163, 56); `+` Alfa (187, 16).
+  - **Strom, `Kořen` folded:** Kořen (0, 0, 55, 32), its control (55, 16) showing `+6`, its `+` (79, 16); layout 87 × 32.
+  - **Pavouk (`spider`), `Alfa` folded:** R230's boxes; layout 418 × 72; fold controls Alfa (386, 16) showing `+2`, Beta (115, 16), Střed (278, 36); `+` Alfa (410, 16), Beta (91, 16), Střed (302, 36).
+
+### R235. Keys (D-2674, D-2675; replaces R229's ↑ ↓ rows in `spider` and adds E)
+
+| Key | On a focused node | Editor only | Writes | Focus after |
+| --- | --- | --- | --- | --- |
+| ↓ in `spider` | the next sibling **on the same side**; past the last one, the nearest visible node of the same depth after it in outline order **on the same side**; none: nothing. The root: nothing (AP-2112) | no | nothing | the reached node |
+| ↑ in `spider` | the previous sibling on the same side; past the first one, the nearest visible node of the same depth before it in outline order on the same side; none: nothing | no | nothing | the reached node |
+| E (`e`, `E`; not with ⌘, ⌃ or ⌥) | as F2: editing the node's text (R95a), the field holding the node's text unchanged (the `e` is not typed); synthesized root: nothing | yes | nothing until committed | the node |
+
+In `right` ↑ ↓ stay as R229. Sides are the `side` of R96 (D-789); the root's children are on both sides.
+
+## Criteria
+
+### FR-MMP-02 The fold control on the edge, spider ↑/↓, E (D-2672…D-2676; adds to AC-1…AC-54)
+
+- **AC-55** **The fold control sits on the node's edge and can be reached (R234; D-2672, D-2673; bug #170; T2).** In Výjezd's Map, `Collapse Program` is centred within ±1 px of `Program`'s right edge at its vertical centre, and `Add child to Program` 24 px (±1) to the right of that edge. With the pointer moved in 2 px steps in a straight line from `Program`'s centre to the centre of `Collapse Program`, the button is visible (`visibility: visible`, `elementFromPoint` at its centre is the button or inside it) at every step, and a click there folds `Program`: `Expand Program, 2 hidden` (`+2`) is then centred on the same point, visible without hover, and no connector starts at `Program`. The same straight path to `Add child to Program` keeps it visible, and a click adds a pending child. In Pavouk, `Beta`'s control is on its left edge and its `+` 24 px left of it; `Střed`'s control is on its right edge. In the read view of Výjezd the control sits on the same point and the path test passes too. *(L5)*
+- **AC-56** **Golden layout with the controls on the edge (R234; D-2676).** With the Measurer, `layoutMindmap` of Strom with nothing folded, with `Alfa` folded and with `Kořen` folded, and of Pavouk with `Alfa` folded, gives R234's control points, `+` points and layout sizes exactly, and R230's boxes. In the app each fold control centre and each shown `+` centre is within ±1 px of the layout with the real measurer, and every fold control and the `+` of every node with children lies inside the map area (not clipped). *(L1; L5)*
+- **AC-57** **The `+` on leaves and folded nodes (R234; D-2673).** In Výjezd's Map `Add child to Doprava` (a leaf) stays centred on `Doprava`'s right edge (AC-47). With `Program` folded, hovering it shows `Expand Program, 2 hidden` on its edge and `Add child to Program` 24 px to the right, the two not overlapping (their boxes don't intersect); clicking the `+` unfolds `Program` and adds the pending child after `Plán 2027`. *(L5)*
+- **AC-58** **↑ and ↓ stay on one side of a spider map (R235; D-2674; T2).** In Pavouk's Map: ↓ from `Alfa` reaches `Gama`, then stays on `Gama`; ↑ from `Gama` reaches `Alfa`, then stays; ↓ from `Beta` reaches `Delta`, then stays; ↑ from `Delta` reaches `Beta`, then stays. ↓ from `A1` reaches `A2`, then stays (no right-side node of depth 3 after it); ↑ and ↓ on `B1` do nothing. ↑ and ↓ on `Střed` do nothing. In Výjezd (`right`) AC-54's walks are unchanged. None of these keys writes, opens a field or changes the view. *(L1 for the navigation function; L5)*
+- **AC-59** **E edits a node (R235; D-2675).** In Výjezd's Map with `Plán 2027` focused, `e` opens `Edit node` holding `Plán 2027` (not `Plán 2027e` or `e`); Esc closes it and writes nothing; ⇧E does the same; ⌘E, ⌃E and ⌥E open no field. On folded `Program`, `e` opens its field and `Program` stays folded; `Program 2` ⏎ saves the renamed item as F2's edit would (W8's rule). On Více kořenů's `Témata` `e` opens nothing. In the read view of Výjezd and in Neplatná mapa, `e` opens no field and writes nothing. *(L5)*
+
+## What changes in earlier criteria and tests (MM3 follow-up)
+
+| Earlier | Change | By |
+| --- | --- | --- |
+| R230 "Place" column, golden values; FR-MMP-02 AC-43's values | replaced by R234 (AC-56) | D-2672, D-2676 |
+| FR-MMP-02 AC-47: `Beta`'s `+` on its left edge, `Střed`'s on its right edge | `+` 24 px beyond the edge on nodes with children (AC-55, AC-57); leaves unchanged | D-2673 |
+| FR-MMP-02 AC-54: Pavouk's walks (`A2` → `B1`, `Alfa` → `Beta`, `Gama`, `Delta`) | replaced by AC-58 | D-2674 |
+| FR-MMP-02 AC-40: F2 and a double-click edit | E too (AC-59) | D-2675 |
+| Tests asserting the elbow position of a fold control (`app/test/mindmap_mm3.ac.test.ts`, `app/webkit/mindmap_mm3_fold.ac.test.ts`) | changed to R234 (`AC-Test-Change`, owner) | D-2672 |
