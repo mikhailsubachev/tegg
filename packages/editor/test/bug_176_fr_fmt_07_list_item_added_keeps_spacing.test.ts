@@ -82,3 +82,20 @@ test('bug_176_fr_fmt_07_star_list_keeps_its_marker_and_spacing', async () => {
   assert.equal(await saved(ed), '* jedna\n* dvě\n* nová\n\n* tři\n')
   ed.destroy()
 })
+
+test('bug_176_fr_fmt_07_removed_item_keeps_the_other_items_bytes', async () => {
+  const text = readFixture(PSANI)
+  const was = '- mléko\n- chléb\n\n- [ ] Zavolat\n- [x] Hotovo\n'
+  for (const [word, want] of [['chléb', '- mléko\n\n- [ ] Zavolat\n- [x] Hotovo\n'], ['Zavolat', '- mléko\n- chléb\n\n- [x] Hotovo\n']] as const) {
+    const ed: any = await open(text)
+    let range: [number, number] | null = null
+    ed.view.state.doc.descendants((n: any, p: number) => {
+      if (!range && n.type.name === 'listItem' && n.textContent === word) range = [p, p + n.nodeSize]
+      return !range
+    })
+    assert.ok(range, `${word} item found`)
+    ed.view.dispatch(ed.view.state.tr.delete(range![0], range![1]))
+    assert.equal(await saved(ed), (await body(text)).replace(was, want), `${word} removed; the others keep their bytes`)
+    ed.destroy()
+  }
+})
