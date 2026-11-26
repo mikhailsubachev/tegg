@@ -42,6 +42,7 @@ const NOW = '2026-10-14T12:00:00+02:00';
 const PSANI = 'Pages/Psaní.md';
 const BODY = '[role="textbox"][aria-label="Note body"]';
 const BAR = '[role="toolbar"][aria-label="Formatting"]';
+const KEYCODE_ESCAPE = 111;
 const read = (path: string) => sh(`cat ${quote(path)}`, false);
 const fixture = (rel: string) => readFileSync(resolve(REPO, 'tests/fixtures/vaults', rel), 'utf8');
 async function openEdit(route = `note/${PSANI}`, extra: Record<string, string> = {}, vault = pushEdit()) {
@@ -199,6 +200,9 @@ test('fr_edt_01_ac19_keyboard_input_matches_the_desktop', async () => {
   // (f) Backspace at block starts and after the chip, through deleteSurroundingText and the key
   ({ v, vault } = await openEdit());
   await tapWord(v, 'Konec');
+  // the tap's own caret lands with the keyboard: wait for it and ~300 ms before placing the caret (D-2557, D-2569)
+  assert.ok(await eventually(() => imeShown(), (s) => s, 1500), 'the keyboard');
+  await sleep(300);
   // after [[Cíl]]: the text ` a ` right after the chip (the tag is its own node), as the L5p twin (D-2554, D-2568)
   for (const [text, off] of [['Konec.', 0], [' a ', 0], ['první', 0], ['chléb', 0], ['Nákup', 0]] as const) {
     await caretIn(v, text, off);
@@ -212,7 +216,13 @@ test('fr_edt_01_ac19_keyboard_input_matches_the_desktop', async () => {
   await caretIn(v, 'Konec.', 'end');
   imeCommit(' [[');
   assert.ok(await v.waitFor('[role="listbox"][aria-label="Link suggestions"]', 1500), '(g) [[ by commitText opens Link suggestions');
+  // as the L5p twin: Esc closes the link panel, then the caret back at the end of Konec., a space, #p composed (D-2569)
+  imeKey(KEYCODE_ESCAPE);
+  assert.ok(await eventually(() => v.eval<boolean>(`!document.querySelector('[role="listbox"][aria-label="Link suggestions"]')`), (x) => x, 1500, 100), '(g) Esc closes Link suggestions');
+  await caretIn(v, 'Konec.', 'end');
+  imeCommit(' ');
   imeCompose('#p');
+  imeCommit('#p');
   assert.ok(await v.waitFor('[role="listbox"][aria-label="Tag suggestions"]', 1500), '(g) #p inside a composition opens Tag suggestions');
 });
 
