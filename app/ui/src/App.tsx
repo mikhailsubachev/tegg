@@ -1863,7 +1863,8 @@ export function App() {
         <PhoneFrame
           canBack={history.current.canBack()}
           onBack={actions.back}
-          more={hasFile}
+          // android-edit §7.4: a draft and a virtual day show `More actions` too (Move to trash and Pin disabled there).
+          more={hasFile || route?.id === 'new/<type>' || isDaily}
           moreOpen={!!phoneMore}
           onMore={(a) => setPhoneMore((m) => (m ? null : a))}
           progress={progress}
