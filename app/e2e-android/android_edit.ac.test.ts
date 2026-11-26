@@ -22,7 +22,7 @@ import {
 } from './helpers/device.ts';
 import {
   actionModeShown, amKill, caretIn, cssRect, editorTextOf, imeShown, ipcLog, ipcWrites, killRenderer, launchPhone, pushEdit, pushReplace,
-  recoveryFiles, removeTask, rendererPid, rotate, systemFrames, tapEl, tapWord, title, titleIs, tmpFiles, toDevice, uiEditable, uiNode, webViewRect,
+  recoveryFiles, removeTask, rendererPid, rotate, systemFrames, tapEl, tapWord, title, titleIs, tmpFiles, toDevice, uiDumpWindows, uiEditable, uiNode, webViewRect,
 } from './helpers/phone.ts';
 import { imeCommit, imeCompose, imeDelete, imeFinish, imeKey, imeRestore, imeUse, KEYCODE_DEL, KEYCODE_ENTER } from './helpers/ime.ts';
 
@@ -50,7 +50,18 @@ async function openEdit(route = `note/${PSANI}`, extra: Record<string, string> =
   return { pid, v, vault };
 }
 const waitFile = (path: string, ok: (t: string) => boolean, ms = 4000) => eventually(() => read(path), ok, ms, 200);
-const withModified = (text: string) => text.replace(/^modified: .*$/m, `modified: ${NOW}`);
+// `modified` and `completed` are instants with offset: the phone's clock runs on from TEGG_NOW (D-504; AP-345's rule,
+// D-2557), so they are compared as instants (not before TEGG_NOW, within 10 minutes of it), the rest byte for byte.
+const INSTANT = (key: string) => new RegExp(`^${key}: (\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d+)?[+-]\\d\\d:\\d\\d)$`, 'm');
+function assertInstant(text: string, key: string): void {
+  const m = INSTANT(key).exec(text);
+  assert.ok(m, `${key} is ISO 8601 with offset`);
+  const dt = Date.parse(m![1]) - Date.parse(NOW);
+  assert.ok(dt >= 0 && dt <= 10 * 60_000, `${key} ${m![1]} is the clock running on from ${NOW}`);
+}
+const withModified = (text: string) => text.replace(/^modified: .*$/m, 'modified: <instant>');
+/** The file with its `modified` instant checked and replaced by `<instant>`. */
+const normModified = (text: string) => { assertInstant(text, 'modified'); return text.replace(INSTANT('modified'), 'modified: <instant>'); };
 
 // ------------------------------------------------------------------------------------------------ FR-EDT-01 AC-16
 
@@ -66,7 +77,9 @@ test('fr_edt_01_ac16_open_without_keyboard_tap_to_edit', async () => {
   const t = await waitFile(`${vault}/${PSANI}`, (x) => x.includes('X'), 3000);
   const orig = fixture('phone-edit/Pages/Psaní.md');
   assert.equal(t.split('\n').filter((l, i) => l !== orig.split('\n')[i]).filter((l) => !l.startsWith('modified:')).length, 1, 'only the chléb line changes besides modified');
-  // a draft from New: the keyboard is shown with the caret in Title
+  // a draft from New: the keyboard is shown with the caret in Title (the bottom bar is hidden while the keyboard shows, §8)
+  sh('input keyevent KEYCODE_BACK');
+  assert.ok(await v.waitFor('[data-command="object.new"]', 2000), 'New, once the keyboard is hidden');
   await v.click('[data-command="object.new"]');
   await sleep(500);
   await v.eval(`(() => { const o = [...document.querySelectorAll('[role="dialog"][aria-label="New object"] [role="option"]')].find((x) => /^Page/.test(x.innerText)); o.click(); return true; })()`);
@@ -78,14 +91,34 @@ test('fr_edt_01_ac16_open_without_keyboard_tap_to_edit', async () => {
 test('fr_edt_01_ac17_what_the_phone_editor_leaves_out', async () => {
   ready();
   const { v } = await openEdit('note/Pages/Deset bloků.md');
-  const r = await v.eval<{ x: number; y: number } | null>(`(() => { const w = document.createTreeWalker(document.querySelector('${BODY}'), NodeFilter.SHOW_TEXT); for (let n = w.nextNode(); n; n = w.nextNode()) { const i = n.textContent.indexOf('blok'); if (i >= 0) { const rg = document.createRange(); rg.setStart(n, i); rg.setEnd(n, i + 4); const b = rg.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; } } return null; })()`);
-  assert.ok(r, 'blok is shown');
-  const p = await toDevice(v, r!.x, r!.y);
-  sh(`input swipe ${Math.round(p.x)} ${Math.round(p.y)} ${Math.round(p.x)} ${Math.round(p.y)} 900`);
+  const longPress = async (word: string) => {
+    const r = await v.eval<{ x: number; y: number } | null>(`(() => { const w = document.createTreeWalker(document.querySelector('${BODY}'), NodeFilter.SHOW_TEXT); for (let n = w.nextNode(); n; n = w.nextNode()) { const i = n.textContent.indexOf(${JSON.stringify(word)}); if (i >= 0) { const rg = document.createRange(); rg.setStart(n, i); rg.setEnd(n, i + ${word.length}); const b = rg.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; } } return null; })()`);
+    assert.ok(r, `${word} is shown`);
+    const p = await toDevice(v, r!.x, r!.y);
+    sh(`input swipe ${Math.round(p.x)} ${Math.round(p.y)} ${Math.round(p.x)} ${Math.round(p.y)} 900`);
+    await sleep(1000);
+  };
+  // Android 15's floating text toolbar is a PopupWindow that only `uiautomator dump --windows` lists (D-2557)
+  const nodeAt = (xml: string, desc: string) => {
+    const m = new RegExp(`<node[^>]*(?:text|content-desc)="${desc}"[^>]*bounds="\\[(\\d+),(\\d+)\\]\\[(\\d+),(\\d+)\\]"`).exec(xml);
+    return m ? { x: (Number(m[1]) + Number(m[3])) / 2, y: (Number(m[2]) + Number(m[4])) / 2 } : null;
+  };
+  // a clip on the clipboard first, so the menu offers Paste: Copy on another word's menu (D-2557)
+  await longPress('Citace');
+  const copy = nodeAt(uiDumpWindows(), 'Copy');
+  assert.ok(copy, 'the system menu on Citace offers Copy');
+  sh(`input tap ${Math.round(copy!.x)} ${Math.round(copy!.y)}`);
   await sleep(800);
+  await longPress('blok');
   assert.ok(actionModeShown(), 'a long press on blok shows the system\'s selection menu');
-  const dump = uiDump();
-  for (const item of ['Cut', 'Copy', 'Paste', 'Select all']) assert.ok(new RegExp(`(text|content-desc)="${item}"`, 'i').test(dump), `the system menu lists ${item}`);
+  let dump = uiDumpWindows();
+  const seen = new Set<string>();
+  const collect = (xml: string) => { for (const m of xml.matchAll(/(?:text|content-desc)="(Cut|Copy|Paste|Select all)"/gi)) seen.add(m[1].toLowerCase()); };
+  collect(dump);
+  // the toolbar moves what doesn't fit into its overflow (`More options`)
+  const more = nodeAt(dump, 'More options');
+  if (more && seen.size < 4) { sh(`input tap ${Math.round(more.x)} ${Math.round(more.y)}`); await sleep(800); dump = uiDumpWindows(); collect(dump); }
+  for (const item of ['Cut', 'Copy', 'Paste', 'Select all']) assert.ok(seen.has(item.toLowerCase()), `the system menu lists ${item}`);
 });
 
 // ------------------------------------------------------------------------------------------------ FR-EDT-01 AC-19, AC-20
@@ -108,10 +141,13 @@ test('fr_edt_01_ac19_keyboard_input_matches_the_desktop', async () => {
   imeDelete(6, 0);
   imeCommit('první ');
   let t = await waitFile(`${vault}/${PSANI}`, (x) => x.includes('první Konec.'), 4000);
-  assert.equal(t, withModified(orig.replace('\nKonec.', '\nAhoj světe září první Konec.')), '(a)–(c): each word once, the suggestion and the correction');
+  assert.equal(normModified(t), withModified(orig.replace('\nKonec.', '\nAhoj světe září první Konec.')), '(a)–(c): each word once, the suggestion and the correction');
   // (d) Enter after a composing chléb, Enter on the empty item; (e) Enter after Zavolat
   ({ v, vault } = await openEdit());
   await tapWord(v, 'chléb');
+  // the tap's own caret lands with the keyboard: wait for it and ~300 ms before placing the caret (D-2557)
+  assert.ok(await eventually(() => imeShown(), (s) => s, 1500), 'the keyboard');
+  await sleep(300);
   await caretIn(v, 'chléb', 'end');
   imeCompose('chléb');
   imeFinish();
@@ -199,6 +235,7 @@ test('fr_ux_04_ac10_bar_taps_keep_keyboard_and_selection', async () => {
   const { v } = await openEdit('note/Pages/Deset bloků.md');
   await tapWord(v, 'Pátý');
   assert.ok(await eventually(() => imeShown(), (s) => s, 1000), 'the keyboard');
+  assert.ok(await v.waitFor(BAR, 1000), 'the Formatting bar');
   for (const sel of [`${BAR} [data-command="edit.bold"]`, `${BAR} [data-command="edit.blockType"]`]) {
     await tapEl(v, sel);
     await sleep(300);
@@ -240,7 +277,7 @@ test('fr_edt_06_ac13_choose_and_create_on_the_phone', async () => {
   await caretIn(v, 'Konec.', 'end');
   imeCommit(' [[Nová stránka');
   assert.ok(await v.waitFor('[aria-label="Link suggestions"] [role="option"]', 2000), 'the panel');
-  await v.eval(`(() => { const o = [...document.querySelectorAll('[aria-label="Link suggestions"] [role="option"]')].find((x) => x.innerText.trim() === 'Create “Nová stránka”'); o.click(); return true; })()`);
+  await v.eval(`(() => { const o = [...document.querySelectorAll('[aria-label="Link suggestions"] [role="option"]')].find((x) => x.innerText.trim() === 'Create "Nová stránka"'); o.click(); return true; })()`);
   const made = await eventually(() => sh(`ls ${quote(`${vault}/Quick Notes`)}`, false), (l) => l.includes('Nová stránka.md'), 3000);
   assert.ok(made.includes('Nová stránka.md'), 'Quick Notes/Nová stránka.md on the device');
   const t = await waitFile(`${vault}/${PSANI}`, (x) => x.includes('[[Nová stránka]]'), 3000);
@@ -300,7 +337,10 @@ test('fr_edt_08_ac16_android_may_stop_the_app', async () => {
     const vault = pushVault(['tests/fixtures/vaults/types', 'tests/fixtures/vaults/new-empty/.tegg'], 'Typy');
     const { v } = await openEdit('note/Schůzky/2026-10-07 Porada.md', {}, vault);
     await v.click('[data-command="phone.properties"]');
-    await v.eval(`(() => { const f = [...document.querySelectorAll('[role="dialog"][aria-label="Properties"] input, [role="dialog"][aria-label="Properties"] [role="textbox"]')].find((x) => (x.getAttribute('aria-label') || '') === 'Místo'); f.focus(); return true; })()`);
+    const MISTO = '[role="dialog"][aria-label="Properties"] input[aria-label="Místo"]';
+    assert.ok(await v.waitFor(MISTO, 3000), 'the Místo field');
+    await tapEl(v, MISTO);
+    assert.ok(await eventually(() => imeShown(), (s) => s, 1500), 'the keyboard for Místo');
     imeCommit('Sál B');
     amKill();
     await sleep(1500);
@@ -332,7 +372,8 @@ test('fr_edt_08_ac17_unwritable_edits_kept_on_the_phone', async () => {
   await v2.click('[data-command="phone.merge.keepMine"]');
   const t = await waitFile(`${vault}/${PSANI}`, (x) => x.includes('Konec.X'), 3000);
   assert.ok(t.includes('Konec.X'), 'Keep mine writes the kept text');
-  assert.deepEqual(recoveryFiles(), [], 'any choice removes the recovery copy');
+  // the copy is dropped just after note_write returns (D-2557)
+  assert.deepEqual(await eventually(() => recoveryFiles(), (f) => f.length === 0, 1000), [], 'any choice removes the recovery copy');
 });
 
 test('fr_edt_08_ac18_renderer_death_loses_at_most_one_second', async () => {
@@ -373,6 +414,7 @@ test('fr_fmt_07_ac38_opening_on_the_phone_writes_nothing', async () => {
   for (const f of files) {
     await v.eval(`window.__TEGG_TEST__?.run?.('goto.search')`).catch(() => undefined);
     await v.click('[data-command="goto.search"]').catch(() => undefined);
+    assert.ok(await v.waitFor('header[role="banner"] [role="search"] input', 5000), `${f}: the Search query`);
     await v.eval(`(() => { const i = document.querySelector('header[role="banner"] [role="search"] input'); i.focus(); i.select(); return true; })()`);
     await v.type(f.split('/').pop()!.replace(/\.md$/, ''));
     await sleep(600);
@@ -395,11 +437,14 @@ test('fr_fmt_07_ac39_one_edit_one_block_on_the_phone', async () => {
   ready();
   const { v, vault } = await openEdit('note/Pages/Deset bloků.md');
   await tapWord(v, 'Pátý');
+  // the tap's own caret lands with the keyboard: wait for it and ~300 ms before placing the caret (D-2557)
+  assert.ok(await eventually(() => imeShown(), (s) => s, 1500), 'the keyboard');
+  await sleep(300);
   await caretIn(v, 'test upraví.', 'end');
   imeCommit(' Doplněno.');
   const orig = fixture('editor/Pages/Deset bloků.md');
   const t = await waitFile(`${vault}/Pages/Deset bloků.md`, (x) => x.includes('Doplněno.'), 4000);
-  assert.equal(t, withModified(orig.replace('Pátý blok, který test upraví.', 'Pátý blok, který test upraví. Doplněno.')), 'only block 5 and modified differ');
+  assert.equal(normModified(t), withModified(orig.replace('Pátý blok, který test upraví.', 'Pátý blok, který test upraví. Doplněno.')), 'only block 5 and modified differ');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-FMT-12 AC-18
@@ -459,7 +504,7 @@ test('fr_tsk_02_ac14_checkboxes_complete_tasks_on_the_phone', async () => {
   assert.ok(await v.waitFor('[data-command="task.complete:Tasks/Zalít květiny.md"]', 10_000), 'T03\'s checkbox');
   await tapEl(v, '[data-command="task.complete:Tasks/Zalít květiny.md"]');
   const t = await waitFile(`${vault}/Tasks/Zalít květiny.md`, (x) => x.includes('status: Done'), 3000);
-  assert.match(t, /^completed: 2026-10-14T12:00:00\+02:00$/m, 'AC-10\'s bytes');
+  assertInstant(t, 'completed');
 });
 
 test('fr_inb_02_ac18_reviewed_on_the_phone', async () => {
@@ -476,13 +521,14 @@ test('fr_inb_02_ac18_reviewed_on_the_phone', async () => {
 test('fr_his_01_ac16_move_one_note_to_the_trash_on_the_phone', async () => {
   ready();
   const vault = pushEdit();
-  const before = fileState(`${vault}/${PSANI}`)[''] ?? Object.values(fileState(`${vault}/${PSANI}`))[0];
+  const before = fileState(`${vault}/Pages`)['Psaní.md'];
   const { v } = await launchPhone(vault, { TEGG_ROUTE: `note/${PSANI}`, TEGG_NOW: NOW }, views);
+  assert.ok(await v.waitFor('[data-command="phone.more"]', 5000), 'More actions');
   await v.click('[data-command="phone.more"]');
   await v.click('[data-command="object.trash"]');
   await sleep(1500);
   assert.equal(sh(`ls ${quote(`${vault}/${PSANI}`)} 2>/dev/null`, false).trim(), '', 'Pages/Psaní.md is gone');
-  const after = Object.values(fileState(`${vault}/.trash/${PSANI}`))[0];
+  const after = fileState(`${vault}/.trash/Pages`)['Psaní.md'];
   assert.ok(after && before && after.sha256 === before.sha256 && after.mtime === before.mtime, '.trash/Pages/Psaní.md keeps its bytes and mtime');
   assert.ok(await titleIs(v, 'Inbox', 3000), 'the app goes Back to the Inbox');
 });
@@ -496,7 +542,8 @@ test('fr_ux_08_ac30_talkback_while_editing', async () => {
   assert.ok(await eventually(() => imeShown(), (s) => s, 1000), 'the keyboard');
   await sleep(500);
   for (const name of ['Heading', 'Bold', 'Italic', 'Link', 'Tag', 'Bulleted list', 'Checklist', 'Indent']) assert.ok(uiNode(name).found, `uiautomator dump lists the bar's ${name}`);
-  assert.ok(uiEditable('Note body'), 'Note body is editable');
+  // the body is exposed as an editable text field holding the note's text (FR-UX-08 AC-30, D-2557)
+  assert.ok(/<node[^>]*text="[^"]*Nákup[^"]*"[^>]*class="android\.widget\.EditText"/.test(uiDump()), 'the note body is an android.widget.EditText holding its text');
 });
 
 test('nfr_sec_01_ac5_editing_makes_no_connection', async () => {
@@ -516,5 +563,5 @@ test('nfr_sec_01_ac5_editing_makes_no_connection', async () => {
   assert.deepEqual([...new Set(seen)], [], 'no socket of the app\'s uid while pasting web.html, typing a URL and opening the link panel');
   const perms = sh(`dumpsys package ${TEST_ID}`, false);
   assert.ok(!/android\.permission\.INTERNET: granted=true/.test(perms), 'no INTERNET permission (AC-1)');
-  void forceStop; void runAs; void title; void rendererPid;
+  void forceStop; void runAs; void title; void rendererPid; void uiEditable;
 });

@@ -121,7 +121,7 @@ test('fr_syn_03_ac44_new_files_on_a_partly_synced_vault', async () => {
   await caretIn(v2, 'Konec.', 'end');
   imeCommit(' [[Lisabon');
   assert.ok(await v2.waitFor('[aria-label="Link suggestions"] [role="option"]', 2000), 'the panel');
-  await v2.eval(`(() => { const o = [...document.querySelectorAll('[aria-label="Link suggestions"] [role="option"]')].find((x) => x.innerText.trim() === 'Create “Lisabon”'); o.click(); return true; })()`);
+  await v2.eval(`(() => { const o = [...document.querySelectorAll('[aria-label="Link suggestions"] [role="option"]')].find((x) => x.innerText.trim() === 'Create "Lisabon"'); o.click(); return true; })()`);
   assert.ok(await eventually(() => exists(`${v2root}/Quick Notes/Lisabon.md`), (x) => x, 3000), 'Quick Notes/Lisabon.md');
   const before = fileState(`${v2root}/Quick Notes`);
   pushReplace(`${v2root}/Pages/Lisabon.md`, '---\nid: 01JBAN3000000000000000L002\ntype: page\ntitle: Lisabon\n---\nZ Macu.\n');

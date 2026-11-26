@@ -7,6 +7,9 @@ modified: 2026-11-12T09:00:00+01:00
 ---
 - Web: [web](https://example.org/čeština)
 - Pošta: <mailto:eva@example.org>
+
+Jinam:
+
 - Skript: [skript](javascript:alert(1))
 - Soubor: [soubor](file:///etc/hosts)
 - Štítek: #cestování

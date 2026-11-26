@@ -17,7 +17,7 @@ import { test, type Browser, type Page } from '@playwright/test';
 import assert from 'node:assert/strict';
 import {
   EDIT_NOW, PE, appBar, assertZeroWrites, barButton, desktopEditorResult, bodyBlocks, bodyFocused, caretInfo, desktopPage, editVault, editorText, eventually, fileStateOf, flat, formatBar,
-  goNote, h1Is, h1Text, keyboard, longPressOn, main, moreButton, moreMenu, must, needBody, nfc, noteBody, panel, phonePage, runById, saveState, savedText,
+  goNote, h1Is, h1Text, keyboard, longPressOn, main, moreButton, moreMenu, must, needBody, nfc, noteBody, panel, phonePage, rect, runById, saveState, savedText,
   searchField, seen, setCaret, settledWriteCalls, sleep, startDesktop, startPhone, systemBack, tapText, tapToEdit, textRect, titleField, typeSheet, writeCalls, writesSeen,
   type PhoneHandle,
 } from './phone-helpers';
@@ -172,6 +172,8 @@ test('fr_edt_01_ac17_what_the_phone_editor_leaves_out', async ({ page }) => {
   await page.keyboard.press('Escape');
   await page.keyboard.press('Shift+ArrowDown');
   await hidden('after Esc and ⇧↓');
+  // the caret's scroll after ⇧↓ (FR-UX-04 AC-9, on the next frame) settles first: the ⇧-tap lands on Citace, not on the Formatting bar's Bold
+  assert.ok(await eventually(async () => { const c = await textRect(page, 'Citace'); const b = await rect(page.getByRole('toolbar', { name: 'Formatting' })); return !!c && (!b || c.bottom <= b.top); }, (v) => v, 2000), 'Citace lies above the Formatting bar');
   // ⇧-tap: a tap with Shift held (a hardware keyboard) makes no block selection either
   await page.keyboard.down('Shift');
   await tapText(page, 'Citace');

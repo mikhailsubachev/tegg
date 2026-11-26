@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import {
   EDIT_NOW, PE, appBar, assertZeroWrites, backButton, bodyFocused, caretInfo, desktopPage, editVault, editorText, eventually, fileStateOf, flat,
   formatBar, formatButton, goNote, h1Text, keyboard, loadVault, mainScroll, mergeBanner, must, needBody, nfc, noteBody, openDrawer, panel, phonePage, runById,
-  savedText, seen, setCaret, sleep, startDesktop, startPhone, systemBack, tap, tapToEdit, typeSheet, writeCalls, writesPerPath, main,
+  savedText, seen, setCaret, sleep, startDesktop, startPhone, systemBack, tap, tapToEdit, titleField, typeSheet, writeCalls, writesPerPath, main,
   type PhoneHandle,
 } from './phone-helpers';
 import { ime } from './phone-ime';
@@ -514,6 +514,8 @@ test('fr_syn_06_ac56_editing_tour_on_the_phone', async ({ page }) => {
   await keyboard(page, false);
   assert.equal(await runById(page, 'object.new'), 'ok', 'object.new');
   await tap(page, typeSheet(page).getByRole('option', { name: /^Page\b/ }).first(), 'Page');
+  const title = await must(titleField(page), 'the draft\'s Title');
+  assert.ok(await eventually(() => title.evaluate((e) => e === document.activeElement || e.contains(document.activeElement)), (v) => v, 1500), 'the draft\'s Title has focus');
   await ime(page, [{ text: 'Koncept' }, { enter: true }]);
   await sleep(1500);
   per = await writesPerPath(core);

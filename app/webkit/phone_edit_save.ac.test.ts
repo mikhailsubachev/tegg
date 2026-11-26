@@ -259,7 +259,9 @@ test('fr_edt_07_ac24_properties_sheet_edits_values', async ({ page, browser }) =
   await line(PRAZDNA_S, /^datum: 2026-10-08$/m, '(e) datum 2026-10-08');
   // the universal rows: Tags
   sh = await sheetOf(page);
-  const tags = sh.getByRole('combobox', { name: /Tags/ }).or(sh.getByRole('textbox', { name: /Tags/ })).first();
+  // the Tags row's Add tag first, then its field, as on the desktop (FR-TYP-08 AC-8; AC-Test-Change, D-2557)
+  await tap(page, sh.getByRole('button', { name: 'Add tag', exact: true }).first(), 'the Tags row\'s Add tag');
+  const tags = await must(sh.getByRole('combobox', { name: /^Tags?$/ }).or(sh.getByRole('textbox', { name: /^Tags?$/ })).or(page.getByRole('combobox', { name: 'Tag', exact: true })).first(), 'the Tags row\'s field');
   await tags.tap();
   await tags.fill('porada');
   await tags.press('Enter');
@@ -394,10 +396,25 @@ test('fr_fmt_07_ac38_opening_on_the_phone_writes_nothing', async ({ page, browse
     const body = noteBody(page);
     if (await seen(body, 1500)) {
       const blocks = await body.locator(':scope > *').count();
+      // a tap at the block's text end, away from links: a left-edge tap can hit a link (Feedback loops) and leave the
+      // note (as D-2555 did for FR-SYN-06 AC-56; AC-Test-Change, D-2557)
       for (const k of [0, Math.floor(blocks / 2), Math.max(0, blocks - 1)]) {
-        const b = body.locator(':scope > *').nth(k);
-        const r = await rect(b);
-        if (r) await page.touchscreen.tap(r.x + Math.min(10, r.width / 2), r.y + Math.min(8, r.height / 2));
+        const end = await body.locator(':scope > *').nth(k).evaluate((el) => {
+          const LINK = 'a, [role="link"], [data-wikilink], [data-tag], button, input, label';
+          const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+          let last: Text | null = null;
+          for (let t = w.nextNode() as Text | null; t; t = w.nextNode() as Text | null) if ((t.textContent ?? '').trim() && !t.parentElement?.closest(LINK)) last = t;
+          if (!last) return null;
+          const len = (last.textContent ?? '').replace(/\s+$/, '').length;
+          const r = document.createRange();
+          r.setStart(last, Math.max(0, len - 1));
+          r.setEnd(last, len);
+          const b = r.getBoundingClientRect();
+          if (!b.width && !b.height) return null;
+          const p = { x: b.right - 1, y: b.top + b.height / 2 };
+          return document.elementFromPoint(p.x, p.y)?.closest(LINK) ? null : p;
+        });
+        if (end) await page.touchscreen.tap(end.x, end.y);
       }
       await keyboard(page, true);
       await page.evaluate(() => { const m = [...document.querySelectorAll('main')].find((e) => e.getClientRects().length > 0) as HTMLElement | undefined; if (m) m.scrollTop = m.scrollHeight; });
@@ -407,6 +424,7 @@ test('fr_fmt_07_ac38_opening_on_the_phone_writes_nothing', async ({ page, browse
     await visibility(page, 'visible');
     await systemBack(page);
     await needBody(page, 'back on Rozcestník');
+    assert.ok(await h1Is(page, 'Rozcestník', 3000), `${stem}: Back returns to Rozcestník, the open note`);
   }
   await sleep(1500);
   await assertZeroWrites(core, before, 'the round-trip tour');

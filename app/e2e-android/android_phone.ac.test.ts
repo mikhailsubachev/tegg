@@ -617,7 +617,9 @@ test('fr_ux_08_ac28_talkback_reads_the_frame', async () => {
   // approved by the owner).
   const dump = await eventually(async () => uiDump(), (d) => /(text|content-desc)="Menu"/.test(d), 3000, 300);
   for (const name of ['Menu', 'Search', 'New', 'Today']) assert.match(dump, new RegExp(`(text|content-desc)="${name}"`), `the dump lists ${name}`);
-  assert.match(dump, /(text|content-desc)="New"[^>]*enabled="false"|enabled="false"[^>]*(text|content-desc)="New"/, 'New is not enabled');
+  // Slice AND-3 enables New (android-edit.md; AC-Test-Change, D-2557)
+  const newNode = /<node[^>]*(?:text|content-desc)="New"[^>]*>/.exec(dump)?.[0] ?? '';
+  assert.match(newNode, /enabled="true"/, 'New is enabled');
   // The row's link, not the `li` (the first match of `main li a, main li`; AC-Test-Change, approved by the owner).
   await v.click('main li a');
   await sleep(1000);
@@ -664,15 +666,25 @@ test('nfr_sec_01_ac4_external_links_leave_through_the_system', async () => {
   ready();
   const vault = pushPhone();
   const { v } = await launchPhone(vault, { TEGG_ROUTE: `note/${VEN}` }, views);
-  assert.ok(await v.waitFor('main article a', 10_000), 'Odkazy ven');
+  // the web and mailto links are drawn as links (an `a` or a `role="link"` chip); the javascript: and file: links lie in
+  // a source block (AC-Test-Change, D-2557)
+  const LINKS = 'main article a, main article [role="link"]';
+  assert.ok(await v.waitFor(LINKS, 10_000), 'Odkazy ven');
   const href0 = await v.eval<string>('location.href');
-  const linkSel = (text: string) => `(() => { const a = [...document.querySelectorAll('main article a')].find((x) => x.innerText.trim() === ${JSON.stringify(text)}); return a; })()`;
+  const linkSel = (text: string) => `(() => { const a = [...document.querySelectorAll(${JSON.stringify(LINKS)})].find((x) => x.innerText.trim() === ${JSON.stringify(text)}); return a; })()`;
   const tapLink = async (text: string) => {
     const r = await v.eval<{ left: number; top: number; width: number; height: number } | null>(`(() => { const a = ${linkSel(text)}; if (!a) return null; a.scrollIntoView({ block: 'center' }); const b = a.getBoundingClientRect(); return { left: b.left, top: b.top, width: b.width, height: b.height }; })()`);
     if (!r) return false;
     const p = await toDevice(v, r.left + r.width / 2, r.top + r.height / 2);
     tap(p.x, p.y);
     return true;
+  };
+  /** A real tap on the first occurrence of `text` in the article (wherever it is drawn: a tap on it does nothing). */
+  const tapText = async (text: string) => {
+    const r = await v.eval<{ x: number; y: number } | null>(`(() => { const art = document.querySelector('main article'); if (!art) return null; const w = document.createTreeWalker(art, NodeFilter.SHOW_TEXT); for (let n = w.nextNode(); n; n = w.nextNode()) { const i = (n.textContent || '').indexOf(${JSON.stringify(text)}); if (i < 0) continue; n.parentElement.scrollIntoView({ block: 'center' }); const rg = document.createRange(); rg.setStart(n, i); rg.setEnd(n, i + ${text.length}); const b = rg.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; } return null; })()`);
+    assert.ok(r, `${text} is shown in Odkazy ven`);
+    const p = await toDevice(v, r!.x, r!.y);
+    tap(p.x, p.y);
   };
   let mark = logcatMark();
   assert.ok(await tapLink('web'), 'the link web');
@@ -692,7 +704,7 @@ test('nfr_sec_01_ac4_external_links_leave_through_the_system', async () => {
   await sleep(1000);
   for (const text of ['skript', 'soubor']) {
     mark = logcatMark();
-    await tapLink(text);
+    await tapText(text);
     await sleep(1500);
     assert.deepEqual(logcatSince(mark, /START u0 \{act=android\.intent\.action\.VIEW/), [], `${text}: no intent`);
     assert.equal(await v.eval<string>('location.href'), href0, `${text}: navigates nothing`);

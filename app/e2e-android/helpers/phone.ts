@@ -136,9 +136,18 @@ export function ipcLog(id = TEST_ID): { cmd: string; ms: number }[] {
 }
 /** `WRITE_COMMANDS` entries of the IPC log (§2.3: "zero writes" at LA). */
 export const ipcWrites = (id = TEST_ID) => ipcLog(id).map((x) => x.cmd).filter((c) => WRITE_COMMANDS.includes(c));
-/** A floating toolbar or `ActionMode` window (a WebView context menu) in `dumpsys window`. */
+/** Every window's accessibility tree (`uiautomator dump --windows`), the floating text toolbar's popup included. */
+export function uiDumpWindows(): string {
+  sh('uiautomator dump --windows /sdcard/tegg-ui-w.xml >/dev/null 2>&1', false);
+  return sh('cat /sdcard/tegg-ui-w.xml', false);
+}
+/** A floating toolbar or `ActionMode` window (a WebView context menu). Android 15 draws the floating text toolbar as a
+ *  `PopupWindow` of type `APPLICATION_ABOVE_SUB_PANEL`, whose items only `uiautomator dump --windows` lists (D-2557). */
 export function actionModeShown(): boolean {
-  return /FloatingToolbar|ActionMode|floating_popup/i.test(sh('dumpsys window windows', false));
+  const w = sh('dumpsys window windows', false);
+  if (/FloatingToolbar|ActionMode|floating_popup/i.test(w)) return true;
+  if (!/PopupWindow[\s\S]{0,600}?ty=APPLICATION_ABOVE_SUB_PANEL/.test(w)) return false;
+  return /(?:text|content-desc)="(?:Cut|Copy|Paste|Select all)"/i.test(uiDumpWindows());
 }
 
 /** `views/` + `new-empty/.tegg/` + `phone/` as `Knihovna` in shared storage (the fixture READMEs and scripts removed). */
@@ -204,10 +213,18 @@ export function killRenderer(id = TEST_ID): number {
   sh(`kill -9 ${pid}`);
   return pid!;
 }
-/** HOME, then `am kill` (a background kill, as Android's low-memory killer). */
+/** HOME, a pause of ~1 s, then `kill -9` of the app's process as root (a background kill, as Android's low-memory
+ *  killer): `am kill` left the process running, so the next start wasn't cold (D-2557). */
 export function amKill(id = TEST_ID): void {
   sh('input keyevent KEYCODE_HOME');
-  sh(`am kill ${id}`, false);
+  sh('sleep 1', false);
+  const r = adb(['root']);
+  assert.equal(r.status, 0, `adb root: ${r.stderr || r.stdout}`);
+  adb(['wait-for-device']);
+  const pid = sh(`pidof ${id}`, false).trim().split(/\s+/)[0];
+  if (pid) sh(`kill -9 ${pid}`, false);
+  const gone = sh(`for i in 1 2 3 4 5 6 7 8 9 10; do pidof ${id} >/dev/null || { echo gone; exit 0; }; sleep 0.2; done`, false).includes('gone');
+  assert.ok(gone, `${id}'s process (${pid}) is killed`);
 }
 /** Removes the app's task from Recents (the swipe away). */
 export function removeTask(id = TEST_ID): void {

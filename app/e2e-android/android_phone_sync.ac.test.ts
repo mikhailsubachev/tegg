@@ -197,15 +197,15 @@ test('fr_syn_03_ac39_partly_synced_vault_on_the_phone', async () => {
   const before = fileState(vault);
   const { v } = await launchPhone(vault, { TEGG_ROUTE: 'note/Pages/Odkazy ven.md' }, views);
   await titleIs(v, 'Odkazy ven');
-  const style = (name: string) => v.eval<string>(`(() => { const a = [...document.querySelectorAll('main article a')].find((x) => x.innerText.trim() === ${JSON.stringify(name)}); if (!a) return ''; const s = getComputedStyle(a); return s.color + '|' + s.textDecorationLine + '|' + (a.getAttribute('data-link-kind') ?? ''); })()`);
+  const style = (name: string) => v.eval<string>(`(() => { const a = [...document.querySelectorAll('main article a, main article [role="link"]')].find((x) => x.innerText.trim() === ${JSON.stringify(name)}); if (!a) return ''; const s = getComputedStyle(a); return s.color + '|' + s.textDecorationLine + '|' + (a.getAttribute('data-link-kind') ?? ''); })()`);
   const broken = await style('Neexistuje');
   assert.equal(await style('Později'), broken, '[[Později]] shows the broken-link style');
-  await v.eval(`[...document.querySelectorAll('main article a')].find((a) => a.innerText.trim() === 'Později').click(), true`);
+  await v.eval(`[...document.querySelectorAll('main article a, main article [role="link"]')].find((a) => a.innerText.trim() === 'Později').click(), true`);
   assert.ok(await eventually(() => v.eval<boolean>(`document.body.innerText.includes('No note named “Později” in this vault yet.')`), (x) => x, 1000, 100), 'a tap shows AC-11\'s notice');
   const pozdeji = '---\nid: 01JBAN2000000000000000N301\ntype: page\ntitle: Později\n---\nDorazilo později.\n';
   syncWrite(`${vault}/Pages/Později.md`, pozdeji);
   assert.notEqual(await eventually(() => style('Později'), (s) => s !== broken, 2000, 100), broken, 'the link resolves within 2 s');
-  await v.eval(`[...document.querySelectorAll('main article a')].find((a) => a.innerText.trim() === 'Později').click(), true`);
+  await v.eval(`[...document.querySelectorAll('main article a, main article [role="link"]')].find((a) => a.innerText.trim() === 'Později').click(), true`);
   assert.equal(await titleIs(v, 'Později'), 'Později', 'and opens it');
   // the pin that hadn't arrived now resolves
   await v.click(`${FRAME} [data-command="phone.menu"]`);

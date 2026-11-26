@@ -98,7 +98,7 @@ async function synth(page: Page, o: Synth) {
     };
     const selectBack = (n: number) => {
       const s = getSelection();
-      if (!s) return;
+      if (!s || n === 0) return; // a composition's first text replaces the selection, as a keyboard's does
       s.collapseToEnd();
       for (let i = 0; i < n; i++) s.modify('extend', 'backward', 'character');
     };
