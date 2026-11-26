@@ -14,7 +14,7 @@
 // - "every control of the note embed that opens it": every visible button or link inside the embed's frame
 //   (`[data-embed-target]`, the frame itself when it is a link) except the task checkbox;
 // - the task embed's status is "text": `In progress` is visible in the frame and not inside a button, link or input;
-//   its checkbox is `aria-disabled="true"` (the AC names no description, so none is asserted);
+//   its checkbox carries `task.complete:<path>` and is enabled (AND-3, android-edit.md §12.1, D-2407; D-2554);
 // - AC-54's second part is applied with AC-54's test's filter, plus D-2475: a view-only task checkbox
 //   (`aria-disabled`) is exempt and carries no `data-command` of its own; "RA11's hidden list" is §10's
 //   PHONE_HIDDEN_COMMANDS with `board.openCard:` and `board.openSource:` excepted inside `board.*` (D-2474, D-2475);
@@ -22,7 +22,8 @@
 //   itself carries `board.openCard:<data-board-card>` (NFC), the element holding the title resolves to that command,
 //   the source chip (the control named after the source note; in the fixture only Zavolat Janě's `Porada`) carries
 //   `board.openSource:<data-board-card>` (the card's task path, as `board.openCard:`), every other visible control of
-//   the card except the checkbox carries `board.openCard:<path>`, and the checkbox carries no `data-command`;
+//   the card except the checkbox carries `board.openCard:<path>`, and the checkbox carries `task.complete:<path>`
+//   (AND-3, android-edit.md §12.1, D-2407; none while it stays read-only; D-2554);
 // - `board.openSource:Tasks/Zavolat Janě.md` on the Kanban tab opens its source `note/Pages/Porada.md` (D-2475).
 // Written from the AC and the contract only (D-61).
 import { test, type Browser, type Locator, type Page } from '@playwright/test';
@@ -291,7 +292,9 @@ test('fr_ux_03_ac59_content_controls_on_the_phone', async ({ page, browser }) =>
       assert.deepEqual(cards.filter((c) => c.own !== want(c)).map((c) => `${c.path} → ${c.own}`), [], `${how}: each task card itself carries board.openCard:<path> (NFC, D-2475)`);
       assert.deepEqual(cards.filter((c) => c.title !== want(c)).map((c) => `${c.path} → ${c.title}`), [], `${how}: each task card's title carries board.openCard:<path> (D-2475)`);
       assert.deepEqual(cards.flatMap((c) => c.others.filter((o) => o.command !== want(c)).map((o) => `${c.path}: ${o.name} → ${o.command}`)), [], `${how}: every other control of a card that opens its task carries board.openCard:<path> (D-2475)`);
-      assert.deepEqual(cards.flatMap((c) => c.boxes.filter((b) => b !== null).map((b) => `${c.path}: ${b}`)), [], `${how}: a card's view-only checkbox carries no data-command (D-2475)`);
+      // AND-3 (android-edit.md §12.1, D-2407): a card's task checkbox carries task.complete:<path>; one that stays
+      // read-only carries none (D-2554)
+      assert.deepEqual(cards.flatMap((c) => c.boxes.filter((b) => b !== null && nfc(b) !== nfc(`task.complete:${c.path}`)).map((b) => `${c.path}: ${b}`)), [], `${how}: a card's checkbox carries task.complete:<path> or, read-only, no data-command (§12.1)`);
       const withSource = cards.filter((c) => SOURCES[c.path]);
       assert.deepEqual(withSource.map((c) => ({ path: c.path, chip: c.chips })), withSource.map((c) => ({ path: c.path, chip: [`board.openSource:${c.path}`] })), `${how}: the source chip carries board.openSource:<path> (D-2475)`);
     }

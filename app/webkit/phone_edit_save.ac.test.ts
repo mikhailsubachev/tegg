@@ -18,7 +18,7 @@ import { join, relative, resolve } from 'node:path';
 import {
   EDIT_NOW, PE, REPO, assertZeroWrites, desktopPage, editVault, eventually, fileStateOf, goNote, h1Is, keyboard, loadVault,
   main, mergeBanner, must, needBody, nfc, noteBody, phonePage, propsSheet, rect, runById, saveState, savedText, searchField, seen,
-  setCaret, sleep, startDesktop, startPhone, systemBack, tap, tapToEdit, titleField, visibility, writeCalls, writesSeen, type PhoneHandle, type RecoveryDto,
+  setCaret, settledWriteCalls, sleep, startDesktop, startPhone, systemBack, tap, tapToEdit, titleField, visibility, writeCalls, writesSeen, type PhoneHandle, type RecoveryDto,
   VAULT_PATH, panel,
 } from './phone-helpers';
 import { ime, imeReset } from './phone-ime';
@@ -200,7 +200,6 @@ test('fr_edt_07_ac24_properties_sheet_edits_values', async ({ page, browser }) =
   await df.fill('Praha 1');
   await df.press('Enter');
   const deskFile = await savedText(dc, PORADA, 3000);
-  await context.close();
   assert.equal(phone, deskFile, '(a) Praha 1: the same bytes as the desktop panel');
   const w = await writesOf(core);
   assert.equal(w.length, 1, 'one note_write');
@@ -210,10 +209,19 @@ test('fr_edt_07_ac24_properties_sheet_edits_values', async ({ page, browser }) =
     const t = (await core.files())[nfc(path)] ?? '';
     assert.match(t, re, `${what}: ${JSON.stringify(t.split('\n').filter((l) => re.source.split(':')[0].replace(/\^|\\/g, '') === l.split(':')[0]).join(' | '))}`);
   };
-  for (const [v, re] of [['ano: ne', /^místo: "ano: ne"$/m], ['123', /^místo: "123"$/m], ['true', /^místo: "true"$/m], ['#doma', /^místo: "#doma"$/m], ['[[Jana Nováková]]', /^místo: "\[\[Jana Nováková\]\]"$/m], ['Plzeň', /^místo: Plzeň$/m]] as const) {
+  // each value also compared with the desktop panel's live bytes: a quoted value stays quoted when changed, as on the
+  // desktop (the existing YAML style is kept; D-2554)
+  let deskSaves = 1;
+  for (const [v, re] of [['ano: ne', /^místo: "ano: ne"$/m], ['123', /^místo: "123"$/m], ['true', /^místo: "true"$/m], ['#doma', /^místo: "#doma"$/m], ['[[Jana Nováková]]', /^místo: "\[\[Jana Nováková\]\]"$/m], ['Plzeň', null]] as const) {
     await commitText(page, 'Místo', v);
-    await line(PORADA, re, `(a) místo ${v}`);
+    if (re) await line(PORADA, re, `(a) místo ${v}`);
+    await df.click();
+    await df.fill(v);
+    await df.press('Enter');
+    const dv = await savedText(dc, PORADA, 3000, ++deskSaves);
+    assert.equal((await core.files())[nfc(PORADA)], dv, `(a) místo ${v}: the same bytes as the desktop panel`);
   }
+  await context.close();
   // AC-9: clearing removes the entry's lines
   await commitText(page, 'Místo', '');
   assert.ok(!/^místo:/m.test((await core.files())[nfc(PORADA)] ?? ''), 'clearing místo removes its line (AC-9)');
@@ -446,7 +454,7 @@ test('fr_fmt_08_ac11_names_of_objects_made_on_the_phone', async ({ browser }) =>
   let core = await startPhone(page, { vault: editVault(), route: 'new/quick-note', now: EDIT_NOW });
   await (await must(titleField(page), 'Title')).tap();
   await ime(page, [{ text: 'Q3: plán? #1' }, { enter: true }]);
-  const made = await eventually(() => writeCalls(core), (x) => x.length >= 1, 3000);
+  const made = await settledWriteCalls(core, 1, 3000);
   assert.deepEqual(made[0], { cmd: 'note_create', path: 'Quick Notes/Q3 plán 1.md' }, 'the draft title Q3: plán? #1 → Quick Notes/Q3 plán 1.md');
   assert.match((await core.files())['Quick Notes/Q3 plán 1.md'] ?? '', /^title: "Q3: plán\? #1"$/m, 'with title: "Q3: plán? #1"');
   // no later phone action changes the name or title
@@ -465,7 +473,7 @@ test('fr_fmt_08_ac11_names_of_objects_made_on_the_phone', async ({ browser }) =>
   const q = await must(searchField(page), 'Search query');
   await q.fill(long);
   await tap(page, page.getByRole('button', { name: /^Create “/ }).first(), 'Create “…”');
-  const m2 = await eventually(() => writeCalls(core), (x) => x.length >= 1, 3000);
+  const m2 = await settledWriteCalls(core, 1, 3000);
   const p2 = m2[0]?.path ?? '';
   const stem = p2.replace(/^Quick Notes\/|\.md$/g, '');
   assert.ok(stem && Buffer.byteLength(stem) <= 200 && long.startsWith(stem.trimEnd()), `the stem is cut at a character boundary to ≤ 200 bytes: ${stem} (${Buffer.byteLength(stem)})`);
@@ -478,7 +486,7 @@ test('fr_fmt_08_ac11_names_of_objects_made_on_the_phone', async ({ browser }) =>
   await tapToEdit(page, 'Konec');
   await setCaret(page, 'Konec.', 'end');
   await ime(page, [{ text: ' [[cíl' }]);
-  await tap(page, panel(page, 'Link suggestions').getByRole('option').filter({ hasText: 'Create “cíl”' }).first(), 'Create “cíl”');
-  const m3 = await eventually(() => writeCalls(core), (x) => x.some((y) => y.cmd === 'note_create'), 3000);
+  await tap(page, panel(page, 'Link suggestions').getByRole('option').filter({ hasText: 'Create "cíl"' }).first(), 'Create "cíl"');
+  const m3 = await settledWriteCalls(core, 1, 3000, 0, 'note_create');
   assert.equal(m3.find((x) => x.cmd === 'note_create')?.path, 'Quick Notes/cíl (2).md', 'a stem used anywhere in the vault (NFC, case-insensitive) gets (2)');
 });

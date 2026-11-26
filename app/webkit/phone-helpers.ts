@@ -356,9 +356,12 @@ export async function pinch(page: Page, centre: { x: number; y: number }, from: 
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await cdp.detach();
 }
-/** A tap through the touchscreen at the centre of `loc`. */
+/** A tap through the touchscreen at the centre of `loc`, scrolled into view first (a control in a sideways-scrolling
+ *  bar may start outside the viewport; D-2554). */
 export async function tap(page: Page, loc: Locator, what: string) {
-  const r = await rect(await must(loc, what));
+  const el = await must(loc, what);
+  await el.first().scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
+  const r = await rect(el);
   assert.ok(r, `${what}: has a box`);
   await page.touchscreen.tap(r!.x + r!.width / 2, r!.y + r!.height / 2);
 }
@@ -538,7 +541,8 @@ export type VersionDto = { mtimeNs: string; size: number; hash: string };
 export type RecoveryDto = { vault: string; path: string; id: string | null; title: string; text: string; base: VersionDto | null; savedAt: string };
 
 /** In-page (serialized): §17.1's fake-core additions: `android_recovery_put`, `_get`, `_drop` (in memory) and
- *  `android_ime` (recorded), all read-only for "zero writes"; `nfdName` on `note_read` / `embed_load`. */
+ *  `android_ime` (recorded), all read-only for "zero writes"; `nfdName` on `note_read` / `embed_load`; `readOnly: true`
+ *  on `inbox_list`, `index_type_rows` and `task_list` rows of an NFD-named file. */
 function editFake(cfg: { nfd: string[]; recoveries: RecoveryDto[] }) {
   const w = window as any;
   const e = (w.__teggEdit = { recovery: {} as Record<string, any>, ime: [] as boolean[] });
@@ -572,6 +576,20 @@ function editFake(cfg: { nfd: string[]; recoveries: RecoveryDto[] }) {
     if (r && typeof r === 'object' && typeof r.path === 'string') return { ...r, nfdName: nfd.has(String(r.path).normalize('NFC')) };
     return r;
   };
+  // list rows of an NFD-named file carry `readOnly: true`, as the core will report them (D-2554)
+  const markRo = (v: any): any => {
+    if (Array.isArray(v)) return v.map(markRo);
+    if (!v || typeof v !== 'object') return v;
+    const o: any = {};
+    for (const [k, x] of Object.entries(v)) o[k] = markRo(x);
+    if (typeof o.path === 'string' && nfd.has(o.path.normalize('NFC'))) o.readOnly = true;
+    return o;
+  };
+  for (const c of ['inbox_list', 'index_type_rows', 'task_list']) {
+    const orig = h[c];
+    if (!orig || nfd.size === 0) continue;
+    h[c] = async (a: any) => markRo(await orig(a));
+  }
   for (const c of ['note_write', 'object_trash', 'note_trash', 'note_create_exact']) {
     const orig = h[c];
     if (!orig) continue;
@@ -739,6 +757,17 @@ export async function writeCalls(core: AndroidHandle, from = 0): Promise<WriteCa
     const p = c.cmd === 'pins_apply' ? '.tegg/pinned.yml' : a.path ?? r.path ?? r.created ?? undefined;
     return p === undefined ? { cmd: c.cmd } : { cmd: c.cmd, path: nfc(String(p)) };
   });
+}
+/** Waits (up to `ms`) until at least `n` write commands since call index `from` came and every one of them has its
+ *  result (`ok` set), so a path named only by the result (`note_create`, `link_create`) is known; returns
+ *  `writeCalls(core, from)` then; with `cmd`, also until one call is that command (D-2554). */
+export async function settledWriteCalls(core: AndroidHandle, n = 1, ms = 3000, from = 0, cmd?: string): Promise<WriteCall[]> {
+  await eventually(
+    async () => (await core.calls()).slice(from).filter((c) => WRITE_COMMANDS.includes(c.cmd)),
+    (x) => x.length >= n && x.every((c) => c.ok !== undefined) && (cmd === undefined || x.some((c) => c.cmd === cmd)),
+    ms,
+  );
+  return writeCalls(core, from);
 }
 /** The ACs' "writes exactly X": the write commands since `from` are exactly `want` (command and path, in order), and
  *  every vault file not named in `want` is as in `before`. */

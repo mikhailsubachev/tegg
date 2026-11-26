@@ -135,7 +135,8 @@ test('fr_edt_02_ac26_wide_blocks_on_the_phone', async ({ browser }) => {
   const img = await must(art.getByRole('img').first(), 'široký.png');
   await img.evaluate((i) => (i as HTMLImageElement).decode?.().catch(() => undefined));
   const ir = await rect(img);
-  const col = await art.evaluate((a) => { const p = a.querySelector('p') as HTMLElement; return p.getBoundingClientRect().width; });
+  // the column: the article's first paragraph outside tables (a table cell's paragraph is narrower; D-2554)
+  const col = await art.evaluate((a) => { const p = a.querySelector('p:not(td p):not(th p)') as HTMLElement; return p.getBoundingClientRect().width; });
   assert.ok(ir && Math.abs(ir.width - col) <= 1, `široký.png is drawn at the column's width (${ir?.width} vs ${col})`);
   assert.ok(Math.abs(ir!.width / ir!.height - 5) <= 0.05, `with its 5 : 1 ratio (${ir!.width} × ${ir!.height})`);
   const callout = await rect(art.getByRole('note').first());

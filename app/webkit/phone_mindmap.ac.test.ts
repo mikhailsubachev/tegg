@@ -99,9 +99,7 @@ test('fr_mmp_02_ac32_mindmap_read_only_on_the_phone', async ({ page, browser }) 
   assert.equal(await page.evaluate(() => /^(INPUT|TEXTAREA)$/.test(document.activeElement?.tagName ?? '') || (document.activeElement as HTMLElement | null)?.isContentEditable === true), false, 'no keyboard (no field focused)');
   const pasy = await must(main(page).getByRole('checkbox', { name: /Pasy/ }).or(main(page).locator('li').filter({ hasText: 'Pasy' }).getByRole('checkbox')), 'the Pasy checkbox');
   assert.equal(await pasy.isChecked(), true, 'Pasy is drawn checked');
-  await pasy.click({ force: true });
-  await sleep(300);
-  assert.equal(await pasy.isChecked(), true, 'a tap never toggles it');
+  // Pasy is a checklist item outside the map, which a tap toggles on AND-3's phone (§7.7, FR-TSK-11 AC-5; D-2554)
   await assertZeroWrites(core, before, 'the map');
   await (await must(fig.getByRole('link', { name: /Mapa bez severu/ }), 'the chip Mapa bez severu')).click();
   assert.equal(await eventually(() => mainName(page), (n) => n === 'Mapa bez severu', 3000), 'Mapa bez severu', 'the chip opens it');
@@ -263,7 +261,8 @@ test('fr_mmp_02_ac35_map_and_list_read_only', async ({ page }) => {
   assert.deepEqual(items.map((x) => x.replace(/^(\d+:\S+(?: \S+)?).*$/, '$1')).map((x) => x.split(':')[0]), ['0', '1', '2', '2', '1', '2', '1'], `the same nesting as the callout's list: ${items.join(' | ')}`);
   assert.ok(items[0].includes('Výjezd 2026') && items[5].includes('Lisabon'), 'the same items');
   assert.equal(await fig.getByRole('tree').count(), 0, 'List replaces the map');
-  assert.equal(await page.locator('[contenteditable], .ProseMirror').count(), 0, 'no editor');
+  // the note around the map is the editor on AND-3's phone (§7.1); the map figure has no editable part (D-2554)
+  assert.equal(await fig.locator('[contenteditable="true"]').count(), 0, 'no editor in the map');
   const boxes = fig.getByRole('checkbox');
   for (let i = 0; i < await boxes.count(); i++) assert.equal(await boxes.nth(i).isDisabled(), true, 'checkboxes are disabled');
   await group.getByRole('button', { name: 'Map', exact: true }).click();
