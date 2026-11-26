@@ -403,7 +403,8 @@ export function MindmapMap({ tree, label, content, onNode, readOnly, chipSuffix,
     }
     else if (k === 'Enter') startPending(n.id, 'sibling');
     else if (k === 'Tab' && !e.shiftKey) addChild(n.id);
-    else if (k === 'F2') startText(n.id);
+    // E edits as F2 (D-2675): `e` / `E` without ⌘, ⌃ or ⌥; consumed, so no `e` reaches the field.
+    else if (k === 'F2' || ((k === 'e' || k === 'E') && !meta && !e.altKey)) startText(n.id);
     else if (k === 'Backspace' || k === 'Delete') { const p = inf?.path; if (p) { const to = edit.remove(p); if (to) { recordStep(p, to); goPath(to); } } }
     else if (e.altKey && (k === 'ArrowUp' || k === 'ArrowDown' || k === 'ArrowLeft' || k === 'ArrowRight')) {
       const p = inf?.path;

@@ -1179,6 +1179,9 @@ button.tag-tile { cursor: pointer; }
 .mindmap-node:hover > .mindmap-fold-control, .mindmap-node:focus > .mindmap-fold-control,
 .mindmap-node:hover > .mindmap-add-child, .mindmap-node:focus > .mindmap-add-child { visibility: visible; }
 .mindmap-canvas.dragging .mindmap-fold-control:not(.folded) { visibility: hidden; }
+/* Bug #170 (D-2673): while hovered, the node's hover reaches its fold control and `+` across the gap on its outer side. */
+.mindmap-node:hover::after { content: ''; position: absolute; top: 0; bottom: 0; left: 100%; width: 34px; }
+.mindmap-node[data-side="left"]:hover::after { left: auto; right: 100%; }
 .mindmap-node.drag-source { opacity: .35; }
 .mindmap-drag-origin { position: absolute; box-sizing: border-box; border: 1.5px dashed var(--muted); border-radius: 8px; pointer-events: none; }
 .mindmap-drag-ghost { z-index: 3; pointer-events: none; opacity: .85; box-shadow: 0 8px 24px color-mix(in srgb, var(--text) 18%, transparent); }
