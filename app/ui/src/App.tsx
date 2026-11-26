@@ -1934,7 +1934,8 @@ export function App() {
               {/* Slice AND-3 (android-edit §10.3): the type sheet; in chooser mode (`as…`) it returns the key. */}
               {((dialog === 'newObject' && newPicker) || typeChooser) && (
                 <Sheet title={t('newPicker.title')} onClose={() => { if (typeChooser) setTypeChooser(null); else closeDialog(); }}>
-                  <NewObjectPicker sheet types={newPicker?.types ?? typesRef.current} defaultKey={newPicker?.defaultKey ?? typeChooser?.defaultKey}
+                  {/* The types as loaded now: a sheet opened before the vault's types arrived fills in when they do. */}
+                  <NewObjectPicker sheet types={newPicker?.types.length ? newPicker.types : types} defaultKey={newPicker?.defaultKey ?? typeChooser?.defaultKey}
                     onClose={() => { if (typeChooser) setTypeChooser(null); else closeDialog(); }}
                     onChoose={(key) => { const c = typeChooser; if (c) { setTypeChooser(null); c.onPick(key); return; } setDialog(null); setNewPicker(null); newOf(key); }} />
                 </Sheet>
@@ -2057,7 +2058,7 @@ export function App() {
           onChoose={(ty) => { setDraftType(null); carryTitle.current = noteApi.current?.title() ?? null; noteApi.current?.discardDraft(); void go({ id: 'new/<type>', param: ty.key }); }} />
       )}
       {dialog === 'newObject' && newPicker && (
-        <NewObjectPicker types={newPicker.types} defaultKey={newPicker.defaultKey} at={newPicker.at} onClose={closeDialog}
+        <NewObjectPicker types={newPicker.types.length ? newPicker.types : types} defaultKey={newPicker.defaultKey} at={newPicker.at} onClose={closeDialog}
           onChoose={(key) => { closeDialog(); newOf(key); }} />
       )}
       {dialog === 'starter' && <StarterTypesDialog onClose={closeDialog} onAdded={() => { closeDialog(); loadTypes(); }} />}
