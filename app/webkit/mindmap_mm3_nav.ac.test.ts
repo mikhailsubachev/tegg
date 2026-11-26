@@ -89,10 +89,10 @@ test('fr_mmp_02_ac54_pavouk_and_vice_korenu', async ({ page }) => {
     '↑ from B1': await walk(page, p, 'B1', ['ArrowUp']),
     '↓ from Alfa': await walk(page, p, 'Alfa', ['ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown']),
   }, {
-    '↓ from A2': ['B1'],
-    '↑ from B1': ['A2'],
-    '↓ from Alfa': ['Beta', 'Gama', 'Delta', 'Delta'],
-  }, 'Pavouk (spider): a cousin on the left side; outline order whatever the side');
+    '↓ from A2': ['A2'],
+    '↑ from B1': ['B1'],
+    '↓ from Alfa': ['Gama', 'Gama', 'Gama', 'Gama'],
+  }, 'Pavouk (spider): ↑ / ↓ stay on the focused node\'s side (AC-58, R235, D-2674)');
   await noFieldNoViewChange(p, 'Pavouk');
   const core = await openMm(page, MM.vice);
   const v = await needFigure(page, 'Témata');
