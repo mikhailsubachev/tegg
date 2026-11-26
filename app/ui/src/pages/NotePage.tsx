@@ -908,8 +908,10 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
           if (!e2 || e2.view.isDestroyed) return;
           const size = e2.view.state.doc.content.size;
           const clamp = (n: number) => Math.max(0, Math.min(n, size));
-          (e2.view.dom as HTMLElement).focus({ preventScroll: true });
           e2.editor.commands.setTextSelection({ from: clamp(c.anchor), to: clamp(c.head) });
+          // ProseMirror's own focus draws its selection into the DOM at once; a bare DOM focus leaves the browser's
+          // caret at the body's start until ProseMirror reads the focus event, as the selection itself didn't change.
+          e2.view.focus();
         };
         put();
         requestAnimationFrame(put);
