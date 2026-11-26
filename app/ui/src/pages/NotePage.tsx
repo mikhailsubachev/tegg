@@ -893,7 +893,16 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   /** D-146 with slice OL: the heading of the current section keeps its place in the viewport across the toggle. */
   const sourceCaret = useRef<{ anchor: number; head: number } | null>(null);
   const readingAnchor = useRef<{ i: number; top: number; view: 'editor' | 'source' } | null>(null);
-  const toggle = async () => {
+  // Toggles run one after another, each from the view the previous one left (issue #175): a toggle that came while
+  // an earlier one waited for its save read the view from before that save and showed the source a second time.
+  const toggleQueue = useRef<Promise<void>>(Promise.resolve());
+  const toggle = (): Promise<void> => {
+    const run = toggleQueue.current.then(() => toggleNow()).catch(() => {});
+    toggleQueue.current = run;
+    return run;
+  };
+  const toggleNow = async () => {
+    const showSource = showSourceRef.current;
     if (!showSource) await flush();
     const src = getOutline();
     const main = root.current?.closest('main') as HTMLElement | null;
@@ -911,6 +920,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         // before the next frame.
         // After the menu that ran it has closed and given its focus back.
         await new Promise((r) => setTimeout(r, 0));
+        showSourceRef.current = false;
         flushSync(() => setSource(false));
         const put = () => {
           const e2 = edRef.current;
@@ -927,6 +937,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         return;
       }
     }
+    showSourceRef.current = !showSource;
     setSource(!showSource);
   };
   const first = useRef(true);
