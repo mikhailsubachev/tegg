@@ -315,64 +315,103 @@ function paragraphPatch(original: PMNode, node: PMNode, raw: string, md: string)
 }
 
 /**
- * Bug AND-3 (FR-FMT-07, FR-SYN-06): a list whose top-level items are still the same items is written by replacing the
- * source of each changed item only. Rendering the whole list would rewrite its spacing: a list with one blank line
- * between two items reads as loose, so every item would get a blank line after it. Each changed item is rendered as a
- * one-item list (its own marker and number); the result must read back as `node`, otherwise null (the whole list is
- * rendered, as before).
+ * Bug AND-3 (FR-FMT-07, FR-SYN-06): a changed list is written from the source of its items: each untouched item keeps
+ * its bytes, and so do the gaps between untouched neighbours. Rendering the whole list would rewrite its spacing: a
+ * list with one blank line between two items reads as loose, so every item would get a blank line after it. Each
+ * changed item is rendered as a one-item list (its own marker and number); the result must read back as `node`,
+ * otherwise null (the whole list is rendered, as before).
  *
  * Issue #173: a list split in two (Backspace at an item's start or Enter on an empty item lifts it out) leaves two
- * lists that both come from `original`. Each half is written as the source of its run of the original's items, so
+ * lists that both come from `original`. Each half is written from the source of the original's items it holds, so
  * `- [ ] Zavolat\n- [x] Hotovo` keeps its bytes. A half keeps the original's list-level `spread`, which its own items
  * may not have (a one-item list is never loose); that attribute is hidden in the editor (schema.ts), so the half is
  * written as its items read and returned with the `spread` the written text has.
+ *
+ * Issue #176: items added or removed (the item count changes) no longer render the whole list. The list's items are
+ * matched to the original's in order (longest common subsequence); an unmatched item between two matched ones takes
+ * the place of an unmatched original there (its marker, number and gaps), and an added item takes its previous
+ * neighbour's marker, follows it with the list's smallest gap and is followed by the gap that followed that neighbour.
  */
 function listItemPatch(original: PMNode, node: PMNode, raw: string): { text: string; node: PMNode } | null {
-  if (!/List$/.test(node.type.name) || original.type !== node.type || !node.childCount || node.childCount > original.childCount) return null
-  const whole = node.childCount === original.childCount
-  // The run of the original's items this list holds: all of them, else the place where most of its items are the
-  // original's own (at least one).
-  let first = 0
-  if (!whole) {
-    let best = 0
-    for (let k0 = 0; k0 + node.childCount <= original.childCount; k0++) {
-      let same = 0
-      for (let j = 0; j < node.childCount; j++) if (node.child(j).eq(original.child(k0 + j))) same++
-      if (same > best) { best = same; first = k0 }
-    }
-    if (!best) return null
-  }
+  if (!/List$/.test(node.type.name) || original.type !== node.type || !node.childCount) return null
   const lf = raw.replace(/\r\n/g, '\n')
   const parsed = parse(lf)
   const list = parsed.blocks.length === 1 ? (parsed.blocks[0].node as { type: string; children?: { position?: { start: { offset?: number }; end: { offset?: number } } }[] }) : null
-  if (!list || list.type !== 'list' || list.children?.length !== original.childCount) return null
-  const runFrom = list.children[first].position?.start.offset
-  const runTo = list.children[first + node.childCount - 1].position?.end.offset
-  if (runFrom === undefined || runTo === undefined) return null
-  // A later run starts at its marker, which must open its line (an indented list is rendered instead).
-  if (first > 0 && !/(^|\n)$/.test(lf.slice(0, runFrom))) return null
-  const base = first === 0 ? 0 : runFrom
-  let out = whole ? lf : lf.slice(base, runTo)
-  for (let j = node.childCount - 1; j >= 0; j--) {
-    const item = node.child(j)
-    if (item.eq(original.child(first + j))) continue
-    const pos = list.children[first + j].position
-    const from = pos?.start.offset
-    const to = pos?.end.offset
+  const m = original.childCount
+  if (!list || list.type !== 'list' || list.children?.length !== m) return null
+  const span: [number, number][] = []
+  for (const c of list.children) {
+    const from = c.position?.start.offset
+    const to = c.position?.end.offset
     if (from === undefined || to === undefined) return null
-    const itemRaw = lf.slice(from, to)
-    const n = /^(\d+)[.)]/.exec(itemRaw)
-    const one = { type: node.type.name, attrs: { ...node.attrs, spread: false, ...(n ? { start: Number(n[1]) } : {}) }, content: [item.toJSON()] }
-    let md: string
-    try { md = renderBlock(pmToBlock(one), itemRaw).replace(/\n+$/, '') } catch { return null }
-    out = out.slice(0, from - base) + md + out.slice(to - base)
+    span.push([from, to])
   }
-  // Read back as the verify step will (`verify`): one block, the same editor content (a split half: but its `spread`).
+  const n = node.childCount
+  // The original item each item is (k), or the one whose place it takes (a changed item), else null (an added item).
+  const at: (number | null)[] = new Array(n).fill(null)
+  const same: boolean[] = new Array(n).fill(false)
+  if (n === m) {
+    for (let j = 0; j < n; j++) { at[j] = j; same[j] = node.child(j).eq(original.child(j)) }
+  } else {
+    const lcs: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0))
+    for (let j = n - 1; j >= 0; j--) for (let k = m - 1; k >= 0; k--) lcs[j][k] = node.child(j).eq(original.child(k)) ? lcs[j + 1][k + 1] + 1 : Math.max(lcs[j + 1][k], lcs[j][k + 1])
+    if (!lcs[0][0]) return null
+    for (let j = 0, k = 0; j < n && k < m;) {
+      if (node.child(j).eq(original.child(k))) { at[j] = k; same[j] = true; j++; k++ } else if (lcs[j + 1][k] >= lcs[j][k + 1]) j++
+      else k++
+    }
+    // Unmatched items between two matched ones take the places of the unmatched originals there, in order.
+    for (let j = 0; j < n;) {
+      if (at[j] !== null) { j++; continue }
+      let e = j
+      while (e < n && at[e] === null) e++
+      const lo = j > 0 ? at[j - 1]! + 1 : 0
+      const hi = e < n ? at[e]! : m
+      // An open end (before the first or after the last matched item) only takes places in a whole list: a split half
+      // holds a run of the original's items, and the places past it belong to the other half.
+      const free = (j === 0 || e === n) && n < m ? 0 : hi - lo
+      for (let q = 0; q < Math.min(free, e - j); q++) at[j + q] = lo + q
+      j = e
+    }
+  }
+  // A later item starts at its marker, which must open its line (an indented list is rendered instead).
+  if (n !== m && span.some(([from], k) => k > 0 && lf[from - 1] !== '\n')) return null
+  const gap = (k: number) => lf.slice(span[k][1], span[k + 1][0]) // between original items k and k + 1
+  const gaps = span.slice(1).map((_s, k) => gap(k))
+  const smallest = gaps.length ? gaps.reduce((a, b) => (b.length < a.length ? b : a)) : original.attrs.spread ? '\n\n' : '\n'
+  let out = ''
+  let prev: number | null = null // the original place of the previous item (an added item: its previous neighbour's)
+  for (let j = 0; j < n; j++) {
+    const item = node.child(j)
+    const k = at[j]
+    const place: number | null = k ?? prev
+    if (j > 0) {
+      if (k === null) out += smallest // an added item follows its neighbour closely
+      else if (at[j - 1] === null) out += prev !== null && prev + 1 < m ? gap(prev) : smallest // after an added item: the gap that followed its neighbour
+      else if (k === prev! + 1) out += gap(prev!)
+      else if (k > prev! + 1) out += [gap(prev!), gap(k - 1)].reduce((a, b) => (b.length > a.length ? b : a)) // items removed in between
+      else return null
+    } else if (k === 0) out += lf.slice(0, span[0][0])
+    if (k !== null && same[j]) out += lf.slice(span[k][0], span[k][1])
+    else {
+      const hint = place ?? (n === m ? j : 0)
+      if (k === null && node.type.name === 'orderedList') return null // its number: the whole list is rendered
+      const itemRaw = lf.slice(span[hint][0], span[hint][1])
+      const num = /^(\d+)[.)]/.exec(itemRaw)
+      const one = { type: node.type.name, attrs: { ...node.attrs, spread: false, ...(num ? { start: Number(num[1]) } : {}) }, content: [item.toJSON()] }
+      try { out += renderBlock(pmToBlock(one), itemRaw).replace(/\n+$/, '') } catch { return null }
+    }
+    prev = place
+  }
+  if (at[n - 1] === m - 1) out += lf.slice(span[m - 1][1])
+  // Read back as the verify step will (`verify`): one block, the same editor content (but its `spread`, unless the
+  // list is the original's items in place).
   const back = parse(out)
   if (back.blocks.length !== 1) return null
   try {
     const reread = node.type.schema.nodeFromJSON(blockToPM(back.blocks[0].node, back.text))
-    const shown = whole || reread.attrs.spread === node.attrs.spread ? node : node.type.create({ ...node.attrs, spread: reread.attrs.spread }, node.content, node.marks)
+    const keepSpread = n === m || reread.attrs.spread === node.attrs.spread
+    const shown = keepSpread ? node : node.type.create({ ...node.attrs, spread: reread.attrs.spread }, node.content, node.marks)
     if (JSON.stringify(comparable(reread.toJSON())) !== JSON.stringify(comparable(shown.toJSON()))) return null
     return { text: out, node: shown }
   } catch {
