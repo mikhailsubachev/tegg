@@ -182,8 +182,9 @@ test('fr_dly_01_ac13_today_on_the_phone_writes_nothing', async ({ page }) => {
   const p2 = await page.context().newPage();
   await startPhone(p2, { vault: dailyVault(), route: 'daily/2026-10-07', now: DAILY_NOW });
   assert.equal(await h1Is(p2, '2026-10-07'), '2026-10-07', 'a day with a file');
-  await must(main(p2).getByText(/Ráno porada/), 'shows its read view');
-  assert.equal(await p2.locator('[contenteditable="true"], .ProseMirror').count(), 0, 'no editor');
+  await must(main(p2).getByText(/Ráno porada/), 'shows its text');
+  // a daily note that has a file is the editor too on AND-3's phone (android-edit.md §7.1; D-2555)
+  assert.ok(await seen(p2.getByRole('textbox', { name: 'Note body' }), 3000), 'a day with a file shows the editor (textbox "Note body")');
   await p2.close();
 });
 

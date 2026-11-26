@@ -139,7 +139,8 @@ test('fr_edt_06_ac13_choose_and_create_on_the_phone', async ({ page, browser }) 
   // @ opens the same panel
   await ime(page, [{ text: ' @Cí' }]);
   await docked(page, 'Link suggestions');
-  assert.match(flat(await rows(page, 'Link suggestions').first().innerText()), /^Cíl/, '@ opens the same panel');
+  // the Cíl row picked by its text: the fake's stable order lists Cizí hlavička first (D-2555)
+  assert.match(flat(await (await must(rows(page, 'Link suggestions').filter({ hasText: /^Cíl/ }).first(), 'the Cíl row', 2000)).innerText()), /^Cíl/, '@ opens the same panel');
 });
 
 // ------------------------------------------------------------------------------------------------ FR-EDT-06 AC-14
@@ -194,11 +195,11 @@ test('fr_edt_15_ac7_tag_panel_on_the_phone', async ({ page }) => {
   await tap(page, rows(page, 'Tag suggestions').filter({ hasText: /^#projekt$/ }).first(), '#projekt');
   let out = await savedText(core, PE.psani, 3000);
   assert.ok(out?.includes('Konec. #projekt'), 'a tap saves #projekt');
-  // the bar's Tag; Create tag “nový-štítek”
+  // the bar's Tag; Create tag "nový-štítek"
   await formatButton(page, 'Tag').tap();
   await must(panel(page, 'Tag suggestions'), 'the bar\'s Tag opens Tag suggestions');
   await ime(page, [{ text: 'nový-štítek' }]);
-  await tap(page, rows(page, 'Tag suggestions').filter({ hasText: 'Create tag “nový-štítek”' }).first(), 'Create tag “nový-štítek”');
+  await tap(page, rows(page, 'Tag suggestions').filter({ hasText: 'Create tag "nový-štítek"' }).first(), 'Create tag "nový-štítek"');
   out = await savedText(core, PE.psani, 3000, 2);
   assert.ok(out?.includes('#nový-štítek'), 'saves #nový-štítek in NFC');
   assert.ok(!Object.keys(await core.files()).some((p) => p.startsWith('Tags/')), 'no file in Tags/');

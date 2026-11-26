@@ -353,7 +353,12 @@ test('fr_syn_03_ac39_partly_synced_vault_on_the_phone', async ({ browser }) => {
   const broken = await styleOf('Neexistuje');
   assert.equal(await styleOf('Později'), broken, '[[Později]] shows the broken-link style');
   await art.getByRole('link', { name: 'Později' }).first().click();
-  await must(notice(page).filter({ hasText: 'No note named “Později” in this vault yet.' }), 'a tap shows AC-11\'s notice', 1000);
+  // AND-3: a broken link opens the Create offer sheet (android-edit.md §10.4), not AND-2's notice (D-2555)
+  const offer = await must(sheet(page, 'Create note'), 'a tap opens the Create offer (sheet "Create note")', 1000);
+  await must(offer.getByRole('button', { name: 'Create "Později"' }), 'with Create "Později"');
+  assert.equal(await notice(page).filter({ hasText: /No note named/ }).count(), 0, 'not AND-2\'s notice');
+  assert.equal(await systemBack(page), 'handled', 'Back closes the offer');
+  assert.equal(await eventually(() => sheet(page, 'Create note').count(), (c) => c === 0, 1000), 0, 'the offer is closed');
   await core.setFile('Pages/Později.md', POZDEJI);
   assert.notEqual(await eventually(() => styleOf('Později'), (s) => s !== broken, 2000), broken, 'the link resolves within 2 s');
   await art.getByRole('link', { name: 'Později' }).first().click();

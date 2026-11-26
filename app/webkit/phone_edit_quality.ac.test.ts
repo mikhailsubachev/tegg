@@ -105,7 +105,8 @@ test('fr_ux_03_ac60_commands_after_and3', async ({ browser }) => {
     const registered = new Set(await page.evaluate(() => ((window as any).__TEGG_TEST__?.commands?.() ?? []) as string[]));
     assert.ok(registered.size > 0, `${s.how}: __TEGG_TEST__.commands() lists the registry`);
     const ctl = (await controls(page, s.scope(page))).filter((c) => !c.inert && !c.text && !c.row && c.role !== 'option' && !((c.role === 'link' || c.role === 'checkbox') && c.exempt) && ['button', 'link', 'tab', 'menuitem', 'menuitemradio', 'checkbox', 'radio', 'switch'].includes(c.role));
-    assert.ok(ctl.length > 0, `${s.how}: has controls`);
+    // the listbox panels' rows are `option`s, exempt as rows of object lists: no "has controls" check there (D-2555)
+    if (!['Link suggestions', 'Tag suggestions'].includes(s.how)) assert.ok(ctl.length > 0, `${s.how}: has controls`);
     const missing = ctl.filter((c) => !c.command || (!registered.has(c.command) && !registered.has(c.command.split(':')[0]))).map((c) => `${c.role} "${c.name.slice(0, 30)}" → ${c.command ?? '(none)'}`);
     assert.deepEqual(missing, [], `${s.how}: every control carries the data-command of a registered command`);
   });
