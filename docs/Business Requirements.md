@@ -2,7 +2,7 @@
 
 |                     |                                                                     |
 | ------------------- | ------------------------------------------------------------------- |
-| **Document status** | Draft v1.332, for review                                            |
+| **Document status** | Draft v1.333, for review                                            |
 | **Date**            | 2026-11-24                                                          |
 | **Source**          | `initial requirements.md` + clarification session (decisions in §3) |
 | **Working name**    | **Tegg**                                                            |
@@ -285,6 +285,7 @@
 | v1.330  | 2026-11-25 | D-2670: thirteen AC IDs of slice MM3 and the New object menu renumbered after slice AND-3's; gate trailers |
 | v1.331  | 2026-11-25 | D-2542: the owner's phone checks OC-2 (Gboard typing) and OC-3 (the sync app) passed; slice AND-3's red tests start |
 | v1.332  | 2026-11-25 | D-2543…D-2552: slice AND-3's red-test decisions (the L5p harness, desktop comparisons, the host's NFD seam, the test-IME APK rule, the round-trip tour, create readings, AND-2 tests following §20, the LA harness) |
+| v1.333  | 2026-11-26 | D-2553: the owner's answers on AND-3's red tests (the exempt L4 tests, D-2550's test changes, the editor page stays an article) |
 
 Slice OC decisions and versions were renumbered on merging main (PR #154 used the same numbers): D-1942…D-2053 → D-2054…D-2165, v1.220…v1.229 → v1.238…v1.247. Commit messages before this renumbering use the old numbers (D-2166).
 
@@ -2410,6 +2411,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-2550 | AND-2 tests that follow §20's changes beyond its list (red tests, 2026-11-25; contract §20, D-2541) | With the approved changes, `phone_frame.ac.test.ts` `fr_ux_08_ac28_talkback_reads_the_frame` reads `New` as enabled (D-2508), and `phone_read.ac.test.ts` `fr_edt_10_ac11_links_by_tap` finds a note's links in the read view or the editor (`Note body`, link chips), since a writable note opens in the editor (D-2415). The same `AC-Test-Change` trailer covers them. |
 | D-2551 | Indent as the editor's Tab, and the jsdom L1 file (red tests, 2026-11-25; FR-EDT-02 AC-27, FR-EDT-01 AC-17) | "Indent nests it as editor FR-EDT-02 AC-17 does" is checked against the editor's own Tab on the same document (`packages/editor/test/format.ac.test.ts`), not against restated bytes. `app/test/android_edit.ac.test.ts` runs in jsdom so `contextmenuAllowed` gets real elements; the recovery keys of its table (and the Rust twin's) were computed outside the code under test (Node's SHA-256 of `vault + "\0" + NFC(path)`). |
 | D-2552 | The LA harness for the test IME (red tests, 2026-11-25; contract §17.2) | Besides §17.2's helpers, `helpers/phone.ts` gains `pushEdit()` (the overlay as `Editor`), `caretIn(v, text, offset)` and `tapWord(v, text)` (the caret by CDP, the tap by `input tap`), `editorTextOf(v)` and `uiNode(name)` (`uiEditable` is its `editable`); `helpers/ime.ts` throws unless the broadcast's result data is `ok` (or `started`, or a count for `stop`). NFR-PERF-06 AC-8 opens the generated vault's largest note (the `--perf-note` one) by its title. |
+| D-2553 | Owner answers on AND-3's red tests (owner, 2026-11-26: "Exempt them", "Approve", "Yes, stays an article"; `docs/contracts/android-edit.md` §20) | (1) The seven L4 host tests that hold before the build (FR-SYN-03 AC-42, AC-44, FR-FMT-08 AC-11, FR-SYN-06 AC-57, FR-EDT-07 AC-26, FR-SYN-04 AC-14, AC-16) are kept with a `Red-First-Exempt` trailer, as D-1044. (2) D-2550's two AND-2 test changes (`fr_ux_08_ac28`, `fr_edt_10_ac11`) are approved. (3) The phone's editor page stays an `article` named by the note's title, so AND-2's tests that find the note that way don't change. |
 | D-2600 | Map ↑/↓ (AP-2100, owner, 2026-11-25; slice MM3; amends D-770) | ↑/↓ move among the focused node's siblings. Past the first / last sibling they continue to the nearest node at the same depth under the previous / next parent (a cousin), in outline order; with none, nothing. Home / End stay first / last node (D-770). In `spider` the same outline order holds. |
 | D-2601 | Map folds not remembered (AP-2101, owner, 2026-11-25; slice MM3) | Folding a map node is view state for the open note only: nothing is written to the vault or to `ui-state.json`; reopening the note, switching to List and back, or another window shows the map unfolded. |
 | D-2602 | Text after `+` filters (AP-2102, owner, 2026-11-25) | `+` opens the slash menu (FR-EDT-03) at its Objects group; text typed after `+` filters the rows as after `/` (`+ta` → `Task`); the title of the new object is typed in the dialog of D-2609. |

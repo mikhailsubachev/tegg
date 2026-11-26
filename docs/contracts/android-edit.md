@@ -903,6 +903,10 @@ red tests.
 
 AND-2's other tests (frame, drawer, Back, views, maps, themes, settings) don't change.
 
+The phone's editor page stays an `article` named by the note's title, as AND-2's read view was (D-2553), so AND-2's tests
+that find the open note by `getByRole('article', { name })` or `main article` (phone_read FR-EDT-02 AC-26, FR-NAV-08
+AC-3 at L5p and LA, FR-ATT-01 AC-17) stay valid. D-2550's two further AND-2 test changes are approved (D-2553).
+
 ## 21. What depends on OC-2 and OC-3 (D-2526)
 
 - **OC-2 (Gboard typing):** §9.1's event handling, RA16's sequences in §17.1's `ime` steps and §16.2's IME operations
