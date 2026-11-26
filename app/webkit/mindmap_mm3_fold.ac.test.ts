@@ -340,12 +340,15 @@ test('fr_mmp_02_ac47_the_plus_in_pavouk_w34', async ({ page }) => {
   const beta = (await (await needNode(fig, 'Beta')).boundingBox())!;
   assert.equal(await addChildBtn(fig, 'Beta').count(), 1, 'Beta has one `+`');
   const bp = await addChildBtn(fig, 'Beta').first().boundingBox();
-  assert.ok(bp && Math.abs(bp.x + bp.width / 2 - beta.x) <= 1, `Beta (left side): the \`+\` on its left edge: ${JSON.stringify(bp)} vs x ${beta.x}`);
+  // MM3 follow-up (R234, D-2673): on a node with children the `+` is 24 px beyond the outer edge.
+  assert.ok(bp && Math.abs(bp.x + bp.width / 2 - (beta.x - 24)) <= 1 && Math.abs(bp.y + bp.height / 2 - (beta.y + beta.height / 2)) <= 1,
+    `Beta (left side, with children): the \`+\` 24 px left of its left edge: ${JSON.stringify(bp)} vs x ${beta.x - 24}`);
   await (await needNode(fig, 'Střed')).hover();
   assert.equal(await addChildBtn(fig, 'Střed').count(), 1, 'Střed has exactly one `+`');
   const s = (await (await needNode(fig, 'Střed')).boundingBox())!;
   const sp = await addChildBtn(fig, 'Střed').first().boundingBox();
-  assert.ok(sp && Math.abs(sp.x + sp.width / 2 - (s.x + s.width)) <= 1, `on its right edge: ${JSON.stringify(sp)} vs ${s.x + s.width}`);
+  assert.ok(sp && Math.abs(sp.x + sp.width / 2 - (s.x + s.width + 24)) <= 1 && Math.abs(sp.y + sp.height / 2 - (s.y + s.height / 2)) <= 1,
+    `24 px right of its right edge (R234, D-2673): ${JSON.stringify(sp)} vs ${s.x + s.width + 24}`);
   await addChildBtn(fig, 'Střed').first().click();
   await page.keyboard.type('Epsilon');
   await page.keyboard.press('Enter');

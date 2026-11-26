@@ -299,3 +299,9 @@ moveMindmapItem(from: number[], target: number[] | null, zone: 'before' | 'after
 ### 7.6 Not in this slice
 
 Zoom, pan, auto-scroll while dragging (D-2621), drops between blocks or out of a map, folds on the phone (D-2622), folds remembered across visits (D-2601), node → object, export.
+
+### 7.7 MM3 follow-up (D-2672…D-2676; `docs/acceptance/mindmap.md` part four)
+
+- **7.1 changes:** `fold` sits on the node's outer edge at its vertical centre (the spider root: its right edge); `plus` on a node with `fold` is 24 px beyond the outer edge (right + 24, spider left side − 24), on a leaf the outer edge as before. The layout's extent covers every `fold` and every `plus` of a node with `fold` (centre ± 8); a negative left shifts the drawing right (R234 golden values). The types don't change.
+- **7.2 changes:** in `spider`, ↑ / ↓ consider only nodes with the focused node's `side` (siblings, then the same depth in outline order); `right` is unchanged.
+- **7.5 changes:** no connector stub for a folded node; the node's hover covers a strip on its outer side wide enough to reach its fold control and `+` (bug #170); the key `e` / `E` without ⌘, ⌃, ⌥ on a node does what F2 does (R235), the keydown is consumed so no `e` reaches the field.
