@@ -900,12 +900,19 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         sourceCaret.current = null;
         // The editor is shown first (synchronously, outside the effect that ran the toggle), then gets its caret back
         // before the next frame.
-        await Promise.resolve();
+        // After the menu that ran it has closed and given its focus back.
+        await new Promise((r) => setTimeout(r, 0));
         flushSync(() => setSource(false));
-        const size = ed.view.state.doc.content.size;
-        const clamp = (n: number) => Math.max(0, Math.min(n, size));
-        (ed.view.dom as HTMLElement).focus({ preventScroll: true });
-        ed.editor.commands.setTextSelection({ from: clamp(c.anchor), to: clamp(c.head) });
+        const put = () => {
+          const e2 = edRef.current;
+          if (!e2 || e2.view.isDestroyed) return;
+          const size = e2.view.state.doc.content.size;
+          const clamp = (n: number) => Math.max(0, Math.min(n, size));
+          (e2.view.dom as HTMLElement).focus({ preventScroll: true });
+          e2.editor.commands.setTextSelection({ from: clamp(c.anchor), to: clamp(c.head) });
+        };
+        put();
+        requestAnimationFrame(put);
         return;
       }
     }
