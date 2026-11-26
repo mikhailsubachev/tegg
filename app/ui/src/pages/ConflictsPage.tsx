@@ -86,7 +86,9 @@ export function ConflictsPage({ heading, onCount, types = [] }: { heading: React
       <PageHeading ref={heading} tabIndex={-1}>{t('route.conflicts')}</PageHeading>
       {rows !== null && rows.length === 0 && <p className="empty-state">{t('conflicts.empty')}</p>}
       {rows !== null && rows.length > 0 && (
-        <ul aria-label={t('conflicts.list')} className="conflict-list">
+        // An explicit `list` role, as the sidebar's Types list: `list-style: none` drops the implicit one in WebKit, and
+        // the phone's LA tests find the list by it (android-edit §10.8, FR-SYN-04 AC-14, AC-16).
+        <ul role="list" aria-label={t('conflicts.list')} className="conflict-list">
           {rows.flatMap((r) => r.others.map((o) => (
             <li key={`${r.primary}|${o}`}>
               <a href="#" className={open?.row.primary === r.primary && open.other === o ? 'current' : ''}
