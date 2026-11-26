@@ -62,12 +62,15 @@ export function FormatBar({ ed, onLink, onChanged }: { ed: TeggEditor; onLink: (
     );
   }
   const hasSel = !ed.view.state.selection.empty;
+  // FR-EDT-05 AC-9 (android-edit §10.2): with the caret in a link, Link opens the link panel with `Remove link`.
+  const $c = ed.view.state.selection.$from;
+  const inLink = ed.editor.isActive('link') || $c.nodeBefore?.type.name === 'wikiLink' || $c.nodeAfter?.type.name === 'wikiLink';
   return (
     <div role="toolbar" aria-label={t('toolbar.label')} className="phone-format-bar">
       {button({ name: t('phone.edit.heading'), icon: 'heading', command: 'edit.blockType', pressed: s?.block === 'heading', run: () => setRow(true) })}
       {button({ name: t('toolbar.bold'), icon: 'mark-bold', command: 'edit.bold', pressed: !!s?.bold, run: () => act(() => ed.commands.toggleMark('bold')) })}
       {button({ name: t('toolbar.italic'), icon: 'mark-italic', command: 'edit.italic', pressed: !!s?.italic, run: () => act(() => ed.commands.toggleMark('italic')) })}
-      {button({ name: t('toolbar.link'), icon: 'link', command: 'edit.link', run: () => { if (hasSel) onLink(); else act(() => runCommand(ed, 'insertTrigger', '[[')); } })}
+      {button({ name: t('toolbar.link'), icon: 'link', command: 'edit.link', run: () => { if (hasSel || inLink) onLink(); else act(() => runCommand(ed, 'insertTrigger', '[[')); } })}
       {button({ name: t('phone.edit.tag'), icon: 'tag', command: 'edit.tag', run: () => act(() => runCommand(ed, 'insertTrigger', '#')) })}
       {button({ name: t('slash.bulletList'), icon: 'list', command: 'edit.bulletList', pressed: s?.block === 'bulletList', run: () => act(() => runCommand(ed, 'toggleBulletList')) })}
       {button({ name: t('slash.checklist'), icon: 'checklist', command: 'edit.checklist', pressed: s?.block === 'checklist', run: () => act(() => runCommand(ed, 'toggleChecklistBlock')) })}
