@@ -30,6 +30,8 @@ pub struct EmbedNote {
     /// v1-cards §3.3 (slice OC): the card data of the embedded object; Some for state `Ok` when the index holds the
     /// path (one index read per call, for every path of the batch).
     pub card: Option<crate::cards::CardData>,
+    /// android-edit §2.3 (FR-FMT-12 AC-18): as `NoteRead::nfd_name`; false unless `Ok`.
+    pub nfd_name: bool,
 }
 
 impl Core {
@@ -64,7 +66,7 @@ impl Core {
     }
 
     fn embed_one(&self, path: &str, media: bool) -> EmbedNote {
-        let missing = |state| EmbedNote { path: path.to_string(), state, text: None, version: None, utf8: true, links: Vec::new(), card: None };
+        let missing = |state| EmbedNote { path: path.to_string(), state, text: None, version: None, utf8: true, links: Vec::new(), card: None, nfd_name: false };
         // Never an embed target (FR-TPL-07, D-102).
         if path.starts_with("_templates/") {
             return missing(EmbedLoadState::Missing);
@@ -101,7 +103,8 @@ impl Core {
             targets.extend(files);
         }
         let links = self.resolve_links(path, &targets);
-        EmbedNote { path: path.to_string(), state: EmbedLoadState::Ok, text: Some(text), version: Some(version), utf8, links, card: None }
+        let nfd_name = self.shared.vault.nfd_name(path);
+        EmbedNote { path: path.to_string(), state: EmbedLoadState::Ok, text: Some(text), version: Some(version), utf8, links, card: None, nfd_name }
     }
 }
 

@@ -167,6 +167,11 @@ const COMMANDS: &[&str] = &[
     // android-phone §2.1 (D-2420, D-2432).
     "android_open_url",
     "android_window",
+    // android-edit §2.2 (D-2514, D-2530, D-2531).
+    "android_recovery_put",
+    "android_recovery_get",
+    "android_recovery_drop",
+    "android_ime",
 ];
 
 fn main() {
