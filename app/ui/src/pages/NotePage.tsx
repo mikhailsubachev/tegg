@@ -1611,7 +1611,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
               onOpen={onOpen}
               onTag={onTag}
               onExternal={(url) => void ipc.openExternal(url).catch(() => {})}
-              onImagePaste={() => { setNotice(t('paste.images')); setTimeout(() => setNotice(null), 4000); }}
+              onImagePaste={() => { setNotice(t(phone ? 'phone.imagesLater' : 'paste.images')); setTimeout(() => setNotice(null), 4000); }}
               onFailedLoad={() => { setLoaded((l) => (l ? { ...l, mode: 'editorFailed' } : l)); setSave({ state: 'readOnly', failure: null }); }}
             />)}
           </div>

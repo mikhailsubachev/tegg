@@ -599,6 +599,15 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       const on = !!ed && nativeState().keyboard && document.activeElement === ed.view.dom;
       setBarOn(on);
       document.documentElement.toggleAttribute('data-format-bar', on);
+      // §10.1 (FR-EDT-06 AC-14): the keyboard hiding closes an open panel as Esc does; the trigger stays as text.
+      if (!nativeState().keyboard) {
+        const L = live.current;
+        if (L.suggest) {
+          dismissed.current = L.suggest.kind === 'link' ? `${L.suggest.at ? 'a' : 'l'}${L.suggest.from}` : `t${L.suggest.from}:${L.suggest.query}`;
+          setSuggest(null);
+        }
+        if (L.slash) { dismissed.current = `s${L.slash.from}`; setSlash(null); }
+      }
       requestAnimationFrame(caret);
     };
     const later = () => setTimeout(check, 0);
@@ -606,6 +615,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     document.addEventListener('focusin', check);
     document.addEventListener('focusout', later);
     window.visualViewport?.addEventListener('resize', caret);
+    window.addEventListener('resize', caret);
     let unInput: (() => void) | null = null;
     let unTx: (() => void) | null = null;
     const attach = () => {
@@ -662,6 +672,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       document.removeEventListener('focusin', check);
       document.removeEventListener('focusout', later);
       window.visualViewport?.removeEventListener('resize', caret);
+      window.removeEventListener('resize', caret);
       document.documentElement.removeAttribute('data-format-bar');
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -741,9 +752,12 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     if (phone && !lm && dismissed.current && /^[la]/.test(dismissed.current)) dismissed.current = null;
     // `#` autocomplete: the caret right after a tag the user is typing (FR-EDT-15 AC-1).
     const nb = sel.empty ? $f.nodeBefore : null;
-    if (!inCode && nb?.type.name === 'tag') {
-      const from = $f.pos - nb.nodeSize;
-      const q = String(nb.attrs.value);
+    // Slice AND-3 (android-edit §8 `Tag`, §10.1; FR-EDT-15 AC-7): on the phone a bare `#` (the bar's Tag, or a tag's
+    // last letter deleted) opens the list with every tag.
+    const bare = phone && !inCode && sel.empty && /(^|[\s(])#$/.test(before);
+    if (!inCode && (nb?.type.name === 'tag' || bare)) {
+      const from = bare ? $f.pos - 1 : $f.pos - nb!.nodeSize;
+      const q = bare ? '' : String(nb!.attrs.value);
       if (dismissed.current !== `t${from}:${q}`) {
         const cur = live.current.suggest;
         if (!cur || cur.kind !== 'tag' || cur.from !== from || cur.query !== q) {
@@ -1995,7 +2009,9 @@ function LinkFieldView({ field, pos, onChange, onClose, onPickNote, onUrl, onRem
   return (
     <div className={phone ? 'phone-link-panel link-field' : 'popover link-field'} style={phone ? undefined : pos}
       {...(phone ? { role: 'dialog', 'aria-label': t('linkField.label') } : {})}>
-      <input ref={input} role="combobox" enterKeyHint={phone ? 'done' : undefined} aria-label={t('linkField.label')} aria-expanded={notes.length > 0} aria-autocomplete="list"
+      {/* Slice AND-3 (§10.2): on the phone the field is a plain text field with the list docked above it. */}
+      <input ref={input} role={phone ? undefined : 'combobox'} enterKeyHint={phone ? 'done' : undefined} aria-label={t('linkField.label')}
+        aria-expanded={phone ? undefined : notes.length > 0} aria-autocomplete={phone ? undefined : 'list'}
         placeholder={t('linkField.placeholder')} value={field.query} autoComplete="off" autoCorrect="off" spellCheck={false}
         onChange={(e) => update(e.target.value)} onKeyDown={onKey} />
       {field.onLink && <button type="button" aria-label={t('linkField.remove')} data-command={phone ? 'phone.link.remove' : undefined} onMouseDown={(e) => e.preventDefault()} onClick={onRemove}>{t('linkField.remove')}</button>}

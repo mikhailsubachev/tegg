@@ -1,5 +1,5 @@
 // Slice AND-3 (docs/contracts/android-edit.md §4.2, §9.3; FR-UX-04 AC-9): the caret stays between the app bar and
-// whatever covers the bottom of `main` (the formatting bar, a docked panel, else the viewport's bottom).
+// whatever covers the bottom of `main` (the formatting bar, a docked panel, the bottom bar, else the viewport's bottom).
 
 export type Band = { top: number; bottom: number };
 
@@ -19,7 +19,7 @@ type View = { state: { selection: { head: number } }; coordsAtPos: (pos: number)
 
 /** The top of what covers `main`'s bottom: a docked panel, the bar, else the viewport's bottom. */
 function coverTop(): number {
-  const covers = [...document.querySelectorAll<HTMLElement>('.phone-panel, .phone-link-panel, .phone-format-bar')];
+  const covers = [...document.querySelectorAll<HTMLElement>('.phone-panel, .phone-link-panel, .phone-format-bar, .phone-bottombar')];
   const tops = covers.map((c) => c.getBoundingClientRect().top).filter((t) => t > 0);
   const vh = window.visualViewport?.height ?? window.innerHeight;
   return tops.length ? Math.min(...tops) : vh;
