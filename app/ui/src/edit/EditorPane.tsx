@@ -680,11 +680,38 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       byMouse = false;
       void cb.current.flush?.();
     };
+    // §7.6 (FR-EDT-01 AC-16): a tap in the text puts the caret where the finger was, as Android does; an engine that
+    // snaps it to the word's end (WebKit) is corrected once it has placed it. Not for a drag, a long press or a control.
+    let touch: { x: number; y: number; t: number } | null = null;
+    const onTouchStart = (e: TouchEvent) => {
+      const p = e.touches.length === 1 ? e.touches[0] : null;
+      touch = p ? { x: p.clientX, y: p.clientY, t: performance.now() } : null;
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      const s0 = touch;
+      touch = null;
+      const p = e.changedTouches[0];
+      const ed = edRef.current;
+      if (!s0 || !p || !ed || performance.now() - s0.t >= 500 || Math.hypot(p.clientX - s0.x, p.clientY - s0.y) > 10) return;
+      const target = e.target as Element | null;
+      if (!target || !ed.view.dom.contains(target) || target.closest('button, a, [role="checkbox"], [contenteditable="false"], .check, [data-wikilink], .tag')) return;
+      const { clientX: x, clientY: y } = p;
+      setTimeout(() => {
+        const e2 = edRef.current;
+        if (!e2 || e2.view.isDestroyed || !e2.view.hasFocus() || !e2.view.state.selection.empty) return;
+        const at = e2.view.posAtCoords({ left: x, top: y });
+        if (at && at.inside >= -1 && at.pos !== e2.view.state.selection.head) e2.editor.commands.setTextSelection(at.pos);
+      }, 0);
+    };
     const w = wrap.current;
+    w?.addEventListener('touchstart', onTouchStart, { capture: true, passive: true });
+    w?.addEventListener('touchend', onTouchEnd, { capture: true, passive: true });
     w?.addEventListener('pointerdown', onPointerDown, true);
     w?.addEventListener('mousedown', onMouseDown, true);
     w?.addEventListener('click', onClick);
     return () => {
+      w?.removeEventListener('touchstart', onTouchStart, true);
+      w?.removeEventListener('touchend', onTouchEnd, true);
       w?.removeEventListener('pointerdown', onPointerDown, true);
       w?.removeEventListener('mousedown', onMouseDown, true);
       w?.removeEventListener('click', onClick);
