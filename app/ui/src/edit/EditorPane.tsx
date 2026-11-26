@@ -755,6 +755,11 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     // Slice AND-3 (android-edit §8 `Tag`, §10.1; FR-EDT-15 AC-7): on the phone a bare `#` (the bar's Tag, or a tag's
     // last letter deleted) opens the list with every tag.
     const bare = phone && !inCode && sel.empty && /(^|[\s(])#$/.test(before);
+    // On the phone a closed tag list opens again once the caret has left that tag (as the link list above).
+    if (phone && dismissed.current?.startsWith('t')) {
+      const here = nb?.type.name === 'tag' ? `t${$f.pos - nb.nodeSize}:${String(nb.attrs.value)}` : bare ? `t${$f.pos - 1}:` : null;
+      if (here !== dismissed.current) dismissed.current = null;
+    }
     if (!inCode && (nb?.type.name === 'tag' || bare)) {
       const from = bare ? $f.pos - 1 : $f.pos - nb!.nodeSize;
       const q = bare ? '' : String(nb!.attrs.value);

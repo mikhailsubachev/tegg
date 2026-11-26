@@ -48,7 +48,7 @@ import { isPhone } from '../phone/layout';
 import { useStatusSlot } from '../phone/PageHeading';
 import { dropRecovery, keepForRecovery, recoveryVault as vaultRoot, takeRecovery } from '../phone/recovery';
 import { MergeBanner } from '../phone/MergeBanner';
-import { createPortal } from 'react-dom';
+import { createPortal, flushSync } from 'react-dom';
 import { formatStateOf } from '../phone/format';
 
 /** `review`: the raw value, `hasFrontmatter` for D-591's review toggle and commands. */
@@ -898,12 +898,15 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       else if (sourceCaret.current) {
         const c = sourceCaret.current;
         sourceCaret.current = null;
-        requestAnimationFrame(() => {
-          const size = ed.view.state.doc.content.size;
-          const clamp = (n: number) => Math.max(0, Math.min(n, size));
-          (ed.view.dom as HTMLElement).focus({ preventScroll: true });
-          ed.editor.commands.setTextSelection({ from: clamp(c.anchor), to: clamp(c.head) });
-        });
+        // The editor is shown first (synchronously, outside the effect that ran the toggle), then gets its caret back
+        // before the next frame.
+        await Promise.resolve();
+        flushSync(() => setSource(false));
+        const size = ed.view.state.doc.content.size;
+        const clamp = (n: number) => Math.max(0, Math.min(n, size));
+        (ed.view.dom as HTMLElement).focus({ preventScroll: true });
+        ed.editor.commands.setTextSelection({ from: clamp(c.anchor), to: clamp(c.head) });
+        return;
       }
     }
     setSource(!showSource);
