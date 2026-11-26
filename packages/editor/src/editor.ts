@@ -5,6 +5,7 @@
 
 import { Editor, Extension, type JSONContent } from '@tiptap/core'
 import { Fragment, Mark, Slice, type Node as PMNode } from '@tiptap/pm/model'
+import { undoInputRule } from '@tiptap/pm/inputrules'
 import { EditorState, NodeSelection, Plugin, PluginKey, Selection, TextSelection, type Transaction } from '@tiptap/pm/state'
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view'
 import { closeHistory, undoDepth } from '@tiptap/pm/history'
@@ -1626,7 +1627,8 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       return nv ? nv.setLayout(layout) : false
     },
     undo() {
-      return editor.commands.undo()
+      // As ⌘Z (rules.ts): right after a Markdown shortcut it gives the literal text back first (FR-EDT-04 AC-5).
+      return undoInputRule(editor.state, editor.view.dispatch) || editor.commands.undo()
     },
     redo() {
       return editor.commands.redo()
@@ -1670,8 +1672,15 @@ function createNoteEditor(opts: EditorOptions): TeggEditor {
       return oneStep(() => editor.chain().command(({ tr }) => { closeHistory(tr); return true }).liftListItem('listItem').run())
     },
     insertTrigger(t) {
+      if (!editor.isEditable) return false
+      // FR-UX-04 AC-10: a bar tap never replaces selected text; the trigger goes after the selection.
+      if (!editor.state.selection.empty) {
+        const sel = editor.state.selection
+        if (!sel.$to.parent.isTextblock) return false
+        view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, sel.to)))
+      }
       const { $from } = editor.state.selection
-      if (!editor.isEditable || !$from.parent.isTextblock || $from.parent.type.spec.code || inSourceBlock(editor.state)) return false
+      if (!$from.parent.isTextblock || $from.parent.type.spec.code || inSourceBlock(editor.state)) return false
       const before = $from.parent.textBetween(Math.max(0, $from.parentOffset - 1), $from.parentOffset, undefined, '\ufffc')
       const text = t === '#' && before && !/\s/.test(before) ? ' #' : t
       return oneStep(() => {

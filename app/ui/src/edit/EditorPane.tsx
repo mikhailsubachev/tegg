@@ -587,6 +587,20 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     return () => { el.removeEventListener('keydown', onKey, true); el.removeEventListener('beforeinput', onKey, true); };
   }, []);
 
+  // FR-UX-04 AC-9: a panel opening (or closing) changes what covers `main`; the caret's line moves back above it.
+  const panelOpen = phone && !!(suggest || slash || linkField);
+  useLayoutEffect(() => {
+    if (!phone) return undefined;
+    const main = wrap.current?.closest('main') as HTMLElement | null;
+    const keep = () => { const ed = edRef.current; if (ed && !ed.view.isDestroyed) keepCaretInView(ed.view, main); };
+    keep();
+    if (!panelOpen || typeof ResizeObserver === 'undefined') return undefined;
+    // The panel's rows arrive after it opens, so it grows: the caret is kept above it as it does.
+    const ro = new ResizeObserver(keep);
+    main?.querySelectorAll('.phone-panel, .phone-link-panel').forEach((el) => ro.observe(el));
+    return () => ro.disconnect();
+  }, [panelOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ------------------------------------------------------------------ the phone (slice AND-3, android-edit §8, §9)
   // The bar shows while the keyboard is up and the body has the focus; the caret stays between the app bar and it.
   const [barOn, setBarOn] = useState(false);
@@ -599,8 +613,11 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       const on = !!ed && nativeState().keyboard && document.activeElement === ed.view.dom;
       setBarOn(on);
       document.documentElement.toggleAttribute('data-format-bar', on);
-      // §10.1 (FR-EDT-06 AC-14): the keyboard hiding closes an open panel as Esc does; the trigger stays as text.
-      if (!nativeState().keyboard) {
+      // §10.1 (FR-EDT-06 AC-14): the keyboard hiding, or the focus leaving the body (a tap outside the text), closes an
+      // open panel as Esc does; the trigger stays as text.
+      const a = document.activeElement;
+      const away = !!ed && (!a || a === document.body || (!!a.closest('main, header') && !wrap.current?.contains(a))); // not a sheet the panel opened
+      if (!nativeState().keyboard || away) {
         const L = live.current;
         if (L.suggest) {
           dismissed.current = L.suggest.kind === 'link' ? `${L.suggest.at ? 'a' : 'l'}${L.suggest.from}` : `t${L.suggest.from}:${L.suggest.query}`;
@@ -638,8 +655,11 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       return el && !el.closest('[data-callout="mindmap"]') && wrap.current?.contains(el) ? el : null;
     };
     let byMouse = false;
-    const onPointerDown = (e: Event) => { if (box(e)) e.preventDefault(); };
-    const onMouseDown = (e: Event) => { if (box(e)) byMouse = true; };
+    // Only the compatibility `mousedown` is prevented (the caret and the keyboard stay): an engine that sees
+    // `pointerdown` prevented sends no click after a touch (WebKit). Nothing is toggled here before the click: a tap
+    // whose `mousedown` reaches the box's own handler toggles there (`byMouse`).
+    const onPointerDown = (_e: Event) => { byMouse = false; };
+    const onMouseDown = (e: Event) => { if (box(e)) { byMouse = true; e.preventDefault(); } };
     const onClick = (e: Event) => {
       const el = box(e);
       const ed = edRef.current;
@@ -660,11 +680,38 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       byMouse = false;
       void cb.current.flush?.();
     };
+    // §7.6 (FR-EDT-01 AC-16): a tap in the text puts the caret where the finger was, as Android does; an engine that
+    // snaps it to the word's end (WebKit) is corrected once it has placed it. Not for a drag, a long press or a control.
+    let touch: { x: number; y: number; t: number } | null = null;
+    const onTouchStart = (e: TouchEvent) => {
+      const p = e.touches.length === 1 ? e.touches[0] : null;
+      touch = p ? { x: p.clientX, y: p.clientY, t: performance.now() } : null;
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      const s0 = touch;
+      touch = null;
+      const p = e.changedTouches[0];
+      const ed = edRef.current;
+      if (!s0 || !p || !ed || performance.now() - s0.t >= 500 || Math.hypot(p.clientX - s0.x, p.clientY - s0.y) > 10) return;
+      const target = e.target as Element | null;
+      if (!target || !ed.view.dom.contains(target) || target.closest('button, a, [role="checkbox"], [contenteditable="false"], .check, [data-wikilink], .tag')) return;
+      const { clientX: x, clientY: y } = p;
+      setTimeout(() => {
+        const e2 = edRef.current;
+        if (!e2 || e2.view.isDestroyed || !e2.view.hasFocus() || !e2.view.state.selection.empty) return;
+        const at = e2.view.posAtCoords({ left: x, top: y });
+        if (at && at.inside >= -1 && at.pos !== e2.view.state.selection.head) e2.editor.commands.setTextSelection(at.pos);
+      }, 0);
+    };
     const w = wrap.current;
+    w?.addEventListener('touchstart', onTouchStart, { capture: true, passive: true });
+    w?.addEventListener('touchend', onTouchEnd, { capture: true, passive: true });
     w?.addEventListener('pointerdown', onPointerDown, true);
     w?.addEventListener('mousedown', onMouseDown, true);
     w?.addEventListener('click', onClick);
     return () => {
+      w?.removeEventListener('touchstart', onTouchStart, true);
+      w?.removeEventListener('touchend', onTouchEnd, true);
       w?.removeEventListener('pointerdown', onPointerDown, true);
       w?.removeEventListener('mousedown', onMouseDown, true);
       w?.removeEventListener('click', onClick);
@@ -1731,7 +1778,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       )}
       {/* Slice AND-3 (android-edit §10.1, D-2507): on the phone the panels dock at the bottom in the bar's place. */}
       {slash && e2 && phone && (
-        <div className="phone-panel" onPointerDown={(ev) => ev.preventDefault()} onMouseDown={(ev) => ev.preventDefault()}>
+        <div className="phone-panel" onMouseDown={(ev) => ev.preventDefault()}>
           <SlashMenu slash={slash} rows={phoneSlashItems(slashRows(slash.trigger, slash.query))} pos={{ left: 0, top: 0 }} unavailable={() => null} onPick={chooseSlash} onSel={(i) => setSlash({ ...slash, sel: i })} />
         </div>
       )}
@@ -1742,7 +1789,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
         <Suggestions s={suggest} types={types} pos={caretPos(suggest.from)} onLink={(i) => void chooseLink(i)} onTag={chooseTag} />
       )}
       {suggest && e2 && phone && (
-        <div className="phone-panel" onPointerDown={(ev) => ev.preventDefault()} onMouseDown={(ev) => ev.preventDefault()}>
+        <div className="phone-panel" onMouseDown={(ev) => ev.preventDefault()}>
           <Suggestions s={suggest} types={types} pos={{ left: 0, top: 0 }} onLink={(i) => void chooseLink(i)} onTag={chooseTag} />
         </div>
       )}

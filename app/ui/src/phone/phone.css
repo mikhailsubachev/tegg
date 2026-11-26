@@ -156,6 +156,10 @@ html[data-layout="phone"] .phone-tab[aria-disabled="true"] {
 }
 
 /* ---------------------------------------------------------------- the notice */
+/* Slice AND-3 (§2.4 row 4): a view's query alert sits above the bottom bar, as the notice does. */
+html[data-layout="phone"] .query-alert {
+  left: 16px; right: 16px; bottom: calc(var(--inset-bottom) + 72px); transform: none; max-width: none;
+}
 html[data-layout="phone"] .phone-notice {
   position: fixed;
   left: 16px;
@@ -738,6 +742,8 @@ html[data-layout="phone"] .phone-block-type button[aria-checked="true"] { color:
 html[data-layout="phone"] .phone-format-bar button[aria-disabled="true"] { opacity: 0.4; }
 html[data-layout="phone"] .phone-block-type { display: flex; align-items: stretch; }
 html[data-layout="phone"][data-format-bar] main.phone-main { padding-bottom: 48px; }
+/* FR-UX-04 AC-9: a docked panel is taller than the bar; room below the text so the caret's line can sit above it. */
+html[data-layout="phone"] main.phone-main:has(.phone-panel, .phone-link-panel) { padding-bottom: 50vh; }
 
 /* §10.1, §10.2: the suggestion panels and the link panel, docked in the bar's place. */
 html[data-layout="phone"] .phone-panel,
@@ -756,9 +762,11 @@ html[data-layout="phone"] .phone-link-panel [role="listbox"] { order: -1; max-he
 html[data-layout="phone"] .phone-link-panel input { min-height: 44px; font-size: 16px; }
 
 /* §10.6: the merge banner and Compare versions. */
+/* FR-SYN-03 AC-41: directly below the app bar however far the note is scrolled; opaque over the text it covers. */
 html[data-layout="phone"] .phone-merge {
+  position: sticky; top: 0; z-index: 5;
   margin: 8px 16px; padding: 12px 16px; border-radius: 8px;
-  background: var(--hover); border: 1px solid var(--accent); color: var(--text);
+  background: linear-gradient(var(--hover), var(--hover)), var(--bg); border: 1px solid var(--accent); color: var(--text);
 }
 html[data-layout="phone"] .phone-merge p { margin: 4px 0 8px; }
 html[data-layout="phone"] .phone-merge-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -770,7 +778,9 @@ html[data-layout="phone"] .phone-compare {
 html[data-layout="phone"] .phone-compare-body { flex: 1; overflow-y: auto; padding: 0 16px; }
 html[data-layout="phone"] .phone-compare > .phone-merge-buttons { padding: 8px 16px; }
 
-/* §10.3, §10.4: the type sheet and the offer. */
+/* §10.3, §10.4: the type sheet and the offer. FR-UX-05 AC-29: the field takes the sheet's background, not the
+   engine's default field colour. */
+html[data-layout="phone"] .new-object-picker .nop-field input { background: transparent; }
 html[data-layout="phone"] .phone-type-sheet { display: flex; flex-direction: column; min-height: 0; }
 html[data-layout="phone"] .phone-type-sheet [role="option"] { min-height: 48px; display: flex; align-items: center; gap: 8px; padding: 0 16px; }
 html[data-layout="phone"] .phone-offer { padding: 0 16px 16px; }

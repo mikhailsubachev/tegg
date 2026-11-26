@@ -81,8 +81,11 @@ export function installPhoneInput(ed: TeggEditor, o: { onImagePaste?: () => void
   // A committed composition: normalise the caret's block once ProseMirror has read it.
   const compositionEnd = () => {
     typed();
-    setTimeout(() => {
-      if (view.composing) return;
+    let tries = 0;
+    const run = () => {
+      if (view.isDestroyed) return;
+      // ProseMirror may end its composition a little after the event (WebKit): wait for it, briefly.
+      if (view.composing) { if (++tries < 10) setTimeout(run, 20); return; }
       flushDom(view);
       const { $head } = view.state.selection;
       const tr = view.state.tr;
@@ -90,7 +93,8 @@ export function installPhoneInput(ed: TeggEditor, o: { onImagePaste?: () => void
       normalizeRange(tr, $head.start(), $head.end());
       tr.setMeta(KEY, true);
       view.dispatch(tr);
-    }, 0);
+    };
+    setTimeout(run, 0);
   };
 
   const atBlockStart = () => {
@@ -114,8 +118,21 @@ export function installPhoneInput(ed: TeggEditor, o: { onImagePaste?: () => void
     if (!ev.defaultPrevented) ed.editor.commands.keyboardShortcut(key);
   };
 
+  // A Backspace or Enter keydown the editor already handled (its keymap prevented it) isn't run again by an input event
+  // that follows it for the same key (a keyboard or WebView that sends both).
+  let handledKey: { key: string; t: number } | null = null;
+  const keydownAfter = (e: KeyboardEvent) => {
+    handledKey = e.defaultPrevented && (e.key === 'Backspace' || e.key === 'Enter') ? { key: e.key, t: performance.now() } : null;
+  };
   const beforeinput = (e: InputEvent) => {
     const type = e.inputType;
+    const k = handledKey;
+    handledKey = null;
+    if (k && performance.now() - k.t < 100 && ((k.key === 'Backspace' && type === 'deleteContentBackward') || (k.key === 'Enter' && (type === 'insertParagraph' || type === 'insertLineBreak')))) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      return;
+    }
     if (type === 'insertText' || type === 'insertReplacementText' || type === 'insertCompositionText' || type === 'insertFromPaste') typed();
     // Text the keyboard inserts outside a composition goes the way typed keys go (`handleTextInput`), so the input
     // rules (Markdown shortcuts, tags) apply as on the desktop (R7).
@@ -180,11 +197,13 @@ export function installPhoneInput(ed: TeggEditor, o: { onImagePaste?: () => void
   const keydown = (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === 'Backspace' || e.keyCode === 229) flushDom(view); };
   dom.addEventListener('keydown', keydown, true);
   dom.addEventListener('beforeinput', beforeinput, true);
+  window.addEventListener('keydown', keydownAfter);
   dom.addEventListener('compositionend', compositionEnd);
   dom.addEventListener('paste', paste, true);
   return () => {
     dom.removeEventListener('keydown', keydown, true);
     dom.removeEventListener('beforeinput', beforeinput, true);
+    window.removeEventListener('keydown', keydownAfter);
     dom.removeEventListener('compositionend', compositionEnd);
     dom.removeEventListener('paste', paste, true);
     ed.editor.off('transaction', onTx);

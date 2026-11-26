@@ -23,7 +23,8 @@ import { Saver, type ConflictInfo, type Failure, type SaveState } from '../edit/
 import { Compare } from '../edit/Compare';
 import { EditorPane, type EditAction, type EditorPaneApi } from '../edit/EditorPane';
 import { linkTargets, noteTitle, ReadView } from '../read/ReadView';
-import { clearAlerts, dismissAlert, usePageAlerts } from '../convert/alerts';
+import { clearAlerts } from '../convert/alerts';
+import { PageAlerts } from '../convert/PageAlerts';
 import { Properties } from '../read/PropertiesStrip';
 import { PhoneProperties } from '../phone/PhoneProperties';
 import { SourceView, WarningBanner } from '../read/SourceView';
@@ -48,6 +49,7 @@ import { isPhone } from '../phone/layout';
 import { useStatusSlot } from '../phone/PageHeading';
 import { dropRecovery, keepForRecovery, recoveryVault as vaultRoot, takeRecovery } from '../phone/recovery';
 import { MergeBanner } from '../phone/MergeBanner';
+import { hideKeyboard } from '../phone/native';
 import { createPortal, flushSync } from 'react-dom';
 import { formatStateOf } from '../phone/format';
 
@@ -528,6 +530,13 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         if (ed.dirty() || s.pending || live.current.merge || live.current.deleted) keep();
         return;
       }
+      // §11.1 step 1: a value typed into the Properties sheet but not committed is committed now (its field commits on
+      // blur), so the flush below writes it (FR-EDT-08 AC-16 (c)).
+      const a = document.activeElement as HTMLElement | null;
+      if (a && a.matches('input, textarea, [contenteditable="true"]') && a.closest('[data-attribute-panel]')) {
+        a.blur();
+        await new Promise((r) => setTimeout(r, 0));
+      }
       // A draft with a typed title: its commit is the first write (D-522).
       if (isDraft() && titleRef.current.trim() !== '') { s.forceFirst = true; s.changed(); }
       await Promise.all([s.flush({ composing: true }), embeds.flush()]);
@@ -778,7 +787,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   useEffect(() => {
     edRef.current?.editor.setEditable(!merge);
     // Slice AND-3 (§10.6, CP-5): the merge banner hides the keyboard.
-    if (merge && isPhone()) { (document.activeElement as HTMLElement | null)?.blur?.(); void ipc.androidIme(false).catch(() => {}); }
+    if (merge && isPhone()) { (document.activeElement as HTMLElement | null)?.blur?.(); hideKeyboard(); }
   }, [!!merge]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ------------------------------------------------------------------ merge dialog and deleted alert
@@ -908,8 +917,10 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
           if (!e2 || e2.view.isDestroyed) return;
           const size = e2.view.state.doc.content.size;
           const clamp = (n: number) => Math.max(0, Math.min(n, size));
-          (e2.view.dom as HTMLElement).focus({ preventScroll: true });
           e2.editor.commands.setTextSelection({ from: clamp(c.anchor), to: clamp(c.head) });
+          // ProseMirror's own focus draws its selection into the DOM at once; a bare DOM focus leaves the browser's
+          // caret at the body's start until ProseMirror reads the focus event, as the selection itself didn't change.
+          e2.view.focus();
         };
         put();
         requestAnimationFrame(put);
@@ -1571,6 +1582,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         {!showSource && loaded.mode !== 'edit' && (
           <>
             {warning && <WarningBanner warning={warning} />}
+            {/* Slice AND-3 (android-edit §7.1; FR-FMT-12 AC-18): why a note with an NFD file name is read-only here. */}
+            {isPhone() && loaded.nfd && <div role="alert" className="save-alert phone-nfd">{t('phone.nfdReadOnly')}</div>}
             {isPhone()
               ? <PhoneProperties text={loaded.text} links={loaded.links} type={panelType} all={chipKey === 'image' || chipKey === 'pdf'} onOpen={(p: string) => onOpen(p)} onTag={onTag} />
               : <Properties text={loaded.text} links={loaded.links} open={propertiesOpen} onToggle={onToggleProperties} onOpen={(p: string) => onOpen(p)} onTag={onTag} />}
@@ -1734,21 +1747,5 @@ export function MergeDialog({ merge, onCompare, onMine, onTheirs, onBoth, descri
         </div>
       </div>
     </div>
-  );
-}
-
-/** 5A-2: the conversion's and Task cards' alerts (FR-CNV-03 AC-6, FR-CNV-06 AC-3, FR-CNV-05 AC-7). */
-function PageAlerts() {
-  const alerts = usePageAlerts();
-  return (
-    <>
-      {alerts.map((a) => (
-        <div key={a.id} role="alert" className="save-alert">
-          <span>{a.text}</span>
-          {a.retry && <button type="button" tabIndex={0} data-command="task.tryAgain" onClick={() => { dismissAlert(a.id); a.retry!(); }}>{t('task.tryAgain')}</button>}
-          <button type="button" tabIndex={0} className="icon-button" data-command="task.dismissAlert" aria-label={t('dialog.close')} onClick={() => dismissAlert(a.id)}><Icon name="x" size={14} /></button>
-        </div>
-      ))}
-    </>
   );
 }

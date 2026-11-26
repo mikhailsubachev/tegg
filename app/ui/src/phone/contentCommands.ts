@@ -19,7 +19,7 @@ export const PAGE_COMMAND_PREFIXES: readonly string[] = [
 const PHONE_OWN: readonly string[] = [
   ...PAGE_COMMAND_PREFIXES.filter((p) => p.endsWith(':') && !p.startsWith('read.') && !p.startsWith('board.') && !p.startsWith('views.')),
   'edit.blockType', 'edit.tag', 'edit.bulletList', 'edit.checklist', 'edit.indent', 'edit.outdent', 'edit.bold', 'edit.italic', 'edit.link', 'edit.undo', 'edit.redo',
-  'phone.link.remove', 'phone.merge.', 'phone.deleted.', 'phone.offer.create', 'phone.conflict.', 'phone.conflictMerge.', 'phone.notice.undo',
+  'phone.link.remove', 'phone.merge.', 'phone.deleted.', 'phone.offer.create', 'phone.offer.type', 'phone.conflict.', 'phone.conflictMerge.', 'phone.notice.undo',
   'note.markReviewed', 'note.markUnreviewed', 'daily.markReviewed', 'daily.markUnreviewed',
 ];
 

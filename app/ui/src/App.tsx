@@ -118,6 +118,7 @@ import { installMultiClickGuard, routeChanged } from './shell/multiClick';
 import { PageHeading } from './phone/PageHeading';
 import { isPhone } from './phone/layout';
 import { PhoneFrame, PhoneStartInsets } from './phone/PhoneFrame';
+import { PinsAlert } from './phone/PinsAlert';
 import { Drawer } from './phone/Drawer';
 import { PhoneSettingsList, PhoneStorageSettings, PhoneVaultSettings } from './phone/PhoneSettings';
 import { installTestHooks, nativeState, onNative, syncWindow } from './phone/native';
@@ -1926,6 +1927,9 @@ export function App() {
               {calendar && <Calendar selected={calendar.selected} anchor={calendar.anchor} onChoose={calendar.onChoose}
                 onClose={() => { const a = calendar.anchor; setCalendar(null); if (a?.isConnected) a.focus(); }} />}
               <TrashMessages phone />
+              {/* Slice AND-3 (android-edit §2.4 row 4): a view's refused task write shows the query alert (FR-SYN-03 AC-42). */}
+              <QueryNotices />
+              <PinsAlert drawerOpen={drawerOpen} />
               {/* Slice AND-3 (android-edit §10.3): the type sheet; in chooser mode (`as…`) it returns the key. */}
               {((dialog === 'newObject' && newPicker) || typeChooser) && (
                 <Sheet title={t('newPicker.title')} onClose={() => { if (typeChooser) setTypeChooser(null); else closeDialog(); }}>

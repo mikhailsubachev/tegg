@@ -108,7 +108,10 @@ export function teggInputRules(schema: import('@tiptap/pm/model').Schema) {
         const markStart = start + (match[0].length - match[1].length)
         if (state.doc.resolve(markStart).parent.type.spec.code) return null
         // Tags typed inside the backticks become their text again: code is literal (FR-EDT-04 AC-2).
-        const inner = state.doc.textBetween(markStart + 1, end, '', (leaf) => (leaf.type.name === 'tag' ? `#${leaf.attrs.value}` : ''))
+        // Run at a composition's end (the input rules' `compositionend`, slice AND-3 FR-EDT-04 AC-5), the closing backtick
+        // is already in the document; typed, it is the text being inserted.
+        const closer = end - 1 > markStart && state.doc.textBetween(end - 1, end) === '`' ? 1 : 0
+        const inner = state.doc.textBetween(markStart + 1, end - closer, '', (leaf) => (leaf.type.name === 'tag' ? `#${leaf.attrs.value}` : ''))
         if (!inner) return null
         const tr = state.tr.delete(markStart, end)
         tr.insert(markStart, state.schema.text(inner, [m.code.create()]))

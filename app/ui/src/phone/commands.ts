@@ -92,7 +92,7 @@ function own(ctx: ShellContext): Command[] {
     'edit.indent': 'cmd.edit.indent', 'edit.outdent': 'cmd.edit.outdent', 'edit.bold': 'toolbar.bold', 'edit.italic': 'toolbar.italic', 'edit.link': 'toolbar.link',
     'edit.undo': 'phone.edit.undo', 'edit.redo': 'phone.edit.redo', 'phone.link.remove': 'linkField.remove', 'phone.merge.compare': 'merge.compare',
     'phone.merge.keepMine': 'merge.keepMine', 'phone.merge.keepTheirs': 'merge.keepTheirs', 'phone.merge.keepBoth': 'merge.keepBoth',
-    'phone.deleted.restore': 'deleted.restore', 'phone.deleted.discard': 'deleted.discard', 'phone.offer.create': 'createLink.title',
+    'phone.deleted.restore': 'deleted.restore', 'phone.deleted.discard': 'deleted.discard', 'phone.offer.create': 'createLink.title', 'phone.offer.type': 'createLink.typeLabel',
     'phone.conflict.keep:': 'phone.keepThis', 'phone.conflict.merge': 'conflicts.merge', 'phone.conflict.newId': 'conflicts.newId',
     'phone.conflict.confirm': 'conflicts.move', 'phone.conflict.cancel': 'conflicts.cancel', 'phone.conflictMerge.done': 'conflicts.done',
     'phone.conflictMerge.cancel': 'conflicts.cancel', 'phone.notice.undo': 'save.undo',
