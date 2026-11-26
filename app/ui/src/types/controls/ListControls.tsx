@@ -186,7 +186,7 @@ export function TagsControl({ raw, disabled, onValue, onTag, inputRef }: {
             {query && !has(query) && !sugg.some((x) => nfc(x.name).toLowerCase() === query.toLowerCase()) && (
               <div role="option" aria-selected={sel === sugg.length} className={`option ${sel === sugg.length ? 'selected' : ''}`}
                 onMouseDown={(e) => e.preventDefault()} onClick={() => commit(query)}>
-                {t('suggest.createTag', { query })}
+                {t('suggest.createTag', { query: query.normalize('NFC') })}
               </div>
             )}
           </div>

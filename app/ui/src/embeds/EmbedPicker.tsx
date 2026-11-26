@@ -92,7 +92,7 @@ export function EmbedPicker({ from, types, at, onChoose, onCancel }: {
             <div key={`${it.kind}:${it.path ?? it.title}`} role="option" aria-selected={i === sel}
               className={`option ${i === sel ? 'selected' : ''}`}
               onMouseMove={() => i !== sel && setSel(i)} onClick={() => void choose(it)}>
-              {create ? <div>{t('suggest.create', { query: query.trim() })}</div> : (
+              {create ? <div>{t('suggest.create', { query: query.trim().normalize('NFC') })}</div> : (
                 <>
                   <div className="option-title"><Icon name={chipIcon(it.type).glyph} /> <span data-user-content>{it.title}</span></div>
                   {it.duplicate ? <div className="meta"><DuplicateDetails details={it.duplicate} typeName={typeName} /></div>

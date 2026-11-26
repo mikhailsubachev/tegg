@@ -1891,7 +1891,7 @@ function Suggestions({ s, types, pos, onLink, onTag }: { s: Suggest; types: Type
             const it = row;
             const typeName = types.find((x) => x.key === it.type)?.name ?? it.type;
             const create = it.kind === 'create' || it.kind === 'create-as';
-            const label = it.kind === 'create-as' ? t('create.as', { query: it.title }) : create ? t('suggest.create', { query: it.title }) : undefined;
+            const label = it.kind === 'create-as' ? t('create.as', { query: it.title.normalize('NFC') }) : create ? t('suggest.create', { query: it.title.normalize('NFC') }) : undefined;
             return (
               <div key={`${it.kind}:${it.path ?? it.title}`} role="option" aria-selected={i === s.sel} aria-label={label}
                 className={`option ${i === s.sel ? 'selected' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={() => onLink(it)}>
@@ -1920,9 +1920,9 @@ function Suggestions({ s, types, pos, onLink, onTag }: { s: Suggest; types: Type
             <span data-user-content style={tagChipStyle(it.color)}>#{it.name}</span>
           </div>
         ))}
-        <div role="option" aria-selected={s.sel === s.items.length} aria-label={t('suggest.createTag', { query: s.query })}
+        <div role="option" aria-selected={s.sel === s.items.length} aria-label={t('suggest.createTag', { query: s.query.normalize('NFC') })}
           className={`option ${s.sel === s.items.length ? 'selected' : ''}`} onMouseDown={(e) => e.preventDefault()} onClick={() => onTag(s.query)}>
-          {t('suggest.createTag', { query: s.query })}
+          {t('suggest.createTag', { query: s.query.normalize('NFC') })}
         </div>
       </div>
     </div>
