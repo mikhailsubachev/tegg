@@ -3,20 +3,23 @@
 // `ok` (`started` for `type`, the count for `stop`), `no-connection` when no field has the connection, or `bad-op`.
 // Text arrives base64 (UTF-8), so NFD and other code points reach the field unchanged. Emulator only: apk-check
 // refuses this package's classes and any InputMethod service in a product APK (§16.3).
+//
+// The receiver is declared in the manifest (`CmdReceiver`), so a broadcast sent while the system is still binding the
+// service (just after `test-ime.sh install` or `ime set`) or while the tapped field is still starting its input waits
+// up to WAIT_MS for the service and its connection instead of answering nothing or `no-connection` at once.
 package app.tegg.testime
 
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.inputmethodservice.InputMethodService
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.Looper
 import android.os.SystemClock
 import android.util.Base64
 import android.view.KeyEvent
 import android.view.View
-import android.view.ViewGroup
 
 class TestIme : InputMethodService() {
     private val thread = HandlerThread("tegg-test-ime").apply { start() }
@@ -30,36 +33,36 @@ class TestIme : InputMethodService() {
         @Volatile var stopped = false
     }
 
-    private val receiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            resultData = try {
-                run(intent)
-            } catch (e: Exception) {
-                "error: ${e.javaClass.simpleName}: ${e.message}"
-            }
-        }
-    }
-
     override fun onCreate() {
         super.onCreate()
-        registerReceiver(receiver, IntentFilter(ACTION), RECEIVER_EXPORTED)
+        instance = this
     }
 
     override fun onDestroy() {
         typing?.stopped = true
-        unregisterReceiver(receiver)
+        if (instance === this) instance = null
         thread.quitSafely()
         super.onDestroy()
     }
 
-    /** An empty, 1 px input view: the page keeps (almost) the whole screen, and the system still counts a keyboard. */
-    override fun onCreateInputView(): View = View(this).apply { layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1) }
+    /**
+     * An empty, 1 px input view: the page keeps (almost) the whole screen, and the system still counts a keyboard. The
+     * service puts the view into its frame as `WRAP_CONTENT`, where a plain View measures to the whole height, so the
+     * view measures itself to 1 px.
+     */
+    override fun onCreateInputView(): View = object : View(this) {
+        override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) =
+            setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), 1)
+    }
 
     override fun onEvaluateFullscreenMode(): Boolean = false
 
     private fun text(intent: Intent): String = String(Base64.decode(intent.getStringExtra("b64") ?: "", Base64.DEFAULT), Charsets.UTF_8)
 
-    private fun run(intent: Intent): String {
+    /** Whether `op` can run now: `stop` always; the others once the focused field has given its connection. */
+    fun ready(op: String?): Boolean = op == "stop" || currentInputConnection != null
+
+    fun run(intent: Intent): String {
         val op = intent.getStringExtra("op") ?: return "bad-op"
         if (op == "stop") {
             val t = typing ?: return "0"
@@ -104,5 +107,33 @@ class TestIme : InputMethodService() {
 
     companion object {
         const val ACTION = "app.tegg.testime.CMD"
+        /** How long a command waits for the bound service and its input connection. */
+        const val WAIT_MS = 3000L
+        @Volatile var instance: TestIme? = null
+    }
+}
+
+/** `app.tegg.testime.CMD` (§16.2): runs the command on the service once it is bound and has a connection. */
+class CmdReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val pending = goAsync()
+        val main = Handler(Looper.getMainLooper())
+        val until = SystemClock.uptimeMillis() + TestIme.WAIT_MS
+        val op = intent.getStringExtra("op")
+        main.post(object : Runnable {
+            override fun run() {
+                val ime = TestIme.instance
+                if ((ime == null || !ime.ready(op)) && SystemClock.uptimeMillis() < until) {
+                    main.postDelayed(this, 25)
+                    return
+                }
+                pending.resultData = try {
+                    ime?.run(intent) ?: "no-connection"
+                } catch (e: Exception) {
+                    "error: ${e.javaClass.simpleName}: ${e.message}"
+                }
+                pending.finish()
+            }
+        })
     }
 }

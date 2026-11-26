@@ -13,5 +13,10 @@
             </intent-filter>
             <meta-data android:name="android.view.im" android:resource="@xml/method" />
         </service>
+        <receiver android:name=".CmdReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="app.tegg.testime.CMD" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>
