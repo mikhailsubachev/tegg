@@ -159,10 +159,12 @@ export function installPhoneInput(ed: TeggEditor, o: { onImagePaste?: () => void
     // rules (Markdown shortcuts, tags) apply as on the desktop (R7).
     if (type === 'insertText' && e.data && !view.composing && !e.isComposing) {
       const text = e.data;
-      const { from, to } = view.state.selection;
       e.preventDefault();
       e.stopImmediatePropagation(); // ProseMirror would read the DOM change as well
+      // The caret a tap has just placed may not be read yet (selectionchange comes later): read it first, so the text
+      // goes where the caret is shown (FR-SYN-06 AC-56: a tap and a typed ` [[` went into the previous tap's block).
       flushDom(view);
+      const { from, to } = view.state.selection;
       const deflt = () => view.state.tr.insertText(text, from, to);
       const handled = (view as unknown as { someProp: (n: string, f: (h: (...a: unknown[]) => boolean) => boolean) => boolean })
         .someProp('handleTextInput', (h) => h(view, from, to, text, deflt));
