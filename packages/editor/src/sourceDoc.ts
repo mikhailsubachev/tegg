@@ -120,8 +120,11 @@ export function reconcile(loaded: Loaded, pmDoc: PMNode, opts: { forceVerifyFail
     const bodiesOnly = srcRaw !== undefined && !isRaw && onlyQueryBodiesChanged(original!, node)
     const patched = bodiesOnly ? queryBodyPatch(original!, node, srcRaw!) : null
     if (bodiesOnly && patched === null) throw new VerifyError(QUERY_PATCH_FAILED)
-    const md = isRaw ? String(node.attrs.source) : patched ?? ((srcRaw !== undefined && (checkboxPatch(original!, node, srcRaw) || tablePatch(original!, node, srcRaw))) || renderBlock(pmToBlock(node.toJSON()), srcRaw))
-    const kept = srcRaw !== undefined && !isRaw && patched === null ? paragraphPatch(original!, node, srcRaw, md) : null
+    const sourcePatch = !isRaw && patched === null && srcRaw !== undefined ? checkboxPatch(original!, node, srcRaw) || tablePatch(original!, node, srcRaw) : null
+    const md = isRaw ? String(node.attrs.source) : patched ?? (sourcePatch || renderBlock(pmToBlock(node.toJSON()), srcRaw))
+    // Bug AND-3: a changed list keeps its unchanged items' bytes (and with them its spacing).
+    const listKept = srcRaw !== undefined && !isRaw && patched === null && !sourcePatch ? listItemPatch(original!, node, srcRaw) : null
+    const kept = listKept ?? (srcRaw !== undefined && !isRaw && patched === null ? paragraphPatch(original!, node, srcRaw, md) : null)
     if (!isRaw && md.trim() === '') return // e.g. a paragraph of spaces: nothing to write
     // A raw block holds bytes the file already had (a copy, a moved or mode-changed embed): never re-normalized, so
     // an NFD embed line stays NFD when duplicated (AP-336, FR-FMT-07 AC-15). A query-fence patch keeps the container's
@@ -306,6 +309,47 @@ function paragraphPatch(original: PMNode, node: PMNode, raw: string, md: string)
   while (j >= k && at2 + nfc[j].length <= q) { at2 += nfc[j].length; rawEnd -= chunks[j].length; j-- }
   const q2 = at2
   return lf.slice(0, rawStart) + after.slice(p2, after.length - q2) + lf.slice(rawEnd)
+}
+
+/**
+ * Bug AND-3 (FR-FMT-07, FR-SYN-06): a list whose top-level items are still the same items is written by replacing the
+ * source of each changed item only. Rendering the whole list would rewrite its spacing: a list with one blank line
+ * between two items reads as loose, so every item would get a blank line after it. Each changed item is rendered as a
+ * one-item list (its own marker and number); the result must read back as `node`, otherwise null (the whole list is
+ * rendered, as before).
+ */
+function listItemPatch(original: PMNode, node: PMNode, raw: string): string | null {
+  if (!/List$/.test(node.type.name) || original.type !== node.type || node.childCount !== original.childCount) return null
+  if (node.type.name === 'orderedList' && node.attrs.start !== original.attrs.start) return null
+  const lf = raw.replace(/\r\n/g, '\n')
+  const parsed = parse(lf)
+  const list = parsed.blocks.length === 1 ? (parsed.blocks[0].node as { type: string; children?: { position?: { start: { offset?: number }; end: { offset?: number } } }[] }) : null
+  if (!list || list.type !== 'list' || list.children?.length !== node.childCount) return null
+  let out = lf
+  for (let k = node.childCount - 1; k >= 0; k--) {
+    const item = node.child(k)
+    if (item.eq(original.child(k))) continue
+    const pos = list.children[k].position
+    const from = pos?.start.offset
+    const to = pos?.end.offset
+    if (from === undefined || to === undefined) return null
+    const itemRaw = lf.slice(from, to)
+    const n = /^(\d+)[.)]/.exec(itemRaw)
+    const one = { type: node.type.name, attrs: { ...node.attrs, spread: false, ...(n ? { start: Number(n[1]) } : {}) }, content: [item.toJSON()] }
+    let md: string
+    try { md = renderBlock(pmToBlock(one), itemRaw).replace(/\n+$/, '') } catch { return null }
+    out = out.slice(0, from) + md + out.slice(to)
+  }
+  // Read back as the verify step will (`verify`): one block, the same editor content.
+  const back = parse(out)
+  if (back.blocks.length !== 1) return null
+  try {
+    const reread = node.type.schema.nodeFromJSON(blockToPM(back.blocks[0].node, back.text))
+    if (JSON.stringify(comparable(reread.toJSON())) !== JSON.stringify(comparable(node.toJSON()))) return null
+  } catch {
+    return null
+  }
+  return out
 }
 
 function tablePatch(original: PMNode, node: PMNode, raw: string): string | null {
