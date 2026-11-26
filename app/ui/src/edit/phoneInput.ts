@@ -109,6 +109,27 @@ export function installPhoneInput(ed: TeggEditor, o: { onImagePaste?: () => void
     return !!before && !before.isText && before.isAtom;
   };
 
+  /**
+   * `deleteSurroundingText(1, 0)` at a block start selects the "character" before it: the boundary between the two
+   * blocks (from the end of the previous text block to the start of this one, nothing in between). Deleting that
+   * selection would join the two blocks' text; the desktop's Backspace at the block start lifts a list item or joins
+   * as its keymap says (contract §9.1). This puts the caret back at the block start and returns true.
+   */
+  const collapseBoundary = (): boolean => {
+    const sel = view.state.selection as any;
+    if (sel.empty || !sel.$from || !sel.$to) return false;
+    const { $from, $to, from, to } = sel;
+    if (!$from.parent.isTextblock || !$to.parent.isTextblock || $from.parent === $to.parent) return false;
+    if ($from.parentOffset !== $from.parent.content.size || $to.parentOffset !== 0) return false;
+    let leaf = false;
+    view.state.doc.nodesBetween(from, to, (n: any) => { if (n.isLeaf) leaf = true; return !leaf; });
+    if (leaf) return false;
+    const Sel = sel.constructor as { create?: (doc: unknown, pos: number) => any };
+    if (typeof Sel.create !== 'function') return false;
+    view.dispatch(view.state.tr.setSelection(Sel.create(view.state.doc, to)));
+    return true;
+  };
+
   /** The desktop's key path for `key`: the editor host's handlers, then ProseMirror's keymaps (as a hardware key). */
   const runKey = (key: 'Enter' | 'Backspace', code: number) => {
     const ev = new KeyboardEvent('keydown', { key, code: key, bubbles: true, cancelable: true });
@@ -156,6 +177,8 @@ export function installPhoneInput(ed: TeggEditor, o: { onImagePaste?: () => void
       return;
     }
     if (type === 'deleteContentBackward') {
+      flushDom(view);
+      collapseBoundary();
       const { empty } = view.state.selection;
       if ((empty && (atBlockStart() || afterAtom())) || (!empty && atBlockStart())) {
         e.preventDefault();
@@ -194,7 +217,11 @@ export function installPhoneInput(ed: TeggEditor, o: { onImagePaste?: () => void
   };
 
   // Enter or Backspace right after a composition: ProseMirror reads the committed word first, so it isn't added twice.
-  const keydown = (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === 'Backspace' || e.keyCode === 229) flushDom(view); };
+  // A Backspace key over a block boundary (Chrome sends the key for deleteSurroundingText) runs at the block start.
+  const keydown = (e: KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === 'Backspace' || e.keyCode === 229) flushDom(view);
+    if (e.key === 'Backspace' && !e.shiftKey && !e.metaKey && !e.altKey && !e.ctrlKey) collapseBoundary();
+  };
   dom.addEventListener('keydown', keydown, true);
   dom.addEventListener('beforeinput', beforeinput, true);
   window.addEventListener('keydown', keydownAfter);
