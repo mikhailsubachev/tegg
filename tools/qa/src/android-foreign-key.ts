@@ -69,6 +69,14 @@ function main(apks: string[]): number {
         const local = join(tmp, `${id}.apk`);
         installed = adb(['pull', path, local]).ok ? digestsOf(local) : [];
       }
+      // "Uninstalled, data kept" (`pm uninstall -k`): no `pm path`, but the package and its signature stay registered, so
+      // an install signed with another key still fails. Removing it loses only test data on the emulator.
+      if (!path && new RegExp(`^package:${id.replace(/\./g, '\\.')}\\s*$`, 'm').test(adb(['shell', 'pm', 'list', 'packages', '-u']).stdout)) {
+        const r = adb(['uninstall', id]);
+        console.log(`android-foreign-key: ${id} was kept with its data after an uninstall; ${r.ok ? 'uninstalled' : `uninstall failed: ${r.stderr || r.stdout}`}`);
+        if (!r.ok) return 1;
+        continue;
+      }
       const action = decide(installed, digestsOf(apk));
       if (action === 'uninstall') {
         const r = adb(['uninstall', id]);
