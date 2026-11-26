@@ -199,7 +199,8 @@ test('fr_edt_01_ac19_keyboard_input_matches_the_desktop', async () => {
   // (f) Backspace at block starts and after the chip, through deleteSurroundingText and the key
   ({ v, vault } = await openEdit());
   await tapWord(v, 'Konec');
-  for (const [text, off] of [['Konec.', 0], [' a #projekt', 0], ['první', 0], ['chléb', 0], ['Nákup', 0]] as const) {
+  // after [[Cíl]]: the text ` a ` right after the chip (the tag is its own node), as the L5p twin (D-2554, D-2568)
+  for (const [text, off] of [['Konec.', 0], [' a ', 0], ['první', 0], ['chléb', 0], ['Nákup', 0]] as const) {
     await caretIn(v, text, off);
     if (text === 'Konec.' || text === 'první') imeDelete(1, 0); else imeKey(KEYCODE_DEL);
   }
