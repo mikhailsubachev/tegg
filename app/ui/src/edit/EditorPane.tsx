@@ -738,7 +738,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
     // Slash menu: `/` at a block start or after a space (FR-EDT-03 AC-1); `+` at a block start or after whitespace,
     // never in code, inline code or a link's text (new-object-menu.md R235; D-2610, D-2625, D-2626).
     const sm = !inCode && sel.empty ? /(^|[\s.,;:!?)])\/([^\s/￼]*)$/.exec(before) : null;
-    const pm0 = !sm && !inCode && sel.empty ? /(^|\s)\+([^\s+￼]*)$/.exec(before) : null;
+    // Bug 177 (D-2570 (2)): on the phone `+` opens nothing (New object rows wait for a later Android slice).
+    const pm0 = !sm && !phone && !inCode && sel.empty ? /(^|\s)\+([^\s+￼]*)$/.exec(before) : null;
     const pm = pm0 && !state.doc.resolve($f.pos - pm0[2].length).marks().some((m) => m.type.name === 'code' || m.type.name === 'link') ? pm0 : null;
     const trig = sm ? { ch: '/' as const, q: sm[2] } : pm ? { ch: '+' as const, q: pm[2] } : null;
     if (trig && $f.parent.type.name !== 'calloutTitle' && !newObjOpen.current) {
@@ -1060,7 +1061,12 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
   };
 
   /** The menu's rows for a trigger and query: R234's static rows, then the vault's New rows (new-object-menu.md). */
-  const slashRows = (trigger: '/' | '+', query: string): MenuRow[] => menuRows({ types: conv.current.types, query, trigger });
+  // Bug 177 (android-edit §4.4, D-2570 (2)): on the phone one list, §4.4's rows, serves the panel, ↑/↓, `slash.sel`
+  // and Enter, so the highlighted row is the one Enter runs and no row the phone drops can run.
+  const slashRows = (trigger: '/' | '+', query: string): MenuRow[] => {
+    const rows = menuRows({ types: conv.current.types, query, trigger });
+    return phone ? phoneSlashItems(rows) : rows;
+  };
   const chooseSlash = (row: MenuRow) => {
     const e = edRef.current;
     const s = live.current.slash;
@@ -1779,7 +1785,7 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
       {/* Slice AND-3 (android-edit §10.1, D-2507): on the phone the panels dock at the bottom in the bar's place. */}
       {slash && e2 && phone && (
         <div className="phone-panel" onMouseDown={(ev) => ev.preventDefault()}>
-          <SlashMenu slash={slash} rows={phoneSlashItems(slashRows(slash.trigger, slash.query))} pos={{ left: 0, top: 0 }} unavailable={() => null} onPick={chooseSlash} onSel={(i) => setSlash({ ...slash, sel: i })} />
+          <SlashMenu slash={slash} rows={slashRows(slash.trigger, slash.query)} pos={{ left: 0, top: 0 }} unavailable={() => null} onPick={chooseSlash} onSel={(i) => setSlash({ ...slash, sel: i })} />
         </div>
       )}
       {newObj && e2 && (
