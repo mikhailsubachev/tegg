@@ -285,6 +285,7 @@
 | v1.330  | 2026-11-25 | D-2670: thirteen AC IDs of slice MM3 and the New object menu renumbered after slice AND-3's; gate trailers |
 | v1.340  | 2026-11-25 | D-2671: real-app test fixes for slice MM3 |
 | v1.341  | 2026-11-26 | D-2672…D-2676: slice MM3 follow-up from 0.8.0 feedback (fold control on the node's edge, `+` past it, spider ↑/↓ on one side, E edits; bug #170) |
+| v1.342  | 2026-11-26 | D-2677: an icon on every row of the `/` menu (bug #171) |
 
 Slice OC decisions and versions were renumbered on merging main (PR #154 used the same numbers): D-1942…D-2053 → D-2054…D-2165, v1.220…v1.229 → v1.238…v1.247. Commit messages before this renumbering use the old numbers (D-2166).
 
@@ -2476,6 +2477,7 @@ A fast, clean, modern **object-based** note-taking app for people who work with 
 | D-2674 | ↑ / ↓ stay on the node's side in `spider` (owner, 2026-11-26: "up/down arrows should navigate the nodes on the same side"; "Stop at the end") | In the `spider` layout, ↑ / ↓ move to the previous / next sibling on the same side, then to the nearest visible node of the same depth on the same side in outline order; at the first / last such node nothing happens. ← / → are unchanged (R95, D-790). The `right` layout is unchanged (D-2600, D-2612). |
 | D-2675 | E edits a node (owner, 2026-11-26: "allow \"e\" to edit nodes same as double click") | On a focused node of an editable map, E (`e` or `E`, without ⌘, ⌃ or ⌥) opens the node's field as F2 and a double-click do (R95a, D-2605); on a synthesized root, in the read view and in a read-only note it does nothing. |
 | D-2676 | Geometry of D-2672 and D-2673 | The layout contains every fold control and the `+` of every node with children (centre ± 8 px; a control left of 0 shifts the drawing right, as D-2618); the `+` of a leaf may still overhang the outer edge by 8 px as before. Golden values in `docs/acceptance/mindmap.md` part four (R234). |
+| D-2677 | An icon on every row of the `/` menu (owner, 2026-11-26: "some of the items in the menu are missing icons, e.g. code, mindmap etc..."; bug #171) | Every static row of R234 shows the icon board `ObjectMenu` draws for it, before its label and `aria-hidden` (`Mindmap` in the teal type colour, the others `muted`, the selected row `text`); the heading rows keep `H1`…`H3` and the New rows their type's icon (D-2628). |
 
 ---
 
