@@ -696,6 +696,8 @@ export function EditorPane({ apiRef, text, path, types, labelBody, onChange, onR
         return;
       }
     }
+    // Slice AND-3 (§10.1): on the phone a closed link list opens again once its trigger is gone and typed again.
+    if (phone && !lm && dismissed.current && /^[la]/.test(dismissed.current)) dismissed.current = null;
     // `#` autocomplete: the caret right after a tag the user is typing (FR-EDT-15 AC-1).
     const nb = sel.empty ? $f.nodeBefore : null;
     if (!inCode && nb?.type.name === 'tag') {
