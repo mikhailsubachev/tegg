@@ -1070,13 +1070,16 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     const edit = loaded.mode === 'edit' && !showSource;
     // A new note: the title in edit mode, caret at its end, nothing selected (D-255). The title field exists before the
     // editor mounts, so it takes the focus at once: what is typed right after ⌘N lands in it (D-520).
-    if (edit && !edRef.current) return; // again when the editor is ready
+    // Slice AND-3 (§7.5, D-520): on the phone a draft's Title takes the caret before the editor mounts, so the first
+    // letters typed after choosing the type land in it (the editor's readiness doesn't move it again).
+    const early = isPhone() && edit && !!live.current.draft && !!titleEl.current?.isConnected && !edRef.current;
+    if (edit && !edRef.current && !early) return; // again when the editor is ready
     wantFocus.current = false;
     // Slice AND-3 (android-edit §7.5; FR-EDT-01 AC-16, D-2502): on the phone an opened note puts no caret anywhere (no
     // keyboard); a draft from New gets the caret in Title with the keyboard (CP-5).
     if (isPhone()) {
       const tf = titleEl.current;
-      if (edit && isDraft() && tf?.isConnected) {
+      if (edit && (isDraft() || early) && tf?.isConnected) {
         tf.focus({ preventScroll: true });
         const r = document.createRange();
         r.selectNodeContents(tf);

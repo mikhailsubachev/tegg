@@ -67,7 +67,7 @@ import { TrashPage } from './trash/TrashPage';
 import { TrashMessages } from './trash/toast';
 import { moveToTrash, trashRequest } from './trash/moveToTrash';
 import { TypeMenu } from './shell/TypeMenu';
-import { NewObjectPicker } from './shell/NewObjectPicker';
+import { NewObjectPicker, pickerTypes } from './shell/NewObjectPicker';
 import { Sheet } from './phone/Sheet';
 import { setTypeChooserHandler } from './phone/chooser';
 import { setRecoveryVault } from './phone/recovery';
@@ -264,7 +264,7 @@ export function App() {
   useEffect(() => { setOfferHandler((r) => setOffer(r)); return () => setOfferHandler(null); }, []);
   useEffect(() => {
     setTypeChooserHandler((onPick) => {
-      setTypeChooser({ defaultKey: undefined, onPick });
+      setTypeChooser({ defaultKey: defaultTypeKey.current, onPick });
       void ipc.switcher('?', 0).then((items) => items.find((i) => i.kind === 'create')?.type ?? null, () => null)
         .then((key) => setTypeChooser((c) => (c ? { ...c, defaultKey: key } : c)));
     });
@@ -415,8 +415,18 @@ export function App() {
   }, []);
 
   // ------------------------------------------------------------------ vault, types, counts, events
+  /** Slice AND-3 (android-edit §10.3, FR-VLT-05 AC-16): on the phone the vault's default type is read ahead, so the
+   *  type sheet opens with it selected (it is read again on each opening). */
+  const defaultTypeKey = useRef<string | null | undefined>(undefined);
+  /** The types the phone's type sheet read ahead (type_get, type_template), by key; cleared when the types reload. */
+  const preparedAhead = useRef(new Map<string, Prepared>());
   const loadTypes = useCallback((): Promise<unknown> => {
     ipc.conflicts().then((c) => setConflicts(c.length), () => setConflicts(0));
+    preparedAhead.current.clear();
+    if (isPhone()) {
+      void ipc.switcher('?', 0).then((items) => items.find((i) => i.kind === 'create')?.type ?? null, () => undefined)
+        .then((key) => { defaultTypeKey.current = key; });
+    }
     return Promise.all([
       ipc.vaultTypes().then(setTypes, () => setTypes([])),
       ipc.typeCounts().then(setCounts, () => setCounts({})),
@@ -785,7 +795,7 @@ export function App() {
     const key = route.param;
     const at = `${routeKey}\n${navKey}`; // each visit is a new draft
     let live = true;
-    void prepareObject(key).then((p) => {
+    const run = (p: Prepared) => {
       if (!live) return;
       const stamp = localIso(new Date(Date.now()));
       const onCreate = async (text: string) => {
@@ -815,9 +825,24 @@ export function App() {
         }
       }
       setDraft({ route: at, path: `${p.folder ? `${p.folder}/` : ''}${t('newObject.untitled')}.md`, info: { text, stamp, onCreate } });
-    }, () => setMessage(t('error.io')));
+    };
+    // Slice AND-3 (android-edit §10.3, §7.2): a type the phone's sheet read ahead opens its draft at once, so the
+    // keyboard's first letters reach `Title`.
+    const ready = preparedAhead.current.get(key);
+    if (ready) run(ready);
+    else void prepareObject(key).then(run, () => setMessage(t('error.io')));
     return () => { live = false; };
   }, [routeKey, navKey]);
+  // Slice AND-3 (§10.3): while the phone's type sheet is open, its types are read ahead (reads only).
+  const sheetOpen = isPhone() && dialog === 'newObject' && !!newPicker;
+  useEffect(() => {
+    if (!sheetOpen) return;
+    for (const ty of pickerTypes(typesRef.current, null)) {
+      const k = ty.key.normalize('NFC');
+      if (preparedAhead.current.has(k)) continue;
+      prepareObject(k).then((p) => { preparedAhead.current.set(k, p); }, () => {});
+    }
+  }, [sheetOpen]);
   // D-1674: the second click of a double-click that opened this page acts on nothing here.
   useEffect(() => installMultiClickGuard(), []);
   useEffect(() => { routeChanged(); }, [routeKey, navKey]);
@@ -981,10 +1006,10 @@ export function App() {
       // type follows (`undefined` until known: ⏎ waits for it).
       const box = anchor?.getBoundingClientRect();
       const at = box ? { left: box.left, top: box.bottom + 4 } : null;
-      setNewPicker({ types: typesRef.current, defaultKey: undefined, at });
+      setNewPicker({ types: typesRef.current, defaultKey: isPhone() ? defaultTypeKey.current : undefined, at });
       setDialog('newObject');
       void ipc.switcher('?', 0).then((items) => items.find((i) => i.kind === 'create')?.type ?? null, () => null)
-        .then((key) => setNewPicker((p) => (p ? { ...p, defaultKey: key } : p)));
+        .then((key) => { if (isPhone()) defaultTypeKey.current = key; setNewPicker((p) => (p ? { ...p, defaultKey: key } : p)); });
     },
     newType: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDefineValue(null); setDialog('newType'); },
     addStarterTypes: () => { returnFocus.current = document.activeElement as HTMLElement | null; pendingFocus.current = false; setDialog('starter'); },

@@ -23,6 +23,7 @@ import { typeNameOf } from './links/icons';
 import type { SearchState } from './shell/history';
 import type { DuplicateDetailsDto, SwitcherItemDto } from './ipc/types';
 import { prepareObject, type Prepared } from './types/create';
+import { chooseType } from './phone/chooser';
 
 const PAGE = 50;
 
@@ -319,6 +320,12 @@ export function Search({ onOpen, onCreate, onLeave, refresh, inputRef, tag, type
     }
   };
   const openAs = (button: HTMLElement) => {
+    // Slice AND-3 (android-edit §10.7, §10.3): on the phone `as…` opens the type sheet in chooser mode.
+    if (phone && chooseType((key) => {
+      const title = createTitle();
+      const ty = types.find((x) => x.key === key);
+      if (title) onCreate({ kind: 'create', path: null, title, type: key, folder: ty?.folder ?? '', matched_alias: null, created: null, duplicate: null }, null);
+    })) return;
     const r = button.getBoundingClientRect();
     setAsMenu({ left: r.left, top: r.bottom + 4, button });
   };
