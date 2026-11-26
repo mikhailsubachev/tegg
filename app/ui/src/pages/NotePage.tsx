@@ -17,7 +17,7 @@ import { registerLive } from '../jobs/bridge';
 import { typeMatch } from '@tegg/schema';
 import type { TeggEditor } from '@tegg/editor';
 import { t } from '../i18n/catalog';
-import { events, ipc } from '../ipc/client';
+import { errorKind, events, ipc } from '../ipc/client';
 import type { LinkTargetDto, TypeDefDto, VersionDto } from '../ipc/types';
 import { Saver, type ConflictInfo, type Failure, type SaveState } from '../edit/autosave';
 import { Compare } from '../edit/Compare';
@@ -44,6 +44,11 @@ import { getCurrent, getOutline, isHeld, publishOutline, type OutlineSource } fr
 import { rendered, trackCurrent, viewportTop } from '../outline/tracker';
 import { PageHeading } from '../phone/PageHeading';
 import { isPhone } from '../phone/layout';
+import { useStatusSlot } from '../phone/PageHeading';
+import { dropRecovery, keepForRecovery, recoveryVault as vaultRoot, takeRecovery } from '../phone/recovery';
+import { MergeBanner } from '../phone/MergeBanner';
+import { createPortal } from 'react-dom';
+import { formatStateOf } from '../phone/format';
 
 /** `review`: the raw value, `hasFrontmatter` for D-591's review toggle and commands. */
 export type NoteMeta = { title: string; type: string; review?: unknown; hasFrontmatter?: boolean };
@@ -101,11 +106,16 @@ export function scrollToFragment(root: HTMLElement | null, fragment: string, ed?
 
 /** What the page shows: the editor, or a read-only view with the reason (R9 "Read-only"). */
 type Mode = 'edit' | 'invalidFrontmatter' | 'utf8' | 'editorFailed' | 'readView';
-type Loaded = { text: string; version: VersionDto; mode: Mode; links: Map<string, LinkTargetDto> };
-export type Merge = { mine: string; theirs: string; theirsVersion: VersionDto; compare: boolean };
+type Loaded = { text: string; version: VersionDto; mode: Mode; links: Map<string, LinkTargetDto>; nfd?: boolean };
+export type Merge = { mine: string; theirs: string; theirsVersion: VersionDto; compare: boolean;
+  /** Slice AND-3 (§10.6): the title of a recovery copy this merge offers (its text is `mine`). */
+  recovered?: string };
 
 export type NotePageApi = {
   flush: () => Promise<void>;
+  /** Slice AND-3 (android-edit §11.1, §11.2): the phone went to the background: a typed draft title is committed, the
+   *  note saved as shown (a composing word included); edits that can't be written are kept as a recovery copy. */
+  flushHidden?: () => Promise<void>;
   edit: (a: EditAction) => void;
   pending: () => boolean;
   /** The merge dialog is open (FR-SYN-03 AC-19). */
@@ -218,6 +228,11 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   const [, setEmbedTick] = useState(0);
   useEffect(() => embeds.onState(() => setEmbedTick((n) => n + 1)), []);
   const [gone, setGone] = useState(false);
+  /** Slice AND-3 (§7.2): the draft's first write landed; on the phone its title is fixed from then on. */
+  const [draftDone, setDraftDone] = useState(false);
+  const statusSlot = useStatusSlot();
+  /** Slice AND-3 (§11.2): a recovery copy found when the note loaded, shown once the editor is ready. */
+  const recovered = useRef<{ text: string; title: string } | null>(null);
   // Slice PW (AP-753, AP-758): the id of the file on disk (none for an unwritten draft or virtual note), and the choice
   // made on an unwritten draft, kept for the page until its first write keys it.
   const [savedId, setSavedId] = useState<string | null>(null);
@@ -254,6 +269,12 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   const placeFocus = useRef<() => void>(() => {});
   const createdAtOpen = useRef(!!created);
   const titleId = useId();
+  /** The editable title field (a draft's `Title` on the phone, the title on the desktop). */
+  const titleEl = useRef<HTMLElement | null>(null);
+  /** Slice AND-3 (CP-5): the draft's keyboard is asked for once per page. */
+  const imeAsked = useRef(false);
+  /** Slice AND-3 (§7.2): a draft's title commit moves the caret to the body once the file exists. */
+  const titleCommitted = useRef<number | null>(null);
   const pane = useRef<EditorPaneApi | null>(null);
   const edRef = useRef<TeggEditor | null>(null);
   /** The `__TEGG_TEST__.editor` hook this page installed (§13.6). */
@@ -296,7 +317,9 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
       // D-215: a test-only switch shows the read view (the fallback view of D-117) instead of the editor.
       const readView = !!(window as { __TEGG_TEST__?: { readView?: boolean } }).__TEGG_TEST__?.readView;
       // 6A (FR-HIS-01 AC-6): an object in the trash is shown read-only, never edited.
-      const mode: Mode = !n.utf8 ? 'utf8' : frontmatterWarning(doc) ? 'invalidFrontmatter' : readView || isPhone() || path.startsWith('.trash/') ? 'readView' : 'edit';
+      // Slice AND-3 (android-edit §7.1, CP-7): on the phone a file stored under an NFD name is read-only (D-2512).
+      const nfd = isPhone() && !!(n as { nfdName?: boolean }).nfdName;
+      const mode: Mode = !n.utf8 ? 'utf8' : frontmatterWarning(doc) ? 'invalidFrontmatter' : readView || nfd || path.startsWith('.trash/') ? 'readView' : 'edit';
       // The read-only views resolve their links here; the editor resolves its own chips.
       let links = new Map<string, LinkTargetDto>();
       if (mode !== 'edit') {
@@ -304,8 +327,14 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         const resolved = targets.length ? await ipc.linkResolve(path, targets).catch(() => [] as LinkTargetDto[]) : [];
         links = new Map(resolved.map((r) => [r.target, r]));
       }
+      // Slice AND-3 (§11.2): edits the phone kept when it went to the background come back as the recovered banner.
+      if (isPhone() && !v && mode === 'edit') {
+        const copy = await takeRecovery(path);
+        if (copy && copy.text !== n.text) recovered.current = { text: copy.text, title: copy.title };
+        else if (copy) void dropRecovery(path);
+      }
       if (live.current.path !== path) return;
-      setLoaded({ text: n.text, version: n.version, mode, links });
+      setLoaded({ text: n.text, version: n.version, mode, links, nfd });
       setDiskText(n.text);
       const meta = noteMeta(path, n.text);
       // D-520: a draft's title starts empty (its planned file name is no title), unless the draft carries the title typed
@@ -380,6 +409,16 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         const written = savedTitle.current;
         setTitle((cur) => (cur.trim() === '' ? written : cur)); // D-523: an empty title was written as `Untitled`
         if (fromDraft) onMeta(noteMeta(s.path, text)); // D-520: the page now shows this note (its name, its type)
+        if (fromDraft) setDraftDone(true);
+        // Slice AND-3 (§7.2, §15.2): a draft's title commit on the phone: the caret to the start of the body, and the
+        // time from the commit to the created file.
+        const committed = titleCommitted.current;
+        if (committed !== null && isPhone()) {
+          titleCommitted.current = null;
+          void ipc.perfTimed('first-write', performance.now() - committed).catch(() => {});
+          requestAnimationFrame(() => pane.current?.caretToStart());
+        }
+        if (isPhone()) void dropRecovery(s.path);
         void ipc.perfMark('note-saved').catch(() => {});
       },
     }, () => !!pane.current?.slashOpen());
@@ -406,9 +445,17 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         return typeof tt === 'string' && tt.trim() !== '' ? out : setAttribute(parse(out), 'title', t('newObject.untitled'));
       };
     }
+    const rc = recovered.current;
+    if (rc && l.version) {
+      recovered.current = null;
+      s.block();
+      setMerge({ mine: rc.text, theirs: l.text, theirsVersion: l.version, compare: false, recovered: rc.title });
+    }
     const w = window as { __TEGG_TEST__?: Record<string, unknown> };
     edHook.current = { text: () => ed.text(), dirty: () => ed.dirty() || !!saver.current?.pending, historyDepth: () => ed.historyDepth() };
     w.__TEGG_TEST__ = { ...(w.__TEGG_TEST__ ?? {}), queryBlocks: () => ed.queryBlocks(), editor: edHook.current, embeds: () => embeds.nested().map((e) => ({ path: e.path, depth: e.depth, editable: e.editable, text: () => e.text(), dirty: () => e.dirty(), historyDepth: () => e.historyDepth() })) };
+    // Slice AND-3 (§15.1): the bar's state of the shown note's editor.
+    if (isPhone()) w.__TEGG_TEST__ = { ...w.__TEGG_TEST__, formatState: () => (edRef.current === ed && ed.view.dom.isConnected ? formatStateOf(ed) : null) };
     syncHead();
     requestAnimationFrame(() => {
       // D-140: `#Heading` scrolls once the editor's content exists (the link or embed `Open` that opened it).
@@ -460,6 +507,26 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
 
   useImperativeHandle(apiRef, () => ({
     flush,
+    flushHidden: async () => {
+      const s = saver.current, ed = edRef.current;
+      if (!s || !ed) return;
+      const keep = () => {
+        const l = live.current.loaded;
+        const vault = vaultRoot();
+        if (!vault || !l) return;
+        const id = parse(ed.text()).frontmatter?.data?.id;
+        void keepForRecovery({ vault, path: live.current.path, id: typeof id === 'string' ? id : null, title: titleRef.current.trim() || noteMeta(live.current.path, ed.text()).title, text: ed.text(), base: s.base ?? null });
+      };
+      // Edits that can't be written now: the merge banner, the deleted alert, a failed write.
+      if (s.isBlocked() || live.current.merge || live.current.deleted || s.state === 'failed') {
+        if (ed.dirty() || s.pending || live.current.merge || live.current.deleted) keep();
+        return;
+      }
+      // A draft with a typed title: its commit is the first write (D-522).
+      if (isDraft() && titleRef.current.trim() !== '') { s.forceFirst = true; s.changed(); }
+      await Promise.all([s.flush({ composing: true }), embeds.flush()]);
+      if ((s.state as string) === 'failed' || s.isBlocked()) keep();
+    },
     edit: (a) => {
       if (a === 'saveNow') { void flush(); return; }
       pane.current?.run(a);
@@ -682,19 +749,24 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   // The editor takes no input while the merge dialog or the deleted alert is open (FR-SYN-03 AC-13).
   useEffect(() => {
     edRef.current?.editor.setEditable(!merge);
-  }, [merge]);
+    // Slice AND-3 (§10.6, CP-5): the merge banner hides the keyboard.
+    if (merge && isPhone()) { (document.activeElement as HTMLElement | null)?.blur?.(); void ipc.androidIme(false).catch(() => {}); }
+  }, [!!merge]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ------------------------------------------------------------------ merge dialog and deleted alert
   const keepMine = async () => {
     const m = merge, ed = edRef.current, s = saver.current;
     if (!m || !ed || !s) return;
-    const text = (await ed.save()) ?? ed.text();
+    // A recovered copy (§10.6): its text is `mine`, written with the disk version as base.
+    const text = m.recovered !== undefined ? m.mine : (await ed.save()) ?? ed.text();
     try {
       const r = await ipc.noteWrite(live.current.path, text, m.theirsVersion);
+      if (m.recovered !== undefined) ed.reload(text);
       ed.markSaved(text);
       setDiskText(text);
       setMerge(null);
       s.resume(r.version);
+      if (isPhone()) void dropRecovery(live.current.path);
     } catch (e) {
       const x = e as { kind?: string; theirs?: string; theirsVersion?: VersionDto };
       if (x.kind === 'Conflict' && x.theirsVersion) setMerge({ ...m, theirs: x.theirs ?? m.theirs, theirsVersion: x.theirsVersion });
@@ -708,11 +780,13 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     syncHead();
     setMerge(null);
     s.resume(m.theirsVersion);
+    if (isPhone()) void dropRecovery(live.current.path);
   };
   const keepBoth = async () => {
     const m = merge, ed = edRef.current, s = saver.current;
     if (!m || !ed || !s) return;
-    const mine = (await ed.save()) ?? ed.text();
+    const mine = m.recovered !== undefined ? m.mine : (await ed.save()) ?? ed.text();
+    if (isPhone()) void dropRecovery(live.current.path);
     const p = live.current.path;
     const dir = p.includes('/') ? p.slice(0, p.lastIndexOf('/') + 1) : '';
     const stem = p.slice(dir.length).replace(/\.md$/, '');
@@ -737,6 +811,24 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     const ed = edRef.current, s = saver.current;
     if (!ed || !s) return;
     const text = (await ed.save()) ?? ed.text();
+    // Slice AND-3 (§2.4 row 12, FR-SYN-03 AC-43): on the phone an exclusive create; a file that appeared meanwhile opens
+    // the merge banner against it.
+    if (isPhone()) {
+      try {
+        const v = await ipc.noteCreateExact(live.current.path, text);
+        ed.markSaved(text);
+        setDiskText(text);
+        setDeleted(false);
+        s.resume(v);
+        void dropRecovery(live.current.path);
+      } catch (e) {
+        if (errorKind(e) !== 'NameTaken' && errorKind(e) !== 'Exists') return;
+        const n = await ipc.noteRead(live.current.path).catch(() => null);
+        setDeleted(false);
+        if (n) setMerge({ mine: text, theirs: n.text, theirsVersion: n.version, compare: false });
+      }
+      return;
+    }
     try {
       const r = await ipc.noteWrite(live.current.path, text, null);
       ed.markSaved(text);
@@ -750,6 +842,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     }
   };
   const discard = () => {
+    if (isPhone()) void dropRecovery(live.current.path);
     saver.current?.dispose();
     setDeleted(false);
     setGone(true);
@@ -939,6 +1032,28 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
     // editor mounts, so it takes the focus at once: what is typed right after ⌘N lands in it (D-520).
     if (edit && !edRef.current) return; // again when the editor is ready
     wantFocus.current = false;
+    // Slice AND-3 (android-edit §7.5; FR-EDT-01 AC-16, D-2502): on the phone an opened note puts no caret anywhere (no
+    // keyboard); a draft from New gets the caret in Title with the keyboard (CP-5).
+    if (isPhone()) {
+      const tf = titleEl.current;
+      if (edit && isDraft() && tf?.isConnected) {
+        tf.focus({ preventScroll: true });
+        const r = document.createRange();
+        r.selectNodeContents(tf);
+        r.collapse(false);
+        const s = window.getSelection();
+        s?.removeAllRanges();
+        s?.addRange(r);
+        setFocusTarget('title');
+        if (!imeAsked.current) { imeAsked.current = true; void ipc.androidIme(true).catch(() => {}); }
+        return;
+      }
+      heading.current?.focus({ preventScroll: true });
+      setFocusTarget('heading');
+      const main = root.current?.closest('main');
+      if (restoreScroll !== undefined && main) keepRestored(main, restoreScroll);
+      return;
+    }
     // D-367: a new object whose title is fixed (a Daily Note, D-320) gets the caret at the start of its first block.
     if (edit && createdAtOpen.current && live.current.daily && pane.current?.caretToStart()) {
       setFocusTarget('body');
@@ -1180,12 +1295,23 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
   if (!loaded) return null;
   const meta = noteMeta(path, diskText || loaded.text);
   const editable = loaded.mode === 'edit';
+  const phone = isPhone();
+  const phoneDraft = phone && !!draft && !draftDone && editable && !showSource;
   const warning = loaded.mode === 'invalidFrontmatter' ? frontmatterWarning(parse(loaded.text.replace(/^﻿/, ''))) : null;
   // D-421: the Save state covers every file of the page (host and editable embeds).
   const embedState = embeds.saveState();
   const RANK: Record<string, number> = { saved: 0, saving: 1, failed: 2, conflict: 3 };
   const shownState = save.state === 'readOnly' ? save.state : (RANK[embedState] ?? 0) > (RANK[save.state] ?? 0) ? embedState : save.state;
   const saveText = t(`save.${shownState}`);
+  // Slice AND-3 (§7.3): the phone's Save state in the app bar; Saved and Saving… as an icon with hidden text.
+  const quiet = shownState === 'saved' || shownState === 'saving';
+  const saveStatus = (
+    <span role="status" aria-live="polite" aria-label={t('save.label')} className={`save-state ${shownState}`}>
+      {shownState === 'saved' && <Icon name="check" size={16} />}
+      {shownState === 'saving' && <span className="save-dot" aria-hidden="true" />}
+      <span className={quiet ? 'sr-only visually-hidden' : undefined}>{saveText}</span>
+    </span>
+  );
   // 3D: the type in effect (FR-TYP-13): the panel's frontmatter in the editor, else the file.
   const fmDoc = parse(editable ? head : (diskText || loaded.text));
   const fmData = fmDoc.frontmatter?.data ?? {};
@@ -1245,6 +1371,11 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
 
   return (
     <div ref={root} className="note-root" data-focus-target={focusTarget ?? undefined} onKeyDownCapture={onRenameKey}>
+      {merge && phone && (
+        <MergeBanner merge={merge}
+          onCompare={() => setMerge({ ...merge, compare: true })} onCloseCompare={() => setMerge({ ...merge, compare: false })}
+          onMine={() => void keepMine()} onTheirs={keepTheirs} onBoth={() => void keepBoth()} />
+      )}
       {!focusMode && !isPhone() && (
         <div className="note-toolbar" data-sticky-top role="toolbar" aria-label={t('note.toolbar')}>
           <button tabIndex={0} type="button" className="icon-button source-toggle" aria-pressed={showSource} aria-label={t(showSource ? 'note.showFormatted' : 'note.showSource')} title={t(showSource ? 'note.showFormatted' : 'note.showSource')} data-command="note.toggleSource" disabled={moving} onMouseDown={(e) => e.preventDefault()} onClick={() => void toggle()}>
@@ -1284,7 +1415,34 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
           <DailyHeader info={daily} review={reviewOf(fmData)} written={!daily.virtual && editable}
             onReview={(r) => setReviewedRef.current(r)} />
         )}
-        {daily ? (
+        {phone ? (
+          // Slice AND-3 (android-edit §7.2; FR-EDT-01 AC-18, D-2503): the app bar's h1 is fixed once a file exists; a
+          // draft's h1 reads `New <Type>` and its `Title` field comes first in `main`.
+          <>
+            {phoneDraft ? (
+              <PageHeading ref={heading} tabIndex={-1} className="note-title">{t('cmd.newOfType', { name: chipType?.name ?? chipKey })}</PageHeading>
+            ) : (
+              <PageHeading ref={heading} tabIndex={-1} className="note-title" id={editable ? titleId : undefined}
+                aria-description={editable && !daily ? t('phone.title.fixed') : undefined}>
+                <span data-user-content>{daily ? daily.date : (title.trim() || meta.title)}</span>
+              </PageHeading>
+            )}
+            {phoneDraft && (
+              <div className="note-title-row phone-draft-title">
+                <TitleField
+                  id={titleId}
+                  elRef={(el) => { titleEl.current = el; }}
+                  value={title}
+                  label={t('editor.title')}
+                  enterHint
+                  onChange={onTitle}
+                  onLeave={onTitleBlur}
+                  onDown={() => { titleCommitted.current = performance.now(); onTitleBlur(); }}
+                />
+              </div>
+            )}
+          </>
+        ) : daily ? (
           <PageHeading className="note-title">
             <span ref={(el) => { (heading as React.MutableRefObject<HTMLElement | null>).current = el; }} id={titleId}
               role="textbox" aria-label={t('editor.title')} aria-readonly="true" aria-description={t('daily.titleReadonly')} aria-level={1}
@@ -1298,7 +1456,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
           <PageHeading className="note-title" aria-label={title.trim() || undefined}>
             <TitleField
               id={titleId}
-              elRef={(el) => { (heading as React.MutableRefObject<HTMLElement | null>).current = el; }}
+              elRef={(el) => { (heading as React.MutableRefObject<HTMLElement | null>).current = el; titleEl.current = el; }}
               value={title}
               label={t('editor.title')}
               onChange={onTitle}
@@ -1341,10 +1499,10 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
           </div>
         )}
         {deleted && (
-          <div role="alert" className="save-alert">
+          <div role="alert" className={`save-alert ${phone ? 'phone-deleted' : ''}`} tabIndex={phone ? -1 : undefined}>
             <span><strong>{t('deleted.title')}</strong> {t('deleted.body')}</span>
-            <button type="button" onClick={() => void restore()}>{t('deleted.restore')}</button>
-            <button type="button" onClick={discard}>{t('deleted.discard')}</button>
+            <button type="button" data-command={phone ? 'phone.deleted.restore' : undefined} onClick={() => void restore()}>{t('deleted.restore')}</button>
+            <button type="button" data-command={phone ? 'phone.deleted.discard' : undefined} onClick={discard}>{t('deleted.discard')}</button>
           </div>
         )}
         {notice && <div role="status" className="paste-notice">{notice}</div>}
@@ -1385,7 +1543,7 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
               describedBy={titleId}
               onChange={() => {
                 if (saver.current && document.activeElement?.closest('.ProseMirror')) saver.current.skipTransform = false;
-                if (!(isDraft() && document.activeElement === heading.current)) saver.current?.changed(); // D-522
+                if (!(isDraft() && document.activeElement === (titleEl.current ?? heading.current))) saver.current?.changed(); // D-522
                 syncHead();
               }}
               onOpen={onOpen}
@@ -1398,7 +1556,8 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
         )}
         {daily && <ContextSections date={daily.date} onOpen={(p) => onOpen(p)} />}
       </div>
-      {merge && (
+      {phone && statusSlot && createPortal(saveStatus, statusSlot)}
+      {merge && !phone && (
         <MergeDialog merge={merge}
           onCompare={() => setMerge({ ...merge, compare: true })}
           onMine={() => void keepMine()} onTheirs={keepTheirs} onBoth={() => void keepBoth()} />
@@ -1409,8 +1568,11 @@ export function NotePage({ apiRef, path, fragment, at, attr, selectEmbedOf, onOp
 
 /** The title as editable plain text (FR-EDT-01 AC-10, D-173): it is what the page heading shows, gets the focus after
  *  navigation (D-130) and writes only `title:` (the file name changes with renames in MS4). ⏎, ↓ and Tab go to the body. */
-function TitleField({ id, elRef, value, label, onChange, onLeave, onDown, onTab }: {
+function TitleField({ id, elRef, value, label, onChange, onLeave, onDown, onTab, enterHint = false }: {
   id?: string;
+  /** Slice AND-3 (android-edit §7.2): the phone's draft title: `enterkeyhint="next"`, and Enter from the keyboard's
+   *  `beforeinput` (key 229) commits it like the Enter key. */
+  enterHint?: boolean;
   elRef: (el: HTMLElement | null) => void;
   value: string;
   label: string;
@@ -1425,12 +1587,24 @@ function TitleField({ id, elRef, value, label, onChange, onLeave, onDown, onTab 
     const el = ref.current;
     if (el && el.textContent !== value) el.textContent = value;
   }, [value]);
+  const down = useRef(onDown);
+  down.current = onDown;
+  useEffect(() => {
+    const el = ref.current;
+    if (!enterHint || !el) return undefined;
+    const before = (e: InputEvent) => {
+      if (e.inputType === 'insertParagraph' || e.inputType === 'insertLineBreak') { e.preventDefault(); down.current(); }
+    };
+    el.addEventListener('beforeinput', before);
+    return () => el.removeEventListener('beforeinput', before);
+  }, [enterHint]);
   return (
     <span
       ref={(el) => { ref.current = el; elRef(el); }}
       id={id} role="textbox" aria-label={label} tabIndex={-1} className="title-field" data-user-content
       data-placeholder={t('newObject.untitled')} aria-placeholder={t('newObject.untitled')}
       contentEditable="plaintext-only" suppressContentEditableWarning spellCheck={false} autoCorrect="off"
+      enterKeyHint={enterHint ? 'next' : undefined}
       onInput={(e) => onChange((e.currentTarget.textContent ?? '').replace(/\n/g, ' '))}
       onBlur={(e) => onLeave(e.relatedTarget as HTMLElement | null)}
       // An accessibility press (VoiceOver, UI automation) clicks without focusing the field: focus it, caret at the end.

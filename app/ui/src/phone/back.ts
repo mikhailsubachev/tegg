@@ -33,7 +33,18 @@ export function systemBack(): boolean {
     flushSync(() => top.close());
     return true;
   }
+  // Slice AND-3 (android-edit §10.6, CP-10): unsaved edits wait for a choice in the merge banner or the deleted alert.
+  if (focusBlockingAlert()) return true;
   return backFn ? backFn() : false;
+}
+
+/** Focuses the merge banner or the deleted alert when one is shown; true when it did. */
+export function focusBlockingAlert(): boolean {
+  if (typeof document === 'undefined') return false;
+  const a = document.querySelector<HTMLElement>('main .phone-merge, main .phone-deleted');
+  if (!a) return false;
+  a.focus();
+  return true;
 }
 
 // Escape (a hardware keyboard, the tests) closes the top layer like system Back, wherever the focus is: a layer whose

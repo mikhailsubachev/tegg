@@ -7,7 +7,7 @@ import type { ProgressDto } from '../ipc/types';
 import { Icon } from '../shell/Icon';
 import { setHistoryBack, systemBack } from './back';
 import { nativeState, onNative, setBackHandler, type NativeState } from './native';
-import { setHeadingSlot } from './PageHeading';
+import { setHeadingSlot, setStatusSlot } from './PageHeading';
 import { watchContent } from './contentCommands';
 import { contextmenuAllowed } from './press';
 
@@ -75,10 +75,12 @@ export function PhoneFrame(props: {
 }) {
   const native = useNative();
   const slot = useRef<HTMLDivElement>(null);
+  const status = useRef<HTMLDivElement>(null);
   const menuButton = useRef<HTMLButtonElement>(null);
   useLayoutEffect(() => {
     setHeadingSlot(slot.current);
-    return () => setHeadingSlot(null);
+    setStatusSlot(status.current);
+    return () => { setHeadingSlot(null); setStatusSlot(null); };
   }, []);
   const back = useRef(props);
   back.current = props;
@@ -199,6 +201,7 @@ export function PhoneFrame(props: {
             </button>
           )}
           <div className="phone-title" ref={slot} />
+          <div className="phone-status" ref={status} />
           {props.more && (
             <button type="button" className="icon-button phone-more" aria-label={t('phone.more')} aria-haspopup="menu" aria-expanded={props.moreOpen}
               data-command="phone.more" onClick={(e) => props.onMore(e.currentTarget)}>

@@ -70,6 +70,7 @@ import { TypeMenu } from './shell/TypeMenu';
 import { NewObjectPicker } from './shell/NewObjectPicker';
 import { Sheet } from './phone/Sheet';
 import { setTypeChooserHandler } from './phone/chooser';
+import { setRecoveryVault } from './phone/recovery';
 import { setDateTimeSetting } from './i18n/dates';
 import { HotkeyNotice } from './pages/HotkeyNotice';
 import { useInboxCount } from './inbox/useInboxCount';
@@ -310,9 +311,20 @@ export function App() {
   // written as soon as the page is hidden. The desktop keeps its quit flow (D-196) and adds no listener.
   useEffect(() => {
     if (!isAndroid()) return;
-    const f = () => { if (document.visibilityState === 'hidden') void flushNote(); };
+    // Slice AND-3 (android-edit §11.1): the draft title, the composing word, and a recovery copy of what can't be written.
+    let at = 0;
+    const hidden = () => {
+      const now = performance.now();
+      if (now - at < 50) return; // `pagehide` right after `visibilitychange` runs the same flush once
+      at = now;
+      const api = noteApi.current;
+      if (api?.flushHidden) void api.flushHidden().catch(() => {});
+      else void flushNote();
+    };
+    const f = () => { if (document.visibilityState === 'hidden') hidden(); };
     document.addEventListener('visibilitychange', f);
-    return () => document.removeEventListener('visibilitychange', f);
+    window.addEventListener('pagehide', hidden);
+    return () => { document.removeEventListener('visibilitychange', f); window.removeEventListener('pagehide', hidden); };
   }, [flushNote]);
   // Slice AND-2 (android-phone §8.2): on the phone the refusal is the notice, not AND-1's alert.
   useEffect(() => onUnsupported(() => { if (isPhone()) setPhoneNotice(t('error.unsupported')); else setUnsupported((n) => n + 1); }), []);
@@ -891,6 +903,7 @@ export function App() {
   }, [vault?.path, vault === null, refresh]);
   // Slice PIN (§2): the pins of the open vault; a vault switch forgets the last vault's.
   useEffect(() => { pinsForVault(vault ? vault.path.normalize('NFC') : null); }, [vault?.path]);
+  useEffect(() => { setRecoveryVault(vault ? vault.path : null); }, [vault?.path]);
   // Slice Q (§2.2): the vault's saved queries.
   useEffect(() => { queriesForVault(vault ? vault.path.normalize('NFC') : null); }, [vault?.path]);
   const isDaily = route?.id === DAILY;

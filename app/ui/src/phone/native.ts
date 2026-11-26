@@ -77,4 +77,11 @@ export function installTestHooks(run: (id: string) => Promise<void>): void {
   t.systemBack = () => (b?.back() ? 'handled' : 'background');
   t.systemDark = (dark: boolean | null) => b?.receive('window', { systemDark: dark });
   t.run = run;
+  // Slice AND-3 (android-edit §15.1): the page's visibility as the system changes it, with the same listeners.
+  t.visibility = (state: 'hidden' | 'visible') => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => state });
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => state === 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+    if (state === 'hidden') window.dispatchEvent(new Event('pagehide'));
+  };
 }

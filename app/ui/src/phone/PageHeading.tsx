@@ -27,3 +27,18 @@ export const PageHeading = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHea
   const h = <h1 ref={ref} {...props} />;
   return target ? createPortal(h, target) : h;
 });
+
+// Slice AND-3 (docs/contracts/android-edit.md §7.3): the note's `Save state` sits in the app bar, before `More actions`.
+let statusSlot: HTMLElement | null = null;
+const statusListeners = new Set<() => void>();
+export function setStatusSlot(el: HTMLElement | null): void {
+  if (statusSlot === el) return;
+  statusSlot = el;
+  for (const f of statusListeners) f();
+}
+const subscribeStatus = (f: () => void) => { statusListeners.add(f); return () => { statusListeners.delete(f); }; };
+const getStatusSlot = () => statusSlot;
+/** The app bar's status slot on the phone (null on the desktop). */
+export function useStatusSlot(): HTMLElement | null {
+  return useSyncExternalStore(subscribeStatus, getStatusSlot, getStatusSlot);
+}

@@ -6,6 +6,11 @@ import type { RecoveryDto } from '../ipc/recovery';
 import type { VersionDto } from '../ipc/types';
 import { localIso } from '../zone';
 
+let vaultRootNow: string | null = null;
+/** App sets the open vault's on-disk root (a copy names its vault). */
+export function setRecoveryVault(root: string | null): void { vaultRootNow = root; }
+export const recoveryVault = (): string | null => vaultRootNow;
+
 /** Lower-case hex SHA-256 of `vault + "\0" + NFC(path)` (the Rust twin `recovery_key` gives the same). */
 export async function recoveryKey(vault: string, path: string): Promise<string> {
   const bytes = new TextEncoder().encode(`${vault}\u0000${path.normalize('NFC')}`);
