@@ -79,7 +79,9 @@ function narrow(state: EditorState, tr: Transaction): Transaction | null {
     if (!step) continue
     const doc = out.doc
     if (!touchesAny(doc, step)) {
-      if (out.maybeStep(step).failed) return out // keep what applied; never apply a step that doesn't fit
+      // Keep what applied; never apply a step that doesn't fit. Issue #184: the rest is dropped, but the transaction is
+      // still completed below (the original's meta, time, stored marks and the caret).
+      if (out.maybeStep(step).failed) break
       if (caret !== null) caret = step.getMap().map(caret, 1)
       continue
     }
