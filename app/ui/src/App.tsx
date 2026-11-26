@@ -68,6 +68,8 @@ import { TrashMessages } from './trash/toast';
 import { moveToTrash, trashRequest } from './trash/moveToTrash';
 import { TypeMenu } from './shell/TypeMenu';
 import { NewObjectPicker } from './shell/NewObjectPicker';
+import { Sheet } from './phone/Sheet';
+import { setTypeChooserHandler } from './phone/chooser';
 import { setDateTimeSetting } from './i18n/dates';
 import { HotkeyNotice } from './pages/HotkeyNotice';
 import { useInboxCount } from './inbox/useInboxCount';
@@ -243,6 +245,8 @@ export function App() {
   const [interrupted, setInterrupted] = useState<InterruptedDto[]>([]);
   // 4A: the Create offer of a broken link (FR-LNK-04 AC-4) and `Show backlinks` (R16).
   const [offer, setOffer] = useState<OfferRequest | null>(null);
+  // Slice AND-3 (android-edit §10.3): the phone's type sheet in chooser mode (`as…`, the offer's `Type`).
+  const [typeChooser, setTypeChooser] = useState<{ defaultKey: string | null | undefined; onPick: (key: string) => void } | null>(null);
   const [focusBacklinks, setFocusBacklinks] = useState(0);
   /** Slice G2 (FR-NAV-05 AC-2): `Show local graph` puts the focus on `Depth and filters`. */
   const [focusGraph, setFocusGraph] = useState(0);
@@ -256,7 +260,15 @@ export function App() {
   /** "G3 in the panel" (D-1145): the panel's day file isn't known yet (R115 pending), for AP-972's reasons. */
   const panelPending = useRef(false);
   // Slice AND-2 (android-phone §9.3, FR-EDT-10 AC-11): on the phone a broken link only says there is no such note.
-  useEffect(() => { setOfferHandler((r) => { if (isPhone()) setPhoneNotice(t('phone.noNote', { name: r.target })); else setOffer(r); }); return () => setOfferHandler(null); }, []);
+  useEffect(() => { setOfferHandler((r) => setOffer(r)); return () => setOfferHandler(null); }, []);
+  useEffect(() => {
+    setTypeChooserHandler((onPick) => {
+      setTypeChooser({ defaultKey: undefined, onPick });
+      void ipc.switcher('?', 0).then((items) => items.find((i) => i.kind === 'create')?.type ?? null, () => null)
+        .then((key) => setTypeChooser((c) => (c ? { ...c, defaultKey: key } : c)));
+    });
+    return () => setTypeChooserHandler(null);
+  }, []);
   useEffect(() => { setChipTypes(types); }, [types]);
   const [refresh, setRefresh] = useState(0);
   /** Slice G2 (v1-graph §15.7): the note page's own saves, which the watcher doesn't report; the panel graph re-asks.
@@ -1820,6 +1832,7 @@ export function App() {
           onMenu={() => menuToggle.current?.()}
           onSearch={actions.openSearch}
           onToday={() => { void go({ id: 'today' }); }}
+          onNew={() => actions.newObject()}
           current={route?.id === 'search' ? 'search' : isDaily && route?.param === today ? 'today' : null}
           fullScreen={mapFull}
           notice={phoneNotice}
@@ -1857,6 +1870,19 @@ export function App() {
               )}
               {calendar && <Calendar selected={calendar.selected} anchor={calendar.anchor} onChoose={calendar.onChoose}
                 onClose={() => { const a = calendar.anchor; setCalendar(null); if (a?.isConnected) a.focus(); }} />}
+              {/* Slice AND-3 (android-edit §10.3): the type sheet; in chooser mode (`as…`) it returns the key. */}
+              {((dialog === 'newObject' && newPicker) || typeChooser) && (
+                <Sheet title={t('newPicker.title')} onClose={() => { if (typeChooser) setTypeChooser(null); else closeDialog(); }}>
+                  <NewObjectPicker sheet types={newPicker?.types ?? typesRef.current} defaultKey={newPicker?.defaultKey ?? typeChooser?.defaultKey}
+                    onClose={() => { if (typeChooser) setTypeChooser(null); else closeDialog(); }}
+                    onChoose={(key) => { const c = typeChooser; if (c) { setTypeChooser(null); c.onPick(key); return; } setDialog(null); setNewPicker(null); newOf(key); }} />
+                </Sheet>
+              )}
+              {offer && (
+                <CreateLinkOffer req={offer} types={types} onClose={() => setOffer(null)} sheet
+                  onCreated={(p) => { if (offer.stay) return; justCreated.current = p.normalize('NFC'); openNote(p); }}
+                  onExists={(p, title) => { setPhoneNotice(t('createLink.exists', { title })); openNote(p); }} />
+              )}
             </>
           )}>
           {vault.placeholders > 0 && (

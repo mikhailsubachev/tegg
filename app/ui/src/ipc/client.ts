@@ -6,6 +6,7 @@ import { openUrlAllowed } from '../phone/links';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { GraphPresetsDto, GraphRequestDto, GraphResultDto, PresetOpDto } from '../graph/types';
 import type { PinOpDto, PinsDto } from './pins';
+import type { RecoveryDto } from './recovery';
 import type { ImportProgressDto, ImportResultDto, ImportStatusDto, ImportTransformEvent, Mapping, NewVaultDto, PlanResultDto, ScanInfo, TargetArg, WhereDto } from './import';
 import type { QueryDefDto, QueryDto, QueryEnvDto, QueryResultDto, QuerySourceDto, QueryStaleDto, QuerySummaryDto, QueryUsageDto, TaskViewsRestoreDto, ViewUsageDto } from './queries';
 import type {
@@ -30,6 +31,11 @@ export const ipc = {
   // Slice AND-2 (android-phone §2.2; D-2420, D-2432).
   androidOpenUrl: (url: string) => invoke<void>('android_open_url', { url }),
   androidWindow: (dark: boolean) => invoke<WindowStateDto>('android_window', { dark }),
+  // Slice AND-3 (android-edit §2.2; FR-EDT-08 AC-17, CP-4, CP-5): private recovery copies and the keyboard.
+  androidRecoveryPut: (copy: RecoveryDto) => invoke<void>('android_recovery_put', { copy }),
+  androidRecoveryGet: (path: string) => invoke<RecoveryDto | null>('android_recovery_get', { path }),
+  androidRecoveryDrop: (path: string) => invoke<void>('android_recovery_drop', { path }),
+  androidIme: (show: boolean) => invoke<void>('android_ime', { show }),
   vaultOpen: (path: string) => invoke<VaultInfo>('vault_open', { path }),
   vaultCreate: (parent: string, name: string, kind: 'empty' | 'starter') => invoke<VaultInfo>('vault_create', { parent, name, kind }),
   vaultPickDir: () => invoke<string | null>('vault_pick_dir'),

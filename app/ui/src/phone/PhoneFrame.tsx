@@ -9,6 +9,7 @@ import { setHistoryBack, systemBack } from './back';
 import { nativeState, onNative, setBackHandler, type NativeState } from './native';
 import { setHeadingSlot } from './PageHeading';
 import { watchContent } from './contentCommands';
+import { contextmenuAllowed } from './press';
 
 /** §8.1: the insets as CSS variables on `<html>`, `data-keyboard` while the keyboard is shown. */
 function applyNative(s: NativeState) {
@@ -61,6 +62,8 @@ export function PhoneFrame(props: {
   onMenu: () => void;
   onSearch: () => void;
   onToday: () => void;
+  /** Slice AND-3 (android-edit §10.3): `New` opens the type sheet. */
+  onNew: () => void;
   current: BarTab;
   /** A full-screen map hides the bottom bar too (§8.2). */
   fullScreen: boolean;
@@ -89,7 +92,8 @@ export function PhoneFrame(props: {
     let downAt = 0;
     let held = false;
     let swallowUntil = 0;
-    const menu = (e: Event) => { e.preventDefault(); held = true; };
+    // Slice AND-3 (android-edit §4.3): the body's text, a draft's Title and fields keep the system's selection menu.
+    const menu = (e: Event) => { if (contextmenuAllowed(e.target as Element | null)) return; e.preventDefault(); held = true; };
     // A new press starts over: only the click that ends a long press is dropped.
     const down = (e: PointerEvent) => { downAt = performance.now(); held = false; swallowUntil = 0; void e; };
     const up = (e: PointerEvent) => { if (held || (e.pointerType === 'touch' && performance.now() - downAt >= 500)) swallowUntil = performance.now() + 700; held = false; };
@@ -216,7 +220,7 @@ export function PhoneFrame(props: {
         <nav aria-label={t('phone.bottomBar')} className="phone-bottombar">
           {tab('Menu', 'phone.menu', 'sidebar', 'phone.menu', { 'aria-haspopup': 'dialog', 'aria-expanded': props.menuOpen, ref: menuButton }, () => props.onMenu())}
           {tab('Search', 'phone.search', 'search', 'goto.search', props.current === 'search' ? { 'aria-current': 'page' } : {}, () => props.onSearch())}
-          {tab('New', 'phone.new', 'plus', 'object.new', { 'aria-disabled': 'true', 'aria-description': t('phone.newLater') })}
+          {tab('New', 'phone.new', 'plus', 'object.new', {}, () => props.onNew())}
           {tab('Today', 'phone.today', 'calendar', 'daily.today', props.current === 'today' ? { 'aria-current': 'page' } : {}, () => props.onToday())}
         </nav>
       )}

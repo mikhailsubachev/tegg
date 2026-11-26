@@ -29,14 +29,14 @@ export function SearchPage({ refresh, heading, inputRef, onOpen, onCreate, onLea
     if (!document.querySelector('[role="dialog"]') && !initial?.focusPath) inputRef.current?.focus({ preventScroll: true });
   }, []);
   // Slice AND-2 (android-phone §8.2, §9.8; FR-SRC-03 AC-22): on the phone the field is in the app bar, the page's `h1`
-  // stays in `main` visually hidden, and the page creates nothing (`noCreate`).
+  // stays in `main` visually hidden; since AND-3 it has the desktop's create buttons (android-edit §10.7, FR-NAV-01 AC-25).
   const phone = isPhone();
   const slot = useHeadingSlot();
   return (
     <div className="page-column">
       {phone ? <h1 ref={heading} tabIndex={-1} className="sr-only">{t('route.search')}</h1> : <PageHeading ref={heading} tabIndex={-1}>{t('route.search')}</PageHeading>}
       <Search onOpen={onOpen} onCreate={onCreate} onLeave={onLeave} refresh={refresh} inputRef={inputRef} tag={tag}
-        types={types} dateTime={dateTime} initial={initial} onState={onState} noCreate={phone} fieldSlot={phone ? slot : null} />
+        types={types} dateTime={dateTime} initial={initial} onState={onState} phone={phone} fieldSlot={phone ? slot : null} />
     </div>
   );
 }

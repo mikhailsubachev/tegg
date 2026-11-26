@@ -8,7 +8,7 @@ export const PHONE_ROUTES: RouteDef[] = [
 ];
 
 export const PHONE_NOT_OFFERED: readonly string[] = [
-  'new/<type>', 'home', 'graph/<path>', 'trash', 'type-settings/<type>', 'help/shortcuts', 'settings/shortcuts',
+  'home', 'graph/<path>', 'trash', 'type-settings/<type>', 'help/shortcuts', 'settings/shortcuts',
   'settings/menu-bar', 'settings/trash-history', 'settings/previews', 'settings/backups', 'broken-links', 'duplicate-titles',
 ];
 

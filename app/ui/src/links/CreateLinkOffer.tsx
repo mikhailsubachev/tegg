@@ -7,10 +7,14 @@ import type { LinkCreatePlanDto, TypeDefDto } from '../ipc/types';
 import { captureTargets } from '../shell/TypeMenu';
 import { createObjectForLink } from '../types/create';
 import { requestOffer, type OfferRequest } from './offer';
+import { Sheet } from '../phone/Sheet';
+import { chooseType } from '../phone/chooser';
 
-export function CreateLinkOffer({ req, types, onClose, onCreated, onExists }: {
+export function CreateLinkOffer({ req, types, onClose, onCreated, onExists, sheet = false }: {
   req: OfferRequest; types: TypeDefDto[];
   onClose: () => void; onCreated: (path: string) => void; onExists: (path: string, title: string) => void;
+  /** Slice AND-3 (android-edit §10.4; FR-LNK-04 AC-14): the phone's `Create note` sheet; `Type` opens the type sheet. */
+  sheet?: boolean;
 }) {
   const [plan, setPlan] = useState<LinkCreatePlanDto | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +37,7 @@ export function CreateLinkOffer({ req, types, onClose, onCreated, onExists }: {
   }, [req.anchor]);
   // `Create` has the focus as soon as the offer opens, so Esc closes it before the plan arrives (FR-LNK-04 AC-4, issue 103).
   // A new plan (another type) keeps the focus in the offer; the user who went back to the note keeps it there (D-287).
-  useLayoutEffect(() => { create.current?.focus(); }, []);
+  useLayoutEffect(() => { if (!sheet) create.current?.focus(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useLayoutEffect(() => { if (plan && box.current?.contains(document.activeElement)) create.current?.focus(); }, [plan]);
 
   const close = () => {
@@ -66,6 +70,7 @@ export function CreateLinkOffer({ req, types, onClose, onCreated, onExists }: {
   };
   // A click outside closes it (non-modal).
   useEffect(() => {
+    if (sheet) return undefined;
     const down = (e: MouseEvent) => { if (box.current && !box.current.contains(e.target as Node)) close(); };
     const id = setTimeout(() => document.addEventListener('mousedown', down, true), 0);
     return () => { clearTimeout(id); document.removeEventListener('mousedown', down, true); };
@@ -99,6 +104,38 @@ export function CreateLinkOffer({ req, types, onClose, onCreated, onExists }: {
     }
   };
 
+  const replan = (key: string) => {
+    // FR-VLT-05 AC-3 (D-550): another type plans again with it (relation offers: only the allowed types).
+    setPicked(true);
+    ipc.linkCreatePlan(req.from, req.target, [key]).then(setPlan, () => setError(t('error.io')));
+  };
+  if (sheet) {
+    return (
+      <Sheet title={t('createLink.title')} onClose={onClose}>
+        <div ref={box} className="create-offer phone-offer">
+          <p>{t('createLink.noNote', { target: req.target })}</p>
+          {plan?.state === 'create' && (
+            <div className="offer-type">
+              <span>{t('createLink.type', { type: typeName ?? '' })}</span>{' '}
+              <button type="button" className="phone-offer-type" aria-label={t('createLink.typeLabel')}
+                onClick={() => chooseType((key) => { if (!req.relationTo || req.relationTo.includes(key)) replan(key); })}>
+                {typeName}
+              </button>
+            </div>
+          )}
+          {plan?.state === 'create' && plan.rewrite && !needsEdit && <p>{t('createLink.rewrite', { stem })}</p>}
+          {needsEdit && <p>{t('createLink.needsEdit')}</p>}
+          {forbidden && <p>{t('createLink.folder')}</p>}
+          {error && <p role="alert">{error}</p>}
+          <div className="dialog-buttons">
+            <button ref={create} type="button" data-command="phone.offer.create" aria-disabled={disabled ? 'true' : undefined} onClick={() => void run()}>
+              {t('createLink.create', { target: req.target })}
+            </button>
+          </div>
+        </div>
+      </Sheet>
+    );
+  }
   return (
     <div ref={box} role="dialog" aria-label={t('createLink.title')} className="create-offer popover" style={{ position: 'fixed', left: pos.left, top: pos.top }}
       onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } }}>
