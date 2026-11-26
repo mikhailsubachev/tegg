@@ -1775,7 +1775,7 @@ export function App() {
   } else if (route?.id === 'help/shortcuts') {
     body = <ShortcutsPage heading={heading} commandTitle={(id) => { const c = list.find((x) => x.id === id); return c ? t(c.title, c.vars ?? {}) : null; }} />;
   } else if (route?.id === 'conflicts') {
-    body = <ConflictsPage heading={heading} onCount={setConflicts} />;
+    body = <ConflictsPage heading={heading} onCount={setConflicts} types={types} />;
   } else if (route?.id === 'search') {
     body = <SearchPage key={route.param ?? ''} refresh={refresh} heading={heading} inputRef={searchInput} onOpen={openNote}
       onCreate={(i, p) => { createFrom(i, p); }}

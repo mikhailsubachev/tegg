@@ -5,20 +5,24 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { setAttribute, parse } from '@tegg/doc';
 import { t } from '../i18n/catalog';
 import { events, ipc } from '../ipc/client';
-import type { ConflictRowDto, VersionDto } from '../ipc/types';
+import type { ConflictRowDto, TypeDefDto, VersionDto } from '../ipc/types';
 import { Compare } from '../edit/Compare';
 import { ulid } from '../newNote';
 import { PageHeading } from '../phone/PageHeading';
 import { isPhone } from '../phone/layout';
+import { ConflictResolve, KeepThis } from '../phone/ConflictResolve';
 
 type Open = { row: ConflictRowDto; other: string; left: { text: string; v: VersionDto }; right: { text: string; v: VersionDto } };
 type Confirm = { title: string; body: string; ok: string; run: () => Promise<void> } | null;
 
-export function ConflictsPage({ heading, onCount }: { heading: React.RefObject<HTMLHeadingElement | null>; onCount?: (n: number) => void }) {
+export function ConflictsPage({ heading, onCount, types = [] }: { heading: React.RefObject<HTMLHeadingElement | null>; onCount?: (n: number) => void; types?: TypeDefDto[] }) {
   const [rows, setRows] = useState<ConflictRowDto[] | null>(null);
   const [open, setOpen] = useState<Open | null>(null);
   const [draft, setDraft] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<Confirm>(null);
+  /** Slice AND-3 (android-edit §10.8): the version a phone `Keep this version` chose, while its sheet asks. */
+  const [keepAsk, setKeepAsk] = useState<1 | 2 | null>(null);
+  const phone = isPhone();
   const live = useRef(open);
   live.current = open;
 
@@ -98,7 +102,21 @@ export function ConflictsPage({ heading, onCount }: { heading: React.RefObject<H
       )}
       {open && draft === null && (
         <div className="conflict-detail">
-          <Compare left={open.left.text} right={open.right.text} leftLabel={open.row.primary} rightLabel={open.other} />
+          <Compare left={open.left.text} right={open.right.text} leftLabel={open.row.primary} rightLabel={open.other}
+            after={phone ? [<KeepThis key="1" which={1} path={open.row.primary} onKeep={setKeepAsk} />, <KeepThis key="2" which={2} path={open.other} onKeep={setKeepAsk} />] : undefined} />
+          {/* Slice AND-3 (android-edit §10.8, §2.4 row 13): the phone resolves with the desktop's writes. */}
+          {phone && (
+            <ConflictResolve pair={{ primary: open.row.primary, other: open.other, kind: open.row.kind, left: open.left, right: open.right }} types={types}
+              confirmFor={keepAsk} onConfirmClose={() => setKeepAsk(null)}
+              actions={{
+                keep: (w) => void resolve(async () => {
+                  if (w === 1) await ipc.noteTrash(open.other, open.right.v);
+                  else { await ipc.noteWrite(open.row.primary, open.right.text, open.left.v); await ipc.noteTrash(open.other, open.right.v); }
+                }),
+                newId: () => void resolve(async () => { await ipc.noteWrite(open.other, setAttribute(parse(open.right.text), 'id', ulid()), open.right.v); }),
+                merge: (text) => void resolve(async () => { await ipc.noteWrite(open.row.primary, text, open.left.v); await ipc.noteTrash(open.other, open.right.v); }),
+              }} />
+          )}
           {/* Slice AND-2 (android-phone §9.8, RA11; FR-SYN-04 AC-13): read-only on the phone: no resolve action or merge draft. */}
           {!isPhone() && <div className="dialog-buttons">
             <button type="button" onClick={() => keepLeft(open)}>{t('conflicts.keepLeft')}</button>

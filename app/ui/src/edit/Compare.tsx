@@ -1,5 +1,6 @@
 // Side-by-side compare of two versions of a note (FR-SYN-03 AC-15, FR-SYN-04 AC-7): read-only, lines that differ are
 // marked `data-diff="changed"` on both sides. The diff is a longest-common-subsequence over lines.
+import type { ReactNode } from 'react';
 import { t } from '../i18n/catalog';
 import { isPhone } from '../phone/layout';
 
@@ -24,12 +25,16 @@ export function changedLines(a: string[], b: string[]): [boolean[], boolean[]] {
   return [ca, cb];
 }
 
-export function Compare({ left, right, leftLabel, rightLabel }: { left: string; right: string; leftLabel: string; rightLabel: string }) {
+export function Compare({ left, right, leftLabel, rightLabel, after }: {
+  left: string; right: string; leftLabel: string; rightLabel: string;
+  /** Slice AND-3 (android-edit §10.8): a control under each version (the phone's `Keep this version`). */
+  after?: [ReactNode, ReactNode];
+}) {
   const a = lines(left), b = lines(right);
   const [ca, cb] = changedLines(a, b);
   // Slice AND-2 (android-phone §9.8): on the phone the versions stack; a changed line is also `data-changed`.
   const phone = isPhone();
-  const col = (ls: string[], ch: boolean[], label: string) => (
+  const col = (ls: string[], ch: boolean[], label: string, foot?: ReactNode) => (
     <div className="compare-col">
       <div className="compare-head" data-user-content>{label}</div>
       <div className="compare-lines" data-user-content>
@@ -37,12 +42,13 @@ export function Compare({ left, right, leftLabel, rightLabel }: { left: string; 
           <div key={i} className={`compare-line ${ch[i] ? 'changed' : ''}`} {...(ch[i] ? { 'data-diff': 'changed', ...(phone ? { 'data-changed': '' } : {}) } : {})}>{l || ' '}</div>
         ))}
       </div>
+      {foot}
     </div>
   );
   return (
     <section role="region" aria-label={t('compare.label')} className="compare">
-      {col(a, ca, leftLabel)}
-      {col(b, cb, rightLabel)}
+      {col(a, ca, leftLabel, after?.[0])}
+      {col(b, cb, rightLabel, after?.[1])}
     </section>
   );
 }

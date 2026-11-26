@@ -862,3 +862,23 @@ html[data-layout="phone"] .phone-task-title {
   gap: 12px;
   padding-left: 16px;
 }
+
+/* ---------------------------------------------------------------- conflict resolution (android-edit §10.8) */
+html[data-layout="phone"] .phone-keep-this,
+html[data-layout="phone"] .phone-conflict-actions button,
+html[data-layout="phone"] .phone-sheet-buttons button,
+html[data-layout="phone"] .phone-merge-head button { min-height: 48px; padding: 0 16px; }
+html[data-layout="phone"] .phone-keep-this { margin: 8px 0 16px; }
+html[data-layout="phone"] .phone-conflict-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 16px; }
+html[data-layout="phone"] .phone-conflict-confirm { padding: 0 16px 16px; }
+html[data-layout="phone"] .phone-sheet-buttons { display: flex; justify-content: flex-end; gap: 8px; }
+html[data-layout="phone"] .phone-merge-versions {
+  position: fixed; inset: var(--inset-top) var(--inset-right) 0 var(--inset-left); z-index: 50;
+  display: flex; flex-direction: column; background: var(--bg); color: var(--text);
+}
+html[data-layout="phone"] .phone-merge-head {
+  display: flex; align-items: center; gap: 8px; padding: 4px 8px 4px 16px; border-bottom: 1px solid var(--border);
+}
+html[data-layout="phone"] .phone-merge-head h2 { flex: 1; margin: 0; font-size: 18px; }
+html[data-layout="phone"] .phone-merge-scroll { flex: 1; overflow-y: auto; padding: 8px 16px 64px; }
+html[data-layout="phone"] .phone-merge-other { margin-top: 16px; padding-top: 8px; border-top: 1px solid var(--border); }
