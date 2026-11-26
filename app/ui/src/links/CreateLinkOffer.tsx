@@ -127,11 +127,15 @@ export function CreateLinkOffer({ req, types, onClose, onCreated, onExists, shee
           {needsEdit && <p>{t('createLink.needsEdit')}</p>}
           {forbidden && <p>{t('createLink.folder')}</p>}
           {error && <p role="alert">{error}</p>}
-          <div className="dialog-buttons">
-            <button ref={create} type="button" data-command="phone.offer.create" aria-disabled={disabled ? 'true' : undefined} onClick={() => void run()}>
-              {t('createLink.create', { target: req.target })}
-            </button>
-          </div>
+          {/* android-edit §10.4: `Create` is aria-disabled only when the plan says so. It shows once the plan is in, so
+              it never reads as disabled while the plan loads, and a tap can't land on it before it can create. */}
+          {plan && (
+            <div className="dialog-buttons">
+              <button ref={create} type="button" data-command="phone.offer.create" aria-disabled={disabled ? 'true' : undefined} onClick={() => void run()}>
+                {t('createLink.create', { target: req.target })}
+              </button>
+            </div>
+          )}
         </div>
       </Sheet>
     );
