@@ -712,7 +712,7 @@ html[data-layout="phone"] .phone-status .save-state {
   display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; font-size: 13px; color: var(--muted);
 }
 html[data-layout="phone"] .phone-status .save-state.conflict,
-html[data-layout="phone"] .phone-status .save-state.failed { color: var(--danger, #c0392b); }
+html[data-layout="phone"] .phone-status .save-state.failed { color: var(--danger); }
 html[data-layout="phone"] .phone-status .save-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
 
 /* §7.2: a draft's Title field heads `main`. */
@@ -732,7 +732,7 @@ html[data-layout="phone"] .phone-block-type > button {
   border: 0; background: transparent; color: var(--text); padding: 0 8px;
 }
 html[data-layout="phone"] .phone-format-bar button[aria-pressed="true"],
-html[data-layout="phone"] .phone-block-type button[aria-checked="true"] { color: var(--accent); background: var(--hover, rgba(127, 127, 127, 0.15)); }
+html[data-layout="phone"] .phone-block-type button[aria-checked="true"] { color: var(--accent); background: var(--hover); }
 html[data-layout="phone"] .phone-format-bar button[aria-disabled="true"] { opacity: 0.4; }
 html[data-layout="phone"] .phone-block-type { display: flex; align-items: stretch; }
 html[data-layout="phone"][data-format-bar] main.phone-main { padding-bottom: 48px; }
@@ -756,7 +756,7 @@ html[data-layout="phone"] .phone-link-panel input { min-height: 44px; font-size:
 /* §10.6: the merge banner and Compare versions. */
 html[data-layout="phone"] .phone-merge {
   margin: 8px 16px; padding: 12px 16px; border-radius: 8px;
-  background: var(--warning-bg, rgba(230, 160, 0, 0.14)); border: 1px solid var(--warning, #d08b00); color: var(--text);
+  background: var(--hover); border: 1px solid var(--accent); color: var(--text);
 }
 html[data-layout="phone"] .phone-merge p { margin: 4px 0 8px; }
 html[data-layout="phone"] .phone-merge-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
